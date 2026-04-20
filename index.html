@@ -372,6 +372,96 @@ body{
 .submit-btn.ready:active{transform:translateY(2px);box-shadow:0 2px 0 var(--primary-dark);}
 .submit-btn.next{background:var(--success);color:#fff;cursor:pointer;box-shadow:0 4px 0 var(--success-dark);}
 .submit-btn.next:active{transform:translateY(2px);box-shadow:0 2px 0 var(--success-dark);}
+.submit-btn.loading{background:var(--primary-light);color:var(--primary-dark);cursor:wait;box-shadow:0 4px 0 rgba(59,130,246,.2);}
+
+/* ═════════ MULTI-SELECT ═════════ */
+.multi-hint{font-size:12px;color:var(--primary-dark);padding:10px 12px;background:var(--primary-pale);border-left:3px solid var(--primary);border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+.check-box{width:22px;height:22px;border:2px solid var(--ink-4);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;color:transparent;font-weight:700;transition:all .15s;}
+.choice-btn.selected .check-box{border-color:var(--primary);background:var(--primary);color:#fff;}
+.choice-btn.correct .check-box{border-color:var(--success);background:var(--success);color:#fff;}
+.choice-btn.wrong .check-box{border-color:var(--error);background:var(--error);color:#fff;}
+.choice-btn.miss{border-color:var(--success);border-style:dashed;background:var(--white);}
+.choice-btn.miss .check-box{border-color:var(--success);background:transparent;color:var(--success);}
+
+/* ═════════ OPEN ANSWER ═════════ */
+.open-wrap{display:flex;flex-direction:column;gap:8px;}
+.open-textarea{width:100%;min-height:168px;padding:14px;border:2px solid var(--border);border-radius:14px;font-family:inherit;font-size:14px;line-height:1.8;color:var(--ink);background:var(--white);resize:vertical;outline:none;transition:border-color .15s;}
+.open-textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.08);}
+.open-meta{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--ink-3);padding:0 2px;}
+.open-meta .warn{color:var(--error);}
+.open-meta .ok{color:var(--success-dark);}
+.open-sample{font-size:11px;color:var(--primary);cursor:pointer;text-decoration:underline;}
+.open-ref{margin-top:6px;background:var(--accent-pale);border:1px solid rgba(245,158,11,.25);border-radius:12px;overflow:hidden;}
+.open-ref-title{font-size:12px;color:#92400E;font-weight:600;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;letter-spacing:1px;}
+.open-ref-title::after{content:'▾';transition:transform .2s;}
+.open-ref.open .open-ref-title::after{transform:rotate(180deg);}
+.open-ref-body{padding:0 14px 12px;font-size:13px;color:var(--ink-2);line-height:1.8;display:none;border-top:1px dashed rgba(180,83,9,.2);}
+.open-ref.open .open-ref-body{display:block;padding-top:10px;}
+
+.ai-loading{display:flex;flex-direction:column;align-items:center;gap:10px;padding:40px 0 28px;}
+.ai-spinner{width:36px;height:36px;border:3px solid var(--primary-light);border-top-color:var(--primary);border-radius:50%;animation:gradeSpin 1s linear infinite;}
+@keyframes gradeSpin{to{transform:rotate(360deg);}}
+.ai-loading-tip{font-size:13px;color:var(--ink-3);letter-spacing:1px;}
+.ai-loading-tip-sub{font-size:11px;color:var(--ink-4);}
+
+.grade-card{background:var(--white);border:1px solid var(--border-light);border-radius:16px;padding:18px;box-shadow:var(--shadow-sm);margin-top:14px;animation:slideUp .4s;}
+.grade-top{display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:1px dashed var(--border);margin-bottom:14px;}
+.grade-score-wrap{flex-shrink:0;text-align:center;}
+.grade-score{font-family:'Noto Serif SC',serif;font-size:40px;font-weight:700;line-height:1;}
+.grade-score.l-90{color:#D97706;}
+.grade-score.l-70{color:var(--primary);}
+.grade-score.l-50{color:var(--success-dark);}
+.grade-score.l-0{color:var(--purple-dark);}
+.grade-score-unit{font-size:13px;color:var(--ink-3);font-weight:400;margin-left:1px;}
+.grade-right{flex:1;min-width:0;}
+.grade-level{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-bottom:6px;letter-spacing:1px;}
+.grade-level.l-90{background:#FEF3C7;color:#B45309;}
+.grade-level.l-70{background:var(--primary-light);color:var(--primary-dark);}
+.grade-level.l-50{background:var(--success-light);color:var(--success-dark);}
+.grade-level.l-0{background:var(--purple-light);color:var(--purple-dark);}
+.grade-enc{font-size:13px;color:var(--ink-2);line-height:1.55;}
+.grade-sec{margin-bottom:14px;}
+.grade-sec-title{font-size:11px;color:var(--ink-3);font-weight:600;margin-bottom:8px;letter-spacing:1px;display:flex;align-items:center;gap:6px;}
+.grade-sec-title .count{color:var(--ink-4);font-weight:500;}
+.grade-point{display:flex;gap:8px;align-items:flex-start;padding:9px 11px;border-radius:10px;margin-bottom:6px;font-size:12.5px;line-height:1.55;}
+.grade-point.hit{background:var(--success-light);color:var(--success-dark);}
+.grade-point.partial{background:var(--accent-light);color:#92400E;}
+.grade-point.miss{background:var(--bg-2);color:var(--ink-3);}
+.grade-point-ic{flex-shrink:0;font-weight:700;width:16px;text-align:center;}
+.grade-point-body{flex:1;}
+.grade-point-phrase{font-size:11px;opacity:.75;margin-top:3px;font-style:italic;}
+.grade-point-tag{margin-left:8px;font-size:10px;padding:1px 7px;border-radius:10px;background:rgba(255,255,255,.6);font-weight:600;align-self:flex-start;flex-shrink:0;}
+.grade-suggest{padding:12px 14px;background:var(--primary-pale);border-left:3px solid var(--primary);border-radius:10px;font-size:12.5px;color:var(--ink-2);line-height:1.7;margin-bottom:12px;}
+.grade-suggest strong{color:var(--primary-dark);display:block;font-size:11px;margin-bottom:4px;letter-spacing:1px;}
+.grade-mis{padding:12px 14px;background:var(--error-light);border-left:3px solid var(--error);border-radius:10px;font-size:12.5px;color:var(--error-dark);line-height:1.7;margin-bottom:12px;}
+.grade-mis strong{display:block;font-size:11px;margin-bottom:4px;letter-spacing:1px;}
+
+/* SM-2 self-assessment */
+.sm2-card{margin-top:14px;padding:16px;background:var(--white);border:1px solid var(--border-light);border-radius:14px;box-shadow:var(--shadow-sm);}
+.sm2-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:2px;}
+.sm2-sub{font-size:11px;color:var(--ink-3);margin-bottom:12px;}
+.sm2-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.sm2-btn{padding:10px 4px 9px;border:1.5px solid var(--border);background:var(--white);border-radius:10px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-family:inherit;transition:all .15s;}
+.sm2-btn:active{transform:scale(.96);}
+.sm2-btn.selected{border-color:var(--primary);background:var(--primary-pale);box-shadow:0 2px 0 var(--primary);}
+.sm2-emoji{font-size:18px;line-height:1;}
+.sm2-label{font-size:12px;font-weight:700;color:var(--ink);}
+.sm2-days{font-size:10px;color:var(--ink-4);}
+.sm2-btn.selected .sm2-label{color:var(--primary-dark);}
+
+/* ═════════ DEMO PICKER ═════════ */
+.demo-picker{position:absolute;top:60px;right:12px;z-index:40;}
+.demo-toggle{background:var(--white);border:1px solid var(--border);border-radius:20px;padding:6px 12px;font-size:11px;color:var(--ink-2);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px;box-shadow:0 4px 12px rgba(0,0,0,.08);letter-spacing:1px;}
+.demo-toggle::after{content:'▾';font-size:10px;color:var(--ink-4);transition:transform .2s;}
+.demo-picker.open .demo-toggle::after{transform:rotate(180deg);}
+.demo-list{position:absolute;top:calc(100% + 6px);right:0;background:var(--white);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:6px;min-width:170px;display:none;}
+.demo-picker.open .demo-list{display:block;animation:slideUp .2s;}
+.demo-list-head{padding:6px 10px 8px;font-size:10px;color:var(--ink-4);letter-spacing:1px;border-bottom:1px dashed var(--border-light);margin-bottom:4px;}
+.demo-list-item{padding:8px 10px;font-size:12px;color:var(--ink-2);border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.demo-list-item:hover{background:var(--bg-2);}
+.demo-list-item.active{background:var(--primary-light);color:var(--primary-dark);font-weight:600;}
+.demo-list-item small{font-size:10px;color:var(--ink-4);font-weight:400;}
+.demo-list-item.active small{color:var(--primary);}
 
 .complete-page{background:linear-gradient(180deg,#FFF7E0 0%,#FFFFFF 60%);align-items:center;padding:40px 28px 32px;}
 .complete-hero{width:180px;height:180px;margin:16px 0 16px;animation:bounce .8s cubic-bezier(.34,1.56,.64,1);position:relative;}
@@ -989,6 +1079,10 @@ body{
         <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
         <div class="heart-count">💎 <span id="gemCount">128</span></div>
       </div>
+      <div class="demo-picker" id="demoPicker">
+        <button class="demo-toggle" id="demoToggle">题型</button>
+        <div class="demo-list" id="demoList"></div>
+      </div>
       <div class="quiz-body" id="quizBody"></div>
       <div class="quiz-footer">
         <div class="feedback-panel fb-correct" id="fbCorrect">
@@ -1123,6 +1217,42 @@ const quizData = [
     correctText: '七支供养对治七种烦恼：礼敬对治骄慢，供养积福，忏悔净罪，随喜对治嫉妒。',
     wrongText: '正解：礼敬=对治骄慢，供养=积聚福德，忏悔=净除罪业，随喜=对治嫉妒。',
     source: '出处：《入菩萨行论》第三品 · 七支对治'
+  },
+  {
+    type: 'multi',
+    typeLabel: '判断多选 · 第 3 天',
+    question: '下列哪些属于菩提心的利益？（多选）',
+    options: [
+      { text: '净除无量劫罪业', correct: true },
+      { text: '增长世间财富', correct: false },
+      { text: '成佛的唯一因', correct: true },
+      { text: '令凡夫转为佛子', correct: true },
+      { text: '能获得五神通', correct: false },
+      { text: '圆满福德资粮', correct: true }
+    ],
+    scoringMode: 'strict',
+    correctText: '菩提心四大利益：净罪业、圆福德、成佛之因、转凡为佛子。世间财富和神通非其核心价值。',
+    wrongText: '正解：净罪业 · 成佛因 · 转凡为圣 · 圆福德。世间财富与神通属世间法，不列其中。',
+    source: '出处：《入菩萨行论》第一品 · 菩提心利益'
+  },
+  {
+    type: 'open',
+    typeLabel: '思考题 · 第 3 天 🌟',
+    question: '为什么说菩提心是大乘佛法的根本？请结合自己的理解作答。',
+    minLength: 60,
+    maxLength: 400,
+    keyPoints: [
+      { point: '菩提心的定义：为利众生愿成佛', signals: ['利益众生','利众生','一切众生','为了众生','为众生','度众生','愿成佛','成佛之心','利他','为他人'] },
+      { point: '是成佛之因，无菩提心不能成佛', signals: ['成佛之因','成佛的因','成佛的唯一','唯一因','不发菩提心','无菩提心','不能成佛','大乘之因','大乘根本'] },
+      { point: '能净除无量劫罪业', signals: ['净除','罪业','消罪','罪障','无量劫','净罪','消除罪','净化'] },
+      { point: '能圆满福德资粮', signals: ['福德资粮','福德','资粮','圆满福','功德无量','积累','福慧'] },
+      { point: '令凡夫转为佛子，堕入佛种性', signals: ['凡夫','佛子','佛种性','如来种性','种性','种姓','转为佛','堕入'] }
+    ],
+    referenceAnswer: '菩提心是为利益一切众生而发愿成佛的心，它是大乘佛法的根本。原因有四：第一，菩提心是成佛的唯一因，没有菩提心不能证得无上正等正觉；第二，一发菩提心，即能净除无量劫所造罪业；第三，菩提心是福德资粮的源泉，能令一切善根无量增长；第四，初发菩提心者即由凡夫转为佛子，堕入如来种性。故寂天菩萨言：「生死狱系苦有情，剎那即成诸佛子。」',
+    sampleAnswer: '菩提心是为了利益一切众生而愿意成佛的心，这种心是大乘佛法的根本。首先，菩提心是成佛的唯一因，没有菩提心就不能成佛。其次，发起菩提心能够净除无量劫的罪业，积累圆满的福德资粮。第三，一旦发起真实菩提心，凡夫立刻转为佛子，堕入如来种性。正因为菩提心有如此殊胜的功德，所以寂天菩萨在《入行论》第一品中大力赞叹菩提心。',
+    correctText: '菩提心之所以为大乘根本，在于它既是成佛之因，又是净罪积福之源，更能即刻转凡夫为佛子。',
+    wrongText: '菩提心需从"为利众生"的利他心起，建议回看标准答案第一、四点，重点体会与小乘发心的区别。',
+    source: '出处：《入菩萨行论》第一品 · 菩提心利益 · 课后思考题'
   }
 ];
 
@@ -1133,6 +1263,10 @@ let sortOrder = [];
 let matchPairs = {};
 let currentLeft = null;
 let demoCodeIdx = 0;
+let multiSelection = [];
+let openText = '';
+let gradeResult = null;
+let sm2Choice = null;
 
 function goToPage(name) {
   const pages = document.querySelectorAll('.page');
@@ -1184,6 +1318,10 @@ function loadQuiz() {
   sortOrder = [];
   matchPairs = {};
   currentLeft = null;
+  multiSelection = [];
+  openText = '';
+  gradeResult = null;
+  sm2Choice = null;
 
   document.getElementById('progressFill').style.width = (((currentQuiz + 1) / quizData.length) * 100) + '%';
   document.getElementById('fbCorrect').classList.remove('show');
@@ -1220,7 +1358,12 @@ function loadQuiz() {
     renderSort(q, body);
   } else if (q.type === 'match') {
     renderMatch(q, body);
+  } else if (q.type === 'multi') {
+    renderMulti(q, body);
+  } else if (q.type === 'open') {
+    renderOpen(q, body);
   }
+  updateDemoList();
 }
 
 function renderChoices(q, body) {
@@ -1437,6 +1580,216 @@ function selectMatch(el) {
   }
 }
 
+function renderMulti(q, body) {
+  const hint = document.createElement('div');
+  hint.className = 'multi-hint';
+  hint.innerHTML = '<span>✓</span><span>可选多项，全部选对方得分</span>';
+  body.appendChild(hint);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'choices';
+  const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  q.options.forEach(function(opt, i){
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn check';
+    btn.setAttribute('data-idx', i);
+    btn.setAttribute('data-correct', opt.correct ? '1' : '0');
+    btn.innerHTML = '<div class="check-box">✓</div><div style="flex:1">' + letters[i] + '. ' + opt.text + '</div>';
+    btn.addEventListener('click', function(){ toggleMulti(btn, i); });
+    wrap.appendChild(btn);
+  });
+  body.appendChild(wrap);
+}
+
+function toggleMulti(btn, idx) {
+  if (answered) return;
+  const pos = multiSelection.indexOf(idx);
+  if (pos >= 0) {
+    multiSelection.splice(pos, 1);
+    btn.classList.remove('selected');
+  } else {
+    multiSelection.push(idx);
+    btn.classList.add('selected');
+  }
+  const submit = document.getElementById('submitBtn');
+  if (multiSelection.length === 0) {
+    submit.className = 'submit-btn';
+    submit.textContent = '选择答案';
+    userAnswer = null;
+  } else {
+    const q = quizData[currentQuiz];
+    const allCorrect = q.options.every(function(opt, i){
+      const picked = multiSelection.indexOf(i) >= 0;
+      return picked === !!opt.correct;
+    });
+    userAnswer = allCorrect;
+    submit.className = 'submit-btn ready';
+    submit.textContent = '已选 ' + multiSelection.length + ' 项 · 确认提交';
+  }
+}
+
+function renderOpen(q, body) {
+  const wrap = document.createElement('div');
+  wrap.className = 'open-wrap';
+  wrap.innerHTML =
+    '<textarea class="open-textarea" id="openInput" placeholder="请写下您的思考与理解…（答案将由 AI 评分并给出建议）"></textarea>' +
+    '<div class="open-meta"><span id="openCount">0 / ' + (q.minLength || 50) + ' 字起步</span><span class="open-sample" id="openSample">填入示例答案</span></div>' +
+    '<div class="open-ref" id="openRef"><div class="open-ref-title" id="openRefToggle"><span>📖 参考答案（答题前可先不看）</span></div><div class="open-ref-body">' + q.referenceAnswer + '</div></div>';
+  body.appendChild(wrap);
+
+  const ta = wrap.querySelector('#openInput');
+  const counter = wrap.querySelector('#openCount');
+  ta.addEventListener('input', function(){ updateOpenCount(ta, counter); });
+  wrap.querySelector('#openRefToggle').addEventListener('click', function(){
+    wrap.querySelector('#openRef').classList.toggle('open');
+  });
+  wrap.querySelector('#openSample').addEventListener('click', function(){
+    ta.value = q.sampleAnswer || '';
+    updateOpenCount(ta, counter);
+  });
+}
+
+function updateOpenCount(ta, counter) {
+  const q = quizData[currentQuiz];
+  const len = ta.value.trim().length;
+  openText = ta.value.trim();
+  const min = q.minLength || 50;
+  const max = q.maxLength || 500;
+  let cls = '';
+  let txt = len + ' / ' + min + ' 字起步';
+  if (len >= min) { cls = 'ok'; txt = len + ' 字 · 可提交'; }
+  if (len > max) { cls = 'warn'; txt = len + ' 字 · 建议精简至 ' + max + ' 字内'; }
+  counter.className = cls;
+  counter.textContent = txt;
+
+  const submit = document.getElementById('submitBtn');
+  if (len >= min) {
+    submit.className = 'submit-btn ready';
+    submit.textContent = '🤖 提交 AI 评分';
+    userAnswer = true;
+  } else {
+    submit.className = 'submit-btn';
+    submit.textContent = len === 0 ? '请作答' : '再多写 ' + (min - len) + ' 字';
+    userAnswer = null;
+  }
+}
+
+function mockGradeOpen(q, text) {
+  const hit = [];
+  const t = text.replace(/\s+/g,'');
+  q.keyPoints.forEach(function(kp){
+    let matches = 0;
+    kp.signals.forEach(function(s){ if (t.indexOf(s) >= 0) matches++; });
+    let phrase = '';
+    for (let i = 0; i < kp.signals.length; i++) {
+      if (t.indexOf(kp.signals[i]) >= 0) { phrase = kp.signals[i]; break; }
+    }
+    if (matches >= 2) hit.push({ point: kp.point, hit: 'full', userPhrase: phrase });
+    else if (matches === 1) hit.push({ point: kp.point, hit: 'partial', userPhrase: phrase });
+    else hit.push({ point: kp.point, hit: 'miss', userPhrase: '' });
+  });
+  const fullN = hit.filter(function(h){ return h.hit === 'full'; }).length;
+  const partN = hit.filter(function(h){ return h.hit === 'partial'; }).length;
+  const total = hit.length;
+  let score = Math.round(100 * (fullN + partN * 0.5) / total);
+  if (t.length < (q.minLength || 50)) score = Math.min(score, 45);
+  score = Math.max(0, Math.min(100, score));
+
+  let level, lvlKey, enc, suggest;
+  if (score >= 90) {
+    level = '圆满 🌟'; lvlKey = '90';
+    enc = '思路清晰、要点齐备，您对菩提心的核心义理已领纳于心 ✨';
+    suggest = '可进一步结合自身修持体会，思考如何在日常生活中生起菩提心。';
+  } else if (score >= 70) {
+    level = '良好 ✨'; lvlKey = '70';
+    enc = '对菩提心的基本利益已掌握，再补充少许要点即可圆满。';
+    suggest = '建议回看参考答案，重点补充未命中的要点，注意体会"利他"与"成佛"的内在联系。';
+  } else if (score >= 50) {
+    level = '待补充 🌱'; lvlKey = '50';
+    enc = '已有初步理解，还需再深入体会菩提心的殊胜处。';
+    suggest = '请对照参考答案梳理四大利益——净罪、积福、成佛之因、转凡为佛子，逐条思维。';
+  } else {
+    level = '再参究 📿'; lvlKey = '0';
+    enc = '这是大乘佛法最殊胜的教授之一，慢慢来，一起参究。';
+    suggest = '建议先阅读参考答案，再用自己的话复述一遍。关键是领会"为利众生愿成佛"这一发心。';
+  }
+
+  const missed = hit.filter(function(h){ return h.hit === 'miss'; }).map(function(h){ return h.point; });
+  return {
+    score: score,
+    level: level,
+    levelKey: lvlKey,
+    hitPoints: hit,
+    missedPoints: missed,
+    encouragement: enc,
+    suggestion: suggest,
+    misunderstanding: ''
+  };
+}
+
+function renderGradeResult(res) {
+  const body = document.getElementById('quizBody');
+  const card = document.createElement('div');
+  card.className = 'grade-card';
+
+  let html = '';
+  html += '<div class="grade-top">';
+  html += '  <div class="grade-score-wrap"><span class="grade-score l-' + res.levelKey + '">' + res.score + '</span><span class="grade-score-unit">分</span></div>';
+  html += '  <div class="grade-right"><div class="grade-level l-' + res.levelKey + '">' + res.level + '</div><div class="grade-enc">' + res.encouragement + '</div></div>';
+  html += '</div>';
+
+  const fullN = res.hitPoints.filter(function(h){ return h.hit === 'full'; }).length;
+  const partN = res.hitPoints.filter(function(h){ return h.hit === 'partial'; }).length;
+  const missN = res.missedPoints.length;
+
+  html += '<div class="grade-sec"><div class="grade-sec-title">要点命中 <span class="count">· ' + fullN + ' 全命中 / ' + partN + ' 部分 / ' + missN + ' 遗漏</span></div>';
+  res.hitPoints.forEach(function(h){
+    let cls, ic, tag;
+    if (h.hit === 'full') { cls = 'hit'; ic = '✓'; tag = '命中'; }
+    else if (h.hit === 'partial') { cls = 'partial'; ic = '◐'; tag = '部分'; }
+    else { cls = 'miss'; ic = '○'; tag = '可补充'; }
+    html += '<div class="grade-point ' + cls + '"><div class="grade-point-ic">' + ic + '</div>';
+    html += '<div class="grade-point-body">' + h.point;
+    if (h.userPhrase) html += '<div class="grade-point-phrase">您的表述："…' + h.userPhrase + '…"</div>';
+    html += '</div><div class="grade-point-tag">' + tag + '</div></div>';
+  });
+  html += '</div>';
+
+  if (res.misunderstanding) {
+    html += '<div class="grade-mis"><strong>需要纠正的理解</strong>' + res.misunderstanding + '</div>';
+  }
+
+  html += '<div class="grade-suggest"><strong>AI 建议</strong>' + res.suggestion + '</div>';
+
+  card.innerHTML = html;
+  body.appendChild(card);
+
+  const sm2 = document.createElement('div');
+  sm2.className = 'sm2-card';
+  sm2.innerHTML =
+    '<div class="sm2-title">我对这道题的掌握度？</div>' +
+    '<div class="sm2-sub">AI 评分仅供参考，您的自评才会决定下一次复习时间</div>' +
+    '<div class="sm2-grid">' +
+      '<button class="sm2-btn" data-sm2="0"><div class="sm2-emoji">🌫</div><div class="sm2-label">不会</div><div class="sm2-days">1 天后</div></button>' +
+      '<button class="sm2-btn" data-sm2="1"><div class="sm2-emoji">🌱</div><div class="sm2-label">模糊</div><div class="sm2-days">3 天后</div></button>' +
+      '<button class="sm2-btn" data-sm2="2"><div class="sm2-emoji">✨</div><div class="sm2-label">记住</div><div class="sm2-days">7 天后</div></button>' +
+      '<button class="sm2-btn" data-sm2="3"><div class="sm2-emoji">🪷</div><div class="sm2-label">很熟</div><div class="sm2-days">14 天后</div></button>' +
+    '</div>';
+  body.appendChild(sm2);
+  sm2.querySelectorAll('.sm2-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      sm2.querySelectorAll('.sm2-btn').forEach(function(b){ b.classList.remove('selected'); });
+      btn.classList.add('selected');
+      sm2Choice = parseInt(btn.getAttribute('data-sm2'));
+      const submit = document.getElementById('submitBtn');
+      submit.className = 'submit-btn next';
+      submit.textContent = currentQuiz < quizData.length - 1 ? '下一题' : '完成本课';
+    });
+  });
+
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function setSubmitReady() {
   const submit = document.getElementById('submitBtn');
   submit.className = 'submit-btn ready';
@@ -1447,6 +1800,12 @@ function handleSubmit() {
   const q = quizData[currentQuiz];
   if (!answered) {
     if (userAnswer === null) return;
+
+    if (q.type === 'open') {
+      submitOpen(q);
+      return;
+    }
+
     answered = true;
 
     if (q.type === 'single' || q.type === 'image' || q.type === 'listen') {
@@ -1457,6 +1816,21 @@ function handleSubmit() {
           b.classList.add('correct');
         } else if (b.classList.contains('selected')) {
           b.classList.add('wrong');
+        }
+      });
+    } else if (q.type === 'multi') {
+      const btns = document.querySelectorAll('.choice-btn');
+      btns.forEach(function(b){
+        b.classList.add('disabled');
+        const isCorrect = b.getAttribute('data-correct') === '1';
+        const isSelected = b.classList.contains('selected');
+        if (isCorrect && isSelected) {
+          b.classList.add('correct');
+        } else if (!isCorrect && isSelected) {
+          b.classList.remove('selected');
+          b.classList.add('wrong');
+        } else if (isCorrect && !isSelected) {
+          b.classList.add('miss');
         }
       });
     }
@@ -1476,12 +1850,75 @@ function handleSubmit() {
     submit.className = 'submit-btn next';
     submit.textContent = currentQuiz < quizData.length - 1 ? '下一题' : '完成本课';
   } else {
+    if (q.type === 'open' && sm2Choice === null) return;
     if (currentQuiz < quizData.length - 1) {
       goToQuiz(currentQuiz + 1);
     } else {
       goToPage('complete');
     }
   }
+}
+
+function submitOpen(q) {
+  answered = true;
+  const ta = document.getElementById('openInput');
+  if (ta) ta.setAttribute('disabled', 'disabled');
+
+  const submit = document.getElementById('submitBtn');
+  submit.className = 'submit-btn loading';
+  submit.textContent = 'AI 正在评分…';
+
+  const body = document.getElementById('quizBody');
+  const loader = document.createElement('div');
+  loader.className = 'ai-loading';
+  loader.id = 'aiLoading';
+  loader.innerHTML =
+    '<div class="ai-spinner"></div>' +
+    '<div class="ai-loading-tip">AI 正在对照标准要点评分…</div>' +
+    '<div class="ai-loading-tip-sub">MiniMax M2.7 · temperature 0.3</div>';
+  body.appendChild(loader);
+  loader.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+  setTimeout(function(){
+    gradeResult = mockGradeOpen(q, openText);
+    const l = document.getElementById('aiLoading');
+    if (l) l.remove();
+    renderGradeResult(gradeResult);
+
+    popGem();
+    submit.className = 'submit-btn';
+    submit.textContent = '请自评掌握度以继续';
+  }, 1400);
+}
+
+/* ═══════ DEMO PICKER ═══════ */
+function buildDemoList() {
+  const list = document.getElementById('demoList');
+  if (!list) return;
+  let html = '<div class="demo-list-head">跳转题型 · 演示</div>';
+  quizData.forEach(function(q, i){
+    const badge = q.type === 'open' ? '🌟' : (q.type === 'multi' ? '🆕' : '');
+    html += '<div class="demo-list-item" data-demo-idx="' + i + '">' +
+      '<span>' + (i + 1) + '. ' + q.typeLabel.split(' ·')[0] + '</span>' +
+      '<small>' + q.type + ' ' + badge + '</small></div>';
+  });
+  list.innerHTML = html;
+  list.querySelectorAll('[data-demo-idx]').forEach(function(el){
+    el.addEventListener('click', function(){
+      const idx = parseInt(el.getAttribute('data-demo-idx'));
+      document.getElementById('demoPicker').classList.remove('open');
+      goToQuiz(idx);
+    });
+  });
+}
+
+function updateDemoList() {
+  const list = document.getElementById('demoList');
+  if (!list) return;
+  list.querySelectorAll('[data-demo-idx]').forEach(function(el){
+    const idx = parseInt(el.getAttribute('data-demo-idx'));
+    el.classList.toggle('active', idx === currentQuiz);
+  });
 }
 
 function popGem() {
@@ -1518,6 +1955,16 @@ function spawnConfetti() {
 }
 
 document.addEventListener('click', function(e){
+  const picker = document.getElementById('demoPicker');
+  const toggle = e.target.closest('#demoToggle');
+  if (toggle) {
+    picker.classList.toggle('open');
+    return;
+  }
+  if (picker && picker.classList.contains('open') && !e.target.closest('#demoPicker')) {
+    picker.classList.remove('open');
+  }
+
   const goBtn = e.target.closest('[data-go]');
   if (goBtn) {
     goToPage(goBtn.getAttribute('data-go'));
@@ -1546,6 +1993,7 @@ document.addEventListener('click', function(e){
 });
 
 document.getElementById('submitBtn').addEventListener('click', handleSubmit);
+buildDemoList();
 </script>
 
 </body>
