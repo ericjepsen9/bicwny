@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>觉学 · 题型数据结构规范</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --primary:#3B82F6;--primary-dark:#2563EB;--primary-light:#DBEAFE;--primary-pale:#EFF6FF;
+  --success:#10B981;--success-light:#D1FAE5;--success-dark:#059669;
+  --warn:#F59E0B;--warn-light:#FEF3C7;
+  --purple:#8B5CF6;--purple-light:#EDE9FE;
+  --pink:#EC4899;--pink-light:#FCE7F3;
+  --ink:#1F2937;--ink-2:#374151;--ink-3:#6B7280;--ink-4:#9CA3AF;
+  --bg:#F9FAFB;--white:#FFFFFF;
+  --border:#E5E7EB;--border-light:#F3F4F6;
+  --code-bg:#1E293B;--code-text:#E2E8F0;
+}
+body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.75;}
+.wrap{max-width:1040px;margin:0 auto;padding:40px 28px 80px;}
+
+.cover{padding:30px 0 40px;border-bottom:2px solid var(--primary);margin-bottom:40px;}
+.cover-badge{display:inline-block;background:var(--primary);color:#fff;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:2px;margin-bottom:14px;}
+.cover-title{font-family:'Noto Serif SC',serif;font-size:32px;font-weight:700;color:var(--ink);letter-spacing:2px;margin-bottom:8px;}
+.cover-sub{font-size:14px;color:var(--ink-3);letter-spacing:1px;}
+.cover-info{margin-top:14px;padding:10px 16px;background:var(--primary-pale);border-radius:10px;font-size:12px;color:var(--primary-dark);line-height:1.8;}
+
+/* TOC */
+.toc{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:22px 26px;margin-bottom:40px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.toc-title{font-size:14px;font-weight:700;color:var(--ink);margin-bottom:14px;letter-spacing:1px;}
+.toc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 16px;}
+.toc-item{padding:6px 10px;font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:8px;border-radius:6px;cursor:pointer;text-decoration:none;}
+.toc-item:hover{background:var(--primary-pale);color:var(--primary-dark);}
+.toc-num{width:22px;height:22px;background:var(--primary-light);color:var(--primary-dark);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+
+/* Type block */
+.type-block{background:var(--white);border:1px solid var(--border);border-radius:16px;margin-bottom:26px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.type-header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;}
+.type-num{width:40px;height:40px;background:linear-gradient(135deg,var(--primary),var(--purple));color:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0;}
+.type-info{flex:1;}
+.type-name{font-size:18px;font-weight:700;color:var(--ink);letter-spacing:1px;margin-bottom:3px;}
+.type-name-en{font-size:11px;color:var(--ink-3);letter-spacing:2px;}
+.type-status{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:1px;flex-shrink:0;}
+.status-v10{background:var(--success);color:#fff;}
+.status-v11{background:var(--warn);color:#fff;}
+.status-v12{background:var(--primary);color:#fff;}
+.status-v20{background:var(--purple);color:#fff;}
+
+.type-body{padding:22px 24px;}
+.subsec{margin-bottom:20px;}
+.subsec:last-child{margin-bottom:0;}
+.subsec-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:10px;padding-bottom:6px;border-bottom:1px dashed var(--border);display:flex;align-items:center;gap:6px;}
+.subsec-icon{font-size:14px;}
+
+.attr-list{display:flex;flex-direction:column;gap:8px;}
+.attr-item{display:flex;gap:12px;font-size:12.5px;color:var(--ink-2);padding:8px 12px;background:var(--bg);border-radius:8px;border-left:3px solid var(--primary-light);}
+.attr-item strong{color:var(--ink);font-weight:600;flex-shrink:0;width:100px;}
+
+.scenario-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.scenario-tag{background:var(--primary-pale);color:var(--primary-dark);padding:3px 10px;border-radius:14px;font-size:11px;font-weight:500;}
+
+.code-block{background:var(--code-bg);color:var(--code-text);border-radius:10px;padding:16px 20px;font-family:'JetBrains Mono',Consolas,monospace;font-size:12px;line-height:1.75;overflow-x:auto;margin:10px 0;white-space:pre;}
+.code-block .key{color:#FDE68A;}
+.code-block .str{color:#86EFAC;}
+.code-block .num{color:#C084FC;}
+.code-block .bool{color:#FCA5A5;}
+.code-block .comment{color:#64748B;}
+
+.field-table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px;}
+.field-table th{background:var(--primary-pale);padding:8px 12px;text-align:left;color:var(--primary-dark);font-weight:600;border-bottom:2px solid var(--primary);font-size:11px;letter-spacing:1px;}
+.field-table td{padding:8px 12px;border-bottom:1px solid var(--border-light);color:var(--ink-2);vertical-align:top;}
+.field-table tr:hover td{background:var(--primary-pale);}
+.field-name{font-family:'JetBrains Mono',Consolas,monospace;color:var(--primary-dark);font-size:11px;font-weight:500;}
+.field-type{font-family:'JetBrains Mono',Consolas,monospace;color:var(--purple);font-size:11px;background:var(--purple-light);padding:1px 6px;border-radius:4px;}
+.required{color:var(--error);font-weight:700;font-size:10px;margin-left:4px;}
+
+.example-card{background:linear-gradient(135deg,var(--primary-pale),#EDE9FE);border:1px solid var(--primary-light);border-radius:12px;padding:14px 18px;margin:10px 0;font-size:12.5px;color:var(--ink-2);line-height:1.8;}
+.example-card strong{color:var(--primary-dark);}
+
+.tip-box{background:var(--warn-light);border-left:3px solid var(--warn);border-radius:0 8px 8px 0;padding:10px 14px;font-size:12px;color:#92400E;line-height:1.7;margin:10px 0;}
+
+@media(max-width:768px){.toc-grid{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="cover">
+  <div class="cover-badge">DATA STRUCTURE SPEC</div>
+  <div class="cover-title">题型数据结构规范</div>
+  <div class="cover-sub">觉学 · 12 种题型完整 JSON Schema</div>
+  <div class="cover-info">
+    本文档定义觉学 App 全部 12 种题型的数据结构标准，作为前端、后端、题库编辑器、AI 生成脚本的共同契约。
+    所有题卡入库前必须符合对应题型的 JSON Schema。
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <div class="toc-title">📋 题型目录</div>
+  <div class="toc-grid">
+    <a href="#t1" class="toc-item"><div class="toc-num">1</div>单选题</a>
+    <a href="#t2" class="toc-item"><div class="toc-num">2</div>填空题</a>
+    <a href="#t3" class="toc-item"><div class="toc-num">3</div>连线配对</a>
+    <a href="#t4" class="toc-item"><div class="toc-num">4</div>排序题</a>
+    <a href="#t5" class="toc-item"><div class="toc-num">5</div>判断多选</a>
+    <a href="#t6" class="toc-item"><div class="toc-num">6</div>开放作答</a>
+    <a href="#t7" class="toc-item"><div class="toc-num">7</div>图片辨识</a>
+    <a href="#t8" class="toc-item"><div class="toc-num">8</div>听颂选答</a>
+    <a href="#t9" class="toc-item"><div class="toc-num">9</div>卡片翻转</a>
+    <a href="#t10" class="toc-item"><div class="toc-num">10</div>流程拖拽</a>
+    <a href="#t11" class="toc-item"><div class="toc-num">11</div>引导分步</a>
+    <a href="#t12" class="toc-item"><div class="toc-num">12</div>情境判断</a>
+  </div>
+</div>
+
+<!-- 通用公共字段 -->
+<div class="type-block" style="border-color:var(--purple);">
+  <div class="type-header" style="background:linear-gradient(135deg,var(--purple-light),#F3E8FF);">
+    <div class="type-num" style="background:var(--purple);">⚙️</div>
+    <div class="type-info">
+      <div class="type-name">公共字段（所有题型共享）</div>
+      <div class="type-name-en">COMMON FIELDS · SHARED BY ALL TYPES</div>
+    </div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📐</span>字段清单</div>
+      <table class="field-table">
+        <thead>
+          <tr><th>字段名</th><th>类型</th><th>必填</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="field-name">id</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>唯一 ID，建议格式：<code style="font-size:11px;">ruxinglun_c{品号}_v{颂号}_{序号}</code></td>
+          </tr>
+          <tr>
+            <td><span class="field-name">type</span></td>
+            <td><span class="field-type">enum</span></td>
+            <td>✓</td>
+            <td>题型 code：single/fill/match/sort/multi/open/image/listen/flip/flow/guided/scenario</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">typeLabel</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>前端显示的题型名称（如"单选题"）</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">chapter</span></td>
+            <td><span class="field-type">int</span></td>
+            <td>✓</td>
+            <td>入行论品号 1-10</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">verseRange</span></td>
+            <td><span class="field-type">string</span></td>
+            <td></td>
+            <td>对应颂词范围，如"11-18"</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">lessonNum</span></td>
+            <td><span class="field-type">int</span></td>
+            <td></td>
+            <td>班级课程第几天/课，用于按班级进度推送</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">difficulty</span></td>
+            <td><span class="field-type">int</span></td>
+            <td>✓</td>
+            <td>难度等级 1-3（入门/进阶/高阶）</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">tags</span></td>
+            <td><span class="field-type">string[]</span></td>
+            <td></td>
+            <td>主题标签，如 ["菩提心","七支供养","忏悔"]</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">correctText</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>答对后的讲解，50-150 字</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">wrongText</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>答错后的正解和引导，50-150 字</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">source</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>出处，精确到品名和颂号</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">createdAt</span></td>
+            <td><span class="field-type">datetime</span></td>
+            <td>✓</td>
+            <td>创建时间</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">reviewed</span></td>
+            <td><span class="field-type">bool</span></td>
+            <td>✓</td>
+            <td>是否已经过法师/编辑审核</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📌</span>命名规范</div>
+      <div class="attr-list">
+        <div class="attr-item"><strong>类型 code</strong>全小写英文，单个单词优先</div>
+        <div class="attr-item"><strong>字段名</strong>驼峰命名（camelCase）</div>
+        <div class="attr-item"><strong>ID 格式</strong>下划线分隔，便于数据库索引</div>
+        <div class="attr-item"><strong>时间字段</strong>ISO 8601 格式 (2025-01-20T10:30:00Z)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 1. 单选题 ═══════ -->
+<div class="type-block" id="t1">
+  <div class="type-header">
+    <div class="type-num">1</div>
+    <div class="type-info">
+      <div class="type-name">单选题</div>
+      <div class="type-name-en">SINGLE CHOICE · type: "single"</div>
+    </div>
+    <div class="type-status status-v10">v1.0</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">作者朝代</span>
+        <span class="scenario-tag">经名识别</span>
+        <span class="scenario-tag">概念辨析</span>
+        <span class="scenario-tag">基本事实</span>
+        <span class="scenario-tag">义理选择</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <table class="field-table">
+        <thead><tr><th>字段名</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="field-name">question</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>题目文本</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">options</span></td>
+            <td><span class="field-type">Option[]</span></td>
+            <td>✓</td>
+            <td>选项数组，固定 4 个</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">options[].text</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>选项文字</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">options[].correct</span></td>
+            <td><span class="field-type">bool</span></td>
+            <td>✓</td>
+            <td>是否正确，有且仅有 1 个 true</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">💎</span>完整 JSON 示例</div>
+      <div class="code-block">{
+  <span class="key">"id"</span>: <span class="str">"ruxinglun_c3_v1_001"</span>,
+  <span class="key">"type"</span>: <span class="str">"single"</span>,
+  <span class="key">"typeLabel"</span>: <span class="str">"单选题"</span>,
+  <span class="key">"chapter"</span>: <span class="num">3</span>,
+  <span class="key">"verseRange"</span>: <span class="str">"1-8"</span>,
+  <span class="key">"lessonNum"</span>: <span class="num">3</span>,
+  <span class="key">"difficulty"</span>: <span class="num">1</span>,
+  <span class="key">"tags"</span>: [<span class="str">"七支供养"</span>, <span class="str">"受持菩提心"</span>],
+
+  <span class="key">"question"</span>: <span class="str">"《入菩萨行论》第三品主要修持什么？"</span>,
+  <span class="key">"options"</span>: [
+    { <span class="key">"text"</span>: <span class="str">"七支供养"</span>, <span class="key">"correct"</span>: <span class="bool">true</span> },
+    { <span class="key">"text"</span>: <span class="str">"十不善业"</span>, <span class="key">"correct"</span>: <span class="bool">false</span> },
+    { <span class="key">"text"</span>: <span class="str">"四圣谛"</span>, <span class="key">"correct"</span>: <span class="bool">false</span> },
+    { <span class="key">"text"</span>: <span class="str">"十二因缘"</span>, <span class="key">"correct"</span>: <span class="bool">false</span> }
+  ],
+
+  <span class="key">"correctText"</span>: <span class="str">"第三品核心为修持七支供养——礼敬、供养、忏悔、随喜、请转法轮、请佛住世、回向。"</span>,
+  <span class="key">"wrongText"</span>: <span class="str">"正解：七支供养。第三品正是通过七支供养圆满积资净障。"</span>,
+  <span class="key">"source"</span>: <span class="str">"出处：《入菩萨行论》第三品"</span>,
+
+  <span class="key">"createdAt"</span>: <span class="str">"2025-01-20T10:30:00Z"</span>,
+  <span class="key">"reviewed"</span>: <span class="bool">true</span>
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>出题建议：</strong>四个选项要合理分布难度，不能一眼看出正确答案。干扰项最好用"看似正确实则错误"的常见误解（如将世俗菩提心和胜义菩提心混淆）。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 2. 填空题 ═══════ -->
+<div class="type-block" id="t2">
+  <div class="type-header">
+    <div class="type-num">2</div>
+    <div class="type-info">
+      <div class="type-name">填空题</div>
+      <div class="type-name-en">FILL IN BLANK · type: "fill"</div>
+    </div>
+    <div class="type-status status-v10">v1.0</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">颂词背诵</span>
+        <span class="scenario-tag">名号记忆</span>
+        <span class="scenario-tag">经咒关键字</span>
+        <span class="scenario-tag">对仗词汇</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <table class="field-table">
+        <thead><tr><th>字段名</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="field-name">question</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>题目说明，如"补全颂词"</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">verseLines</span></td>
+            <td><span class="field-type">string[]</span></td>
+            <td>✓</td>
+            <td>颂词数组，用 "___" 标记空位</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">verseSource</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>颂词出处小字展示</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">correctWord</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>正确答案</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">options</span></td>
+            <td><span class="field-type">string[]</span></td>
+            <td>✓</td>
+            <td>候选词数组（含正确答案在内共 4 个）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">💎</span>完整 JSON 示例</div>
+      <div class="code-block">{
+  <span class="key">"id"</span>: <span class="str">"ruxinglun_c1_v20_fill_001"</span>,
+  <span class="key">"type"</span>: <span class="str">"fill"</span>,
+  <span class="key">"typeLabel"</span>: <span class="str">"填空题"</span>,
+  <span class="key">"chapter"</span>: <span class="num">1</span>,
+  <span class="key">"verseRange"</span>: <span class="str">"20-22"</span>,
+  <span class="key">"difficulty"</span>: <span class="num">1</span>,
+  <span class="key">"tags"</span>: [<span class="str">"颂词"</span>, <span class="str">"菩提心"</span>],
+
+  <span class="key">"question"</span>: <span class="str">"补全颂词"</span>,
+  <span class="key">"verseLines"</span>: [
+    <span class="str">"众生欲除苦"</span>,
+    <span class="str">"反行痛苦因"</span>,
+    <span class="str">"愿求安乐故"</span>,
+    <span class="str">"愚昧毁___"</span>
+  ],
+  <span class="key">"verseSource"</span>: <span class="str">"《入菩萨行论》第一品"</span>,
+  <span class="key">"correctWord"</span>: <span class="str">"自乐"</span>,
+  <span class="key">"options"</span>: [<span class="str">"自乐"</span>, <span class="str">"他乐"</span>, <span class="str">"安乐"</span>, <span class="str">"善乐"</span>],
+
+  <span class="key">"correctText"</span>: <span class="str">"众生因愚昧而自毁幸福——想要快乐却做招苦的事。"</span>,
+  <span class="key">"wrongText"</span>: <span class="str">"正解：自乐。寂天菩萨在此揭示凡夫颠倒的行为。"</span>,
+  <span class="key">"source"</span>: <span class="str">"出处：《入菩萨行论》第一品·颂 28"</span>,
+
+  <span class="key">"createdAt"</span>: <span class="str">"2025-01-20T10:30:00Z"</span>,
+  <span class="key">"reviewed"</span>: <span class="bool">true</span>
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>注意：</strong>v1.0 只支持一个空。如果颂词有多个关键词需要填，建议拆成多道填空题。多空填空留到 v1.1 再做。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 3. 连线配对 ═══════ -->
+<div class="type-block" id="t3">
+  <div class="type-header">
+    <div class="type-num">3</div>
+    <div class="type-info">
+      <div class="type-name">连线配对</div>
+      <div class="type-name-en">MATCHING · type: "match"</div>
+    </div>
+    <div class="type-status status-v10">v1.0</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">名相释义</span>
+        <span class="scenario-tag">波罗蜜对治</span>
+        <span class="scenario-tag">三宝内涵</span>
+        <span class="scenario-tag">法器象征</span>
+        <span class="scenario-tag">十不善业果报</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <table class="field-table">
+        <thead><tr><th>字段名</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="field-name">question</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>题目说明</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">left</span></td>
+            <td><span class="field-type">Item[]</span></td>
+            <td>✓</td>
+            <td>左列项目，通常 4 个</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">left[].id</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>左项 ID（a/b/c/d）</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">left[].text</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>左项文本</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">right</span></td>
+            <td><span class="field-type">Item[]</span></td>
+            <td>✓</td>
+            <td>右列项目，与左列一一对应</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">right[].id</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>右项 ID（1/2/3/4）</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">right[].text</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>右项文本</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">right[].match</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>指向左项 id，建立配对关系</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">💎</span>完整 JSON 示例</div>
+      <div class="code-block">{
+  <span class="key">"id"</span>: <span class="str">"ruxinglun_c3_match_001"</span>,
+  <span class="key">"type"</span>: <span class="str">"match"</span>,
+  <span class="key">"typeLabel"</span>: <span class="str">"名相配对"</span>,
+  <span class="key">"chapter"</span>: <span class="num">3</span>,
+  <span class="key">"difficulty"</span>: <span class="num">2</span>,
+  <span class="key">"tags"</span>: [<span class="str">"七支供养"</span>, <span class="str">"对治烦恼"</span>],
+
+  <span class="key">"question"</span>: <span class="str">"将七支供养与其对治的烦恼配对"</span>,
+  <span class="key">"left"</span>: [
+    { <span class="key">"id"</span>: <span class="str">"a"</span>, <span class="key">"text"</span>: <span class="str">"礼敬支"</span> },
+    { <span class="key">"id"</span>: <span class="str">"b"</span>, <span class="key">"text"</span>: <span class="str">"供养支"</span> },
+    { <span class="key">"id"</span>: <span class="str">"c"</span>, <span class="key">"text"</span>: <span class="str">"忏悔支"</span> },
+    { <span class="key">"id"</span>: <span class="str">"d"</span>, <span class="key">"text"</span>: <span class="str">"随喜支"</span> }
+  ],
+  <span class="key">"right"</span>: [
+    { <span class="key">"id"</span>: <span class="str">"1"</span>, <span class="key">"text"</span>: <span class="str">"对治骄慢"</span>, <span class="key">"match"</span>: <span class="str">"a"</span> },
+    { <span class="key">"id"</span>: <span class="str">"2"</span>, <span class="key">"text"</span>: <span class="str">"对治悭贪"</span>, <span class="key">"match"</span>: <span class="str">"b"</span> },
+    { <span class="key">"id"</span>: <span class="str">"3"</span>, <span class="key">"text"</span>: <span class="str">"净除业障"</span>, <span class="key">"match"</span>: <span class="str">"c"</span> },
+    { <span class="key">"id"</span>: <span class="str">"4"</span>, <span class="key">"text"</span>: <span class="str">"对治嫉妒"</span>, <span class="key">"match"</span>: <span class="str">"d"</span> }
+  ],
+
+  <span class="key">"correctText"</span>: <span class="str">"七支供养对治七种烦恼：礼敬对骄慢，供养对悭贪，忏悔对业障，随喜对嫉妒。"</span>,
+  <span class="key">"wrongText"</span>: <span class="str">"正解：礼敬-骄慢，供养-悭贪，忏悔-业障，随喜-嫉妒。"</span>,
+  <span class="key">"source"</span>: <span class="str">"出处：《入菩萨行论》第三品"</span>,
+
+  <span class="key">"createdAt"</span>: <span class="str">"2025-01-20T10:30:00Z"</span>,
+  <span class="key">"reviewed"</span>: <span class="bool">true</span>
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>UI 注意：</strong>左右列数量必须相等。右列 text 在渲染时会被随机打乱顺序，左列保持原序。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 4. 排序题 ═══════ -->
+<div class="type-block" id="t4">
+  <div class="type-header">
+    <div class="type-num">4</div>
+    <div class="type-info">
+      <div class="type-name">排序题</div>
+      <div class="type-name-en">SORTING · type: "sort"</div>
+    </div>
+    <div class="type-status status-v10">v1.0</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">修行次第</span>
+        <span class="scenario-tag">品目顺序</span>
+        <span class="scenario-tag">十二因缘</span>
+        <span class="scenario-tag">三士道</span>
+        <span class="scenario-tag">仪轨步骤</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <table class="field-table">
+        <thead><tr><th>字段名</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="field-name">question</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>题目说明</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">items</span></td>
+            <td><span class="field-type">Item[]</span></td>
+            <td>✓</td>
+            <td>待排序项数组，3-6 个</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">items[].text</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>项目文字</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">items[].order</span></td>
+            <td><span class="field-type">int</span></td>
+            <td>✓</td>
+            <td>正确序号（1-N）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">💎</span>完整 JSON 示例</div>
+      <div class="code-block">{
+  <span class="key">"id"</span>: <span class="str">"ruxinglun_c3_sort_001"</span>,
+  <span class="key">"type"</span>: <span class="str">"sort"</span>,
+  <span class="key">"typeLabel"</span>: <span class="str">"排序题"</span>,
+  <span class="key">"chapter"</span>: <span class="num">3</span>,
+  <span class="key">"difficulty"</span>: <span class="num">2</span>,
+  <span class="key">"tags"</span>: [<span class="str">"七支供养"</span>, <span class="str">"次第"</span>],
+
+  <span class="key">"question"</span>: <span class="str">"请按七支供养次第排列"</span>,
+  <span class="key">"items"</span>: [
+    { <span class="key">"text"</span>: <span class="str">"礼敬支"</span>, <span class="key">"order"</span>: <span class="num">1</span> },
+    { <span class="key">"text"</span>: <span class="str">"供养支"</span>, <span class="key">"order"</span>: <span class="num">2</span> },
+    { <span class="key">"text"</span>: <span class="str">"忏悔支"</span>, <span class="key">"order"</span>: <span class="num">3</span> },
+    { <span class="key">"text"</span>: <span class="str">"随喜支"</span>, <span class="key">"order"</span>: <span class="num">4</span> }
+  ],
+
+  <span class="key">"correctText"</span>: <span class="str">"七支次第：礼敬→供养→忏悔→随喜→请转法轮→请佛住世→回向。不可颠倒。"</span>,
+  <span class="key">"wrongText"</span>: <span class="str">"正解：礼敬-供养-忏悔-随喜。先净障再积资，后随喜回向。"</span>,
+  <span class="key">"source"</span>: <span class="str">"出处：《入菩萨行论》第三品·七支次第"</span>,
+
+  <span class="key">"createdAt"</span>: <span class="str">"2025-01-20T10:30:00Z"</span>,
+  <span class="key">"reviewed"</span>: <span class="bool">true</span>
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>UI 注意：</strong>前端渲染时必须把 items 打乱显示。用户点击项目后标记 1、2、3、4。建议 items 数量 4 个为最佳，过多（如 12 因缘）对用户挑战太大，可拆成两道小题。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 5. 判断多选 ═══════ -->
+<div class="type-block" id="t5">
+  <div class="type-header">
+    <div class="type-num">5</div>
+    <div class="type-info">
+      <div class="type-name">判断多选</div>
+      <div class="type-name-en">MULTIPLE CHOICE · type: "multi"</div>
+    </div>
+    <div class="type-status status-v10">v1.0</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">列举型思考题</span>
+        <span class="scenario-tag">全面掌握测试</span>
+        <span class="scenario-tag">属性归类</span>
+        <span class="scenario-tag">反例识别</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <table class="field-table">
+        <thead><tr><th>字段名</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="field-name">question</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>题目，结尾注明"（多选）"</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">options</span></td>
+            <td><span class="field-type">Option[]</span></td>
+            <td>✓</td>
+            <td>选项数组，6-8 个（多于单选）</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">options[].text</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>选项文字</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">options[].correct</span></td>
+            <td><span class="field-type">bool</span></td>
+            <td>✓</td>
+            <td>是否正确，可多个 true</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">scoringMode</span></td>
+            <td><span class="field-type">enum</span></td>
+            <td>✓</td>
+            <td>评分方式：strict（全对才对）/ partial（按比例给分）</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">💎</span>完整 JSON 示例</div>
+      <div class="code-block">{
+  <span class="key">"id"</span>: <span class="str">"ruxinglun_c1_multi_001"</span>,
+  <span class="key">"type"</span>: <span class="str">"multi"</span>,
+  <span class="key">"typeLabel"</span>: <span class="str">"判断多选"</span>,
+  <span class="key">"chapter"</span>: <span class="num">1</span>,
+  <span class="key">"difficulty"</span>: <span class="num">2</span>,
+  <span class="key">"tags"</span>: [<span class="str">"菩提心"</span>, <span class="str">"利益"</span>],
+
+  <span class="key">"question"</span>: <span class="str">"下列哪些属于菩提心的利益？（多选）"</span>,
+  <span class="key">"options"</span>: [
+    { <span class="key">"text"</span>: <span class="str">"净除无量劫罪业"</span>, <span class="key">"correct"</span>: <span class="bool">true</span> },
+    { <span class="key">"text"</span>: <span class="str">"增长世间财富"</span>, <span class="key">"correct"</span>: <span class="bool">false</span> },
+    { <span class="key">"text"</span>: <span class="str">"成佛的唯一因"</span>, <span class="key">"correct"</span>: <span class="bool">true</span> },
+    { <span class="key">"text"</span>: <span class="str">"凡夫转为佛子"</span>, <span class="key">"correct"</span>: <span class="bool">true</span> },
+    { <span class="key">"text"</span>: <span class="str">"能获得神通"</span>, <span class="key">"correct"</span>: <span class="bool">false</span> },
+    { <span class="key">"text"</span>: <span class="str">"圆满福德资粮"</span>, <span class="key">"correct"</span>: <span class="bool">true</span> }
+  ],
+  <span class="key">"scoringMode"</span>: <span class="str">"strict"</span>,
+
+  <span class="key">"correctText"</span>: <span class="str">"菩提心四大利益：净罪业、圆福德、成佛之因、转凡为佛子。世间福报和神通非其核心价值。"</span>,
+  <span class="key">"wrongText"</span>: <span class="str">"正解：净罪业 · 成佛因 · 转凡为圣 · 圆福德。其他属于世间法不列其中。"</span>,
+  <span class="key">"source"</span>: <span class="str">"出处：《入菩萨行论》第一品·菩提心利益"</span>,
+
+  <span class="key">"createdAt"</span>: <span class="str">"2025-01-20T10:30:00Z"</span>,
+  <span class="key">"reviewed"</span>: <span class="bool">true</span>
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>评分建议：</strong>v1.0 统一用 strict 模式（全选对才算对），简单稳定。v1.1 可引入 partial 模式，按正确选中比例给分。干扰项要有迷惑性，不要太明显。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 6. 开放作答 ═══════ -->
+<div class="type-block" id="t6">
+  <div class="type-header">
+    <div class="type-num">6</div>
+    <div class="type-info">
+      <div class="type-name">开放作答</div>
+      <div class="type-name-en">OPEN-ENDED · type: "open"</div>
+    </div>
+    <div class="type-status status-v10">v1.0 🌟</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">课后思考题</span>
+        <span class="scenario-tag">义理阐述</span>
+        <span class="scenario-tag">"为什么"</span>
+        <span class="scenario-tag">"如何理解"</span>
+        <span class="scenario-tag">综合分析</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <table class="field-table">
+        <thead><tr><th>字段名</th><th>类型</th><th>必填</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="field-name">question</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>思考题原文</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">referenceAnswer</span></td>
+            <td><span class="field-type">string</span></td>
+            <td>✓</td>
+            <td>法师标准答案全文，给 AI 和用户参考</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">keyPoints</span></td>
+            <td><span class="field-type">string[]</span></td>
+            <td>✓</td>
+            <td>答案关键要点列表，用于 AI 评分</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">minLength</span></td>
+            <td><span class="field-type">int</span></td>
+            <td></td>
+            <td>最少字数建议，默认 50</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">maxLength</span></td>
+            <td><span class="field-type">int</span></td>
+            <td></td>
+            <td>最多字数建议，默认 500</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">gradingHint</span></td>
+            <td><span class="field-type">string</span></td>
+            <td></td>
+            <td>给 AI 的额外评分提示（可选）</td>
+          </tr>
+          <tr>
+            <td><span class="field-name">strictMode</span></td>
+            <td><span class="field-type">bool</span></td>
+            <td></td>
+            <td>是否严格评分，默认 false</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">💎</span>完整 JSON 示例</div>
+      <div class="code-block">{
+  <span class="key">"id"</span>: <span class="str">"ruxinglun_c1_open_001"</span>,
+  <span class="key">"type"</span>: <span class="str">"open"</span>,
+  <span class="key">"typeLabel"</span>: <span class="str">"思考题"</span>,
+  <span class="key">"chapter"</span>: <span class="num">1</span>,
+  <span class="key">"lessonNum"</span>: <span class="num">1</span>,
+  <span class="key">"difficulty"</span>: <span class="num">2</span>,
+  <span class="key">"tags"</span>: [<span class="str">"菩提心"</span>, <span class="str">"大乘根本"</span>],
+
+  <span class="key">"question"</span>: <span class="str">"为什么说菩提心是大乘佛法的根本？"</span>,
+  <span class="key">"referenceAnswer"</span>: <span class="str">"菩提心是为利益一切众生而发愿成佛的心...（法师完整答案）"</span>,
+  <span class="key">"keyPoints"</span>: [
+    <span class="str">"菩提心的定义：为利众生愿成佛"</span>,
+    <span class="str">"是成佛之因，无菩提心不能成佛"</span>,
+    <span class="str">"能净除无量劫罪业"</span>,
+    <span class="str">"能圆满福德资粮"</span>,
+    <span class="str">"令凡夫转为佛子，堕入佛种性"</span>
+  ],
+  <span class="key">"minLength"</span>: <span class="num">80</span>,
+  <span class="key">"maxLength"</span>: <span class="num">400</span>,
+  <span class="key">"gradingHint"</span>: <span class="str">"重点看是否答到菩提心的利他特质和与小乘的区别"</span>,
+  <span class="key">"strictMode"</span>: <span class="bool">false</span>,
+
+  <span class="key">"correctText"</span>: <span class="str">"菩提心之所以为大乘根本，在于它既是成佛之因，又是净罪积福之源。"</span>,
+  <span class="key">"wrongText"</span>: <span class="str">"建议重读法师标准答案，重点理解菩提心与六度的关系。"</span>,
+  <span class="key">"source"</span>: <span class="str">"出处：《入菩萨行论》第一品·思考题"</span>,
+
+  <span class="key">"createdAt"</span>: <span class="str">"2025-01-20T10:30:00Z"</span>,
+  <span class="key">"reviewed"</span>: <span class="bool">true</span>
+}</div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🤖</span>AI 评分返回结构</div>
+      <div class="code-block"><span class="comment">// AI 评分后返回，存入答题记录</span>
+{
+  <span class="key">"score"</span>: <span class="num">72</span>,
+  <span class="key">"level"</span>: <span class="str">"良好"</span>,
+  <span class="key">"hitPoints"</span>: [
+    { <span class="key">"point"</span>: <span class="str">"菩提心的定义"</span>, <span class="key">"hit"</span>: <span class="str">"full"</span>, <span class="key">"userPhrase"</span>: <span class="str">"..."</span> },
+    { <span class="key">"point"</span>: <span class="str">"能圆满福德"</span>, <span class="key">"hit"</span>: <span class="str">"partial"</span>, <span class="key">"userPhrase"</span>: <span class="str">"..."</span> }
+  ],
+  <span class="key">"missedPoints"</span>: [<span class="str">"凡夫转为佛子"</span>],
+  <span class="key">"encouragement"</span>: <span class="str">"您对菩提心的基本利益已掌握 ✨"</span>,
+  <span class="key">"suggestion"</span>: <span class="str">"可以补充：初发菩提心即转凡夫身为佛子。"</span>,
+  <span class="key">"misunderstanding"</span>: <span class="str">""</span>
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>核心价值：</strong>这是 v1.0 最大的差异化题型。所有课后思考题都应该用此类型录入。详细的评分 Prompt 设计见独立文档。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 7-12 压缩展示 ═══════ -->
+
+<!-- 7. 图片辨识 -->
+<div class="type-block" id="t7">
+  <div class="type-header">
+    <div class="type-num">7</div>
+    <div class="type-info">
+      <div class="type-name">图片辨识</div>
+      <div class="type-name-en">IMAGE RECOGNITION · type: "image"</div>
+    </div>
+    <div class="type-status status-v11">v1.1</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">佛像辨识</span>
+        <span class="scenario-tag">手印识别</span>
+        <span class="scenario-tag">法器分辨</span>
+        <span class="scenario-tag">唐卡主尊</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <div class="code-block">{
+  <span class="comment">// 公共字段同上</span>
+  <span class="key">"type"</span>: <span class="str">"image"</span>,
+  <span class="key">"typeLabel"</span>: <span class="str">"图片辨识"</span>,
+  <span class="key">"question"</span>: <span class="str">"下图这尊佛像是哪一位？"</span>,
+
+  <span class="key">"imageUrl"</span>: <span class="str">"https://cdn.juexue.app/images/buddhas/guanyin-001.jpg"</span>,
+  <span class="key">"imageCaption"</span>: <span class="str">"千手观音像 · 尼泊尔铜铸"</span>,
+  <span class="key">"imageCredits"</span>: <span class="str">"图片版权：XX博物馆"</span>,
+
+  <span class="key">"options"</span>: [
+    { <span class="key">"text"</span>: <span class="str">"观世音菩萨"</span>, <span class="key">"correct"</span>: <span class="bool">true</span> },
+    { <span class="key">"text"</span>: <span class="str">"文殊菩萨"</span>, <span class="key">"correct"</span>: <span class="bool">false</span> },
+    { <span class="key">"text"</span>: <span class="str">"普贤菩萨"</span>, <span class="key">"correct"</span>: <span class="bool">false</span> },
+    { <span class="key">"text"</span>: <span class="str">"地藏王菩萨"</span>, <span class="key">"correct"</span>: <span class="bool">false</span> }
+  ]
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>素材要求：</strong>需要高清图片（建议 ≥ 800×600），取得版权授权，存储于 CDN。v1.1 启动前需准备 50+ 张经过鉴定的图片素材。
+    </div>
+  </div>
+</div>
+
+<!-- 8. 听颂选答 -->
+<div class="type-block" id="t8">
+  <div class="type-header">
+    <div class="type-num">8</div>
+    <div class="type-info">
+      <div class="type-name">听颂选答</div>
+      <div class="type-name-en">LISTEN & ANSWER · type: "listen"</div>
+    </div>
+    <div class="type-status status-v11">v1.1</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">梵呗辨识</span>
+        <span class="scenario-tag">咒音识别</span>
+        <span class="scenario-tag">颂文出处</span>
+        <span class="scenario-tag">法师开示片段</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <div class="code-block">{
+  <span class="comment">// 公共字段同上</span>
+  <span class="key">"type"</span>: <span class="str">"listen"</span>,
+  <span class="key">"typeLabel"</span>: <span class="str">"听颂选答"</span>,
+  <span class="key">"question"</span>: <span class="str">"这段颂文出自入行论哪一品？"</span>,
+
+  <span class="key">"audioUrl"</span>: <span class="str">"https://cdn.juexue.app/audio/ruxinglun/c3-verse-11.mp3"</span>,
+  <span class="key">"audioDuration"</span>: <span class="num">15</span>,
+  <span class="key">"audioTranscript"</span>: <span class="str">"为持珍宝心，我今修供养..."</span>,
+  <span class="key">"maxReplay"</span>: <span class="num">3</span>,
+
+  <span class="key">"options"</span>: [...],
+  <span class="key">"correctText"</span>: <span class="str">"..."</span>
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>素材要求：</strong>需要专业录音（录音棚或高质量设备），建议长度 10-30 秒。注意版权：法师念诵需书面授权。v1.1 前需准备 30+ 段标准音频。
+    </div>
+  </div>
+</div>
+
+<!-- 9. 卡片翻转 -->
+<div class="type-block" id="t9">
+  <div class="type-header">
+    <div class="type-num">9</div>
+    <div class="type-info">
+      <div class="type-name">卡片翻转</div>
+      <div class="type-name-en">FLIP CARD · type: "flip"</div>
+    </div>
+    <div class="type-status status-v11">v1.1</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">术语速记</span>
+        <span class="scenario-tag">名相背诵</span>
+        <span class="scenario-tag">Anki 式复习</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <div class="code-block">{
+  <span class="comment">// 公共字段同上</span>
+  <span class="key">"type"</span>: <span class="str">"flip"</span>,
+  <span class="key">"typeLabel"</span>: <span class="str">"速记卡片"</span>,
+
+  <span class="key">"front"</span>: {
+    <span class="key">"text"</span>: <span class="str">"菩提心"</span>,
+    <span class="key">"subText"</span>: <span class="str">"Bodhicitta"</span>
+  },
+  <span class="key">"back"</span>: {
+    <span class="key">"text"</span>: <span class="str">"为利众生愿成佛之心，大乘佛法的核心..."</span>,
+    <span class="key">"example"</span>: <span class="str">"如《入菩萨行论》第一品所说..."</span>
+  },
+
+  <span class="comment">// 用户自评掌握度驱动 SM-2，无对错判断</span>
+  <span class="key">"noScoring"</span>: <span class="bool">true</span>
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>特殊：</strong>此题型无对错，仅用于"速记背诵"。用户看正面 → 思考 → 翻转看答案 → 自评掌握（不会/模糊/记住/很熟），四档驱动 SM-2。
+    </div>
+  </div>
+</div>
+
+<!-- 10. 流程拖拽 -->
+<div class="type-block" id="t10">
+  <div class="type-header">
+    <div class="type-num">10</div>
+    <div class="type-info">
+      <div class="type-name">流程拖拽</div>
+      <div class="type-name-en">FLOWCHART · type: "flow"</div>
+    </div>
+    <div class="type-status status-v12">v1.2</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">十二因缘</span>
+        <span class="scenario-tag">菩萨五道</span>
+        <span class="scenario-tag">业果流程</span>
+        <span class="scenario-tag">非线性次第</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <div class="code-block">{
+  <span class="comment">// 公共字段同上</span>
+  <span class="key">"type"</span>: <span class="str">"flow"</span>,
+  <span class="key">"question"</span>: <span class="str">"完成十二因缘循环图"</span>,
+
+  <span class="key">"canvas"</span>: {
+    <span class="key">"width"</span>: <span class="num">400</span>,
+    <span class="key">"height"</span>: <span class="num">400</span>,
+    <span class="key">"backgroundImage"</span>: <span class="str">"twelve-nidanas-bg.svg"</span>
+  },
+  <span class="key">"slots"</span>: [
+    { <span class="key">"id"</span>: <span class="str">"s1"</span>, <span class="key">"x"</span>: <span class="num">200</span>, <span class="key">"y"</span>: <span class="num">50</span>, <span class="key">"correctItem"</span>: <span class="str">"无明"</span> },
+    { <span class="key">"id"</span>: <span class="str">"s2"</span>, <span class="key">"x"</span>: <span class="num">320</span>, <span class="key">"y"</span>: <span class="num">120</span>, <span class="key">"correctItem"</span>: <span class="str">"行"</span> }
+    <span class="comment">// ...12 个 slot</span>
+  ],
+  <span class="key">"items"</span>: [
+    { <span class="key">"text"</span>: <span class="str">"无明"</span> },
+    { <span class="key">"text"</span>: <span class="str">"行"</span> },
+    <span class="comment">// ...所有可拖拽项</span>
+  ]
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>技术挑战：</strong>需要实现拖拽交互 + 坐标判定。手机端要支持触摸拖拽。开发成本较高，v1.2 再做。
+    </div>
+  </div>
+</div>
+
+<!-- 11. 引导分步 -->
+<div class="type-block" id="t11">
+  <div class="type-header">
+    <div class="type-num">11</div>
+    <div class="type-info">
+      <div class="type-name">引导分步</div>
+      <div class="type-name-en">GUIDED STEPS · type: "guided"</div>
+    </div>
+    <div class="type-status status-v20">v2.0</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">复杂思考题</span>
+        <span class="scenario-tag">多层次分析</span>
+        <span class="scenario-tag">综合运用</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <div class="code-block">{
+  <span class="comment">// 公共字段同上</span>
+  <span class="key">"type"</span>: <span class="str">"guided"</span>,
+  <span class="key">"finalQuestion"</span>: <span class="str">"为什么菩提心是大乘根本？"</span>,
+
+  <span class="key">"steps"</span>: [
+    {
+      <span class="key">"stepNum"</span>: <span class="num">1</span>,
+      <span class="key">"prompt"</span>: <span class="str">"用一句话定义菩提心"</span>,
+      <span class="key">"hint"</span>: <span class="str">"考虑它的对象和目标"</span>,
+      <span class="key">"keyPoints"</span>: [<span class="str">"为利众生"</span>, <span class="str">"愿成佛"</span>]
+    },
+    {
+      <span class="key">"stepNum"</span>: <span class="num">2</span>,
+      <span class="key">"prompt"</span>: <span class="str">"列举菩提心的3个利益"</span>,
+      <span class="key">"keyPoints"</span>: [<span class="str">"成佛因"</span>, <span class="str">"净罪障"</span>, <span class="str">"圆福德"</span>]
+    },
+    {
+      <span class="key">"stepNum"</span>: <span class="num">3</span>,
+      <span class="key">"prompt"</span>: <span class="str">"结合以上总结为大乘根本的原因"</span>,
+      <span class="key">"keyPoints"</span>: [<span class="str">"综合前两步"</span>]
+    }
+  ]
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>复杂度：</strong>需要逐步 AI 评分 + 最终综合评分。v2.0 再做。适合处理非常深入的法义题。
+    </div>
+  </div>
+</div>
+
+<!-- 12. 情境判断 -->
+<div class="type-block" id="t12">
+  <div class="type-header">
+    <div class="type-num">12</div>
+    <div class="type-info">
+      <div class="type-name">情境判断</div>
+      <div class="type-name-en">SCENARIO JUDGMENT · type: "scenario"</div>
+    </div>
+    <div class="type-status status-v20">v2.0</div>
+  </div>
+  <div class="type-body">
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">🎯</span>适用场景</div>
+      <div class="scenario-list">
+        <span class="scenario-tag">戒律应用</span>
+        <span class="scenario-tag">日常行持</span>
+        <span class="scenario-tag">修行对治</span>
+        <span class="scenario-tag">实务智慧</span>
+      </div>
+    </div>
+
+    <div class="subsec">
+      <div class="subsec-title"><span class="subsec-icon">📝</span>专属字段</div>
+      <div class="code-block">{
+  <span class="comment">// 公共字段同上</span>
+  <span class="key">"type"</span>: <span class="str">"scenario"</span>,
+  <span class="key">"typeLabel"</span>: <span class="str">"情境判断"</span>,
+
+  <span class="key">"scenario"</span>: <span class="str">"有人无缘无故在公共场合辱骂你，你内心升起愤怒。作为菩萨道修行者，应如何以六度对治？"</span>,
+  <span class="key">"scenarioImage"</span>: <span class="str">"optional-illustration.jpg"</span>,
+
+  <span class="key">"options"</span>: [
+    { <span class="key">"text"</span>: <span class="str">"以安忍波罗蜜观照，这是消业的机会"</span>, <span class="key">"correct"</span>: <span class="bool">true</span>, <span class="key">"reason"</span>: <span class="str">"正确：嗔心生起时正应修安忍"</span> },
+    { <span class="key">"text"</span>: <span class="str">"当场反驳以正视听"</span>, <span class="key">"correct"</span>: <span class="bool">false</span>, <span class="key">"reason"</span>: <span class="str">"增长嗔心，失菩提心"</span> },
+    { <span class="key">"text"</span>: <span class="str">"默默走开不予理会"</span>, <span class="key">"correct"</span>: <span class="bool">false</span>, <span class="key">"reason"</span>: <span class="str">"回避但未真正对治"</span> },
+    { <span class="key">"text"</span>: <span class="str">"以慈悲心观对方是业障所缚"</span>, <span class="key">"correct"</span>: <span class="bool">true</span>, <span class="key">"reason"</span>: <span class="str">"正确：以慈悲观转嗔为悲"</span> }
+  ]
+}</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>特色：</strong>每个选项都有独立的 reason 解释为什么对或错，不仅告诉用户答案，还教会如何思考。适合高阶用户。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ 结尾 ═══════ -->
+<div style="background:var(--white);border:1px solid var(--border);border-radius:16px;padding:30px;margin-top:40px;box-shadow:0 1px 3px rgba(0,0,0,.04);">
+  <div style="font-size:16px;font-weight:700;color:var(--ink);margin-bottom:16px;">📚 文档维护规则</div>
+  <div style="font-size:13px;color:var(--ink-2);line-height:2;">
+    <p>• 所有新增题型必须先更新本文档再实现代码</p>
+    <p>• JSON Schema 字段变更要同步更新题库生成脚本、题库编辑器、前端渲染</p>
+    <p>• 公共字段修改需评估对所有题型的影响</p>
+    <p>• 题型 code 一旦确定不可更改（避免数据迁移）</p>
+    <p>• 每个题型上线前必须有至少 20 道样例题作为测试数据</p>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

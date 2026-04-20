@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>觉学</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --primary:#3B82F6;--primary-dark:#2563EB;--primary-light:#DBEAFE;--primary-pale:#EFF6FF;
+  --accent:#F59E0B;--accent-light:#FEF3C7;--accent-pale:#FFFBEB;
+  --success:#10B981;--success-light:#D1FAE5;--success-dark:#059669;
+  --error:#EF4444;--error-light:#FEE2E2;--error-dark:#DC2626;
+  --purple:#8B5CF6;--purple-light:#EDE9FE;--purple-dark:#7C3AED;
+  --pink:#EC4899;--pink-light:#FCE7F3;
+  --ink:#1F2937;--ink-2:#374151;--ink-3:#6B7280;--ink-4:#9CA3AF;
+  --bg:#FAFBFC;--bg-2:#F3F4F6;--white:#FFFFFF;
+  --border:#E5E7EB;--border-light:#F3F4F6;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.04);
+  --shadow:0 2px 8px rgba(0,0,0,.06);
+}
+body{
+  background:#0f0f1f;
+  min-height:100vh;
+  font-family:'Noto Sans SC',system-ui,sans-serif;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:20px;
+}
+
+.phone-frame{width:390px;height:844px;background:var(--bg);border-radius:46px;padding:12px;border:2px solid #1a1a1a;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 8px #0a0a0a,0 0 0 10px #2a2a2a;position:relative;flex-shrink:0;}
+.phone-frame::before{content:'';position:absolute;top:18px;left:50%;transform:translateX(-50%);width:110px;height:28px;background:#0a0a0a;border-radius:20px;z-index:100;}
+.phone-frame::after{content:'';position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:4px;background:#0a0a0a;border-radius:2px;z-index:100;}
+.screen{width:100%;height:100%;background:var(--bg);border-radius:34px;overflow:hidden;position:relative;display:flex;flex-direction:column;}
+
+.page{position:absolute;inset:0;display:none;flex-direction:column;background:var(--bg);overflow:hidden;}
+.page.active{display:flex;}
+
+.status-bar{height:52px;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:14px 32px 0;font-size:14px;font-weight:600;color:var(--ink);}
+.status-right{display:flex;gap:5px;align-items:center;font-size:11px;}
+
+/* ═════════ WELCOME ═════════ */
+.welcome-page{background:linear-gradient(180deg,#EFF6FF 0%,#FFFFFF 60%);align-items:center;padding:40px 32px 36px;}
+.welcome-illustr{width:220px;height:220px;margin:16px auto 8px;position:relative;display:flex;align-items:center;justify-content:center;}
+.welcome-illustr svg{width:100%;height:100%;}
+.welcome-brand{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.brand-logo{width:40px;height:40px;background:linear-gradient(135deg,var(--primary),var(--purple));border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;box-shadow:0 4px 12px rgba(59,130,246,.3);}
+.brand-name{font-family:'Noto Serif SC',serif;font-size:30px;font-weight:700;color:var(--ink);letter-spacing:4px;}
+.brand-tag{font-size:13px;color:var(--ink-3);letter-spacing:1px;margin-bottom:28px;}
+.welcome-features{width:100%;display:flex;flex-direction:column;gap:10px;margin-bottom:auto;}
+.feature-item{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--white);border:1px solid var(--border-light);border-radius:16px;box-shadow:var(--shadow-sm);}
+.feature-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.feature-icon.c1{background:var(--primary-light);color:var(--primary);}
+.feature-icon.c2{background:var(--purple-light);color:var(--purple);}
+.feature-icon.c3{background:var(--success-light);color:var(--success);}
+.feature-text{flex:1;}
+.feature-title{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:2px;}
+.feature-desc{font-size:12px;color:var(--ink-3);line-height:1.5;}
+.welcome-cta{width:100%;padding:16px;background:var(--primary);color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:600;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 0 var(--primary-dark),0 6px 16px rgba(59,130,246,.3);font-family:inherit;}
+.welcome-cta:active{transform:translateY(3px);box-shadow:0 1px 0 var(--primary-dark),0 2px 8px rgba(59,130,246,.2);}
+.welcome-hint{margin-top:14px;font-size:12px;color:var(--ink-4);cursor:pointer;}
+.welcome-hint:hover{color:var(--primary);}
+
+/* ═════════ JOIN CLASS ═════════ */
+.join-page{background:linear-gradient(180deg,#EDE9FE 0%,#FFFFFF 50%);padding:20px 0 0;}
+.join-header{flex-shrink:0;padding:0 20px 20px;display:flex;align-items:center;gap:12px;}
+.back-btn{width:36px;height:36px;background:var(--white);border:none;border-radius:50%;font-size:20px;color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow-sm);}
+.page-title-wrap{flex:1;}
+.page-title{font-size:17px;font-weight:700;color:var(--ink);}
+.join-body{flex:1;padding:0 24px 24px;overflow-y:auto;scrollbar-width:none;}
+.join-body::-webkit-scrollbar{display:none;}
+.join-illustr{text-align:center;padding:20px 0;}
+.join-illustr svg{width:180px;height:140px;}
+.join-intro{text-align:center;margin-bottom:28px;}
+.join-intro h2{font-family:'Noto Serif SC',serif;font-size:22px;font-weight:700;color:var(--ink);margin-bottom:8px;letter-spacing:2px;}
+.join-intro p{font-size:13px;color:var(--ink-3);line-height:1.8;}
+
+.code-input-wrap{background:var(--white);border-radius:18px;padding:24px 22px;box-shadow:var(--shadow);border:1px solid var(--border-light);margin-bottom:16px;}
+.code-label{font-size:12px;color:var(--ink-3);margin-bottom:14px;font-weight:500;letter-spacing:1px;}
+.code-input{display:flex;gap:8px;justify-content:space-between;margin-bottom:20px;}
+.code-box{flex:1;height:52px;border:2px solid var(--border);border-radius:12px;text-align:center;font-size:22px;font-weight:700;color:var(--primary);display:flex;align-items:center;justify-content:center;background:var(--primary-pale);cursor:pointer;transition:all .15s;font-family:'Noto Sans SC',monospace;}
+.code-box.filled{border-color:var(--primary);background:var(--primary-light);}
+.code-box:active{transform:scale(.95);}
+.code-actions{display:flex;gap:8px;}
+.code-btn{flex:1;padding:12px;border:1.5px solid var(--border);background:var(--white);border-radius:12px;font-size:13px;color:var(--ink-2);display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;font-family:inherit;}
+.code-btn:active{background:var(--bg-2);}
+.code-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);box-shadow:0 3px 0 var(--primary-dark);}
+.code-btn.primary:active{transform:translateY(2px);box-shadow:0 1px 0 var(--primary-dark);}
+
+.divider-or{display:flex;align-items:center;gap:12px;margin:24px 0;color:var(--ink-4);font-size:12px;}
+.divider-or::before,.divider-or::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.scan-card{background:linear-gradient(135deg,var(--primary),var(--purple));color:#fff;border-radius:18px;padding:20px 22px;display:flex;align-items:center;gap:14px;cursor:pointer;box-shadow:0 6px 20px rgba(139,92,246,.25);}
+.scan-icon{width:48px;height:48px;background:rgba(255,255,255,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
+.scan-info h3{font-size:15px;font-weight:700;margin-bottom:2px;}
+.scan-info p{font-size:12px;opacity:.9;}
+
+.free-mode{margin-top:20px;text-align:center;font-size:13px;color:var(--ink-4);padding:14px;background:var(--white);border:1px dashed var(--border);border-radius:12px;cursor:pointer;}
+.free-mode:hover{color:var(--primary);border-color:var(--primary);}
+
+/* ═════════ CLASS DETAIL ═════════ */
+.class-detail-page{background:var(--bg);padding:0;}
+.cd-hero{background:linear-gradient(180deg,#8B5CF6 0%,#7C3AED 100%);color:#fff;padding:16px 20px 24px;position:relative;overflow:hidden;}
+.cd-hero::before{content:'';position:absolute;right:-30px;top:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(255,255,255,.12),transparent 70%);border-radius:50%;}
+.cd-hero-top{display:flex;align-items:center;gap:12px;margin-bottom:18px;position:relative;z-index:1;}
+.cd-back{width:36px;height:36px;background:rgba(255,255,255,.2);border:none;border-radius:50%;font-size:20px;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.cd-title{font-size:15px;font-weight:600;flex:1;}
+.cd-share{width:36px;height:36px;background:rgba(255,255,255,.2);border:none;border-radius:50%;font-size:16px;color:#fff;cursor:pointer;}
+.cd-hero-main{position:relative;z-index:1;}
+.cd-class-name{font-family:'Noto Serif SC',serif;font-size:24px;font-weight:700;letter-spacing:2px;margin-bottom:4px;}
+.cd-class-sub{font-size:12px;opacity:.85;margin-bottom:16px;letter-spacing:1px;}
+.cd-meta-row{display:flex;gap:12px;}
+.cd-meta{background:rgba(255,255,255,.18);padding:8px 14px;border-radius:20px;font-size:12px;backdrop-filter:blur(10px);}
+
+.cd-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 16px 96px;scrollbar-width:none;margin-top:-12px;background:var(--bg);border-radius:20px 20px 0 0;position:relative;}
+.cd-body::-webkit-scrollbar{display:none;}
+
+.class-info-card{background:var(--white);border:1px solid var(--border-light);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow-sm);}
+.cic-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.cic-title{font-size:14px;font-weight:700;color:var(--ink);}
+.cic-badge{font-size:11px;color:var(--purple);background:var(--purple-light);padding:3px 10px;border-radius:20px;font-weight:600;}
+.cic-rows{display:flex;flex-direction:column;gap:10px;}
+.cic-row{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2);}
+.cic-row-icon{font-size:14px;width:18px;text-align:center;}
+.cic-row-label{color:var(--ink-3);width:72px;flex-shrink:0;}
+.cic-row-val{font-weight:500;color:var(--ink);}
+
+/* Plan schedule */
+.schedule-card{background:var(--white);border-radius:16px;padding:18px;margin-bottom:16px;border:1px solid var(--border-light);}
+.sc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.sc-title{font-size:14px;font-weight:700;color:var(--ink);}
+.sc-total{font-size:11px;color:var(--ink-3);}
+.sc-list{display:flex;flex-direction:column;gap:8px;}
+.sc-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border-radius:10px;border-left:3px solid var(--border);}
+.sc-item.completed{background:var(--success-light);border-left-color:var(--success);opacity:.7;}
+.sc-item.current{background:var(--primary-pale);border-left-color:var(--primary);}
+.sc-date{font-size:11px;color:var(--ink-3);width:52px;flex-shrink:0;}
+.sc-item.current .sc-date{color:var(--primary);font-weight:600;}
+.sc-content{flex:1;font-size:13px;color:var(--ink);font-weight:500;}
+.sc-content-sub{font-size:11px;color:var(--ink-3);margin-top:2px;font-weight:400;}
+.sc-status{font-size:11px;padding:3px 8px;border-radius:20px;font-weight:600;flex-shrink:0;}
+.sc-status.done{background:var(--success);color:#fff;}
+.sc-status.active{background:var(--primary);color:#fff;}
+.sc-status.future{background:var(--border);color:var(--ink-3);}
+
+.join-class-btn{width:100%;padding:16px;background:var(--primary);color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:700;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 0 var(--primary-dark);font-family:inherit;margin-top:8px;}
+.join-class-btn:active{transform:translateY(2px);box-shadow:0 2px 0 var(--primary-dark);}
+
+/* ═════════ HOME ═════════ */
+.home-header{flex-shrink:0;padding:10px 20px 16px;background:var(--white);border-bottom:1px solid var(--border-light);}
+.home-top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.user-compact{display:flex;align-items:center;gap:10px;}
+.user-av{width:38px;height:38px;background:linear-gradient(135deg,var(--primary),var(--purple));border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:600;box-shadow:var(--shadow-sm);}
+.user-meta{display:flex;flex-direction:column;line-height:1.2;}
+.user-n{font-size:14px;font-weight:600;color:var(--ink);}
+.user-l{font-size:11px;color:var(--ink-3);margin-top:2px;}
+.home-badges{display:flex;gap:8px;}
+.badge{display:flex;align-items:center;gap:4px;padding:5px 10px;background:var(--bg-2);border-radius:20px;font-size:12px;font-weight:600;}
+.badge.flame{background:#FEF3C7;color:#B45309;}
+.badge.gem{background:var(--primary-light);color:var(--primary-dark);}
+
+/* Class banner on home */
+.class-banner{background:linear-gradient(135deg,var(--purple),var(--purple-dark));border-radius:18px;padding:14px 16px;display:flex;gap:12px;align-items:center;position:relative;overflow:hidden;cursor:pointer;color:#fff;}
+.class-banner::before{content:'';position:absolute;right:-20px;top:-30px;width:100px;height:100px;background:radial-gradient(circle,rgba(255,255,255,.15),transparent 70%);}
+.cb-icon{width:44px;height:44px;background:rgba(255,255,255,.2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;backdrop-filter:blur(10px);position:relative;z-index:1;}
+.cb-info{flex:1;position:relative;z-index:1;}
+.cb-title{font-size:14px;font-weight:700;margin-bottom:1px;}
+.cb-sub{font-size:11px;opacity:.85;}
+.cb-arrow{font-size:18px;opacity:.8;position:relative;z-index:1;}
+
+.home-content{flex:1;overflow-y:auto;overflow-x:hidden;padding:18px 16px 96px;scrollbar-width:none;}
+.home-content::-webkit-scrollbar{display:none;}
+
+/* Today lesson card (class-driven) */
+.today-card{background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border:1px solid rgba(59,130,246,.15);border-radius:18px;padding:16px;margin-bottom:18px;position:relative;overflow:hidden;}
+.today-card::before{content:'';position:absolute;right:-20px;top:-20px;width:120px;height:120px;background:radial-gradient(circle,rgba(139,92,246,.15),transparent 70%);}
+.today-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;position:relative;z-index:1;}
+.today-label{font-size:11px;color:var(--purple);background:var(--white);padding:3px 10px;border-radius:20px;font-weight:600;}
+.today-date{font-size:11px;color:var(--ink-3);}
+.today-title-big{font-family:'Noto Serif SC',serif;font-size:18px;font-weight:700;color:var(--ink);margin-bottom:4px;letter-spacing:1px;position:relative;z-index:1;}
+.today-verse{font-size:12px;color:var(--ink-3);font-style:italic;margin-bottom:12px;position:relative;z-index:1;}
+.today-progress{display:flex;align-items:center;gap:10px;position:relative;z-index:1;}
+.today-bar{flex:1;height:8px;background:rgba(255,255,255,.6);border-radius:4px;overflow:hidden;}
+.today-bar-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--purple));border-radius:4px;width:30%;}
+.today-pct{font-size:12px;font-weight:700;color:var(--primary-dark);}
+.today-cta{width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;margin-top:12px;cursor:pointer;box-shadow:0 3px 0 var(--primary-dark);font-family:inherit;position:relative;z-index:1;}
+.today-cta:active{transform:translateY(1px);box-shadow:0 2px 0 var(--primary-dark);}
+
+.quick-actions{display:flex;gap:10px;margin-bottom:20px;}
+.qa-card{flex:1;background:var(--white);border:1px solid var(--border-light);border-radius:14px;padding:14px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;}
+.qa-card:active{transform:scale(.96);}
+.qa-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.qa-1 .qa-icon{background:var(--primary-light);color:var(--primary);}
+.qa-2 .qa-icon{background:var(--accent-light);color:var(--accent);}
+.qa-3 .qa-icon{background:var(--success-light);color:var(--success);}
+.qa-label{font-size:12px;font-weight:600;color:var(--ink);}
+.qa-count{font-size:10px;color:var(--ink-3);}
+
+/* Classmates */
+.section-heading{display:flex;justify-content:space-between;align-items:center;padding:0 4px;margin-bottom:12px;}
+.section-title-big{font-size:15px;font-weight:700;color:var(--ink);}
+.section-more{font-size:12px;color:var(--primary);font-weight:500;cursor:pointer;}
+.classmates-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:20px;scrollbar-width:none;}
+.classmates-row::-webkit-scrollbar{display:none;}
+.mate-card{flex:0 0 auto;width:72px;background:var(--white);border-radius:12px;padding:10px 6px;text-align:center;border:1px solid var(--border-light);cursor:pointer;}
+.mate-av{width:42px;height:42px;margin:0 auto 6px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:14px;}
+.mate-name{font-size:11px;color:var(--ink);font-weight:500;margin-bottom:2px;}
+.mate-status{font-size:10px;color:var(--success);font-weight:600;}
+.mate-status.pending{color:var(--ink-4);}
+
+/* Chapter grid */
+.chapter-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;}
+.chapter-card{background:var(--white);border:1px solid var(--border-light);border-radius:16px;padding:14px 12px;position:relative;cursor:pointer;overflow:hidden;}
+.chapter-card:active{transform:scale(.97);}
+.chapter-card.current{border:2px solid var(--primary);box-shadow:0 4px 14px rgba(59,130,246,.15);background:linear-gradient(135deg,#FFFFFF,#EFF6FF);}
+.chapter-card.completed::after{content:'✓';position:absolute;top:8px;right:8px;width:18px;height:18px;background:var(--success);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;}
+.chapter-card.locked{opacity:.55;background:var(--bg);}
+.chapter-card.locked .chapter-icon{filter:grayscale(1);}
+.chapter-num{font-family:'Ma Shan Zheng',cursive;font-size:13px;color:var(--ink-4);letter-spacing:1px;margin-bottom:3px;}
+.chapter-card.current .chapter-num{color:var(--primary);}
+.chapter-icon{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:8px;}
+.chapter-card:nth-child(1) .chapter-icon{background:var(--pink-light);}
+.chapter-card:nth-child(2) .chapter-icon{background:var(--accent-light);}
+.chapter-card:nth-child(3) .chapter-icon{background:var(--primary-light);}
+.chapter-card:nth-child(4) .chapter-icon{background:var(--success-light);}
+.chapter-card:nth-child(5) .chapter-icon{background:var(--purple-light);}
+.chapter-card:nth-child(6) .chapter-icon{background:#FEE2E2;}
+.chapter-card:nth-child(7) .chapter-icon{background:#FEF3C7;}
+.chapter-card:nth-child(8) .chapter-icon{background:#DBEAFE;}
+.chapter-card:nth-child(9) .chapter-icon{background:#D1FAE5;}
+.chapter-card:nth-child(10) .chapter-icon{background:#FCE7F3;}
+.chapter-name{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:5px;}
+.chapter-stats{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--ink-3);}
+.chapter-mini-bar{width:22px;height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-right:3px;}
+.chapter-mini-bar-fill{height:100%;border-radius:2px;}
+
+/* Bottom nav */
+.bottom-nav{position:absolute;bottom:0;left:0;right:0;background:var(--white);border-top:1px solid var(--border-light);display:flex;padding:8px 0 20px;z-index:20;box-shadow:0 -2px 10px rgba(0,0,0,.04);}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--ink-4);cursor:pointer;padding:6px 0;}
+.nav-item.active{color:var(--primary);}
+.nav-icon{font-size:22px;}
+
+/* ═════════ CLASS PAGE (navigation tab) ═════════ */
+.class-page{background:var(--bg);}
+.class-page-header{flex-shrink:0;padding:18px 20px 14px;background:var(--white);border-bottom:1px solid var(--border-light);}
+.cp-title{font-size:18px;font-weight:700;color:var(--ink);}
+.cp-body{flex:1;overflow-y:auto;padding:16px 16px 96px;scrollbar-width:none;}
+.cp-body::-webkit-scrollbar{display:none;}
+
+.cp-class-card{background:linear-gradient(135deg,var(--purple),var(--purple-dark));color:#fff;border-radius:18px;padding:20px;margin-bottom:16px;position:relative;overflow:hidden;}
+.cp-class-card::before{content:'';position:absolute;right:-30px;top:-30px;width:140px;height:140px;background:radial-gradient(circle,rgba(255,255,255,.15),transparent 70%);border-radius:50%;}
+.cp-class-name{font-family:'Noto Serif SC',serif;font-size:22px;font-weight:700;letter-spacing:2px;margin-bottom:4px;position:relative;z-index:1;}
+.cp-class-sub{font-size:12px;opacity:.85;margin-bottom:14px;position:relative;z-index:1;}
+.cp-stats{display:flex;gap:20px;position:relative;z-index:1;}
+.cp-stat{display:flex;flex-direction:column;gap:2px;}
+.cp-stat-n{font-size:22px;font-weight:700;}
+.cp-stat-l{font-size:10px;opacity:.85;}
+
+.notice-card{background:var(--white);border-radius:16px;padding:16px;margin-bottom:16px;border-left:4px solid var(--accent);box-shadow:var(--shadow-sm);}
+.notice-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.notice-badge{font-size:10px;color:var(--accent);background:var(--accent-light);padding:3px 8px;border-radius:20px;font-weight:600;}
+.notice-time{font-size:10px;color:var(--ink-4);margin-left:auto;}
+.notice-title{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:4px;}
+.notice-body{font-size:12px;color:var(--ink-3);line-height:1.7;}
+
+.sub-section-title{font-size:13px;font-weight:700;color:var(--ink-2);margin:14px 4px 10px;letter-spacing:1px;}
+
+.classmate-list{background:var(--white);border-radius:16px;padding:4px 0;border:1px solid var(--border-light);margin-bottom:16px;}
+.cm-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border-light);cursor:pointer;}
+.cm-item:last-child{border-bottom:none;}
+.cm-rank{width:24px;font-size:13px;font-weight:700;color:var(--ink-3);flex-shrink:0;text-align:center;}
+.cm-rank.gold{color:#F59E0B;font-size:16px;}
+.cm-rank.silver{color:#9CA3AF;font-size:16px;}
+.cm-rank.bronze{color:#D97706;font-size:16px;}
+.cm-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:13px;flex-shrink:0;}
+.cm-info{flex:1;}
+.cm-name{font-size:13px;font-weight:600;color:var(--ink);}
+.cm-extra{font-size:10px;color:var(--ink-3);margin-top:2px;}
+.cm-score{font-size:12px;font-weight:700;color:var(--primary);}
+.cm-score-l{font-size:9px;color:var(--ink-4);font-weight:400;}
+.cm-tag-me{background:var(--primary-pale);}
+
+/* ═════════ QUIZ ═════════ */
+.quiz-header{flex-shrink:0;padding:8px 16px 12px;display:flex;align-items:center;gap:12px;background:var(--white);border-bottom:1px solid var(--border-light);}
+.quiz-close{width:32px;height:32px;border:none;background:transparent;font-size:24px;color:var(--ink-3);cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.progress-bar{flex:1;height:10px;background:var(--border);border-radius:5px;overflow:hidden;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--purple));border-radius:5px;width:0;transition:width .5s cubic-bezier(.4,0,.2,1);}
+.heart-count{display:flex;align-items:center;gap:3px;font-size:13px;font-weight:600;color:var(--ink);}
+.quiz-body{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 20px 20px;scrollbar-width:none;}
+.quiz-body::-webkit-scrollbar{display:none;}
+.quiz-type-label{display:inline-block;background:var(--primary-light);color:var(--primary-dark);font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;letter-spacing:1px;margin-bottom:14px;}
+.quiz-question-text{font-size:19px;font-weight:600;color:var(--ink);line-height:1.6;margin-bottom:18px;font-family:'Noto Serif SC',serif;}
+
+.choices{display:flex;flex-direction:column;gap:10px;}
+.choice-btn{width:100%;background:var(--white);border:2px solid var(--border);border-radius:14px;padding:14px 16px;font-size:15px;color:var(--ink);cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;transition:all .15s;font-family:inherit;box-shadow:0 3px 0 var(--border);}
+.choice-btn:active:not(.disabled){transform:translateY(1px);box-shadow:0 2px 0 var(--border);}
+.choice-btn.selected{border-color:var(--primary);background:var(--primary-pale);box-shadow:0 3px 0 var(--primary);}
+.choice-btn.correct{border-color:var(--success);background:var(--success-light);box-shadow:0 3px 0 var(--success);}
+.choice-btn.wrong{border-color:var(--error);background:var(--error-light);box-shadow:0 3px 0 var(--error);animation:shake .4s;}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-5px);}75%{transform:translateX(5px);}}
+.choice-letter{width:28px;height:28px;border:1.5px solid var(--ink-4);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--ink-3);flex-shrink:0;}
+.choice-btn.selected .choice-letter{border-color:var(--primary);background:var(--primary);color:#fff;}
+.choice-btn.correct .choice-letter{border-color:var(--success);background:var(--success);color:#fff;}
+.choice-btn.wrong .choice-letter{border-color:var(--error);background:var(--error);color:#fff;}
+
+.verse-card{background:linear-gradient(135deg,#FFFBEB,#FEF3C7);border:1px solid rgba(245,158,11,.2);border-radius:16px;padding:20px;margin-bottom:16px;text-align:center;}
+.verse-text{font-family:'Noto Serif SC',serif;font-size:17px;font-weight:500;color:var(--ink);line-height:2.2;letter-spacing:2px;}
+.verse-blank{display:inline-block;min-width:64px;background:var(--white);border-bottom:2px dashed var(--accent);margin:0 4px;padding:3px 10px;color:var(--ink);border-radius:4px;min-height:28px;vertical-align:middle;}
+.verse-blank.filled{background:var(--accent-light);border-bottom-style:solid;color:var(--accent);font-weight:700;}
+.verse-source{margin-top:10px;font-size:11px;color:#92400E;padding-top:10px;border-top:1px dashed rgba(180,83,9,.2);}
+.word-bank{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:16px;}
+.word-chip{padding:8px 16px;background:var(--white);border:2px solid var(--border);border-radius:20px;font-size:14px;font-weight:500;color:var(--ink);cursor:pointer;box-shadow:0 2px 0 var(--border);font-family:inherit;}
+.word-chip:active:not(.used){transform:translateY(1px);box-shadow:0 1px 0 var(--border);}
+.word-chip.used{opacity:.25;cursor:default;background:var(--bg-2);}
+
+.img-question{background:var(--white);border:1px solid var(--border-light);border-radius:16px;padding:20px;margin-bottom:16px;text-align:center;}
+.img-placeholder{width:100%;height:180px;background:linear-gradient(135deg,#FEF3C7,#FDE68A);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;position:relative;overflow:hidden;}
+.img-placeholder::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.5),transparent 60%);}
+.img-placeholder-icon{font-size:80px;position:relative;z-index:1;}
+.img-caption{font-size:12px;color:var(--ink-3);font-style:italic;}
+
+.listen-card{background:linear-gradient(135deg,var(--primary-light),#CFE3FD);border-radius:16px;padding:28px 20px;margin-bottom:16px;text-align:center;}
+.listen-play-btn{width:72px;height:72px;background:var(--primary);color:#fff;border:none;border-radius:50%;font-size:30px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;cursor:pointer;box-shadow:0 6px 16px rgba(59,130,246,.4);font-family:inherit;}
+.listen-play-btn:active{transform:scale(.95);}
+.listen-play-btn.playing{animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 6px 16px rgba(59,130,246,.4);}50%{box-shadow:0 6px 24px rgba(59,130,246,.7);}}
+.listen-wave{display:flex;justify-content:center;gap:3px;align-items:center;height:30px;margin-bottom:6px;}
+.wave-bar{width:3px;background:var(--primary);border-radius:2px;animation:wave 1s infinite ease-in-out;}
+.wave-bar:nth-child(1){animation-delay:0s;height:10px;}
+.wave-bar:nth-child(2){animation-delay:.1s;height:20px;}
+.wave-bar:nth-child(3){animation-delay:.2s;height:28px;}
+.wave-bar:nth-child(4){animation-delay:.3s;height:18px;}
+.wave-bar:nth-child(5){animation-delay:.4s;height:24px;}
+.wave-bar:nth-child(6){animation-delay:.5s;height:12px;}
+.wave-bar:nth-child(7){animation-delay:.6s;height:20px;}
+@keyframes wave{0%,100%{transform:scaleY(.5);}50%{transform:scaleY(1);}}
+.listen-tip{font-size:12px;color:var(--primary-dark);font-weight:500;}
+
+.sort-hint{font-size:12px;color:var(--ink-3);margin-bottom:12px;padding:8px 12px;background:var(--primary-pale);border-radius:8px;border-left:3px solid var(--primary);}
+.sort-items{display:flex;flex-direction:column;gap:10px;}
+.sort-item{background:var(--white);border:2px solid var(--border);border-radius:12px;padding:14px 14px;display:flex;align-items:center;gap:12px;cursor:pointer;box-shadow:0 2px 0 var(--border);font-size:14px;}
+.sort-item.selected{border-color:var(--accent);background:var(--accent-pale);box-shadow:0 2px 0 var(--accent);}
+.sort-num{width:28px;height:28px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+.sort-num.empty{background:var(--bg-2);color:var(--ink-4);}
+.sort-content{flex:1;color:var(--ink);}
+.sort-handle{color:var(--ink-4);font-size:16px;}
+
+.match-wrapper{background:var(--white);border-radius:16px;padding:16px;border:1px solid var(--border-light);}
+.match-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.match-col{display:flex;flex-direction:column;gap:10px;}
+.match-item{background:var(--white);border:2px solid var(--border);border-radius:10px;padding:12px 10px;font-size:13px;color:var(--ink);text-align:center;cursor:pointer;box-shadow:0 2px 0 var(--border);font-family:inherit;}
+.match-item.selected{border-color:var(--primary);background:var(--primary-pale);box-shadow:0 2px 0 var(--primary);}
+.match-item.matched{opacity:.4;background:var(--success-light);border-color:var(--success);cursor:default;box-shadow:none;}
+.match-item.wrong{border-color:var(--error);background:var(--error-light);animation:shake .4s;}
+
+.quiz-footer{flex-shrink:0;background:var(--white);border-top:1px solid var(--border-light);padding:14px 20px 20px;}
+.feedback-panel{display:none;padding:12px 14px;border-radius:12px;margin-bottom:12px;}
+.feedback-panel.show{display:block;animation:slideUp .3s;}
+@keyframes slideUp{from{transform:translateY(8px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.fb-correct{background:var(--success-light);border-left:3px solid var(--success);}
+.fb-wrong{background:var(--error-light);border-left:3px solid var(--error);}
+.fb-title{font-size:13px;font-weight:700;margin-bottom:2px;}
+.fb-correct .fb-title{color:var(--success-dark);}
+.fb-wrong .fb-title{color:var(--error-dark);}
+.fb-text{font-size:12px;color:var(--ink-2);line-height:1.6;}
+.fb-source{margin-top:6px;padding-top:6px;border-top:1px dashed currentColor;opacity:.7;font-size:10px;}
+
+.submit-btn{width:100%;padding:14px;background:var(--border);color:var(--ink-4);border:none;border-radius:14px;font-size:15px;font-weight:700;letter-spacing:2px;cursor:not-allowed;box-shadow:0 4px 0 rgba(0,0,0,.08);font-family:inherit;}
+.submit-btn.ready{background:var(--primary);color:#fff;cursor:pointer;box-shadow:0 4px 0 var(--primary-dark);}
+.submit-btn.ready:active{transform:translateY(2px);box-shadow:0 2px 0 var(--primary-dark);}
+.submit-btn.next{background:var(--success);color:#fff;cursor:pointer;box-shadow:0 4px 0 var(--success-dark);}
+.submit-btn.next:active{transform:translateY(2px);box-shadow:0 2px 0 var(--success-dark);}
+
+.complete-page{background:linear-gradient(180deg,#FFF7E0 0%,#FFFFFF 60%);align-items:center;padding:40px 28px 32px;}
+.complete-hero{width:180px;height:180px;margin:16px 0 16px;animation:bounce .8s cubic-bezier(.34,1.56,.64,1);position:relative;}
+@keyframes bounce{from{transform:scale(0);}80%{transform:scale(1.1);}to{transform:scale(1);}}
+.hero-circle{width:100%;height:100%;background:linear-gradient(135deg,#FEF3C7,#FDE68A);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:90px;box-shadow:0 10px 40px rgba(245,158,11,.3);position:relative;}
+.hero-circle::before{content:'';position:absolute;inset:-8px;border:4px solid var(--accent);border-radius:50%;border-style:dashed;animation:spin 20s linear infinite;opacity:.3;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.complete-title{font-family:'Noto Serif SC',serif;font-size:28px;font-weight:700;color:var(--ink);letter-spacing:4px;}
+.complete-sub{font-size:13px;color:var(--ink-3);margin:4px 0 20px;letter-spacing:2px;}
+.stats-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;margin-bottom:16px;}
+.stat-mini{background:var(--white);border:1px solid var(--border-light);border-radius:14px;padding:14px 8px;text-align:center;box-shadow:var(--shadow-sm);}
+.stat-mini-n{font-size:22px;font-weight:700;line-height:1;margin-bottom:4px;}
+.stat-mini:nth-child(1) .stat-mini-n{color:var(--success);}
+.stat-mini:nth-child(2) .stat-mini-n{color:var(--accent);}
+.stat-mini:nth-child(3) .stat-mini-n{color:var(--primary);}
+.stat-mini-l{font-size:10px;color:var(--ink-3);}
+.streak-big-card{width:100%;background:linear-gradient(135deg,#FFF7E0,#FEF3C7);border:2px solid rgba(245,158,11,.3);border-radius:18px;padding:18px;text-align:center;margin-bottom:auto;}
+.flame-big{font-size:44px;margin-bottom:4px;}
+.streak-big-num{font-size:32px;font-weight:700;color:var(--ink);line-height:1;}
+.streak-big-label{font-size:12px;color:var(--ink-3);margin:4px 0 10px;letter-spacing:2px;}
+.streak-tip{font-size:12px;color:#92400E;padding:8px 12px;background:rgba(255,255,255,.6);border-radius:8px;line-height:1.6;}
+.complete-actions{width:100%;display:flex;flex-direction:column;gap:10px;margin-top:14px;}
+.complete-btn-primary{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 0 var(--primary-dark);font-family:inherit;}
+.complete-btn-primary:active{transform:translateY(2px);box-shadow:0 2px 0 var(--primary-dark);}
+.complete-btn-ghost{width:100%;padding:10px;background:transparent;color:var(--ink-3);border:none;font-size:13px;font-family:inherit;cursor:pointer;}
+.confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.confetti-piece{position:absolute;font-size:20px;animation:fall 3s ease-in forwards;}
+@keyframes fall{0%{transform:translateY(-20px) rotate(0);opacity:1;}100%{transform:translateY(600px) rotate(720deg);opacity:0;}}
+
+.toast{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:10px 18px;border-radius:20px;font-size:12px;z-index:100;animation:toastIn .3s;}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,10px);}to{opacity:1;transform:translate(-50%,0);}}
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+  <div class="screen">
+
+    <!-- WELCOME -->
+    <div class="page welcome-page active" id="page-welcome">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="welcome-illustr">
+        <svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="120" cy="120" r="100" fill="#DBEAFE" opacity="0.5"/>
+          <circle cx="120" cy="120" r="80" fill="#EFF6FF"/>
+          <g opacity="0.4">
+            <rect x="118" y="20" width="4" height="16" rx="2" fill="#F59E0B"/>
+            <rect x="118" y="204" width="4" height="16" rx="2" fill="#F59E0B"/>
+            <rect x="20" y="118" width="16" height="4" rx="2" fill="#F59E0B"/>
+            <rect x="204" y="118" width="16" height="4" rx="2" fill="#F59E0B"/>
+          </g>
+          <ellipse cx="120" cy="175" rx="55" ry="10" fill="#F472B6" opacity="0.3"/>
+          <path d="M 70 175 Q 85 155, 120 155 Q 155 155, 170 175 Z" fill="#F9A8D4"/>
+          <path d="M 95 150 Q 95 115, 120 115 Q 145 115, 145 150 Z" fill="#8B5CF6"/>
+          <ellipse cx="120" cy="115" rx="27" ry="10" fill="#7C3AED"/>
+          <circle cx="120" cy="92" r="18" fill="#FDE68A"/>
+          <path d="M 103 90 Q 103 70, 120 70 Q 137 70, 137 90 Z" fill="#3730A3"/>
+          <circle cx="120" cy="66" r="4" fill="#F59E0B"/>
+          <ellipse cx="113" cy="94" rx="2" ry="1" fill="#1F2937"/>
+          <ellipse cx="127" cy="94" rx="2" ry="1" fill="#1F2937"/>
+          <path d="M 115 100 Q 120 103, 125 100" stroke="#B91C1C" stroke-width="1.5" fill="none"/>
+          <circle cx="120" cy="84" r="2" fill="#EF4444"/>
+          <ellipse cx="120" cy="150" rx="14" ry="6" fill="#FDE68A"/>
+        </svg>
+      </div>
+      <div class="welcome-brand">
+        <div class="brand-logo">☸</div>
+        <div class="brand-name">觉学</div>
+      </div>
+      <div class="brand-tag">与道友共学 · 系统修习佛法</div>
+      <div class="welcome-features">
+        <div class="feature-item">
+          <div class="feature-icon c1">🏫</div>
+          <div class="feature-text">
+            <div class="feature-title">加入共修班级</div>
+            <div class="feature-desc">跟随班级进度，与道友同行修学</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon c2">📖</div>
+          <div class="feature-text">
+            <div class="feature-title">系统课程 · 藏传次第</div>
+            <div class="feature-desc">班级绑定课程，循序渐进不偏</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon c3">🌱</div>
+          <div class="feature-text">
+            <div class="feature-title">科学复习 · 每日精进</div>
+            <div class="feature-desc">间隔重复算法助你牢记佛法</div>
+          </div>
+        </div>
+      </div>
+      <button class="welcome-cta" data-go="join">加入班级 · 开始修学</button>
+      <div class="welcome-hint" data-go="home">自由学习模式 →</div>
+    </div>
+
+    <!-- JOIN CLASS -->
+    <div class="page join-page" id="page-join">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="join-header">
+        <button class="back-btn" data-go="welcome">‹</button>
+        <div class="page-title-wrap">
+          <div class="page-title">加入班级</div>
+        </div>
+      </div>
+      <div class="join-body">
+        <div class="join-illustr">
+          <svg viewBox="0 0 200 150" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="100" cy="130" rx="70" ry="8" fill="#000" opacity="0.08"/>
+            <rect x="40" y="40" width="120" height="80" rx="14" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="2"/>
+            <rect x="40" y="40" width="120" height="24" rx="14" fill="#8B5CF6"/>
+            <rect x="40" y="56" width="120" height="8" fill="#8B5CF6"/>
+            <circle cx="70" cy="52" r="4" fill="#FFFFFF" opacity="0.6"/>
+            <circle cx="85" cy="52" r="4" fill="#FFFFFF" opacity="0.6"/>
+            <circle cx="100" cy="52" r="4" fill="#FFFFFF" opacity="0.6"/>
+            <rect x="55" y="78" width="90" height="6" rx="3" fill="#DBEAFE"/>
+            <rect x="55" y="90" width="70" height="6" rx="3" fill="#F3F4F6"/>
+            <rect x="55" y="102" width="50" height="6" rx="3" fill="#F3F4F6"/>
+            <circle cx="160" cy="40" r="20" fill="#F59E0B"/>
+            <text x="160" y="47" text-anchor="middle" font-size="20" fill="#FFFFFF" font-weight="bold">✓</text>
+          </svg>
+        </div>
+        <div class="join-intro">
+          <h2>输入班级邀请码</h2>
+          <p>从您的辅导员处获取 6 位数班级码<br>加入后可与同班道友一起修学</p>
+        </div>
+
+        <div class="code-input-wrap">
+          <div class="code-label">请输入 6 位班级码</div>
+          <div class="code-input" id="codeInput">
+            <div class="code-box" data-idx="0">-</div>
+            <div class="code-box" data-idx="1">-</div>
+            <div class="code-box" data-idx="2">-</div>
+            <div class="code-box" data-idx="3">-</div>
+            <div class="code-box" data-idx="4">-</div>
+            <div class="code-box" data-idx="5">-</div>
+          </div>
+          <div class="code-actions">
+            <button class="code-btn" data-action="demo">试用示例码</button>
+            <button class="code-btn primary" data-go="class-detail">确认加入</button>
+          </div>
+        </div>
+
+        <div class="divider-or">或者</div>
+
+        <div class="scan-card" data-toast="请在真实设备上使用相机扫码">
+          <div class="scan-icon">📷</div>
+          <div class="scan-info">
+            <h3>扫描班级二维码</h3>
+            <p>辅导员分享的班级二维码</p>
+          </div>
+        </div>
+
+        <div class="free-mode" data-go="home">
+          暂不加入班级 · 使用自由学习模式
+        </div>
+      </div>
+    </div>
+
+    <!-- CLASS DETAIL (preview before joining) -->
+    <div class="page class-detail-page" id="page-class-detail">
+      <div class="status-bar" style="color:#fff;"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="cd-hero">
+        <div class="cd-hero-top">
+          <button class="cd-back" data-go="join">‹</button>
+          <div class="cd-title">班级详情</div>
+          <button class="cd-share" data-toast="分享班级链接">↗</button>
+        </div>
+        <div class="cd-hero-main">
+          <div class="cd-class-name">入行论导修班</div>
+          <div class="cd-class-sub">五明佛学院 · 慧光道场 · 2025 年春季</div>
+          <div class="cd-meta-row">
+            <div class="cd-meta">👥 48 位道友</div>
+            <div class="cd-meta">📅 100 天</div>
+            <div class="cd-meta">🏫 第 23 期</div>
+          </div>
+        </div>
+      </div>
+      <div class="cd-body">
+        <div class="class-info-card">
+          <div class="cic-head">
+            <div class="cic-title">班级信息</div>
+            <div class="cic-badge">正在招募</div>
+          </div>
+          <div class="cic-rows">
+            <div class="cic-row">
+              <div class="cic-row-icon">👨‍🏫</div>
+              <div class="cic-row-label">辅导员</div>
+              <div class="cic-row-val">扎西仁波切</div>
+            </div>
+            <div class="cic-row">
+              <div class="cic-row-icon">📚</div>
+              <div class="cic-row-label">课程</div>
+              <div class="cic-row-val">《入菩萨行论》全十品</div>
+            </div>
+            <div class="cic-row">
+              <div class="cic-row-icon">🕐</div>
+              <div class="cic-row-label">共修时间</div>
+              <div class="cic-row-val">每周二、五晚 20:00</div>
+            </div>
+            <div class="cic-row">
+              <div class="cic-row-icon">📝</div>
+              <div class="cic-row-label">每日目标</div>
+              <div class="cic-row-val">10 题 · 约 15 分钟</div>
+            </div>
+            <div class="cic-row">
+              <div class="cic-row-icon">🗓️</div>
+              <div class="cic-row-label">开班日期</div>
+              <div class="cic-row-val">2025 年 2 月 1 日</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="schedule-card">
+          <div class="sc-head">
+            <div class="sc-title">近期学习计划</div>
+            <div class="sc-total">共 100 课</div>
+          </div>
+          <div class="sc-list">
+            <div class="sc-item completed">
+              <div class="sc-date">第 1 天</div>
+              <div class="sc-content">
+                菩提心利益品 · 导言
+                <div class="sc-content-sub">第 1-5 颂 · 礼敬皈依</div>
+              </div>
+              <div class="sc-status done">已完成</div>
+            </div>
+            <div class="sc-item completed">
+              <div class="sc-date">第 2 天</div>
+              <div class="sc-content">
+                菩提心利益品 · 暇满
+                <div class="sc-content-sub">第 6-10 颂 · 人身难得</div>
+              </div>
+              <div class="sc-status done">已完成</div>
+            </div>
+            <div class="sc-item current">
+              <div class="sc-date">今日 · 第 3 天</div>
+              <div class="sc-content">
+                受持菩提心品
+                <div class="sc-content-sub">第 11-18 颂 · 供养支</div>
+              </div>
+              <div class="sc-status active">进行中</div>
+            </div>
+            <div class="sc-item">
+              <div class="sc-date">明日</div>
+              <div class="sc-content">
+                受持菩提心品 · 续
+                <div class="sc-content-sub">第 19-25 颂 · 顶礼支</div>
+              </div>
+              <div class="sc-status future">未开始</div>
+            </div>
+            <div class="sc-item">
+              <div class="sc-date">第 5 天</div>
+              <div class="sc-content">
+                周五共修日
+                <div class="sc-content-sub">视频直播 · 辅导员答疑</div>
+              </div>
+              <div class="sc-status future">未开始</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="join-class-btn" data-go="home">✓ 加入班级 · 同步到我的账号</button>
+      </div>
+    </div>
+
+    <!-- HOME (with class info) -->
+    <div class="page" id="page-home">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="home-header">
+        <div class="home-top-row">
+          <div class="user-compact">
+            <div class="user-av">慧</div>
+            <div class="user-meta">
+              <div class="user-n">慧行</div>
+              <div class="user-l">入行论导修班 · 第 3 天</div>
+            </div>
+          </div>
+          <div class="home-badges">
+            <div class="badge flame">🔥 3</div>
+            <div class="badge gem">💎 128</div>
+          </div>
+        </div>
+        <div class="class-banner" data-nav="class">
+          <div class="cb-icon">🏫</div>
+          <div class="cb-info">
+            <div class="cb-title">入行论导修班 · 第 23 期</div>
+            <div class="cb-sub">48 位道友同修 · 辅导员 扎西仁波切</div>
+          </div>
+          <div class="cb-arrow">›</div>
+        </div>
+      </div>
+      <div class="home-content">
+        <div class="today-card">
+          <div class="today-top">
+            <div class="today-label">📅 今日课程</div>
+            <div class="today-date">第 3 天 · 2 月 3 日</div>
+          </div>
+          <div class="today-title-big">受持菩提心品 · 供养支</div>
+          <div class="today-verse">第 11-18 颂 · 为持珍宝心 我今修供养</div>
+          <div class="today-progress">
+            <div class="today-bar"><div class="today-bar-fill"></div></div>
+            <div class="today-pct">3/10</div>
+          </div>
+          <button class="today-cta" data-quiz="0">继续今日学习</button>
+        </div>
+
+        <div class="quick-actions">
+          <div class="qa-card qa-1" data-toast="复习模式 · 20 题到期">
+            <div class="qa-icon">🔄</div>
+            <div class="qa-label">今日复习</div>
+            <div class="qa-count">20 题到期</div>
+          </div>
+          <div class="qa-card qa-2" data-toast="错题本 · 5 题待攻克">
+            <div class="qa-icon">📝</div>
+            <div class="qa-label">错题本</div>
+            <div class="qa-count">5 题待攻</div>
+          </div>
+          <div class="qa-card qa-3" data-toast="收藏 · 12 颂经文">
+            <div class="qa-icon">⭐</div>
+            <div class="qa-label">收藏颂文</div>
+            <div class="qa-count">12 颂</div>
+          </div>
+        </div>
+
+        <div class="section-heading">
+          <div class="section-title-big">👥 今日同修</div>
+          <div class="section-more" data-nav="class">查看全部 ›</div>
+        </div>
+        <div class="classmates-row">
+          <div class="mate-card">
+            <div class="mate-av" style="background:#F59E0B;">扎</div>
+            <div class="mate-name">扎西</div>
+            <div class="mate-status">已完成</div>
+          </div>
+          <div class="mate-card">
+            <div class="mate-av" style="background:#EC4899;">卓</div>
+            <div class="mate-name">卓玛</div>
+            <div class="mate-status">已完成</div>
+          </div>
+          <div class="mate-card">
+            <div class="mate-av" style="background:#8B5CF6;">次</div>
+            <div class="mate-name">次仁</div>
+            <div class="mate-status">已完成</div>
+          </div>
+          <div class="mate-card">
+            <div class="mate-av" style="background:#10B981;">央</div>
+            <div class="mate-name">央金</div>
+            <div class="mate-status pending">进行中</div>
+          </div>
+          <div class="mate-card">
+            <div class="mate-av" style="background:#3B82F6;">丹</div>
+            <div class="mate-name">丹增</div>
+            <div class="mate-status pending">未开始</div>
+          </div>
+          <div class="mate-card">
+            <div class="mate-av" style="background:#EF4444;">索</div>
+            <div class="mate-name">索朗</div>
+            <div class="mate-status pending">未开始</div>
+          </div>
+        </div>
+
+        <div class="section-heading">
+          <div class="section-title-big">📖 全品目录</div>
+          <div class="section-more">自由浏览 ›</div>
+        </div>
+        <div class="chapter-grid">
+          <div class="chapter-card completed" data-toast="菩提心利益品已圆满">
+            <div class="chapter-num">第一品</div>
+            <div class="chapter-icon">🌸</div>
+            <div class="chapter-name">菩提心利益</div>
+            <div class="chapter-stats">
+              <div class="chapter-mini-bar"><div class="chapter-mini-bar-fill" style="width:100%;background:#10B981;"></div></div>
+              <span>28/28</span>
+            </div>
+          </div>
+          <div class="chapter-card completed" data-toast="忏悔罪业品已圆满">
+            <div class="chapter-num">第二品</div>
+            <div class="chapter-icon">💧</div>
+            <div class="chapter-name">忏悔罪业</div>
+            <div class="chapter-stats">
+              <div class="chapter-mini-bar"><div class="chapter-mini-bar-fill" style="width:100%;background:#10B981;"></div></div>
+              <span>32/32</span>
+            </div>
+          </div>
+          <div class="chapter-card current" data-quiz="0">
+            <div class="chapter-num">第三品</div>
+            <div class="chapter-icon">📿</div>
+            <div class="chapter-name">受持菩提心</div>
+            <div class="chapter-stats">
+              <div class="chapter-mini-bar"><div class="chapter-mini-bar-fill" style="width:40%;background:#3B82F6;"></div></div>
+              <span>12/30</span>
+            </div>
+          </div>
+          <div class="chapter-card locked" data-toast="班级进度：第 15 天开放">
+            <div class="chapter-num">第四品</div>
+            <div class="chapter-icon">🔒</div>
+            <div class="chapter-name">不放逸</div>
+            <div class="chapter-stats">
+              <div class="chapter-mini-bar"><div class="chapter-mini-bar-fill" style="width:0;"></div></div>
+              <span>0/26</span>
+            </div>
+          </div>
+          <div class="chapter-card locked" data-toast="班级进度未开放">
+            <div class="chapter-num">第五品</div>
+            <div class="chapter-icon">🔒</div>
+            <div class="chapter-name">护正知</div>
+            <div class="chapter-stats">
+              <div class="chapter-mini-bar"><div class="chapter-mini-bar-fill" style="width:0;"></div></div>
+              <span>0/108</span>
+            </div>
+          </div>
+          <div class="chapter-card locked" data-toast="班级进度未开放">
+            <div class="chapter-num">第六品</div>
+            <div class="chapter-icon">🔒</div>
+            <div class="chapter-name">安忍</div>
+            <div class="chapter-stats">
+              <div class="chapter-mini-bar"><div class="chapter-mini-bar-fill" style="width:0;"></div></div>
+              <span>0/134</span>
+            </div>
+          </div>
+          <div class="chapter-card locked" data-toast="班级进度未开放">
+            <div class="chapter-num">第七品</div>
+            <div class="chapter-icon">🔒</div>
+            <div class="chapter-name">精进</div>
+            <div class="chapter-stats">
+              <div class="chapter-mini-bar"><div class="chapter-mini-bar-fill" style="width:0;"></div></div>
+              <span>0/76</span>
+            </div>
+          </div>
+          <div class="chapter-card locked" data-toast="班级进度未开放">
+            <div class="chapter-num">第八品</div>
+            <div class="chapter-icon">🔒</div>
+            <div class="chapter-name">静虑</div>
+            <div class="chapter-stats">
+              <div class="chapter-mini-bar"><div class="chapter-mini-bar-fill" style="width:0;"></div></div>
+              <span>0/186</span>
+            </div>
+          </div>
+          <div class="chapter-card locked" data-toast="班级进度未开放">
+            <div class="chapter-num">第九品</div>
+            <div class="chapter-icon">🔒</div>
+            <div class="chapter-name">智慧</div>
+            <div class="chapter-stats">
+              <div class="chapter-mini-bar"><div class="chapter-mini-bar-fill" style="width:0;"></div></div>
+              <span>0/167</span>
+            </div>
+          </div>
+          <div class="chapter-card locked" data-toast="班级进度未开放">
+            <div class="chapter-num">第十品</div>
+            <div class="chapter-icon">🔒</div>
+            <div class="chapter-name">回向</div>
+            <div class="chapter-stats">
+              <div class="chapter-mini-bar"><div class="chapter-mini-bar-fill" style="width:0;"></div></div>
+              <span>0/58</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item active" data-nav="home"><div class="nav-icon">📚</div><div>修学</div></div>
+        <div class="nav-item" data-toast="复习页开发中"><div class="nav-icon">🔄</div><div>复习</div></div>
+        <div class="nav-item" data-nav="class"><div class="nav-icon">🏫</div><div>班级</div></div>
+        <div class="nav-item" data-toast="进度页开发中"><div class="nav-icon">📊</div><div>进度</div></div>
+        <div class="nav-item" data-toast="个人中心开发中"><div class="nav-icon">👤</div><div>我的</div></div>
+      </div>
+    </div>
+
+    <!-- CLASS TAB PAGE -->
+    <div class="page class-page" id="page-class">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="class-page-header">
+        <div class="cp-title">我的班级</div>
+      </div>
+      <div class="cp-body">
+        <div class="cp-class-card">
+          <div class="cp-class-name">入行论导修班</div>
+          <div class="cp-class-sub">第 23 期 · 2025 春季 · 辅导员 扎西仁波切</div>
+          <div class="cp-stats">
+            <div class="cp-stat">
+              <div class="cp-stat-n">48</div>
+              <div class="cp-stat-l">班级人数</div>
+            </div>
+            <div class="cp-stat">
+              <div class="cp-stat-n">3/100</div>
+              <div class="cp-stat-l">当前进度</div>
+            </div>
+            <div class="cp-stat">
+              <div class="cp-stat-n">42</div>
+              <div class="cp-stat-l">今日已修</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="notice-card">
+          <div class="notice-head">
+            <div class="notice-badge">📢 班级公告</div>
+            <div class="notice-time">2 小时前</div>
+          </div>
+          <div class="notice-title">本周五 20:00 线上共修</div>
+          <div class="notice-body">
+            本周五晚 8 点准时开启共修，由扎西仁波切带领学习「供养支」。请提前完成本周学习任务，届时准时上线。请问法问题预先收集，将在共修后集中答疑。
+          </div>
+        </div>
+
+        <div class="sub-section-title">🏆 本周精进榜</div>
+        <div class="classmate-list">
+          <div class="cm-item">
+            <div class="cm-rank gold">🥇</div>
+            <div class="cm-av" style="background:#F59E0B;">扎</div>
+            <div class="cm-info">
+              <div class="cm-name">扎西</div>
+              <div class="cm-extra">连续 14 天 · 正确率 96%</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="cm-score">280</div>
+              <div class="cm-score-l">功德</div>
+            </div>
+          </div>
+          <div class="cm-item">
+            <div class="cm-rank silver">🥈</div>
+            <div class="cm-av" style="background:#EC4899;">卓</div>
+            <div class="cm-info">
+              <div class="cm-name">卓玛</div>
+              <div class="cm-extra">连续 12 天 · 正确率 94%</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="cm-score">245</div>
+              <div class="cm-score-l">功德</div>
+            </div>
+          </div>
+          <div class="cm-item">
+            <div class="cm-rank bronze">🥉</div>
+            <div class="cm-av" style="background:#8B5CF6;">次</div>
+            <div class="cm-info">
+              <div class="cm-name">次仁</div>
+              <div class="cm-extra">连续 10 天 · 正确率 92%</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="cm-score">210</div>
+              <div class="cm-score-l">功德</div>
+            </div>
+          </div>
+          <div class="cm-item cm-tag-me">
+            <div class="cm-rank">12</div>
+            <div class="cm-av" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6);">慧</div>
+            <div class="cm-info">
+              <div class="cm-name">慧行（我）</div>
+              <div class="cm-extra">连续 3 天 · 正确率 83%</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="cm-score">128</div>
+              <div class="cm-score-l">功德</div>
+            </div>
+          </div>
+          <div class="cm-item">
+            <div class="cm-rank">13</div>
+            <div class="cm-av" style="background:#10B981;">央</div>
+            <div class="cm-info">
+              <div class="cm-name">央金</div>
+              <div class="cm-extra">连续 2 天 · 正确率 78%</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="cm-score">115</div>
+              <div class="cm-score-l">功德</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sub-section-title">📅 下一课</div>
+        <div class="schedule-card" style="margin-bottom:8px;">
+          <div class="sc-list">
+            <div class="sc-item current">
+              <div class="sc-date">今日</div>
+              <div class="sc-content">
+                受持菩提心品 · 供养支
+                <div class="sc-content-sub">第 11-18 颂</div>
+              </div>
+              <div class="sc-status active">进行中</div>
+            </div>
+            <div class="sc-item">
+              <div class="sc-date">明日</div>
+              <div class="sc-content">
+                受持菩提心品 · 顶礼支
+                <div class="sc-content-sub">第 19-25 颂</div>
+              </div>
+              <div class="sc-status future">未开始</div>
+            </div>
+            <div class="sc-item">
+              <div class="sc-date">周五</div>
+              <div class="sc-content">
+                共修日 · 视频直播
+                <div class="sc-content-sub">20:00-21:30 · 扎西仁波切答疑</div>
+              </div>
+              <div class="sc-status future">未开始</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-nav">
+        <div class="nav-item" data-nav="home"><div class="nav-icon">📚</div><div>修学</div></div>
+        <div class="nav-item" data-toast="复习页开发中"><div class="nav-icon">🔄</div><div>复习</div></div>
+        <div class="nav-item active" data-nav="class"><div class="nav-icon">🏫</div><div>班级</div></div>
+        <div class="nav-item" data-toast="进度页开发中"><div class="nav-icon">📊</div><div>进度</div></div>
+        <div class="nav-item" data-toast="个人中心开发中"><div class="nav-icon">👤</div><div>我的</div></div>
+      </div>
+    </div>
+
+    <!-- QUIZ -->
+    <div class="page" id="page-quiz">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="quiz-header">
+        <button class="quiz-close" data-go="home">×</button>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="heart-count">💎 <span id="gemCount">128</span></div>
+      </div>
+      <div class="quiz-body" id="quizBody"></div>
+      <div class="quiz-footer">
+        <div class="feedback-panel fb-correct" id="fbCorrect">
+          <div class="fb-title">🌟 正确</div>
+          <div class="fb-text" id="fbCorrectText"></div>
+          <div class="fb-source" id="fbCorrectSource"></div>
+        </div>
+        <div class="feedback-panel fb-wrong" id="fbWrong">
+          <div class="fb-title">🌱 再参究</div>
+          <div class="fb-text" id="fbWrongText"></div>
+          <div class="fb-source" id="fbWrongSource"></div>
+        </div>
+        <button class="submit-btn" id="submitBtn">选择答案</button>
+      </div>
+    </div>
+
+    <!-- COMPLETE -->
+    <div class="page complete-page" id="page-complete">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="confetti" id="confetti"></div>
+      <div class="complete-hero"><div class="hero-circle">🪷</div></div>
+      <div class="complete-title">今日圆满</div>
+      <div class="complete-sub">第 3 天课程完成 · 功德 +30</div>
+      <div class="stats-cards">
+        <div class="stat-mini"><div class="stat-mini-n">5</div><div class="stat-mini-l">答对</div></div>
+        <div class="stat-mini"><div class="stat-mini-n">83%</div><div class="stat-mini-l">正确率</div></div>
+        <div class="stat-mini"><div class="stat-mini-n">6分</div><div class="stat-mini-l">用时</div></div>
+      </div>
+      <div class="streak-big-card">
+        <div class="flame-big">🔥</div>
+        <div class="streak-big-num">4</div>
+        <div class="streak-big-label">连续修行天数 · 班级第 12 名</div>
+        <div class="streak-tip">莫忘初心 · 明日继续与道友共修</div>
+      </div>
+      <div class="complete-actions">
+        <button class="complete-btn-primary" data-go="home">返回修学</button>
+        <button class="complete-btn-ghost" data-toast="已同步至班级动态">分享至班级动态 →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const quizData = [
+  {
+    type: 'single',
+    typeLabel: '单选题 · 第 3 天',
+    question: '《入菩萨行论》第三品「受持菩提心」主要修持什么？',
+    options: [
+      { text: '七支供养', correct: true },
+      { text: '十不善业', correct: false },
+      { text: '四圣谛', correct: false },
+      { text: '十二因缘', correct: false }
+    ],
+    correctText: '第三品核心为修持七支供养——礼敬、供养、忏悔、随喜、请转法轮、请佛住世、回向。',
+    wrongText: '正解：七支供养。第三品正是通过七支供养圆满积资净障，为受持菩提心做准备。',
+    source: '出处：《入菩萨行论》第三品 · 受持菩提心'
+  },
+  {
+    type: 'fill',
+    typeLabel: '填空题 · 第 3 天',
+    question: '补全颂词：',
+    verseLines: ['为持珍宝心', '我今___诸佛', '无垢妙法宝', '佛子功德海'],
+    verseSource: '《入菩萨行论》第三品 · 供养支',
+    correctWord: '供养',
+    options: ['供养', '礼敬', '皈依', '顶礼'],
+    correctText: '此颂为供养支开篇，寂天菩萨以珍宝之心，向三宝广修供养，为受持菩提心打下基础。',
+    wrongText: '正解：供养。此颂位于第三品供养支开篇，重点在「修供养」三字。',
+    source: '出处：《入菩萨行论》第三品第 2 颂'
+  },
+  {
+    type: 'image',
+    typeLabel: '佛像辨识 · 第 3 天',
+    question: '下图合十手印所对应的供养支是？',
+    imageEmoji: '🙏',
+    imageCaption: '双手于胸前合十',
+    options: [
+      { text: '礼敬支', correct: true },
+      { text: '供养支', correct: false },
+      { text: '随喜支', correct: false },
+      { text: '回向支', correct: false }
+    ],
+    correctText: '合十印对应礼敬支，是七支供养的第一支，表达对三宝的恭敬。',
+    wrongText: '正解：礼敬支。合十印是礼敬三宝的标志手印，列为七支供养之首。',
+    source: '出处：《入菩萨行论》第三品 · 七支供养'
+  },
+  {
+    type: 'listen',
+    typeLabel: '听颂选答 · 第 3 天',
+    question: '这段颂文属于七支供养中的哪一支？',
+    options: [
+      { text: '礼敬支', correct: false },
+      { text: '供养支', correct: false },
+      { text: '忏悔支', correct: true },
+      { text: '随喜支', correct: false }
+    ],
+    correctText: '此颂为忏悔支经典颂文，寂天菩萨在诸佛菩萨前至心忏悔无始以来造作的一切罪业。',
+    wrongText: '正解：忏悔支。这是第三品中忏悔支的代表颂文。',
+    source: '出处：《入菩萨行论》第三品 · 忏悔支'
+  },
+  {
+    type: 'sort',
+    typeLabel: '排序题 · 第 3 天',
+    question: '请按七支供养次第排列（部分）：',
+    items: [
+      { text: '礼敬支', order: 1 },
+      { text: '供养支', order: 2 },
+      { text: '忏悔支', order: 3 },
+      { text: '随喜支', order: 4 }
+    ],
+    correctText: '七支供养的次第不可颠倒：礼敬 → 供养 → 忏悔 → 随喜 → 请转法轮 → 请佛住世 → 回向。',
+    wrongText: '正解：礼敬 → 供养 → 忏悔 → 随喜。先礼敬后供养，忏罪净障方能随喜功德。',
+    source: '出处：《入菩萨行论》第三品 · 七支次第'
+  },
+  {
+    type: 'match',
+    typeLabel: '名相配对 · 第 3 天',
+    question: '将七支供养与其作用配对：',
+    left: [
+      { id: 'a', text: '礼敬支' },
+      { id: 'b', text: '供养支' },
+      { id: 'c', text: '忏悔支' },
+      { id: 'd', text: '随喜支' }
+    ],
+    right: [
+      { id: '1', text: '净除罪业', match: 'c' },
+      { id: '2', text: '积聚福德', match: 'b' },
+      { id: '3', text: '对治骄慢', match: 'a' },
+      { id: '4', text: '对治嫉妒', match: 'd' }
+    ],
+    correctText: '七支供养对治七种烦恼：礼敬对治骄慢，供养积福，忏悔净罪，随喜对治嫉妒。',
+    wrongText: '正解：礼敬=对治骄慢，供养=积聚福德，忏悔=净除罪业，随喜=对治嫉妒。',
+    source: '出处：《入菩萨行论》第三品 · 七支对治'
+  }
+];
+
+let currentQuiz = 0;
+let answered = false;
+let userAnswer = null;
+let sortOrder = [];
+let matchPairs = {};
+let currentLeft = null;
+let demoCodeIdx = 0;
+
+function goToPage(name) {
+  const pages = document.querySelectorAll('.page');
+  pages.forEach(function(p){ p.classList.remove('active'); });
+  const target = document.getElementById('page-' + name);
+  if (target) target.classList.add('active');
+  if (name === 'complete') spawnConfetti();
+  if (name === 'quiz') loadQuiz();
+}
+
+function goToQuiz(idx) {
+  currentQuiz = idx;
+  const pages = document.querySelectorAll('.page');
+  pages.forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('page-quiz').classList.add('active');
+  loadQuiz();
+}
+
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  document.querySelector('.screen').appendChild(toast);
+  setTimeout(function(){ toast.remove(); }, 1800);
+}
+
+function fillDemoCode() {
+  const demo = ['8','2','3','6','1','9'];
+  const boxes = document.querySelectorAll('.code-box');
+  demoCodeIdx = 0;
+  boxes.forEach(function(b){ b.textContent = '-'; b.classList.remove('filled'); });
+  function fill() {
+    if (demoCodeIdx >= demo.length) return;
+    boxes[demoCodeIdx].textContent = demo[demoCodeIdx];
+    boxes[demoCodeIdx].classList.add('filled');
+    demoCodeIdx++;
+    if (demoCodeIdx < demo.length) setTimeout(fill, 120);
+  }
+  fill();
+  setTimeout(function(){ showToast('示例码已填入'); }, 700);
+}
+
+function loadQuiz() {
+  const q = quizData[currentQuiz];
+  answered = false;
+  userAnswer = null;
+  sortOrder = [];
+  matchPairs = {};
+  currentLeft = null;
+
+  document.getElementById('progressFill').style.width = (((currentQuiz + 1) / quizData.length) * 100) + '%';
+  document.getElementById('fbCorrect').classList.remove('show');
+  document.getElementById('fbWrong').classList.remove('show');
+
+  const submit = document.getElementById('submitBtn');
+  submit.className = 'submit-btn';
+  submit.textContent = '选择答案';
+
+  const body = document.getElementById('quizBody');
+  body.innerHTML = '';
+
+  const label = document.createElement('div');
+  label.className = 'quiz-type-label';
+  label.textContent = q.typeLabel;
+  body.appendChild(label);
+
+  const qText = document.createElement('div');
+  qText.className = 'quiz-question-text';
+  qText.textContent = q.question;
+  body.appendChild(qText);
+
+  if (q.type === 'single') {
+    renderChoices(q, body);
+  } else if (q.type === 'image') {
+    renderImageBlock(q, body);
+    renderChoices(q, body);
+  } else if (q.type === 'listen') {
+    renderListenBlock(body);
+    renderChoices(q, body);
+  } else if (q.type === 'fill') {
+    renderFill(q, body);
+  } else if (q.type === 'sort') {
+    renderSort(q, body);
+  } else if (q.type === 'match') {
+    renderMatch(q, body);
+  }
+}
+
+function renderChoices(q, body) {
+  const wrap = document.createElement('div');
+  wrap.className = 'choices';
+  const letters = ['A', 'B', 'C', 'D'];
+  q.options.forEach(function(opt, i){
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.setAttribute('data-correct', opt.correct ? '1' : '0');
+    btn.innerHTML = '<div class="choice-letter">' + letters[i] + '</div><div>' + opt.text + '</div>';
+    btn.addEventListener('click', function(){ selectSingle(btn); });
+    wrap.appendChild(btn);
+  });
+  body.appendChild(wrap);
+}
+
+function selectSingle(btn) {
+  if (answered) return;
+  const all = document.querySelectorAll('.choice-btn');
+  all.forEach(function(b){ b.classList.remove('selected'); });
+  btn.classList.add('selected');
+  userAnswer = btn.getAttribute('data-correct') === '1';
+  setSubmitReady();
+}
+
+function renderImageBlock(q, body) {
+  const card = document.createElement('div');
+  card.className = 'img-question';
+  card.innerHTML = '<div class="img-placeholder"><div class="img-placeholder-icon">' + q.imageEmoji + '</div></div><div class="img-caption">' + q.imageCaption + '</div>';
+  body.appendChild(card);
+}
+
+function renderListenBlock(body) {
+  const card = document.createElement('div');
+  card.className = 'listen-card';
+  card.innerHTML = '<button class="listen-play-btn" id="playBtn">▶</button><div class="listen-wave"><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div></div><div class="listen-tip">点击播放颂文，可反复收听</div>';
+  body.appendChild(card);
+  const btn = card.querySelector('#playBtn');
+  btn.addEventListener('click', function(){
+    btn.classList.toggle('playing');
+    btn.textContent = btn.classList.contains('playing') ? '⏸' : '▶';
+  });
+}
+
+function renderFill(q, body) {
+  const verseCard = document.createElement('div');
+  verseCard.className = 'verse-card';
+  let verseHTML = '<div class="verse-text">';
+  q.verseLines.forEach(function(line){
+    if (line.indexOf('___') >= 0) {
+      verseHTML += line.replace('___', '<span class="verse-blank" id="blank0"></span>') + '<br>';
+    } else {
+      verseHTML += line + '<br>';
+    }
+  });
+  verseHTML += '</div><div class="verse-source">' + q.verseSource + '</div>';
+  verseCard.innerHTML = verseHTML;
+  body.appendChild(verseCard);
+
+  const bank = document.createElement('div');
+  bank.className = 'word-bank';
+  q.options.forEach(function(word){
+    const chip = document.createElement('button');
+    chip.className = 'word-chip';
+    chip.textContent = word;
+    chip.addEventListener('click', function(){ selectFill(chip, word, q.correctWord); });
+    bank.appendChild(chip);
+  });
+  body.appendChild(bank);
+}
+
+function selectFill(chip, word, correctWord) {
+  if (answered) return;
+  const allChips = document.querySelectorAll('.word-chip');
+  allChips.forEach(function(c){ c.classList.remove('used'); });
+  chip.classList.add('used');
+  const blank = document.getElementById('blank0');
+  blank.textContent = word;
+  blank.classList.add('filled');
+  userAnswer = word === correctWord;
+  setSubmitReady();
+}
+
+function renderSort(q, body) {
+  const hint = document.createElement('div');
+  hint.className = 'sort-hint';
+  hint.textContent = '点击题目按正确顺序排列 · 再次点击可取消';
+  body.appendChild(hint);
+
+  const items = document.createElement('div');
+  items.className = 'sort-items';
+
+  const shuffled = q.items.slice().sort(function(){ return Math.random() - 0.5; });
+  shuffled.forEach(function(item){
+    const div = document.createElement('div');
+    div.className = 'sort-item';
+    div.setAttribute('data-order', item.order);
+    div.innerHTML = '<div class="sort-num empty">-</div><div class="sort-content">' + item.text + '</div><div class="sort-handle">⋮⋮</div>';
+    div.addEventListener('click', function(){ toggleSort(div); });
+    items.appendChild(div);
+  });
+  body.appendChild(items);
+}
+
+function toggleSort(div) {
+  if (answered) return;
+  const idx = sortOrder.indexOf(div);
+  if (idx >= 0) {
+    sortOrder.splice(idx, 1);
+    div.classList.remove('selected');
+  } else {
+    sortOrder.push(div);
+    div.classList.add('selected');
+  }
+  const allItems = document.querySelectorAll('.sort-item');
+  allItems.forEach(function(item){
+    const n = item.querySelector('.sort-num');
+    const i = sortOrder.indexOf(item);
+    if (i >= 0) {
+      n.textContent = i + 1;
+      n.classList.remove('empty');
+    } else {
+      n.textContent = '-';
+      n.classList.add('empty');
+    }
+  });
+
+  const q = quizData[currentQuiz];
+  if (sortOrder.length === q.items.length) {
+    let correct = true;
+    for (let i = 0; i < sortOrder.length; i++) {
+      if (parseInt(sortOrder[i].getAttribute('data-order')) !== i + 1) {
+        correct = false;
+        break;
+      }
+    }
+    userAnswer = correct;
+    setSubmitReady();
+  } else {
+    const submit = document.getElementById('submitBtn');
+    submit.className = 'submit-btn';
+    submit.textContent = '已选 ' + sortOrder.length + '/' + q.items.length;
+  }
+}
+
+function renderMatch(q, body) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'match-wrapper';
+  wrapper.innerHTML = '<div class="match-grid"><div class="match-col" id="matchLeft"></div><div class="match-col" id="matchRight"></div></div>';
+  body.appendChild(wrapper);
+
+  const leftCol = wrapper.querySelector('#matchLeft');
+  const rightCol = wrapper.querySelector('#matchRight');
+
+  q.left.forEach(function(item){
+    const div = document.createElement('button');
+    div.className = 'match-item';
+    div.setAttribute('data-id', item.id);
+    div.setAttribute('data-side', 'left');
+    div.textContent = item.text;
+    div.addEventListener('click', function(){ selectMatch(div); });
+    leftCol.appendChild(div);
+  });
+
+  const shuffledRight = q.right.slice().sort(function(){ return Math.random() - 0.5; });
+  shuffledRight.forEach(function(item){
+    const div = document.createElement('button');
+    div.className = 'match-item';
+    div.setAttribute('data-id', item.id);
+    div.setAttribute('data-match', item.match);
+    div.setAttribute('data-side', 'right');
+    div.textContent = item.text;
+    div.addEventListener('click', function(){ selectMatch(div); });
+    rightCol.appendChild(div);
+  });
+}
+
+function selectMatch(el) {
+  if (answered || el.classList.contains('matched')) return;
+  const side = el.getAttribute('data-side');
+
+  if (side === 'left') {
+    const leftItems = document.querySelectorAll('#matchLeft .match-item');
+    leftItems.forEach(function(b){ b.classList.remove('selected'); });
+    el.classList.add('selected');
+    currentLeft = el;
+  } else {
+    if (!currentLeft) return;
+    const leftId = currentLeft.getAttribute('data-id');
+    const rightMatch = el.getAttribute('data-match');
+    if (leftId === rightMatch) {
+      currentLeft.classList.remove('selected');
+      currentLeft.classList.add('matched');
+      el.classList.add('matched');
+      matchPairs[leftId] = el.getAttribute('data-id');
+      currentLeft = null;
+      const q = quizData[currentQuiz];
+      if (Object.keys(matchPairs).length === q.left.length) {
+        userAnswer = true;
+        setSubmitReady();
+      }
+    } else {
+      const leftEl = currentLeft;
+      el.classList.add('wrong');
+      leftEl.classList.add('wrong');
+      setTimeout(function(){
+        el.classList.remove('wrong');
+        leftEl.classList.remove('wrong');
+        leftEl.classList.remove('selected');
+        currentLeft = null;
+      }, 500);
+    }
+  }
+}
+
+function setSubmitReady() {
+  const submit = document.getElementById('submitBtn');
+  submit.className = 'submit-btn ready';
+  submit.textContent = '确认提交';
+}
+
+function handleSubmit() {
+  const q = quizData[currentQuiz];
+  if (!answered) {
+    if (userAnswer === null) return;
+    answered = true;
+
+    if (q.type === 'single' || q.type === 'image' || q.type === 'listen') {
+      const btns = document.querySelectorAll('.choice-btn');
+      btns.forEach(function(b){
+        b.classList.add('disabled');
+        if (b.getAttribute('data-correct') === '1') {
+          b.classList.add('correct');
+        } else if (b.classList.contains('selected')) {
+          b.classList.add('wrong');
+        }
+      });
+    }
+
+    if (userAnswer) {
+      document.getElementById('fbCorrectText').textContent = q.correctText;
+      document.getElementById('fbCorrectSource').textContent = q.source;
+      document.getElementById('fbCorrect').classList.add('show');
+      popGem();
+    } else {
+      document.getElementById('fbWrongText').textContent = q.wrongText;
+      document.getElementById('fbWrongSource').textContent = q.source;
+      document.getElementById('fbWrong').classList.add('show');
+    }
+
+    const submit = document.getElementById('submitBtn');
+    submit.className = 'submit-btn next';
+    submit.textContent = currentQuiz < quizData.length - 1 ? '下一题' : '完成本课';
+  } else {
+    if (currentQuiz < quizData.length - 1) {
+      goToQuiz(currentQuiz + 1);
+    } else {
+      goToPage('complete');
+    }
+  }
+}
+
+function popGem() {
+  const gemEl = document.getElementById('gemCount');
+  const count = parseInt(gemEl.textContent);
+  gemEl.textContent = count + 5;
+  gemEl.style.color = '#F59E0B';
+  gemEl.style.fontSize = '16px';
+  setTimeout(function(){
+    gemEl.style.color = '';
+    gemEl.style.fontSize = '';
+  }, 600);
+}
+
+function spawnConfetti() {
+  const container = document.getElementById('confetti');
+  if (!container) return;
+  container.innerHTML = '';
+  const emojis = ['🌸', '✨', '🪷', '💫', '⭐', '🌟'];
+  for (let i = 0; i < 24; i++) {
+    (function(idx){
+      setTimeout(function(){
+        const p = document.createElement('div');
+        p.className = 'confetti-piece';
+        p.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        p.style.left = (Math.random() * 100) + '%';
+        p.style.top = '-20px';
+        p.style.animationDuration = (2 + Math.random() * 1.5) + 's';
+        container.appendChild(p);
+        setTimeout(function(){ p.remove(); }, 4000);
+      }, idx * 80);
+    })(i);
+  }
+}
+
+document.addEventListener('click', function(e){
+  const goBtn = e.target.closest('[data-go]');
+  if (goBtn) {
+    goToPage(goBtn.getAttribute('data-go'));
+    return;
+  }
+  const navBtn = e.target.closest('[data-nav]');
+  if (navBtn) {
+    goToPage(navBtn.getAttribute('data-nav'));
+    return;
+  }
+  const quizBtn = e.target.closest('[data-quiz]');
+  if (quizBtn) {
+    goToQuiz(parseInt(quizBtn.getAttribute('data-quiz')));
+    return;
+  }
+  const toastBtn = e.target.closest('[data-toast]');
+  if (toastBtn) {
+    showToast(toastBtn.getAttribute('data-toast'));
+    return;
+  }
+  const actionBtn = e.target.closest('[data-action="demo"]');
+  if (actionBtn) {
+    fillDemoCode();
+    return;
+  }
+});
+
+document.getElementById('submitBtn').addEventListener('click', handleSubmit);
+</script>
+
+</body>
+</html>

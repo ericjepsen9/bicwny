@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>觉学 · 学习模块 v1.0 独立产品需求</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500&family=Ma+Shan+Zheng&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#C9A84C;--gold-light:#E8C97A;--gold-pale:#F5E9C8;--gold-dim:#7A5A10;
+  --crimson:#8B1A1A;--crimson-deep:#5C0F0F;
+  --ink:#1A1208;--ink-light:#3D2E1A;--ink-faint:#7A6A58;
+  --bg:#FAF3E0;--bg2:#F4EDD4;--bg3:#EDE0BC;--white:#FDFAF3;
+  --shadow:rgba(26,18,8,.1);
+  --green:#1D6B3A;--green-l:#E3F5EB;--green-b:#0F4020;
+  --blue:#1D4E6B;--blue-l:#E3EEF5;--blue-b:#0C3347;
+  --purple:#5A3A8B;--purple-l:#EEEAF5;--purple-b:#3C2363;
+  --amber:#B8821A;--amber-l:#FAEEDA;--amber-b:#7A5010;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Serif SC',serif;background:var(--bg);color:var(--ink);line-height:1.85;}
+.wrap{max-width:1020px;margin:0 auto;padding:0 28px 80px;}
+
+/* COVER */
+.cover{padding:64px 0 48px;text-align:center;position:relative;}
+.cover::after{content:'';display:block;width:160px;height:1.5px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:34px auto 0;}
+.cover-wheel{font-size:54px;display:inline-block;animation:spin 22s linear infinite;filter:drop-shadow(0 3px 8px rgba(201,168,76,.25));}
+@keyframes spin{to{transform:rotate(360deg);}}
+.cover-title{font-family:'Ma Shan Zheng',cursive;font-size:58px;color:var(--crimson);letter-spacing:14px;margin:12px 0 4px;text-shadow:1px 2px 0 var(--gold-dim);}
+.cover-sub{font-family:'Noto Sans SC',sans-serif;font-size:11px;letter-spacing:5px;color:var(--gold-dim);margin-bottom:14px;}
+.cover-desc{font-size:15px;color:var(--ink-light);font-weight:300;letter-spacing:1.5px;margin-bottom:10px;}
+.cover-tag{display:inline-block;background:linear-gradient(135deg,var(--crimson),#A02020);color:#fff;font-family:'Noto Sans SC',sans-serif;font-size:11px;padding:4px 16px;border-radius:20px;margin-top:14px;letter-spacing:2px;box-shadow:0 2px 8px rgba(139,26,26,.25);}
+.cover-v{background:#1D6B3A;}
+
+/* POSITIONING */
+.position{background:linear-gradient(160deg,#1A0808,#2a1010);color:#f8e8d8;border-radius:20px;padding:36px 40px;margin-bottom:56px;position:relative;overflow:hidden;}
+.position::before{content:'';position:absolute;right:-40px;top:-40px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(201,168,76,.15),transparent 70%);}
+.position::after{content:'';position:absolute;left:-60px;bottom:-60px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(201,168,76,.08),transparent 70%);}
+.pos-label{font-family:'Noto Sans SC',sans-serif;font-size:10px;letter-spacing:4px;color:var(--gold-light);margin-bottom:12px;}
+.pos-statement{font-family:'Ma Shan Zheng',cursive;font-size:28px;line-height:1.7;color:var(--gold-light);letter-spacing:2px;margin-bottom:18px;position:relative;z-index:1;}
+.pos-body{font-family:'Noto Sans SC',sans-serif;font-size:14px;color:#e8d8c0;line-height:2;opacity:.92;position:relative;z-index:1;}
+
+/* OVERVIEW STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:52px;}
+.stat{background:var(--white);border:1px solid var(--bg3);border-radius:12px;padding:20px;text-align:center;}
+.stat-n{font-family:'Ma Shan Zheng',cursive;font-size:36px;color:var(--crimson);line-height:1;margin-bottom:4px;}
+.stat-l{font-family:'Noto Sans SC',sans-serif;font-size:11px;color:var(--ink-light);letter-spacing:1px;}
+
+/* SECTION */
+.sec{margin-bottom:56px;}
+.sec-label{font-family:'Noto Sans SC',sans-serif;font-size:10px;letter-spacing:4px;color:var(--gold-dim);margin-bottom:10px;}
+.sec-title{font-size:22px;font-weight:600;letter-spacing:1px;margin-bottom:6px;color:var(--crimson);}
+.sec-bar{height:2px;width:100%;margin-bottom:26px;border-radius:1px;background:linear-gradient(90deg,var(--crimson),transparent);}
+
+/* CORE FEATURES GRID */
+.core-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin-bottom:20px;}
+.core-card{background:var(--white);border:1px solid var(--bg3);border-radius:14px;padding:22px;position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s;}
+.core-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px var(--shadow);}
+.core-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.core-card.c-g::before{background:linear-gradient(90deg,var(--green-l),var(--green),var(--green-l));}
+.core-card.c-b::before{background:linear-gradient(90deg,var(--blue-l),var(--blue),var(--blue-l));}
+.core-card.c-p::before{background:linear-gradient(90deg,var(--purple-l),var(--purple),var(--purple-l));}
+.core-card.c-a::before{background:linear-gradient(90deg,var(--amber-l),var(--amber),var(--amber-l));}
+.core-num{font-family:'Ma Shan Zheng',cursive;font-size:22px;opacity:.7;display:inline-block;margin-right:7px;}
+.core-g .core-num{color:var(--green);}
+.core-b .core-num{color:var(--blue);}
+.core-p .core-num{color:var(--purple);}
+.core-a .core-num{color:var(--amber);}
+.core-title{font-size:15px;font-weight:600;margin-bottom:5px;}
+.core-en{font-family:'Noto Sans SC',sans-serif;font-size:10px;letter-spacing:2px;color:var(--ink-faint);margin-bottom:12px;}
+.core-body{font-family:'Noto Sans SC',sans-serif;font-size:12px;color:var(--ink-light);line-height:1.85;}
+
+/* MODULE SECTION */
+.mod{margin-bottom:46px;border:1px solid var(--bg3);border-radius:14px;overflow:hidden;background:var(--white);}
+.mod-head{padding:20px 24px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--bg3);}
+.mod-g .mod-head{background:var(--green-l);}
+.mod-b .mod-head{background:var(--blue-l);}
+.mod-p .mod-head{background:var(--purple-l);}
+.mod-a .mod-head{background:var(--amber-l);}
+.mod-r .mod-head{background:#F5E8E8;}
+.mod-gold .mod-head{background:var(--gold-pale);}
+.mod-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:var(--white);}
+.mod-title-wrap{flex:1;}
+.mod-title{font-size:17px;font-weight:600;margin-bottom:2px;}
+.mod-g .mod-title{color:var(--green-b);}
+.mod-b .mod-title{color:var(--blue-b);}
+.mod-p .mod-title{color:var(--purple-b);}
+.mod-a .mod-title{color:var(--amber-b);}
+.mod-r .mod-title{color:var(--crimson-deep);}
+.mod-gold .mod-title{color:var(--gold-dim);}
+.mod-en{font-family:'Noto Sans SC',sans-serif;font-size:10px;letter-spacing:2px;opacity:.65;}
+.mod-priority{font-family:'Noto Sans SC',sans-serif;font-size:10px;padding:3px 10px;border-radius:20px;letter-spacing:1px;font-weight:500;flex-shrink:0;}
+.priority-must{background:var(--crimson);color:#fff;}
+.priority-should{background:var(--amber);color:#fff;}
+.priority-nice{background:var(--green);color:#fff;}
+.mod-body{padding:20px 24px;}
+.mod-intro{font-family:'Noto Sans SC',sans-serif;font-size:13px;color:var(--ink-light);line-height:1.9;padding:14px 18px;background:var(--bg2);border-radius:8px;margin-bottom:18px;border-left:3px solid var(--gold);}
+
+/* FEATURE LIST */
+.flist{list-style:none;}
+.flist li{padding:10px 0 10px 22px;position:relative;border-bottom:1px dashed var(--bg3);font-family:'Noto Sans SC',sans-serif;font-size:13px;color:var(--ink-light);line-height:1.75;}
+.flist li:last-child{border-bottom:none;}
+.flist li::before{content:'';position:absolute;left:0;top:14px;width:10px;height:10px;background:var(--gold);border-radius:50%;box-shadow:0 0 0 3px rgba(201,168,76,.15);}
+.f-name{font-weight:500;color:var(--ink);display:inline;}
+.f-desc{display:block;font-size:11px;color:var(--ink-faint);margin-top:3px;line-height:1.7;}
+.tag{display:inline-block;font-family:'Noto Sans SC',sans-serif;font-size:9px;padding:1px 7px;border-radius:8px;margin-left:6px;vertical-align:middle;font-weight:500;border:1px solid;}
+.tag-core{background:#fde8e8;color:var(--crimson);border-color:rgba(139,26,26,.2);}
+.tag-new{background:var(--green-l);color:var(--green-b);border-color:rgba(29,107,58,.2);}
+.tag-fix{background:var(--amber-l);color:var(--amber-b);border-color:rgba(184,130,26,.2);}
+
+/* TWO COLUMN LIST */
+.col2{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;}
+.col2 .flist li{border-right:none;}
+
+/* FLOW */
+.flow-box{background:var(--bg2);border-radius:10px;padding:16px 20px;margin-top:16px;}
+.flow-title{font-family:'Noto Sans SC',sans-serif;font-size:11px;letter-spacing:2px;color:var(--ink-faint);margin-bottom:10px;font-weight:500;}
+.flow-steps{display:flex;flex-wrap:wrap;align-items:center;gap:0;}
+.flow-step{background:var(--white);border:1px solid var(--bg3);border-radius:7px;padding:7px 13px;font-family:'Noto Sans SC',sans-serif;font-size:12px;color:var(--ink);white-space:nowrap;}
+.flow-arr{color:var(--gold);padding:0 6px;font-size:14px;}
+
+/* QUESTION TYPE CARDS */
+.qt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-bottom:16px;}
+.qt-card{background:var(--white);border:1px solid var(--bg3);border-radius:12px;padding:16px 18px;}
+.qt-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px dashed var(--bg3);}
+.qt-num{width:28px;height:28px;border-radius:50%;background:var(--gold-pale);color:var(--gold-dim);font-weight:600;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.qt-title{font-size:14px;font-weight:600;color:var(--ink);}
+.qt-en{font-family:'Noto Sans SC',sans-serif;font-size:10px;color:var(--ink-faint);letter-spacing:1px;}
+.qt-desc{font-family:'Noto Sans SC',sans-serif;font-size:11px;color:var(--ink-light);line-height:1.75;margin-bottom:8px;}
+.qt-eg{font-family:'Noto Sans SC',sans-serif;font-size:11px;color:var(--ink-faint);background:var(--bg2);padding:6px 10px;border-radius:6px;border-left:2px solid var(--gold);line-height:1.6;}
+.qt-eg strong{color:var(--crimson);font-weight:500;}
+
+/* SM2 ALGO */
+.algo-wrap{background:var(--white);border:1px solid var(--bg3);border-radius:12px;padding:20px;margin:16px 0;}
+.algo-title{font-family:'Noto Sans SC',sans-serif;font-size:12px;color:var(--gold-dim);letter-spacing:2px;margin-bottom:14px;font-weight:500;}
+.algo-levels{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.algo-lvl{text-align:center;padding:14px 10px;border-radius:10px;position:relative;}
+.algo-lvl-1{background:#FBEAEA;border:1px solid #E8C4C4;}
+.algo-lvl-2{background:#FAEEDA;border:1px solid #EAD0A0;}
+.algo-lvl-3{background:#EAF3DE;border:1px solid #C8DCA8;}
+.algo-lvl-4{background:#E3EEF5;border:1px solid #A8C4DC;}
+.algo-lvl-label{font-size:14px;font-weight:600;margin-bottom:6px;}
+.algo-lvl-1 .algo-lvl-label{color:var(--crimson);}
+.algo-lvl-2 .algo-lvl-label{color:var(--amber-b);}
+.algo-lvl-3 .algo-lvl-label{color:var(--green-b);}
+.algo-lvl-4 .algo-lvl-label{color:var(--blue-b);}
+.algo-lvl-days{font-family:'Ma Shan Zheng',cursive;font-size:26px;line-height:1;margin-bottom:4px;}
+.algo-lvl-1 .algo-lvl-days{color:var(--crimson);}
+.algo-lvl-2 .algo-lvl-days{color:var(--amber-b);}
+.algo-lvl-3 .algo-lvl-days{color:var(--green-b);}
+.algo-lvl-4 .algo-lvl-days{color:var(--blue-b);}
+.algo-lvl-desc{font-family:'Noto Sans SC',sans-serif;font-size:10px;color:var(--ink-faint);line-height:1.5;}
+
+/* DATA FIELDS */
+.data-table{width:100%;border-collapse:collapse;font-family:'Noto Sans SC',sans-serif;font-size:12px;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--bg3);}
+.data-table th{background:var(--bg2);padding:10px 14px;text-align:left;font-weight:500;color:var(--ink-faint);letter-spacing:1px;font-size:11px;border-bottom:1px solid var(--bg3);}
+.data-table td{padding:9px 14px;border-bottom:1px solid var(--bg3);color:var(--ink-light);vertical-align:top;}
+.data-table tr:last-child td{border-bottom:none;}
+.data-table tr:hover td{background:var(--gold-pale);}
+
+/* PRIORITY TABLE */
+.sum-table{width:100%;border-collapse:collapse;font-family:'Noto Sans SC',sans-serif;font-size:12px;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px var(--shadow);}
+.sum-table thead tr{background:linear-gradient(90deg,var(--crimson),#A02020);color:#fff;}
+.sum-table th{padding:11px 14px;text-align:left;font-weight:500;font-size:11px;letter-spacing:1px;}
+.sum-table td{padding:10px 14px;border-bottom:1px solid var(--bg3);vertical-align:middle;color:var(--ink-light);}
+.sum-table tr:nth-child(even) td{background:var(--white);}
+.sum-table tr:hover td{background:var(--gold-pale);}
+.pri-tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:600;}
+.p-must{background:#fde8e8;color:var(--crimson);}
+.p-should{background:#fef3d0;color:var(--amber-b);}
+.p-nice{background:#e8f4e8;color:var(--green-b);}
+
+/* ROADMAP */
+.roadmap{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;}
+.rm-card{background:var(--white);border:1px solid var(--bg3);border-radius:12px;padding:18px 20px;position:relative;}
+.rm-ver{display:inline-block;font-family:'Noto Sans SC',sans-serif;font-size:10px;padding:3px 10px;border-radius:20px;font-weight:500;margin-bottom:10px;letter-spacing:1px;}
+.rm-ver-10{background:var(--crimson);color:#fff;}
+.rm-ver-11{background:var(--amber);color:#fff;}
+.rm-ver-12{background:var(--green);color:#fff;}
+.rm-ver-20{background:var(--purple);color:#fff;}
+.rm-title{font-size:14px;font-weight:600;margin-bottom:10px;color:var(--ink);}
+.rm-list{font-family:'Noto Sans SC',sans-serif;font-size:11px;color:var(--ink-faint);line-height:1.9;}
+.rm-list span{display:block;padding:2px 0;}
+.rm-list span::before{content:'· ';color:var(--gold);}
+
+/* QUOTE */
+.quote{text-align:center;padding:40px;margin:40px 0;position:relative;}
+.quote::before,.quote::after{content:'❧';position:absolute;font-size:22px;color:var(--gold-light);}
+.quote::before{top:12px;left:18px;}.quote::after{bottom:12px;right:18px;transform:scaleX(-1);}
+.quote p{font-family:'Ma Shan Zheng',cursive;font-size:18px;color:var(--crimson);letter-spacing:3px;line-height:2.2;}
+.quote span{display:block;font-family:'Noto Sans SC',sans-serif;font-size:11px;color:var(--gold-dim);letter-spacing:2px;margin-top:8px;}
+
+/* FOOTER */
+.footer{text-align:center;padding-top:24px;border-top:1px solid var(--bg3);font-family:'Noto Sans SC',sans-serif;font-size:11px;color:var(--gold-dim);letter-spacing:2px;line-height:2;margin-top:52px;}
+
+/* HIGHLIGHT */
+.hl{background:linear-gradient(135deg,var(--gold-pale),#F5E0B8);border-left:4px solid var(--gold);border-radius:0 10px 10px 0;padding:14px 18px;font-family:'Noto Sans SC',sans-serif;font-size:12px;color:var(--ink-light);line-height:1.85;margin:14px 0;}
+.hl-t{font-weight:600;color:var(--gold-dim);letter-spacing:1px;margin-bottom:5px;font-size:11px;text-transform:uppercase;}
+
+@media(max-width:640px){.stats-row{grid-template-columns:repeat(2,1fr);}.col2{grid-template-columns:1fr;}.algo-levels{grid-template-columns:repeat(2,1fr);}.wrap{padding:0 14px 60px;}.cover-title{font-size:42px;}.pos-statement{font-size:22px;}.position{padding:24px;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-wheel">☸</div>
+  <div class="cover-title">觉学</div>
+  <div class="cover-sub">JUÉ XUÉ · DHARMA LEARNING</div>
+  <div class="cover-desc">佛法学习与练习独立应用 · v1.0 产品需求文档</div>
+  <div class="cover-tag cover-v">独立 App · v1.0</div>
+</div>
+
+<!-- POSITIONING -->
+<div class="position">
+  <div class="pos-label">PRODUCT POSITIONING</div>
+  <div class="pos-statement">
+    让学佛像学外语一样<br>有方法 · 有进度 · 有坚持
+  </div>
+  <div class="pos-body">
+    觉学是一款独立的佛法学习与练习应用，聚焦于<strong style="color:var(--gold-light);">「系统化、科学化、游戏化」</strong>地帮助用户学习佛法知识。
+    参考 Duolingo 和 Anki 的成功经验，我们将佛法知识拆解为可以逐步掌握的题卡，
+    用间隔重复算法帮用户真正记住，用每日目标和连续打卡帮用户坚持，用成就体系帮用户看到自己的进步。
+    这不是让用户被动刷题，而是建立一条可量化、可感知、可持续的学佛路径。
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-row">
+  <div class="stat"><div class="stat-n">6</div><div class="stat-l">核心功能模块</div></div>
+  <div class="stat"><div class="stat-n">4</div><div class="stat-l">题型支持</div></div>
+  <div class="stat"><div class="stat-n">500+</div><div class="stat-l">首发题目数</div></div>
+  <div class="stat"><div class="stat-n">SM-2</div><div class="stat-l">科学复习算法</div></div>
+</div>
+
+<!-- FOUR PILLARS -->
+<div class="sec">
+  <div class="sec-label">DESIGN PILLARS</div>
+  <div class="sec-title">四大设计支柱</div>
+  <div class="sec-bar"></div>
+
+  <div class="core-grid">
+    <div class="core-card c-g core-g">
+      <div class="core-title"><span class="core-num">一</span>科学记忆</div>
+      <div class="core-en">SCIENTIFIC MEMORIZATION</div>
+      <div class="core-body">基于 SM-2 间隔重复算法调度复习，让每道题在遗忘前恰好再次出现。用户不必担心忘掉学过的内容，算法会在合适的时机自动唤起复习。</div>
+    </div>
+    <div class="core-card c-b core-b">
+      <div class="core-title"><span class="core-num">二</span>系统分类</div>
+      <div class="core-en">SYSTEMATIC TAXONOMY</div>
+      <div class="core-body">题库按宗派、主题、难度三维分类，用户可自由选择学习路径。初学者从「基础佛法」入门，进阶者深入净土、禅宗、藏传等专项。</div>
+    </div>
+    <div class="core-card c-p core-p">
+      <div class="core-title"><span class="core-num">三</span>游戏化驱动</div>
+      <div class="core-en">GAMIFIED MOTIVATION</div>
+      <div class="core-body">连续打卡、修行等级、成就徽章、功德树成长，将抽象的学习进度转化为可见的成长。Duolingo 式的激励机制，让坚持变得有趣。</div>
+    </div>
+    <div class="core-card c-a core-a">
+      <div class="core-title"><span class="core-num">四</span>可感进步</div>
+      <div class="core-en">VISIBLE PROGRESS</div>
+      <div class="core-body">每次答题都有正反馈，每周都有学习报告，每月都有进步曲线。用户不是在空转，而是在可感知地靠近目标——真正「学到」佛法。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- MODULE 01: 题库中心 -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-label">MODULES</div>
+  <div class="sec-title">核心功能模块</div>
+  <div class="sec-bar"></div>
+</div>
+
+<div class="mod mod-g">
+  <div class="mod-head">
+    <div class="mod-icon">📚</div>
+    <div class="mod-title-wrap">
+      <div class="mod-title">01 · 题库中心</div>
+      <div class="mod-en">QUESTION BANK & LEARNING PATHS</div>
+    </div>
+    <span class="mod-priority priority-must">核心必须</span>
+  </div>
+  <div class="mod-body">
+    <div class="mod-intro">
+      用户进入 App 的第一个页面。清晰展示所有学习内容，按宗派和主题分类，提供清晰的学习路径。用户可快速找到自己想学的内容，也可以跟随系统推荐的路径循序渐进。
+    </div>
+
+    <div class="col2">
+      <ul class="flist">
+        <li><span class="f-name">宗派分类</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">基础佛法 / 净土 / 禅宗 / 密宗 / 藏传 / 南传 · 六大分类</span></li>
+        <li><span class="f-name">主题分类</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">教理 / 戒律 / 经典 / 高僧传 / 名相术语 / 仪轨 / 佛像识别</span></li>
+        <li><span class="f-name">难度分级</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">入门 / 进阶 / 高阶三档，每题目标注难度星级 ★ ★ ★</span></li>
+        <li><span class="f-name">题包概览</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">每个题包展示：总题数 / 已掌握数 / 完成率 / 难度 / 预计学习时长</span></li>
+      </ul>
+      <ul class="flist">
+        <li><span class="f-name">推荐路径</span><span class="tag tag-new">创新</span>
+          <span class="f-desc">「学佛起步10天」「净土修行入门」等精选学习路径，系统引导循序渐进</span></li>
+        <li><span class="f-name">搜索功能</span>
+          <span class="f-desc">关键词搜题目，可按宗派/难度筛选</span></li>
+        <li><span class="f-name">收藏题包</span>
+          <span class="f-desc">常学题包可收藏置顶，进入首页一级入口</span></li>
+        <li><span class="f-name">题包详情</span>
+          <span class="f-desc">查看题包简介、涵盖内容、样题预览，决定是否开始学习</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- MODULE 02: 答题练习 -->
+<!-- ═══════════════════════════════════ -->
+<div class="mod mod-r">
+  <div class="mod-head">
+    <div class="mod-icon">🃏</div>
+    <div class="mod-title-wrap">
+      <div class="mod-title">02 · 答题练习</div>
+      <div class="mod-en">FLASHCARD PRACTICE · 4 QUESTION TYPES</div>
+    </div>
+    <span class="mod-priority priority-must">核心必须</span>
+  </div>
+  <div class="mod-body">
+    <div class="mod-intro">
+      产品核心体验所在。用户完成每一次答题都是一次学习循环——看题、思考、作答、反馈、记忆。四种题型覆盖不同学习场景，让记忆更全面深入。
+    </div>
+
+    <div class="qt-grid">
+      <div class="qt-card">
+        <div class="qt-head">
+          <div class="qt-num">1</div>
+          <div>
+            <div class="qt-title">单选题</div>
+            <div class="qt-en">MULTIPLE CHOICE</div>
+          </div>
+        </div>
+        <div class="qt-desc">四选一形式，最基础的题型，适合概念辨析、名相解释。</div>
+        <div class="qt-eg"><strong>例：</strong>「三宝」指的是？<br>A.经律论 <strong style="color:var(--green);">B.佛法僧</strong> C.戒定慧</div>
+      </div>
+      <div class="qt-card">
+        <div class="qt-head">
+          <div class="qt-num">2</div>
+          <div>
+            <div class="qt-title">填空题</div>
+            <div class="qt-en">FILL IN BLANK</div>
+          </div>
+        </div>
+        <div class="qt-desc">经文或名相填空，测试精准记忆。允许同义词、异体字判定。</div>
+        <div class="qt-eg"><strong>例：</strong>「色即是空，空即是___」<br>用户输入：<strong style="color:var(--green);">色</strong></div>
+      </div>
+      <div class="qt-card">
+        <div class="qt-head">
+          <div class="qt-num">3</div>
+          <div>
+            <div class="qt-title">问答题</div>
+            <div class="qt-en">OPEN Q&A · AI GRADE</div>
+          </div>
+        </div>
+        <div class="qt-desc">用户自由作答，AI 评分并给出提升建议。深度学习义理用。</div>
+        <div class="qt-eg"><strong>例：</strong>请简述「因缘所生法」的含义<br>用户作答 → AI 评分 0-100</div>
+      </div>
+      <div class="qt-card">
+        <div class="qt-head">
+          <div class="qt-num">4</div>
+          <div>
+            <div class="qt-title">图片辨识</div>
+            <div class="qt-en">IMAGE RECOGNITION</div>
+          </div>
+        </div>
+        <div class="qt-desc">看佛像、法器、手印图片选择对应名称。增加视觉学习维度。</div>
+        <div class="qt-eg"><strong>例：</strong>[观音像图]<br>请选择：<strong style="color:var(--green);">圣观音</strong> / 千手观音 / 十一面</div>
+      </div>
+    </div>
+
+    <ul class="flist">
+      <li><span class="f-name">答题反馈机制</span><span class="tag tag-core">核心</span>
+        <span class="f-desc">答完立即显示正误 → 正确答案 → 详细解析（2~4句）→ 出处标注 → 相关知识扩展</span></li>
+      <li><span class="f-name">四档掌握度自评</span><span class="tag tag-core">核心 · 驱动SM-2</span>
+        <span class="f-desc">不会 / 模糊 / 记住 / 很熟，用户评分后系统自动安排下次复习时间</span></li>
+      <li><span class="f-name">提示功能</span>
+        <span class="f-desc">答题时可用一次「提示」，显示关键词线索，使用后评分自动降一档</span></li>
+      <li><span class="f-name">跳过与稍后再做</span>
+        <span class="f-desc">不想现在做的题可跳过，放入「待做」队列</span></li>
+      <li><span class="f-name">一题一讲</span><span class="tag tag-new">创新</span>
+        <span class="f-desc">答题解析区可扩展播放 30 秒「法师讲解」短音频（仅重点题）</span></li>
+      <li><span class="f-name">难题标记</span>
+        <span class="f-desc">标记为难题的题目复习频率翻倍，进入「难题本」可专项复习</span></li>
+    </ul>
+
+    <div class="flow-box">
+      <div class="flow-title">答题核心流程</div>
+      <div class="flow-steps">
+        <div class="flow-step">题目呈现</div><div class="flow-arr">→</div>
+        <div class="flow-step">用户作答</div><div class="flow-arr">→</div>
+        <div class="flow-step">立即反馈</div><div class="flow-arr">→</div>
+        <div class="flow-step">查看解析</div><div class="flow-arr">→</div>
+        <div class="flow-step">自评掌握度</div><div class="flow-arr">→</div>
+        <div class="flow-step">进入下一题</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- MODULE 03: 间隔重复系统 -->
+<!-- ═══════════════════════════════════ -->
+<div class="mod mod-b">
+  <div class="mod-head">
+    <div class="mod-icon">🔁</div>
+    <div class="mod-title-wrap">
+      <div class="mod-title">03 · 间隔重复系统</div>
+      <div class="mod-en">SPACED REPETITION · SM-2 SCHEDULER</div>
+    </div>
+    <span class="mod-priority priority-must">核心算法</span>
+  </div>
+  <div class="mod-body">
+    <div class="mod-intro">
+      本产品的灵魂算法。基于 SuperMemo SM-2 改良实现，系统根据用户对每道题的掌握程度自动计算下次复习时间，在遗忘曲线的临界点唤醒复习，让记忆效率最大化。
+    </div>
+
+    <div class="algo-wrap">
+      <div class="algo-title">四档自评 → 间隔调度</div>
+      <div class="algo-levels">
+        <div class="algo-lvl algo-lvl-1">
+          <div class="algo-lvl-label">不会</div>
+          <div class="algo-lvl-days">1日</div>
+          <div class="algo-lvl-desc">明天重新学</div>
+        </div>
+        <div class="algo-lvl algo-lvl-2">
+          <div class="algo-lvl-label">模糊</div>
+          <div class="algo-lvl-days">3日</div>
+          <div class="algo-lvl-desc">近期巩固</div>
+        </div>
+        <div class="algo-lvl algo-lvl-3">
+          <div class="algo-lvl-label">记住</div>
+          <div class="algo-lvl-days">7日</div>
+          <div class="algo-lvl-desc">周内复习</div>
+        </div>
+        <div class="algo-lvl algo-lvl-4">
+          <div class="algo-lvl-label">很熟</div>
+          <div class="algo-lvl-days">14~30日</div>
+          <div class="algo-lvl-desc">长间隔巩固</div>
+        </div>
+      </div>
+    </div>
+
+    <ul class="flist">
+      <li><span class="f-name">自动调度器</span><span class="tag tag-core">核心</span>
+        <span class="f-desc">每日零点计算所有用户的到期题目，推入当日学习队列</span></li>
+      <li><span class="f-name">动态难度系数</span><span class="tag tag-core">核心</span>
+        <span class="f-desc">每题独立维护 ease_factor（默认2.5），根据连续正确率动态调整</span></li>
+      <li><span class="f-name">答错重置</span><span class="tag tag-core">核心</span>
+        <span class="f-desc">用户评「不会」时，间隔自动重置为1天，从头开始巩固</span></li>
+      <li><span class="f-name">每日任务混合策略</span><span class="tag tag-new">创新</span>
+        <span class="f-desc">到期复习题 + 新学题按 7:3 比例自动混合，保证复习优先但不乏味</span></li>
+      <li><span class="f-name">当日上限保护</span>
+        <span class="f-desc">单日最多 50 题，避免算法堆积导致用户压力过大</span></li>
+      <li><span class="f-name">断签宽容机制</span><span class="tag tag-new">创新</span>
+        <span class="f-desc">漏签一天不影响已有进度，系统会温和提醒而非惩罚</span></li>
+      <li><span class="f-name">优先级策略</span>
+        <span class="f-desc">过期题 > 难题本 > 今日到期 > 新学题</span></li>
+    </ul>
+
+    <div class="hl">
+      <div class="hl-t">为什么 SM-2 有效</div>
+      艾宾浩斯遗忘曲线显示，人在学后 1 天会忘掉约 70% 内容。SM-2 算法在「即将遗忘」的时机精准唤起复习，使每道题在大脑中从短期记忆转化为长期记忆。相比传统的「反复刷题」，SM-2 能以 1/3 的时间达到更好的效果。
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- MODULE 04: 每日任务与连续打卡 -->
+<!-- ═══════════════════════════════════ -->
+<div class="mod mod-a">
+  <div class="mod-head">
+    <div class="mod-icon">📅</div>
+    <div class="mod-title-wrap">
+      <div class="mod-title">04 · 每日任务与连续打卡</div>
+      <div class="mod-en">DAILY MISSION & STREAK</div>
+    </div>
+    <span class="mod-priority priority-must">日活核心</span>
+  </div>
+  <div class="mod-body">
+    <div class="mod-intro">
+      用户留存的关键模块。每天推送一份合理的学习任务，并用连续打卡机制让用户形成每日学习的习惯。参考 Duolingo 的成功经验——用户不是因为爱学习而每天来，而是因为不想打破连续天数。
+    </div>
+
+    <div class="col2">
+      <ul class="flist">
+        <li><span class="f-name">每日任务推送</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">进入App首页显示「今日任务：X道复习 + Y道新题」</span></li>
+        <li><span class="f-name">目标量自定义</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">默认每日10题，用户可在 5/10/20/30/50 中自选</span></li>
+        <li><span class="f-name">任务完成反馈</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">完成时有庆祝动效（莲花绽放/光效），显示「今日圆满」</span></li>
+        <li><span class="f-name">连续天数计数</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">Streak 火焰图标显示，点击可看历史记录</span></li>
+        <li><span class="f-name">签到日历</span>
+          <span class="f-desc">月度日历视图，标记已打卡日期，可补看过往学习详情</span></li>
+      </ul>
+      <ul class="flist">
+        <li><span class="f-name">里程碑庆祝</span><span class="tag tag-new">创新</span>
+          <span class="f-desc">连续3/7/30/100/365天时特殊动效+专属徽章</span></li>
+        <li><span class="f-name">智能时间提醒</span><span class="tag tag-new">创新</span>
+          <span class="f-desc">学习一段时间后系统分析用户习惯，在最佳时间推送提醒</span></li>
+        <li><span class="f-name">补救修复</span><span class="tag tag-new">创新</span>
+          <span class="f-desc">连续断签时提供一次「修复卡」，可恢复昨日记录（每月限一次）</span></li>
+        <li><span class="f-name">零压力设计</span>
+          <span class="f-desc">断签时显示「重新开始」而非失败提示，保护用户情绪</span></li>
+        <li><span class="f-name">今日已完成状态</span>
+          <span class="f-desc">完成后首页显示「今日功德圆满」，可选自由练习或明天再来</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- MODULE 05: 学习进度与统计 -->
+<!-- ═══════════════════════════════════ -->
+<div class="mod mod-p">
+  <div class="mod-head">
+    <div class="mod-icon">📊</div>
+    <div class="mod-title-wrap">
+      <div class="mod-title">05 · 学习进度与统计</div>
+      <div class="mod-en">PROGRESS TRACKING & ANALYTICS</div>
+    </div>
+    <span class="mod-priority priority-should">重要功能</span>
+  </div>
+  <div class="mod-body">
+    <div class="mod-intro">
+      让用户看到自己的成长。学习不再是黑盒，每天的努力都有数据呈现，每周都有报告总结。看得见的进步是最好的坚持动力。
+    </div>
+
+    <div class="col2">
+      <ul class="flist">
+        <li><span class="f-name">个人学习仪表盘</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">累计答题数 · 正确率 · 已掌握题数 · 连续天数 · 总学习时长</span></li>
+        <li><span class="f-name">各题包进度</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">按宗派/主题分类显示掌握率进度条，一眼看到哪里薄弱</span></li>
+        <li><span class="f-name">每日学习数据</span>
+          <span class="f-desc">昨日答题数、正确率、用时，历史数据可查</span></li>
+        <li><span class="f-name">本周学习报告</span><span class="tag tag-new">创新</span>
+          <span class="f-desc">每周日自动生成本周报告：答题量、掌握新词、进步方向</span></li>
+      </ul>
+      <ul class="flist">
+        <li><span class="f-name">学习热力图</span><span class="tag tag-new">创新</span>
+          <span class="f-desc">类 GitHub 贡献图，一年 365 格显示每日学习量</span></li>
+        <li><span class="f-name">薄弱点分析</span><span class="tag tag-new">创新</span>
+          <span class="f-desc">系统识别答错率高的主题，首页推送「薄弱点专项」</span></li>
+        <li><span class="f-name">错题本</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">所有答错过的题目集中查看，支持专项再练</span></li>
+        <li><span class="f-name">月度修学报告</span>
+          <span class="f-desc">每月 1 号生成上月完整学习报告，可导出图片分享</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- MODULE 06: 成就与激励 -->
+<!-- ═══════════════════════════════════ -->
+<div class="mod mod-gold">
+  <div class="mod-head">
+    <div class="mod-icon">🏆</div>
+    <div class="mod-title-wrap">
+      <div class="mod-title">06 · 成就与激励</div>
+      <div class="mod-en">ACHIEVEMENTS & GAMIFICATION</div>
+    </div>
+    <span class="mod-priority priority-should">留存关键</span>
+  </div>
+  <div class="mod-body">
+    <div class="mod-intro">
+      游戏化元素。将抽象的学习进度转化为可见、可收集、可炫耀的成就。修行等级让用户看到自己的长期成长，徽章系统让阶段性努力得到肯定。
+    </div>
+
+    <div class="col2">
+      <ul class="flist">
+        <li><span class="f-name">修行等级体系</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">初心 → 行者 → 禅者 → 菩萨行者 → 大成就者（五级渐进）</span></li>
+        <li><span class="f-name">等级晋升条件</span>
+          <span class="f-desc">累计答题量+正确率+连续天数综合评分，达标自动晋级</span></li>
+        <li><span class="f-name">成就徽章系统</span><span class="tag tag-core">核心</span>
+          <span class="f-desc">共 30+ 种徽章，涵盖学习量、连续天数、宗派精通、特殊事件</span></li>
+        <li><span class="f-name">功德树</span><span class="tag tag-new">创新</span>
+          <span class="f-desc">个人主页展示一棵树，随答题数量而生长，叶子是每道已掌握的题</span></li>
+      </ul>
+      <ul class="flist">
+        <li><span class="f-name">学习积分</span>
+          <span class="tag tag-core">核心</span>
+          <span class="f-desc">答对得分，连续得分加成，积分用于解锁高阶题包和功能</span></li>
+        <li><span class="f-name">每日挑战</span>
+          <span class="f-desc">每日一个限时挑战题（10题限时5分钟），答完有额外积分奖励</span></li>
+        <li><span class="f-name">宗派精通</span><span class="tag tag-new">创新</span>
+          <span class="f-desc">某宗派题目掌握率≥90%可获「净土通」「禅宗通」等专项称号</span></li>
+        <li><span class="f-name">成就分享</span>
+          <span class="f-desc">晋级、破纪录、获得徽章时可生成精美卡片分享微信/朋友圈</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SUMMARY PRIORITY TABLE -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-label">PRIORITY MATRIX</div>
+  <div class="sec-title">v1.0 功能优先级清单</div>
+  <div class="sec-bar"></div>
+
+  <table class="sum-table">
+    <thead>
+      <tr><th>模块</th><th>功能</th><th>优先级</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>题库中心</td><td>宗派 + 主题双维分类</td><td><span class="pri-tag p-must">MUST</span></td><td>发现内容的唯一入口</td></tr>
+      <tr><td>题库中心</td><td>题包详情页 + 搜索</td><td><span class="pri-tag p-must">MUST</span></td><td>基础浏览能力</td></tr>
+      <tr><td>题库中心</td><td>推荐学习路径</td><td><span class="pri-tag p-should">SHOULD</span></td><td>新手引导关键</td></tr>
+      <tr><td>答题练习</td><td>单选题 + 填空题</td><td><span class="pri-tag p-must">MUST</span></td><td>v1.0 核心题型</td></tr>
+      <tr><td>答题练习</td><td>问答题 AI 评分</td><td><span class="pri-tag p-should">SHOULD</span></td><td>差异化亮点</td></tr>
+      <tr><td>答题练习</td><td>图片辨识题</td><td><span class="pri-tag p-should">SHOULD</span></td><td>增加题型多样性</td></tr>
+      <tr><td>答题练习</td><td>答题反馈 + 四档自评</td><td><span class="pri-tag p-must">MUST</span></td><td>驱动 SM-2 的核心</td></tr>
+      <tr><td>答题练习</td><td>提示 + 难题标记</td><td><span class="pri-tag p-must">MUST</span></td><td></td></tr>
+      <tr><td>答题练习</td><td>一题一讲音频</td><td><span class="pri-tag p-nice">NICE</span></td><td>仅重点题</td></tr>
+      <tr><td>SM-2系统</td><td>自动调度器 + 难度系数</td><td><span class="pri-tag p-must">MUST</span></td><td>产品算法灵魂</td></tr>
+      <tr><td>SM-2系统</td><td>混合策略 + 上限保护</td><td><span class="pri-tag p-must">MUST</span></td><td></td></tr>
+      <tr><td>SM-2系统</td><td>断签宽容机制</td><td><span class="pri-tag p-should">SHOULD</span></td><td>用户体验关键</td></tr>
+      <tr><td>每日任务</td><td>任务推送 + 完成反馈</td><td><span class="pri-tag p-must">MUST</span></td><td>日活驱动</td></tr>
+      <tr><td>每日任务</td><td>连续天数 + 日历</td><td><span class="pri-tag p-must">MUST</span></td><td>留存关键</td></tr>
+      <tr><td>每日任务</td><td>里程碑庆祝动效</td><td><span class="pri-tag p-should">SHOULD</span></td><td></td></tr>
+      <tr><td>每日任务</td><td>智能时间提醒</td><td><span class="pri-tag p-should">SHOULD</span></td><td>提升留存</td></tr>
+      <tr><td>每日任务</td><td>修复卡机制</td><td><span class="pri-tag p-nice">NICE</span></td><td>保护情绪</td></tr>
+      <tr><td>进度统计</td><td>学习仪表盘</td><td><span class="pri-tag p-must">MUST</span></td><td>看得见的成长</td></tr>
+      <tr><td>进度统计</td><td>各题包进度条</td><td><span class="pri-tag p-must">MUST</span></td><td></td></tr>
+      <tr><td>进度统计</td><td>错题本</td><td><span class="pri-tag p-must">MUST</span></td><td>刚需功能</td></tr>
+      <tr><td>进度统计</td><td>周报 + 学习热力图</td><td><span class="pri-tag p-should">SHOULD</span></td><td></td></tr>
+      <tr><td>进度统计</td><td>薄弱点分析</td><td><span class="pri-tag p-should">SHOULD</span></td><td></td></tr>
+      <tr><td>成就激励</td><td>修行等级（5级）</td><td><span class="pri-tag p-must">MUST</span></td><td>长期动力</td></tr>
+      <tr><td>成就激励</td><td>成就徽章（30+种）</td><td><span class="pri-tag p-must">MUST</span></td><td>收集驱动</td></tr>
+      <tr><td>成就激励</td><td>学习积分系统</td><td><span class="pri-tag p-must">MUST</span></td><td></td></tr>
+      <tr><td>成就激励</td><td>功德树可视化</td><td><span class="pri-tag p-should">SHOULD</span></td><td>特色功能</td></tr>
+      <tr><td>成就激励</td><td>每日挑战</td><td><span class="pri-tag p-should">SHOULD</span></td><td></td></tr>
+      <tr><td>成就激励</td><td>成就卡片分享</td><td><span class="pri-tag p-nice">NICE</span></td><td>社交传播</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- DATA MODEL -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-label">DATA MODEL</div>
+  <div class="sec-title">核心数据结构</div>
+  <div class="sec-bar"></div>
+
+  <table class="data-table">
+    <thead><tr><th>实体</th><th>关键字段</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>Question（题目）</td><td>id · type · content · answer · explanation · source · difficulty · tags</td><td>题目实体，含题干、答案、解析、出处、难度、标签</td></tr>
+      <tr><td>QuestionPack（题包）</td><td>id · name · sect · theme · difficulty · question_ids · intro</td><td>题包集合，归属宗派和主题</td></tr>
+      <tr><td>LearningPath（学习路径）</td><td>id · name · pack_sequence · target_user</td><td>官方精选路径，有顺序的题包序列</td></tr>
+      <tr><td>UserCardState（答题状态）</td><td>user_id · card_id · ease · interval · due_date · review_count · last_grade</td><td>SM-2 核心数据，每用户每题一条</td></tr>
+      <tr><td>DailyProgress（每日进度）</td><td>user_id · date · new_count · review_count · correct_rate · duration</td><td>每日学习汇总，用于统计和日历</td></tr>
+      <tr><td>UserProfile（用户档案）</td><td>uid · level · xp · streak · longest_streak · badges · daily_goal</td><td>用户总体成长数据</td></tr>
+      <tr><td>Achievement（成就）</td><td>id · name · condition · icon · rarity</td><td>徽章定义，含解锁条件</td></tr>
+      <tr><td>UserAchievement（用户成就）</td><td>user_id · ach_id · unlocked_at</td><td>用户已获得的成就记录</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- ROADMAP -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-label">PRODUCT ROADMAP</div>
+  <div class="sec-title">版本迭代规划</div>
+  <div class="sec-bar"></div>
+
+  <div class="roadmap">
+    <div class="rm-card">
+      <div class="rm-ver rm-ver-10">v1.0 · 首发</div>
+      <div class="rm-title">核心能力完整闭环</div>
+      <div class="rm-list">
+        <span>题库中心（500+题）</span>
+        <span>单选+填空题</span>
+        <span>SM-2 间隔重复</span>
+        <span>每日任务+连续打卡</span>
+        <span>基础统计+错题本</span>
+        <span>修行等级+徽章</span>
+        <span>功德树+积分</span>
+      </div>
+    </div>
+    <div class="rm-card">
+      <div class="rm-ver rm-ver-11">v1.1 · 增强</div>
+      <div class="rm-title">题型与体验扩展</div>
+      <div class="rm-list">
+        <span>问答题 AI 评分</span>
+        <span>图片辨识题</span>
+        <span>一题一讲音频</span>
+        <span>周报+学习热力图</span>
+        <span>薄弱点专项分析</span>
+        <span>成就卡片分享</span>
+        <span>题库扩展至 1500+ 题</span>
+      </div>
+    </div>
+    <div class="rm-card">
+      <div class="rm-ver rm-ver-12">v1.2 · 智能化</div>
+      <div class="rm-title">AI 深度融合</div>
+      <div class="rm-list">
+        <span>AI 个性化推荐题目</span>
+        <span>AI 自动生成题卡</span>
+        <span>AI 答疑（答错可问）</span>
+        <span>月度修学报告</span>
+        <span>学习路径个性化定制</span>
+        <span>Anki 格式导入导出</span>
+      </div>
+    </div>
+    <div class="rm-card">
+      <div class="rm-ver rm-ver-20">v2.0 · 社交</div>
+      <div class="rm-title">道友共学</div>
+      <div class="rm-list">
+        <span>好友道友互加</span>
+        <span>学习排行榜</span>
+        <span>好友挑战对战</span>
+        <span>用户自制题卡</span>
+        <span>题包市场（订阅）</span>
+        <span>共学社群</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NON-FUNCTIONAL -->
+<div class="sec">
+  <div class="sec-label">NON-FUNCTIONAL REQUIREMENTS</div>
+  <div class="sec-title">非功能性需求</div>
+  <div class="sec-bar"></div>
+
+  <div class="col2">
+    <ul class="flist">
+      <li><span class="f-name">性能</span>
+        <span class="f-desc">题目加载 ≤0.5s · 答题提交 ≤0.3s · 首屏启动 ≤2s</span></li>
+      <li><span class="f-name">离线能力</span>
+        <span class="f-desc">题库预下载，无网络状态下可答题，联网后同步进度</span></li>
+      <li><span class="f-name">数据同步</span>
+        <span class="f-desc">SM-2 学习数据云端存储，多设备无缝切换</span></li>
+      <li><span class="f-name">数据安全</span>
+        <span class="f-desc">用户学习数据加密传输，支持导出备份</span></li>
+    </ul>
+    <ul class="flist">
+      <li><span class="f-name">适老化</span>
+        <span class="f-desc">支持大字号模式，高对比度主题，简化老人引导流程</span></li>
+      <li><span class="f-name">内容审核</span>
+        <span class="f-desc">所有题目经由法师或佛学院审核，保证义理准确</span></li>
+      <li><span class="f-name">平台覆盖</span>
+        <span class="f-desc">iOS / Android 原生 App + 微信小程序轻量版</span></li>
+      <li><span class="f-name">无障碍</span>
+        <span class="f-desc">VoiceOver/TalkBack 支持，色盲友好色彩</span></li>
+    </ul>
+  </div>
+</div>
+
+<!-- SUCCESS METRICS -->
+<div class="sec">
+  <div class="sec-label">SUCCESS METRICS</div>
+  <div class="sec-title">成功指标</div>
+  <div class="sec-bar"></div>
+
+  <div class="core-grid">
+    <div class="core-card c-g core-g">
+      <div class="core-title">📈 日活留存</div>
+      <div class="core-body"><strong>次日留存 &gt; 40%</strong><br>7日留存 &gt; 25%<br>30日留存 &gt; 15%</div>
+    </div>
+    <div class="core-card c-b core-b">
+      <div class="core-title">⏱️ 使用深度</div>
+      <div class="core-body"><strong>日均使用 &gt; 8 分钟</strong><br>日均答题 &gt; 12 题<br>周活跃天数 &gt; 4 天</div>
+    </div>
+    <div class="core-card c-p core-p">
+      <div class="core-title">🎯 学习效果</div>
+      <div class="core-body"><strong>题目掌握率 &gt; 70%</strong><br>连续打卡≥7天用户占比&gt;30%<br>月度答题量&gt;300题/用户</div>
+    </div>
+    <div class="core-card c-a core-a">
+      <div class="core-title">🌱 增长</div>
+      <div class="core-body"><strong>月新增&gt;5000 人</strong><br>分享转化率&gt;5%<br>应用商店评分&gt;4.5</div>
+    </div>
+  </div>
+</div>
+
+<div class="quote">
+  <p>学佛如饮水<br>日积月累<br>功到自然深</p>
+  <span>觉学的使命：为每一位学人提供一条可坚持、可量化、可受益的学佛路径</span>
+</div>
+
+<div class="footer">
+  <p>觉学 · JUÉ XUÉ · v1.0 产品需求文档</p>
+  <p>6 大模块 · 30+ 项功能 · 4 档版本路线图</p>
+  <p style="margin-top:6px;">让每一道题都成为通往觉悟的一步</p>
+</div>
+
+</div>
+</body>
+</html>

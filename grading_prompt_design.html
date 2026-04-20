@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>觉学 · 开放作答 AI 评分 Prompt 设计</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --primary:#3B82F6;--primary-dark:#2563EB;--primary-light:#DBEAFE;--primary-pale:#EFF6FF;
+  --success:#10B981;--success-light:#D1FAE5;--success-dark:#059669;
+  --warn:#F59E0B;--warn-light:#FEF3C7;
+  --error:#EF4444;--error-light:#FEE2E2;
+  --purple:#8B5CF6;--purple-light:#EDE9FE;
+  --ink:#1F2937;--ink-2:#374151;--ink-3:#6B7280;--ink-4:#9CA3AF;
+  --bg:#F9FAFB;--white:#FFFFFF;
+  --border:#E5E7EB;--border-light:#F3F4F6;
+  --code-bg:#1E293B;--code-text:#E2E8F0;
+}
+body{font-family:'Noto Sans SC',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.75;}
+.wrap{max-width:1000px;margin:0 auto;padding:40px 28px 80px;}
+
+.cover{padding:30px 0 40px;border-bottom:2px solid var(--primary);margin-bottom:40px;}
+.cover-badge{display:inline-block;background:var(--primary);color:#fff;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:2px;margin-bottom:14px;}
+.cover-title{font-family:'Noto Serif SC',serif;font-size:32px;font-weight:700;color:var(--ink);letter-spacing:2px;margin-bottom:8px;}
+.cover-sub{font-size:14px;color:var(--ink-3);letter-spacing:1px;}
+
+.sec{margin-bottom:48px;}
+.sec-num{display:inline-block;background:var(--primary-light);color:var(--primary-dark);width:32px;height:32px;border-radius:50%;text-align:center;line-height:32px;font-weight:700;font-size:14px;margin-right:10px;}
+.sec-title{font-size:22px;font-weight:700;color:var(--ink);margin-bottom:8px;display:flex;align-items:center;}
+.sec-desc{font-size:14px;color:var(--ink-3);margin-bottom:24px;line-height:1.9;padding-left:42px;}
+
+.card{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.card-title{font-size:15px;font-weight:700;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.card-icon{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.card-icon.c-ok{background:var(--success-light);color:var(--success-dark);}
+.card-icon.c-warn{background:var(--warn-light);color:#92400E;}
+.card-icon.c-info{background:var(--primary-light);color:var(--primary-dark);}
+.card-icon.c-purple{background:var(--purple-light);color:var(--purple);}
+.card-body{font-size:13px;color:var(--ink-2);line-height:1.85;}
+.card-body p{margin-bottom:8px;}
+
+/* Code blocks */
+.code-block{background:var(--code-bg);color:var(--code-text);border-radius:10px;padding:18px 22px;font-family:'JetBrains Mono',Consolas,monospace;font-size:12.5px;line-height:1.75;overflow-x:auto;margin:12px 0;white-space:pre;}
+.code-block .comment{color:#64748B;}
+.code-block .keyword{color:#C084FC;}
+.code-block .string{color:#86EFAC;}
+.code-block .hl{background:rgba(245,158,11,.15);padding:1px 4px;border-radius:3px;}
+
+.code-inline{background:var(--border-light);padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',Consolas,monospace;font-size:12px;color:var(--primary-dark);}
+
+.highlight-box{background:linear-gradient(135deg,var(--warn-light),#FEF3C7);border-left:4px solid var(--warn);border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0;font-size:13px;color:var(--ink-2);line-height:1.85;}
+.highlight-box strong{color:#92400E;}
+
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0;}
+
+.flow-step{background:var(--white);border:2px solid var(--border);border-radius:12px;padding:16px;text-align:center;position:relative;}
+.flow-step::after{content:'→';position:absolute;right:-20px;top:50%;transform:translateY(-50%);color:var(--ink-4);font-size:18px;font-weight:bold;}
+.flow-step:last-child::after{display:none;}
+.flow-step-num{width:28px;height:28px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-weight:700;font-size:13px;}
+.flow-step-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px;}
+.flow-step-desc{font-size:11px;color:var(--ink-3);line-height:1.5;}
+
+.example-box{background:var(--white);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:14px 0;}
+.example-header{background:var(--primary-pale);padding:10px 16px;font-size:12px;font-weight:600;color:var(--primary-dark);border-bottom:1px solid var(--border);}
+.example-body{padding:16px;}
+.example-row{display:flex;gap:12px;padding:10px 0;border-bottom:1px dashed var(--border);}
+.example-row:last-child{border-bottom:none;}
+.example-label{flex-shrink:0;width:80px;font-size:12px;color:var(--ink-3);font-weight:500;}
+.example-content{flex:1;font-size:13px;color:var(--ink-2);line-height:1.75;}
+
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:500;margin-right:4px;}
+.tag-ok{background:var(--success-light);color:var(--success-dark);}
+.tag-err{background:var(--error-light);color:#B91C1C;}
+.tag-info{background:var(--primary-light);color:var(--primary-dark);}
+
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px;}
+th{background:var(--primary-pale);padding:10px 12px;text-align:left;color:var(--primary-dark);font-weight:600;border-bottom:2px solid var(--primary);font-size:12px;}
+td{padding:10px 12px;border-bottom:1px solid var(--border-light);color:var(--ink-2);vertical-align:top;}
+tr:hover td{background:var(--primary-pale);}
+
+.score-scale{display:flex;gap:8px;margin:16px 0;}
+.score-item{flex:1;padding:12px 10px;border-radius:10px;text-align:center;}
+.s-90{background:linear-gradient(135deg,#D1FAE5,#A7F3D0);color:#065F46;}
+.s-70{background:linear-gradient(135deg,#DBEAFE,#BFDBFE);color:#1E40AF;}
+.s-50{background:linear-gradient(135deg,#FEF3C7,#FDE68A);color:#92400E;}
+.s-30{background:linear-gradient(135deg,#FEE2E2,#FECACA);color:#B91C1C;}
+.score-n{font-size:20px;font-weight:700;line-height:1;margin-bottom:4px;}
+.score-l{font-size:11px;letter-spacing:1px;}
+
+@media(max-width:768px){.grid-2{grid-template-columns:1fr;}.grid-3{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="cover">
+  <div class="cover-badge">PROMPT ENGINEERING</div>
+  <div class="cover-title">开放作答 AI 评分 Prompt 设计</div>
+  <div class="cover-sub">觉学 v1.0 · 思考题评分核心引擎</div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SECTION 1: 设计目标 -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-title"><span class="sec-num">1</span>设计目标</div>
+  <div class="sec-desc">
+    评分 Prompt 是开放作答题的灵魂。好的 Prompt 要让 AI 稳定地做到三件事：
+    <strong style="color:var(--ink);">准确评分、精准反馈、温和鼓励</strong>。
+    同时必须避免 AI 的常见错误：过度宽容、过度严格、编造要点、漏掉要点。
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">
+        <div class="card-icon c-ok">✓</div>
+        <span>准确</span>
+      </div>
+      <div class="card-body">
+        基于"标准答案要点"客观评分，不受用户文采影响，同样观点不同表达要给同样分数
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <div class="card-icon c-info">💡</div>
+        <span>精准</span>
+      </div>
+      <div class="card-body">
+        明确告诉用户：答到了哪些要点、漏了哪些要点、哪里可以补充，不要模糊的"还不错"
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <div class="card-icon c-purple">🌱</div>
+        <span>温和</span>
+      </div>
+      <div class="card-body">
+        佛法学习是修心过程，反馈用词要鼓励向学而非打击，用"可以补充"代替"答错了"
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SECTION 2: 评分维度 -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-title"><span class="sec-num">2</span>评分维度</div>
+  <div class="sec-desc">
+    总分 100 分，按三个维度评分。分数权重可根据题目类型调整（简单题重要点覆盖，深度题重理解深度）。
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>维度</th><th>默认权重</th><th>评分依据</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>要点覆盖</strong></td>
+        <td>60 分</td>
+        <td>是否答到了标准答案中的关键要点（每个要点 10-20 分，视题目而定）</td>
+      </tr>
+      <tr>
+        <td><strong>理解深度</strong></td>
+        <td>25 分</td>
+        <td>是否准确理解法义，没有误解或曲解（不要求复述原文，但不能说反）</td>
+      </tr>
+      <tr>
+        <td><strong>表达清晰</strong></td>
+        <td>15 分</td>
+        <td>语言是否条理清楚，不要求文采，但至少逻辑通顺</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="score-scale">
+    <div class="score-item s-90">
+      <div class="score-n">90-100</div>
+      <div class="score-l">圆满 🌟</div>
+    </div>
+    <div class="score-item s-70">
+      <div class="score-n">70-89</div>
+      <div class="score-l">良好 ✨</div>
+    </div>
+    <div class="score-item s-50">
+      <div class="score-n">50-69</div>
+      <div class="score-l">待补充 🌱</div>
+    </div>
+    <div class="score-item s-30">
+      <div class="score-n">0-49</div>
+      <div class="score-l">再参究 📿</div>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <strong>重要：</strong>60 分合格线。低于 60 分不显示"不及格"字样，而是显示"这道题值得再参究"，温和引导用户再看法师答案和讲记。
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SECTION 3: Prompt 结构设计 -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-title"><span class="sec-num">3</span>Prompt 结构设计</div>
+  <div class="sec-desc">
+    Prompt 分成四个部分：角色设定、评分规则、输入内容、输出格式。每一部分都有明确职能。
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <div class="card-icon c-info">📐</div>
+      <span>Prompt 四段式结构</span>
+    </div>
+    <div class="card-body">
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;margin-top:10px;">
+        <div><strong>① 角色设定</strong></div>
+        <div>告诉 AI 它是谁、价值观是什么（佛法题库评分员、严谨又温和）</div>
+        <div><strong>② 评分规则</strong></div>
+        <div>三个维度的权重、评分原则、禁止行为</div>
+        <div><strong>③ 输入内容</strong></div>
+        <div>题目、标准答案、关键要点列表、用户作答</div>
+        <div><strong>④ 输出格式</strong></div>
+        <div>JSON 结构，字段明确，便于前端渲染</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SECTION 4: 完整 Prompt 模板 -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-title"><span class="sec-num">4</span>完整 Prompt 模板</div>
+  <div class="sec-desc">
+    这是可以直接复制到代码中的完整模板。<span class="code-inline">{占位符}</span> 需要替换为具体题目的数据。
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <div class="card-icon c-purple">🎭</div>
+      <span>System Prompt（角色设定，整个会话固定）</span>
+    </div>
+  </div>
+
+  <div class="code-block">你是觉学 App 的佛法题库评分员。你的身份定位：
+- 精通藏传佛教教理，熟读《入菩萨行论》
+- 评分严谨客观，不因用户文采好坏影响判断
+- 言辞温和鼓励，深知佛法学习是长期修心过程
+- 反馈精准具体，不说"不错""很好"等空洞评价
+
+<span class="keyword">【核心评分原则】</span>
+
+1. <span class="hl">只根据标准答案的要点评分</span>，不要凭你自己的知识发挥
+2. <span class="hl">同一要点不同表达方式给相同分数</span>，不苛求用词
+3. <span class="hl">绝不编造标准答案之外的要点</span>来扣分
+4. 用户答案只要在义理上不违背法义，表达方式可灵活
+5. 如果用户答案明显错误（与法义相悖），需明确指出
+6. 反馈语气温和，用"可以补充"代替"漏答"
+
+<span class="keyword">【严格禁止】</span>
+
+- 禁止推测用户的其他意思为他"加戏"
+- 禁止给出 85 以上高分除非真正答到 3/4 以上要点
+- 禁止说"虽然...但是..."这种含糊评价
+- 禁止加入 App 中没有的内容（如其他法师观点）
+
+<span class="keyword">【输出格式】</span>
+
+必须输出标准 JSON，不要 markdown 包裹，不要任何其他文字。</div>
+
+  <div class="card" style="margin-top:20px;">
+    <div class="card-title">
+      <div class="card-icon c-info">📝</div>
+      <span>User Prompt（每次评分动态替换）</span>
+    </div>
+  </div>
+
+  <div class="code-block"><span class="keyword">【题目】</span>
+{question}
+
+<span class="keyword">【标准答案】</span>
+{reference_answer}
+
+<span class="keyword">【关键要点】（共 {point_count} 个，每个 {point_score} 分）</span>
+{key_points_list}
+
+<span class="keyword">【用户作答】</span>
+{user_answer}
+
+<span class="keyword">【评分任务】</span>
+
+请严格按以下步骤评分：
+
+1. <span class="hl">逐一检查用户是否答到每个「关键要点」</span>
+   - 完全答到 = 该点满分
+   - 部分答到 = 该点半分
+   - 未答到 = 0 分
+
+2. <span class="hl">判断理解深度</span>（25 分）
+   - 用户是否有明显的法义错误？
+   - 是否理解了题目核心？
+
+3. <span class="hl">评估表达清晰度</span>（15 分）
+   - 逻辑是否通顺？
+   - 不要求文采，只要求能看懂
+
+4. 汇总总分，给出反馈
+
+<span class="keyword">【输出 JSON 格式】</span>
+
+{
+  <span class="string">"score"</span>: 数字 0-100,
+  <span class="string">"level"</span>: <span class="string">"圆满|良好|待补充|再参究"</span>,
+  <span class="string">"hitPoints"</span>: [
+    {
+      <span class="string">"point"</span>: <span class="string">"要点名称"</span>,
+      <span class="string">"hit"</span>: <span class="string">"full|partial|none"</span>,
+      <span class="string">"userPhrase"</span>: <span class="string">"用户答到这点的原话片段"</span>
+    }
+  ],
+  <span class="string">"missedPoints"</span>: [<span class="string">"要点1"</span>, <span class="string">"要点2"</span>],
+  <span class="string">"encouragement"</span>: <span class="string">"一句温和鼓励的话，30 字以内"</span>,
+  <span class="string">"suggestion"</span>: <span class="string">"1-2 句具体补充建议，引导用户看参考答案哪部分"</span>,
+  <span class="string">"misunderstanding"</span>: <span class="string">"如用户有义理错误，写在这里；无则为空字符串"</span>
+}
+
+<span class="comment">只输出 JSON，不要 ```json 包裹，不要其他文字。</span></div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SECTION 5: 实际调用示例 -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-title"><span class="sec-num">5</span>实际调用示例</div>
+  <div class="sec-desc">
+    以入行论第一品的一道思考题为例，展示完整的数据流。
+  </div>
+
+  <div class="example-box">
+    <div class="example-header">📝 题目数据（题库中存储）</div>
+    <div class="example-body">
+      <div class="example-row">
+        <div class="example-label">题目</div>
+        <div class="example-content">为什么说菩提心是大乘佛法的根本？</div>
+      </div>
+      <div class="example-row">
+        <div class="example-label">标准答案</div>
+        <div class="example-content">
+          菩提心是为了利益一切众生而发愿成佛的心。它是大乘佛法的根本，原因有四：<br>
+          一、是成佛之因。若无菩提心，虽修六度万行亦不能成佛。<br>
+          二、能净除罪障。一念真实菩提心，能净无量劫所造罪业。<br>
+          三、能圆满福德。菩提心如摩尼宝，能出生一切善法功德。<br>
+          四、能转凡夫身为佛子。初发菩提心即堕佛种性。
+        </div>
+      </div>
+      <div class="example-row">
+        <div class="example-label">关键要点</div>
+        <div class="example-content">
+          <span class="tag tag-info">要点1</span>菩提心是为利众生愿成佛<br>
+          <span class="tag tag-info">要点2</span>是成佛之因（无菩提心不能成佛）<br>
+          <span class="tag tag-info">要点3</span>能净除罪障<br>
+          <span class="tag tag-info">要点4</span>能圆满福德<br>
+          <span class="tag tag-info">要点5</span>令凡夫转为佛子
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="example-box">
+    <div class="example-header">✍️ 用户作答</div>
+    <div class="example-body">
+      <div style="font-size:13px;color:var(--ink-2);line-height:1.9;font-style:italic;background:var(--primary-pale);padding:12px 16px;border-radius:8px;">
+        "菩提心就是为了众生而想要成佛的那种心。它是大乘的根本，因为没有菩提心就不能成佛，
+        而且发菩提心能够消除很多很多业障，也可以积累福报。所以寂天菩萨才这么重视菩提心。"
+      </div>
+    </div>
+  </div>
+
+  <div class="example-box">
+    <div class="example-header">🤖 AI 评分输出（JSON）</div>
+    <div class="example-body">
+      <div class="code-block" style="margin:0;"><span class="comment">// AI 返回</span>
+{
+  <span class="string">"score"</span>: 72,
+  <span class="string">"level"</span>: <span class="string">"良好"</span>,
+  <span class="string">"hitPoints"</span>: [
+    {
+      <span class="string">"point"</span>: <span class="string">"菩提心是为利众生愿成佛"</span>,
+      <span class="string">"hit"</span>: <span class="string">"full"</span>,
+      <span class="string">"userPhrase"</span>: <span class="string">"为了众生而想要成佛的那种心"</span>
+    },
+    {
+      <span class="string">"point"</span>: <span class="string">"是成佛之因"</span>,
+      <span class="string">"hit"</span>: <span class="string">"full"</span>,
+      <span class="string">"userPhrase"</span>: <span class="string">"没有菩提心就不能成佛"</span>
+    },
+    {
+      <span class="string">"point"</span>: <span class="string">"能净除罪障"</span>,
+      <span class="string">"hit"</span>: <span class="string">"full"</span>,
+      <span class="string">"userPhrase"</span>: <span class="string">"消除很多很多业障"</span>
+    },
+    {
+      <span class="string">"point"</span>: <span class="string">"能圆满福德"</span>,
+      <span class="string">"hit"</span>: <span class="string">"partial"</span>,
+      <span class="string">"userPhrase"</span>: <span class="string">"可以积累福报"</span>
+    },
+    {
+      <span class="string">"point"</span>: <span class="string">"令凡夫转为佛子"</span>,
+      <span class="string">"hit"</span>: <span class="string">"none"</span>,
+      <span class="string">"userPhrase"</span>: <span class="string">""</span>
+    }
+  ],
+  <span class="string">"missedPoints"</span>: [<span class="string">"发菩提心使凡夫转为佛子，堕入佛种性"</span>],
+  <span class="string">"encouragement"</span>: <span class="string">"您对菩提心的基本定义和核心利益都已掌握 ✨"</span>,
+  <span class="string">"suggestion"</span>: <span class="string">"可以补充：初发菩提心即可转凡夫身为佛子，这是菩提心最殊胜的功德。建议回看标准答案第四点。"</span>,
+  <span class="string">"misunderstanding"</span>: <span class="string">""</span>
+}</div>
+    </div>
+  </div>
+
+  <div class="example-box">
+    <div class="example-header">🎨 前端渲染效果（用户看到）</div>
+    <div class="example-body">
+      <div style="background:linear-gradient(135deg,var(--primary-pale),var(--primary-light));border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;">
+        <div style="font-size:32px;font-weight:700;color:var(--primary-dark);">72<span style="font-size:16px;color:var(--ink-3);">/100</span></div>
+        <div style="font-size:13px;color:var(--primary-dark);margin-top:4px;">✨ 良好</div>
+        <div style="font-size:12px;color:var(--ink-2);margin-top:8px;font-style:italic;">您对菩提心的基本定义和核心利益都已掌握 ✨</div>
+      </div>
+
+      <div style="font-size:12px;font-weight:600;color:var(--success-dark);margin-bottom:6px;">✅ 已答到的要点（4 / 5）</div>
+      <div style="background:var(--success-light);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--ink-2);line-height:1.8;margin-bottom:12px;">
+        • 菩提心的定义 · 为利众生愿成佛<br>
+        • 是成佛之因<br>
+        • 能净除罪障<br>
+        • 能圆满福德（部分答到）
+      </div>
+
+      <div style="font-size:12px;font-weight:600;color:#92400E;margin-bottom:6px;">🌱 可以补充</div>
+      <div style="background:var(--warn-light);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--ink-2);line-height:1.8;margin-bottom:12px;">
+        发菩提心能使凡夫转为佛子，堕入佛种性。这是菩提心最殊胜的功德之一。<br>
+        📖 建议回看标准答案第四点
+      </div>
+
+      <button style="width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:8px;">📖 查看法师标准答案</button>
+      <button style="width:100%;padding:12px;background:var(--bg);color:var(--ink-2);border:1px solid var(--border);border-radius:10px;font-size:14px;font-weight:500;">🌱 自评：我已理解</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SECTION 6: 调用流程与代码 -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-title"><span class="sec-num">6</span>调用流程</div>
+  <div class="sec-desc">
+    从用户点击提交到看到评分结果的完整链路。
+  </div>
+
+  <div class="grid-3" style="margin-bottom:20px;">
+    <div class="flow-step">
+      <div class="flow-step-num">1</div>
+      <div class="flow-step-title">用户提交答案</div>
+      <div class="flow-step-desc">前端收集 user_answer，显示"AI 评分中…"loading</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">2</div>
+      <div class="flow-step-title">后端组装 Prompt</div>
+      <div class="flow-step-desc">把题目、标准答案、要点、用户答案填入模板</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">3</div>
+      <div class="flow-step-title">调用 MiniMax API</div>
+      <div class="flow-step-desc">temperature=0.3 保证评分稳定，max_tokens=1500</div>
+    </div>
+  </div>
+  <div class="grid-3">
+    <div class="flow-step">
+      <div class="flow-step-num">4</div>
+      <div class="flow-step-title">解析 JSON 响应</div>
+      <div class="flow-step-desc">容错：如解析失败，返回默认反馈</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">5</div>
+      <div class="flow-step-title">前端渲染结果</div>
+      <div class="flow-step-desc">分色块展示命中/遗漏/建议</div>
+    </div>
+    <div class="flow-step">
+      <div class="flow-step-num">6</div>
+      <div class="flow-step-title">用户自评掌握度</div>
+      <div class="flow-step-desc">4 档：不会/模糊/记住/很熟，驱动 SM-2</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">
+      <div class="card-icon c-info">💻</div>
+      <span>Python 代码示例</span>
+    </div>
+  </div>
+
+  <div class="code-block"><span class="keyword">from</span> openai <span class="keyword">import</span> OpenAI
+<span class="keyword">import</span> json
+
+client = OpenAI(
+    api_key=<span class="string">"your_minimax_key"</span>,
+    base_url=<span class="string">"https://api.minimaxi.com/v1"</span>
+)
+
+<span class="keyword">def</span> grade_open_answer(question, reference, key_points, user_answer):
+    <span class="comment"># 组装 Prompt</span>
+    points_text = <span class="string">"\n"</span>.join([<span class="string">f"  {i+1}. {p}"</span> <span class="keyword">for</span> i, p <span class="keyword">in</span> enumerate(key_points)])
+
+    user_prompt = <span class="string">f"""
+【题目】
+{question}
+
+【标准答案】
+{reference}
+
+【关键要点】（共 {len(key_points)} 个）
+{points_text}
+
+【用户作答】
+{user_answer}
+
+请按 Prompt 说明的步骤评分，输出 JSON。
+"""</span>
+
+    response = client.chat.completions.create(
+        model=<span class="string">"MiniMax-M2.7"</span>,
+        messages=[
+            {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: SYSTEM_PROMPT},
+            {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: user_prompt}
+        ],
+        temperature=<span class="hl">0.3</span>,  <span class="comment"># 低温度保证评分稳定</span>
+        max_tokens=<span class="hl">1500</span>
+    )
+
+    text = response.choices[<span class="hl">0</span>].message.content.strip()
+    <span class="keyword">try</span>:
+        <span class="keyword">return</span> json.loads(text)
+    <span class="keyword">except</span>:
+        <span class="keyword">return</span> {<span class="string">"score"</span>: <span class="hl">0</span>, <span class="string">"error"</span>: <span class="string">"评分失败，请重试"</span>}</div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SECTION 7: 关键优化 -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-title"><span class="sec-num">7</span>关键优化要点</div>
+  <div class="sec-desc">
+    上线后可能遇到的问题与对应解决方案。
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">
+        <div class="card-icon c-warn">⚠️</div>
+        <span>问题 1 · AI 评分过松</span>
+      </div>
+      <div class="card-body">
+        <strong>症状：</strong>用户答了几句就 80 分，严肃修行者觉得没挑战性<br><br>
+        <strong>解决：</strong>
+        <p>• 调低温度至 0.2</p>
+        <p>• 在 System Prompt 强调"绝不轻易给 85+ 分除非真正答到 3/4 要点"</p>
+        <p>• 增加 "strict_mode": true 字段，触发严格评分</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <div class="card-icon c-warn">⚠️</div>
+        <span>问题 2 · AI 编造要点</span>
+      </div>
+      <div class="card-body">
+        <strong>症状：</strong>AI 说用户遗漏了"某某要点"，但那不在标准答案里<br><br>
+        <strong>解决：</strong>
+        <p>• Prompt 明确"只从【关键要点】中选取"</p>
+        <p>• hitPoints 字段必须完整对应输入要点列表</p>
+        <p>• 返回后前端验证：输出要点必须在输入中</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <div class="card-icon c-warn">⚠️</div>
+        <span>问题 3 · JSON 格式错误</span>
+      </div>
+      <div class="card-body">
+        <strong>症状：</strong>AI 偶尔输出 markdown 包裹或多余文字导致解析失败<br><br>
+        <strong>解决：</strong>
+        <p>• 后端容错：用正则提取 JSON 块</p>
+        <p>• 解析失败时自动重试一次</p>
+        <p>• 二次失败显示友好提示：再试一次</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <div class="card-icon c-warn">⚠️</div>
+        <span>问题 4 · 响应慢（&gt; 5 秒）</span>
+      </div>
+      <div class="card-body">
+        <strong>症状：</strong>用户等待时间长，体验差<br><br>
+        <strong>解决：</strong>
+        <p>• 用 M2.5-highspeed 替代 M2.7</p>
+        <p>• 开启 streaming，先显示"思考中…"再逐字出反馈</p>
+        <p>• 前端加入等待动画，配文"观照您的答案…"</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SECTION 8: 评分数据的作用 -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-title"><span class="sec-num">8</span>评分数据的进一步用途</div>
+  <div class="sec-desc">
+    AI 评分结果不只是给用户看，还能驱动整个产品的多个功能。
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>数据</th><th>用途</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>score 分数</strong></td>
+        <td>用户个人统计 · 月度修学报告 · 班级排行榜</td>
+      </tr>
+      <tr>
+        <td><strong>hitPoints 命中要点</strong></td>
+        <td>分析用户对哪些法义掌握好 · 推荐针对性复习</td>
+      </tr>
+      <tr>
+        <td><strong>missedPoints 遗漏要点</strong></td>
+        <td>识别班级整体薄弱点 · 反馈给辅导员 · 下次共修重点讲</td>
+      </tr>
+      <tr>
+        <td><strong>misunderstanding 误解</strong></td>
+        <td>触发"错题本"标记 · 班级层面如多人同错触发公告修正</td>
+      </tr>
+      <tr>
+        <td><strong>用户自评掌握度</strong></td>
+        <td>SM-2 算法输入 · 决定下次复习时间</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="highlight-box">
+    <strong>设计哲学：</strong>AI 评分只给建议，不决定命运。用户<strong>自评掌握度</strong>才是最终驱动复习的决定因素。这样既利用 AI 的效率，又尊重用户自己的学习判断，符合佛法"自证"的精神。
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!-- SECTION 9: 测试清单 -->
+<!-- ═══════════════════════════════════ -->
+<div class="sec">
+  <div class="sec-title"><span class="sec-num">9</span>上线前测试清单</div>
+  <div class="sec-desc">
+    开发完成后，用这些测试用例验证 Prompt 质量。
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>测试场景</th><th>用户答案类型</th><th>预期评分范围</th><th>检查点</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>完美答案</td>
+        <td>答到全部 5 个要点，表达清晰</td>
+        <td>90-100</td>
+        <td>hitPoints 全 full</td>
+      </tr>
+      <tr>
+        <td>标准答案原文</td>
+        <td>直接复制粘贴法师标准答案</td>
+        <td>95-100</td>
+        <td>不因复制扣分</td>
+      </tr>
+      <tr>
+        <td>换种说法</td>
+        <td>义理对，但用词完全不同</td>
+        <td>85-95</td>
+        <td>同要点给同分</td>
+      </tr>
+      <tr>
+        <td>答对一半</td>
+        <td>答到 2-3 个要点</td>
+        <td>50-75</td>
+        <td>准确指出遗漏</td>
+      </tr>
+      <tr>
+        <td>答非所问</td>
+        <td>写了很多但偏题</td>
+        <td>0-30</td>
+        <td>明确指出偏题</td>
+      </tr>
+      <tr>
+        <td>法义错误</td>
+        <td>把菩提心说成"想开悟的心"（小乘）</td>
+        <td>20-40</td>
+        <td>misunderstanding 字段指出</td>
+      </tr>
+      <tr>
+        <td>极简回答</td>
+        <td>只写"菩提心很重要"</td>
+        <td>10-25</td>
+        <td>建议用户展开</td>
+      </tr>
+      <tr>
+        <td>空答案</td>
+        <td>什么都没写</td>
+        <td>0</td>
+        <td>引导用户看法师答案</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="highlight-box">
+    <strong>测试建议：</strong>准备 10-20 道题，每道题造 8 种不同类型的用户答案，跑过一遍。确保评分稳定、反馈准确后再上线。可以把测试结果给辅导员/法师看，让他们判断 AI 评分是否合理，再调整 Prompt。
+  </div>
+</div>
+
+</div>
+</body>
+</html>
