@@ -1,7 +1,5 @@
-// 班级 · 成员数据层
-// - createClass：随机 6 位 joinCode，冲突重试
-// - addMember / removeMember：upsert + 软删除（保留历史）
-// - listMembers / listUserClasses / getClass / findClassByCode / archiveClass
+// 班级 · 成员数据层（createClass / addMember / removeMember / list*
+//   / assertIsCoachOfClass / assertMemberOfClass / archiveClass）
 import { randomBytes } from 'node:crypto';
 import type { Class, ClassMember, ClassMemberRole } from '@prisma/client';
 import { Forbidden, Internal, NotFound } from '../../lib/errors.js';
