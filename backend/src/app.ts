@@ -13,6 +13,7 @@ import { adminClassRoutes } from './modules/class/admin.routes.js';
 import { coachClassRoutes } from './modules/class/coach.routes.js';
 import { studentClassRoutes } from './modules/class/student.routes.js';
 import { coachStatsRoutes } from './modules/coach/routes.js';
+import { adminQuestionRoutes } from './modules/questions/admin.routes.js';
 import { coachQuestionRoutes } from './modules/questions/coach.routes.js';
 import { sm2Routes } from './modules/sm2/routes.js';
 
@@ -60,6 +61,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(studentClassRoutes);
   await app.register(coachStatsRoutes);
   await app.register(coachQuestionRoutes);
+  await app.register(adminQuestionRoutes);
   await app.register(answeringRoutes);
   await app.register(sm2Routes);
 
