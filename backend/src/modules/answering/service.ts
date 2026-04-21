@@ -1,6 +1,6 @@
 // 答题主服务
 // 流程：取题 → 评分 → 写 UserAnswer → 错题本联动 → SM-2 排程
-import type { Prisma, Question } from '@prisma/client';
+import { Prisma, type Question } from '@prisma/client';
 import { NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import type { Sm2Rating } from '../sm2/algorithm.js';
@@ -59,7 +59,8 @@ export async function submitAnswer(
       answer: answer as Prisma.InputJsonValue,
       isCorrect: grade.isCorrect,
       score: grade.score,
-      aiGrade: aiGrade as Prisma.InputJsonValue | null,
+      // nullable Json：用 Prisma.DbNull 显式表达 SQL NULL（Prisma 6 严格模式）
+      aiGrade: aiGrade === null ? Prisma.DbNull : (aiGrade as Prisma.InputJsonValue),
       timeSpentMs: opts.timeSpentMs ?? null,
       classId: opts.classId ?? null,
     },

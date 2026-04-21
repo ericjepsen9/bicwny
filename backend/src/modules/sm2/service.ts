@@ -93,7 +93,11 @@ export async function getCardStats(
   const where = { userId, ...(courseId ? { courseId } : {}) };
 
   const [byStatus, due, total] = await Promise.all([
-    prisma.sm2Card.groupBy({ by: ['status'], where, _count: true }),
+    prisma.sm2Card.groupBy({
+      by: ['status'],
+      where,
+      _count: { _all: true },
+    }),
     prisma.sm2Card.count({ where: { ...where, dueDate: { lte: now } } }),
     prisma.sm2Card.count({ where }),
   ]);
@@ -104,7 +108,7 @@ export async function getCardStats(
     review: 0,
     mastered: 0,
   };
-  for (const g of byStatus) counts[g.status] = g._count;
+  for (const g of byStatus) counts[g.status] = g._count._all;
 
   return { total, due, ...counts };
 }
