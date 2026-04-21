@@ -4,7 +4,7 @@
 // - listMembers / listUserClasses / getClass / findClassByCode / archiveClass
 import { randomBytes } from 'node:crypto';
 import type { Class, ClassMember, ClassMemberRole } from '@prisma/client';
-import { Internal, NotFound } from '../../lib/errors.js';
+import { Forbidden, Internal, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 
 // 去掉 O/0/I/1 等易混淆字符，32 种选择 → 32^6 ≈ 10^9 码空间
@@ -109,6 +109,19 @@ export async function archiveClass(id: string): Promise<Class> {
     where: { id },
     data: { isActive: false, archivedAt: new Date() },
   });
+}
+
+/** 断言 userId 是 classId 的当前辅导员；否则抛 Forbidden。 */
+export async function assertIsCoachOfClass(
+  userId: string,
+  classId: string,
+): Promise<void> {
+  const m = await prisma.classMember.findUnique({
+    where: { classId_userId: { classId, userId } },
+  });
+  if (!m || m.removedAt || m.role !== 'coach') {
+    throw Forbidden('非该班级辅导员');
+  }
 }
 
 // ───── helpers ─────

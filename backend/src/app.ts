@@ -10,6 +10,7 @@ import { isAppError } from './lib/errors.js';
 import { answeringRoutes } from './modules/answering/routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { adminClassRoutes } from './modules/class/admin.routes.js';
+import { coachClassRoutes } from './modules/class/coach.routes.js';
 import { sm2Routes } from './modules/sm2/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -52,6 +53,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // 业务路由
   await app.register(authRoutes);
   await app.register(adminClassRoutes);
+  await app.register(coachClassRoutes);
   await app.register(answeringRoutes);
   await app.register(sm2Routes);
 
