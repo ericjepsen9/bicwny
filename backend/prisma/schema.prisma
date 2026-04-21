@@ -12,18 +12,28 @@ datasource db {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 用户（Sprint 1 只存基础字段，真登录在 Sprint 5）
+// 用户 · 角色（Sprint 2：真 JWT 登录 + admin/coach/student 三级）
 // ═══════════════════════════════════════════════════════════════
 
+enum UserRole {
+  admin
+  coach
+  student
+}
+
 model User {
-  id         String   @id @default(cuid())
-  email      String?  @unique
-  dharmaName String?
-  avatar     String?
-  timezone   String   @default("Asia/Taipei")
-  locale     String   @default("zh-Hans")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String    @id @default(cuid())
+  email        String?   @unique
+  passwordHash String? // 未设密码的旧用户允许 null
+  role         UserRole  @default(student)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  dharmaName   String?
+  avatar       String?
+  timezone     String    @default("Asia/Taipei")
+  locale       String    @default("zh-Hans")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   answers     UserAnswer[]
   sm2Cards    Sm2Card[]
@@ -31,6 +41,8 @@ model User {
   mistakes    UserMistakeBook[]
   reports     QuestionReport[]
   enrollments UserCourseEnrollment[]
+
+  @@index([role])
 }
 
 // ═══════════════════════════════════════════════════════════════
