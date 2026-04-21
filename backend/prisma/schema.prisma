@@ -42,6 +42,7 @@ model User {
   reports     QuestionReport[]
   enrollments UserCourseEnrollment[]
   memberships ClassMember[]
+  sessions    AuthSession[]
 
   @@index([role])
 }
@@ -84,6 +85,25 @@ model ClassMember {
   @@unique([classId, userId])
   @@index([userId, role])
   @@index([classId, role])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 身份会话（refresh token 白名单）
+// ═══════════════════════════════════════════════════════════════
+
+model AuthSession {
+  id               String    @id @default(cuid())
+  userId           String
+  refreshTokenHash String    @unique // 只存哈希，不落库明文
+  userAgent        String?
+  ipAddress        String?
+  issuedAt         DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime? // 登出 / 管理员下线 / 被更新替换，留审计
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
 
 // ═══════════════════════════════════════════════════════════════
