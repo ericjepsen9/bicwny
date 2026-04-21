@@ -102,19 +102,48 @@ ANTHROPIC_API_KEY=...
 
 ---
 
-## G. 已知未覆盖的集成测试
+## G. 集成测试（Sprint 3 已 scaffold · 需人工跑）
 
-以下路径目前 **只有单元测试**，缺端到端验证。若发现 bug 优先看这几处：
+scaffold 位置：`tests/integration/`
+- `helpers.ts`：`buildTestApp()` / `resetDb()` / `expectOk()`
+- `auth.test.ts`：3 用例（register→login→/me · 错密码 401 · refresh 轮转废旧 token）
 
-| 路径 | 单测 | 集成测 | 建议 |
-|---|---|---|---|
-| `/api/answers` 全流程（含 SM-2 联动） | ✖ | ✖ | supertest + SQLite |
-| `/api/auth/*` 登录轮转全链 | 部分（hash/tokens 纯函数） | ✖ | supertest 跑一遍流程 |
-| 班级权限越权（coach A 查 coach B 的班） | ✖ | ✖ | supertest 403 |
-| 题目审核事务一致性 | ✖ | ✖ | 模拟失败回滚 |
-| LLM Gateway 切兜底路径 | ✖ | ✖ | mock provider |
+### 环境要求
 
-集成测试 scaffold 计划放在 Sprint 3 最后一个 phase。
+- 单独的 **test Postgres 库**（避免污染开发数据）
+- 运行前把 `DATABASE_URL` 指向测试库：
+
+```bash
+# 建议 docker-compose 加 postgres_test 服务，或改用不同端口 / 库名
+export DATABASE_URL="postgresql://juexue:juexue_dev@localhost:5433/juexue_test?schema=public"
+npx prisma migrate deploy     # 建表
+npx prisma db execute --file /dev/stdin <<< 'TRUNCATE llm_provider_config RESTART IDENTITY CASCADE;'
+# 或最简单：
+# npm run prisma:migrate  # dev 库和 test 库都建
+# 然后 seed 一次 LLM 配置到 test 库（tests 不清 LLM 表，依赖存在）
+```
+
+### 运行命令
+
+```bash
+npm run test:integration         # 只跑 tests/integration/**
+npm test                         # 单元测试（已 exclude integration）
+```
+
+### 已写用例（3 条）
+
+- [ ] `auth.test.ts · register → login → /me`
+- [ ] `auth.test.ts · 错密码 → 401`
+- [ ] `auth.test.ts · refresh 轮转后旧 refresh 失效`
+
+### 仍未覆盖（建议 Sprint 4 前补齐）
+
+| 路径 | 优先级 | 建议 |
+|---|---|---|
+| `/api/answers` 全流程（含 SM-2 联动）| 高 | 种 1 个 course+lesson+question，答题验证 UserAnswer/Sm2Card 落库 |
+| 班级权限越权（coach A 查 coach B 班）| 高 | 建 2 coach 2 class，验证 403 |
+| 题目双轨创建 + Admin 审核 | 中 | coach 创建 public → admin approve → AuditLog |
+| LLM Gateway 切兜底（mock provider）| 中 | 让 MiniMax 抛错，验证 Claude 接替 + LlmCallLog.switched=true |
 
 ---
 
