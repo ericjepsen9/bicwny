@@ -18,6 +18,7 @@ import { favoritesRoutes } from './modules/favorites/routes.js';
 import { learningRoutes } from './modules/learning/routes.js';
 import { adminQuestionRoutes } from './modules/questions/admin.routes.js';
 import { coachQuestionRoutes } from './modules/questions/coach.routes.js';
+import { reportsRoutes } from './modules/reports/routes.js';
 import { sm2Routes } from './modules/sm2/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -69,6 +70,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(favoritesRoutes);
   await app.register(answeringRoutes);
   await app.register(mistakesRoutes);
+  await app.register(reportsRoutes);
   await app.register(sm2Routes);
 
   return app;
