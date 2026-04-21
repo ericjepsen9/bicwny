@@ -520,3 +520,32 @@ model AuditLog {
   @@index([timestamp])
   @@index([adminId, timestamp])
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 运行日志（Sprint 3.5 · Observability）
+// error / slow_request / slow_query 三种共表，Admin 可查
+// ═══════════════════════════════════════════════════════════════
+
+enum LogKind {
+  error
+  slow_request
+  slow_query
+}
+
+model ErrorLog {
+  id        String   @id @default(cuid())
+  kind      LogKind
+  message   String
+  stack     String?  @db.Text
+  /// { method, url, status, duration, query, paramsLen, … } 动态字段
+  context   Json?
+  userId    String?
+  requestId String?
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+  @@index([requestId])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
