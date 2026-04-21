@@ -1,50 +1,16 @@
 // 班级学习聚合统计（辅导员面板）
-// 一次 findMany 拉所有成员答题，JS 端聚合；
-// Sprint 2 MVP，单班级通常答题量级可控（< 几万行）。
-// 更大规模可改为 groupBy + 多次 DB 聚合。
+// 一次 findMany 拉所有成员答题，JS 端单遍聚合。
+// Sprint 2 MVP，单班级通常答题量级可控；大规模再换 groupBy + 分批。
 import { prisma } from '../../lib/prisma.js';
+import {
+  type ByLesson,
+  type ClassStats,
+  emptyClassStats,
+  type PerStudent,
+} from './stats.types.js';
 
 const WINDOW_DAYS_DEFAULT = 7;
 const TOP_STUDENTS = 5;
-
-export interface PerStudent {
-  userId: string;
-  dharmaName: string | null;
-  answers: number;
-  correctRate: number;
-  lastActiveAt: Date | null;
-}
-
-export interface ByLesson {
-  lessonId: string;
-  title: string;
-  answered: number;
-  correctRate: number;
-}
-
-export interface ClassStats {
-  memberCount: number;
-  activeInWindow: number;
-  totalAnswers: number;
-  correctRate: number;
-  windowDays: number;
-  byLesson: ByLesson[];
-  topStudents: PerStudent[];
-  stragglers: PerStudent[];
-}
-
-function empty(windowDays: number): ClassStats {
-  return {
-    memberCount: 0,
-    activeInWindow: 0,
-    totalAnswers: 0,
-    correctRate: 0,
-    windowDays,
-    byLesson: [],
-    topStudents: [],
-    stragglers: [],
-  };
-}
 
 export async function classStats(
   classId: string,
@@ -56,7 +22,7 @@ export async function classStats(
       user: { select: { id: true, dharmaName: true, email: true } },
     },
   });
-  if (members.length === 0) return empty(windowDays);
+  if (members.length === 0) return emptyClassStats(windowDays);
 
   const studentIds = members.map((m) => m.userId);
   const userLookup = new Map(members.map((m) => [m.userId, m.user]));
@@ -137,6 +103,15 @@ export async function classStats(
       };
     });
 
+  const byLessonList: ByLesson[] = [...byLesson.entries()].map(
+    ([lessonId, v]) => ({
+      lessonId,
+      title: v.title,
+      answered: v.answered,
+      correctRate: v.answered > 0 ? v.correct / v.answered : 0,
+    }),
+  );
+
   const total = answers.length;
   return {
     memberCount: members.length,
@@ -144,12 +119,7 @@ export async function classStats(
     totalAnswers: total,
     correctRate: total > 0 ? correct / total : 0,
     windowDays,
-    byLesson: [...byLesson.entries()].map(([lessonId, v]) => ({
-      lessonId,
-      title: v.title,
-      answered: v.answered,
-      correctRate: v.answered > 0 ? v.correct / v.answered : 0,
-    })),
+    byLesson: byLessonList,
     topStudents,
     stragglers,
   };
