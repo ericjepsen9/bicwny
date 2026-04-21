@@ -14,12 +14,14 @@ import { answeringRoutes } from './modules/answering/routes.js';
 import { mistakesRoutes } from './modules/answering/mistakes.routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { adminAuditRoutes } from './modules/admin/audit.routes.js';
+import { adminLogsRoutes } from './modules/admin/logs.routes.js';
 import { adminRoutes } from './modules/admin/routes.js';
 import { adminClassRoutes } from './modules/class/admin.routes.js';
 import { coachClassRoutes } from './modules/class/coach.routes.js';
 import { studentClassRoutes } from './modules/class/student.routes.js';
 import { coachStatsRoutes } from './modules/coach/routes.js';
 import { favoritesRoutes } from './modules/favorites/routes.js';
+import { healthRoutes } from './modules/health/routes.js';
 import { learningRoutes } from './modules/learning/routes.js';
 import { llmAdminRoutes } from './modules/llm/admin.routes.js';
 import { llmScenarioAdminRoutes } from './modules/llm/scenario.admin.routes.js';
@@ -109,13 +111,14 @@ export async function buildApp(): Promise<FastifyInstance> {
       .send({ error: 'NOT_FOUND', message: `路径不存在: ${req.url}` });
   });
 
-  // 健康检查
-  app.get('/health', async () => ({ ok: true, env: config.NODE_ENV }));
+  // 健康检查（公开，支持 /health/detailed）
+  await app.register(healthRoutes);
 
   // 业务路由
   await app.register(authRoutes);
   await app.register(adminRoutes);
   await app.register(adminAuditRoutes);
+  await app.register(adminLogsRoutes);
   await app.register(adminClassRoutes);
   await app.register(coachClassRoutes);
   await app.register(studentClassRoutes);
