@@ -493,6 +493,153 @@ body{
 
 .toast{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:10px 18px;border-radius:20px;font-size:12px;z-index:100;animation:toastIn .3s;}
 @keyframes toastIn{from{opacity:0;transform:translate(-50%,10px);}to{opacity:1;transform:translate(-50%,0);}}
+
+/* ═════════ P.2 扩展：登录 / 注册 ═════════ */
+.auth-page{padding:40px 28px 28px;background:linear-gradient(180deg,#EFF6FF 0%,#FFFFFF 50%);}
+.auth-brand{text-align:center;margin-bottom:32px;}
+.auth-brand-logo{width:52px;height:52px;margin:0 auto 12px;background:linear-gradient(135deg,var(--primary),var(--purple));border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;box-shadow:0 6px 16px rgba(59,130,246,.3);}
+.auth-brand-title{font-family:'Noto Serif SC',serif;font-size:26px;font-weight:700;color:var(--ink);letter-spacing:4px;}
+.auth-brand-sub{font-size:12px;color:var(--ink-3);margin-top:4px;}
+.auth-form{background:var(--white);border-radius:18px;padding:20px;box-shadow:var(--shadow-sm);margin-bottom:14px;}
+.auth-input-group{margin-bottom:14px;}
+.auth-input-label{display:block;font-size:12px;font-weight:500;color:var(--ink-2);margin-bottom:6px;}
+.auth-input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:15px;font-family:inherit;background:var(--bg);color:var(--ink);}
+.auth-input:focus{outline:none;border-color:var(--primary);background:#fff;}
+.auth-btn{width:100%;padding:13px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;box-shadow:0 4px 12px rgba(59,130,246,.25);}
+.auth-btn:active{transform:scale(.98);}
+.auth-switch{text-align:center;font-size:13px;color:var(--ink-3);padding:8px;}
+.auth-switch a{color:var(--primary);font-weight:500;cursor:pointer;}
+.auth-demo-hint{background:var(--accent-light);border-radius:10px;padding:10px 12px;font-size:11px;color:#92400E;line-height:1.6;margin-top:10px;}
+.auth-demo-hint strong{font-weight:600;}
+
+/* ═════════ P.2 扩展：论典列表 ═════════ */
+.courses-page{padding:0;}
+.courses-header{padding:18px 20px 8px;background:var(--white);border-bottom:1px solid var(--border-light);}
+.courses-header-title{font-size:22px;font-weight:700;color:var(--ink);font-family:'Noto Serif SC',serif;letter-spacing:2px;}
+.courses-header-sub{font-size:12px;color:var(--ink-3);margin-top:2px;}
+.courses-list{padding:16px;display:flex;flex-direction:column;gap:12px;}
+.course-card{background:var(--white);border-radius:16px;padding:16px;box-shadow:var(--shadow-sm);border:1px solid var(--border-light);display:flex;gap:14px;cursor:pointer;transition:transform .1s;}
+.course-card:active{transform:scale(.98);}
+.course-cover{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#FDE68A,#FBBF24);display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0;}
+.course-info{flex:1;min-width:0;}
+.course-name{font-size:16px;font-weight:700;color:var(--ink);margin-bottom:2px;}
+.course-author{font-size:12px;color:var(--ink-3);margin-bottom:8px;}
+.course-meta{display:flex;gap:10px;font-size:11px;color:var(--ink-4);}
+.course-progress-wrap{margin-top:8px;}
+.course-progress-bar{height:4px;background:var(--border-light);border-radius:2px;overflow:hidden;}
+.course-progress-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--purple));border-radius:2px;}
+.course-progress-text{font-size:10px;color:var(--ink-3);margin-top:4px;}
+
+/* ═════════ P.2 扩展：论典详情 ═════════ */
+.course-detail-hero{padding:20px;background:linear-gradient(180deg,var(--primary-pale),var(--white));text-align:center;border-bottom:1px solid var(--border-light);}
+.course-detail-cover{width:72px;height:72px;margin:0 auto 12px;border-radius:16px;background:linear-gradient(135deg,#FDE68A,#FBBF24);display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 8px 16px rgba(251,191,36,.25);}
+.course-detail-title{font-size:22px;font-weight:700;font-family:'Noto Serif SC',serif;letter-spacing:3px;margin-bottom:4px;}
+.course-detail-author{font-size:12px;color:var(--ink-3);margin-bottom:10px;}
+.course-detail-desc{font-size:12px;color:var(--ink-2);line-height:1.7;padding:0 8px;}
+.course-detail-actions{padding:14px 20px;display:flex;gap:10px;background:var(--white);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--border-light);}
+.course-enroll-btn{flex:1;padding:11px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;}
+.course-enroll-btn.enrolled{background:var(--success);}
+.course-share-btn{padding:11px 16px;background:var(--bg-2);color:var(--ink-2);border:none;border-radius:10px;font-size:14px;font-family:inherit;cursor:pointer;}
+.chapter-block{padding:16px 20px;}
+.chapter-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.chapter-num{width:28px;height:28px;border-radius:8px;background:var(--primary-pale);color:var(--primary-dark);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.chapter-title{font-size:14px;font-weight:700;color:var(--ink);}
+.lesson-list{background:var(--white);border-radius:12px;border:1px solid var(--border-light);overflow:hidden;}
+.lesson-row{padding:12px 14px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border-light);cursor:pointer;}
+.lesson-row:last-child{border-bottom:none;}
+.lesson-row:active{background:var(--primary-pale);}
+.lesson-dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--ink-4);}
+.lesson-dot.done{background:var(--success);border-color:var(--success);color:#fff;}
+.lesson-dot.current{border-color:var(--primary);background:var(--primary-pale);color:var(--primary);}
+.lesson-info{flex:1;min-width:0;}
+.lesson-title-txt{font-size:14px;color:var(--ink);font-weight:500;}
+.lesson-sub{font-size:11px;color:var(--ink-4);margin-top:2px;}
+.lesson-arrow{font-size:16px;color:var(--ink-4);}
+
+/* ═════════ P.2 扩展：我的进度 ═════════ */
+.progress-page{padding:0;}
+.progress-top{padding:24px 20px;background:linear-gradient(180deg,var(--primary-pale),var(--white));text-align:center;}
+.progress-avatar{width:64px;height:64px;margin:0 auto 10px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--purple));display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;}
+.progress-name{font-size:17px;font-weight:700;color:var(--ink);}
+.progress-email{font-size:12px;color:var(--ink-3);margin-bottom:14px;}
+.progress-streak{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#FDBA74,#F97316);color:#fff;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;box-shadow:0 4px 12px rgba(249,115,22,.3);}
+.progress-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:16px;}
+.progress-metric{background:var(--white);border-radius:12px;padding:14px 8px;text-align:center;border:1px solid var(--border-light);}
+.progress-metric-num{font-size:22px;font-weight:700;color:var(--primary-dark);font-family:'Noto Serif SC',serif;}
+.progress-metric-label{font-size:11px;color:var(--ink-3);margin-top:2px;}
+.progress-section{padding:0 16px 16px;}
+.progress-section-title{font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:10px;padding:0 4px;letter-spacing:0.5px;}
+.sm2-breakdown{background:var(--white);border-radius:14px;padding:14px;border:1px solid var(--border-light);}
+.sm2-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--border-light);}
+.sm2-row:last-child{border:none;}
+.sm2-row-label{font-size:13px;color:var(--ink-2);display:flex;align-items:center;gap:8px;}
+.sm2-row-dot{width:8px;height:8px;border-radius:50%;}
+.sm2-row-count{font-size:14px;font-weight:700;color:var(--ink);}
+.course-progress-list{display:flex;flex-direction:column;gap:8px;}
+.course-progress-item{background:var(--white);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;border:1px solid var(--border-light);}
+.course-progress-emoji{font-size:24px;}
+.course-progress-body{flex:1;min-width:0;}
+.course-progress-name{font-size:13px;font-weight:600;color:var(--ink);}
+.course-progress-rate{font-size:11px;color:var(--ink-3);margin-top:2px;}
+.course-progress-pct{font-size:18px;font-weight:700;color:var(--primary);font-family:'Noto Serif SC',serif;}
+
+/* ═════════ P.2 扩展：SM-2 复习 ═════════ */
+.review-page{padding:0;background:linear-gradient(180deg,var(--primary-pale),var(--bg));}
+.review-header{padding:18px 20px 12px;text-align:center;}
+.review-title{font-size:17px;font-weight:700;color:var(--ink);margin-bottom:4px;}
+.review-count{font-size:12px;color:var(--ink-3);}
+.review-card{margin:8px 20px;background:var(--white);border-radius:16px;padding:18px;box-shadow:var(--shadow);}
+.review-card-tag{display:inline-block;background:var(--primary-pale);color:var(--primary-dark);font-size:11px;font-weight:500;padding:3px 8px;border-radius:6px;margin-bottom:10px;}
+.review-card-q{font-size:15px;font-weight:500;color:var(--ink);line-height:1.7;margin-bottom:16px;}
+.review-hint{font-size:12px;color:var(--ink-3);background:var(--bg);padding:10px 12px;border-radius:10px;margin-bottom:14px;border-left:3px solid var(--primary);}
+.review-actions{padding:10px 20px 20px;}
+.review-show-btn{width:100%;padding:13px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:14px;}
+.review-rating-label{font-size:12px;color:var(--ink-3);text-align:center;margin-bottom:8px;}
+.review-rating{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
+.rating-btn{padding:10px 6px;border-radius:12px;border:1.5px solid transparent;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;display:flex;flex-direction:column;gap:2px;align-items:center;background:var(--white);}
+.rating-btn .emoji{font-size:20px;}
+.rating-btn .label{font-size:11px;}
+.rating-btn .days{font-size:9px;color:var(--ink-4);margin-top:2px;}
+.rating-btn:nth-child(1){color:var(--error);border-color:var(--error-light);}
+.rating-btn:nth-child(1):active,.rating-btn:nth-child(1).on{background:var(--error-light);border-color:var(--error);}
+.rating-btn:nth-child(2){color:#C2410C;border-color:var(--accent-light);}
+.rating-btn:nth-child(2):active,.rating-btn:nth-child(2).on{background:var(--accent-light);border-color:var(--accent);}
+.rating-btn:nth-child(3){color:var(--success-dark);border-color:var(--success-light);}
+.rating-btn:nth-child(3):active,.rating-btn:nth-child(3).on{background:var(--success-light);border-color:var(--success);}
+.rating-btn:nth-child(4){color:var(--primary-dark);border-color:var(--primary-light);}
+.rating-btn:nth-child(4):active,.rating-btn:nth-child(4).on{background:var(--primary-light);border-color:var(--primary);}
+
+/* ═════════ P.2 扩展：错题本 / 收藏 ═════════ */
+.q-list{padding:16px;display:flex;flex-direction:column;gap:10px;}
+.q-item{background:var(--white);border-radius:12px;padding:14px;border:1px solid var(--border-light);}
+.q-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.q-item-tag{background:var(--primary-pale);color:var(--primary-dark);font-size:10px;font-weight:500;padding:2px 8px;border-radius:6px;}
+.q-item-meta{font-size:11px;color:var(--ink-4);}
+.q-item-q{font-size:13px;color:var(--ink);line-height:1.6;margin-bottom:10px;}
+.q-item-actions{display:flex;gap:8px;}
+.q-item-btn{flex:1;padding:8px;background:var(--bg-2);color:var(--ink-2);border:none;border-radius:8px;font-size:12px;font-family:inherit;cursor:pointer;}
+.q-item-btn-primary{background:var(--primary-pale);color:var(--primary-dark);}
+.q-item-btn-danger{background:var(--error-light);color:var(--error-dark);}
+
+/* ═════════ P.2 扩展：底部扩展 tab ═════════ */
+.bottom-bar{height:72px;flex-shrink:0;display:flex;background:rgba(255,255,255,.95);backdrop-filter:blur(20px);border-top:1px solid var(--border-light);padding:6px 0 20px;}
+.bottom-bar-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:10px;color:var(--ink-4);cursor:pointer;}
+.bottom-bar-tab.active{color:var(--primary);}
+.bottom-bar-tab .icon{font-size:20px;}
+
+/* ═════════ P.2 扩展：举报 modal ═════════ */
+.modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;justify-content:center;z-index:200;}
+.modal-overlay.open{display:flex;}
+.modal-sheet{width:100%;background:var(--white);border-radius:20px 20px 0 0;padding:20px;animation:slideUp .25s;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--ink-3);margin-bottom:16px;}
+.report-reason{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.reason-btn{padding:10px;background:var(--bg);border:1.5px solid var(--border-light);border-radius:10px;font-size:12px;color:var(--ink-2);font-family:inherit;cursor:pointer;}
+.reason-btn.on{background:var(--primary-pale);border-color:var(--primary);color:var(--primary-dark);}
+.modal-actions{display:flex;gap:10px;}
+.modal-cancel{flex:1;padding:12px;background:var(--bg-2);color:var(--ink-2);border:none;border-radius:10px;font-size:14px;font-family:inherit;cursor:pointer;}
+.modal-submit{flex:1;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -557,6 +704,7 @@ body{
       </div>
       <button class="welcome-cta" data-go="join">加入班级 · 开始修学</button>
       <div class="welcome-hint" data-go="home">自由学习模式 →</div>
+      <div class="welcome-hint" data-go="login" style="margin-top:4px;color:var(--primary);">已有账号 · 登录 →</div>
     </div>
 
     <!-- JOIN CLASS -->
@@ -753,6 +901,28 @@ body{
             <div class="cb-sub">48 位道友同修 · 辅导员 扎西仁波切</div>
           </div>
           <div class="cb-arrow">›</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px;">
+          <div data-go="courses" style="background:var(--white);border:1px solid var(--border-light);border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+            <div style="font-size:20px;">📚</div>
+            <div style="font-size:10px;color:var(--ink-3);margin-top:2px;">论典</div>
+          </div>
+          <div data-go="review" style="background:var(--white);border:1px solid var(--border-light);border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+            <div style="font-size:20px;">🔁</div>
+            <div style="font-size:10px;color:var(--ink-3);margin-top:2px;">复习</div>
+          </div>
+          <div data-go="mistakes" style="background:var(--white);border:1px solid var(--border-light);border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+            <div style="font-size:20px;">📕</div>
+            <div style="font-size:10px;color:var(--ink-3);margin-top:2px;">错题</div>
+          </div>
+          <div data-go="favorites" style="background:var(--white);border:1px solid var(--border-light);border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+            <div style="font-size:20px;">⭐</div>
+            <div style="font-size:10px;color:var(--ink-3);margin-top:2px;">收藏</div>
+          </div>
+          <div data-go="progress" style="background:var(--white);border:1px solid var(--border-light);border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;">
+            <div style="font-size:20px;">👤</div>
+            <div style="font-size:10px;color:var(--ink-3);margin-top:2px;">我的</div>
+          </div>
         </div>
       </div>
       <div class="home-content">
@@ -1120,6 +1290,420 @@ body{
       <div class="complete-actions">
         <button class="complete-btn-primary" data-go="home">返回修学</button>
         <button class="complete-btn-ghost" data-toast="已同步至班级动态">分享至班级动态 →</button>
+      </div>
+    </div>
+
+    <!-- ═════════ P.2 · LOGIN ═════════ -->
+    <div class="page auth-page" id="page-login">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="auth-brand">
+        <div class="auth-brand-logo">🪷</div>
+        <div class="auth-brand-title">觉学</div>
+        <div class="auth-brand-sub">JUEXUE · 菩提学修</div>
+      </div>
+      <div class="auth-form">
+        <div class="auth-input-group">
+          <label class="auth-input-label">邮箱</label>
+          <input type="email" class="auth-input" value="student@juexue.app" id="login-email">
+        </div>
+        <div class="auth-input-group">
+          <label class="auth-input-label">密码</label>
+          <input type="password" class="auth-input" value="student12345" id="login-pass">
+        </div>
+        <button class="auth-btn" data-go="home">登录</button>
+      </div>
+      <div class="auth-switch">
+        没有账号？<a data-go="register">注册新账号</a>
+      </div>
+      <div class="auth-demo-hint">
+        💡 <strong>演示账号：</strong><br>
+        学员 <code>student@juexue.app / student12345</code><br>
+        辅导员 <code>coach@juexue.app / coach123456</code><br>
+        管理员 <code>admin@juexue.app / admin123456</code>
+      </div>
+    </div>
+
+    <!-- ═════════ P.2 · REGISTER ═════════ -->
+    <div class="page auth-page" id="page-register">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="top-nav" style="background:transparent;border:none;padding-top:4px;">
+        <button class="top-nav-back" data-go="login">‹</button>
+        <div class="top-nav-title">注册</div>
+      </div>
+      <div class="auth-brand" style="margin-bottom:20px;">
+        <div class="auth-brand-logo">🪷</div>
+        <div class="auth-brand-title">加入觉学</div>
+        <div class="auth-brand-sub">与道友共修佛法</div>
+      </div>
+      <div class="auth-form">
+        <div class="auth-input-group">
+          <label class="auth-input-label">邮箱</label>
+          <input type="email" class="auth-input" placeholder="name@example.com">
+        </div>
+        <div class="auth-input-group">
+          <label class="auth-input-label">密码（≥ 6 位）</label>
+          <input type="password" class="auth-input" placeholder="设置密码">
+        </div>
+        <div class="auth-input-group">
+          <label class="auth-input-label">法名（可选）</label>
+          <input type="text" class="auth-input" placeholder="如：慧学">
+        </div>
+        <button class="auth-btn" data-go="home" data-toast="注册成功，欢迎回来">注册并登录</button>
+      </div>
+      <div class="auth-switch">
+        已有账号？<a data-go="login">直接登录</a>
+      </div>
+    </div>
+
+    <!-- ═════════ P.2 · COURSES LIST ═════════ -->
+    <div class="page courses-page" id="page-courses">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="top-nav">
+        <button class="top-nav-back" data-go="home">‹</button>
+        <div class="top-nav-title">浏览论典</div>
+      </div>
+      <div class="courses-header">
+        <div class="courses-header-title">大乘论典</div>
+        <div class="courses-header-sub">精选法本 · 次第修学</div>
+      </div>
+      <div class="scroll" style="flex:1;">
+        <div class="courses-list" id="courses-list"></div>
+      </div>
+    </div>
+
+    <!-- ═════════ P.2 · COURSE DETAIL ═════════ -->
+    <div class="page" id="page-course-detail">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="top-nav">
+        <button class="top-nav-back" data-go="courses">‹</button>
+        <div class="top-nav-title">论典详情</div>
+      </div>
+      <div class="scroll" style="flex:1;">
+        <div class="course-detail-hero">
+          <div class="course-detail-cover">🪷</div>
+          <div class="course-detail-title">入行论</div>
+          <div class="course-detail-author">寂天菩萨 · 中观派</div>
+          <div class="course-detail-desc">《入菩萨行论》为大乘佛教中观派代表作，系统阐述如何发起菩提心、修持六度、圆成佛果。</div>
+        </div>
+        <div class="course-detail-actions">
+          <button class="course-enroll-btn enrolled" data-toast="已报名 · 正在学习">已报名 ✓</button>
+          <button class="course-share-btn" data-toast="链接已复制">分享</button>
+        </div>
+
+        <div class="chapter-block">
+          <div class="chapter-head">
+            <div class="chapter-num">1</div>
+            <div class="chapter-title">菩提心利益品</div>
+          </div>
+          <div class="lesson-list">
+            <div class="lesson-row" data-go="home">
+              <div class="lesson-dot done">✓</div>
+              <div class="lesson-info">
+                <div class="lesson-title-txt">第 1 课 · 论名 · 礼敬 · 立誓</div>
+                <div class="lesson-sub">已完成 · 正确率 80%</div>
+              </div>
+              <div class="lesson-arrow">›</div>
+            </div>
+            <div class="lesson-row" data-go="home">
+              <div class="lesson-dot done">✓</div>
+              <div class="lesson-info">
+                <div class="lesson-title-txt">第 2 课 · 菩提心之功德</div>
+                <div class="lesson-sub">已完成 · 正确率 92%</div>
+              </div>
+              <div class="lesson-arrow">›</div>
+            </div>
+            <div class="lesson-row" data-go-quiz="0">
+              <div class="lesson-dot current">→</div>
+              <div class="lesson-info">
+                <div class="lesson-title-txt">第 3 课 · 愿行菩提心</div>
+                <div class="lesson-sub">正在学习 · 3 / 5 题</div>
+              </div>
+              <div class="lesson-arrow">›</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chapter-block">
+          <div class="chapter-head">
+            <div class="chapter-num">3</div>
+            <div class="chapter-title">受持菩提心品</div>
+          </div>
+          <div class="lesson-list">
+            <div class="lesson-row">
+              <div class="lesson-dot">4</div>
+              <div class="lesson-info">
+                <div class="lesson-title-txt">第 4 课 · 七支供养</div>
+                <div class="lesson-sub">未开始 · 5 题</div>
+              </div>
+              <div class="lesson-arrow">›</div>
+            </div>
+            <div class="lesson-row">
+              <div class="lesson-dot">5</div>
+              <div class="lesson-info">
+                <div class="lesson-title-txt">第 5 课 · 正受菩提心</div>
+                <div class="lesson-sub">未开始 · 4 题</div>
+              </div>
+              <div class="lesson-arrow">›</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════════ P.2 · MY PROGRESS ═════════ -->
+    <div class="page progress-page" id="page-progress">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="top-nav">
+        <button class="top-nav-back" data-go="home">‹</button>
+        <div class="top-nav-title">我的学习</div>
+      </div>
+      <div class="scroll" style="flex:1;">
+        <div class="progress-top">
+          <div class="progress-avatar">慧</div>
+          <div class="progress-name">慧学</div>
+          <div class="progress-email">student@juexue.app</div>
+          <div class="progress-streak">🔥 连续修行 4 天</div>
+        </div>
+
+        <div class="progress-metrics">
+          <div class="progress-metric">
+            <div class="progress-metric-num">68</div>
+            <div class="progress-metric-label">已答题</div>
+          </div>
+          <div class="progress-metric">
+            <div class="progress-metric-num">85%</div>
+            <div class="progress-metric-label">正确率</div>
+          </div>
+          <div class="progress-metric">
+            <div class="progress-metric-num">12</div>
+            <div class="progress-metric-label">最长连续</div>
+          </div>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-section-title">SM-2 复习卡片</div>
+          <div class="sm2-breakdown">
+            <div class="sm2-row">
+              <div class="sm2-row-label"><span class="sm2-row-dot" style="background:#9CA3AF;"></span>待初学（New）</div>
+              <div class="sm2-row-count">15</div>
+            </div>
+            <div class="sm2-row">
+              <div class="sm2-row-label"><span class="sm2-row-dot" style="background:#F59E0B;"></span>学习中（Learning）</div>
+              <div class="sm2-row-count">8</div>
+            </div>
+            <div class="sm2-row">
+              <div class="sm2-row-label"><span class="sm2-row-dot" style="background:#3B82F6;"></span>巩固中（Review）</div>
+              <div class="sm2-row-count">24</div>
+            </div>
+            <div class="sm2-row">
+              <div class="sm2-row-label"><span class="sm2-row-dot" style="background:#10B981;"></span>已精通（Mastered）</div>
+              <div class="sm2-row-count">6</div>
+            </div>
+            <div class="sm2-row">
+              <div class="sm2-row-label" style="color:var(--primary-dark);font-weight:600;">📚 今日待复习</div>
+              <div class="sm2-row-count" style="color:var(--primary-dark);">7</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-section-title">各论典进度</div>
+          <div class="course-progress-list">
+            <div class="course-progress-item">
+              <div class="course-progress-emoji">🪷</div>
+              <div class="course-progress-body">
+                <div class="course-progress-name">入行论</div>
+                <div class="course-progress-rate">答对 58 / 68 · 正确率 85%</div>
+              </div>
+              <div class="course-progress-pct">60%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-section-title">快捷入口</div>
+          <div class="list-item" data-go="review" style="margin-bottom:8px;">
+            <div class="list-item-icon" style="background:var(--primary-pale);color:var(--primary-dark);">🔁</div>
+            <div class="list-item-body">
+              <div class="list-item-title">开始复习（7 张到期）</div>
+              <div class="list-item-desc">SM-2 间隔复习</div>
+            </div>
+            <div class="list-item-meta">›</div>
+          </div>
+          <div class="list-item" data-go="mistakes" style="margin-bottom:8px;">
+            <div class="list-item-icon" style="background:var(--error-light);color:var(--error-dark);">📕</div>
+            <div class="list-item-body">
+              <div class="list-item-title">错题本</div>
+              <div class="list-item-desc">12 题待掌握</div>
+            </div>
+            <div class="list-item-meta">›</div>
+          </div>
+          <div class="list-item" data-go="favorites">
+            <div class="list-item-icon" style="background:var(--accent-light);color:#92400E;">⭐</div>
+            <div class="list-item-body">
+              <div class="list-item-title">我的收藏</div>
+              <div class="list-item-desc">6 个题目</div>
+            </div>
+            <div class="list-item-meta">›</div>
+          </div>
+        </div>
+
+        <div style="padding:20px;">
+          <button class="btn btn-ghost btn-block" data-go="login" data-toast="已退出登录">退出登录</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════════ P.2 · SM-2 REVIEW ═════════ -->
+    <div class="page review-page" id="page-review">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="top-nav" style="background:transparent;">
+        <button class="top-nav-back" data-go="progress">‹</button>
+        <div class="top-nav-title">今日复习</div>
+        <div class="top-nav-action" data-toast="已跳过">跳过</div>
+      </div>
+      <div class="review-header">
+        <div class="review-title">第 3 题 / 共 7 题</div>
+        <div class="review-count">巩固中 · 上次 3 天前</div>
+      </div>
+
+      <div class="scroll" style="flex:1;">
+        <div class="review-card">
+          <div class="review-card-tag">单选题 · 入行论 · 第 2 课</div>
+          <div class="review-card-q">菩提心犹如"劫末火"，主要譬喻它能够：</div>
+          <div class="review-hint" id="review-hint" style="display:none;">
+            <strong>答案：</strong>刹那净除无始重罪。<br>
+            菩提心以利益一切众生为缘，广大心量能对治我执所造之业。
+          </div>
+        </div>
+      </div>
+
+      <div class="review-actions">
+        <button class="review-show-btn" id="review-show" onclick="this.style.display='none';document.getElementById('review-hint').style.display='block';document.getElementById('review-rating').style.display='grid';">显示答案</button>
+        <div class="review-rating-label" id="review-rating-label" style="display:none;">回忆得如何？</div>
+        <div class="review-rating" id="review-rating" style="display:none;">
+          <button class="rating-btn" data-toast="1 天后再来" data-go="progress">
+            <span class="emoji">🔴</span>
+            <span class="label">重来</span>
+            <span class="days">&lt; 1 天</span>
+          </button>
+          <button class="rating-btn" data-toast="4 天后再来" data-go="progress">
+            <span class="emoji">🟡</span>
+            <span class="label">困难</span>
+            <span class="days">4 天</span>
+          </button>
+          <button class="rating-btn" data-toast="15 天后再来" data-go="progress">
+            <span class="emoji">🟢</span>
+            <span class="label">良好</span>
+            <span class="days">15 天</span>
+          </button>
+          <button class="rating-btn" data-toast="1 月后再来" data-go="progress">
+            <span class="emoji">🔵</span>
+            <span class="label">简单</span>
+            <span class="days">38 天</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════════ P.2 · MISTAKES ═════════ -->
+    <div class="page" id="page-mistakes">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="top-nav">
+        <button class="top-nav-back" data-go="progress">‹</button>
+        <div class="top-nav-title">错题本</div>
+        <div class="top-nav-action" data-toast="已清空掌握项">整理</div>
+      </div>
+      <div class="scroll" style="flex:1;">
+        <div class="q-list">
+          <div class="q-item">
+            <div class="q-item-head">
+              <span class="q-item-tag">入行论 · 第 1 课</span>
+              <span class="q-item-meta">错 3 次 · 今天</span>
+            </div>
+            <div class="q-item-q">《入菩萨行论》的造论者是下列哪一位？</div>
+            <div class="q-item-actions">
+              <button class="q-item-btn q-item-btn-primary" data-go-quiz="0">再做一次</button>
+              <button class="q-item-btn" data-toast="已掌握，移出错题本">已掌握</button>
+            </div>
+          </div>
+          <div class="q-item">
+            <div class="q-item-head">
+              <span class="q-item-tag">入行论 · 第 3 课</span>
+              <span class="q-item-meta">错 2 次 · 昨天</span>
+            </div>
+            <div class="q-item-q">寂天菩萨以何譬喻说明"愿菩提心"？</div>
+            <div class="q-item-actions">
+              <button class="q-item-btn q-item-btn-primary" data-go-quiz="0">再做一次</button>
+              <button class="q-item-btn" data-toast="已掌握，移出错题本">已掌握</button>
+            </div>
+          </div>
+          <div class="q-item">
+            <div class="q-item-head">
+              <span class="q-item-tag">入行论 · 第 4 课</span>
+              <span class="q-item-meta">错 1 次 · 3 天前</span>
+            </div>
+            <div class="q-item-q">下列哪一项不属于"七支供养"？</div>
+            <div class="q-item-actions">
+              <button class="q-item-btn q-item-btn-primary" data-go-quiz="0">再做一次</button>
+              <button class="q-item-btn" data-toast="已掌握，移出错题本">已掌握</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════════ P.2 · FAVORITES ═════════ -->
+    <div class="page" id="page-favorites">
+      <div class="status-bar"><span>9:41</span><div class="status-right"><span>●●●</span></div></div>
+      <div class="top-nav">
+        <button class="top-nav-back" data-go="progress">‹</button>
+        <div class="top-nav-title">我的收藏</div>
+      </div>
+      <div class="scroll" style="flex:1;">
+        <div class="q-list">
+          <div class="q-item">
+            <div class="q-item-head">
+              <span class="q-item-tag">入行论 · 第 2 课</span>
+              <span class="q-item-meta">⭐ 3 天前收藏</span>
+            </div>
+            <div class="q-item-q">请用自己的话，简述菩提心为何能"刹那净除无始重罪"？</div>
+            <div class="q-item-actions">
+              <button class="q-item-btn q-item-btn-primary" data-go-quiz="0">复习</button>
+              <button class="q-item-btn q-item-btn-danger" data-toast="已取消收藏">取消收藏</button>
+            </div>
+          </div>
+          <div class="q-item">
+            <div class="q-item-head">
+              <span class="q-item-tag">入行论 · 第 5 课</span>
+              <span class="q-item-meta">⭐ 今天收藏</span>
+            </div>
+            <div class="q-item-q">"如昔诸善逝，先发菩提心"——你怎样理解这一发心？</div>
+            <div class="q-item-actions">
+              <button class="q-item-btn q-item-btn-primary" data-go-quiz="0">复习</button>
+              <button class="q-item-btn q-item-btn-danger" data-toast="已取消收藏">取消收藏</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═════════ P.2 · REPORT MODAL ═════════ -->
+    <div class="modal-overlay" id="report-modal">
+      <div class="modal-sheet">
+        <div class="modal-title">举报这道题</div>
+        <div class="modal-sub">帮助我们完善题库 · 匿名提交给管理员</div>
+        <div class="report-reason">
+          <button class="reason-btn" data-reason>答案错误</button>
+          <button class="reason-btn" data-reason>不当内容</button>
+          <button class="reason-btn" data-reason>义理错误</button>
+          <button class="reason-btn" data-reason>错别字</button>
+          <button class="reason-btn" data-reason>其他</button>
+        </div>
+        <div class="modal-actions">
+          <button class="modal-cancel" data-close-modal>取消</button>
+          <button class="modal-submit" data-close-modal data-toast="举报已提交，感谢反馈">提交举报</button>
+        </div>
       </div>
     </div>
 
@@ -1980,6 +2564,11 @@ document.addEventListener('click', function(e){
     goToQuiz(parseInt(quizBtn.getAttribute('data-quiz')));
     return;
   }
+  const quizBtn2 = e.target.closest('[data-go-quiz]');
+  if (quizBtn2) {
+    goToQuiz(parseInt(quizBtn2.getAttribute('data-go-quiz')));
+    return;
+  }
   const toastBtn = e.target.closest('[data-toast]');
   if (toastBtn) {
     showToast(toastBtn.getAttribute('data-toast'));
@@ -1990,10 +2579,93 @@ document.addEventListener('click', function(e){
     fillDemoCode();
     return;
   }
+  // P.2：举报 modal 开关
+  const openModal = e.target.closest('[data-open-modal]');
+  if (openModal) {
+    document.getElementById(openModal.getAttribute('data-open-modal')).classList.add('open');
+    return;
+  }
+  const closeModal = e.target.closest('[data-close-modal]');
+  if (closeModal) {
+    document.querySelectorAll('.modal-overlay').forEach(function(m){ m.classList.remove('open'); });
+    return;
+  }
+  // P.2：举报原因单选
+  const reasonBtn = e.target.closest('[data-reason]');
+  if (reasonBtn) {
+    reasonBtn.parentElement.querySelectorAll('.reason-btn').forEach(function(b){ b.classList.remove('on'); });
+    reasonBtn.classList.add('on');
+    return;
+  }
 });
+
+// ═════════ P.2：论典列表（mock 数据） ═════════
+const coursesData = [
+  {
+    id: 'course_ruxinglun',
+    slug: 'ruxinglun',
+    emoji: '🪷',
+    title: '入行论',
+    author: '寂天菩萨',
+    chapters: 10,
+    lessons: 20,
+    enrolled: true,
+    progress: 60,
+  },
+  {
+    id: 'course_pumu',
+    slug: 'pumu',
+    emoji: '📿',
+    title: '普贤行愿品',
+    author: '华严经',
+    chapters: 1,
+    lessons: 10,
+    enrolled: false,
+    progress: 0,
+  },
+  {
+    id: 'course_xinjing',
+    slug: 'xinjing',
+    emoji: '☸️',
+    title: '般若心经',
+    author: '观自在菩萨',
+    chapters: 1,
+    lessons: 6,
+    enrolled: false,
+    progress: 0,
+  },
+];
+
+function buildCoursesList() {
+  const list = document.getElementById('courses-list');
+  if (!list) return;
+  list.innerHTML = coursesData.map(function(c){
+    const progressHtml = c.enrolled
+      ? '<div class="course-progress-wrap">'
+        + '<div class="course-progress-bar"><div class="course-progress-fill" style="width:' + c.progress + '%"></div></div>'
+        + '<div class="course-progress-text">已完成 ' + c.progress + '%</div>'
+        + '</div>'
+      : '<div class="course-progress-text" style="margin-top:6px;color:var(--accent);">未报名 · 点击查看</div>';
+    return ''
+      + '<div class="course-card" data-go="course-detail">'
+      + '  <div class="course-cover">' + c.emoji + '</div>'
+      + '  <div class="course-info">'
+      + '    <div class="course-name">' + c.title + '</div>'
+      + '    <div class="course-author">' + c.author + '</div>'
+      + '    <div class="course-meta">'
+      + '      <span>' + c.chapters + ' 章</span>'
+      + '      <span>·</span>'
+      + '      <span>' + c.lessons + ' 课</span>'
+      + '    </div>'
+      + progressHtml
+      + '  </div>'
+      + '</div>';
+  }).join('');
+}
 
 document.getElementById('submitBtn').addEventListener('click', handleSubmit);
 buildDemoList();
+buildCoursesList();
 </script>
 
 </body>
