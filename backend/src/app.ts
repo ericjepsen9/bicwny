@@ -8,6 +8,7 @@ import { getUserId, jwtOptional } from './lib/auth.js';
 import { config, isDev } from './lib/config.js';
 import { isAppError } from './lib/errors.js';
 import { genReqId, REQUEST_ID_HEADER } from './lib/request-id.js';
+import { registerTimingHooks } from './lib/timing.js';
 import { answeringRoutes } from './modules/answering/routes.js';
 import { mistakesRoutes } from './modules/answering/mistakes.routes.js';
 import { authRoutes } from './modules/auth/routes.js';
@@ -57,6 +58,9 @@ export async function buildApp(): Promise<FastifyInstance> {
     const uid = getUserId(req);
     if (uid) req.log = req.log.child({ userId: uid });
   });
+
+  // 请求耗时 + 慢请求告警（onResponse 阶段）
+  registerTimingHooks(app);
 
   // 全局错误处理
   app.setErrorHandler((err, req, reply) => {
