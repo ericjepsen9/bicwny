@@ -19,17 +19,38 @@ function createClient(): PrismaClient {
   });
 
   client.$on('query', (e: Prisma.QueryEvent) => {
-    if (e.duration >= SLOW_QUERY_MS) {
-      console.warn(
-        JSON.stringify({
-          level: 'warn',
-          kind: 'slow_query',
-          durationMs: e.duration,
-          query: truncate(e.query, QUERY_PREVIEW),
-          paramsLen: e.params?.length ?? 0,
-          timestamp: e.timestamp,
-        }),
-      );
+    if (e.duration < SLOW_QUERY_MS) return;
+
+    const preview = truncate(e.query, QUERY_PREVIEW);
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        kind: 'slow_query',
+        durationMs: e.duration,
+        query: preview,
+        paramsLen: e.params?.length ?? 0,
+        timestamp: e.timestamp,
+      }),
+    );
+
+    // 防递归：写 ErrorLog 本身的 INSERT 不再回写 ErrorLog
+    if (!e.query.includes('"ErrorLog"')) {
+      // 延迟导入避免顶层循环引用
+      import('./error-log.js')
+        .then(({ writeErrorLog }) => {
+          writeErrorLog({
+            kind: 'slow_query',
+            message: `slow query ${e.duration}ms`,
+            context: {
+              durationMs: e.duration,
+              query: preview,
+              paramsLen: e.params?.length ?? 0,
+            },
+          });
+        })
+        .catch(() => {
+          /* ignore */
+        });
     }
   });
 
