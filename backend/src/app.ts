@@ -8,6 +8,7 @@ import { jwtOptional } from './lib/auth.js';
 import { config, isDev } from './lib/config.js';
 import { isAppError } from './lib/errors.js';
 import { answeringRoutes } from './modules/answering/routes.js';
+import { mistakesRoutes } from './modules/answering/mistakes.routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { adminClassRoutes } from './modules/class/admin.routes.js';
 import { coachClassRoutes } from './modules/class/coach.routes.js';
@@ -67,6 +68,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(learningRoutes);
   await app.register(favoritesRoutes);
   await app.register(answeringRoutes);
+  await app.register(mistakesRoutes);
   await app.register(sm2Routes);
 
   return app;
