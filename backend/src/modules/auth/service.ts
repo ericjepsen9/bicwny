@@ -1,23 +1,19 @@
 // auth 业务编排：注册 / 登录 / 刷新 / 登出
-// refresh token 轮转：旧 session revoke，新 session 用预生成 id 一次性写入（避免占位哈希）。
-import { randomBytes } from 'node:crypto';
-import type { User, UserRole } from '@prisma/client';
+// 内部工具（issuePair / newSessionId / stripPassword / normalizeEmail）见 ./service.helpers.ts
+import type { UserRole } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { Conflict, Unauthorized } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { hashPassword, verifyPassword } from './hash.js';
 import {
-  getRefreshExpiresAt,
-  hashRefreshToken,
-  signAccessToken,
-  signRefreshToken,
-  verifyRefreshToken,
-} from './tokens.js';
-
-export interface SessionCtx {
-  ua?: string;
-  ip?: string;
-}
+  issuePair,
+  normalizeEmail,
+  type PublicUser,
+  type SessionCtx,
+  stripPassword,
+  type TokenPair,
+} from './service.helpers.js';
+import { hashRefreshToken, verifyRefreshToken } from './tokens.js';
 
 export interface RegisterInput extends SessionCtx {
   email: string;
@@ -30,13 +26,6 @@ export interface LoginInput extends SessionCtx {
   email: string;
   password: string;
 }
-
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-}
-
-export type PublicUser = Omit<User, 'passwordHash'>;
 
 export interface AuthResult extends TokenPair {
   user: PublicUser;
@@ -70,7 +59,7 @@ export async function loginUser(
 ): Promise<AuthResult> {
   const email = normalizeEmail(input.email);
   const user = await prisma.user.findUnique({ where: { email } });
-  // 一律以 Unauthorized 返回，避免枚举
+  // 一律以 Unauthorized 响应，避免邮箱枚举
   if (!user || !user.passwordHash || !user.isActive) {
     throw Unauthorized('邮箱或密码不正确');
   }
@@ -110,7 +99,6 @@ export async function refreshSession(
     where: { id: session.id },
     data: { revokedAt: new Date() },
   });
-
   return issuePair(app, session.user, ctx);
 }
 
@@ -125,42 +113,6 @@ export async function logout(
       data: { revokedAt: new Date() },
     });
   } catch {
-    // 无效 token 也当作登出成功（幂等）
+    // 无效 token 也当登出成功（幂等）
   }
-}
-
-// ───── helpers ─────
-
-async function issuePair(
-  app: FastifyInstance,
-  user: User,
-  ctx: SessionCtx,
-): Promise<TokenPair> {
-  const sid = newSessionId();
-  const refreshToken = signRefreshToken(app, { sub: user.id, sid });
-  await prisma.authSession.create({
-    data: {
-      id: sid,
-      userId: user.id,
-      refreshTokenHash: hashRefreshToken(refreshToken),
-      userAgent: ctx.ua,
-      ipAddress: ctx.ip,
-      expiresAt: getRefreshExpiresAt(),
-    },
-  });
-  const accessToken = signAccessToken(app, { sub: user.id, role: user.role });
-  return { accessToken, refreshToken };
-}
-
-function newSessionId(): string {
-  return randomBytes(12).toString('base64url');
-}
-
-function normalizeEmail(e: string): string {
-  return e.trim().toLowerCase();
-}
-
-function stripPassword(user: User): PublicUser {
-  const { passwordHash: _removed, ...rest } = user;
-  return rest;
 }
