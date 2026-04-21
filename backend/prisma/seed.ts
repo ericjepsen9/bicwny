@@ -3,8 +3,8 @@
 // Sprint 1 第 1 步（分 5 小步）：
 //   1.1 骨架：user + course + 2 chapters + 5 lessons   ✓
 //   1.2 single + fill 题                                ✓
-//   1.3 multi + open 题                                  ← 当前
-//   1.4 sort + match 题
+//   1.3 multi + open 题                                  ✓
+//   1.4 sort + match 题                                  ← 当前
 //   1.5 LLM providers + scenario + prompt 模板
 
 import { PrismaClient } from '@prisma/client';
@@ -537,6 +537,185 @@ async function seedOpenQuestions() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 1.4  题目 · sort + match
+// ═══════════════════════════════════════════════════════════════
+
+async function seedSortQuestions() {
+  const qs: QuestionSeed[] = [
+    {
+      id: 'q_sort_001',
+      type: 'sort',
+      courseId: COURSE_ID,
+      chapterId: CHAPTERS.ch03,
+      lessonId: LESSONS.l03_01,
+      difficulty: 2,
+      tags: ['七支供', '次第'],
+      questionText: '请将"七支供养"按传统次第排序：',
+      correctText:
+        '七支供次第：① 顶礼 ② 供养 ③ 忏悔 ④ 随喜 ⑤ 请转法轮 ⑥ 请佛住世 ⑦ 回向。',
+      wrongText: '次第不可错乱：先顶礼供养，次忏悔随喜，后请法回向。',
+      source: '《入行论·供养品》',
+      payload: {
+        items: [
+          { text: '顶礼支', order: 1 },
+          { text: '供养支', order: 2 },
+          { text: '忏悔支', order: 3 },
+          { text: '随喜支', order: 4 },
+          { text: '请转法轮支', order: 5 },
+          { text: '请佛住世支', order: 6 },
+          { text: '回向支', order: 7 },
+        ],
+      },
+    },
+    {
+      id: 'q_sort_002',
+      type: 'sort',
+      courseId: COURSE_ID,
+      chapterId: CHAPTERS.ch01,
+      lessonId: LESSONS.l01_01,
+      difficulty: 2,
+      tags: ['修学次第'],
+      questionText: '请将大乘修学的入门次第按先后顺序排列：',
+      correctText:
+        '① 亲近善知识 → ② 听闻正法 → ③ 如理思惟 → ④ 法随法行（修行） → ⑤ 发菩提心受戒。',
+      wrongText:
+        '次第不可颠倒：无善知识难得正法；无闻思则修行无依；菩提心以前三为基才能坚固。',
+      source: '《菩提道次第》摄义',
+      payload: {
+        items: [
+          { text: '亲近善知识', order: 1 },
+          { text: '听闻正法', order: 2 },
+          { text: '如理思惟', order: 3 },
+          { text: '法随法行', order: 4 },
+          { text: '发菩提心受戒', order: 5 },
+        ],
+      },
+    },
+    {
+      id: 'q_sort_003',
+      type: 'sort',
+      courseId: COURSE_ID,
+      chapterId: CHAPTERS.ch03,
+      lessonId: LESSONS.l03_02,
+      difficulty: 3,
+      tags: ['受戒仪轨'],
+      questionText: '受持菩提心戒的基本仪轨次第是？',
+      correctText:
+        '① 七支供净除障碍积集资粮 → ② 皈依三宝 → ③ 发愿菩提心 → ④ 正受行菩提心戒 → ⑤ 回向。',
+      wrongText:
+        '须先供养忏悔积资净障，再皈依、发心、受戒，最后回向。',
+      source: '《入行论·受持品》',
+      payload: {
+        items: [
+          { text: '修七支供以积资净障', order: 1 },
+          { text: '皈依三宝', order: 2 },
+          { text: '发起愿菩提心', order: 3 },
+          { text: '正受行菩提心戒', order: 4 },
+          { text: '回向一切众生', order: 5 },
+        ],
+      },
+    },
+  ];
+  await upsertQuestions(qs);
+  console.log(`  ✓ ${qs.length} sort`);
+}
+
+async function seedMatchQuestions() {
+  const qs: QuestionSeed[] = [
+    {
+      id: 'q_match_001',
+      type: 'match',
+      courseId: COURSE_ID,
+      chapterId: CHAPTERS.ch01,
+      lessonId: LESSONS.l01_02,
+      difficulty: 2,
+      tags: ['六度'],
+      questionText: '请将"六度"与其核心含义配对：',
+      correctText:
+        '六度要义：布施—舍己利他；持戒—防非止恶；安忍—不瞋安住；精进—勤求善法；禅定—专注不散；智慧—通达实相。',
+      wrongText: '请再核对每度的核心含义，不要张冠李戴。',
+      source: '六度传统释义',
+      payload: {
+        left: [
+          { id: 'L1', text: '布施度' },
+          { id: 'L2', text: '持戒度' },
+          { id: 'L3', text: '安忍度' },
+          { id: 'L4', text: '禅定度' },
+          { id: 'L5', text: '智慧度' },
+        ],
+        right: [
+          { id: 'R1', text: '舍己所有利益他人', match: 'L1' },
+          { id: 'R2', text: '防护三门不造恶业', match: 'L2' },
+          { id: 'R3', text: '面对伤害安住不瞋', match: 'L3' },
+          { id: 'R4', text: '心专一境不散乱', match: 'L4' },
+          { id: 'R5', text: '通达诸法实相', match: 'L5' },
+        ],
+      },
+    },
+    {
+      id: 'q_match_002',
+      type: 'match',
+      courseId: COURSE_ID,
+      chapterId: CHAPTERS.ch03,
+      lessonId: LESSONS.l03_02,
+      difficulty: 3,
+      tags: ['佛陀十号'],
+      questionText: '请将佛陀圣号与含义配对：',
+      correctText:
+        '如来：乘如实道来成正觉；应供：堪受天人供养；正遍知：遍知一切法；善逝：好去不还轮回；世间解：了解世间种种。',
+      wrongText: '名号背后意涵不同，请细辨。',
+      source: '佛陀十号释义',
+      payload: {
+        left: [
+          { id: 'L1', text: '如来' },
+          { id: 'L2', text: '应供' },
+          { id: 'L3', text: '正遍知' },
+          { id: 'L4', text: '善逝' },
+          { id: 'L5', text: '世间解' },
+        ],
+        right: [
+          { id: 'R1', text: '乘如实道而来，成等正觉', match: 'L1' },
+          { id: 'R2', text: '堪受一切天人之供养', match: 'L2' },
+          { id: 'R3', text: '遍知一切诸法实相', match: 'L3' },
+          { id: 'R4', text: '善巧越过生死，不再来还', match: 'L4' },
+          { id: 'R5', text: '彻底了解世间一切', match: 'L5' },
+        ],
+      },
+    },
+    {
+      id: 'q_match_003',
+      type: 'match',
+      courseId: COURSE_ID,
+      chapterId: CHAPTERS.ch01,
+      lessonId: LESSONS.l01_02,
+      difficulty: 3,
+      tags: ['菩提心', '譬喻'],
+      questionText: '请将菩提心之譬喻与其所表含义配对：',
+      correctText:
+        '如种子：能生佛果之因；如良田：能长一切善根；如摩尼宝：满足一切所求；如劫末火：刹那净除重罪。',
+      wrongText: '譬喻对应功德不同，须细辨。',
+      source: '《入行论·菩提心利益品》譬喻汇集',
+      payload: {
+        left: [
+          { id: 'L1', text: '菩提心如种子' },
+          { id: 'L2', text: '菩提心如良田' },
+          { id: 'L3', text: '菩提心如摩尼宝' },
+          { id: 'L4', text: '菩提心如劫末火' },
+        ],
+        right: [
+          { id: 'R1', text: '能生一切佛果之因', match: 'L1' },
+          { id: 'R2', text: '长养一切善根', match: 'L2' },
+          { id: 'R3', text: '满足一切所求利益', match: 'L3' },
+          { id: 'R4', text: '刹那烧尽无始重罪', match: 'L4' },
+        ],
+      },
+    },
+  ];
+  await upsertQuestions(qs);
+  console.log(`  ✓ ${qs.length} match`);
+}
+
+// ═══════════════════════════════════════════════════════════════
 // Entry
 // ═══════════════════════════════════════════════════════════════
 
@@ -550,8 +729,10 @@ async function main() {
   await seedFillQuestions();
   await seedMultiQuestions();
   await seedOpenQuestions();
-  // TODO 1.4 – 1.5: sort/match + LLM config
-  console.log('\n✅ Seed 1.3 done (14/20 questions — sort/match pending)');
+  await seedSortQuestions();
+  await seedMatchQuestions();
+  // TODO 1.5: LLM providers + scenario + prompt template
+  console.log('\n✅ Seed 1.4 done (20/20 questions — LLM config pending)');
 }
 
 main()
