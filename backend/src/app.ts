@@ -4,9 +4,11 @@
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { jwtOptional } from './lib/auth.js';
 import { config, isDev } from './lib/config.js';
 import { isAppError } from './lib/errors.js';
 import { answeringRoutes } from './modules/answering/routes.js';
+import { authRoutes } from './modules/auth/routes.js';
 import { sm2Routes } from './modules/sm2/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -20,8 +22,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     credentials: true,
   });
 
-  // JWT：Sprint 1 仅声明 secret；真登录 + preHandler 在 Sprint 5 接入
+  // JWT：Sprint 2 接入真登录。全局 onRequest 钩子尝试验签，拿不到也不报错；
+  //      路由级用 requireRole / requireUserId 判断
   await app.register(jwt, { secret: config.JWT_SECRET });
+  app.addHook('onRequest', jwtOptional);
 
   // 全局错误处理
   app.setErrorHandler((err, req, reply) => {
@@ -45,6 +49,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get('/health', async () => ({ ok: true, env: config.NODE_ENV }));
 
   // 业务路由
+  await app.register(authRoutes);
   await app.register(answeringRoutes);
   await app.register(sm2Routes);
 
