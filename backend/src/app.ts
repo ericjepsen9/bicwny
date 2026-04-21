@@ -17,6 +17,7 @@ import { coachStatsRoutes } from './modules/coach/routes.js';
 import { favoritesRoutes } from './modules/favorites/routes.js';
 import { learningRoutes } from './modules/learning/routes.js';
 import { llmAdminRoutes } from './modules/llm/admin.routes.js';
+import { llmScenarioAdminRoutes } from './modules/llm/scenario.admin.routes.js';
 import { adminQuestionRoutes } from './modules/questions/admin.routes.js';
 import { coachQuestionRoutes } from './modules/questions/coach.routes.js';
 import { reportsRoutes } from './modules/reports/routes.js';
@@ -68,6 +69,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(coachQuestionRoutes);
   await app.register(adminQuestionRoutes);
   await app.register(llmAdminRoutes);
+  await app.register(llmScenarioAdminRoutes);
   await app.register(learningRoutes);
   await app.register(favoritesRoutes);
   await app.register(answeringRoutes);
