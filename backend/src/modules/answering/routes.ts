@@ -2,10 +2,10 @@
 //   GET  /api/questions/:id   题目公开视图（剥除答案信息）
 //   POST /api/answers         提交答案 → 评分 → 持久化
 import type { FastifyPluginAsync } from 'fastify';
-import type { Question, QuestionType } from '@prisma/client';
 import { z } from 'zod';
 import { requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
+import { toPublicView } from './publicView.js';
 import { getQuestion, submitAnswer } from './service.js';
 
 const idParam = z.object({ id: z.string().min(1) });
@@ -49,59 +49,3 @@ export const answeringRoutes: FastifyPluginAsync = async (app) => {
     };
   });
 };
-
-// ───── 公开视图：剥除解答信息，防剧透 ─────
-
-function toPublicView(q: Question) {
-  return {
-    id: q.id,
-    type: q.type,
-    courseId: q.courseId,
-    chapterId: q.chapterId,
-    lessonId: q.lessonId,
-    difficulty: q.difficulty,
-    tags: q.tags,
-    questionText: q.questionText,
-    source: q.source,
-    payload: stripAnswers(q.type, q.payload),
-  };
-}
-
-type P = Record<string, unknown>;
-
-function stripAnswers(type: QuestionType, payload: unknown): P {
-  const p = (payload ?? {}) as P;
-  switch (type) {
-    case 'single':
-    case 'multi':
-      return {
-        ...(p.scoringMode ? { scoringMode: p.scoringMode } : {}),
-        options: ((p.options ?? []) as Array<{ text: string }>).map((o) => ({ text: o.text })),
-      };
-    case 'fill':
-      return {
-        verseLines: p.verseLines,
-        options: p.options,
-        verseSource: p.verseSource,
-      };
-    case 'sort':
-      return {
-        items: ((p.items ?? []) as Array<{ text: string }>).map((it) => ({ text: it.text })),
-      };
-    case 'match':
-      return {
-        left: p.left,
-        right: ((p.right ?? []) as Array<{ id: string; text: string }>).map((r) => ({
-          id: r.id,
-          text: r.text,
-        })),
-      };
-    case 'open':
-      return {
-        minLength: p.minLength,
-        maxLength: p.maxLength,
-      };
-    default:
-      return {};
-  }
-}
