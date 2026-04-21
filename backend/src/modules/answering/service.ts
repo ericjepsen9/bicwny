@@ -1,9 +1,10 @@
 // 答题主服务
-// 流程：取题 → 评分 → 写 UserAnswer → 错题本联动
-// SM-2 联动（scheduleReview）在 6.x 完成后回补（service 已预留钩子位置）。
+// 流程：取题 → 评分 → 写 UserAnswer → 错题本联动 → SM-2 排程
 import type { Prisma, Question } from '@prisma/client';
 import { NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import type { Sm2Rating } from '../sm2/algorithm.js';
+import { scheduleReview } from '../sm2/service.js';
 import { type AnswerGrade, gradeAnswer } from './grading.js';
 import { removeMistake, upsertMistake } from './mistakes.js';
 
@@ -71,9 +72,30 @@ export async function submitAnswer(
     await removeMistake(userId, questionId);
   }
 
-  // TODO (6.x)：scheduleReview(userId, question.courseId, questionId, grade)
+  // SM-2 排程：失败不阻塞主响应，仅 warn
+  try {
+    await scheduleReview(
+      userId,
+      question.courseId,
+      questionId,
+      gradeToRating(grade),
+    );
+  } catch (e) {
+    console.warn(
+      '[answering] SM-2 scheduleReview 失败（不影响答题）：',
+      e instanceof Error ? e.message : e,
+    );
+  }
 
   return { userAnswerId: ua.id, question, grade };
+}
+
+/** 评分结果 → SM-2 自评四档 */
+function gradeToRating(grade: AnswerGrade): Sm2Rating {
+  if (!grade.isCorrect) return 0; // 重来
+  if (grade.score >= 95) return 3; // 简单
+  if (grade.score >= 80) return 2; // 良好
+  return 1; // 困难（60-79，通常出现在 partial multi 或 open）
 }
 
 export async function getQuestion(questionId: string): Promise<Question> {
