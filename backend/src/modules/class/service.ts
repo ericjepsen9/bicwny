@@ -52,11 +52,14 @@ export async function addMember(
   classId: string,
   userId: string,
   role: ClassMemberRole,
+  opts: { preserveExistingRole?: boolean } = {},
 ): Promise<ClassMember> {
   return prisma.classMember.upsert({
     where: { classId_userId: { classId, userId } },
     create: { classId, userId, role },
-    update: { removedAt: null, role }, // 重新加入或身份变更
+    update: opts.preserveExistingRole
+      ? { removedAt: null } // 学员 join：不降级已有 coach/admin
+      : { removedAt: null, role }, // 管理员添加：强制设 role
   });
 }
 
