@@ -41,8 +41,49 @@ model User {
   mistakes    UserMistakeBook[]
   reports     QuestionReport[]
   enrollments UserCourseEnrollment[]
+  memberships ClassMember[]
 
   @@index([role])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 班级 · 班级成员（Sprint 2）
+// ═══════════════════════════════════════════════════════════════
+
+enum ClassMemberRole {
+  coach
+  student
+}
+
+model Class {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  joinCode    String    @unique // 6-8 位字母数字，学员凭此加入
+  coverEmoji  String    @default("📚")
+  isActive    Boolean   @default(true)
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  members        ClassMember[]
+  ownedQuestions Question[]    @relation("ClassOwnedQuestions")
+}
+
+model ClassMember {
+  id        String          @id @default(cuid())
+  classId   String
+  userId    String
+  role      ClassMemberRole
+  joinedAt  DateTime        @default(now())
+  removedAt DateTime?
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, userId])
+  @@index([userId, role])
+  @@index([classId, role])
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -172,14 +213,16 @@ model Question {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  course      Course             @relation(fields: [courseId], references: [id])
-  lesson      Lesson             @relation(fields: [lessonId], references: [id])
+  course      Course       @relation(fields: [courseId], references: [id])
+  lesson      Lesson       @relation(fields: [lessonId], references: [id])
+  ownerClass  Class?       @relation("ClassOwnedQuestions", fields: [ownerClassId], references: [id], onDelete: SetNull)
   userAnswers UserAnswer[]
   sm2Cards    Sm2Card[]
 
   @@index([lessonId])
   @@index([courseId, visibility])
   @@index([reviewStatus])
+  @@index([ownerClassId])
 }
 
 // ═══════════════════════════════════════════════════════════════
