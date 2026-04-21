@@ -4,9 +4,10 @@
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { jwtOptional } from './lib/auth.js';
+import { getUserId, jwtOptional } from './lib/auth.js';
 import { config, isDev } from './lib/config.js';
 import { isAppError } from './lib/errors.js';
+import { genReqId, REQUEST_ID_HEADER } from './lib/request-id.js';
 import { answeringRoutes } from './modules/answering/routes.js';
 import { mistakesRoutes } from './modules/answering/mistakes.routes.js';
 import { authRoutes } from './modules/auth/routes.js';
@@ -28,6 +29,16 @@ import { sm2Routes } from './modules/sm2/routes.js';
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: { level: isDev ? 'info' : 'warn' },
+    // req.id 自动挂到每条 req.log 记录；x-request-id 入站则沿用
+    genReqId,
+    requestIdHeader: REQUEST_ID_HEADER,
+    requestIdLogLabel: 'reqId',
+  });
+
+  // 响应回传 x-request-id，客户端可据此反查
+  app.addHook('onSend', async (req, reply, payload) => {
+    reply.header(REQUEST_ID_HEADER, req.id);
+    return payload;
   });
 
   // CORS：dev 全开；prod 走白名单（Sprint 5 接入 CORS_ORIGINS env）
@@ -40,6 +51,12 @@ export async function buildApp(): Promise<FastifyInstance> {
   //      路由级用 requireRole / requireUserId 判断
   await app.register(jwt, { secret: config.JWT_SECRET });
   app.addHook('onRequest', jwtOptional);
+
+  // jwtOptional 之后：把 userId 挂到 req.log 的 child 上
+  app.addHook('onRequest', async (req) => {
+    const uid = getUserId(req);
+    if (uid) req.log = req.log.child({ userId: uid });
+  });
 
   // 全局错误处理
   app.setErrorHandler((err, req, reply) => {
