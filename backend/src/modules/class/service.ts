@@ -127,6 +127,19 @@ export async function assertIsCoachOfClass(
   }
 }
 
+/** 断言 userId 是 classId 的当前在册成员（任何角色）；否则抛 Forbidden。 */
+export async function assertMemberOfClass(
+  classId: string,
+  userId: string,
+): Promise<void> {
+  const m = await prisma.classMember.findUnique({
+    where: { classId_userId: { classId, userId } },
+  });
+  if (!m || m.removedAt) {
+    throw Forbidden('学员不属于该班级');
+  }
+}
+
 // ───── helpers ─────
 
 function generateJoinCode(): string {
