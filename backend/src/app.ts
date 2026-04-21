@@ -6,6 +6,7 @@ import jwt from '@fastify/jwt';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { getUserId, jwtOptional } from './lib/auth.js';
 import { config, isDev } from './lib/config.js';
+import { writeErrorLog } from './lib/error-log.js';
 import { isAppError } from './lib/errors.js';
 import { genReqId, REQUEST_ID_HEADER } from './lib/request-id.js';
 import { registerTimingHooks } from './lib/timing.js';
@@ -62,13 +63,41 @@ export async function buildApp(): Promise<FastifyInstance> {
   // 请求耗时 + 慢请求告警（onResponse 阶段）
   registerTimingHooks(app);
 
-  // 全局错误处理
+  // 全局错误处理 · 5xx / 未捕获异常异步落 ErrorLog（4xx 用户错不落库避免刷屏）
   app.setErrorHandler((err, req, reply) => {
+    const userId = getUserId(req) ?? undefined;
+    const requestId = String(req.id);
+    const baseContext = { method: req.method, url: req.url };
+
     if (isAppError(err)) {
       req.log.warn({ code: err.code, message: err.message }, 'AppError');
+      if (err.statusCode >= 500) {
+        writeErrorLog({
+          kind: 'error',
+          message: err.message,
+          stack: err.stack,
+          context: {
+            ...baseContext,
+            code: err.code,
+            statusCode: err.statusCode,
+            details: err.details,
+          },
+          userId,
+          requestId,
+        });
+      }
       return reply.code(err.statusCode).send(err.toJSON());
     }
+
     req.log.error({ err }, 'Unhandled error');
+    writeErrorLog({
+      kind: 'error',
+      message: err.message ?? String(err),
+      stack: err.stack,
+      context: baseContext,
+      userId,
+      requestId,
+    });
     return reply
       .code(500)
       .send({ error: 'INTERNAL', message: '服务内部错误' });
