@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>觉学 · 新风格预览</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --saffron:#E07856;--saffron-dark:#C55F3D;--saffron-light:#FBE5DA;
+  --ink:#2B2218;--ink-2:#55463A;--ink-3:#857360;--ink-4:#B5A99A;
+  --glass:rgba(255,255,255,.55);--glass-thick:rgba(255,255,255,.72);
+  --glass-border:rgba(255,255,255,.85);
+  --glass-shadow:0 8px 28px rgba(160,100,60,.12);
+  --blur:blur(20px) saturate(140%);
+}
+body{background:#16120e;min-height:100vh;padding:60px 20px;display:flex;justify-content:center;gap:48px;flex-wrap:wrap;font-family:'Noto Sans SC',system-ui,sans-serif;color:var(--ink);}
+h1{width:100%;text-align:center;color:#fff;font-family:'Noto Serif SC',serif;font-size:22px;font-weight:400;letter-spacing:10px;margin-bottom:6px;}
+.sub{width:100%;text-align:center;color:#888;font-size:12px;letter-spacing:3px;margin-bottom:24px;}
+.note{width:100%;text-align:center;color:#E0B89A;font-size:11px;letter-spacing:1px;margin-top:32px;}
+
+.phone{width:390px;height:844px;border-radius:46px;padding:12px;border:2px solid #1a1a1a;background:#000;box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 8px #0a0a0a;position:relative;flex-shrink:0;}
+.phone::before{content:'';position:absolute;top:18px;left:50%;transform:translateX(-50%);width:110px;height:28px;background:#0a0a0a;border-radius:20px;z-index:100;}
+.phone-label{position:absolute;top:-30px;left:0;right:0;text-align:center;color:#ddd;font-size:13px;opacity:.8;letter-spacing:3px;}
+.screen{width:100%;height:100%;border-radius:34px;overflow:hidden;position:relative;display:flex;flex-direction:column;}
+
+.screen-home{background:linear-gradient(135deg,#FFF5ED 0%,#FBEBDA 35%,#F5E3D3 65%,#F0D9C5 100%);padding:58px 20px 24px;gap:14px;}
+.screen-result{background:linear-gradient(160deg,#F8ECDB 0%,#F0D4BC 35%,#E8B894 70%,#D99970 100%);padding:58px 20px 24px;align-items:center;gap:12px;}
+
+.status{position:absolute;top:14px;left:32px;right:32px;display:flex;justify-content:space-between;font-size:14px;font-weight:600;color:var(--ink);z-index:5;}
+
+.greet{font-family:'Noto Serif SC',serif;font-size:24px;font-weight:600;letter-spacing:3px;}
+.greet-sub{font-family:'Noto Serif SC',serif;font-size:12px;color:var(--ink-3);margin-top:4px;letter-spacing:3px;}
+
+.g-card{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--glass-border);border-radius:20px;box-shadow:var(--glass-shadow);padding:18px 20px;}
+
+.course-row{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+.course-icon{width:48px;height:48px;background:var(--saffron-light);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.course-title{font-family:'Noto Serif SC',serif;font-size:17px;font-weight:700;letter-spacing:2px;}
+.course-sub{font-size:12px;color:var(--ink-3);margin-top:3px;letter-spacing:1px;}
+.bar{width:100%;height:6px;background:rgba(224,120,86,.15);border-radius:3px;overflow:hidden;}
+.bar>div{height:100%;width:65%;background:linear-gradient(90deg,#E07856,#E8A574);border-radius:3px;}
+.bar-meta{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--ink-3);letter-spacing:.5px;}
+
+.plan-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.plan-label{font-size:11px;color:var(--ink-3);margin-bottom:6px;letter-spacing:2px;}
+.plan-num{font-family:'Noto Serif SC',serif;font-size:38px;font-weight:700;line-height:1;}
+.plan-num-unit{font-size:14px;color:var(--ink-3);font-weight:400;margin-left:4px;}
+.saffron{color:var(--saffron);}
+
+.btn-saffron{width:100%;padding:16px;background:linear-gradient(135deg,#E07856,#D66545);color:#fff;border:none;border-radius:16px;font-size:16px;font-weight:600;letter-spacing:4px;box-shadow:0 6px 20px rgba(224,120,86,.4);font-family:'Noto Serif SC',serif;cursor:pointer;}
+
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.g-tile{padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;}
+.g-tile-icon{font-size:22px;}
+.g-tile-label{font-size:11px;color:var(--ink-2);letter-spacing:1px;}
+
+.result-check{width:96px;height:96px;border-radius:50%;background:var(--glass-thick);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:2px solid var(--glass-border);display:flex;align-items:center;justify-content:center;margin-top:36px;box-shadow:0 12px 36px rgba(160,100,60,.25);}
+.result-score{font-family:'Noto Serif SC',serif;font-size:68px;font-weight:700;margin-top:18px;letter-spacing:2px;line-height:1;}
+.result-score-unit{font-size:16px;color:var(--ink-3);font-weight:400;margin-left:6px;}
+.result-msg{font-family:'Noto Serif SC',serif;font-size:15px;color:var(--ink-2);margin-top:6px;letter-spacing:4px;}
+.result-quote{font-family:'Noto Serif SC',serif;font-size:13px;color:var(--saffron-dark);margin-top:8px;letter-spacing:2px;}
+
+.r-stats{width:100%;display:grid;grid-template-columns:repeat(3,1fr);margin-top:22px;padding:18px 8px;}
+.r-stat{text-align:center;padding:0 4px;position:relative;}
+.r-stat+.r-stat::before{content:'';position:absolute;left:0;top:15%;bottom:15%;width:1px;background:rgba(43,34,24,.12);}
+.r-stat-num{font-family:'Noto Serif SC',serif;font-size:24px;font-weight:700;}
+.r-stat-label{font-size:11px;color:var(--ink-3);margin-top:4px;letter-spacing:1px;}
+
+.sm2-card{width:100%;padding:14px 18px;display:flex;align-items:center;gap:12px;}
+.sm2-icon{width:36px;height:36px;border-radius:10px;background:rgba(224,120,86,.12);display:flex;align-items:center;justify-content:center;font-size:18px;}
+.sm2-label{font-size:11px;color:var(--ink-3);letter-spacing:1px;}
+.sm2-date{font-size:14px;font-weight:600;margin-top:2px;letter-spacing:1px;}
+
+.r-actions{width:100%;display:flex;gap:10px;margin-top:auto;}
+.btn-glass{flex:1;padding:14px;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);color:var(--ink);border:1px solid var(--glass-border);border-radius:14px;font-size:14px;font-weight:600;letter-spacing:2px;font-family:inherit;cursor:pointer;}
+.btn-ink{flex:1.2;padding:14px;background:var(--ink);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:600;letter-spacing:3px;font-family:inherit;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<h1>觉 学 · 新 风 格 预 览</h1>
+<div class="sub">白 底 · 藏 红 · 磨 砂 玻 璃 · 禅 意</div>
+
+<div class="phone">
+  <div class="phone-label">学 员 首 页</div>
+  <div class="screen screen-home">
+    <div class="status"><span>9:41</span><span>●●●●● 100%</span></div>
+    <div>
+      <div class="greet">早安，静心</div>
+      <div class="greet-sub">愿 您 今 日 得 一 分 觉</div>
+    </div>
+    <div class="g-card">
+      <div class="course-row">
+        <div class="course-icon">📿</div>
+        <div>
+          <div class="course-title">楞严经 · 精读</div>
+          <div class="course-sub">第 8 讲 · 七处征心</div>
+        </div>
+      </div>
+      <div class="bar"><div></div></div>
+      <div class="bar-meta"><span>已完成 65%</span><span>剩余 4 讲</span></div>
+    </div>
+    <div class="plan-row">
+      <div class="g-card">
+        <div class="plan-label">今 日 新 学</div>
+        <div class="plan-num">12<span class="plan-num-unit">/ 20</span></div>
+      </div>
+      <div class="g-card">
+        <div class="plan-label">今 日 复 习</div>
+        <div class="plan-num saffron">5<span class="plan-num-unit">/ 20</span></div>
+      </div>
+    </div>
+    <button class="btn-saffron">开 始 今 日 修 习</button>
+    <div class="grid4">
+      <div class="g-card g-tile"><div class="g-tile-icon">🪷</div><div class="g-tile-label">法本</div></div>
+      <div class="g-card g-tile"><div class="g-tile-icon">✦</div><div class="g-tile-label">错题</div></div>
+      <div class="g-card g-tile"><div class="g-tile-icon">📿</div><div class="g-tile-label">收藏</div></div>
+      <div class="g-card g-tile"><div class="g-tile-icon">☸</div><div class="g-tile-label">成就</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="phone">
+  <div class="phone-label">答 题 结 果 页</div>
+  <div class="screen screen-result">
+    <div class="status"><span>9:41</span><span>●●●●● 100%</span></div>
+    <div class="result-check">
+      <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="#E07856" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="4 12 10 18 20 6"/>
+      </svg>
+    </div>
+    <div class="result-score">98<span class="result-score-unit">分</span></div>
+    <div class="result-msg">今 日 圆 满</div>
+    <div class="result-quote">如 露 亦 如 电 · 应 作 如 是 观</div>
+    <div class="g-card r-stats">
+      <div class="r-stat"><div class="r-stat-num">10</div><div class="r-stat-label">答题数</div></div>
+      <div class="r-stat"><div class="r-stat-num saffron">98%</div><div class="r-stat-label">正确率</div></div>
+      <div class="r-stat"><div class="r-stat-num">7<span style="font-size:14px;color:var(--ink-3);font-weight:400;margin-left:2px;">天</span></div><div class="r-stat-label">连续打卡</div></div>
+    </div>
+    <div class="g-card sm2-card">
+      <div class="sm2-icon">⏳</div>
+      <div>
+        <div class="sm2-label">下 次 复 习</div>
+        <div class="sm2-date">2026 · 04 · 25 · 周 五</div>
+      </div>
+    </div>
+    <div class="r-actions">
+      <button class="btn-glass">查看解析</button>
+      <button class="btn-ink">继续下一关</button>
+    </div>
+  </div>
+</div>
+
+<div class="note">浏览器查看：python -m http.server 8000 → http://localhost:8000/preview-style.html</div>
+
+</body>
+</html>
