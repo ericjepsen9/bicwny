@@ -21,7 +21,7 @@ export function gradeMockOpen(q: Question, answer: unknown): MockOpenResult {
   if (q.type !== 'open') {
     throw BadRequest(`gradeMockOpen 仅支持 open 题，得到 ${q.type}`);
   }
-  const payload = (q.payload ?? {}) as OpenPayload;
+  const payload = (q.payload ?? {}) as unknown as OpenPayload;
   const keyPoints = payload.keyPoints ?? [];
   const text = String((answer as { text?: string })?.text ?? '').trim();
   const len = [...text].length;

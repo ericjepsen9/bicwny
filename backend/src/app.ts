@@ -92,10 +92,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
 
     req.log.error({ err }, 'Unhandled error');
+    const e = err instanceof Error ? err : new Error(String(err));
     writeErrorLog({
       kind: 'error',
-      message: err.message ?? String(err),
-      stack: err.stack,
+      message: e.message,
+      stack: e.stack,
       context: baseContext,
       userId,
       requestId,

@@ -24,7 +24,7 @@ const createBody = z.object({
   source: z.string(),
   difficulty: z.number().int().min(1).max(5).optional(),
   tags: z.array(z.string()).optional(),
-  payload: z.unknown(),
+  payload: z.any(),
 });
 
 const listQuery = z.object({
