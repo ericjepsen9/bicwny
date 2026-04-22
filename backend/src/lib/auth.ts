@@ -23,7 +23,8 @@ export const jwtOptional: preHandlerAsyncHookHandler = async (req) => {
     const user = (req as FastifyRequest & { user?: JwtPayload }).user;
     if (user?.aud && user.aud !== 'access') {
       // refresh token 不允许做 API 身份（只能调 /auth/refresh）
-      delete (req as FastifyRequest & { user?: unknown }).user;
+      // 用 unknown 绕开 @fastify/jwt 对 user 的 non-optional 模块声明
+      (req as unknown as { user?: unknown }).user = undefined;
     }
   } catch {
     // 无 token / 过期 / 无效 → 忽略；路由级守卫按需处理

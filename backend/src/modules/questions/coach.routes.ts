@@ -43,7 +43,12 @@ export const coachQuestionRoutes: FastifyPluginAsync = async (app) => {
       if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
       const userId = requireUserId(req);
       const role = getUserRole(req) === 'admin' ? 'admin' : 'coach';
-      const q = await createQuestion(userId, role, parsed.data);
+      // Zod 推导 z.any() 为 optional，而 CreateQuestionInput.payload 必填，cast 对齐
+      const q = await createQuestion(
+        userId,
+        role,
+        parsed.data as Parameters<typeof createQuestion>[2],
+      );
       reply.code(201);
       return { data: q };
     },
