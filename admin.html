@@ -92,6 +92,66 @@
 .reason-doctrine_error{background:var(--purple-light);color:var(--purple-dark);}
 .reason-typo{background:var(--accent-light);color:#92400E;}
 .reason-other{background:var(--bg-2);color:var(--ink-3);}
+
+/* I.1.d 用户/班级 */
+.filter-bar{
+  display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;
+}
+.search-input{
+  flex:1;min-width:200px;
+  padding:10px 14px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  font-size:14px;font-family:inherit;
+  background:var(--white);
+}
+.search-input:focus{outline:none;border-color:var(--primary);}
+.filter-select{
+  padding:10px 14px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  font-size:14px;font-family:inherit;
+  background:var(--white);color:var(--ink);
+  cursor:pointer;
+}
+.role-tag{
+  display:inline-flex;align-items:center;
+  padding:2px 8px;border-radius:6px;
+  font-size:11px;font-weight:600;
+}
+.role-admin{background:var(--purple-light);color:var(--purple-dark);}
+.role-coach{background:var(--accent-light);color:#92400E;}
+.role-student{background:var(--primary-pale);color:var(--primary-dark);}
+
+.user-cell{display:flex;align-items:center;gap:10px;}
+.user-cell-avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,#60A5FA,#A78BFA);
+  color:#fff;font-size:13px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.user-cell-meta strong{font-size:13px;color:var(--ink);}
+.user-cell-meta div{font-size:11px;color:var(--ink-4);}
+
+.role-radio{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 12px;border:1.5px solid var(--border-light);
+  border-radius:10px;cursor:pointer;
+  margin-bottom:8px;
+}
+.role-radio:hover{background:var(--bg);}
+.role-radio.on{background:var(--primary-pale);border-color:var(--primary);}
+.role-radio input{margin:0;}
+.role-radio-name{font-size:13px;font-weight:600;color:var(--ink);}
+.role-radio-desc{font-size:11px;color:var(--ink-3);}
+
+.code-chip{
+  font-family:SF Mono,monospace;
+  background:var(--bg-2);color:var(--ink-2);
+  padding:2px 7px;border-radius:5px;font-size:11px;
+  letter-spacing:1px;font-weight:600;
+}
 </style>
 </head>
 <body class="admin-body">
@@ -617,13 +677,141 @@
         <div class="content-header">
           <div>
             <div class="content-title">用户管理</div>
-            <div class="content-desc">分页 · role/邮箱搜索 · 改角色 · 停用</div>
+            <div class="content-desc">改角色 · 停用账号（停用同时吊销所有 session）</div>
+          </div>
+          <div class="content-actions">
+            <button class="btn-admin btn-ghost-admin" onclick="showToast('已导出 CSV')">⬇ 导出 CSV</button>
           </div>
         </div>
-        <div class="placeholder">
-          <div class="placeholder-emoji">👥</div>
-          <div class="placeholder-text">用户表 · 待 I.1.d 填充</div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-label">用户总数</div>
+            <div class="stat-card-value">162</div>
+            <div class="stat-card-sub up">↑ 本周 +8</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">今日新增</div>
+            <div class="stat-card-value">3</div>
+            <div class="stat-card-sub">学员 3 · 辅导员 0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">7 日活跃</div>
+            <div class="stat-card-value">38</div>
+            <div class="stat-card-sub">活跃率 23%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">停用账号</div>
+            <div class="stat-card-value">2</div>
+            <div class="stat-card-sub">本月手动停用</div>
+          </div>
         </div>
+
+        <div class="filter-bar">
+          <input class="search-input" placeholder="🔍 搜索 邮箱 / 法名">
+          <select class="filter-select">
+            <option>全部角色</option>
+            <option>管理员 admin</option>
+            <option>辅导员 coach</option>
+            <option>学员 student</option>
+          </select>
+          <select class="filter-select">
+            <option>全部状态</option>
+            <option>已激活</option>
+            <option>已停用</option>
+          </select>
+        </div>
+
+        <div class="data-table">
+          <table>
+            <thead>
+              <tr>
+                <th>用户</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>最后登录</th>
+                <th>注册时间</th>
+                <th style="text-align:right;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><div class="user-cell"><div class="user-cell-avatar">管</div><div class="user-cell-meta"><strong>超管</strong><div>admin@juexue.app</div></div></div></td>
+                <td><span class="role-tag role-admin">管理员</span></td>
+                <td><span class="status-chip ok">激活</span></td>
+                <td>10 分钟前</td>
+                <td>2026-01-01</td>
+                <td><div class="row-actions"><button class="btn-preview" disabled style="opacity:.4;cursor:not-allowed;">不可改</button></div></td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><div class="user-cell-avatar">扎</div><div class="user-cell-meta"><strong>扎西仁波切</strong><div>coach@juexue.app</div></div></div></td>
+                <td><span class="role-tag role-coach">辅导员</span></td>
+                <td><span class="status-chip ok">激活</span></td>
+                <td>30 分钟前</td>
+                <td>2026-01-05</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="openRoleModal('coach@juexue.app','coach')">改角色</button>
+                    <button class="btn-reject" onclick="openDeactivateModal('coach@juexue.app',true)">停用</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><div class="user-cell-avatar">慈</div><div class="user-cell-meta"><strong>慈悲仁波切</strong><div>cibei@juexue.app</div></div></div></td>
+                <td><span class="role-tag role-coach">辅导员</span></td>
+                <td><span class="status-chip ok">激活</span></td>
+                <td>2 天前</td>
+                <td>2026-01-12</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="openRoleModal('cibei@juexue.app','coach')">改角色</button>
+                    <button class="btn-reject" onclick="openDeactivateModal('cibei@juexue.app',true)">停用</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><div class="user-cell-avatar">慧</div><div class="user-cell-meta"><strong>慧行</strong><div>student@juexue.app</div></div></div></td>
+                <td><span class="role-tag role-student">学员</span></td>
+                <td><span class="status-chip ok">激活</span></td>
+                <td>今天 10:30</td>
+                <td>2026-01-08</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="openRoleModal('student@juexue.app','student')">改角色</button>
+                    <button class="btn-reject" onclick="openDeactivateModal('student@juexue.app',true)">停用</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div class="user-cell"><div class="user-cell-avatar">妙</div><div class="user-cell-meta"><strong>妙音</strong><div>miaoyin@juexue.app</div></div></div></td>
+                <td><span class="role-tag role-student">学员</span></td>
+                <td><span class="status-chip ok">激活</span></td>
+                <td>5 小时前</td>
+                <td>2026-02-01</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="openRoleModal('miaoyin@juexue.app','student')">改角色</button>
+                    <button class="btn-reject" onclick="openDeactivateModal('miaoyin@juexue.app',true)">停用</button>
+                  </div>
+                </td>
+              </tr>
+              <tr style="opacity:.6;">
+                <td><div class="user-cell"><div class="user-cell-avatar" style="background:#9CA3AF;">月</div><div class="user-cell-meta"><strong>月明</strong><div>yueming@juexue.app</div></div></div></td>
+                <td><span class="role-tag role-student">学员</span></td>
+                <td><span class="status-chip gray">停用</span></td>
+                <td>12 天前</td>
+                <td>2026-01-15</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-approve" onclick="openDeactivateModal('yueming@juexue.app',false)">激活</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="text-align:center;padding:14px;color:var(--ink-4);font-size:12px;">显示 6 / 162 · <a href="#" style="color:var(--primary);">加载更多</a></div>
       </div>
 
       <!-- Page: 班级管理 -->
@@ -631,12 +819,111 @@
         <div class="content-header">
           <div>
             <div class="content-title">班级管理</div>
-            <div class="content-desc">所有班级 · 创建 · 归档 · 成员</div>
+            <div class="content-desc">所有班级（含归档）· 创建 · 成员管理</div>
+          </div>
+          <div class="content-actions">
+            <button class="btn-admin btn-primary-admin" onclick="openModal('createClassModal')">➕ 创建班级</button>
           </div>
         </div>
-        <div class="placeholder">
-          <div class="placeholder-emoji">🏫</div>
-          <div class="placeholder-text">班级列表 · 待 I.1.d 填充</div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-label">班级总数</div>
+            <div class="stat-card-value">8</div>
+            <div class="stat-card-sub">活跃 7 · 归档 1</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">总成员数</div>
+            <div class="stat-card-value">145</div>
+            <div class="stat-card-sub">学员 131 · 辅导员 14</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">本周新班</div>
+            <div class="stat-card-value">1</div>
+            <div class="stat-card-sub up">普贤行愿品共修班</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">平均班级规模</div>
+            <div class="stat-card-value">21</div>
+            <div class="stat-card-sub">人 / 班</div>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <input class="search-input" placeholder="🔍 搜索 班级名 / joinCode">
+          <select class="filter-select">
+            <option>全部状态</option>
+            <option>活跃</option>
+            <option>已归档</option>
+          </select>
+        </div>
+
+        <div class="data-table">
+          <table>
+            <thead>
+              <tr>
+                <th>班级</th>
+                <th>joinCode</th>
+                <th>成员</th>
+                <th>状态</th>
+                <th>创建时间</th>
+                <th style="text-align:right;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>🏫 入行论导修班 · 第 23 期</td>
+                <td><span class="code-chip">8Y3K5T</span></td>
+                <td>48 / 50</td>
+                <td><span class="status-chip ok">活跃</span></td>
+                <td>2026-01-05</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="showToast('查看 48 名成员')">成员</button>
+                    <button class="btn-reject" onclick="openArchiveClassModal('入行论 · 23 期')">归档</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>📿 普贤行愿品共修班</td>
+                <td><span class="code-chip">H7MP9R</span></td>
+                <td>25 / 40</td>
+                <td><span class="status-chip ok">活跃</span></td>
+                <td>2026-01-20</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="showToast('查看 25 名成员')">成员</button>
+                    <button class="btn-reject" onclick="openArchiveClassModal('普贤行愿品共修班')">归档</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>☸️ 心经精读班</td>
+                <td><span class="code-chip">M4N2P6</span></td>
+                <td>32 / 35</td>
+                <td><span class="status-chip ok">活跃</span></td>
+                <td>2025-12-15</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="showToast('查看 32 名成员')">成员</button>
+                    <button class="btn-reject" onclick="openArchiveClassModal('心经精读班')">归档</button>
+                  </div>
+                </td>
+              </tr>
+              <tr style="opacity:.6;">
+                <td>🪷 入行论导修班 · 第 22 期</td>
+                <td><span class="code-chip">P9K3M2</span></td>
+                <td>0 / 50</td>
+                <td><span class="status-chip gray">已归档</span></td>
+                <td>2025-09-10</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="showToast('查看历史成员')">成员</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -713,6 +1000,69 @@
     <div class="modal-box-actions">
       <button class="btn-admin btn-ghost-admin" onclick="closeModal('rejectModal')">取消</button>
       <button class="btn-admin btn-primary-admin" style="background:var(--error);box-shadow:0 2px 6px rgba(239,68,68,.25);" onclick="submitReject()">确认驳回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 改角色 Modal ═════════ -->
+<div class="modal-mask" id="roleModal">
+  <div class="modal-box">
+    <div class="modal-box-title">改角色</div>
+    <div class="modal-box-sub" id="roleModalSub">用户：—</div>
+    <label class="role-radio" data-role-pick="admin"><input type="radio" name="newRole" value="admin"><span><div class="role-radio-name"><span class="role-tag role-admin">管理员</span></div><div class="role-radio-desc">全平台权限 · 谨慎授权</div></span></label>
+    <label class="role-radio" data-role-pick="coach"><input type="radio" name="newRole" value="coach"><span><div class="role-radio-name"><span class="role-tag role-coach">辅导员</span></div><div class="role-radio-desc">可创建班级 · 看学员 · 贡献题库</div></span></label>
+    <label class="role-radio" data-role-pick="student"><input type="radio" name="newRole" value="student"><span><div class="role-radio-name"><span class="role-tag role-student">学员</span></div><div class="role-radio-desc">基础学习权限</div></span></label>
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('roleModal')">取消</button>
+      <button class="btn-admin btn-primary-admin" onclick="submitRole()">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 停用 / 激活确认 Modal ═════════ -->
+<div class="modal-mask" id="deactivateModal">
+  <div class="modal-box">
+    <div class="modal-box-title" id="deactivateTitle">停用账号</div>
+    <div class="modal-box-sub" id="deactivateSub">用户：— · 停用后该账号所有 session 立即吊销</div>
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('deactivateModal')">取消</button>
+      <button class="btn-admin btn-primary-admin" id="deactivateConfirm" style="background:var(--error);box-shadow:0 2px 6px rgba(239,68,68,.25);" onclick="submitDeactivate()">确认停用</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 创建班级 Modal ═════════ -->
+<div class="modal-mask" id="createClassModal">
+  <div class="modal-box">
+    <div class="modal-box-title">创建班级</div>
+    <div class="modal-box-sub">系统将自动生成 6 位 joinCode，学员凭此加入</div>
+    <div class="form-field" style="margin-bottom:12px;">
+      <label>班级名称（必填）</label>
+      <input id="newClassName" type="text" placeholder="例：入行论导修班 · 第 24 期">
+    </div>
+    <div class="form-field" style="margin-bottom:12px;">
+      <label>班级描述（可选）</label>
+      <textarea id="newClassDesc" placeholder="简短介绍，会显示在班级首页"></textarea>
+    </div>
+    <div class="form-field" style="margin-bottom:0;">
+      <label>封面 emoji</label>
+      <input id="newClassEmoji" type="text" value="🏫" maxlength="4">
+    </div>
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('createClassModal')">取消</button>
+      <button class="btn-admin btn-primary-admin" onclick="submitCreateClass()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 归档班级 Modal ═════════ -->
+<div class="modal-mask" id="archiveClassModal">
+  <div class="modal-box">
+    <div class="modal-box-title">归档班级</div>
+    <div class="modal-box-sub" id="archiveClassSub">归档后学员仍可看历史，但不能继续答题。可在过滤里查看历史班级。</div>
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('archiveClassModal')">取消</button>
+      <button class="btn-admin btn-primary-admin" style="background:var(--error);box-shadow:0 2px 6px rgba(239,68,68,.25);" onclick="submitArchiveClass()">确认归档</button>
     </div>
   </div>
 </div>
@@ -822,6 +1172,77 @@ function openHandleRejectModal(id){
 function submitHandleReject(){
   closeModal('handleRejectModal');
   showToast('举报已驳回 · ' + (pendingHandleId || ''));
+}
+
+// I.1.d · 用户改角色
+let pendingRoleEmail = null, pendingRoleCurrent = null;
+function openRoleModal(email, current){
+  pendingRoleEmail = email;
+  pendingRoleCurrent = current;
+  document.getElementById('roleModalSub').textContent = '用户：' + email + ' · 当前 ' + current;
+  document.querySelectorAll('input[name="newRole"]').forEach(function(r){ r.checked = (r.value === current); });
+  document.querySelectorAll('.role-radio').forEach(function(r){
+    r.classList.toggle('on', r.getAttribute('data-role-pick') === current);
+  });
+  openModal('roleModal');
+}
+document.querySelectorAll('input[name="newRole"]').forEach(function(r){
+  r.addEventListener('change', function(){
+    document.querySelectorAll('.role-radio').forEach(function(box){
+      box.classList.toggle('on', box.getAttribute('data-role-pick') === r.value);
+    });
+  });
+});
+function submitRole(){
+  const picked = document.querySelector('input[name="newRole"]:checked');
+  if(!picked){ showToast('请选择新角色'); return; }
+  if(picked.value === pendingRoleCurrent){ showToast('角色未变更'); closeModal('roleModal'); return; }
+  closeModal('roleModal');
+  showToast('已将 ' + pendingRoleEmail + ' 改为 ' + picked.value + ' · 已写 AuditLog');
+}
+
+// I.1.d · 停用 / 激活
+let pendingDeactivateEmail = null, pendingDeactivate = true;
+function openDeactivateModal(email, isDeactivate){
+  pendingDeactivateEmail = email;
+  pendingDeactivate = isDeactivate;
+  document.getElementById('deactivateTitle').textContent = isDeactivate ? '停用账号' : '激活账号';
+  document.getElementById('deactivateSub').textContent =
+    '用户：' + email + (isDeactivate
+      ? ' · 停用后该账号所有 session 立即吊销，用户无法登录'
+      : ' · 激活后用户可重新登录');
+  const btn = document.getElementById('deactivateConfirm');
+  btn.textContent = isDeactivate ? '确认停用' : '确认激活';
+  btn.style.background = isDeactivate ? 'var(--error)' : 'var(--success)';
+  openModal('deactivateModal');
+}
+function submitDeactivate(){
+  closeModal('deactivateModal');
+  showToast((pendingDeactivate ? '已停用 · 吊销 ' : '已激活 · ') + pendingDeactivateEmail);
+}
+
+// I.1.d · 创建班级
+function submitCreateClass(){
+  const name = document.getElementById('newClassName').value.trim();
+  if(!name){ showToast('请填写班级名称'); return; }
+  closeModal('createClassModal');
+  // 模拟生成 joinCode
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for(let i=0;i<6;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  showToast('已创建：' + name + ' · joinCode ' + code);
+}
+
+// I.1.d · 归档班级
+let pendingArchiveName = null;
+function openArchiveClassModal(name){
+  pendingArchiveName = name;
+  document.getElementById('archiveClassSub').textContent = '将归档 "' + name + '"。归档后学员仍可看历史，但不能继续答题。';
+  openModal('archiveClassModal');
+}
+function submitArchiveClass(){
+  closeModal('archiveClassModal');
+  showToast('已归档：' + pendingArchiveName);
 }
 </script>
 
