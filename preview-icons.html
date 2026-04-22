@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>觉学 · 图标风格对比</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --saffron:#E07856;--saffron-dark:#C55F3D;--saffron-light:#FBE5DA;--saffron-pale:#FDF4EE;
+  --sage:#A8BC9A;--sage-dark:#7D9A6C;--sage-light:#E5EFDF;
+  --crimson:#A13C2E;--crimson-light:#F5D9D3;
+  --gold:#D4A574;--gold-dark:#B88956;--gold-light:#F5E3CE;
+  --ink:#2B2218;--ink-2:#55463A;--ink-3:#857360;--ink-4:#B5A99A;
+  --glass:rgba(255,255,255,.55);--glass-border:rgba(255,255,255,.85);
+  --glass-shadow:0 6px 22px rgba(160,100,60,.1);--blur:blur(20px) saturate(140%);
+  --bg-l2:linear-gradient(135deg,#FFFAF4 0%,#FDF1E5 40%,#FAE8D8 75%,#F6DFCA 100%);
+}
+body{background:#16120e;min-height:100vh;padding:48px 20px;font-family:'Noto Sans SC',system-ui,sans-serif;color:var(--ink);}
+h1{text-align:center;color:#fff;font-family:'Noto Serif SC',serif;font-size:22px;font-weight:400;letter-spacing:10px;margin-bottom:6px;}
+.sub{text-align:center;color:#888;font-size:12px;letter-spacing:3px;margin-bottom:40px;}
+.phones{max-width:1000px;margin:0 auto;display:flex;justify-content:center;gap:60px;flex-wrap:wrap;}
+.wrap{display:flex;flex-direction:column;align-items:center;gap:14px;}
+.wrap-label{color:#fff;font-family:'Noto Serif SC',serif;font-size:16px;letter-spacing:6px;}
+.wrap-sub{color:#888;font-size:11px;letter-spacing:2px;margin-top:-10px;}
+.phone{width:375px;height:812px;border-radius:44px;padding:10px;border:2px solid #1a1a1a;background:#000;box-shadow:0 28px 70px rgba(0,0,0,.6),0 0 0 7px #0a0a0a;position:relative;flex-shrink:0;}
+.phone::before{content:'';position:absolute;top:16px;left:50%;transform:translateX(-50%);width:104px;height:26px;background:#0a0a0a;border-radius:20px;z-index:100;}
+.screen{width:100%;height:100%;border-radius:34px;overflow:hidden;background:var(--bg-l2);display:flex;flex-direction:column;padding:52px 20px 24px;gap:14px;position:relative;}
+.status{position:absolute;top:12px;left:28px;right:28px;display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:var(--ink);z-index:5;}
+.g{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--glass-border);border-radius:18px;box-shadow:var(--glass-shadow);}
+.greet{font-family:'Noto Serif SC',serif;font-size:24px;font-weight:600;letter-spacing:3px;color:var(--ink);}
+.greet-sub{font-family:'Noto Serif SC',serif;font-size:12px;color:var(--ink-3);margin-top:4px;letter-spacing:3px;}
+.course-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.c-icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.course-title{font-family:'Noto Serif SC',serif;font-size:16px;font-weight:700;letter-spacing:2px;}
+.course-sub{font-size:12px;color:var(--ink-3);margin-top:3px;letter-spacing:.5px;}
+.bar{width:100%;height:5px;background:rgba(224,120,86,.15);border-radius:3px;overflow:hidden;}
+.bar>div{height:100%;width:65%;background:linear-gradient(90deg,#E07856,#E8A574);border-radius:3px;}
+.bar-meta{display:flex;justify-content:space-between;margin-top:7px;font-size:11px;color:var(--ink-3);}
+.plan-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.plan-label{font-size:11px;color:var(--ink-3);margin-bottom:5px;letter-spacing:2px;}
+.plan-num{font-family:'Noto Serif SC',serif;font-size:36px;font-weight:700;line-height:1;}
+.plan-unit{font-size:13px;color:var(--ink-3);font-weight:400;margin-left:3px;}
+.btn-s{width:100%;padding:15px;background:linear-gradient(135deg,var(--saffron),var(--saffron-dark));color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:600;letter-spacing:4px;box-shadow:0 6px 18px rgba(224,120,86,.38);font-family:'Noto Serif SC',serif;cursor:pointer;}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.tile{padding:14px 8px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;}
+.tile-label{font-size:11px;color:var(--ink-2);letter-spacing:.5px;}
+
+/* ── Emoji 图标 ── */
+.emoji-icon{font-size:24px;line-height:1;}
+
+/* ── SVG 图标容器 ── */
+.svg-icon{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;}
+.svg-icon svg{width:22px;height:22px;}
+.si-book  {background:var(--saffron-pale);color:var(--saffron-dark);}
+.si-redo  {background:var(--crimson-light);color:var(--crimson);}
+.si-star  {background:var(--sage-light);color:var(--sage-dark);}
+.si-medal {background:var(--gold-light);color:var(--gold-dark);}
+
+/* Course icon SVG */
+.c-icon-svg{background:var(--saffron-pale);}
+.c-icon-svg svg{width:24px;height:24px;color:var(--saffron-dark);}
+
+/* Bottom tabs */
+.tabs{display:flex;background:rgba(255,255,255,.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid rgba(255,255,255,.8);padding:10px 0 22px;margin-top:auto;flex-shrink:0;border-radius:0 0 34px 34px;position:absolute;bottom:0;left:0;right:0;}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;}
+.tab-icon{width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
+.tab-icon svg{width:22px;height:22px;}
+.tab-icon.emoji-tab{font-size:22px;line-height:1;}
+.tab-label{font-size:10px;color:var(--ink-4);letter-spacing:.5px;}
+.tab.active .tab-label{color:var(--saffron);}
+.tab.active svg{stroke:var(--saffron);}
+.tab.active .tab-icon{color:var(--saffron);}
+
+/* diff badge */
+.diff{display:flex;gap:20px;margin-top:4px;}
+.d-item{text-align:center;font-size:11px;color:#C9B9A7;letter-spacing:.5px;line-height:1.6;}
+.d-item b{color:#fff;display:block;font-size:13px;letter-spacing:1px;font-family:'Noto Serif SC',serif;}
+</style>
+</head>
+<body>
+
+<h1>图 标 风 格 · 对 比</h1>
+<div class="sub">左：Emoji · 右：SVG 线性图标（统一笔画 1.8px · 圆角描边）</div>
+
+<div class="phones">
+
+  <!-- ═══ 左 · Emoji 现状 ═══ -->
+  <div class="wrap">
+    <div class="wrap-label">现 状</div>
+    <div class="wrap-sub">E m o j i · 尺 寸 / 风 格 不 统 一</div>
+    <div class="phone">
+      <div class="screen" style="padding-bottom:90px;">
+        <div class="status"><span>9:41</span><span>●●●●● 100%</span></div>
+        <div>
+          <div class="greet">早安，静心</div>
+          <div class="greet-sub">愿 您 今 日 得 一 分 觉</div>
+        </div>
+        <div class="g" style="padding:16px 18px;">
+          <div class="course-row">
+            <div class="c-icon" style="background:var(--saffron-light);font-size:24px;">📿</div>
+            <div><div class="course-title">楞严经 · 精读</div><div class="course-sub">第 8 讲 · 七处征心</div></div>
+          </div>
+          <div class="bar"><div></div></div>
+          <div class="bar-meta"><span>已完成 65%</span><span>剩余 4 讲</span></div>
+        </div>
+        <div class="plan-row">
+          <div class="g" style="padding:14px 16px;"><div class="plan-label">今 日 新 学</div><div class="plan-num">12<span class="plan-unit">/ 20</span></div></div>
+          <div class="g" style="padding:14px 16px;"><div class="plan-label">今 日 复 习</div><div class="plan-num" style="color:var(--saffron);">5<span class="plan-unit">/ 20</span></div></div>
+        </div>
+        <button class="btn-s">开 始 今 日 修 习</button>
+        <div class="grid4">
+          <div class="g tile"><div class="emoji-icon">🪷</div><div class="tile-label">法本</div></div>
+          <div class="g tile"><div class="emoji-icon">✦</div><div class="tile-label">错题</div></div>
+          <div class="g tile"><div class="emoji-icon">📿</div><div class="tile-label">收藏</div></div>
+          <div class="g tile"><div class="emoji-icon">☸</div><div class="tile-label">成就</div></div>
+        </div>
+        <div class="tabs">
+          <div class="tab active"><div class="tab-icon emoji-tab">🏠</div><div class="tab-label">首页</div></div>
+          <div class="tab"><div class="tab-icon emoji-tab">📖</div><div class="tab-label">法本</div></div>
+          <div class="tab"><div class="tab-icon emoji-tab">✏️</div><div class="tab-label">练习</div></div>
+          <div class="tab"><div class="tab-icon emoji-tab">👤</div><div class="tab-label">我的</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="diff">
+      <div class="d-item"><b>问题</b>emoji 平台差异<br/>尺寸/风格不统一<br/>色彩混乱</div>
+    </div>
+  </div>
+
+  <!-- ═══ 右 · SVG 线性图标 ═══ -->
+  <div class="wrap">
+    <div class="wrap-label">SVG 线 性</div>
+    <div class="wrap-sub">统 一 笔 画 · 统 一 圆 角 · 语 义 色</div>
+    <div class="phone">
+      <div class="screen" style="padding-bottom:90px;">
+        <div class="status"><span>9:41</span><span>●●●●● 100%</span></div>
+        <div>
+          <div class="greet">早安，静心</div>
+          <div class="greet-sub">愿 您 今 日 得 一 分 觉</div>
+        </div>
+        <div class="g" style="padding:16px 18px;">
+          <div class="course-row">
+            <div class="c-icon c-icon-svg">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
+              </svg>
+            </div>
+            <div><div class="course-title">楞严经 · 精读</div><div class="course-sub">第 8 讲 · 七处征心</div></div>
+          </div>
+          <div class="bar"><div></div></div>
+          <div class="bar-meta"><span>已完成 65%</span><span>剩余 4 讲</span></div>
+        </div>
+        <div class="plan-row">
+          <div class="g" style="padding:14px 16px;"><div class="plan-label">今 日 新 学</div><div class="plan-num">12<span class="plan-unit">/ 20</span></div></div>
+          <div class="g" style="padding:14px 16px;"><div class="plan-label">今 日 复 习</div><div class="plan-num" style="color:var(--saffron);">5<span class="plan-unit">/ 20</span></div></div>
+        </div>
+        <button class="btn-s">开 始 今 日 修 习</button>
+        <div class="grid4">
+          <div class="g tile">
+            <div class="svg-icon si-book">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
+              </svg>
+            </div>
+            <div class="tile-label">法本</div>
+          </div>
+          <div class="g tile">
+            <div class="svg-icon si-redo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+              </svg>
+            </div>
+            <div class="tile-label">错题</div>
+          </div>
+          <div class="g tile">
+            <div class="svg-icon si-star">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </div>
+            <div class="tile-label">收藏</div>
+          </div>
+          <div class="g tile">
+            <div class="svg-icon si-medal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="8" r="6"/>
+                <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
+              </svg>
+            </div>
+            <div class="tile-label">成就</div>
+          </div>
+        </div>
+        <!-- 底部 tab SVG -->
+        <div class="tabs">
+          <div class="tab active">
+            <div class="tab-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+            </div>
+            <div class="tab-label" style="color:var(--saffron);">首页</div>
+          </div>
+          <div class="tab">
+            <div class="tab-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
+              </svg>
+            </div>
+            <div class="tab-label">法本</div>
+          </div>
+          <div class="tab">
+            <div class="tab-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+              </svg>
+            </div>
+            <div class="tab-label">练习</div>
+          </div>
+          <div class="tab">
+            <div class="tab-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <div class="tab-label">我的</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="diff">
+      <div class="d-item"><b>优势</b>笔画统一 1.8px<br/>语义色彩有层次<br/>跨平台一致</div>
+    </div>
+  </div>
+
+</div>
+
+<div style="max-width:700px;margin:40px auto 0;text-align:center;color:#888;font-size:12px;letter-spacing:1px;line-height:2;">
+  SVG 图标规格：viewBox 0 0 24 24 · stroke-width 1.8 · stroke-linecap round · fill none<br/>
+  色彩：法本(藏红底) · 错题(绛红底) · 收藏(竹叶绿底) · 成就(禅金底) · Tab 激活=藏红
+</div>
+
+</body>
+</html>
