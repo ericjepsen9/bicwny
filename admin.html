@@ -25,6 +25,36 @@
   padding:2px 10px;border-radius:10px;
   font-size:11px;
 }
+
+/* I.1.b 大盘专用样式 */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+.dist-list{display:flex;flex-direction:column;gap:10px;}
+.dist-row{display:grid;grid-template-columns:80px 1fr 50px;gap:10px;align-items:center;}
+.dist-row-label{font-size:12px;color:var(--ink-2);}
+.dist-row-bar{height:8px;background:var(--border-light);border-radius:4px;overflow:hidden;}
+.dist-row-fill{height:100%;background:linear-gradient(90deg,var(--primary),var(--purple));border-radius:4px;}
+.dist-row-fill.coach{background:linear-gradient(90deg,#FBBF24,#F59E0B);}
+.dist-row-fill.admin{background:linear-gradient(90deg,#A78BFA,#8B5CF6);}
+.dist-row-count{font-size:13px;font-weight:600;color:var(--ink);text-align:right;}
+
+.provider-card{
+  background:var(--bg);border-radius:10px;padding:14px;
+  margin-bottom:10px;display:flex;align-items:center;gap:12px;
+}
+.provider-card:last-child{margin-bottom:0;}
+.provider-name{font-size:14px;font-weight:600;color:var(--ink);}
+.provider-meta{font-size:11px;color:var(--ink-3);margin-top:2px;}
+.provider-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.provider-dot.healthy{background:var(--success);box-shadow:0 0 0 4px rgba(16,185,129,.15);}
+.provider-dot.degraded{background:var(--accent);box-shadow:0 0 0 4px rgba(245,158,11,.15);}
+.provider-dot.down{background:var(--error);box-shadow:0 0 0 4px rgba(239,68,68,.15);}
+.provider-quota{margin-left:auto;text-align:right;}
+.provider-quota-num{font-size:13px;font-weight:600;color:var(--ink);}
+.provider-quota-label{font-size:10px;color:var(--ink-4);}
+
+@media (max-width:900px){
+  .dash-grid{grid-template-columns:1fr;gap:14px;}
+}
 </style>
 </head>
 <body class="admin-body">
@@ -141,11 +171,168 @@
             <div class="content-title">平台大盘</div>
             <div class="content-desc">实时关键指标 · 近 7 天对比</div>
           </div>
+          <div class="content-actions">
+            <select class="btn-admin btn-ghost-admin">
+              <option>最近 7 天</option>
+              <option>最近 30 天</option>
+              <option>最近 90 天</option>
+            </select>
+            <button class="btn-admin btn-ghost-admin" onclick="showToast('已刷新')">🔄</button>
+          </div>
         </div>
-        <div class="placeholder">
-          <div class="placeholder-emoji">📊</div>
-          <div class="placeholder-text">大盘占位 · 待 I.1.b 填充</div>
-          <div class="placeholder-tag">将含 16 项指标 + 趋势</div>
+
+        <!-- 6 张大指标卡 -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-label">用户总数</div>
+            <div class="stat-card-value">162</div>
+            <div class="stat-card-sub up">↑ 本周 +8 新增</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">班级总数</div>
+            <div class="stat-card-value">8</div>
+            <div class="stat-card-sub">活跃 7 · 归档 1</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">题库容量</div>
+            <div class="stat-card-value">186</div>
+            <div class="stat-card-sub">已审 175 · 待审 8 · 拒 3</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">累计答题</div>
+            <div class="stat-card-value">12.4K</div>
+            <div class="stat-card-sub up">本周 1,832 次</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">全平台正确率</div>
+            <div class="stat-card-value">82%</div>
+            <div class="stat-card-sub up">↑ 较上周 +1.5%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">SM-2 卡片</div>
+            <div class="stat-card-value">3,248</div>
+            <div class="stat-card-sub">精通 412 · 今日到期 96</div>
+          </div>
+        </div>
+
+        <!-- LLM 指标 -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-label">本月 LLM 费用</div>
+            <div class="stat-card-value">$28.50</div>
+            <div class="stat-card-sub">含主路 + 兜底</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">本月 LLM 调用</div>
+            <div class="stat-card-value">1,420</div>
+            <div class="stat-card-sub">tokens 8.4M</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">LLM 错误率</div>
+            <div class="stat-card-value">0.3%</div>
+            <div class="stat-card-sub">5 次失败 / 月</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">日活跃用户</div>
+            <div class="stat-card-value">38</div>
+            <div class="stat-card-sub">活跃率 23%</div>
+          </div>
+        </div>
+
+        <!-- 分布图 -->
+        <div class="dash-grid">
+          <div class="section-card">
+            <div class="section-card-title">
+              用户角色分布
+              <span style="font-size:11px;font-weight:400;color:var(--ink-4);">共 162 人</span>
+            </div>
+            <div class="dist-list">
+              <div class="dist-row">
+                <div class="dist-row-label">学员 student</div>
+                <div class="dist-row-bar"><div class="dist-row-fill" style="width:89%"></div></div>
+                <div class="dist-row-count">145</div>
+              </div>
+              <div class="dist-row">
+                <div class="dist-row-label">辅导员 coach</div>
+                <div class="dist-row-bar"><div class="dist-row-fill coach" style="width:9%"></div></div>
+                <div class="dist-row-count">14</div>
+              </div>
+              <div class="dist-row">
+                <div class="dist-row-label">管理员 admin</div>
+                <div class="dist-row-bar"><div class="dist-row-fill admin" style="width:2%"></div></div>
+                <div class="dist-row-count">3</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-card-title">
+              题型分布
+              <span style="font-size:11px;font-weight:400;color:var(--ink-4);">共 186 题</span>
+            </div>
+            <div class="dist-list">
+              <div class="dist-row">
+                <div class="dist-row-label">单选 single</div>
+                <div class="dist-row-bar"><div class="dist-row-fill" style="width:35%"></div></div>
+                <div class="dist-row-count">65</div>
+              </div>
+              <div class="dist-row">
+                <div class="dist-row-label">多选 multi</div>
+                <div class="dist-row-bar"><div class="dist-row-fill" style="width:22%"></div></div>
+                <div class="dist-row-count">41</div>
+              </div>
+              <div class="dist-row">
+                <div class="dist-row-label">填空 fill</div>
+                <div class="dist-row-bar"><div class="dist-row-fill" style="width:18%"></div></div>
+                <div class="dist-row-count">33</div>
+              </div>
+              <div class="dist-row">
+                <div class="dist-row-label">排序 sort</div>
+                <div class="dist-row-bar"><div class="dist-row-fill" style="width:10%"></div></div>
+                <div class="dist-row-count">19</div>
+              </div>
+              <div class="dist-row">
+                <div class="dist-row-label">配对 match</div>
+                <div class="dist-row-bar"><div class="dist-row-fill" style="width:8%"></div></div>
+                <div class="dist-row-count">15</div>
+              </div>
+              <div class="dist-row">
+                <div class="dist-row-label">开放 open</div>
+                <div class="dist-row-bar"><div class="dist-row-fill" style="width:7%"></div></div>
+                <div class="dist-row-count">13</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LLM Providers 健康 -->
+        <div class="section-card">
+          <div class="section-card-title">
+            LLM Providers 健康
+            <button class="btn-admin btn-ghost-admin" onclick="navTo('providers')" style="font-size:12px;padding:4px 10px;">详细 ›</button>
+          </div>
+          <div class="provider-card">
+            <div class="provider-dot healthy"></div>
+            <div>
+              <div class="provider-name">MiniMax · 主通路（包年）</div>
+              <div class="provider-meta">abab6.5s-chat · primary · 0 连错 · 健康</div>
+            </div>
+            <div class="provider-quota">
+              <div class="provider-quota-num">93%</div>
+              <div class="provider-quota-label">年度剩余</div>
+            </div>
+          </div>
+          <div class="provider-card">
+            <div class="provider-dot healthy"></div>
+            <div>
+              <div class="provider-name">Claude Haiku · 兜底（按量）</div>
+              <div class="provider-meta">claude-haiku-4-5 · fallback · pay-as-you-go · 健康</div>
+            </div>
+            <div class="provider-quota">
+              <div class="provider-quota-num">$8.50</div>
+              <div class="provider-quota-label">本月已用</div>
+            </div>
+          </div>
         </div>
       </div>
 
