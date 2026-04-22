@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>觉学 · 管理员后台</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="admin-shell.css">
+<style>
+/* admin.html 专用占位样式 */
+.placeholder{
+  background:var(--white);
+  border:1px dashed var(--border);
+  border-radius:12px;
+  padding:60px 20px;
+  text-align:center;
+  color:var(--ink-4);
+}
+.placeholder-emoji{font-size:48px;margin-bottom:12px;opacity:.5;}
+.placeholder-text{font-size:14px;}
+.placeholder-tag{
+  display:inline-block;margin-top:8px;
+  background:var(--accent-light);color:#92400E;
+  padding:2px 10px;border-radius:10px;
+  font-size:11px;
+}
+</style>
+</head>
+<body class="admin-body">
+
+<!-- ═════════ LOGIN ═════════ -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="login-brand-logo">🪷</div>
+      <div class="login-title">觉学 · 管理员</div>
+      <div class="login-sub">ADMIN CONSOLE</div>
+      <div class="login-role-tag admin">⚙️ 管理员登录</div>
+    </div>
+    <form class="login-form" onsubmit="event.preventDefault();doLogin();">
+      <div class="input-group">
+        <label for="emailInput">邮箱</label>
+        <input id="emailInput" type="email" value="admin@juexue.app" autocomplete="email">
+      </div>
+      <div class="input-group">
+        <label for="passInput">密码</label>
+        <input id="passInput" type="password" value="admin123456" autocomplete="current-password">
+      </div>
+      <button type="submit" class="login-btn">登录</button>
+      <div class="login-alt">
+        <a href="index.html">返回首页</a>
+        <a href="coach.html">辅导员入口</a>
+      </div>
+      <div class="login-hint">
+        💡 <strong>演示账号：</strong>任何非空邮箱 + 密码均可登录。<br>
+        推荐 <code>admin@juexue.app</code> / <code>admin123456</code>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═════════ SHELL ═════════ -->
+<div class="shell" id="shell">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <button class="menu-toggle" id="menuToggle">☰</button>
+    <div class="topbar-logo">🪷</div>
+    <div class="topbar-brand">觉学</div>
+    <span class="topbar-tag admin">管理员</span>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-user" onclick="doLogout()">
+      <div class="topbar-avatar">管</div>
+      <div class="topbar-username">超管</div>
+    </div>
+  </div>
+
+  <div class="main-area">
+    <div class="sidebar-backdrop" id="backdrop"></div>
+
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-section-title">概览</div>
+      <div class="sidebar-item active" data-nav-admin="dashboard">
+        <span class="sidebar-item-icon">📊</span>
+        <span>平台大盘</span>
+      </div>
+
+      <div class="sidebar-section-title">题库与举报</div>
+      <div class="sidebar-item" data-nav-admin="review">
+        <span class="sidebar-item-icon">📝</span>
+        <span>题目审核</span>
+        <span class="sidebar-item-badge">3</span>
+      </div>
+      <div class="sidebar-item" data-nav-admin="reports">
+        <span class="sidebar-item-icon">🚩</span>
+        <span>举报处理</span>
+        <span class="sidebar-item-badge">2</span>
+      </div>
+
+      <div class="sidebar-section-title">用户与班级</div>
+      <div class="sidebar-item" data-nav-admin="users">
+        <span class="sidebar-item-icon">👥</span>
+        <span>用户管理</span>
+      </div>
+      <div class="sidebar-item" data-nav-admin="classes">
+        <span class="sidebar-item-icon">🏫</span>
+        <span>班级管理</span>
+      </div>
+
+      <div class="sidebar-section-title">LLM 运维</div>
+      <div class="sidebar-item" data-nav-admin="providers">
+        <span class="sidebar-item-icon">🤖</span>
+        <span>Providers</span>
+      </div>
+      <div class="sidebar-item" data-nav-admin="scenarios">
+        <span class="sidebar-item-icon">📋</span>
+        <span>场景 + Prompt</span>
+      </div>
+
+      <div class="sidebar-section-title">日志</div>
+      <div class="sidebar-item" data-nav-admin="audit">
+        <span class="sidebar-item-icon">📜</span>
+        <span>审计日志</span>
+      </div>
+      <div class="sidebar-item" data-nav-admin="errors">
+        <span class="sidebar-item-icon">🐛</span>
+        <span>运行日志</span>
+        <span class="sidebar-item-badge">5</span>
+      </div>
+    </nav>
+
+    <!-- Content -->
+    <main class="content">
+
+      <!-- Page: 大盘 -->
+      <div class="page-admin active" id="page-dashboard">
+        <div class="content-header">
+          <div>
+            <div class="content-title">平台大盘</div>
+            <div class="content-desc">实时关键指标 · 近 7 天对比</div>
+          </div>
+        </div>
+        <div class="placeholder">
+          <div class="placeholder-emoji">📊</div>
+          <div class="placeholder-text">大盘占位 · 待 I.1.b 填充</div>
+          <div class="placeholder-tag">将含 16 项指标 + 趋势</div>
+        </div>
+      </div>
+
+      <!-- Page: 题目审核 -->
+      <div class="page-admin" id="page-review">
+        <div class="content-header">
+          <div>
+            <div class="content-title">题目审核</div>
+            <div class="content-desc">辅导员提交的公开题目待审</div>
+          </div>
+        </div>
+        <div class="placeholder">
+          <div class="placeholder-emoji">📝</div>
+          <div class="placeholder-text">审核队列 · 待 I.1.c 填充</div>
+        </div>
+      </div>
+
+      <!-- Page: 举报处理 -->
+      <div class="page-admin" id="page-reports">
+        <div class="content-header">
+          <div>
+            <div class="content-title">举报处理</div>
+            <div class="content-desc">学员反馈的问题题目</div>
+          </div>
+        </div>
+        <div class="placeholder">
+          <div class="placeholder-emoji">🚩</div>
+          <div class="placeholder-text">举报列表 · 待 I.1.c 填充</div>
+        </div>
+      </div>
+
+      <!-- Page: 用户管理 -->
+      <div class="page-admin" id="page-users">
+        <div class="content-header">
+          <div>
+            <div class="content-title">用户管理</div>
+            <div class="content-desc">分页 · role/邮箱搜索 · 改角色 · 停用</div>
+          </div>
+        </div>
+        <div class="placeholder">
+          <div class="placeholder-emoji">👥</div>
+          <div class="placeholder-text">用户表 · 待 I.1.d 填充</div>
+        </div>
+      </div>
+
+      <!-- Page: 班级管理 -->
+      <div class="page-admin" id="page-classes">
+        <div class="content-header">
+          <div>
+            <div class="content-title">班级管理</div>
+            <div class="content-desc">所有班级 · 创建 · 归档 · 成员</div>
+          </div>
+        </div>
+        <div class="placeholder">
+          <div class="placeholder-emoji">🏫</div>
+          <div class="placeholder-text">班级列表 · 待 I.1.d 填充</div>
+        </div>
+      </div>
+
+      <!-- Page: LLM Providers -->
+      <div class="page-admin" id="page-providers">
+        <div class="content-header">
+          <div>
+            <div class="content-title">LLM Providers</div>
+            <div class="content-desc">主备切换 · 配额 · 熔断 · 用量</div>
+          </div>
+        </div>
+        <div class="placeholder">
+          <div class="placeholder-emoji">🤖</div>
+          <div class="placeholder-text">Provider 表 + 编辑 · 待 I.1.e 填充</div>
+          <div class="placeholder-tag">17 个可改字段</div>
+        </div>
+      </div>
+
+      <!-- Page: 场景 + Prompt -->
+      <div class="page-admin" id="page-scenarios">
+        <div class="content-header">
+          <div>
+            <div class="content-title">场景 &amp; Prompt 模板</div>
+            <div class="content-desc">绑定主备 provider · 模板版本管理</div>
+          </div>
+        </div>
+        <div class="placeholder">
+          <div class="placeholder-emoji">📋</div>
+          <div class="placeholder-text">场景表 + Prompt 编辑 · 待 I.1.f 填充</div>
+        </div>
+      </div>
+
+      <!-- Page: 审计日志 -->
+      <div class="page-admin" id="page-audit">
+        <div class="content-header">
+          <div>
+            <div class="content-title">审计日志</div>
+            <div class="content-desc">所有 Admin 操作 before / after 快照</div>
+          </div>
+        </div>
+        <div class="placeholder">
+          <div class="placeholder-emoji">📜</div>
+          <div class="placeholder-text">AuditLog 列表 · 待 I.1.g 填充</div>
+        </div>
+      </div>
+
+      <!-- Page: 运行日志 -->
+      <div class="page-admin" id="page-errors">
+        <div class="content-header">
+          <div>
+            <div class="content-title">运行日志</div>
+            <div class="content-desc">错误 / 慢请求 / 慢查询 三合一（Sprint 3.5）</div>
+          </div>
+        </div>
+        <div class="placeholder">
+          <div class="placeholder-emoji">🐛</div>
+          <div class="placeholder-text">ErrorLog 列表 · 待 I.1.g 填充</div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+function doLogin(){
+  const email = document.getElementById('emailInput').value.trim();
+  const pass = document.getElementById('passInput').value;
+  if(!email || !pass){ showToast('请输入邮箱和密码'); return; }
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('shell').classList.add('active');
+  showToast('欢迎回来 · ' + email);
+}
+function doLogout(){
+  if(!confirm('确定退出登录？')) return;
+  document.getElementById('shell').classList.remove('active');
+  document.getElementById('loginScreen').style.display='flex';
+}
+function navTo(name){
+  document.querySelectorAll('.page-admin').forEach(function(p){ p.classList.remove('active'); });
+  const target = document.getElementById('page-' + name);
+  if(target) target.classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(function(s){
+    s.classList.toggle('active', s.getAttribute('data-nav-admin') === name);
+  });
+  // 移动端：收起侧栏
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('open');
+  window.scrollTo(0,0);
+}
+function showToast(msg){
+  const existing = document.querySelector('.toast-admin');
+  if(existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = 'toast-admin';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 1800);
+}
+
+// sidebar nav clicks
+document.querySelectorAll('[data-nav-admin]').forEach(function(el){
+  el.addEventListener('click', function(){ navTo(el.getAttribute('data-nav-admin')); });
+});
+
+// Mobile menu toggle
+document.getElementById('menuToggle').addEventListener('click', function(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('backdrop').classList.toggle('open');
+});
+document.getElementById('backdrop').addEventListener('click', function(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('backdrop').classList.remove('open');
+});
+</script>
+
+</body>
+</html>
