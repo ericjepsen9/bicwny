@@ -1,262 +1,229 @@
-# 觉学项目 · 会话交接清单
+# 觉学项目 · 会话交接清单 v2（后端已跑通）
 
-> 复制粘贴本文件到新会话的第一条消息，Claude 就能无缝继续。
+> 复制粘贴本文件到新会话，Claude 就能无缝继续。
+> 覆盖上一版 `HANDOFF_CONTINUE.md`。
 
 ---
 
-## 📌 当前状态
+## 📌 当前状态（2026-04-22 新）
 
 ```
 仓库：   ericjepsen9/bicwny
 分支：   claude/setup-bicwny-repo-hGIlF
-最新：   11b9d97 原型 P.3：admin-shell.css + coach.html（辅导员后台 · 响应式）
+最新：   da4f323 fix(auth/tokens): 错误消息加 token 种类前缀
 ```
 
-### ✅ 已完成
+### ✅ 已完成 + 已在本地跑通
 
-| 区域 | 完成度 | 文件 |
+| 区域 | 状态 | 验证证据 |
 |---|---|---|
-| **Sprint 1 · 后端核心** | 100% | backend/ 答题 + SM-2 + LLM Gateway |
-| **Sprint 2 · 认证+协作** | 100% | JWT + Class + Coach + 题库双轨 |
-| **Sprint 3 · 学习闭环** | 100% | 学员路径 + 收藏 + 举报 + Admin 面板 |
-| **Sprint 3.5 · 观测性** | 100% | requestId + ErrorLog + /health/detailed |
-| **原型 P.1** | ✓ | index.html landing + shared.css + student.html 改名 |
-| **原型 P.2** | ✓ | student.html 扩充 8 新页（登录/论典/进度/SM-2/错题/收藏/举报） |
-| **原型 P.3** | ✓ | admin-shell.css + coach.html（响应式后台） |
+| **Sprint 1-3.5 后端** | 100% 代码 + **本地真跑通** | 下面 14 步 checklist 全过 |
+| **原型 P.1-P.4** | 100% | landing + student + coach + admin 4 文件 |
+| **单元测试** | 44/44 过 | sm2 · grading.objective/mockOpen · auth.hash · auth.tokens · integration/auth |
+| **冒烟测试** | 全过 | health / health/detailed / JWT 登录 / admin 3 端点 / 学员答题链路 |
 
-### ❌ 未完成 · **12 大项** · **按优先级排**
+### ✅ 本次验证 14 步（用户在本地 Win11 + Docker Desktop 全过）
 
----
-
-## 🔴 Phase I · 原型最后一块（1 步）
-
-- [ ] **I.1** 写 `admin.html` 9 页 Admin 后台
-  - 大盘 / 题目审核 / 举报处理 / 用户管理
-  - LLM Providers（17 字段编辑）/ 场景+Prompt
-  - 班级管理 / 审计日志 / 运行日志（ErrorLog）
-  - 复用 `admin-shell.css`，风格与 coach.html 一致
-  - 预计 ~2000 行
-
----
-
-## 🟠 Phase II · 后端验证（等你跑）
-
-所有后端代码**从未在真 Node 环境跑过**。每步若失败需 Claude 修。
-
-- [ ] **II.1** `npm install` + `npm run prisma:generate`
-- [ ] **II.2** `docker compose up -d` + `npm run prisma:migrate`（首次建议命名 `sprint_1_to_3_5_baseline`）
-- [ ] **II.3** `npm run prisma:seed` — 期望：1 论典 / 20 题 / 3 账号 / 2 LLM 供应商
-- [ ] **II.4** `npm run typecheck` — **最大风险点**，56 ts 文件第一次跑
-- [ ] **II.5** `npm test` — 42 用例（SM-2 · 判分 · hash · tokens · mock open）
-- [ ] **II.6** `npm run dev` + 冒烟（见 `backend/TESTING.md § E`）
-- [ ] **II.7** 集成测试：需要**独立 test DB**，`npm run test:integration`（3 用例 auth 链路）
+```
+ 1 git pull                    ✓
+ 2 npm install 157 包           ✓
+ 3 docker compose up -d         ✓ postgres healthy
+ 4 Copy-Item .env.example .env  ✓
+ 5 prisma migrate + 命名迁移    ✓ 23 表建好
+ 6 prisma seed                  ✓ 3 账号 / 20 题
+ 7 typecheck                    ✓ 修了 5 处类型后全过
+ 8 npm test 44/44               ✓ 修了 2 处消息后全过
+ 9 npm run dev                  ✓ listening
+10 curl /health                 ✓ 200 + reqId
+11 curl /health/detailed        ✓ db.ok + llm 健康
+12 Invoke-RestMethod 登录       ✓ 199 字符 token
+13 admin 3 端点                 ✓ 大盘 / providers / logs
+14 学员答题                     ✓ score=100 · SM-2 card+1 · 大盘 answers+1
+```
 
 ---
 
-## 🟠 Phase III · 生产准备（5 步）
+## ⚠️ 验证过程中发现的问题（按优先级）
+
+### 🔴 P0 · 已修好（代码已推 da4f323）
+
+| # | 问题 | 修法 | 改动文件 |
+|---|---|---|---|
+| 1 | `typecheck` 5 处类型错（app.ts err unknown / auth.ts delete / mockOpen JsonValue / coach.routes z.unknown） | cast 与守卫 | `79052e7` + `d89d697` |
+| 2 | `auth.tokens.test.ts` 2 个 assertion 因 "token 类型不正确" 不含 `access/refresh` 失败 | 消息加前缀 | `da4f323` |
+
+### 🟠 P1 · 已知工作流问题（下次修）
+
+| # | 问题 | 现在绕开办法 | 未来修法 |
+|---|---|---|---|
+| 3 | `tests/integration/auth.test.ts` 的 `resetDb()` 会清 `user` 表，导致 seed 的 admin/coach/student 账号消失 | 跑完 `npm test` 重新 `npm run prisma:seed` | 改 helpers 用独立测试库（另一个 DATABASE_URL）或保留 demo 账号 |
+| 4 | `package.json` 里 `test: "vitest run --exclude 'tests/integration/**'"` 在 vitest v2.1.9 下**不生效**（仍跑了 integration） | 就让它跑吧（目前通过） | 改用 `testPathIgnorePatterns` 或分包管理 |
+| 5 | `prisma migrate dev` 在 PowerShell 下**交互式输入迁移名卡死** | 用 `npx prisma migrate dev --name xxx`（非交互） | 无需修，记入文档即可 |
+| 6 | 上一次被 Ctrl+C 中断的 migrate 会**留 advisory lock** 使下次 migrate 超时 P1002 | `docker compose restart postgres` | 下次别 Ctrl+C 中断 migrate |
+| 7 | `package.json#prisma` 配置 Prisma 7 将弃用 | 无影响 | 迁移到 `prisma.config.ts` |
+
+### 🟡 P2 · 非 bug 观察
+
+- Seed 数据里没种子答题记录，大盘初始全 0 是正常
+- PowerShell 把 Node/Prisma 的 `warn` 消息误标红色（`NativeCommandError`）：**不是错**，看内容不是 `error` 就行
+- 7 个 npm vulnerabilities（moderate/high/critical）：dev 可忽略，生产前 `npm audit fix` 处理
+
+---
+
+## ❌ 未完成 · 按优先级排（从上一版 HANDOFF 剔除已做的）
+
+### 🔴 Phase I · 原型（已完）
+- [x] I.1 admin.html · 7 小步全完
+
+### 🟠 Phase II · 后端验证（已完）
+- [x] 全 14 步完
+
+### 🟠 Phase III · 生产准备（5 步 · 一个都没开始）
 
 - [ ] **III.1** `backend/Dockerfile` + `docker-compose.prod.yml`
 - [ ] **III.2** `CORS_ORIGINS` env 白名单（app.ts 改）
 - [ ] **III.3** `@fastify/rate-limit`（防注册轰炸 + LLM 刷量）
-- [ ] **III.4** 邮件服务：注册验证 + 密码重置（需 SMTP/SendGrid）
-- [ ] **III.5** 文件上传：头像 + 法本 PDF（需对象存储）
+- [ ] **III.4** 邮件服务（注册验证 + 密码重置 · 需 SMTP/SendGrid）
+- [ ] **III.5** 文件上传（头像 / 法本 PDF · 需对象存储）
 
----
+### 🟡 Phase IV · 集成测试补齐
 
-## 🟡 Phase IV · 集成测试补齐（4 步）
-
-当前 `tests/integration/` 只有 3 用例（auth）。还缺：
-
+- [ ] **IV.0** 先修 P1 问题 3：改 `tests/integration/helpers.ts` 用独立 test DB
 - [ ] **IV.1** `/api/answers` 全流程 e2e（→ UserAnswer + Sm2Card 落库）
-- [ ] **IV.2** 班级权限越权（coach A 访问 coach B 班 → 403）
-- [ ] **IV.3** 题目双轨 + Admin 审核（→ AuditLog）
-- [ ] **IV.4** LLM Gateway 切兜底（mock MiniMax 抛错 → Claude 接替 → `switched=true`）
+- [ ] **IV.2** 班级权限越权 e2e（coach A 访问 coach B 班 → 403）
+- [ ] **IV.3** 题目双轨 + Admin 审核 e2e（→ AuditLog）
+- [ ] **IV.4** LLM Gateway 切兜底 e2e（mock MiniMax 抛错 → Claude 接替 → `switched=true`）
 
----
-
-## 🟢 Phase V · 真前端（Sprint 4 · 大工程）
-
-原型是 mockup，真产品需要对接 65+ 端点。
+### 🟢 Phase V · 真前端（Sprint 4 · 大工程）
 
 - [ ] **V.1** Next.js 14 App Router 骨架 + Tailwind + ESLint
 - [ ] **V.2** 认证流（login / refresh / middleware）
 - [ ] **V.3** 学员路径（courses / lessons / answer / sm2 / mistakes / favorites）
-- [ ] **V.4** 辅导员端（对应 coach.html 的功能）
-- [ ] **V.5** Admin 端（对应 admin.html 的功能）
+- [ ] **V.4** 辅导员端
+- [ ] **V.5** Admin 端
 - [ ] **V.6** 部署（Vercel / Cloudflare Pages）
 
----
+### 🟢 Phase VI · 体验完善（5 步）
+- [ ] VI.1 国际化 i18n
+- [ ] VI.2 搜索
+- [ ] VI.3 CSV 导出
+- [ ] VI.4 通知系统
+- [ ] VI.5 作业功能
 
-## 🟢 Phase VI · 体验完善（5 步）
-
-- [ ] **VI.1** 国际化 i18n（简 / 繁 / 英）
-- [ ] **VI.2** 搜索（题目 + 论典，PG fulltext）
-- [ ] **VI.3** 数据导出 CSV（学员学修 / LLM 成本）
-- [ ] **VI.4** 通知系统（辅导员消息 / 系统通知）
-- [ ] **VI.5** 作业功能（辅导员指定题单）
-
----
-
-## 🟢 Phase VII · 文档 & 运维（4 步）
-
-- [ ] **VII.1** README 最终版（含 P.3/P.4 原型说明）
-- [ ] **VII.2** OpenAPI / Swagger 自动文档
-- [ ] **VII.3** Sentry 接入（前后端错误追踪）
-- [ ] **VII.4** 监控报警（Grafana / Prometheus）
-
----
-
-## 🧪 未测试事项（完整版见 `backend/TESTING.md`）
-
-### 关键 checkbox（至少这些要跑）
-
-**A 依赖 & 生成**
-- [ ] `npm install` 无报错
-- [ ] `prisma:generate` 产出 @prisma/client
-
-**B 迁移**
-- [ ] 迁移成功，23 表 / 11 enum（含 Sprint 3.5 ErrorLog）
-
-**C Seed**
-- [ ] 1 课程 / 20 题 / 3 账号 / 2 LLM 供应商
-
-**D 类型 + 单测**
-- [ ] `npm run typecheck` 无错
-- [ ] sm2.test.ts · 8 用例过
-- [ ] grading.objective.test.ts · 13 用例过
-- [ ] grading.mockOpen.test.ts · 7 用例过
-- [ ] auth.hash.test.ts · 6 用例过
-- [ ] auth.tokens.test.ts · 8 用例过
-
-**E 服务 + 冒烟（Sprint 1 + 2 + 3 + 3.5）**
-- [ ] `/health` · `/health/detailed` 带 `x-request-id` 响应头
-- [ ] 登录 → `/api/coach/classes` 带 JWT 可调
-- [ ] Admin 创建班级 → Coach 加入 → Student 加入
-- [ ] Coach 创建 public 题 → Admin 审核 → AuditLog 新增
-- [ ] `/api/courses` + `/api/enrollments` 报名流
-- [ ] `/api/favorites` + `/api/mistakes` + `/api/reports`
-- [ ] `/api/admin/platform-stats` 返 6 大类指标
-- [ ] `/api/admin/llm/providers` 管理面板
-- [ ] Sprint 3.5 冒烟：`/api/admin/logs` 能查；`/api/admin/logs/stats` 24h 三类计数
-- [ ] 触发慢请求 `setTimeout(1500)` → 日志 + ErrorLog 记录
-
-**F LLM 真调用（需 API Key）**
-- [ ] `POST /api/answers` 带 `useLlm:true` → `source='llm_open'`
-- [ ] 断网时自动降级 mock
-
-### 前端原型
-- [ ] `index.html` landing 3 角色卡
-- [ ] `student.html` 所有新页能打开（登录/论典/SM-2/错题/收藏）
-- [ ] `coach.html` 响应式：PC 侧栏 + 手机抽屉 + 登录/退出
-- [ ] `admin.html` **尚未创建**（I.1 完成后再测）
+### 🟢 Phase VII · 文档 & 运维（4 步）
+- [ ] VII.1 README 最终版
+- [ ] VII.2 OpenAPI / Swagger
+- [ ] VII.3 Sentry
+- [ ] VII.4 Grafana / Prometheus
 
 ---
 
 ## 🚀 新会话开工命令
 
-### 1. 拉最新代码
+### A. 新会话第一条消息复制这段
 
-```bash
-cd ~/bicwny            # 或你克隆的路径
+```
+继续觉学项目。分支 claude/setup-bicwny-repo-hGIlF，最新 da4f323。
+
+后端 Sprint 1-3.5 + 原型 P.1-P.4 已完成，本地已跑通 14 步冒烟测试。
+请读 HANDOFF_CONTINUE.md（仓库根，v2 版本）了解全貌。
+
+下一步我想做：xxx（填入编号，例如 III.1 / IV.1 / V.1 / P2 修复）
+
+每完成一小步都等我确认再进下一步。
+```
+
+### B. 你本地拉最新
+
+```powershell
+cd C:\Users\ericj\bicwny
 git fetch origin
-git checkout claude/setup-bicwny-repo-hGIlF
 git pull origin claude/setup-bicwny-repo-hGIlF
 ```
 
-### 2. 告诉新 Claude 你要干什么
+### C. 如需再次验证后端（已验证过可跳）
 
-复制这段到新会话第一条消息：
+```powershell
+cd backend
+docker compose up -d                              # 如果 postgres 没开
+docker compose ps                                 # 等 healthy
+npm run dev                                       # 这个窗口别关
 
-```
-继续觉学项目。分支 claude/setup-bicwny-repo-hGIlF，
-最新 commit 11b9d97（P.3 coach.html）。
+# 新开 PowerShell：
+$login = Invoke-RestMethod -Method POST `
+  -Uri http://localhost:3000/api/auth/login `
+  -ContentType 'application/json' `
+  -Body '{"email":"admin@juexue.app","password":"admin123456"}'
+$TOKEN = $login.data.accessToken
+$headers = @{ authorization = "Bearer $TOKEN" }
 
-请先读 HANDOFF_CONTINUE.md，里面有完整待办清单。
-我的优先顺序：
-1. I.1 先把 admin.html 写完
-2. 然后我跑 II.1-II.6 验证后端，有错你修
-3. 之后看情况推进
-
-每完成一个编号的小步都等我确认再进下一步。
-```
-
-### 3. 本地预览原型
-
-```bash
-cd ~/bicwny
-python3 -m http.server 8000
-# 浏览器：http://localhost:8000/
+Invoke-RestMethod -Uri http://localhost:3000/api/admin/platform-stats -Headers $headers
 ```
 
-### 4. 后端测试命令（你可以一边跑一边交给 Claude）
+**如果登录失败**（集成测试把账号清了）→ `npm run prisma:seed` 再试。
 
-```bash
-cd ~/bicwny/backend
+### D. 查看原型（已推进但还没让你看过）
 
-# 第一次
-npm install
-cp .env.example .env
-docker compose up -d
-npm run prisma:generate
-npm run prisma:migrate    # 迁移名：sprint_1_to_3_5_baseline
-npm run prisma:seed
-
-# 检查
-npm run typecheck
-npm test
-
-# 起服务
-npm run dev
-# 另开终端跑 TESTING.md § E 的 curl 清单
+```powershell
+cd C:\Users\ericj\bicwny
+python -m http.server 8000
+# 浏览器：
+#   http://localhost:8000/              landing
+#   http://localhost:8000/student.html  手机 App mockup
+#   http://localhost:8000/coach.html    辅导员响应式后台
+#   http://localhost:8000/admin.html    管理员 9 页后台
 ```
-
-### 5. 有错直接贴给 Claude
-
-```
-跑 npm run typecheck 报错：
-<粘贴错误>
-```
-
-Claude 定位到对应 commit + 文件 + 行号即可修。
 
 ---
 
-## 📁 重要文件索引
+## 📁 关键文件索引
 
-| 文件 | 作用 |
+| 路径 | 作用 |
 |---|---|
-| `backend/README.md` | 后端总览 · 70+ 端点表 |
-| `backend/TESTING.md` | 完整测试 checkbox（F 节 LLM 真调用） |
+| `HANDOFF_CONTINUE.md` | **本文件** · 会话交接清单 |
+| `backend/README.md` | 后端总览 · 70+ 端点 |
+| `backend/TESTING.md` | 详细 checkbox + 调试工具 |
 | `backend/prisma/schema.prisma` | 23 model · 11 enum |
-| `backend/src/app.ts` | Fastify 装配 · 所有路由注册处 |
-| `backend/src/lib/` | prisma · config · errors · auth · request-id · timing · error-log |
-| `backend/src/modules/` | auth / class / coach / questions / enrollment / courses / learning / favorites / reports / admin / llm / answering / sm2 / health |
-| `index.html` | landing |
-| `student.html` | 学员端（手机 App mockup） |
-| `coach.html` | 辅导员端（响应式后台） |
-| `admin.html` | **待写（I.1）** |
-| `shared.css` / `admin-shell.css` | 样式 tokens |
+| `backend/src/app.ts` | Fastify 装配 · 所有路由注册 |
+| `backend/src/lib/` | prisma/config/errors/auth/request-id/timing/error-log |
+| `backend/src/modules/` | auth/class/coach/questions/enrollment/courses/learning/favorites/reports/admin/llm/answering/sm2/health |
+| `index.html` | landing（3 角色入口） |
+| `student.html` | 学员手机 App mockup · 17 页 |
+| `coach.html` | 辅导员响应式后台 · 5 页 |
+| `admin.html` | 管理员响应式后台 · 9 页 |
+| `shared.css` · `admin-shell.css` | 样式 |
 
 ---
 
 ## 💡 与 Claude 对话的最佳实践
 
-1. **按编号说**：「做 I.1」「跑 II.3 报错 xxx」
-2. **贴错误完整输出**，含 stack trace
-3. **不确定时问"当前状态"**，Claude 会回溯 git log
-4. **每完成一步都会提示下一步**，你选要不要进
-5. **文件太长时**，Claude 会建议拆分或用 Edit 定点改
+1. **按编号说**：「做 III.1」「修 P1 问题 3」
+2. **贴错误完整输出**，含 stack trace（Windows PowerShell 的红色 `NativeCommandError` 可以忽略，看实际内容）
+3. **每步拆小再拆**：单次代码改动 ≤ 500 行，每步 1 个 commit
+4. **问"当前状态"** 回溯 git log
+5. **不要 Ctrl+C 中断 prisma migrate**（会留 advisory lock）
 
 ---
 
-## 🆘 紧急情况
+## 🆘 常见坑速查
 
-若 Claude 改乱了：
+| 症状 | 原因 | 修 |
+|---|---|---|
+| `prisma migrate` 卡住 | PowerShell 交互提示 | 用 `npx prisma migrate dev --name xxx` |
+| `P1002 advisory lock timeout` | 上次被中断的 migrate 留锁 | `docker compose restart postgres` |
+| 登录报 `UNAUTHORIZED` | 集成测试清了 users 表 | `npm run prisma:seed` |
+| PowerShell 一堆红字 | 把 stderr 当错误显示 | 看内容，`warn` 不是错 |
+| Docker 没装 | 装 Docker Desktop | 启动 Docker Desktop + 等 WSL2 就绪 |
 
-```bash
-git log --oneline -20       # 找最后一个好的 commit
-git reset --hard <commit>   # 回滚（注意：会丢未提交改动）
-git push --force-with-lease # 推远端（谨慎！）
-```
+---
 
-或直接告诉 Claude："回滚到 `e224fe6`（P.1 完成点）"，它会帮你。
+## 🎯 强烈建议的下一步
+
+按影响从大到小：
+
+1. **P2 修 · P1 问题 3**（集成测试隔离）→ 方便每次重跑测试
+2. **III.3 rate-limit**（1 个文件，~60 行）→ 防滥用的第一道门
+3. **III.1 Dockerfile**（1 个文件）→ 为部署铺路
+4. **V.1 Next.js 骨架**（大工程）→ 开始真前端
+
+或者你有别的想法，直接告诉新 Claude。
