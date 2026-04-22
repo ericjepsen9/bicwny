@@ -271,6 +271,50 @@
 .provider-pair{font-size:12px;}
 .provider-pair-name{font-weight:600;color:var(--ink);}
 .provider-pair-model{font-size:11px;color:var(--ink-4);}
+
+/* I.1.g · 审计 / 运行日志 */
+.kind-tag{
+  display:inline-flex;align-items:center;
+  padding:2px 8px;border-radius:6px;
+  font-size:11px;font-weight:500;gap:4px;
+  font-family:SF Mono,monospace;
+}
+.kind-error{background:var(--error-light);color:var(--error-dark);}
+.kind-slow_request{background:var(--accent-light);color:#92400E;}
+.kind-slow_query{background:var(--purple-light);color:var(--purple-dark);}
+
+.action-tag{
+  font-family:SF Mono,monospace;font-size:11px;
+  background:var(--bg-2);color:var(--ink-2);
+  padding:2px 6px;border-radius:5px;
+}
+.target-cell{font-family:SF Mono,monospace;font-size:11px;color:var(--ink-3);}
+.target-cell strong{color:var(--ink);}
+
+.req-id-cell{
+  font-family:SF Mono,monospace;font-size:11px;
+  background:var(--bg-2);color:var(--primary-dark);
+  padding:2px 6px;border-radius:5px;
+  cursor:pointer;
+}
+.req-id-cell:hover{background:var(--primary-pale);}
+
+.log-msg-cell{font-size:13px;color:var(--ink);max-width:380px;line-height:1.4;}
+.log-msg-cell .secondary{font-size:11px;color:var(--ink-4);margin-top:2px;}
+
+tr.clickable{cursor:pointer;}
+
+.json-pre{
+  background:var(--bg);border:1px solid var(--border-light);
+  border-radius:8px;padding:12px 14px;
+  font-family:SF Mono,Consolas,monospace;font-size:11px;
+  color:var(--ink-2);line-height:1.6;
+  max-height:240px;overflow:auto;
+  white-space:pre-wrap;word-break:break-all;
+}
+.diff-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;}
+.diff-grid .diff-label{font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:4px;letter-spacing:0.5px;}
+@media (max-width:900px){.diff-grid{grid-template-columns:1fr;}}
 </style>
 </head>
 <body class="admin-body">
@@ -1308,27 +1352,234 @@
         <div class="content-header">
           <div>
             <div class="content-title">审计日志</div>
-            <div class="content-desc">所有 Admin 操作 before / after 快照</div>
+            <div class="content-desc">所有 Admin 操作 before / after 快照 · 不可删</div>
           </div>
         </div>
-        <div class="placeholder">
-          <div class="placeholder-emoji">📜</div>
-          <div class="placeholder-text">AuditLog 列表 · 待 I.1.g 填充</div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-label">近 24h 操作</div>
+            <div class="stat-card-value">42</div>
+            <div class="stat-card-sub">3 admin</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">最频繁 action</div>
+            <div class="stat-card-value" style="font-size:14px;">question.approve</div>
+            <div class="stat-card-sub">12 次</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">本月 LLM 改动</div>
+            <div class="stat-card-value">8</div>
+            <div class="stat-card-sub">provider.update / scenario.update</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">本月用户角色变更</div>
+            <div class="stat-card-value">2</div>
+            <div class="stat-card-sub">student → coach 升级</div>
+          </div>
         </div>
+
+        <div class="filter-bar">
+          <input class="search-input" placeholder="🔍 action / targetId">
+          <select class="filter-select">
+            <option>全部 admin</option>
+            <option>admin@juexue.app</option>
+          </select>
+          <select class="filter-select">
+            <option>全部 action</option>
+            <option>question.approve</option>
+            <option>question.reject</option>
+            <option>report.accept</option>
+            <option>llmProvider.update</option>
+            <option>llmPrompt.activate</option>
+            <option>user.updateRole</option>
+            <option>user.deactivate</option>
+          </select>
+          <select class="filter-select">
+            <option>全部 targetType</option>
+            <option>question</option>
+            <option>llmProvider</option>
+            <option>llmPromptTemplate</option>
+            <option>user</option>
+            <option>questionReport</option>
+          </select>
+        </div>
+
+        <div class="data-table">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>admin</th>
+                <th>action</th>
+                <th>target</th>
+                <th>变更摘要</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="clickable" onclick="openAuditDetail('audit_1')">
+                <td>10 分钟前</td>
+                <td>超管</td>
+                <td><span class="action-tag">question.approve</span></td>
+                <td class="target-cell"><strong>question</strong>:q_multi_xxx</td>
+                <td>reviewStatus: pending → approved</td>
+              </tr>
+              <tr class="clickable" onclick="openAuditDetail('audit_2')">
+                <td>2 小时前</td>
+                <td>超管</td>
+                <td><span class="action-tag">llmProvider.update</span></td>
+                <td class="target-cell"><strong>llmProvider</strong>:provider_minimax</td>
+                <td>reservePercent: 5 → 8 · monthlyTokenQuota: 8500000 → 10000000</td>
+              </tr>
+              <tr class="clickable" onclick="openAuditDetail('audit_3')">
+                <td>3 小时前</td>
+                <td>超管</td>
+                <td><span class="action-tag">user.updateRole</span></td>
+                <td class="target-cell"><strong>user</strong>:user_xxx</td>
+                <td>role: student → coach</td>
+              </tr>
+              <tr class="clickable" onclick="openAuditDetail('audit_4')">
+                <td>5 小时前</td>
+                <td>超管</td>
+                <td><span class="action-tag">llmPrompt.activate</span></td>
+                <td class="target-cell"><strong>llmPromptTemplate</strong>:prompt_open_grading_v3_1</td>
+                <td>scenario: open_grading · 同时停用 v3.0</td>
+              </tr>
+              <tr class="clickable" onclick="openAuditDetail('audit_5')">
+                <td>昨天</td>
+                <td>超管</td>
+                <td><span class="action-tag">report.accept</span></td>
+                <td class="target-cell"><strong>questionReport</strong>:r_001</td>
+                <td>status: pending → accepted · note: 已修订正确选项</td>
+              </tr>
+              <tr class="clickable" onclick="openAuditDetail('audit_6')">
+                <td>2 天前</td>
+                <td>超管</td>
+                <td><span class="action-tag">llmProvider.resetCircuit</span></td>
+                <td class="target-cell"><strong>llmProvider</strong>:provider_claude</td>
+                <td>healthStatus: degraded → healthy · circuitOpenUntil cleared</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="text-align:center;padding:14px;color:var(--ink-4);font-size:12px;">显示 6 / 42 · <a href="#" style="color:var(--primary);">加载更多</a></div>
       </div>
 
-      <!-- Page: 运行日志 -->
+      <!-- Page: 运行日志（Sprint 3.5 ErrorLog）-->
       <div class="page-admin" id="page-errors">
         <div class="content-header">
           <div>
             <div class="content-title">运行日志</div>
-            <div class="content-desc">错误 / 慢请求 / 慢查询 三合一（Sprint 3.5）</div>
+            <div class="content-desc">错误 / 慢请求 / 慢查询 三合一 · Sprint 3.5 持久化（GET /api/admin/logs）</div>
+          </div>
+          <div class="content-actions">
+            <button class="btn-admin btn-ghost-admin" onclick="showToast('已刷新')">🔄 刷新</button>
           </div>
         </div>
-        <div class="placeholder">
-          <div class="placeholder-emoji">🐛</div>
-          <div class="placeholder-text">ErrorLog 列表 · 待 I.1.g 填充</div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-label">24h · error</div>
+            <div class="stat-card-value" style="color:var(--error-dark);">2</div>
+            <div class="stat-card-sub">5xx + 未捕获</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">24h · slow_request</div>
+            <div class="stat-card-value" style="color:#C2410C;">3</div>
+            <div class="stat-card-sub">≥ 1000ms</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">24h · slow_query</div>
+            <div class="stat-card-value" style="color:var(--purple-dark);">5</div>
+            <div class="stat-card-sub">≥ 500ms</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">总计</div>
+            <div class="stat-card-value">10</div>
+            <div class="stat-card-sub">较前 24h ↓ -3</div>
+          </div>
         </div>
+
+        <div class="filter-bar">
+          <input class="search-input" placeholder="🔍 message 关键字">
+          <select class="filter-select">
+            <option>全部 kind</option>
+            <option>error</option>
+            <option>slow_request</option>
+            <option>slow_query</option>
+          </select>
+          <input class="search-input" style="max-width:160px;flex:0;" placeholder="userId">
+          <input class="search-input" style="max-width:200px;flex:0;" placeholder="requestId">
+        </div>
+
+        <div class="data-table">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>kind</th>
+                <th>消息</th>
+                <th>userId</th>
+                <th>requestId</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="clickable" onclick="openErrorDetail('err_1')">
+                <td>3 分钟前</td>
+                <td><span class="kind-tag kind-slow_query">slow_query</span></td>
+                <td>
+                  <div class="log-msg-cell">slow query 712ms</div>
+                  <div class="secondary">SELECT "Question" WHERE "courseId"=$1 AND ...</div>
+                </td>
+                <td>—</td>
+                <td><span class="req-id-cell" onclick="event.stopPropagation();showToast('已复制 reqId')">a8K2Lp_3xy</span></td>
+              </tr>
+              <tr class="clickable" onclick="openErrorDetail('err_2')">
+                <td>22 分钟前</td>
+                <td><span class="kind-tag kind-slow_request">slow_request</span></td>
+                <td>
+                  <div class="log-msg-cell">POST /api/admin/platform-stats took 1342ms</div>
+                  <div class="secondary">status 200 · 慢于阈值 1000ms</div>
+                </td>
+                <td>user_admin_001</td>
+                <td><span class="req-id-cell" onclick="event.stopPropagation();showToast('已复制 reqId')">cQ4mNz_8jK</span></td>
+              </tr>
+              <tr class="clickable" onclick="openErrorDetail('err_3')">
+                <td>1 小时前</td>
+                <td><span class="kind-tag kind-error">error</span></td>
+                <td>
+                  <div class="log-msg-cell">UpstreamError: MiniMax 业务错误: rate_limit_exceeded</div>
+                  <div class="secondary">code UPSTREAM_ERROR · 已自动切兜底</div>
+                </td>
+                <td>user_student_001</td>
+                <td><span class="req-id-cell" onclick="event.stopPropagation();showToast('已复制 reqId')">9pX_KqA2bN</span></td>
+              </tr>
+              <tr class="clickable" onclick="openErrorDetail('err_4')">
+                <td>2 小时前</td>
+                <td><span class="kind-tag kind-slow_query">slow_query</span></td>
+                <td>
+                  <div class="log-msg-cell">slow query 893ms</div>
+                  <div class="secondary">SELECT FROM "UserAnswer" GROUP BY ...</div>
+                </td>
+                <td>—</td>
+                <td><span class="req-id-cell" onclick="event.stopPropagation();showToast('已复制 reqId')">Tt8vWq_2pZ</span></td>
+              </tr>
+              <tr class="clickable" onclick="openErrorDetail('err_5')">
+                <td>昨天</td>
+                <td><span class="kind-tag kind-error">error</span></td>
+                <td>
+                  <div class="log-msg-cell">PrismaClientKnownRequestError: Unique constraint failed on "AuthSession.refreshTokenHash"</div>
+                  <div class="secondary">refresh 并发轮转极小概率冲突</div>
+                </td>
+                <td>user_coach_001</td>
+                <td><span class="req-id-cell" onclick="event.stopPropagation();showToast('已复制 reqId')">L3kR_Hp9mQ</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="text-align:center;padding:14px;color:var(--ink-4);font-size:12px;">显示 5 · <a href="#" style="color:var(--primary);">加载更多</a></div>
       </div>
 
     </main>
@@ -1347,6 +1598,48 @@
     <div class="modal-box-actions">
       <button class="btn-admin btn-ghost-admin" onclick="closeModal('rejectModal')">取消</button>
       <button class="btn-admin btn-primary-admin" style="background:var(--error);box-shadow:0 2px 6px rgba(239,68,68,.25);" onclick="submitReject()">确认驳回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ AuditLog 详情 Modal ═════════ -->
+<div class="modal-mask" id="auditDetailModal">
+  <div class="modal-box modal-box-lg">
+    <div class="modal-box-title">审计详情 <span id="auditDetailId" style="color:var(--primary);font-family:SF Mono,monospace;font-size:13px;">—</span></div>
+    <div class="modal-box-sub" id="auditDetailMeta">—</div>
+    <div class="diff-grid">
+      <div>
+        <div class="diff-label">BEFORE</div>
+        <pre class="json-pre" id="auditBefore">{}</pre>
+      </div>
+      <div>
+        <div class="diff-label">AFTER</div>
+        <pre class="json-pre" id="auditAfter">{}</pre>
+      </div>
+    </div>
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('auditDetailModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ ErrorLog 详情 Modal ═════════ -->
+<div class="modal-mask" id="errorDetailModal">
+  <div class="modal-box modal-box-lg">
+    <div class="modal-box-title">日志详情 <span id="errorDetailKind" class="kind-tag" style="margin-left:8px;">—</span></div>
+    <div class="modal-box-sub" id="errorDetailMeta">—</div>
+
+    <div class="modal-section-title">message</div>
+    <pre class="json-pre" id="errorMsg">—</pre>
+
+    <div class="modal-section-title">context</div>
+    <pre class="json-pre" id="errorContext">{}</pre>
+
+    <div class="modal-section-title">stack（如有）</div>
+    <pre class="json-pre" id="errorStack" style="max-height:160px;">—</pre>
+
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('errorDetailModal')">关闭</button>
     </div>
   </div>
 </div>
@@ -1902,6 +2195,100 @@ function submitActivatePrompt(){
   if(!pendingActivate){ closeModal('activatePromptModal'); return; }
   closeModal('activatePromptModal');
   showToast('已激活 ' + pendingActivate.scenario + '/' + pendingActivate.version);
+}
+
+// I.1.g · AuditLog 详情
+const AUDIT_DATA = {
+  audit_1: {
+    meta: 'admin@juexue.app · question.approve · question:q_multi_xxx · 10 分钟前',
+    before: { reviewStatus: 'pending', reviewed: false },
+    after: { reviewStatus: 'approved', reviewed: true },
+  },
+  audit_2: {
+    meta: 'admin@juexue.app · llmProvider.update · llmProvider:provider_minimax · 2h 前',
+    before: { reservePercent: 5, monthlyTokenQuota: '8500000', isEnabled: true },
+    after: { reservePercent: 8, monthlyTokenQuota: '10000000' },
+  },
+  audit_3: {
+    meta: 'admin@juexue.app · user.updateRole · user:user_xxx · 3h 前',
+    before: { role: 'student' },
+    after: { role: 'coach' },
+  },
+  audit_4: {
+    meta: 'admin@juexue.app · llmPrompt.activate · llmPromptTemplate:prompt_open_grading_v3_1 · 5h 前',
+    before: null,
+    after: { scenario: 'open_grading', version: 'v3.1' },
+  },
+  audit_5: {
+    meta: 'admin@juexue.app · report.accept · questionReport:r_001 · 昨天',
+    before: { status: 'pending' },
+    after: { status: 'accepted', note: '已修订正确选项' },
+  },
+  audit_6: {
+    meta: 'admin@juexue.app · llmProvider.resetCircuit · llmProvider:provider_claude · 2 天前',
+    before: { healthStatus: 'degraded', consecutiveErrors: 4, circuitOpenUntil: '2026-04-20T08:32:11.000Z' },
+    after: null,
+  },
+};
+function openAuditDetail(id){
+  const d = AUDIT_DATA[id];
+  if(!d){ showToast('未知日志'); return; }
+  document.getElementById('auditDetailId').textContent = id;
+  document.getElementById('auditDetailMeta').textContent = d.meta;
+  document.getElementById('auditBefore').textContent = JSON.stringify(d.before, null, 2);
+  document.getElementById('auditAfter').textContent = JSON.stringify(d.after, null, 2);
+  openModal('auditDetailModal');
+}
+
+// I.1.g · ErrorLog 详情
+const ERROR_DATA = {
+  err_1: {
+    kind: 'slow_query', kindClass: 'kind-slow_query',
+    meta: '3 分钟前 · reqId a8K2Lp_3xy · 无 user',
+    msg: 'slow query 712ms',
+    context: { durationMs: 712, query: 'SELECT "Question" WHERE "courseId"=$1 AND "reviewStatus"=$2 ORDER BY ...', paramsLen: 2 },
+    stack: null,
+  },
+  err_2: {
+    kind: 'slow_request', kindClass: 'kind-slow_request',
+    meta: '22 分钟前 · reqId cQ4mNz_8jK · userId user_admin_001',
+    msg: 'POST /api/admin/platform-stats took 1342ms',
+    context: { method: 'POST', url: '/api/admin/platform-stats', status: 200, duration: 1342 },
+    stack: null,
+  },
+  err_3: {
+    kind: 'error', kindClass: 'kind-error',
+    meta: '1 小时前 · reqId 9pX_KqA2bN · userId user_student_001',
+    msg: 'UpstreamError: MiniMax 业务错误: rate_limit_exceeded',
+    context: { method: 'POST', url: '/api/answers', code: 'UPSTREAM_ERROR', statusCode: 502, details: { url: 'https://api.minimax.chat/v1/text/chatcompletion_v2', code: 1008 } },
+    stack: 'UpstreamError: MiniMax 业务错误: rate_limit_exceeded\n    at MiniMaxProvider.chat (/app/dist/modules/llm/providers/minimax.js:48:11)\n    at chat (/app/dist/modules/llm/gateway.js:62:24)\n    at submitAnswer (/app/dist/modules/answering/service.js:38:18)',
+  },
+  err_4: {
+    kind: 'slow_query', kindClass: 'kind-slow_query',
+    meta: '2 小时前 · reqId Tt8vWq_2pZ · 无 user',
+    msg: 'slow query 893ms',
+    context: { durationMs: 893, query: 'SELECT "userId", COUNT(*) FROM "UserAnswer" GROUP BY "userId" ORDER BY ...', paramsLen: 0 },
+    stack: null,
+  },
+  err_5: {
+    kind: 'error', kindClass: 'kind-error',
+    meta: '昨天 · reqId L3kR_Hp9mQ · userId user_coach_001',
+    msg: 'PrismaClientKnownRequestError: Unique constraint failed on "AuthSession.refreshTokenHash"',
+    context: { method: 'POST', url: '/api/auth/refresh', code: 'INTERNAL', statusCode: 500 },
+    stack: 'PrismaClientKnownRequestError: Unique constraint failed\n  fields: ["refreshTokenHash"]\n    at Proxy._request (/app/node_modules/@prisma/client/runtime/library.js:120:31)',
+  },
+};
+function openErrorDetail(id){
+  const d = ERROR_DATA[id];
+  if(!d){ showToast('未知日志'); return; }
+  const kindEl = document.getElementById('errorDetailKind');
+  kindEl.textContent = d.kind;
+  kindEl.className = 'kind-tag ' + d.kindClass;
+  document.getElementById('errorDetailMeta').textContent = d.meta;
+  document.getElementById('errorMsg').textContent = d.msg;
+  document.getElementById('errorContext').textContent = JSON.stringify(d.context, null, 2);
+  document.getElementById('errorStack').textContent = d.stack || '(无 stack · 慢日志类型不存)';
+  openModal('errorDetailModal');
 }
 </script>
 
