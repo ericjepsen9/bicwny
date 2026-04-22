@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>觉学 · 三级页面预览</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg-l2:linear-gradient(135deg,#FFFAF4 0%,#FDF1E5 40%,#FAE8D8 75%,#F6DFCA 100%);
+  --saffron:#E07856;--saffron-dark:#C55F3D;--saffron-light:#FBE5DA;--saffron-pale:#FDF4EE;
+  --sage:#A8BC9A;--sage-dark:#7D9A6C;--sage-light:#E5EFDF;
+  --crimson:#A13C2E;--crimson-dark:#822E21;--crimson-light:#F5D9D3;
+  --gold:#D4A574;--gold-dark:#B88956;--gold-light:#F5E3CE;--gold-pale:#FBF3E8;
+  --ink:#2B2218;--ink-2:#55463A;--ink-3:#857360;--ink-4:#B5A99A;
+  --glass:rgba(255,255,255,.58);--glass-thick:rgba(255,255,255,.78);
+  --glass-border:rgba(255,255,255,.88);--glass-shadow:0 6px 22px rgba(160,100,60,.1);
+  --blur:blur(20px) saturate(140%);
+}
+body{background:#16120e;min-height:100vh;padding:48px 20px;font-family:'Noto Sans SC',system-ui,sans-serif;color:var(--ink);}
+h1{text-align:center;color:#fff;font-family:'Noto Serif SC',serif;font-size:22px;font-weight:400;letter-spacing:10px;margin-bottom:6px;}
+.sub{text-align:center;color:#888;font-size:12px;letter-spacing:3px;margin-bottom:40px;}
+.phones{max-width:1000px;margin:0 auto;display:flex;justify-content:center;gap:56px;flex-wrap:wrap;}
+.wrap{display:flex;flex-direction:column;align-items:center;gap:12px;}
+.wrap-label{color:#fff;font-family:'Noto Serif SC',serif;font-size:15px;letter-spacing:5px;}
+.wrap-sub{color:#888;font-size:11px;letter-spacing:2px;margin-top:-8px;}
+.phone{width:375px;height:812px;border-radius:44px;padding:10px;border:2px solid #1a1a1a;background:#000;box-shadow:0 28px 70px rgba(0,0,0,.6),0 0 0 7px #0a0a0a;position:relative;flex-shrink:0;}
+.phone::before{content:'';position:absolute;top:16px;left:50%;transform:translateX(-50%);width:104px;height:26px;background:#0a0a0a;border-radius:20px;z-index:100;}
+.screen{width:100%;height:100%;border-radius:34px;overflow:hidden;background:var(--bg-l2);display:flex;flex-direction:column;position:relative;}
+.status{position:absolute;top:12px;left:28px;right:28px;display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:var(--ink);z-index:5;}
+.g{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--glass-border);border-radius:16px;box-shadow:var(--glass-shadow);}
+.g-thick{background:var(--glass-thick);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--glass-border);border-radius:16px;box-shadow:var(--glass-shadow);}
+.tag{display:inline-flex;align-items:center;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;letter-spacing:.5px;}
+.tag-s{background:var(--saffron-light);color:var(--saffron-dark);}
+.tag-sage{background:var(--sage-light);color:var(--sage-dark);}
+.tag-cr{background:var(--crimson-light);color:var(--crimson-dark);}
+.tag-gold{background:var(--gold-light);color:var(--gold-dark);}
+.back{width:34px;height:34px;border-radius:50%;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.back svg{width:18px;height:18px;stroke:var(--ink-2);fill:none;stroke-width:2;stroke-linecap:round;}
+.scroll{flex:1;overflow-y:auto;scrollbar-width:none;}
+
+/* ════ P1 · 法本阅读 ════ */
+.read-topbar{padding:52px 20px 12px;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.6);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border-bottom:1px solid rgba(255,255,255,.72);flex-shrink:0;}
+.read-chapter{flex:1;text-align:center;}
+.read-ch-name{font-family:'Noto Serif SC',serif;font-size:15px;font-weight:700;letter-spacing:2px;color:var(--ink);}
+.read-ch-sub{font-size:11px;color:var(--ink-3);margin-top:2px;letter-spacing:1px;}
+.read-action{color:var(--ink-3);}
+.read-action svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;}
+
+.read-progress-bar{height:3px;background:rgba(224,120,86,.15);flex-shrink:0;}
+.read-progress-fill{height:100%;width:38%;background:var(--saffron);border-radius:0 2px 2px 0;}
+
+.read-body{flex:1;overflow-y:auto;scrollbar-width:none;padding:24px 22px 20px;}
+.read-section{font-family:'Noto Serif SC',serif;font-size:13px;font-weight:700;color:var(--ink-3);letter-spacing:3px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(43,34,24,.08);}
+.read-para{font-family:'Noto Serif SC',serif;font-size:15px;color:var(--ink);line-height:2.2;letter-spacing:1.5px;margin-bottom:16px;}
+.read-highlight{background:linear-gradient(180deg,transparent 60%,rgba(224,120,86,.22) 60%);cursor:pointer;}
+.read-annotation{background:var(--gold-pale);border:1px solid rgba(212,165,116,.3);border-left:3px solid var(--gold);border-radius:0 10px 10px 0;padding:12px 14px;margin:0 0 16px;position:relative;}
+.read-ann-label{font-size:10px;color:var(--gold-dark);font-weight:700;letter-spacing:2px;margin-bottom:6px;}
+.read-ann-text{font-family:'Noto Serif SC',serif;font-size:13px;color:var(--ink-2);line-height:1.8;letter-spacing:1px;}
+.read-para-2{font-family:'Noto Serif SC',serif;font-size:15px;color:var(--ink);line-height:2.2;letter-spacing:1.5px;}
+
+.read-bottom{display:flex;align-items:center;justify-content:space-between;padding:12px 20px 20px;background:rgba(255,255,255,.6);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border-top:1px solid rgba(255,255,255,.72);flex-shrink:0;}
+.read-nav{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);font-weight:500;letter-spacing:1px;cursor:pointer;}
+.read-nav svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;}
+.read-page{font-family:'Noto Serif SC',serif;font-size:13px;color:var(--ink-3);letter-spacing:2px;}
+
+/* ════ P2 · 题目解析详情 ════ */
+.ana-topbar{padding:52px 20px 14px;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.6);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border-bottom:1px solid rgba(255,255,255,.72);flex-shrink:0;}
+.ana-title{flex:1;font-family:'Noto Serif SC',serif;font-size:18px;font-weight:700;letter-spacing:3px;color:var(--ink);}
+
+.ana-scroll{flex:1;overflow-y:auto;scrollbar-width:none;padding:16px 20px 24px;display:flex;flex-direction:column;gap:12px;}
+
+.q-card{padding:18px 16px;}
+.q-source-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.q-source-dot{width:4px;height:20px;background:var(--saffron);border-radius:2px;}
+.q-source-text{font-size:11px;color:var(--ink-3);letter-spacing:2px;}
+.q-text{font-family:'Noto Serif SC',serif;font-size:16px;color:var(--ink);line-height:1.9;letter-spacing:1px;}
+.q-key{color:var(--saffron-dark);font-weight:700;}
+
+.ans-section{display:flex;flex-direction:column;gap:8px;}
+.ans-row{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:12px;}
+.ans-row.wrong{background:var(--crimson-light);border:1px solid rgba(161,60,46,.2);}
+.ans-row.right{background:var(--sage-light);border:1px solid rgba(125,154,108,.2);}
+.ans-badge{font-size:10px;font-weight:700;letter-spacing:1px;padding:3px 8px;border-radius:5px;flex-shrink:0;margin-top:1px;}
+.ans-badge.wrong{background:var(--crimson);color:#fff;}
+.ans-badge.right{background:var(--sage-dark);color:#fff;}
+.ans-text{font-family:'Noto Serif SC',serif;font-size:14px;line-height:1.7;letter-spacing:.5px;}
+.ans-text.wrong{color:var(--crimson-dark);}
+.ans-text.right{color:var(--sage-dark);}
+
+.explain-card{padding:18px 16px;}
+.explain-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.explain-dot{width:4px;height:20px;background:var(--gold);border-radius:2px;}
+.explain-label{font-family:'Noto Serif SC',serif;font-size:14px;font-weight:700;color:var(--ink);letter-spacing:2px;}
+.explain-body{font-family:'Noto Serif SC',serif;font-size:14px;color:var(--ink-2);line-height:2;letter-spacing:.8px;}
+.explain-em{color:var(--saffron-dark);font-weight:700;}
+.explain-sage{color:var(--sage-dark);font-weight:700;}
+
+.sm2-card{padding:14px 16px;display:flex;align-items:center;gap:12px;}
+.sm2-icon-wrap{width:38px;height:38px;border-radius:10px;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;}
+.sm2-icon-wrap svg{width:20px;height:20px;stroke:var(--gold-dark);fill:none;stroke-width:1.8;stroke-linecap:round;}
+.sm2-body{flex:1;}
+.sm2-label{font-size:11px;color:var(--ink-3);letter-spacing:1px;}
+.sm2-date{font-family:'Noto Serif SC',serif;font-size:14px;font-weight:700;color:var(--ink);margin-top:2px;letter-spacing:1px;}
+.sm2-interval{font-size:11px;color:var(--gold-dark);font-weight:600;}
+
+.ana-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.btn-ghost{padding:13px;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);color:var(--ink);border:1px solid var(--glass-border);border-radius:13px;font-size:13px;font-weight:600;letter-spacing:2px;font-family:inherit;cursor:pointer;}
+.btn-saffron{padding:13px;background:linear-gradient(135deg,var(--saffron),var(--saffron-dark));color:#fff;border:none;border-radius:13px;font-size:13px;font-weight:600;letter-spacing:2px;font-family:inherit;cursor:pointer;box-shadow:0 4px 14px rgba(224,120,86,.35);}
+</style>
+</head>
+<body>
+
+<h1>觉 学 · 三 级 页 面</h1>
+<div class="sub">背景 L2 · 辅助色 组合A · Step B</div>
+
+<div class="phones">
+
+  <!-- ════ P1 · 法本阅读 ════ -->
+  <div class="wrap">
+    <div class="wrap-label">法 本 阅 读</div>
+    <div class="wrap-sub">三 级 · 正 文 沉 浸 · 划 线 + 注 释</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>●●●●● 100%</span></div>
+        <div class="read-topbar">
+          <div class="back"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+          <div class="read-chapter">
+            <div class="read-ch-name">四科七大</div>
+            <div class="read-ch-sub">楞严经 · 第 3 讲 · 进行中</div>
+          </div>
+          <div class="read-action">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          </div>
+        </div>
+        <div class="read-progress-bar"><div class="read-progress-fill"></div></div>
+
+        <div class="read-body">
+          <div class="read-section">卷 三 · 第 二 段</div>
+          <div class="read-para">
+            阿难，汝常晨朝以手摩头，于意云何？
+            彼虚空性，可摩触不？<br><br>
+            阿难言：<span class="read-highlight">不也，世尊</span>。
+          </div>
+          <div class="read-annotation">
+            <div class="read-ann-label">📿 法师注释</div>
+            <div class="read-ann-text">「以手摩头」是借日常动作引入「能触」与「所触」的讨论，虚空无形无质，不可被触，此处为下文分析七大之「空大」作铺垫。</div>
+          </div>
+          <div class="read-para">
+            佛言：阿难，我今示汝诸妄想性，及汝菩提元明心地，应汝诸根一一合离，<span class="read-highlight">性非从所</span>，云何获汝贤圣明悟？
+          </div>
+          <div class="read-para-2" style="color:var(--ink-3);font-size:13px;line-height:2;">
+            阿难，汝今云何于中措心，能令其性，如手摩法……
+          </div>
+        </div>
+
+        <div class="read-bottom">
+          <div class="read-nav">
+            <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+            上一讲
+          </div>
+          <div class="read-page">3 / 28</div>
+          <div class="read-nav" style="color:var(--saffron);">
+            下一讲
+            <svg viewBox="0 0 24 24" style="stroke:var(--saffron);"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ P2 · 题目解析 ════ -->
+  <div class="wrap">
+    <div class="wrap-label">题 目 解 析</div>
+    <div class="wrap-sub">三 级 · 错 因 + 法 师 注 + SM-2</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>●●●●● 100%</span></div>
+        <div class="ana-topbar">
+          <div class="back"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+          <div class="ana-title">题 目 解 析</div>
+          <span class="tag tag-cr">错题</span>
+        </div>
+
+        <div class="ana-scroll">
+
+          <!-- 题干 -->
+          <div class="g q-card">
+            <div class="q-source-row">
+              <div class="q-source-dot"></div>
+              <div class="q-source-text">《金刚经》· 第十品 · 单选题</div>
+            </div>
+            <div class="q-text">「应无所住而生其心」中，<span class="q-key">无所住</span>的核心含义是？</div>
+          </div>
+
+          <!-- 答案对比 -->
+          <div class="ans-section">
+            <div class="ans-row wrong">
+              <div class="ans-badge wrong">我的</div>
+              <div class="ans-text wrong">心无旁骛，专注于一境而修</div>
+            </div>
+            <div class="ans-row right">
+              <div class="ans-badge right">正解</div>
+              <div class="ans-text right">不执著于任何境界而生起清净心</div>
+            </div>
+          </div>
+
+          <!-- 法师解析 -->
+          <div class="g explain-card">
+            <div class="explain-head">
+              <div class="explain-dot"></div>
+              <div class="explain-label">法 师 解 析</div>
+            </div>
+            <div class="explain-body">
+              「无所住」并非<span class="explain-em">专注一境</span>，恰恰相反，是对<span class="explain-sage">一切境界皆不执著</span>。此句出自须菩提与佛的问答，意指菩萨应在无执着的状态中自然生起利益众生的清净心，而非刻意压制念头。<br><br>
+              与「无念」不同——无念是「于念而不念」，<span class="explain-em">无住</span>是「念念不滞留」，二者层次有别。
+            </div>
+          </div>
+
+          <!-- SM-2 复习提示 -->
+          <div class="g sm2-card">
+            <div class="sm2-icon-wrap">
+              <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            </div>
+            <div class="sm2-body">
+              <div class="sm2-label">SM-2 · 下次复习</div>
+              <div class="sm2-date">2026 · 04 · 25 · 周 五</div>
+            </div>
+            <div class="sm2-interval">3 天后</div>
+          </div>
+
+          <!-- 操作 -->
+          <div class="ana-actions">
+            <button class="btn-ghost">加 入 收 藏</button>
+            <button class="btn-saffron">再 做 一 遍</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="text-align:center;color:#E0B89A;font-size:11px;letter-spacing:1px;margin-top:36px;">
+  Step B · 三级页面 · 双击 preview-tertiary.html 打开
+</div>
+</body>
+</html>
