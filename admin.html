@@ -152,6 +152,78 @@
   padding:2px 7px;border-radius:5px;font-size:11px;
   letter-spacing:1px;font-weight:600;
 }
+
+/* I.1.e LLM Providers */
+.provider-board{
+  background:var(--white);border-radius:14px;
+  border:1px solid var(--border-light);
+  padding:20px;margin-bottom:16px;
+}
+.provider-board-head{
+  display:flex;align-items:center;gap:14px;
+  padding-bottom:16px;border-bottom:1px solid var(--border-light);margin-bottom:16px;
+}
+.provider-board-emoji{font-size:32px;flex-shrink:0;}
+.provider-board-info{flex:1;min-width:0;}
+.provider-board-name{font-size:16px;font-weight:700;color:var(--ink);}
+.provider-board-meta{font-size:12px;color:var(--ink-3);margin-top:3px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.provider-board-actions{display:flex;gap:8px;align-items:center;flex-shrink:0;flex-wrap:wrap;}
+
+.toggle-switch{
+  position:relative;width:42px;height:22px;
+  background:var(--border);border-radius:12px;
+  cursor:pointer;transition:background .2s;
+  flex-shrink:0;
+}
+.toggle-switch.on{background:var(--success);}
+.toggle-switch::after{
+  content:'';position:absolute;top:2px;left:2px;
+  width:18px;height:18px;background:#fff;
+  border-radius:50%;
+  transition:left .2s;
+  box-shadow:0 1px 3px rgba(0,0,0,.2);
+}
+.toggle-switch.on::after{left:22px;}
+
+.quota-block{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;
+}
+.quota-item{
+  background:var(--bg);border-radius:10px;padding:12px 14px;
+}
+.quota-item-label{font-size:11px;color:var(--ink-3);margin-bottom:4px;display:flex;justify-content:space-between;}
+.quota-item-bar{height:6px;background:var(--white);border-radius:3px;overflow:hidden;margin:6px 0;}
+.quota-item-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--success),var(--primary));}
+.quota-item-fill.warn{background:linear-gradient(90deg,var(--accent),#F59E0B);}
+.quota-item-fill.danger{background:linear-gradient(90deg,#F97316,var(--error));}
+.quota-item-num{font-size:13px;font-weight:600;color:var(--ink);}
+.quota-item-sub{font-size:10px;color:var(--ink-4);}
+
+.modal-box-lg{max-width:680px;}
+.modal-section-title{
+  font-size:12px;font-weight:600;color:var(--ink-3);
+  letter-spacing:1px;text-transform:uppercase;
+  margin:16px 0 10px;padding-top:12px;
+  border-top:1px solid var(--border-light);
+}
+.modal-section-title:first-of-type{border-top:none;padding-top:0;margin-top:0;}
+.modal-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.modal-form-grid .field-full{grid-column:1/-1;}
+.modal-form-grid label{display:block;font-size:12px;font-weight:500;color:var(--ink-2);margin-bottom:6px;}
+.modal-form-grid input,.modal-form-grid select{
+  width:100%;padding:9px 12px;
+  border:1px solid var(--border);border-radius:8px;
+  font-size:13px;font-family:inherit;background:var(--white);
+}
+.modal-form-grid input:focus,.modal-form-grid select:focus{
+  outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(59,130,246,.12);
+}
+.field-readonly{background:var(--bg-2) !important;color:var(--ink-4);}
+
+@media (max-width:900px){
+  .modal-form-grid{grid-template-columns:1fr;}
+  .provider-board-head{flex-wrap:wrap;}
+}
 </style>
 </head>
 <body class="admin-body">
@@ -932,13 +1004,140 @@
         <div class="content-header">
           <div>
             <div class="content-title">LLM Providers</div>
-            <div class="content-desc">主备切换 · 配额 · 熔断 · 用量</div>
+            <div class="content-desc">主备切换 · 配额 · 熔断 · 用量（后端 17 字段可编辑）</div>
+          </div>
+          <div class="content-actions">
+            <button class="btn-admin btn-ghost-admin" onclick="navTo('scenarios')">→ 场景配置</button>
           </div>
         </div>
-        <div class="placeholder">
-          <div class="placeholder-emoji">🤖</div>
-          <div class="placeholder-text">Provider 表 + 编辑 · 待 I.1.e 填充</div>
-          <div class="placeholder-tag">17 个可改字段</div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-label">当前主路</div>
+            <div class="stat-card-value" style="font-size:18px;">MiniMax</div>
+            <div class="stat-card-sub">abab6.5s-chat · 包年</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">当前兜底</div>
+            <div class="stat-card-value" style="font-size:18px;">Claude Haiku</div>
+            <div class="stat-card-sub">claude-haiku-4-5 · 按量</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">本月费用</div>
+            <div class="stat-card-value">$28.50</div>
+            <div class="stat-card-sub">预算 $200 · 14% 已用</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">本月切换次数</div>
+            <div class="stat-card-value">3</div>
+            <div class="stat-card-sub">主路 → 兜底</div>
+          </div>
+        </div>
+
+        <!-- Provider 1: MiniMax -->
+        <div class="provider-board">
+          <div class="provider-board-head">
+            <div class="provider-board-emoji">🤖</div>
+            <div class="provider-board-info">
+              <div class="provider-board-name">
+                MiniMax <span class="role-tag" style="background:var(--primary-pale);color:var(--primary-dark);margin-left:6px;">primary</span>
+              </div>
+              <div class="provider-board-meta">
+                <span><span class="provider-dot healthy" style="display:inline-block;vertical-align:middle;margin-right:4px;"></span>healthy</span>
+                <span>·</span>
+                <span>abab6.5s-chat</span>
+                <span>·</span>
+                <span>priority 1</span>
+                <span>·</span>
+                <span>0 连错</span>
+                <span>·</span>
+                <span>10 分钟前调用</span>
+              </div>
+            </div>
+            <div class="provider-board-actions">
+              <button class="btn-preview" onclick="showToast('已重置 minimax 熔断')">🔄 重置熔断</button>
+              <button class="btn-preview" onclick="openProviderEdit('minimax')">✏️ 编辑</button>
+              <div class="toggle-switch on" onclick="toggleProvider(this,'minimax')" title="启用 / 停用"></div>
+            </div>
+          </div>
+
+          <div class="quota-block">
+            <div class="quota-item">
+              <div class="quota-item-label"><span>年度 token 配额</span><span class="quota-item-num">93%</span></div>
+              <div class="quota-item-bar"><div class="quota-item-fill" style="width:93%"></div></div>
+              <div class="quota-item-sub">已用 7M / 100M · 预留阈值 5%</div>
+            </div>
+            <div class="quota-item">
+              <div class="quota-item-label"><span>月度 token 配额</span><span class="quota-item-num">82%</span></div>
+              <div class="quota-item-bar"><div class="quota-item-fill" style="width:82%"></div></div>
+              <div class="quota-item-sub">已用 1.5M / 8.5M</div>
+            </div>
+            <div class="quota-item">
+              <div class="quota-item-label"><span>日请求配额</span><span class="quota-item-num">75%</span></div>
+              <div class="quota-item-bar"><div class="quota-item-fill" style="width:75%"></div></div>
+              <div class="quota-item-sub">已用 2,500 / 10,000</div>
+            </div>
+            <div class="quota-item">
+              <div class="quota-item-label"><span>本月成本</span><span class="quota-item-num">$0.42</span></div>
+              <div class="quota-item-sub" style="margin-top:8px;">in $0.00028 / out $0.00042 / 1k token</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Provider 2: Claude -->
+        <div class="provider-board">
+          <div class="provider-board-head">
+            <div class="provider-board-emoji">⚡</div>
+            <div class="provider-board-info">
+              <div class="provider-board-name">
+                Claude Haiku 4.5 <span class="role-tag" style="background:var(--accent-light);color:#92400E;margin-left:6px;">fallback</span>
+              </div>
+              <div class="provider-board-meta">
+                <span><span class="provider-dot healthy" style="display:inline-block;vertical-align:middle;margin-right:4px;"></span>healthy</span>
+                <span>·</span>
+                <span>claude-haiku-4-5</span>
+                <span>·</span>
+                <span>priority 50</span>
+                <span>·</span>
+                <span>pay-as-you-go</span>
+              </div>
+            </div>
+            <div class="provider-board-actions">
+              <button class="btn-preview" onclick="showToast('已重置 claude 熔断')">🔄 重置熔断</button>
+              <button class="btn-preview" onclick="openProviderEdit('claude')">✏️ 编辑</button>
+              <div class="toggle-switch on" onclick="toggleProvider(this,'claude')" title="启用 / 停用"></div>
+            </div>
+          </div>
+
+          <div class="quota-block">
+            <div class="quota-item">
+              <div class="quota-item-label"><span>年度配额</span></div>
+              <div class="quota-item-num" style="margin-top:8px;">无限</div>
+              <div class="quota-item-sub">按量计费</div>
+            </div>
+            <div class="quota-item">
+              <div class="quota-item-label"><span>RPM 限制</span><span class="quota-item-num">12 / 100</span></div>
+              <div class="quota-item-bar"><div class="quota-item-fill" style="width:12%"></div></div>
+              <div class="quota-item-sub">峰值 35 RPM</div>
+            </div>
+            <div class="quota-item">
+              <div class="quota-item-label"><span>本月调用</span><span class="quota-item-num">340</span></div>
+              <div class="quota-item-sub" style="margin-top:8px;">主路切兜底 3 次</div>
+            </div>
+            <div class="quota-item">
+              <div class="quota-item-label"><span>本月成本</span><span class="quota-item-num">$8.50</span></div>
+              <div class="quota-item-sub" style="margin-top:8px;">in $0.001 / out $0.005 / 1k token</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-card-title">本周用量趋势（占位）</div>
+          <div class="placeholder" style="padding:40px 20px;border:1px dashed var(--border-light);">
+            <div class="placeholder-emoji">📈</div>
+            <div class="placeholder-text">这里展示 7 天 / 30 天 token + cost 折线图</div>
+            <div class="placeholder-tag">真前端再接入图表库（recharts / echarts）</div>
+          </div>
         </div>
       </div>
 
@@ -1000,6 +1199,114 @@
     <div class="modal-box-actions">
       <button class="btn-admin btn-ghost-admin" onclick="closeModal('rejectModal')">取消</button>
       <button class="btn-admin btn-primary-admin" style="background:var(--error);box-shadow:0 2px 6px rgba(239,68,68,.25);" onclick="submitReject()">确认驳回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ Provider 编辑 Modal（17 字段） ═════════ -->
+<div class="modal-mask" id="providerModal">
+  <div class="modal-box modal-box-lg">
+    <div class="modal-box-title">编辑 Provider <span id="providerEditName" style="color:var(--primary);">—</span></div>
+    <div class="modal-box-sub">修改后异步落 AuditLog（before / after）</div>
+
+    <div class="modal-section-title">基础信息</div>
+    <div class="modal-form-grid">
+      <div>
+        <label>name（不可改）</label>
+        <input class="field-readonly" id="pf-name" readonly>
+      </div>
+      <div>
+        <label>显示名 displayName</label>
+        <input id="pf-displayName">
+      </div>
+      <div>
+        <label>默认模型 defaultModel</label>
+        <input id="pf-defaultModel">
+      </div>
+      <div>
+        <label>角色 role</label>
+        <select id="pf-role">
+          <option value="primary">primary（主）</option>
+          <option value="fallback">fallback（兜底）</option>
+          <option value="disabled">disabled（停用）</option>
+        </select>
+      </div>
+      <div>
+        <label>优先级 priority（小数字优先）</label>
+        <input id="pf-priority" type="number" min="0">
+      </div>
+      <div>
+        <label>启用 isEnabled</label>
+        <select id="pf-isEnabled">
+          <option value="true">是</option>
+          <option value="false">否</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-section-title">配额（null 表无限）</div>
+    <div class="modal-form-grid">
+      <div>
+        <label>年度 token yearlyTokenQuota</label>
+        <input id="pf-yearlyTokenQuota" type="number" placeholder="100000000">
+      </div>
+      <div>
+        <label>月度 token monthlyTokenQuota</label>
+        <input id="pf-monthlyTokenQuota" type="number" placeholder="8500000">
+      </div>
+      <div>
+        <label>日请求 dailyRequestQuota</label>
+        <input id="pf-dailyRequestQuota" type="number" placeholder="10000">
+      </div>
+      <div>
+        <label>RPM 限制 rpmLimit</label>
+        <input id="pf-rpmLimit" type="number" placeholder="60">
+      </div>
+      <div>
+        <label>并发限制 concurrencyLimit</label>
+        <input id="pf-concurrencyLimit" type="number" placeholder="5">
+      </div>
+      <div>
+        <label>预留阈值 reservePercent (%)</label>
+        <input id="pf-reservePercent" type="number" min="0" max="100" step="0.5">
+      </div>
+    </div>
+
+    <div class="modal-section-title">成本（USD / 1k token）</div>
+    <div class="modal-form-grid">
+      <div>
+        <label>输入成本 inputCostPer1k</label>
+        <input id="pf-inputCostPer1k" type="number" step="0.00001" min="0">
+      </div>
+      <div>
+        <label>输出成本 outputCostPer1k</label>
+        <input id="pf-outputCostPer1k" type="number" step="0.00001" min="0">
+      </div>
+    </div>
+
+    <div class="modal-section-title">超额策略 + 生效期</div>
+    <div class="modal-form-grid">
+      <div class="field-full">
+        <label>超额时 overagePolicy</label>
+        <select id="pf-overagePolicy">
+          <option value="stop">stop · 拒绝（保护预算）</option>
+          <option value="pay_as_you_go">pay_as_you_go · 按量付（无视配额）</option>
+          <option value="fallback">fallback · 切兜底</option>
+        </select>
+      </div>
+      <div>
+        <label>生效起 enabledFrom</label>
+        <input id="pf-enabledFrom" type="datetime-local">
+      </div>
+      <div>
+        <label>生效至 enabledUntil</label>
+        <input id="pf-enabledUntil" type="datetime-local">
+      </div>
+    </div>
+
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('providerModal')">取消</button>
+      <button class="btn-admin btn-primary-admin" onclick="submitProviderEdit()">保存修改</button>
     </div>
   </div>
 </div>
@@ -1243,6 +1550,55 @@ function openArchiveClassModal(name){
 function submitArchiveClass(){
   closeModal('archiveClassModal');
   showToast('已归档：' + pendingArchiveName);
+}
+
+// I.1.e · LLM Provider 编辑
+const PROVIDER_DATA = {
+  minimax: {
+    name:'minimax', displayName:'MiniMax（主通路 · 包年）', defaultModel:'abab6.5s-chat',
+    role:'primary', priority:1, isEnabled:true,
+    yearlyTokenQuota:100000000, monthlyTokenQuota:8500000,
+    dailyRequestQuota:10000, rpmLimit:60, concurrencyLimit:5,
+    reservePercent:5, overagePolicy:'fallback',
+    inputCostPer1k:0.00028, outputCostPer1k:0.00042,
+    enabledFrom:'', enabledUntil:'',
+  },
+  claude: {
+    name:'claude', displayName:'Claude Haiku 4.5（兜底 · 按量付费）', defaultModel:'claude-haiku-4-5',
+    role:'fallback', priority:50, isEnabled:true,
+    yearlyTokenQuota:'', monthlyTokenQuota:'',
+    dailyRequestQuota:'', rpmLimit:100, concurrencyLimit:10,
+    reservePercent:0, overagePolicy:'pay_as_you_go',
+    inputCostPer1k:0.001, outputCostPer1k:0.005,
+    enabledFrom:'', enabledUntil:'',
+  },
+};
+let editingProvider = null;
+function openProviderEdit(name){
+  const p = PROVIDER_DATA[name];
+  if(!p){ showToast('未知 provider'); return; }
+  editingProvider = name;
+  document.getElementById('providerEditName').textContent = name;
+  ['name','displayName','defaultModel','role','priority','yearlyTokenQuota','monthlyTokenQuota',
+   'dailyRequestQuota','rpmLimit','concurrencyLimit','reservePercent','overagePolicy',
+   'inputCostPer1k','outputCostPer1k','enabledFrom','enabledUntil'].forEach(function(k){
+    const el = document.getElementById('pf-' + k);
+    if(el) el.value = (p[k] === null || p[k] === undefined) ? '' : p[k];
+  });
+  document.getElementById('pf-isEnabled').value = p.isEnabled ? 'true' : 'false';
+  openModal('providerModal');
+}
+function submitProviderEdit(){
+  // 演示：直接关 modal，提示已保存。真后端会 PATCH /api/admin/llm/providers/:id
+  closeModal('providerModal');
+  showToast('已保存 ' + editingProvider + ' 的配置 · AuditLog 已记录');
+}
+
+// 启用 / 停用切换
+function toggleProvider(el, name){
+  const newOn = !el.classList.contains('on');
+  el.classList.toggle('on', newOn);
+  showToast((newOn ? '已启用 ' : '已停用 ') + name);
 }
 </script>
 
