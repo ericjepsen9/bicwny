@@ -55,6 +55,43 @@
 @media (max-width:900px){
   .dash-grid{grid-template-columns:1fr;gap:14px;}
 }
+
+/* I.1.c 审核 / 举报样式 */
+.q-preview{font-size:13px;color:var(--ink);max-width:380px;line-height:1.5;}
+.q-preview-meta{font-size:11px;color:var(--ink-4);margin-top:3px;}
+.row-actions{display:flex;gap:6px;justify-content:flex-end;}
+.btn-approve{background:var(--success-light);color:var(--success-dark);border:none;padding:5px 10px;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer;}
+.btn-approve:hover{background:var(--success);color:#fff;}
+.btn-reject{background:var(--error-light);color:var(--error-dark);border:none;padding:5px 10px;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer;}
+.btn-reject:hover{background:var(--error);color:#fff;}
+.btn-preview{background:var(--bg);color:var(--ink-2);border:none;padding:5px 10px;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer;}
+
+.modal-mask{
+  position:fixed;inset:0;background:rgba(15,15,31,.55);
+  display:none;align-items:center;justify-content:center;
+  z-index:200;padding:20px;
+}
+.modal-mask.open{display:flex;}
+.modal-box{
+  background:var(--white);border-radius:16px;
+  width:100%;max-width:480px;
+  padding:24px;
+  box-shadow:0 24px 60px rgba(0,0,0,.25);
+}
+.modal-box-title{font-size:17px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+.modal-box-sub{font-size:13px;color:var(--ink-3);margin-bottom:16px;}
+.modal-box-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+
+.reason-tag{
+  display:inline-flex;align-items:center;
+  padding:2px 8px;border-radius:6px;
+  font-size:11px;font-weight:500;gap:4px;
+}
+.reason-wrong_answer{background:var(--error-light);color:var(--error-dark);}
+.reason-sensitive{background:#FCE7F3;color:#9F1239;}
+.reason-doctrine_error{background:var(--purple-light);color:var(--purple-dark);}
+.reason-typo{background:var(--accent-light);color:#92400E;}
+.reason-other{background:var(--bg-2);color:var(--ink-3);}
 </style>
 </head>
 <body class="admin-body">
@@ -341,12 +378,128 @@
         <div class="content-header">
           <div>
             <div class="content-title">题目审核</div>
-            <div class="content-desc">辅导员提交的公开题目待审</div>
+            <div class="content-desc">辅导员贡献的公开题目 · FIFO 队列</div>
           </div>
         </div>
-        <div class="placeholder">
-          <div class="placeholder-emoji">📝</div>
-          <div class="placeholder-text">审核队列 · 待 I.1.c 填充</div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-label">待审</div>
+            <div class="stat-card-value">3</div>
+            <div class="stat-card-sub">最早 2 天前</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">今日通过</div>
+            <div class="stat-card-value">7</div>
+            <div class="stat-card-sub up">↑ 较昨日 +2</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">今日驳回</div>
+            <div class="stat-card-value">1</div>
+            <div class="stat-card-sub">驳回率 12%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">平均审核耗时</div>
+            <div class="stat-card-value">8h</div>
+            <div class="stat-card-sub">本周中位数</div>
+          </div>
+        </div>
+
+        <div class="data-table">
+          <table>
+            <thead>
+              <tr>
+                <th>题目摘要</th>
+                <th>类型</th>
+                <th>归属</th>
+                <th>提交者</th>
+                <th>提交时间</th>
+                <th style="text-align:right;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="q-preview">七支供养全部包含哪些？</div>
+                  <div class="q-preview-meta">入行论 · 第 4 课 · 难度 ★★</div>
+                </td>
+                <td><span class="status-chip info">多选</span></td>
+                <td>公开</td>
+                <td>扎西仁波切</td>
+                <td>今天 10:30</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="showToast('打开题目预览')">预览</button>
+                    <button class="btn-approve" onclick="showToast('已通过 · 题目上架')">通过</button>
+                    <button class="btn-reject" onclick="openRejectModal('q_multi_xxx')">驳回</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="q-preview">"善逝"在偈颂中具体指代何方？</div>
+                  <div class="q-preview-meta">入行论 · 第 5 课 · 难度 ★★★</div>
+                </td>
+                <td><span class="status-chip info">单选</span></td>
+                <td>公开</td>
+                <td>慈悲仁波切</td>
+                <td>昨天 18:45</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="showToast('打开题目预览')">预览</button>
+                    <button class="btn-approve" onclick="showToast('已通过 · 题目上架')">通过</button>
+                    <button class="btn-reject" onclick="openRejectModal('q_single_yyy')">驳回</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="q-preview">请配对菩提心七大譬喻</div>
+                  <div class="q-preview-meta">入行论 · 第 2 课 · 难度 ★★★★</div>
+                </td>
+                <td><span class="status-chip info">配对</span></td>
+                <td>公开</td>
+                <td>智慧居士</td>
+                <td>2 天前</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="showToast('打开题目预览')">预览</button>
+                    <button class="btn-approve" onclick="showToast('已通过 · 题目上架')">通过</button>
+                    <button class="btn-reject" onclick="openRejectModal('q_match_zzz')">驳回</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-card">
+          <div class="section-card-title">最近通过 / 驳回</div>
+          <div class="data-table">
+            <table>
+              <thead><tr><th>题目</th><th>结果</th><th>处理时间</th><th>原因</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>菩提心如劫末火喻何？</td>
+                  <td><span class="status-chip ok">通过</span></td>
+                  <td>2h 前</td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td>排序：七支供次第（含错位）</td>
+                  <td><span class="status-chip warn">驳回</span></td>
+                  <td>3h 前</td>
+                  <td>顺序与传统次第不符</td>
+                </tr>
+                <tr>
+                  <td>愿菩提心定义</td>
+                  <td><span class="status-chip ok">通过</span></td>
+                  <td>5h 前</td>
+                  <td>—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -355,12 +508,107 @@
         <div class="content-header">
           <div>
             <div class="content-title">举报处理</div>
-            <div class="content-desc">学员反馈的问题题目</div>
+            <div class="content-desc">学员反馈的问题题目 · 已按时间倒序</div>
           </div>
         </div>
-        <div class="placeholder">
-          <div class="placeholder-emoji">🚩</div>
-          <div class="placeholder-text">举报列表 · 待 I.1.c 填充</div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-label">待处理</div>
+            <div class="stat-card-value">2</div>
+            <div class="stat-card-sub">最早 1 天前</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">今日已处理</div>
+            <div class="stat-card-value">4</div>
+            <div class="stat-card-sub">3 接受 · 1 驳回</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">高优（敏感/义理）</div>
+            <div class="stat-card-value">0</div>
+            <div class="stat-card-sub">本周</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">举报通过率</div>
+            <div class="stat-card-value">62%</div>
+            <div class="stat-card-sub">近 30 天</div>
+          </div>
+        </div>
+
+        <div class="data-table">
+          <table>
+            <thead>
+              <tr>
+                <th>题目摘要</th>
+                <th>原因</th>
+                <th>详情</th>
+                <th>举报人</th>
+                <th>时间</th>
+                <th style="text-align:right;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="q-preview">"善逝"指的是？（单选）</div>
+                  <div class="q-preview-meta">入行论 · 第 5 课</div>
+                </td>
+                <td><span class="reason-tag reason-wrong_answer">答案错误</span></td>
+                <td style="font-size:12px;color:var(--ink-3);max-width:200px;">B 选项"诸佛如来"应为正确答案，但显示的是 A</td>
+                <td>慧行</td>
+                <td>3h 前</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="showToast('查看题目')">查题</button>
+                    <button class="btn-approve" onclick="showToast('已接受 · 题目已下架修订')">接受</button>
+                    <button class="btn-reject" onclick="openHandleRejectModal('r_001')">驳回</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="q-preview">补全偈颂：暇满人身极___得</div>
+                  <div class="q-preview-meta">入行论 · 第 1 课</div>
+                </td>
+                <td><span class="reason-tag reason-typo">错别字</span></td>
+                <td style="font-size:12px;color:var(--ink-3);max-width:200px;">参考答案中"圆满"误作"园满"</td>
+                <td>妙音</td>
+                <td>1 天前</td>
+                <td>
+                  <div class="row-actions">
+                    <button class="btn-preview" onclick="showToast('查看题目')">查题</button>
+                    <button class="btn-approve" onclick="showToast('已接受 · 题目已下架修订')">接受</button>
+                    <button class="btn-reject" onclick="openHandleRejectModal('r_002')">驳回</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-card">
+          <div class="section-card-title">最近处理</div>
+          <div class="data-table">
+            <table>
+              <thead><tr><th>题目</th><th>原因</th><th>结果</th><th>备注</th><th>时间</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>菩提心功德判断（多选）</td>
+                  <td><span class="reason-tag reason-doctrine_error">义理错误</span></td>
+                  <td><span class="status-chip ok">接受</span></td>
+                  <td style="font-size:12px;color:var(--ink-3);">已修订正确选项</td>
+                  <td>2h 前</td>
+                </tr>
+                <tr>
+                  <td>佛陀十号配对</td>
+                  <td><span class="reason-tag reason-other">其他</span></td>
+                  <td><span class="status-chip warn">驳回</span></td>
+                  <td style="font-size:12px;color:var(--ink-3);">原题正确，举报无据</td>
+                  <td>5h 前</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -453,6 +701,38 @@
   </div>
 </div>
 
+<!-- ═════════ 驳回原因 Modal ═════════ -->
+<div class="modal-mask" id="rejectModal">
+  <div class="modal-box">
+    <div class="modal-box-title">驳回这道题</div>
+    <div class="modal-box-sub">原因将写入 AuditLog，并通知贡献者</div>
+    <div class="form-field" style="margin-bottom:0;">
+      <label>驳回原因（必填）</label>
+      <textarea id="rejectReason" placeholder="例：与传统判教不符 · 选项有歧义 · 出处不明…"></textarea>
+    </div>
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('rejectModal')">取消</button>
+      <button class="btn-admin btn-primary-admin" style="background:var(--error);box-shadow:0 2px 6px rgba(239,68,68,.25);" onclick="submitReject()">确认驳回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 举报驳回 Modal ═════════ -->
+<div class="modal-mask" id="handleRejectModal">
+  <div class="modal-box">
+    <div class="modal-box-title">驳回这条举报</div>
+    <div class="modal-box-sub">说明驳回理由（可选）</div>
+    <div class="form-field" style="margin-bottom:0;">
+      <label>说明（可选）</label>
+      <textarea id="handleRejectNote" placeholder="例：原题正确无误 · 举报描述与实际不符…"></textarea>
+    </div>
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('handleRejectModal')">取消</button>
+      <button class="btn-admin btn-primary-admin" style="background:var(--error);box-shadow:0 2px 6px rgba(239,68,68,.25);" onclick="submitHandleReject()">确认驳回</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function doLogin(){
   const email = document.getElementById('emailInput').value.trim();
@@ -503,6 +783,46 @@ document.getElementById('backdrop').addEventListener('click', function(){
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('backdrop').classList.remove('open');
 });
+
+// I.1.c · Modal 通用
+function openModal(id){
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+}
+// 点遮罩关
+document.querySelectorAll('.modal-mask').forEach(function(m){
+  m.addEventListener('click', function(e){
+    if(e.target === m) m.classList.remove('open');
+  });
+});
+
+// 题目驳回
+let pendingRejectId = null;
+function openRejectModal(id){
+  pendingRejectId = id;
+  document.getElementById('rejectReason').value = '';
+  openModal('rejectModal');
+}
+function submitReject(){
+  const reason = document.getElementById('rejectReason').value.trim();
+  if(!reason){ showToast('请填写驳回原因'); return; }
+  closeModal('rejectModal');
+  showToast('已驳回 · ' + (pendingRejectId || ''));
+}
+
+// 举报驳回
+let pendingHandleId = null;
+function openHandleRejectModal(id){
+  pendingHandleId = id;
+  document.getElementById('handleRejectNote').value = '';
+  openModal('handleRejectModal');
+}
+function submitHandleReject(){
+  closeModal('handleRejectModal');
+  showToast('举报已驳回 · ' + (pendingHandleId || ''));
+}
 </script>
 
 </body>
