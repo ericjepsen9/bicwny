@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>觉学 · 场景预览 v3</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg-l2:linear-gradient(135deg,#FFFAF4 0%,#FDF1E5 40%,#FAE8D8 75%,#F6DFCA 100%);
+  --saffron:#E07856;--saffron-dark:#C55F3D;--saffron-light:#FBE5DA;--saffron-pale:#FDF4EE;
+  --sage:#A8BC9A;--sage-dark:#7D9A6C;--sage-light:#E5EFDF;
+  --crimson:#A13C2E;--crimson-dark:#822E21;--crimson-light:#F5D9D3;
+  --gold:#D4A574;--gold-dark:#B88956;--gold-light:#F5E3CE;
+  --ink:#2B2218;--ink-2:#55463A;--ink-3:#857360;--ink-4:#B5A99A;
+  --glass:rgba(255,255,255,.55);--glass-thick:rgba(255,255,255,.75);
+  --glass-border:rgba(255,255,255,.85);--glass-shadow:0 6px 22px rgba(160,100,60,.1);
+  --blur:blur(20px) saturate(140%);
+}
+body{background:#16120e;min-height:100vh;padding:48px 20px;font-family:'Noto Sans SC',system-ui,sans-serif;color:var(--ink);}
+h1{text-align:center;color:#fff;font-family:'Noto Serif SC',serif;font-size:22px;font-weight:400;letter-spacing:10px;margin-bottom:6px;}
+.sub{text-align:center;color:#888;font-size:12px;letter-spacing:3px;margin-bottom:36px;}
+.phones{max-width:1800px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:center;gap:48px;}
+.wrap{display:flex;flex-direction:column;align-items:center;gap:12px;}
+.wrap-label{color:#ddd;font-family:'Noto Serif SC',serif;font-size:14px;letter-spacing:4px;}
+.phone{width:375px;height:812px;border-radius:44px;padding:10px;border:2px solid #1a1a1a;background:#000;box-shadow:0 28px 70px rgba(0,0,0,.6),0 0 0 7px #0a0a0a;position:relative;flex-shrink:0;}
+.phone::before{content:'';position:absolute;top:16px;left:50%;transform:translateX(-50%);width:104px;height:26px;background:#0a0a0a;border-radius:20px;z-index:100;}
+.screen{width:100%;height:100%;border-radius:34px;overflow:hidden;background:var(--bg-l2);position:relative;display:flex;flex-direction:column;}
+.status{position:absolute;top:12px;left:28px;right:28px;display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:var(--ink);z-index:5;}
+.g{background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--glass-border);border-radius:18px;box-shadow:var(--glass-shadow);}
+.btn-s{width:100%;padding:15px;background:linear-gradient(135deg,var(--saffron),var(--saffron-dark));color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:600;letter-spacing:4px;box-shadow:0 6px 18px rgba(224,120,86,.38);font-family:'Noto Serif SC',serif;cursor:pointer;}
+.btn-ghost{width:100%;padding:14px;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);color:var(--ink);border:1px solid var(--glass-border);border-radius:14px;font-size:14px;font-weight:500;letter-spacing:2px;font-family:inherit;cursor:pointer;}
+.tag{display:inline-flex;align-items:center;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;letter-spacing:.5px;}
+.tag-s{background:var(--saffron-light);color:var(--saffron-dark);}
+.tag-sage{background:var(--sage-light);color:var(--sage-dark);}
+.tag-cr{background:var(--crimson-light);color:var(--crimson-dark);}
+.tag-gold{background:var(--gold-light);color:var(--gold-dark);}
+
+/* ═══ P1 · 登录 ═══ */
+.p1{padding:52px 24px 28px;gap:0;justify-content:center;}
+.brand-area{text-align:center;margin-bottom:36px;}
+.brand-lotus{font-size:52px;line-height:1;margin-bottom:14px;}
+.brand-name{font-family:'Noto Serif SC',serif;font-size:32px;font-weight:700;letter-spacing:8px;color:var(--ink);}
+.brand-tagline{font-family:'Noto Serif SC',serif;font-size:12px;color:var(--ink-3);letter-spacing:4px;margin-top:8px;}
+.form-card{padding:24px 22px;}
+.field-label{font-size:11px;color:var(--ink-3);letter-spacing:2px;margin-bottom:8px;display:block;}
+.field{width:100%;padding:13px 14px;background:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.9);border-radius:12px;font-size:15px;font-family:inherit;color:var(--ink);letter-spacing:1px;outline:none;margin-bottom:16px;}
+.field:focus{border-color:rgba(224,120,86,.5);box-shadow:0 0 0 3px rgba(224,120,86,.12);}
+.code-row{display:grid;grid-template-columns:1fr auto;gap:10px;margin-bottom:20px;}
+.code-btn{padding:13px 14px;background:rgba(224,120,86,.1);border:1px solid rgba(224,120,86,.25);border-radius:12px;font-size:12px;color:var(--saffron-dark);font-weight:600;white-space:nowrap;cursor:pointer;font-family:inherit;}
+.login-links{display:flex;justify-content:space-between;margin-top:16px;font-size:12px;color:var(--ink-3);letter-spacing:1px;}
+.login-links span{color:var(--saffron);cursor:pointer;}
+
+/* ═══ P2 · 答题中 ═══ */
+.p2{padding:52px 20px 24px;gap:14px;}
+.quiz-top{display:flex;align-items:center;gap:10px;}
+.q-close{width:32px;height:32px;border-radius:50%;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--ink-2);flex-shrink:0;}
+.q-bar-wrap{flex:1;height:6px;background:rgba(43,34,24,.08);border-radius:3px;overflow:hidden;}
+.q-bar-fill{height:100%;width:70%;background:linear-gradient(90deg,var(--saffron),#E8A574);border-radius:3px;}
+.q-count{font-size:12px;color:var(--ink-3);letter-spacing:1px;flex-shrink:0;}
+.q-meta{display:flex;align-items:center;gap:8px;}
+.q-num{font-size:12px;color:var(--ink-3);letter-spacing:1px;}
+.q-body{padding:20px 18px;}
+.q-source{font-size:11px;color:var(--ink-4);letter-spacing:2px;margin-bottom:10px;}
+.q-text{font-family:'Noto Serif SC',serif;font-size:16px;color:var(--ink);line-height:1.9;letter-spacing:1px;}
+.q-text em{color:var(--saffron-dark);font-style:normal;font-weight:700;}
+.opts{display:flex;flex-direction:column;gap:10px;}
+.opt{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;}
+.opt-letter{width:30px;height:30px;border-radius:50%;background:rgba(43,34,24,.08);border:1px solid rgba(43,34,24,.1);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--ink-2);flex-shrink:0;transition:all .15s;}
+.opt.selected .opt-letter{background:var(--saffron);border-color:var(--saffron);color:#fff;}
+.opt.selected{border-color:rgba(224,120,86,.4);background:rgba(224,120,86,.08);}
+.opt-txt{font-size:14px;color:var(--ink);letter-spacing:.5px;line-height:1.5;}
+
+/* ═══ P3 · 错题本 ═══ */
+.p3{padding:52px 0 0;gap:0;}
+.p3-header{padding:8px 20px 14px;background:rgba(255,255,255,.6);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border-bottom:1px solid rgba(255,255,255,.7);}
+.p3-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.back-btn{width:32px;height:32px;border-radius:50%;background:var(--glass);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border:1px solid var(--glass-border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--ink-2);}
+.p3-title{font-family:'Noto Serif SC',serif;font-size:18px;font-weight:700;letter-spacing:3px;color:var(--ink);}
+.filter-btn{font-size:12px;color:var(--ink-3);letter-spacing:1px;}
+.tabs{display:flex;gap:6px;}
+.tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:500;letter-spacing:1px;cursor:pointer;color:var(--ink-3);}
+.tab.active{background:var(--saffron);color:#fff;box-shadow:0 3px 10px rgba(224,120,86,.3);}
+.p3-list{flex:1;overflow-y:auto;padding:14px 20px 20px;display:flex;flex-direction:column;gap:10px;scrollbar-width:none;}
+.err-card{padding:14px 16px;}
+.err-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:10px;}
+.err-q{font-family:'Noto Serif SC',serif;font-size:13px;color:var(--ink);line-height:1.6;letter-spacing:.5px;flex:1;}
+.err-arrow{color:var(--ink-4);font-size:16px;flex-shrink:0;margin-top:2px;}
+.err-ans-row{display:flex;gap:6px;align-items:flex-start;}
+.err-label{font-size:10px;font-weight:700;letter-spacing:1px;padding:2px 7px;border-radius:5px;flex-shrink:0;margin-top:1px;}
+.err-wrong{background:var(--crimson-light);color:var(--crimson-dark);}
+.err-right{background:var(--sage-light);color:var(--sage-dark);}
+.err-ans-txt{font-size:12px;color:var(--ink-2);letter-spacing:.5px;line-height:1.5;}
+.err-meta{display:flex;align-items:center;gap:6px;margin-top:10px;}
+.p3-cta{padding:16px 20px;background:rgba(255,255,255,.7);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border-top:1px solid rgba(255,255,255,.7);}
+
+/* ═══ P4 · 我的 ═══ */
+.p4{padding:52px 20px 24px;gap:14px;}
+.profile-card{padding:22px 20px;display:flex;align-items:center;gap:16px;}
+.avatar{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--saffron-light),var(--gold-light));display:flex;align-items:center;justify-content:center;font-size:30px;flex-shrink:0;border:2px solid rgba(255,255,255,.8);}
+.profile-body{flex:1;}
+.profile-name{font-family:'Noto Serif SC',serif;font-size:18px;font-weight:700;letter-spacing:2px;color:var(--ink);}
+.profile-id{font-size:11px;color:var(--ink-3);margin-top:3px;letter-spacing:1px;}
+.lv-badge{display:inline-flex;align-items:center;gap:5px;background:var(--gold-light);border:1px solid rgba(212,165,116,.3);border-radius:20px;padding:4px 10px;margin-top:6px;}
+.lv-badge-text{font-size:11px;color:var(--gold-dark);font-weight:600;letter-spacing:1px;}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);padding:0;}
+.stat-item{text-align:center;padding:16px 8px;position:relative;}
+.stat-item+.stat-item::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:1px;background:rgba(43,34,24,.1);}
+.stat-num{font-family:'Noto Serif SC',serif;font-size:24px;font-weight:700;line-height:1;}
+.stat-label{font-size:10px;color:var(--ink-3);margin-top:4px;letter-spacing:1px;}
+.menu-list{padding:6px 0;}
+.menu-item{display:flex;align-items:center;gap:12px;padding:14px 20px;position:relative;}
+.menu-item+.menu-item::before{content:'';position:absolute;left:52px;right:0;top:0;height:1px;background:rgba(43,34,24,.06);}
+.menu-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.menu-label{flex:1;font-size:15px;font-weight:500;color:var(--ink);letter-spacing:1px;}
+.menu-arrow{color:var(--ink-4);font-size:16px;}
+.menu-meta{font-size:12px;color:var(--ink-4);letter-spacing:.5px;}
+</style>
+</head>
+<body>
+
+<h1>觉 学 · 场 景 预 览 v3</h1>
+<div class="sub">背景 L2 · 辅助色 组合A · 藏红主调 · 磨砂玻璃</div>
+
+<div class="phones">
+
+  <!-- P1 · 登录 -->
+  <div class="wrap">
+    <div class="wrap-label">登 录 页</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>●●●●● 100%</span></div>
+        <div class="p1 screen" style="background:none;position:static;">
+          <div class="brand-area">
+            <div class="brand-lotus">🪷</div>
+            <div class="brand-name">觉 学</div>
+            <div class="brand-tagline">愿 众 生 得 见 光 明</div>
+          </div>
+          <div class="g form-card">
+            <label class="field-label">手 机 号</label>
+            <input class="field" placeholder="请输入手机号" readonly>
+            <label class="field-label">验 证 码</label>
+            <div class="code-row">
+              <input class="field" style="margin-bottom:0;" placeholder="请输入验证码" readonly>
+              <button class="code-btn">获 取 验 证 码</button>
+            </div>
+            <button class="btn-s">登 入 觉 学</button>
+            <div class="login-links">
+              <span>注册新账号</span>
+              <span>辅导员扫码</span>
+              <span>问题反馈</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P2 · 答题中 -->
+  <div class="wrap">
+    <div class="wrap-label">答 题 中 · 选 项 态</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>●●●●● 100%</span></div>
+        <div class="p2 screen" style="background:none;position:static;">
+          <div class="quiz-top">
+            <div class="q-close">✕</div>
+            <div class="q-bar-wrap"><div class="q-bar-fill"></div></div>
+            <div class="q-count">7 / 10</div>
+          </div>
+          <div class="q-meta">
+            <span class="q-num">第 7 题</span>
+            <span class="tag tag-s">单 选</span>
+          </div>
+          <div class="g q-body">
+            <div class="q-source">《 金 刚 经 》· 第 十 品</div>
+            <div class="q-text">「应无所住而生其心」中，<em>无所住</em>的核心含义是？</div>
+          </div>
+          <div class="opts">
+            <div class="g opt">
+              <div class="opt-letter">A</div>
+              <div class="opt-txt">心无旁骛，专注一境</div>
+            </div>
+            <div class="g opt selected">
+              <div class="opt-letter">B</div>
+              <div class="opt-txt">不执著于任何境界而生起清净心</div>
+            </div>
+            <div class="g opt">
+              <div class="opt-letter">C</div>
+              <div class="opt-txt">放下世俗，出家修行</div>
+            </div>
+            <div class="g opt">
+              <div class="opt-letter">D</div>
+              <div class="opt-txt">无念无想，禅定入定</div>
+            </div>
+          </div>
+          <button class="btn-s" style="margin-top:auto;">提 交 答 案</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P3 · 错题本 -->
+  <div class="wrap">
+    <div class="wrap-label">错 题 本</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>●●●●● 100%</span></div>
+        <div class="p3 screen" style="background:none;position:static;">
+          <div class="p3-header">
+            <div class="p3-title-row">
+              <div class="back-btn">←</div>
+              <div class="p3-title">错 题 本</div>
+              <div class="filter-btn">筛选 ↓</div>
+            </div>
+            <div class="tabs">
+              <div class="tab active">全部 42</div>
+              <div class="tab">本周 12</div>
+              <div class="tab">未掌握 8</div>
+            </div>
+          </div>
+          <div class="p3-list">
+            <div class="g err-card">
+              <div class="err-top">
+                <div class="err-q">「应无所住而生其心」中，无所住的核心含义？</div>
+                <div class="err-arrow">›</div>
+              </div>
+              <div class="err-ans-row"><span class="err-label err-wrong">我的</span><div class="err-ans-txt">心无旁骛，专注一境</div></div>
+              <div class="err-ans-row" style="margin-top:5px;"><span class="err-label err-right">正解</span><div class="err-ans-txt">不执著于任何境界而生起清净心</div></div>
+              <div class="err-meta"><span class="tag tag-cr">需重做</span><span style="font-size:11px;color:var(--ink-4);">3 天前 · 楞严经</span></div>
+            </div>
+            <div class="g err-card">
+              <div class="err-top">
+                <div class="err-q">五蕴中「行蕴」指的是哪类心理活动？</div>
+                <div class="err-arrow">›</div>
+              </div>
+              <div class="err-ans-row"><span class="err-label err-wrong">我的</span><div class="err-ans-txt">感受与知觉的综合</div></div>
+              <div class="err-ans-row" style="margin-top:5px;"><span class="err-label err-right">正解</span><div class="err-ans-txt">意志、冲动等造作活动</div></div>
+              <div class="err-meta"><span class="tag tag-sage">已复习</span><span style="font-size:11px;color:var(--ink-4);">1 周前 · 心经</span></div>
+            </div>
+            <div class="g err-card">
+              <div class="err-top">
+                <div class="err-q">「色即是空」中「色」的佛教含义？</div>
+                <div class="err-arrow">›</div>
+              </div>
+              <div class="err-ans-row"><span class="err-label err-wrong">我的</span><div class="err-ans-txt">颜色与外貌</div></div>
+              <div class="err-ans-row" style="margin-top:5px;"><span class="err-label err-right">正解</span><div class="err-ans-txt">一切有形有质的物质现象</div></div>
+              <div class="err-meta"><span class="tag tag-cr">需重做</span><span style="font-size:11px;color:var(--ink-4);">2 周前 · 心经</span></div>
+            </div>
+          </div>
+          <div class="p3-cta"><button class="btn-s">训 练 错 题 · 8 道</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- P4 · 我的 -->
+  <div class="wrap">
+    <div class="wrap-label">我 的 · 个 人 中 心</div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status"><span>9:41</span><span>●●●●● 100%</span></div>
+        <div class="p4 screen" style="background:none;position:static;">
+          <div class="g profile-card">
+            <div class="avatar">🧘</div>
+            <div class="profile-body">
+              <div class="profile-name">静 心 居 士</div>
+              <div class="profile-id">ID · 20240318</div>
+              <div class="lv-badge">
+                <span>☸</span>
+                <span class="lv-badge-text">精进持戒 · Ⅶ 阶</span>
+              </div>
+            </div>
+          </div>
+          <div class="g stats-row">
+            <div class="stat-item">
+              <div class="stat-num" style="color:var(--gold-dark);">2,160</div>
+              <div class="stat-label">总 功 德</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-num" style="color:var(--saffron);">42</div>
+              <div class="stat-label">连 续 天</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-num" style="color:var(--crimson);">8</div>
+              <div class="stat-label">待 复 习</div>
+            </div>
+          </div>
+          <div class="g menu-list">
+            <div class="menu-item">
+              <div class="menu-icon" style="background:var(--gold-light);">🏅</div>
+              <div class="menu-label">勋 章 墙</div>
+              <div class="menu-meta">8 / 24</div>
+              <div class="menu-arrow">›</div>
+            </div>
+            <div class="menu-item">
+              <div class="menu-icon" style="background:var(--saffron-light);">📊</div>
+              <div class="menu-label">学 习 记 录</div>
+              <div class="menu-meta">共 208 分钟</div>
+              <div class="menu-arrow">›</div>
+            </div>
+            <div class="menu-item">
+              <div class="menu-icon" style="background:var(--sage-light);">📿</div>
+              <div class="menu-label">我 的 收 藏</div>
+              <div class="menu-meta">16 条</div>
+              <div class="menu-arrow">›</div>
+            </div>
+            <div class="menu-item">
+              <div class="menu-icon" style="background:rgba(43,34,24,.08);">⚙️</div>
+              <div class="menu-label">设 置</div>
+              <div class="menu-arrow">›</div>
+            </div>
+          </div>
+          <div style="padding:0 0 4px;">
+            <button class="btn-ghost">退 出 登 录</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="text-align:center;color:#E0B89A;font-size:11px;letter-spacing:1px;margin-top:36px;">
+  双击打开 preview-style-v3.html · 或 http://localhost:8000/preview-style-v3.html
+</div>
+</body>
+</html>
