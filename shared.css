@@ -132,3 +132,23 @@ body{
 .text-ink-3{color:var(--ink-3);}.text-primary{color:var(--primary);}
 .font-serif{font-family:'Noto Serif SC',serif;}
 .hide{display:none !important;}
+
+/* ═════════ 深色模式 · token 覆盖（P.5.c / 1a） ═════════
+ * 仅替换颜色 token，组件样式不动
+ * 触发：<html data-theme="dark">（步骤 1b 会加系统跟随）
+ * 设计：--white 变成深卡面 #1F2937，形成 bg(#0F1419) < bg-2 < white 的层次
+ */
+:root[data-theme="dark"]{
+  --ink:#F3F4F6;--ink-2:#D1D5DB;--ink-3:#9CA3AF;--ink-4:#6B7280;
+  --bg:#0F1419;--bg-2:#1A2028;--white:#1F2937;
+  --border:#374151;--border-light:#252D38;
+  --primary-dark:#60A5FA;--primary-light:#1E3A5F;--primary-pale:#172033;
+  --accent-light:#3D2E0B;--accent-pale:#2A1F08;
+  --success-light:#064A37;--success-dark:#34D399;
+  --error-light:#5B1919;--error-dark:#F87171;
+  --purple-light:#2E1E60;--purple-dark:#A78BFA;
+  --pink-light:#4D1939;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow:0 2px 8px rgba(0,0,0,.5);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.6);
+}
