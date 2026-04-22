@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>觉学 · 辅助色对比</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#16120e;min-height:100vh;padding:48px 20px;font-family:'Noto Sans SC',system-ui,sans-serif;color:#2B2218;}
+h1{text-align:center;color:#fff;font-family:'Noto Serif SC',serif;font-size:22px;font-weight:400;letter-spacing:10px;margin-bottom:6px;}
+.sub{text-align:center;color:#888;font-size:12px;letter-spacing:3px;margin-bottom:36px;}
+.hint{text-align:center;color:#E0B89A;font-size:12px;letter-spacing:1px;margin-bottom:40px;max-width:700px;margin-left:auto;margin-right:auto;line-height:1.8;}
+
+.grid{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:32px;}
+.col{background:linear-gradient(135deg,#FFF5ED 0%,#FBEBDA 35%,#F5E3D3 65%,#F0D9C5 100%);border-radius:24px;padding:28px 24px;box-shadow:0 16px 48px rgba(0,0,0,.35);}
+.col-head{text-align:center;margin-bottom:22px;}
+.col-title{font-family:'Noto Serif SC',serif;font-size:20px;font-weight:700;letter-spacing:4px;color:#2B2218;}
+.col-sub{font-size:12px;color:#857360;margin-top:4px;letter-spacing:2px;}
+
+/* 色板 swatch */
+.sw-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:22px;}
+.sw{padding:14px 10px;border-radius:12px;color:#fff;min-height:86px;display:flex;flex-direction:column;justify-content:space-between;}
+.sw-role{font-size:10px;letter-spacing:1px;opacity:.9;}
+.sw-name{font-family:'Noto Serif SC',serif;font-size:13px;font-weight:600;letter-spacing:1px;margin-top:4px;}
+.sw-hex{font-size:10px;font-family:ui-monospace,monospace;opacity:.85;letter-spacing:.5px;margin-top:auto;}
+
+/* 磨砂玻璃卡 */
+.g{background:rgba(255,255,255,.55);backdrop-filter:blur(20px) saturate(140%);-webkit-backdrop-filter:blur(20px) saturate(140%);border:1px solid rgba(255,255,255,.85);border-radius:16px;box-shadow:0 6px 20px rgba(160,100,60,.1);padding:14px 16px;margin-bottom:12px;}
+
+/* 成功场景 */
+.success{display:flex;align-items:center;gap:12px;}
+.success-ic{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;}
+.success-ic svg{width:18px;height:18px;}
+.success-body{flex:1;}
+.success-title{font-family:'Noto Serif SC',serif;font-size:14px;font-weight:700;letter-spacing:1px;}
+.success-sub{font-size:11px;color:#857360;margin-top:2px;letter-spacing:.5px;}
+.success-chip{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px;}
+
+/* 错误场景 */
+.fail{display:flex;align-items:center;gap:12px;}
+.fail-ic{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;}
+.fail-ic svg{width:18px;height:18px;}
+.fail-body{flex:1;}
+.fail-title{font-family:'Noto Serif SC',serif;font-size:14px;font-weight:700;letter-spacing:1px;}
+.fail-sub{font-size:11px;color:#857360;margin-top:2px;letter-spacing:.5px;}
+
+/* 等级/勋章 */
+.lv{display:flex;align-items:center;gap:14px;}
+.lv-ring{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;}
+.lv-ring::before{content:'';position:absolute;inset:6px;border-radius:50%;background:rgba(255,255,255,.8);}
+.lv-num{position:relative;font-family:'Noto Serif SC',serif;font-size:18px;font-weight:700;z-index:1;}
+.lv-body{flex:1;}
+.lv-name{font-family:'Noto Serif SC',serif;font-size:14px;font-weight:700;letter-spacing:1px;color:#2B2218;}
+.lv-xp{font-size:11px;color:#857360;margin-top:2px;letter-spacing:.5px;}
+.lv-bar{height:4px;background:rgba(0,0,0,.06);border-radius:2px;margin-top:6px;overflow:hidden;}
+.lv-bar>div{height:100%;border-radius:2px;}
+
+/* Tag 区 */
+.tag-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.tag{padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;letter-spacing:.5px;}
+
+/* 按钮对比 */
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+.btn{padding:11px;border-radius:12px;font-size:13px;font-weight:600;letter-spacing:2px;color:#fff;border:none;cursor:pointer;font-family:inherit;}
+
+/* 禁用状态示意 */
+.sec-title{font-size:11px;color:#857360;letter-spacing:2px;margin:16px 0 8px 4px;font-weight:500;}
+
+/* 兼容说明 */
+.verdict{margin-top:18px;padding:12px 14px;background:rgba(43,34,24,.06);border-radius:10px;font-size:11px;color:#55463A;line-height:1.7;letter-spacing:.5px;}
+.verdict b{color:#2B2218;font-weight:700;}
+</style>
+</head>
+<body>
+
+<h1>辅 助 色 · 三 套 对 比</h1>
+<div class="sub">主色藏红 #E07856 保持不变 · 对比三套辅助色</div>
+<div class="hint">三列均采用相同琥珀渐变背景 + 相同场景组件（答对/答错/等级/标签/按钮），只替换成功色/错题色/等级色三项，便于直接比较。</div>
+
+<div class="grid">
+
+  <!-- ═══ 组合 A · 柔和禅意（当前） ═══ -->
+  <div class="col">
+    <div class="col-head">
+      <div class="col-title">组 合 A</div>
+      <div class="col-sub">柔 和 禅 意 · 当 前 方 案</div>
+    </div>
+    <div class="sw-row">
+      <div class="sw" style="background:#A8BC9A;"><div class="sw-role">成功</div><div class="sw-name">竹叶绿</div><div class="sw-hex">#A8BC9A</div></div>
+      <div class="sw" style="background:#A13C2E;"><div class="sw-role">错题</div><div class="sw-name">深绛红</div><div class="sw-hex">#A13C2E</div></div>
+      <div class="sw" style="background:#D4A574;"><div class="sw-role">等级</div><div class="sw-name">禅金</div><div class="sw-hex">#D4A574</div></div>
+    </div>
+
+    <div class="sec-title">✓ 答 对 / 成 就 完 成</div>
+    <div class="g success">
+      <div class="success-ic" style="background:#7D9A6C;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 10 18 20 6"/></svg></div>
+      <div class="success-body"><div class="success-title">答 对 · 第 7 题</div><div class="success-sub">获得功德 +10 · 连胜 3</div></div>
+      <div class="success-chip" style="background:#E5EFDF;color:#7D9A6C;">+10</div>
+    </div>
+
+    <div class="sec-title">✕ 答 错 / 警 告</div>
+    <div class="g fail">
+      <div class="fail-ic" style="background:#A13C2E;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>
+      <div class="fail-body"><div class="fail-title">再 思 量</div><div class="fail-sub">加入错题本 · 7 题待复习</div></div>
+      <div class="success-chip" style="background:#F5D9D3;color:#822E21;">错</div>
+    </div>
+
+    <div class="sec-title">★ 等 级 · 勋 章</div>
+    <div class="g lv">
+      <div class="lv-ring" style="background:conic-gradient(#D4A574 0 252deg,rgba(212,165,116,.22) 252deg 360deg);"><div class="lv-num" style="color:#B88956;">Ⅶ</div></div>
+      <div class="lv-body">
+        <div class="lv-name">精 进 持 戒</div>
+        <div class="lv-xp"><b style="color:#B88956;">2,160</b> / 3,000 功德</div>
+        <div class="lv-bar"><div style="width:72%;background:linear-gradient(90deg,#D4A574,#B88956);"></div></div>
+      </div>
+    </div>
+
+    <div class="sec-title">Tag</div>
+    <div class="tag-row">
+      <span class="tag" style="background:#FBE5DA;color:#C55F3D;">当前课程</span>
+      <span class="tag" style="background:#E5EFDF;color:#7D9A6C;">已掌握</span>
+      <span class="tag" style="background:#F5D9D3;color:#822E21;">错题</span>
+      <span class="tag" style="background:#F5E3CE;color:#B88956;">VIP</span>
+    </div>
+
+    <div class="sec-title">按 钮</div>
+    <div class="btn-row">
+      <button class="btn" style="background:linear-gradient(135deg,#A8BC9A,#7D9A6C);box-shadow:0 4px 14px rgba(125,154,108,.3);">确 认</button>
+      <button class="btn" style="background:#A13C2E;">删 除</button>
+    </div>
+
+    <div class="verdict"><b>特点：</b>整体柔和 · 低饱和 · 禅寺院气质浓。<b>隐忧：</b>竹叶绿偏浅，对比弱的小文字可能看不清；绛红较暗，重要警示略闷。</div>
+  </div>
+
+  <!-- ═══ 组合 B · 深沉禅寺 ═══ -->
+  <div class="col">
+    <div class="col-head">
+      <div class="col-title">组 合 B</div>
+      <div class="col-sub">深 沉 禅 寺 · 稳 重 厚 重</div>
+    </div>
+    <div class="sw-row">
+      <div class="sw" style="background:#6A8A5F;"><div class="sw-role">成功</div><div class="sw-name">松针绿</div><div class="sw-hex">#6A8A5F</div></div>
+      <div class="sw" style="background:#8E3527;"><div class="sw-role">错题</div><div class="sw-name">枣泥红</div><div class="sw-hex">#8E3527</div></div>
+      <div class="sw" style="background:#B88B3E;"><div class="sw-role">等级</div><div class="sw-name">鎏金</div><div class="sw-hex">#B88B3E</div></div>
+    </div>
+
+    <div class="sec-title">✓ 答 对 / 成 就 完 成</div>
+    <div class="g success">
+      <div class="success-ic" style="background:#556E4D;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 10 18 20 6"/></svg></div>
+      <div class="success-body"><div class="success-title">答 对 · 第 7 题</div><div class="success-sub">获得功德 +10 · 连胜 3</div></div>
+      <div class="success-chip" style="background:#DCE5D3;color:#556E4D;">+10</div>
+    </div>
+
+    <div class="sec-title">✕ 答 错 / 警 告</div>
+    <div class="g fail">
+      <div class="fail-ic" style="background:#8E3527;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>
+      <div class="fail-body"><div class="fail-title">再 思 量</div><div class="fail-sub">加入错题本 · 7 题待复习</div></div>
+      <div class="success-chip" style="background:#ECCFC8;color:#6D281D;">错</div>
+    </div>
+
+    <div class="sec-title">★ 等 级 · 勋 章</div>
+    <div class="g lv">
+      <div class="lv-ring" style="background:conic-gradient(#B88B3E 0 252deg,rgba(184,139,62,.22) 252deg 360deg);"><div class="lv-num" style="color:#8E6B2E;">Ⅶ</div></div>
+      <div class="lv-body">
+        <div class="lv-name">精 进 持 戒</div>
+        <div class="lv-xp"><b style="color:#8E6B2E;">2,160</b> / 3,000 功德</div>
+        <div class="lv-bar"><div style="width:72%;background:linear-gradient(90deg,#B88B3E,#8E6B2E);"></div></div>
+      </div>
+    </div>
+
+    <div class="sec-title">Tag</div>
+    <div class="tag-row">
+      <span class="tag" style="background:#FBE5DA;color:#C55F3D;">当前课程</span>
+      <span class="tag" style="background:#DCE5D3;color:#556E4D;">已掌握</span>
+      <span class="tag" style="background:#ECCFC8;color:#6D281D;">错题</span>
+      <span class="tag" style="background:#EADAB8;color:#8E6B2E;">VIP</span>
+    </div>
+
+    <div class="sec-title">按 钮</div>
+    <div class="btn-row">
+      <button class="btn" style="background:linear-gradient(135deg,#6A8A5F,#4E6846);box-shadow:0 4px 14px rgba(85,110,77,.3);">确 认</button>
+      <button class="btn" style="background:#8E3527;">删 除</button>
+    </div>
+
+    <div class="verdict"><b>特点：</b>色饱和度更高 · 传统寺院壁画质感 · 对比更强。<b>适合：</b>希望"庄重/严肃"多一点。<b>隐忧：</b>可能偏沉闷，与琥珀渐变的轻盈感略冲突。</div>
+  </div>
+
+  <!-- ═══ 组合 C · 明净雅致 ═══ -->
+  <div class="col">
+    <div class="col-head">
+      <div class="col-title">组 合 C</div>
+      <div class="col-sub">明 净 雅 致 · 清 爽 通 透</div>
+    </div>
+    <div class="sw-row">
+      <div class="sw" style="background:#7FA99B;"><div class="sw-role">成功</div><div class="sw-name">青瓷绿</div><div class="sw-hex">#7FA99B</div></div>
+      <div class="sw" style="background:#C24B35;"><div class="sw-role">错题</div><div class="sw-name">朱砂</div><div class="sw-hex">#C24B35</div></div>
+      <div class="sw" style="background:#DDB368;"><div class="sw-role">等级</div><div class="sw-name">浅金</div><div class="sw-hex">#DDB368</div></div>
+    </div>
+
+    <div class="sec-title">✓ 答 对 / 成 就 完 成</div>
+    <div class="g success">
+      <div class="success-ic" style="background:#5E8C7B;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 10 18 20 6"/></svg></div>
+      <div class="success-body"><div class="success-title">答 对 · 第 7 题</div><div class="success-sub">获得功德 +10 · 连胜 3</div></div>
+      <div class="success-chip" style="background:#DBE8E2;color:#5E8C7B;">+10</div>
+    </div>
+
+    <div class="sec-title">✕ 答 错 / 警 告</div>
+    <div class="g fail">
+      <div class="fail-ic" style="background:#C24B35;"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div>
+      <div class="fail-body"><div class="fail-title">再 思 量</div><div class="fail-sub">加入错题本 · 7 题待复习</div></div>
+      <div class="success-chip" style="background:#F4D6CF;color:#9B3A27;">错</div>
+    </div>
+
+    <div class="sec-title">★ 等 级 · 勋 章</div>
+    <div class="g lv">
+      <div class="lv-ring" style="background:conic-gradient(#DDB368 0 252deg,rgba(221,179,104,.22) 252deg 360deg);"><div class="lv-num" style="color:#B8923F;">Ⅶ</div></div>
+      <div class="lv-body">
+        <div class="lv-name">精 进 持 戒</div>
+        <div class="lv-xp"><b style="color:#B8923F;">2,160</b> / 3,000 功德</div>
+        <div class="lv-bar"><div style="width:72%;background:linear-gradient(90deg,#DDB368,#B8923F);"></div></div>
+      </div>
+    </div>
+
+    <div class="sec-title">Tag</div>
+    <div class="tag-row">
+      <span class="tag" style="background:#FBE5DA;color:#C55F3D;">当前课程</span>
+      <span class="tag" style="background:#DBE8E2;color:#5E8C7B;">已掌握</span>
+      <span class="tag" style="background:#F4D6CF;color:#9B3A27;">错题</span>
+      <span class="tag" style="background:#F3E1BA;color:#B8923F;">VIP</span>
+    </div>
+
+    <div class="sec-title">按 钮</div>
+    <div class="btn-row">
+      <button class="btn" style="background:linear-gradient(135deg,#7FA99B,#5E8C7B);box-shadow:0 4px 14px rgba(94,140,123,.3);">确 认</button>
+      <button class="btn" style="background:#C24B35;">删 除</button>
+    </div>
+
+    <div class="verdict"><b>特点：</b>青瓷带水墨气 · 朱砂鲜艳 · 浅金轻奢。<b>适合：</b>希望"清爽/现代"多一点。<b>隐忧：</b>朱砂与藏红都偏橙红，容易撞色，需小心使用层次。</div>
+  </div>
+
+</div>
+
+<div style="text-align:center;color:#E0B89A;font-size:11px;letter-spacing:1px;margin-top:32px;">
+  http://localhost:8000/preview-palette-compare.html
+</div>
+
+</body>
+</html>
