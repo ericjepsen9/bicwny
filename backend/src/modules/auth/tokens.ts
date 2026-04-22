@@ -53,7 +53,7 @@ export function verifyAccessToken(
 ): AccessPayload {
   try {
     const decoded = app.jwt.verify<AccessPayload>(token);
-    if (decoded.aud !== 'access') throw Unauthorized('token 类型不正确');
+    if (decoded.aud !== 'access') throw Unauthorized('access token 类型不正确');
     return decoded;
   } catch (e) {
     if (isAppError(e)) throw e;
@@ -67,7 +67,7 @@ export function verifyRefreshToken(
 ): RefreshPayload {
   try {
     const decoded = app.jwt.verify<RefreshPayload>(token);
-    if (decoded.aud !== 'refresh') throw Unauthorized('token 类型不正确');
+    if (decoded.aud !== 'refresh') throw Unauthorized('refresh token 类型不正确');
     return decoded;
   } catch (e) {
     if (isAppError(e)) throw e;
