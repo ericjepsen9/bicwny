@@ -224,6 +224,53 @@
   .modal-form-grid{grid-template-columns:1fr;}
   .provider-board-head{flex-wrap:wrap;}
 }
+
+/* I.1.f Scenarios + Prompts */
+.prompt-group{margin-bottom:18px;}
+.prompt-group-head{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;padding:0 4px;
+}
+.prompt-group-title{font-size:14px;font-weight:600;color:var(--ink);}
+.prompt-group-meta{font-size:11px;color:var(--ink-4);}
+
+.prompt-card{
+  background:var(--white);border:1px solid var(--border-light);
+  border-radius:12px;padding:14px 16px;margin-bottom:8px;
+  display:flex;align-items:center;gap:12px;
+}
+.prompt-card.active{border-color:var(--success);background:#F0FDF4;}
+.prompt-card-version{
+  font-family:SF Mono,monospace;
+  background:var(--bg-2);color:var(--ink-2);
+  padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;
+  flex-shrink:0;
+}
+.prompt-card.active .prompt-card-version{background:var(--success);color:#fff;}
+.prompt-card-info{flex:1;min-width:0;}
+.prompt-card-line{font-size:12px;color:var(--ink-3);}
+.prompt-card-preview{
+  font-size:12px;color:var(--ink-2);
+  margin-top:4px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  overflow:hidden;line-height:1.5;
+}
+.prompt-card-actions{display:flex;gap:6px;flex-shrink:0;}
+
+.prompt-textarea{
+  width:100%;min-height:280px;
+  padding:12px 14px;
+  border:1px solid var(--border);border-radius:10px;
+  font-family:SF Mono,Consolas,monospace;font-size:12px;
+  background:var(--bg);color:var(--ink);
+  line-height:1.6;resize:vertical;
+}
+.prompt-textarea:focus{outline:none;border-color:var(--primary);background:#fff;}
+
+.scenario-cell{font-family:SF Mono,monospace;font-size:12px;}
+.provider-pair{font-size:12px;}
+.provider-pair-name{font-weight:600;color:var(--ink);}
+.provider-pair-model{font-size:11px;color:var(--ink-4);}
 </style>
 </head>
 <body class="admin-body">
@@ -1146,12 +1193,113 @@
         <div class="content-header">
           <div>
             <div class="content-title">场景 &amp; Prompt 模板</div>
-            <div class="content-desc">绑定主备 provider · 模板版本管理</div>
+            <div class="content-desc">每个场景绑定主备 provider · 模板支持多版本，激活同 scenario 旧版自动停用</div>
+          </div>
+          <div class="content-actions">
+            <button class="btn-admin btn-primary-admin" onclick="openNewPromptModal()">➕ 新建 Prompt</button>
           </div>
         </div>
-        <div class="placeholder">
-          <div class="placeholder-emoji">📋</div>
-          <div class="placeholder-text">场景表 + Prompt 编辑 · 待 I.1.f 填充</div>
+
+        <div class="section-card">
+          <div class="section-card-title">场景配置</div>
+          <div class="data-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>scenario</th>
+                  <th>主路</th>
+                  <th>兜底</th>
+                  <th>temperature</th>
+                  <th>maxTokens</th>
+                  <th>当前 prompt</th>
+                  <th style="text-align:right;">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="scenario-cell">open_grading</span></td>
+                  <td>
+                    <div class="provider-pair">
+                      <div class="provider-pair-name">minimax</div>
+                      <div class="provider-pair-model">abab6.5s-chat</div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="provider-pair">
+                      <div class="provider-pair-name">claude</div>
+                      <div class="provider-pair-model">claude-haiku-4-5</div>
+                    </div>
+                  </td>
+                  <td>0.3</td>
+                  <td>1500</td>
+                  <td><span class="status-chip ok">v3.1</span></td>
+                  <td>
+                    <div class="row-actions">
+                      <button class="btn-preview" onclick="openScenarioEdit('open_grading')">编辑</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr style="opacity:.6;">
+                  <td colspan="7" style="text-align:center;color:var(--ink-4);font-size:12px;padding:16px;">
+                    其他场景（question_gen 等）将在 Sprint 5 补
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-card-title">
+            Prompt 模板
+            <span style="font-size:11px;font-weight:400;color:var(--ink-4);">每场景仅 1 个版本可激活</span>
+          </div>
+
+          <div class="prompt-group">
+            <div class="prompt-group-head">
+              <div class="prompt-group-title">scenario · open_grading</div>
+              <div class="prompt-group-meta">2 个版本 · 1 激活</div>
+            </div>
+
+            <div class="prompt-card active">
+              <div class="prompt-card-version">v3.1</div>
+              <div class="prompt-card-info">
+                <div class="prompt-card-line">
+                  <span class="status-chip ok">激活中</span>
+                  <span style="margin-left:8px;color:var(--ink-4);">创建于 2026-04-15 · admin</span>
+                </div>
+                <div class="prompt-card-preview">你是佛法题库的评分助手，负责评估学员对开放题的作答。评分依据：参考答案与若干关键要点（keyPoints），每个要点附有 signals 作为关键词线索…</div>
+              </div>
+              <div class="prompt-card-actions">
+                <button class="btn-preview" onclick="openPreviewPrompt('v3.1')">查看</button>
+              </div>
+            </div>
+
+            <div class="prompt-card">
+              <div class="prompt-card-version">v3.0</div>
+              <div class="prompt-card-info">
+                <div class="prompt-card-line">
+                  <span class="status-chip gray">已停用</span>
+                  <span style="margin-left:8px;color:var(--ink-4);">创建于 2026-03-08 · admin</span>
+                </div>
+                <div class="prompt-card-preview">你是觉学的 AI 老师，请阅读学员作答并按 keyPoints 给分（0-100）。要求严格：少一个要点扣 25 分…</div>
+              </div>
+              <div class="prompt-card-actions">
+                <button class="btn-preview" onclick="openPreviewPrompt('v3.0')">查看</button>
+                <button class="btn-approve" onclick="openActivateConfirm('open_grading','v3.0')">激活</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="prompt-group">
+            <div class="prompt-group-head">
+              <div class="prompt-group-title">scenario · question_gen <span class="status-chip gray" style="margin-left:6px;">未启用</span></div>
+              <div class="prompt-group-meta">0 个版本</div>
+            </div>
+            <div class="placeholder" style="padding:30px 20px;border:1px dashed var(--border-light);">
+              <div class="placeholder-text">尚无模板 · 点右上"➕ 新建 Prompt"创建</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1199,6 +1347,110 @@
     <div class="modal-box-actions">
       <button class="btn-admin btn-ghost-admin" onclick="closeModal('rejectModal')">取消</button>
       <button class="btn-admin btn-primary-admin" style="background:var(--error);box-shadow:0 2px 6px rgba(239,68,68,.25);" onclick="submitReject()">确认驳回</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ Scenario 编辑 Modal ═════════ -->
+<div class="modal-mask" id="scenarioModal">
+  <div class="modal-box">
+    <div class="modal-box-title">编辑场景 <span id="scenarioEditName" style="color:var(--primary);">—</span></div>
+    <div class="modal-box-sub">绑定主备 provider · 调用参数 · 关联 prompt 模板</div>
+
+    <div class="modal-form-grid" style="margin-top:14px;">
+      <div>
+        <label>主路 provider</label>
+        <select id="sf-primary"><option>minimax</option><option>claude</option></select>
+      </div>
+      <div>
+        <label>主路 model</label>
+        <input id="sf-primaryModel" value="abab6.5s-chat">
+      </div>
+      <div>
+        <label>兜底 provider</label>
+        <select id="sf-fallback"><option>claude</option><option>minimax</option><option value="">（无兜底）</option></select>
+      </div>
+      <div>
+        <label>兜底 model</label>
+        <input id="sf-fallbackModel" value="claude-haiku-4-5">
+      </div>
+      <div>
+        <label>temperature (0-2)</label>
+        <input id="sf-temperature" type="number" min="0" max="2" step="0.1" value="0.3">
+      </div>
+      <div>
+        <label>maxTokens</label>
+        <input id="sf-maxTokens" type="number" min="1" value="1500">
+      </div>
+      <div class="field-full">
+        <label>关联 prompt 模板</label>
+        <select id="sf-promptTemplateId">
+          <option value="prompt_open_grading_v3_1">v3.1（当前激活）</option>
+          <option value="prompt_open_grading_v3_0">v3.0（旧版）</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('scenarioModal')">取消</button>
+      <button class="btn-admin btn-primary-admin" onclick="submitScenarioEdit()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 新建 Prompt Modal ═════════ -->
+<div class="modal-mask" id="newPromptModal">
+  <div class="modal-box modal-box-lg">
+    <div class="modal-box-title">新建 Prompt 模板</div>
+    <div class="modal-box-sub">创建后默认 isActive=false，需单独点"激活"才生效</div>
+
+    <div class="modal-form-grid" style="margin-top:14px;">
+      <div>
+        <label>scenario</label>
+        <select id="np-scenario">
+          <option value="open_grading">open_grading</option>
+          <option value="question_gen">question_gen</option>
+        </select>
+      </div>
+      <div>
+        <label>version（如 v3.2）</label>
+        <input id="np-version" placeholder="v3.2">
+      </div>
+      <div class="field-full">
+        <label>content（可用 {{question}} {{referenceAnswer}} {{keyPoints}} {{studentAnswer}} 占位符）</label>
+        <textarea id="np-content" class="prompt-textarea" placeholder="你是佛法题库的评分助手…"></textarea>
+      </div>
+    </div>
+
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('newPromptModal')">取消</button>
+      <button class="btn-admin btn-primary-admin" onclick="submitNewPrompt()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 预览 Prompt Modal ═════════ -->
+<div class="modal-mask" id="previewPromptModal">
+  <div class="modal-box modal-box-lg">
+    <div class="modal-box-title">Prompt 内容 <span id="previewPromptVersion" style="color:var(--primary);">—</span></div>
+    <div class="modal-box-sub">只读 · 占位符渲染时由后端 renderPrompt() 替换</div>
+    <div class="form-field" style="margin-top:14px;margin-bottom:0;">
+      <textarea id="previewPromptContent" class="prompt-textarea field-readonly" readonly></textarea>
+    </div>
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('previewPromptModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ 激活 Prompt 确认 Modal ═════════ -->
+<div class="modal-mask" id="activatePromptModal">
+  <div class="modal-box">
+    <div class="modal-box-title">激活 Prompt 版本</div>
+    <div class="modal-box-sub" id="activatePromptSub">激活后同 scenario 的其他版本会自动停用（事务一致）</div>
+    <div class="modal-box-actions">
+      <button class="btn-admin btn-ghost-admin" onclick="closeModal('activatePromptModal')">取消</button>
+      <button class="btn-admin btn-primary-admin" onclick="submitActivatePrompt()">确认激活</button>
     </div>
   </div>
 </div>
@@ -1599,6 +1851,57 @@ function toggleProvider(el, name){
   const newOn = !el.classList.contains('on');
   el.classList.toggle('on', newOn);
   showToast((newOn ? '已启用 ' : '已停用 ') + name);
+}
+
+// I.1.f · Scenario 编辑
+let editingScenario = null;
+function openScenarioEdit(name){
+  editingScenario = name;
+  document.getElementById('scenarioEditName').textContent = name;
+  openModal('scenarioModal');
+}
+function submitScenarioEdit(){
+  closeModal('scenarioModal');
+  showToast('已保存场景配置 · ' + editingScenario);
+}
+
+// I.1.f · Prompt 模板
+const PROMPT_CONTENTS = {
+  'v3.1': '你是佛法题库的评分助手，负责评估学员对开放题的作答。\n评分依据：参考答案与若干关键要点（keyPoints），每个要点附有 signals 作为关键词线索。\n\n【题目】\n{{question}}\n\n【参考答案】\n{{referenceAnswer}}\n\n【关键要点（JSON）】\n{{keyPoints}}\n\n【学员作答】\n{{studentAnswer}}\n\n【评分步骤】\n1. 逐一对照 keyPoints…\n2. 综合覆盖要点数量与表述质量打 0-100 分\n3. 给出 ≤100 字中文反馈\n\n【输出严格 JSON】\n{ "score": 0-100, "covered": [...], "missing": [...], "feedback": "…" }',
+  'v3.0': '你是觉学的 AI 老师，请阅读学员作答并按 keyPoints 给分（0-100）。\n要求严格：少一个要点扣 25 分，回答跑题直接 0 分。\n输出 JSON: { score, feedback }',
+};
+function openPreviewPrompt(version){
+  document.getElementById('previewPromptVersion').textContent = version;
+  document.getElementById('previewPromptContent').value = PROMPT_CONTENTS[version] || '(无内容)';
+  openModal('previewPromptModal');
+}
+
+function openNewPromptModal(){
+  document.getElementById('np-version').value = '';
+  document.getElementById('np-content').value = '';
+  openModal('newPromptModal');
+}
+function submitNewPrompt(){
+  const scenario = document.getElementById('np-scenario').value;
+  const version = document.getElementById('np-version').value.trim();
+  const content = document.getElementById('np-content').value.trim();
+  if(!version){ showToast('请填写 version'); return; }
+  if(!content){ showToast('请填写 content'); return; }
+  closeModal('newPromptModal');
+  showToast('已创建 ' + scenario + '/' + version + ' · 默认未激活');
+}
+
+let pendingActivate = null;
+function openActivateConfirm(scenario, version){
+  pendingActivate = { scenario, version };
+  document.getElementById('activatePromptSub').textContent =
+    '将激活 "' + scenario + ' / ' + version + '"，同 scenario 其他版本自动停用（事务）';
+  openModal('activatePromptModal');
+}
+function submitActivatePrompt(){
+  if(!pendingActivate){ closeModal('activatePromptModal'); return; }
+  closeModal('activatePromptModal');
+  showToast('已激活 ' + pendingActivate.scenario + '/' + pendingActivate.version);
 }
 </script>
 
