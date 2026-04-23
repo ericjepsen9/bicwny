@@ -85,6 +85,9 @@ body { background: var(--bg-scene); min-height: 100vh; }
 </style>
 <script src="../shared/lang.js"></script>
 <script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
 </head>
 <body class="scene">
 <div class="phone-wrap">
@@ -210,9 +213,9 @@ body { background: var(--bg-scene); min-height: 100vh; }
   </div>
 
   <div class="logout-wrap">
-    <a href="auth.html" class="btn btn-ghost btn-lg btn-full btn-pill" style="color:var(--crimson);border-color:var(--crimson-light);">
+    <button type="button" id="btn-logout" class="btn btn-ghost btn-lg btn-full btn-pill" style="color:var(--crimson);border-color:var(--crimson-light);">
       <span class="sc">退出登录</span><span class="tc">退出登入</span>
-    </a>
+    </button>
   </div>
 
   <p class="footer-info">觉学 · 愿众生皆得智慧</p>
@@ -240,6 +243,16 @@ function syncLangChips() {
 }
 document.addEventListener('DOMContentLoaded', syncLangChips);
 document.addEventListener('langchange', syncLangChips);
+
+// 退出登录：调后端 /logout 吊销 refresh，再跳登录页
+document.getElementById('btn-logout').addEventListener('click', function () {
+  var lang = document.documentElement.getAttribute('data-lang') || 'sc';
+  var ok = confirm(lang === 'sc' ? '确定退出登录？' : '確定退出登入？');
+  if (!ok) return;
+  window.JX.api.logout().finally(function () {
+    location.replace('auth.html');
+  });
+});
 </script>
 </body>
 </html>

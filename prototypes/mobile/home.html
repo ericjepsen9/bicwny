@@ -18,6 +18,9 @@
 <title>觉学 · 首页</title>
 <script src="../shared/lang.js"></script>
 <script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
@@ -146,7 +149,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
     <div class="home-header">
       <div>
         <p class="greeting-sub">早安 · 四月</p>
-        <p class="greeting-name"><span class="sc">明心同学</span><span class="tc">明心同學</span></p>
+        <p class="greeting-name" data-jx-user="dharmaName"><span class="sc">明心同学</span><span class="tc">明心同學</span></p>
       </div>
       <div class="header-right">
         <a href="notification.html" style="position:relative;display:flex;">
@@ -156,7 +159,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
           </svg>
           <div class="notif-dot" style="position:absolute;top:-2px;right:-2px;"></div>
         </a>
-        <div class="avatar">明</div>
+        <a href="profile.html" class="avatar" data-jx-user="avatarInitial" aria-label="我的">明</a>
       </div>
     </div>
 

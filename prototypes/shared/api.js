@@ -1,0 +1,162 @@
+// 前端 API 客户端 · Bearer JWT + 自动刷新 + 错误归一
+// 依赖：shared/config.js 先加载（提供 window.JX.API_BASE）
+//
+// 暴露：window.JX.api
+//   api.get(path, opts?)
+//   api.post(path, body?, opts?)
+//   api.patch(path, body?, opts?)
+//   api.del(path, opts?)
+//   api.setTokens({accessToken, refreshToken})
+//   api.clearTokens()
+//   api.getAccessToken()
+//   api.getRefreshToken()
+//   api.logout()  // 调用 /api/auth/logout 再清 token
+//   api.isAuthed()
+//
+// 401 处理策略：
+//   1. 收到 401 → 若有 refreshToken → 调 /api/auth/refresh 拿新 access
+//   2. 用新 access 重试原请求一次
+//   3. 再失败 → 清 token → 抛 ApiError(401)，调用方负责跳登录
+(function () {
+  var API = (window.JX && window.JX.API_BASE) || '';
+  var KEY_A = 'jx-accessToken';
+  var KEY_R = 'jx-refreshToken';
+
+  function storage() {
+    try { return window.localStorage; } catch (_) { return null; }
+  }
+
+  function getAccessToken() {
+    var s = storage(); return s ? s.getItem(KEY_A) : null;
+  }
+  function getRefreshToken() {
+    var s = storage(); return s ? s.getItem(KEY_R) : null;
+  }
+  function setTokens(t) {
+    var s = storage(); if (!s) return;
+    if (t && t.accessToken)  s.setItem(KEY_A, t.accessToken);
+    if (t && t.refreshToken) s.setItem(KEY_R, t.refreshToken);
+  }
+  function clearTokens() {
+    var s = storage(); if (!s) return;
+    s.removeItem(KEY_A);
+    s.removeItem(KEY_R);
+  }
+  function isAuthed() { return !!getAccessToken(); }
+
+  function ApiError(status, code, message, details) {
+    var e = new Error(message || code || ('HTTP ' + status));
+    e.name = 'ApiError';
+    e.status = status;
+    e.code = code;
+    e.details = details;
+    return e;
+  }
+
+  function buildUrl(path) {
+    if (/^https?:/i.test(path)) return path;
+    var p = path.charAt(0) === '/' ? path : '/' + path;
+    return API + p;
+  }
+
+  // 单例飞行中的 refresh，并发 401 只触发一次
+  var refreshing = null;
+  function refreshOnce() {
+    if (refreshing) return refreshing;
+    var rt = getRefreshToken();
+    if (!rt) return Promise.reject(ApiError(401, 'NO_REFRESH', '未登录或会话已过期'));
+    refreshing = fetch(buildUrl('/api/auth/refresh'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: rt }),
+    })
+      .then(function (res) {
+        refreshing = null;
+        if (!res.ok) {
+          clearTokens();
+          throw ApiError(res.status, 'REFRESH_FAILED', '会话刷新失败');
+        }
+        return res.json();
+      })
+      .then(function (json) {
+        var d = json && json.data;
+        if (!d || !d.accessToken) {
+          clearTokens();
+          throw ApiError(500, 'REFRESH_BAD_RESPONSE', '会话刷新响应异常');
+        }
+        setTokens(d);
+        return d.accessToken;
+      })
+      .catch(function (err) { refreshing = null; throw err; });
+    return refreshing;
+  }
+
+  function request(method, path, body, opts) {
+    opts = opts || {};
+    var headers = Object.assign(
+      { 'Accept': 'application/json' },
+      body !== undefined ? { 'Content-Type': 'application/json' } : {},
+      opts.headers || {},
+    );
+    var token = getAccessToken();
+    if (token && !opts.noAuth) headers['Authorization'] = 'Bearer ' + token;
+
+    var init = {
+      method: method,
+      headers: headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    };
+
+    return fetch(buildUrl(path), init).then(function (res) {
+      if (res.status === 401 && !opts.noAuth && !opts._retried && getRefreshToken()) {
+        return refreshOnce().then(
+          function () {
+            return request(method, path, body, Object.assign({}, opts, { _retried: true }));
+          },
+          function (e) { throw e; },
+        );
+      }
+      var ct = res.headers.get('content-type') || '';
+      var asJson = ct.indexOf('application/json') >= 0;
+      return (asJson ? res.json() : res.text()).then(function (payload) {
+        if (!res.ok) {
+          var err = typeof payload === 'object' && payload
+            ? ApiError(res.status, payload.error, payload.message, payload.details)
+            : ApiError(res.status, 'HTTP_' + res.status, String(payload).slice(0, 200));
+          throw err;
+        }
+        // 后端统一返回 { data: ... }；原样返回 data，若无 data 字段返回整个 body
+        if (asJson && payload && Object.prototype.hasOwnProperty.call(payload, 'data')) {
+          return payload.data;
+        }
+        return payload;
+      });
+    });
+  }
+
+  function logout() {
+    var rt = getRefreshToken();
+    var p = rt
+      ? fetch(buildUrl('/api/auth/logout'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: rt }),
+        }).catch(function () { /* 幂等，忽略 */ })
+      : Promise.resolve();
+    return p.then(function () { clearTokens(); });
+  }
+
+  window.JX = window.JX || {};
+  window.JX.api = {
+    get:   function (p, o)    { return request('GET',    p, undefined, o); },
+    post:  function (p, b, o) { return request('POST',   p, b || {},   o); },
+    patch: function (p, b, o) { return request('PATCH',  p, b || {},   o); },
+    del:   function (p, o)    { return request('DELETE', p, undefined, o); },
+    setTokens: setTokens,
+    clearTokens: clearTokens,
+    getAccessToken: getAccessToken,
+    getRefreshToken: getRefreshToken,
+    isAuthed: isAuthed,
+    logout: logout,
+  };
+})();

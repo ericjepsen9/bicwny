@@ -45,9 +45,18 @@ export async function buildApp(): Promise<FastifyInstance> {
     return payload;
   });
 
-  // CORS：dev 全开；prod 走白名单（Sprint 5 接入 CORS_ORIGINS env）
+  // CORS：dev 全开；prod 读 CORS_ORIGINS 白名单（逗号分隔）
+  // 留空 → 同源部署（nginx 反代）· 不允许任何跨域
+  const corsWhitelist = config.CORS_ORIGINS
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   await app.register(cors, {
-    origin: isDev ? true : false,
+    origin: isDev
+      ? true
+      : corsWhitelist.length > 0
+        ? corsWhitelist
+        : false,
     credentials: true,
   });
 

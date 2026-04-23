@@ -2,6 +2,7 @@
 // 运行：npm run prisma:seed
 // 详细数据在 ./seed/ 目录按领域拆分（content / accounts / questions/* / llm）。
 
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { seedAccounts } from './seed/accounts.js';
 import { seedContent } from './seed/content.js';

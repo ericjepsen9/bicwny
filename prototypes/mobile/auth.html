@@ -45,27 +45,29 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
 .screen-title { font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; color: var(--ink); letter-spacing: 4px; }
 
-/* ── Code row ─────────────────────────────── */
-.code-row { display: flex; gap: var(--sp-3); }
-.code-row .input-field { flex: 1; }
-.code-btn {
-  padding: 0 var(--sp-4); border-radius: var(--r); white-space: nowrap; flex-shrink: 0;
-  font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer;
-  background: var(--saffron-pale); border: 1.5px solid var(--saffron-light); color: var(--saffron-dark);
-  transition: all var(--dur) var(--ease);
-}
-.code-btn:hover { background: var(--saffron-light); }
-.code-btn.counting { color: var(--ink-4); background: rgba(255,255,255,.5); border-color: var(--border); cursor: default; }
-
 /* ── Auth links ───────────────────────────── */
 .auth-links { display: flex; justify-content: space-between; }
 .auth-link { font: var(--text-caption); color: var(--saffron); letter-spacing: 1px; cursor: pointer; }
 .auth-link.muted { color: var(--ink-3); }
 .auth-center { text-align: center; }
+
+/* ── Error / busy ─────────────────────────── */
+.form-msg {
+  font: var(--text-caption); letter-spacing: 1px;
+  padding: 10px 12px; border-radius: var(--r);
+  min-height: 1em;
+}
+.form-msg.error { color: #c0392b; background: rgba(192,57,43,.08); }
+.form-msg.info  { color: var(--ink-3); }
+.form-msg:empty { display: none; }
+
+.btn[aria-busy="true"] { opacity: .6; pointer-events: none; }
 </style>
 <!-- lang.js 必须在 <head> 最后，data-lang 在渲染前生效避免文字闪烁 -->
 <script src="../shared/lang.js"></script>
 <script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
 </head>
 <body class="scene">
 <div class="phone-wrap">
@@ -74,7 +76,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
   <!-- Status Bar -->
   <div class="status-bar" data-auto></div>
 
-  <!-- Logo（三屏共用）-->
+  <!-- Logo（两屏共用）-->
   <div class="logo-block">
     <div class="logo-icon">
       <svg width="30" height="30" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
@@ -91,24 +93,26 @@ body { background: var(--bg-scene); min-height: 100vh; }
   </div>
 
   <!-- ══ 屏一：登录 ══ -->
-  <div class="auth-screen active" id="screen-login">
+  <form class="auth-screen active" id="screen-login" novalidate>
     <p class="screen-title"><span class="sc">欢迎回来</span><span class="tc">歡迎回來</span></p>
 
     <div class="input-group">
-      <label class="input-label"><span class="sc">手机号码</span><span class="tc">手機號碼</span></label>
-      <input class="input-field" type="tel" inputmode="numeric" maxlength="11"
-        data-ph-sc="请输入手机号" data-ph-tc="請輸入手機號" placeholder="请输入手机号">
+      <label class="input-label" for="login-email"><span class="sc">邮箱地址</span><span class="tc">電子郵箱</span></label>
+      <input class="input-field" id="login-email" name="email" type="email" autocomplete="email" required
+        data-ph-sc="请输入注册邮箱" data-ph-tc="請輸入註冊郵箱" placeholder="请输入注册邮箱">
     </div>
 
     <div class="input-group">
-      <label class="input-label"><span class="sc">登录密码</span><span class="tc">登錄密碼</span></label>
-      <input class="input-field" type="password"
+      <label class="input-label" for="login-password"><span class="sc">登录密码</span><span class="tc">登錄密碼</span></label>
+      <input class="input-field" id="login-password" name="password" type="password" autocomplete="current-password" required
         data-ph-sc="请输入密码" data-ph-tc="請輸入密碼" placeholder="请输入密码">
     </div>
 
-    <a href="home.html" class="btn btn-primary btn-lg btn-full btn-pill">
+    <div class="form-msg" id="login-msg" role="status"></div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-full btn-pill">
       <span class="sc">登　录</span><span class="tc">登　錄</span>
-    </a>
+    </button>
 
     <div class="auth-links">
       <span class="auth-link muted" onclick="showScreen('screen-register')">
@@ -118,88 +122,51 @@ body { background: var(--bg-scene); min-height: 100vh; }
         <span class="sc">忘记密码</span><span class="tc">忘記密碼</span>
       </span>
     </div>
-  </div>
+  </form>
 
   <!-- ══ 屏二：注册 ══ -->
-  <div class="auth-screen" id="screen-register">
+  <form class="auth-screen" id="screen-register" novalidate>
     <p class="screen-title"><span class="sc">创建账号</span><span class="tc">建立帳號</span></p>
 
     <div class="input-group">
-      <label class="input-label"><span class="sc">法名 / 姓名</span><span class="tc">法名 ／ 姓名</span></label>
-      <input class="input-field" type="text"
-        data-ph-sc="请输入姓名" data-ph-tc="請輸入姓名" placeholder="请输入姓名">
+      <label class="input-label" for="reg-dharma"><span class="sc">法名 / 姓名</span><span class="tc">法名 ／ 姓名</span></label>
+      <input class="input-field" id="reg-dharma" name="dharmaName" type="text" autocomplete="name"
+        data-ph-sc="请输入法名或姓名（可选）" data-ph-tc="請輸入法名或姓名（可選）" placeholder="请输入法名或姓名（可选）">
     </div>
 
     <div class="input-group">
-      <label class="input-label"><span class="sc">手机号码</span><span class="tc">手機號碼</span></label>
-      <input class="input-field" type="tel" inputmode="numeric" maxlength="11"
-        data-ph-sc="请输入手机号" data-ph-tc="請輸入手機號" placeholder="请输入手机号">
+      <label class="input-label" for="reg-email"><span class="sc">邮箱地址</span><span class="tc">電子郵箱</span></label>
+      <input class="input-field" id="reg-email" name="email" type="email" autocomplete="email" required
+        data-ph-sc="用于登录的邮箱" data-ph-tc="用於登錄的郵箱" placeholder="用于登录的邮箱">
     </div>
 
     <div class="input-group">
-      <label class="input-label"><span class="sc">验证码</span><span class="tc">驗證碼</span></label>
-      <div class="code-row">
-        <input class="input-field" type="text" inputmode="numeric" maxlength="6"
-          data-ph-sc="6 位验证码" data-ph-tc="6 位驗證碼" placeholder="6 位验证码">
-        <button class="code-btn" onclick="startCountdown(this)">
-          <span class="sc">获取验证码</span><span class="tc">取得驗證碼</span>
-        </button>
-      </div>
+      <label class="input-label" for="reg-password"><span class="sc">设置密码</span><span class="tc">設定密碼</span></label>
+      <input class="input-field" id="reg-password" name="password" type="password" autocomplete="new-password" required minlength="6"
+        data-ph-sc="至少 6 位" data-ph-tc="至少 6 位" placeholder="至少 6 位">
     </div>
 
-    <div class="input-group">
-      <label class="input-label"><span class="sc">设置密码</span><span class="tc">設定密碼</span></label>
-      <input class="input-field" type="password"
-        data-ph-sc="至少 8 位" data-ph-tc="至少 8 位" placeholder="至少 8 位">
-    </div>
+    <div class="form-msg" id="reg-msg" role="status"></div>
 
-    <a href="home.html" class="btn btn-primary btn-lg btn-full btn-pill">
+    <button type="submit" class="btn btn-primary btn-lg btn-full btn-pill">
       <span class="sc">注　册</span><span class="tc">註　冊</span>
-    </a>
+    </button>
 
     <p class="auth-center">
       <span class="auth-link muted" onclick="showScreen('screen-login')">
         <span class="sc">已有账号？登录</span><span class="tc">已有帳號？登錄</span>
       </span>
     </p>
-  </div>
+  </form>
 
-  <!-- ══ 屏三：找回密码 ══ -->
+  <!-- ══ 屏三：找回密码（待后端支持邮件发送后启用）══ -->
   <div class="auth-screen" id="screen-forgot">
     <p class="screen-title"><span class="sc">找回密码</span><span class="tc">找回密碼</span></p>
 
-    <div class="input-group">
-      <label class="input-label"><span class="sc">手机号码</span><span class="tc">手機號碼</span></label>
-      <input class="input-field" type="tel" inputmode="numeric" maxlength="11"
-        data-ph-sc="请输入注册手机号" data-ph-tc="請輸入註冊手機號" placeholder="请输入注册手机号">
+    <div class="form-msg info" style="display:block;">
+      <span class="sc">找回密码功能即将上线。如需重置密码，请联系管理员或在班级群中求助。</span>
+      <span class="tc">找回密碼功能即將上線。如需重置密碼，請聯繫管理員或在班級群中求助。</span>
     </div>
-
-    <div class="input-group">
-      <label class="input-label"><span class="sc">验证码</span><span class="tc">驗證碼</span></label>
-      <div class="code-row">
-        <input class="input-field" type="text" inputmode="numeric" maxlength="6"
-          data-ph-sc="6 位验证码" data-ph-tc="6 位驗證碼" placeholder="6 位验证码">
-        <button class="code-btn" onclick="startCountdown(this)">
-          <span class="sc">获取验证码</span><span class="tc">取得驗證碼</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="input-group">
-      <label class="input-label"><span class="sc">新密码</span><span class="tc">新密碼</span></label>
-      <input class="input-field" type="password"
-        data-ph-sc="至少 8 位" data-ph-tc="至少 8 位" placeholder="至少 8 位">
-    </div>
-
-    <div class="input-group">
-      <label class="input-label"><span class="sc">确认新密码</span><span class="tc">確認新密碼</span></label>
-      <input class="input-field" type="password"
-        data-ph-sc="再次输入密码" data-ph-tc="再次輸入密碼" placeholder="再次输入密码">
-    </div>
-
-    <a href="auth.html" class="btn btn-primary btn-lg btn-full btn-pill">
-      <span class="sc">确认重置</span><span class="tc">確認重設</span>
-    </a>
 
     <p class="auth-center">
       <span class="auth-link muted" onclick="showScreen('screen-login')">
@@ -212,31 +179,107 @@ body { background: var(--bg-scene); min-height: 100vh; }
 </div><!-- /phone-wrap -->
 
 <script>
-// 三屏切换
+// ── 三屏切换 ─────────────────────────────────────
 function showScreen(id) {
-  document.querySelectorAll('.auth-screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.auth-screen').forEach(function (s) { s.classList.remove('active'); });
+  var el = document.getElementById(id);
+  if (el) el.classList.add('active');
+  clearMsg('login-msg');
+  clearMsg('reg-msg');
 }
 
-// 验证码 60s 倒计时
-function startCountdown(btn) {
-  let s = 60;
-  btn.disabled = true;
-  btn.classList.add('counting');
-  // 记录当前语言版本的按钮文本
-  const iv = setInterval(function () {
-    btn.innerHTML = s-- + 's';
-    if (s < 0) {
-      clearInterval(iv);
-      const lang = document.documentElement.getAttribute('data-lang') || 'sc';
-      btn.innerHTML = lang === 'sc'
-        ? '<span class="sc">重新获取</span><span class="tc" style="display:none">重新取得</span>'
-        : '<span class="sc" style="display:none">重新获取</span><span class="tc">重新取得</span>';
-      btn.disabled = false;
-      btn.classList.remove('counting');
-    }
-  }, 1000);
+// ── 多语言错误信息归一 ──────────────────────────
+function localizedError(err) {
+  var code = (err && err.code) || '';
+  var msg = (err && err.message) || '请求失败';
+  var lang = document.documentElement.getAttribute('data-lang') || 'sc';
+  // 后端已是中文，但网络/未知错按语言本地化
+  if (err && err.status === 0) {
+    return lang === 'sc' ? '网络异常，请检查连接' : '網絡異常，請檢查連接';
+  }
+  if (code === 'UNAUTHORIZED') {
+    return lang === 'sc' ? '邮箱或密码错误' : '電子郵箱或密碼錯誤';
+  }
+  if (code === 'CONFLICT') {
+    return lang === 'sc' ? '该邮箱已注册，请直接登录' : '該郵箱已註冊，請直接登錄';
+  }
+  return msg;
 }
+
+function setMsg(id, kind, text) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'form-msg ' + kind;
+  el.textContent = text || '';
+}
+function clearMsg(id) { setMsg(id, '', ''); }
+
+// ── 已登录则直达首页（避免二次登录）─────────────
+if (window.JX && window.JX.api && window.JX.api.isAuthed()) {
+  location.replace('home.html');
+}
+
+// ── 登录 ────────────────────────────────────────
+document.getElementById('screen-login').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var email = document.getElementById('login-email').value.trim();
+  var password = document.getElementById('login-password').value;
+  if (!email || !password) {
+    setMsg('login-msg', 'error',
+      (document.documentElement.getAttribute('data-lang') === 'tc')
+        ? '請輸入郵箱和密碼'
+        : '请输入邮箱和密码');
+    return;
+  }
+  var btn = ev.target.querySelector('button[type="submit"]');
+  btn.setAttribute('aria-busy', 'true');
+  clearMsg('login-msg');
+
+  window.JX.api.post('/api/auth/login', { email: email, password: password }, { noAuth: true })
+    .then(function (data) {
+      window.JX.api.setTokens(data);
+      location.replace('home.html');
+    })
+    .catch(function (err) {
+      setMsg('login-msg', 'error', localizedError(err));
+    })
+    .finally(function () {
+      btn.removeAttribute('aria-busy');
+    });
+});
+
+// ── 注册 ────────────────────────────────────────
+document.getElementById('screen-register').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var email = document.getElementById('reg-email').value.trim();
+  var password = document.getElementById('reg-password').value;
+  var dharmaName = document.getElementById('reg-dharma').value.trim();
+  if (!email || !password || password.length < 6) {
+    setMsg('reg-msg', 'error',
+      (document.documentElement.getAttribute('data-lang') === 'tc')
+        ? '請填寫郵箱與至少 6 位密碼'
+        : '请填写邮箱与至少 6 位密码');
+    return;
+  }
+  var btn = ev.target.querySelector('button[type="submit"]');
+  btn.setAttribute('aria-busy', 'true');
+  clearMsg('reg-msg');
+
+  var body = { email: email, password: password };
+  if (dharmaName) body.dharmaName = dharmaName;
+
+  window.JX.api.post('/api/auth/register', body, { noAuth: true })
+    .then(function (data) {
+      window.JX.api.setTokens(data);
+      location.replace('home.html');
+    })
+    .catch(function (err) {
+      setMsg('reg-msg', 'error', localizedError(err));
+    })
+    .finally(function () {
+      btn.removeAttribute('aria-busy');
+    });
+});
 </script>
 </body>
 </html>

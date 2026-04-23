@@ -25,6 +25,10 @@ const envSchema = z.object({
   LLM_YEARLY_RESERVE_PERCENT: z.coerce.number().min(0).max(100).default(5),
   LLM_FALLBACK_MONTHLY_BUDGET_USD: z.coerce.number().min(0).default(200),
 
+  // CORS 白名单（逗号分隔；仅生产生效；dev 默认放行所有 origin）
+  // 例：CORS_ORIGINS=https://app.example.com,https://admin.example.com
+  CORS_ORIGINS: z.string().default(''),
+
   // Dev 专用：Sprint 1 尚无真登录，直接注入 fake user id
   DEV_FAKE_USER_ID: z.string().default('dev_user_001'),
 });
