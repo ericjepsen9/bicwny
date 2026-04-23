@@ -146,6 +146,37 @@
     return p.then(function () { clearTokens(); });
   }
 
+  // ── 辅助 util ────────────────────────────────
+  function queryParam(name) {
+    var m = location.search.match(new RegExp('[?&]' + name + '=([^&]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  // "2 天前" / "今日 14:32" —— 相对日期中文呈现
+  function relativeTime(iso) {
+    if (!iso) return '';
+    var t = new Date(iso).getTime();
+    if (isNaN(t)) return '';
+    var now = Date.now();
+    var deltaMin = Math.round((now - t) / 60000);
+    var lang = document.documentElement.getAttribute('data-lang') || 'sc';
+    if (deltaMin < 1) return lang === 'sc' ? '刚刚' : '剛剛';
+    if (deltaMin < 60) return deltaMin + (lang === 'sc' ? ' 分钟前' : ' 分鐘前');
+    var deltaHour = Math.floor(deltaMin / 60);
+    if (deltaHour < 24) {
+      var dt = new Date(iso);
+      return (lang === 'sc' ? '今日 ' : '今日 ')
+        + String(dt.getHours()).padStart(2, '0') + ':'
+        + String(dt.getMinutes()).padStart(2, '0');
+    }
+    var deltaDay = Math.floor(deltaHour / 24);
+    if (deltaDay === 1) return lang === 'sc' ? '昨日' : '昨日';
+    if (deltaDay < 30) return deltaDay + (lang === 'sc' ? ' 天前' : ' 天前');
+    var deltaMon = Math.floor(deltaDay / 30);
+    if (deltaMon < 12) return deltaMon + (lang === 'sc' ? ' 个月前' : ' 個月前');
+    return Math.floor(deltaMon / 12) + (lang === 'sc' ? ' 年前' : ' 年前');
+  }
+
   window.JX = window.JX || {};
   window.JX.api = {
     get:   function (p, o)    { return request('GET',    p, undefined, o); },
@@ -158,5 +189,9 @@
     getRefreshToken: getRefreshToken,
     isAuthed: isAuthed,
     logout: logout,
+  };
+  window.JX.util = {
+    queryParam: queryParam,
+    relativeTime: relativeTime,
   };
 })();

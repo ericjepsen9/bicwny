@@ -76,67 +76,16 @@ body { background: var(--bg-scene); min-height: 100vh; }
     <button class="nav-back"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
   </div>
 
-  <div class="filter-tabs">
-    <span class="ftab active">全部 (12)</span>
-    <span class="ftab">今日 (4)</span>
-    <span class="ftab"><span class="sc">心经</span><span class="tc">心經</span></span>
-    <span class="ftab"><span class="sc">金刚经</span><span class="tc">金剛經</span></span>
+  <div class="filter-tabs" id="filter-tabs">
+    <span class="ftab active" data-filter="all"><span class="sc">全部</span><span class="tc">全部</span> (<span data-count="all">0</span>)</span>
+    <span class="ftab" data-filter="today"><span class="sc">今日</span><span class="tc">今日</span> (<span data-count="today">0</span>)</span>
   </div>
 
   <div class="scroll-area" style="height:680px;">
-  <div class="sections">
-
-    <a class="mistake-card" href="mistake-detail.html">
-      <p class="mistake-chapter"><span class="sc">心经 · 第三章 · 色即是空</span><span class="tc">心經 · 第三章 · 色即是空</span></p>
-      <p class="mistake-stem"><span class="sc">「色不异空」中，「色」指的是什么？</span><span class="tc">「色不異空」中，「色」指的是什麼？</span></p>
-      <div class="mistake-footer">
-        <span class="mistake-time">昨日 14:32</span>
-        <span class="review-countdown">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span class="sc">今日复习</span><span class="tc">今日複習</span>
-        </span>
-      </div>
-    </a>
-
-    <a class="mistake-card" href="mistake-detail.html">
-      <p class="mistake-chapter"><span class="sc">心经 · 第三章 · 色即是空</span><span class="tc">心經 · 第三章 · 色即是空</span></p>
-      <p class="mistake-stem"><span class="sc">「受想行识，亦复如是」中「五蕴」包含哪些？</span><span class="tc">「受想行識，亦復如是」中「五蘊」包含哪些？</span></p>
-      <div class="mistake-footer">
-        <span class="mistake-time">2 天前</span>
-        <span class="review-countdown" style="color:var(--ink-3);"><span class="sc">3 天后</span><span class="tc">3 天後</span></span>
-      </div>
-    </a>
-
-    <a class="mistake-card" href="mistake-detail.html">
-      <p class="mistake-chapter"><span class="sc">心经 · 第四章 · 不生不灭</span><span class="tc">心經 · 第四章 · 不生不滅</span></p>
-      <p class="mistake-stem"><span class="sc">「不垢不净」说明了什么样的空性本质？</span><span class="tc">「不垢不淨」說明了什麼樣的空性本質？</span></p>
-      <div class="mistake-footer">
-        <span class="mistake-time">3 天前</span>
-        <span class="review-countdown">
-          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span class="sc">今日复习</span><span class="tc">今日複習</span>
-        </span>
-      </div>
-    </a>
-
-    <a class="mistake-card" href="mistake-detail.html">
-      <p class="mistake-chapter"><span class="sc">金刚经 · 第一章 · 如是我闻</span><span class="tc">金剛經 · 第一章 · 如是我聞</span></p>
-      <p class="mistake-stem"><span class="sc">「一时佛在舍卫国祇树给孤独园」中「祇树」名称的由来？</span><span class="tc">「一時佛在舍衛國祇樹給孤獨園」中「祇樹」名稱的由來？</span></p>
-      <div class="mistake-footer">
-        <span class="mistake-time">5 天前</span>
-        <span class="review-countdown" style="color:var(--ink-3);"><span class="sc">5 天后</span><span class="tc">5 天後</span></span>
-      </div>
-    </a>
-
-    <a class="mistake-card" href="mistake-detail.html" style="opacity:.6;">
-      <p class="mistake-chapter"><span class="sc">心经 · 第二章 · 五蕴皆空</span><span class="tc">心經 · 第二章 · 五蘊皆空</span></p>
-      <p class="mistake-stem"><span class="sc">「照见五蕴皆空」——「照见」的修行含义是？</span><span class="tc">「照見五蘊皆空」——「照見」的修行含義是？</span></p>
-      <div class="mistake-footer">
-        <span class="mistake-time">7 天前</span>
-        <span class="review-countdown" style="color:var(--sage-dark);">已掌握</span>
-      </div>
-    </a>
-
+  <div class="sections" id="mistakes-list">
+    <div class="q-card" style="text-align:center;padding:var(--sp-6) var(--sp-5);background:rgba(255,255,255,.55);border:1px solid var(--glass-border);border-radius:var(--r-lg);">
+      <p style="font:var(--text-caption);color:var(--ink-3);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+    </div>
   </div>
   </div>
 
@@ -150,5 +99,124 @@ body { background: var(--bg-scene); min-height: 100vh; }
 </div>
 </div>
 <script src="../shared/nav.js"></script>
+<script>
+// ── 接入后端错题本 ──────────────────────────────────
+//   GET    /api/mistakes                     → [{id,questionId,wrongCount,lastWrongAt,question}]
+//   DELETE /api/mistakes/:questionId          → {ok:true}
+// ──────────────────────────────────────────────────
+var allMistakes = [];
+var currentFilter = 'all';
+
+function lang() { return document.documentElement.getAttribute('data-lang') || 'sc'; }
+function sc(a, b) { return lang() === 'sc' ? a : b; }
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function isToday(iso) {
+  if (!iso) return false;
+  var d = new Date(iso); var n = new Date();
+  return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+}
+
+function renderCards() {
+  var list = document.getElementById('mistakes-list');
+  var items = currentFilter === 'today'
+    ? allMistakes.filter(function (m) { return isToday(m.lastWrongAt); })
+    : allMistakes;
+
+  if (!items.length) {
+    list.innerHTML = '<div class="q-card" style="text-align:center;padding:var(--sp-6) var(--sp-5);background:rgba(255,255,255,.55);border:1px solid var(--glass-border);border-radius:var(--r-lg);">'
+      + '<p style="font:var(--text-body);color:var(--ink-3);line-height:1.8;">'
+      + escapeHtml(sc('暂无错题 · 继续努力', '暫無錯題 · 繼續努力'))
+      + '</p></div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  items.forEach(function (m) {
+    var q = m.question || {};
+    var stem = q.questionText || sc('（题目已失效）', '（題目已失效）');
+    var source = q.source || '';
+    var when = window.JX.util.relativeTime(m.lastWrongAt);
+    var card = document.createElement('div');
+    card.className = 'mistake-card';
+    card.style.position = 'relative';
+    card.innerHTML =
+      '<p class="mistake-chapter">' + escapeHtml(source) + '</p>' +
+      '<p class="mistake-stem">' + escapeHtml(stem) + '</p>' +
+      '<div class="mistake-footer">' +
+        '<span class="mistake-time">' + escapeHtml(when) + '</span>' +
+        '<span class="review-countdown">' +
+          '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>' +
+          '<span>' + m.wrongCount + sc(' 次错', ' 次錯') + '</span>' +
+        '</span>' +
+      '</div>' +
+      '<button class="mistake-remove" aria-label="' + sc('移除', '移除') + '" ' +
+        'style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;' +
+        'border:1px solid var(--glass-border);background:rgba(255,255,255,.7);' +
+        'color:var(--ink-3);cursor:pointer;font-size:14px;line-height:1;">✕</button>';
+
+    // 点击卡片主体 → 去答题页重答该题
+    card.addEventListener('click', function (ev) {
+      if (ev.target.closest('.mistake-remove')) return;
+      if (q.lessonId) location.href = 'quiz.html?lessonId=' + encodeURIComponent(q.lessonId);
+    });
+    // 移除按钮
+    card.querySelector('.mistake-remove').addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      if (!confirm(sc('确定从错题本移除？', '確定從錯題本移除？'))) return;
+      window.JX.api.del('/api/mistakes/' + encodeURIComponent(m.questionId)).then(function () {
+        allMistakes = allMistakes.filter(function (x) { return x.questionId !== m.questionId; });
+        updateCounts();
+        renderCards();
+      }).catch(function (err) {
+        alert(sc('移除失败：', '移除失敗：') + (err.message || err));
+      });
+    });
+
+    list.appendChild(card);
+  });
+}
+
+function updateCounts() {
+  document.querySelector('[data-count="all"]').textContent = allMistakes.length;
+  document.querySelector('[data-count="today"]').textContent =
+    allMistakes.filter(function (m) { return isToday(m.lastWrongAt); }).length;
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.ftab').forEach(function (t) {
+    t.classList.toggle('active', t.getAttribute('data-filter') === f);
+  });
+  renderCards();
+}
+
+document.getElementById('filter-tabs').addEventListener('click', function (ev) {
+  var t = ev.target.closest('.ftab');
+  if (!t) return;
+  setFilter(t.getAttribute('data-filter'));
+});
+
+function boot() {
+  window.JX.api.get('/api/mistakes?limit=200').then(function (data) {
+    allMistakes = Array.isArray(data) ? data : [];
+    updateCounts();
+    renderCards();
+  }).catch(function (err) {
+    document.getElementById('mistakes-list').innerHTML =
+      '<div class="q-card" style="text-align:center;padding:var(--sp-6);"><p style="color:var(--crimson);">'
+      + escapeHtml(sc('加载失败：', '加載失敗：') + (err.message || err))
+      + '</p></div>';
+  });
+}
+
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', renderCards);
+if (window.JX && window.JX.user) boot();
+</script>
 </body>
 </html>
