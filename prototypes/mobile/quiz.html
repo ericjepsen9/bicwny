@@ -11,417 +11,386 @@
   为度化一切众生，请大家发无上殊胜的菩提心！
 -->
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-lang="sc">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>觉学 · 答题流</title>
+<title>觉学 · 答题</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../shared/tokens.css">
 <link rel="stylesheet" href="../shared/base.css">
 <link rel="stylesheet" href="../shared/components.css">
 <style>
-body { background: linear-gradient(160deg, #EDE0D4 0%, #D8C4AE 100%); min-height: 100vh; }
-.row {
-  display: flex;
-  justify-content: center;
-  gap: 28px;
-  padding: 40px 20px;
-  flex-wrap: wrap;
-}
-.phone-caption {
-  text-align: center;
-  font: var(--text-meta);
-  color: var(--ink-2);
-  letter-spacing: 2px;
-  margin-bottom: var(--sp-3);
-}
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
 
-/* ── Quiz page layout ─────────────────────── */
-.quiz-top {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: 0 var(--sp-5) var(--sp-4);
+.status-bar { display: flex; justify-content: space-between; align-items: center; padding: var(--sp-3) var(--sp-5) var(--sp-2); }
+.status-right { display: flex; align-items: center; gap: var(--sp-2); }
+.lang-btn {
+  height: 22px; padding: 0 8px; border-radius: var(--r-pill);
+  font-size: .625rem; font-weight: 700; letter-spacing: 1px;
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  border: 1px solid var(--saffron-light); cursor: pointer; transition: all var(--dur) var(--ease);
 }
+.lang-btn:hover { background: var(--saffron-light); }
+
+/* Quiz header */
+.quiz-header { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-5); }
 .back-btn {
-  width: 34px; height: 34px;
-  border-radius: var(--r-sm);
-  background: var(--glass-thick);
-  border: 1px solid var(--glass-border);
+  width: 32px; height: 32px; border-radius: var(--r);
+  background: var(--glass); border: 1px solid var(--glass-border);
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
+  cursor: pointer; flex-shrink: 0; text-decoration: none;
 }
-.quiz-progress-bar {
-  flex: 1;
-  height: 6px;
-  background: var(--saffron-light);
-  border-radius: var(--r-pill);
-  overflow: hidden;
-}
-.quiz-progress-bar .fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--saffron), var(--saffron-dark));
-  border-radius: var(--r-pill);
-}
-.quiz-count {
-  font-family: var(--font-serif);
-  font-weight: 700;
-  color: var(--ink);
-  font-size: .875rem;
-  letter-spacing: 1px;
-  min-width: 38px;
-  text-align: right;
-}
+.progress-wrap { flex: 1; }
+.progress-label { display: flex; justify-content: space-between; font: var(--text-caption); color: var(--ink-3); margin-bottom: 4px; }
+.progress-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--saffron); border-radius: 2px; transition: width .4s var(--ease); }
+.lives { font-size: .875rem; letter-spacing: 2px; flex-shrink: 0; }
 
-.quiz-meta-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 var(--sp-5);
-  margin-bottom: var(--sp-3);
+/* Question card */
+.quiz-body { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-4); }
+.q-card {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
+  padding: var(--sp-5); box-shadow: var(--glass-shadow);
 }
+.q-tag {
+  display: inline-block; font: var(--text-caption); font-weight: 700;
+  color: var(--saffron); background: var(--saffron-pale);
+  border: 1px solid var(--saffron-light); border-radius: var(--r-pill);
+  padding: 2px 10px; letter-spacing: 1px; margin-bottom: var(--sp-3);
+}
+.q-num { font: var(--text-caption); color: var(--ink-4); margin-bottom: var(--sp-2); }
+.q-text { font: var(--text-body-serif); color: var(--ink); line-height: 1.7; }
 
-.question-card {
-  margin: 0 var(--sp-5);
-  padding: var(--sp-5);
-  position: relative;
+/* Options */
+.options { display: flex; flex-direction: column; gap: var(--sp-3); }
+.opt {
+  display: flex; align-items: center; gap: var(--sp-3);
+  background: var(--glass); backdrop-filter: var(--blur);
+  border: 1.5px solid var(--glass-border); border-radius: var(--r-lg);
+  padding: var(--sp-3) var(--sp-4); cursor: pointer;
+  transition: all var(--dur) var(--ease);
 }
-.question-chapter {
-  font: var(--text-caption);
-  color: var(--ink-3);
-  letter-spacing: 2px;
-  margin-bottom: var(--sp-2);
+.opt:hover:not(.disabled) { background: var(--glass-thick); border-color: var(--saffron-light); }
+.opt.selected { background: var(--saffron-pale); border-color: var(--saffron-light); }
+.opt.correct  { background: var(--sage-light);    border-color: var(--sage); }
+.opt.wrong    { background: var(--crimson-light);  border-color: var(--crimson); }
+.opt.disabled { cursor: default; }
+.opt-letter {
+  width: 28px; height: 28px; border-radius: var(--r); flex-shrink: 0;
+  background: rgba(43,34,24,.07); display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; font-weight: 700; color: var(--ink-3);
 }
-.question-stem {
-  font-family: var(--font-serif);
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--ink);
-  letter-spacing: 2px;
-  line-height: 1.8;
-  margin-bottom: var(--sp-3);
-}
-.question-hint {
-  font: var(--text-body-serif);
-  color: var(--ink-2);
-  letter-spacing: 1px;
-  line-height: 1.7;
-  padding: var(--sp-3);
-  background: rgba(255,255,255,.55);
-  border-radius: var(--r-sm);
-  border-left: 2px solid var(--saffron);
-}
+.opt.selected .opt-letter { background: var(--saffron-light); color: var(--saffron-dark); }
+.opt.correct .opt-letter  { background: var(--sage); color: #fff; }
+.opt.wrong .opt-letter    { background: var(--crimson); color: #fff; }
+.opt-text { font: var(--text-body); color: var(--ink); }
 
-.options {
-  margin: var(--sp-4) var(--sp-5) 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-}
-.option-text {
-  font: var(--text-body);
-  color: var(--ink);
-  letter-spacing: 1px;
-  line-height: 1.5;
-  flex: 1;
-}
-.option.correct .option-text,
-.option.wrong   .option-text { font-weight: 600; }
-.option-icon { flex-shrink: 0; }
+/* Feedback */
+.feedback { display: none; border-radius: var(--r-xl); padding: var(--sp-4) var(--sp-5); font: var(--text-caption); line-height: 1.7; }
+.feedback.show { display: block; animation: slideUp .2s var(--ease); }
+.feedback.correct { background: var(--sage-light); border: 1px solid var(--sage); }
+.feedback.wrong   { background: var(--crimson-light); border: 1px solid var(--crimson-light); }
+.feedback-title { font-weight: 700; font-size: .75rem; letter-spacing: 1px; margin-bottom: var(--sp-2); }
+.feedback.correct .feedback-title { color: var(--sage-dark); }
+.feedback.wrong   .feedback-title { color: var(--crimson); }
+.feedback-body { color: var(--ink-2); }
 
-.bottom-action {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  padding: var(--sp-4) var(--sp-5) var(--sp-8);
-  background: linear-gradient(to top, rgba(255,245,235,.95) 50%, rgba(255,245,235,0) 100%);
-}
+.quiz-action { padding: var(--sp-3) var(--sp-5) var(--sp-5); }
+@keyframes slideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
 
-/* Feedback state variants */
-.feedback-badge {
-  position: absolute;
-  top: -20px; right: 20px;
-  padding: 6px 14px;
-  border-radius: var(--r-pill);
-  font: var(--text-meta);
-  font-weight: 700;
-  letter-spacing: 2px;
-  box-shadow: var(--shadow-2);
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* Result overlay */
+.result-overlay {
+  display: none; position: absolute; inset: 0;
+  background: var(--bg-card); border-radius: var(--r-xl);
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--sp-6); padding: var(--sp-8) var(--sp-5); z-index: 10;
 }
-.feedback-badge.correct { background: var(--sage-dark); color: #FFF; }
-.feedback-badge.wrong   { background: var(--crimson); color: #FFF; }
-
-.explanation {
-  margin: var(--sp-4) var(--sp-5) 0;
-  padding: var(--sp-4);
-  background: var(--gold-pale);
-  border: 1px solid var(--gold-light);
-  border-radius: var(--r-lg);
-  display: flex;
-  gap: var(--sp-3);
+.result-overlay.show { display: flex; animation: slideUp .3s var(--ease); }
+.result-ring { position: relative; width: 120px; height: 120px; }
+.ring-label {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-.explanation-icon {
-  width: 32px; height: 32px;
-  border-radius: var(--r-sm);
-  background: var(--gold-light);
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.explanation-body { flex: 1; }
-.explanation-title {
-  font: var(--text-meta);
-  font-weight: 700;
-  color: var(--gold-dark);
-  letter-spacing: 2px;
-  margin-bottom: 4px;
-}
-.explanation-text {
-  font: var(--text-body-serif);
-  color: var(--ink-2);
-  letter-spacing: 1px;
-  line-height: 1.7;
-}
-
-.sm2-row {
-  display: flex;
-  gap: var(--sp-2);
-  margin-top: var(--sp-3);
-}
-.sm2-btn {
-  flex: 1;
-  padding: 10px 8px;
-  border-radius: var(--r-sm);
-  font: var(--text-caption);
-  font-weight: 600;
-  letter-spacing: 1px;
-  text-align: center;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,.6);
-  color: var(--ink-2);
-}
-.sm2-btn.easy   { border-color: var(--sage);    color: var(--sage-dark); background: var(--sage-light); }
-.sm2-btn.hard   { border-color: var(--crimson); color: var(--crimson); background: var(--crimson-light); }
-
-/* Misc */
-.chip-heart {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font: var(--text-caption);
-  font-weight: 600;
-  color: var(--crimson);
-  letter-spacing: 1px;
-}
+.ring-pct { font-family: var(--font-serif); font-weight: 700; font-size: 1.5rem; color: var(--ink); }
+.ring-sub { font: var(--text-caption); color: var(--ink-3); margin-top: 2px; }
+.result-title { font: var(--text-h2); color: var(--ink); letter-spacing: 3px; }
+.result-stats { display: flex; gap: var(--sp-6); }
+.stat-item { text-align: center; }
+.stat-val { font-family: var(--font-serif); font-weight: 700; font-size: 1.25rem; color: var(--ink); display: block; }
+.stat-lbl { font: var(--text-caption); color: var(--ink-3); display: block; margin-top: 2px; }
+.result-btns { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; }
 </style>
+<script src="../shared/lang.js"></script>
 </head>
-<body>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone" style="position:relative;overflow:hidden;">
 
-<div class="row">
-
-  <!-- ════════ State 1: In-progress ════════ -->
-  <div>
-  <p class="phone-caption">选择题 · 作答中</p>
-  <div class="phone">
-    <div class="status-bar">
-      <span class="time">9:41</span>
-      <div class="status-icons">
-        <svg width="16" height="10" viewBox="0 0 16 10" fill="none"><rect x="0" y="6" width="3" height="4" rx="1" fill="#2B2218" opacity=".3"/><rect x="4.5" y="4" width="3" height="6" rx="1" fill="#2B2218" opacity=".5"/><rect x="9" y="2" width="3" height="8" rx="1" fill="#2B2218" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="10" rx="1" fill="#2B2218"/></svg>
-        <svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x=".5" y=".5" width="18" height="10" rx="2.5" stroke="#2B2218" stroke-opacity=".35"/><rect x="2" y="2" width="13" height="7" rx="1.5" fill="#2B2218" opacity=".85"/></svg>
-      </div>
-    </div>
-
-    <div class="quiz-top">
-      <button class="back-btn">
-        <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="quiz-progress-bar"><div class="fill" style="width:37%;"></div></div>
-      <span class="quiz-count">3 / 8</span>
-    </div>
-
-    <div class="quiz-meta-row">
-      <span class="tag tag-saffron">选择题</span>
-      <span class="chip-heart">
-        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        × 3
-      </span>
-    </div>
-
-    <div class="question-card glass-card-thick">
-      <p class="question-chapter">《心经》· 第三章</p>
-      <p class="question-stem">「色即是空，空即是色」——<br>此处「色」最准确的含义是？</p>
-      <p class="question-hint">提示：此处「色」非颜色，指的是 rūpa，泛指一切有形的物质现象。</p>
-    </div>
-
-    <div class="options">
-      <div class="option">
-        <div class="option-letter">A</div>
-        <span class="option-text">五彩缤纷的色彩</span>
-      </div>
-      <div class="option selected">
-        <div class="option-letter">B</div>
-        <span class="option-text">一切物质现象与形体</span>
-      </div>
-      <div class="option">
-        <div class="option-letter">C</div>
-        <span class="option-text">世俗的欲望与贪恋</span>
-      </div>
-      <div class="option">
-        <div class="option-letter">D</div>
-        <span class="option-text">感官带来的感受</span>
-      </div>
-    </div>
-
-    <div class="bottom-action">
-      <button class="btn btn-primary btn-lg btn-full">确定答案</button>
+  <!-- Status bar -->
+  <div class="status-bar">
+    <span class="time" style="font-weight:600;font-size:.75rem;color:var(--ink-2);">9:41</span>
+    <div class="status-right">
+      <button class="lang-btn" onclick="toggleLang()">繁</button>
+      <svg width="56" height="12" viewBox="0 0 56 12" fill="#2B2218">
+        <rect x="0" y="7" width="3" height="5" rx=".5" opacity=".3"/>
+        <rect x="5" y="5" width="3" height="7" rx=".5" opacity=".5"/>
+        <rect x="10" y="2" width="3" height="10" rx=".5" opacity=".7"/>
+        <rect x="15" y="0" width="3" height="12" rx=".5"/>
+        <circle cx="26" cy="11" r="1"/>
+        <path d="M23 8a5 5 0 0 1 6 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".6"/>
+        <path d="M20.5 5.5a9 9 0 0 1 11 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".3"/>
+        <rect x="36" y="2" width="16" height="8" rx="1.5" stroke="#2B2218" stroke-opacity=".35" stroke-width=".8" fill="none"/>
+        <rect x="37" y="3" width="11" height="6" rx="1" opacity=".85"/>
+        <path d="M53 5v2a1.5 1.5 0 0 0 0-2z" opacity=".4"/>
+      </svg>
     </div>
   </div>
+
+  <!-- Header: back + progress bar + lives -->
+  <div class="quiz-header">
+    <a class="back-btn" href="home.html">
+      <svg width="16" height="16" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round"><polyline points="10,4 6,8 10,12"/></svg>
+    </a>
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span id="progress-text">1 / 3</span>
+        <span><span class="sc">佛法基础</span><span class="tc">佛法基礎</span></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:33%"></div></div>
+    </div>
+    <div class="lives" id="lives-display">❤❤❤</div>
   </div>
 
-  <!-- ════════ State 2: Correct ════════ -->
-  <div>
-  <p class="phone-caption">✓ 答对反馈</p>
-  <div class="phone">
-    <div class="status-bar">
-      <span class="time">9:41</span>
-      <div class="status-icons">
-        <svg width="16" height="10" viewBox="0 0 16 10" fill="none"><rect x="0" y="6" width="3" height="4" rx="1" fill="#2B2218" opacity=".3"/><rect x="4.5" y="4" width="3" height="6" rx="1" fill="#2B2218" opacity=".5"/><rect x="9" y="2" width="3" height="8" rx="1" fill="#2B2218" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="10" rx="1" fill="#2B2218"/></svg>
-        <svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x=".5" y=".5" width="18" height="10" rx="2.5" stroke="#2B2218" stroke-opacity=".35"/><rect x="2" y="2" width="13" height="7" rx="1.5" fill="#2B2218" opacity=".85"/></svg>
-      </div>
+  <!-- Question + Options + Feedback -->
+  <div class="quiz-body">
+    <div class="q-card">
+      <span class="q-tag"><span class="sc">单选题</span><span class="tc">單選題</span></span>
+      <div class="q-num" id="q-num">Q1</div>
+      <div class="q-text" id="q-text"></div>
     </div>
 
-    <div class="quiz-top">
-      <button class="back-btn">
-        <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="quiz-progress-bar"><div class="fill" style="width:37%;"></div></div>
-      <span class="quiz-count">3 / 8</span>
-    </div>
+    <div class="options" id="options-list"></div>
 
-    <div class="quiz-meta-row">
-      <span class="tag tag-sage">✓ 答对</span>
-      <span class="chip-heart">
-        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        × 3
-      </span>
-    </div>
-
-    <div class="question-card glass-card-thick">
-      <div class="feedback-badge correct">
-        <svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-        正确
-      </div>
-      <p class="question-chapter">《心经》· 第三章</p>
-      <p class="question-stem" style="font-size:.9375rem;">「色即是空」——「色」的含义</p>
-    </div>
-
-    <div class="options">
-      <div class="option" style="opacity:.55;">
-        <div class="option-letter">A</div>
-        <span class="option-text">五彩缤纷的色彩</span>
-      </div>
-      <div class="option correct">
-        <div class="option-letter">B</div>
-        <span class="option-text">一切物质现象与形体</span>
-        <svg class="option-icon" width="20" height="20" fill="none" stroke="#7D9A6C" stroke-width="2.4" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <div class="option" style="opacity:.55;">
-        <div class="option-letter">C</div>
-        <span class="option-text">世俗的欲望与贪恋</span>
-      </div>
-    </div>
-
-    <div class="explanation">
-      <div class="explanation-icon">
-        <svg width="16" height="16" fill="none" stroke="#B88956" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      </div>
-      <div class="explanation-body">
-        <p class="explanation-title">释义</p>
-        <p class="explanation-text">「色」即 rūpa，泛指五蕴中一切物质与形体的存在。本句揭示有形与无形本为一体。</p>
-      </div>
-    </div>
-
-    <div class="bottom-action">
-      <a href="home.html" class="btn btn-primary btn-lg btn-full">下一题 →</a>
+    <div class="feedback" id="feedback">
+      <div class="feedback-title" id="feedback-title"></div>
+      <div class="feedback-body" id="feedback-body"></div>
     </div>
   </div>
+
+  <div class="quiz-action">
+    <button class="btn btn-primary btn-lg btn-full btn-pill" id="action-btn" disabled>
+      <span class="sc">确认答案</span><span class="tc">確認答案</span>
+    </button>
   </div>
 
-  <!-- ════════ State 3: Wrong ════════ -->
-  <div>
-  <p class="phone-caption">✗ 答错解析</p>
-  <div class="phone">
-    <div class="status-bar">
-      <span class="time">9:41</span>
-      <div class="status-icons">
-        <svg width="16" height="10" viewBox="0 0 16 10" fill="none"><rect x="0" y="6" width="3" height="4" rx="1" fill="#2B2218" opacity=".3"/><rect x="4.5" y="4" width="3" height="6" rx="1" fill="#2B2218" opacity=".5"/><rect x="9" y="2" width="3" height="8" rx="1" fill="#2B2218" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="10" rx="1" fill="#2B2218"/></svg>
-        <svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x=".5" y=".5" width="18" height="10" rx="2.5" stroke="#2B2218" stroke-opacity=".35"/><rect x="2" y="2" width="13" height="7" rx="1.5" fill="#2B2218" opacity=".85"/></svg>
+  <!-- Result overlay -->
+  <div class="result-overlay" id="result-overlay">
+    <div class="result-ring">
+      <canvas id="ring-canvas" width="120" height="120"></canvas>
+      <div class="ring-label">
+        <span class="ring-pct" id="ring-pct">0%</span>
+        <span class="ring-sub"><span class="sc">正确率</span><span class="tc">正確率</span></span>
       </div>
     </div>
-
-    <div class="quiz-top">
-      <button class="back-btn">
-        <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="quiz-progress-bar"><div class="fill" style="width:37%;"></div></div>
-      <span class="quiz-count">3 / 8</span>
-    </div>
-
-    <div class="quiz-meta-row">
-      <span class="tag tag-crimson">✗ 答错</span>
-      <span class="chip-heart">
-        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        × 2
-      </span>
-    </div>
-
-    <div class="question-card glass-card-thick">
-      <div class="feedback-badge wrong">
-        <svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        再学一次
+    <p class="result-title" id="result-title"></p>
+    <div class="result-stats">
+      <div class="stat-item">
+        <span class="stat-val" id="stat-correct">0</span>
+        <span class="stat-lbl"><span class="sc">答对</span><span class="tc">答對</span></span>
       </div>
-      <p class="question-chapter">《心经》· 第三章</p>
-      <p class="question-stem" style="font-size:.9375rem;">「色即是空」——「色」的含义</p>
-    </div>
-
-    <div class="options">
-      <div class="option wrong">
-        <div class="option-letter">A</div>
-        <span class="option-text">五彩缤纷的色彩</span>
-        <svg class="option-icon" width="20" height="20" fill="none" stroke="#A13C2E" stroke-width="2.4" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <div class="stat-item">
+        <span class="stat-val" id="stat-wrong">0</span>
+        <span class="stat-lbl"><span class="sc">答错</span><span class="tc">答錯</span></span>
       </div>
-      <div class="option correct">
-        <div class="option-letter">B</div>
-        <span class="option-text">一切物质现象与形体</span>
-        <svg class="option-icon" width="20" height="20" fill="none" stroke="#7D9A6C" stroke-width="2.4" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      <div class="stat-item">
+        <span class="stat-val" id="stat-time">0s</span>
+        <span class="stat-lbl"><span class="sc">用时</span><span class="tc">用時</span></span>
       </div>
     </div>
-
-    <div class="explanation">
-      <div class="explanation-icon">
-        <svg width="16" height="16" fill="none" stroke="#B88956" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      </div>
-      <div class="explanation-body">
-        <p class="explanation-title">辨析 · SM-2 节奏复习</p>
-        <p class="explanation-text">「色」在佛经中非指色彩，而是 rūpa，指一切有形之物。下次复习将在 <b style="color:var(--crimson);">1 天后</b>。</p>
-        <div class="sm2-row">
-          <button class="sm2-btn hard">忘记了</button>
-          <button class="sm2-btn">有印象</button>
-          <button class="sm2-btn easy">记住了</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="bottom-action">
-      <a href="home.html" class="btn btn-primary btn-lg btn-full">下一题 →</a>
+    <div class="result-btns">
+      <a href="mistakes.html" class="btn btn-ghost btn-lg btn-full btn-pill">
+        <span class="sc">查看错题</span><span class="tc">查看錯題</span>
+      </a>
+      <a href="home.html" class="btn btn-primary btn-lg btn-full btn-pill">
+        <span class="sc">返回首页</span><span class="tc">返回首頁</span>
+      </a>
     </div>
   </div>
-  </div>
 
-</div>
-<script src="../shared/nav.js"></script>
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+
+<script>
+var QS = [
+  {
+    sc: '四圣谛的第一谛是？',
+    tc: '四聖諦的第一諦是？',
+    opts: [
+      { sc: '苦谛——生命充满苦', tc: '苦諦——生命充滿苦' },
+      { sc: '集谛——苦的来源', tc: '集諦——苦的來源' },
+      { sc: '灭谛——苦的止息', tc: '滅諦——苦的止息' },
+      { sc: '道谛——离苦之路', tc: '道諦——離苦之路' }
+    ],
+    answer: 0,
+    exp: {
+      sc: '苦谛是四圣谛的第一谛，揭示了生命中苦的真实面貌，是修行的出发点。',
+      tc: '苦諦是四聖諦的第一諦，揭示了生命中苦的真實面貌，是修行的出發點。'
+    }
+  },
+  {
+    sc: '佛陀证悟成道的地点是？',
+    tc: '佛陀證悟成道的地點是？',
+    opts: [
+      { sc: '蓝毗尼——佛陀诞生地', tc: '藍毗尼——佛陀誕生地' },
+      { sc: '菩提伽耶——证悟之地', tc: '菩提伽耶——證悟之地' },
+      { sc: '鹿野苑——初转法轮处', tc: '鹿野苑——初轉法輪處' },
+      { sc: '拘尸那迦——涅槃之地', tc: '拘尸那迦——涅槃之地' }
+    ],
+    answer: 1,
+    exp: {
+      sc: '菩提伽耶是佛陀在菩提树下证悟成道的地方，是佛教最重要的圣地之一。',
+      tc: '菩提伽耶是佛陀在菩提樹下證悟成道的地方，是佛教最重要的聖地之一。'
+    }
+  },
+  {
+    sc: '八正道中"正念"的核心含义是？',
+    tc: '八正道中「正念」的核心含義是？',
+    opts: [
+      { sc: '正确的思维方式', tc: '正確的思維方式' },
+      { sc: '合乎道德的语言', tc: '合乎道德的語言' },
+      { sc: '清净如实的觉知', tc: '清淨如實的覺知' },
+      { sc: '以正业为职业', tc: '以正業為職業' }
+    ],
+    answer: 2,
+    exp: {
+      sc: '正念（Sati）是以清净、如实的觉知观察身心现象，不加评判，是禅修的核心要素。',
+      tc: '正念（Sati）是以清淨、如實的覺知觀察身心現象，不加評判，是禪修的核心要素。'
+    }
+  }
+];
+
+var qi = 0, selected = -1, confirmed = false, lives = 3, correctCount = 0, wrongCount = 0, tStart = Date.now();
+var LETTERS = ['A', 'B', 'C', 'D'];
+
+function lang() { return document.documentElement.getAttribute('data-lang') || 'sc'; }
+
+function render() {
+  var q = QS[qi], l = lang(), total = QS.length;
+
+  document.getElementById('progress-text').textContent = (qi + 1) + ' / ' + total;
+  document.getElementById('progress-fill').style.width = Math.round((qi + 1) / total * 100) + '%';
+  document.getElementById('q-num').textContent = 'Q' + (qi + 1);
+  document.getElementById('q-text').textContent = q[l];
+  document.getElementById('lives-display').textContent =
+    '❤'.repeat(lives) + (lives < 3 ? '♡'.repeat(3 - lives) : '');
+
+  // Options
+  var ol = document.getElementById('options-list');
+  ol.innerHTML = '';
+  q.opts.forEach(function(opt, i) {
+    var cls = 'opt';
+    if (confirmed) {
+      cls += ' disabled';
+      if (i === q.answer) cls += ' correct';
+      else if (i === selected) cls += ' wrong';
+    } else if (i === selected) {
+      cls += ' selected';
+    }
+    var div = document.createElement('div');
+    div.className = cls;
+    div.innerHTML = '<div class="opt-letter">' + LETTERS[i] + '</div>' +
+                    '<div class="opt-text">' + opt[l] + '</div>';
+    if (!confirmed) div.onclick = (function(idx) { return function() { selectOpt(idx); }; })(i);
+    ol.appendChild(div);
+  });
+
+  // Feedback
+  var fb = document.getElementById('feedback');
+  if (confirmed) {
+    var ok = selected === q.answer;
+    fb.className = 'feedback show ' + (ok ? 'correct' : 'wrong');
+    document.getElementById('feedback-title').textContent = ok
+      ? (l === 'sc' ? '✓ 回答正确！' : '✓ 回答正確！')
+      : (l === 'sc' ? '✗ 回答有误' : '✗ 回答有誤');
+    document.getElementById('feedback-body').textContent = q.exp[l];
+  } else {
+    fb.className = 'feedback';
+  }
+
+  // Action button
+  var btn = document.getElementById('action-btn');
+  if (!confirmed) {
+    btn.disabled = selected < 0;
+    btn.innerHTML = l === 'sc' ? '确认答案' : '確認答案';
+    btn.onclick = confirmAnswer;
+  } else {
+    btn.disabled = false;
+    var isLast = qi === total - 1;
+    btn.innerHTML = isLast ? (l === 'sc' ? '查看结果' : '查看結果') : (l === 'sc' ? '下一题' : '下一題');
+    btn.onclick = isLast ? showResult : nextQ;
+  }
+}
+
+function selectOpt(i) {
+  if (confirmed) return;
+  selected = i;
+  render();
+}
+
+function confirmAnswer() {
+  if (selected < 0 || confirmed) return;
+  confirmed = true;
+  if (selected === QS[qi].answer) correctCount++;
+  else { wrongCount++; lives = Math.max(0, lives - 1); }
+  render();
+}
+
+function nextQ() {
+  qi++; selected = -1; confirmed = false;
+  render();
+}
+
+function showResult() {
+  var overlay = document.getElementById('result-overlay');
+  overlay.classList.add('show');
+
+  var pct = Math.round(correctCount / QS.length * 100);
+  var elapsed = Math.round((Date.now() - tStart) / 1000);
+  var l = lang();
+
+  document.getElementById('ring-pct').textContent = pct + '%';
+  document.getElementById('stat-correct').textContent = correctCount;
+  document.getElementById('stat-wrong').textContent = wrongCount;
+  document.getElementById('stat-time').textContent = elapsed + 's';
+
+  var titles = {
+    sc: ['继续加油，法道漫漫！', '不错，再接再厉！', '殊胜，法喜充满！'],
+    tc: ['繼續加油，法道漫漫！', '不錯，再接再厲！', '殊勝，法喜充滿！']
+  };
+  document.getElementById('result-title').textContent = titles[l][pct >= 80 ? 2 : pct >= 50 ? 1 : 0];
+
+  // Draw ring
+  var canvas = document.getElementById('ring-canvas');
+  var ctx = canvas.getContext('2d');
+  var cx = 60, cy = 60, r = 48, lw = 10;
+  ctx.clearRect(0, 0, 120, 120);
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(43,34,24,.08)'; ctx.lineWidth = lw; ctx.stroke();
+  if (pct > 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + (pct / 100) * Math.PI * 2);
+    ctx.strokeStyle = pct >= 80 ? '#A8BC9A' : pct >= 50 ? '#E07856' : '#A13C2E';
+    ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.stroke();
+  }
+}
+
+document.addEventListener('langchange', render);
+
+render();
+</script>
 </body>
 </html>
