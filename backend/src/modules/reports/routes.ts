@@ -40,8 +40,12 @@ const handleBody = z.object({
   note: z.string().max(500).optional(),
 });
 
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const reportsRoutes: FastifyPluginAsync = async (app) => {
-  app.post('/api/reports', async (req, reply) => {
+  app.post('/api/reports', {
+    schema: { tags: ['Reports'], summary: '提交举报', security: SEC },
+  }, async (req, reply) => {
     const userId = requireUserId(req);
     const parsed = createBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
@@ -52,7 +56,10 @@ export const reportsRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     '/api/admin/reports/pending',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: ['Admin'], summary: '待处理举报', security: SEC },
+    },
     async (req) => {
       const parsed = listQuery.safeParse(req.query);
       if (!parsed.success) throw BadRequest('查询参数不合法');
@@ -63,7 +70,10 @@ export const reportsRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     '/api/admin/reports/:id/handle',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: ['Admin'], summary: '处理举报（accept / reject + AuditLog）', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');

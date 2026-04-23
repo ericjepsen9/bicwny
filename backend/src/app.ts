@@ -79,6 +79,8 @@ export async function buildApp(): Promise<FastifyInstance> {
         { name: 'Learning', description: '课程 · 课时 · 报名 · 进度' },
         { name: 'Answering', description: '题目 · 提交 · 错题本 · 进度聚合' },
         { name: 'SM-2', description: '记忆卡调度' },
+        { name: 'Favorites', description: '题目收藏' },
+        { name: 'Reports', description: '题目举报（学员提交）' },
         { name: 'Classes', description: '班级与成员' },
         { name: 'Coach', description: '辅导员侧 CRUD + LLM 造题' },
         { name: 'Admin', description: '管理员审核 / 用户 / 班级 / 大盘 / LLM 管理' },

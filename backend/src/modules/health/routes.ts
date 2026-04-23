@@ -6,10 +6,16 @@ import type { FastifyPluginAsync } from 'fastify';
 import { config } from '../../lib/config.js';
 import { prisma } from '../../lib/prisma.js';
 
-export const healthRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/health', async () => ({ ok: true, env: config.NODE_ENV }));
+const TAGS = ['Health'];
 
-  app.get('/health/detailed', async () => {
+export const healthRoutes: FastifyPluginAsync = async (app) => {
+  app.get('/health', {
+    schema: { tags: TAGS, summary: '简易健康检查（公开）' },
+  }, async () => ({ ok: true, env: config.NODE_ENV }));
+
+  app.get('/health/detailed', {
+    schema: { tags: TAGS, summary: '详细健康检查：DB ping + LLM providers + 内存 + uptime' },
+  }, async () => {
     const [dbOk, providers] = await Promise.all([pingDb(), providerHealth()]);
     const mem = process.memoryUsage();
     return {

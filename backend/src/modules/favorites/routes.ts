@@ -14,8 +14,13 @@ const listQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
 });
 
+const TAGS = ['Favorites'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const favoritesRoutes: FastifyPluginAsync = async (app) => {
-  app.post('/api/favorites/:questionId', async (req, reply) => {
+  app.post('/api/favorites/:questionId', {
+    schema: { tags: TAGS, summary: '添加收藏（幂等）', security: SEC },
+  }, async (req, reply) => {
     const userId = requireUserId(req);
     const parsed = qidParam.safeParse(req.params);
     if (!parsed.success) throw BadRequest('路径参数不合法');
@@ -24,7 +29,9 @@ export const favoritesRoutes: FastifyPluginAsync = async (app) => {
     return { data: f };
   });
 
-  app.delete('/api/favorites/:questionId', async (req) => {
+  app.delete('/api/favorites/:questionId', {
+    schema: { tags: TAGS, summary: '移除收藏', security: SEC },
+  }, async (req) => {
     const userId = requireUserId(req);
     const parsed = qidParam.safeParse(req.params);
     if (!parsed.success) throw BadRequest('路径参数不合法');
@@ -32,7 +39,9 @@ export const favoritesRoutes: FastifyPluginAsync = async (app) => {
     return { data: { ok: true } };
   });
 
-  app.get('/api/favorites', async (req) => {
+  app.get('/api/favorites', {
+    schema: { tags: TAGS, summary: '我的收藏（含题目剥答案视图）', security: SEC },
+  }, async (req) => {
     const userId = requireUserId(req);
     const parsed = listQuery.safeParse(req.query);
     if (!parsed.success) throw BadRequest('查询参数不合法');

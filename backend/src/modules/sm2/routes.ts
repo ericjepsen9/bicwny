@@ -21,8 +21,13 @@ const reviewBody = z.object({
   rating: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
 });
 
+const TAGS = ['SM-2'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const sm2Routes: FastifyPluginAsync = async (app) => {
-  app.get('/api/sm2/due', async (req) => {
+  app.get('/api/sm2/due', {
+    schema: { tags: TAGS, summary: '到期复习队列', security: SEC },
+  }, async (req) => {
     const parsed = dueQuery.safeParse(req.query);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
     const userId = requireUserId(req);
@@ -48,7 +53,9 @@ export const sm2Routes: FastifyPluginAsync = async (app) => {
     };
   });
 
-  app.get('/api/sm2/stats', async (req) => {
+  app.get('/api/sm2/stats', {
+    schema: { tags: TAGS, summary: 'SM-2 状态面板（new/learning/review/mastered + due + total）', security: SEC },
+  }, async (req) => {
     const parsed = statsQuery.safeParse(req.query);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
     const userId = requireUserId(req);
@@ -56,7 +63,9 @@ export const sm2Routes: FastifyPluginAsync = async (app) => {
     return { data: stats };
   });
 
-  app.post('/api/sm2/review', async (req) => {
+  app.post('/api/sm2/review', {
+    schema: { tags: TAGS, summary: '自评复习 · 写回卡片并重新排程', security: SEC },
+  }, async (req) => {
     const parsed = reviewBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
     const userId = requireUserId(req);

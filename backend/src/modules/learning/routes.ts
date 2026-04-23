@@ -38,13 +38,20 @@ const progressBody = z.object({
   addCompletedLessonId: z.string().optional(),
 });
 
+const TAGS = ['Learning'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const learningRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/api/courses', async () => {
+  app.get('/api/courses', {
+    schema: { tags: TAGS, summary: '已发布论典列表（公开）' },
+  }, async () => {
     const items = await listPublishedCourses();
     return { data: items };
   });
 
-  app.get('/api/courses/:slug', async (req) => {
+  app.get('/api/courses/:slug', {
+    schema: { tags: TAGS, summary: '论典详情 + 本人进度叠加（可选登录）' },
+  }, async (req) => {
     const parsed = slugParam.safeParse(req.params);
     if (!parsed.success) throw BadRequest('路径参数不合法');
     const course = await getCourseBySlug(parsed.data.slug);
@@ -55,7 +62,9 @@ export const learningRoutes: FastifyPluginAsync = async (app) => {
     return { data: { course, overlay } };
   });
 
-  app.get('/api/lessons/:id/questions', async (req) => {
+  app.get('/api/lessons/:id/questions', {
+    schema: { tags: TAGS, summary: '按课时列题（剥答案）' },
+  }, async (req) => {
     const pp = lessonIdParam.safeParse(req.params);
     if (!pp.success) throw BadRequest('路径参数不合法');
     const pq = lessonQuery.safeParse(req.query);
@@ -67,12 +76,16 @@ export const learningRoutes: FastifyPluginAsync = async (app) => {
     return { data: items.map(toPublicView) };
   });
 
-  app.get('/api/my/enrollments', async (req) => {
+  app.get('/api/my/enrollments', {
+    schema: { tags: TAGS, summary: '我的报名', security: SEC },
+  }, async (req) => {
     const userId = requireUserId(req);
     return { data: await listMyEnrollments(userId) };
   });
 
-  app.post('/api/enrollments', async (req, reply) => {
+  app.post('/api/enrollments', {
+    schema: { tags: TAGS, summary: '报名论典', security: SEC },
+  }, async (req, reply) => {
     const userId = requireUserId(req);
     const parsed = enrollBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
@@ -81,7 +94,9 @@ export const learningRoutes: FastifyPluginAsync = async (app) => {
     return { data: e };
   });
 
-  app.delete('/api/enrollments/:courseId', async (req) => {
+  app.delete('/api/enrollments/:courseId', {
+    schema: { tags: TAGS, summary: '退课', security: SEC },
+  }, async (req) => {
     const userId = requireUserId(req);
     const parsed = courseIdParam.safeParse(req.params);
     if (!parsed.success) throw BadRequest('路径参数不合法');
@@ -89,7 +104,9 @@ export const learningRoutes: FastifyPluginAsync = async (app) => {
     return { data: { ok: true } };
   });
 
-  app.patch('/api/enrollments/:courseId/progress', async (req) => {
+  app.patch('/api/enrollments/:courseId/progress', {
+    schema: { tags: TAGS, summary: '更新报名进度', security: SEC },
+  }, async (req) => {
     const userId = requireUserId(req);
     const pp = courseIdParam.safeParse(req.params);
     if (!pp.success) throw BadRequest('路径参数不合法');
@@ -99,7 +116,9 @@ export const learningRoutes: FastifyPluginAsync = async (app) => {
     return { data: updated };
   });
 
-  app.get('/api/my/progress', async (req) => {
+  app.get('/api/my/progress', {
+    schema: { tags: TAGS, summary: '本人学习进度聚合（streak / SM-2 / byCourse）', security: SEC },
+  }, async (req) => {
     const userId = requireUserId(req);
     return { data: await myProgress(userId) };
   });
