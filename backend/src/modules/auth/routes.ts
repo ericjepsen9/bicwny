@@ -16,6 +16,7 @@ import {
   logout,
   refreshSession,
   registerUser,
+  updateMe,
 } from './service.js';
 
 const registerBody = z.object({
@@ -32,6 +33,17 @@ const loginBody = z.object({
 const refreshBody = z.object({
   refreshToken: z.string().min(1),
 });
+
+const updateMeBody = z
+  .object({
+    // 空串 → 清空；undefined → 保持不变
+    dharmaName: z.string().max(64).nullable().optional(),
+    avatar: z.string().max(256).nullable().optional(),
+    // IANA 时区名或 zh-Hans/zh-Hant 这类 BCP-47 取值；长度上限保守给到 64
+    timezone: z.string().min(1).max(64).optional(),
+    locale: z.string().min(2).max(16).optional(),
+  })
+  .refine((p) => Object.keys(p).length > 0, { message: 'patch 不能为空' });
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post('/api/auth/register', async (req, reply) => {
@@ -92,6 +104,14 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       },
     });
     if (!user) throw NotFound('用户不存在');
+    return { data: user };
+  });
+
+  app.patch('/api/auth/me', async (req) => {
+    const userId = requireUserId(req);
+    const parsed = updateMeBody.safeParse(req.body);
+    if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
+    const user = await updateMe(userId, parsed.data);
     return { data: user };
   });
 };

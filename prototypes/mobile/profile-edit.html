@@ -26,105 +26,44 @@
 body { background: var(--bg-scene); min-height: 100vh; }
 .phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
 
-.save-link {
-  font: var(--text-caption); font-weight: 700; letter-spacing: 2px;
-  color: var(--saffron-dark); padding: 6px 10px; cursor: pointer;
-}
-
-/* Avatar section */
-.avatar-section {
-  display: flex; flex-direction: column; align-items: center;
-  padding: var(--sp-4) 0 var(--sp-6); gap: var(--sp-3);
-}
+.avatar-section { display: flex; flex-direction: column; align-items: center; padding: var(--sp-4) 0 var(--sp-6); gap: var(--sp-3); }
 .avatar-big {
   width: 84px; height: 84px; border-radius: 50%;
   background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-family: var(--font-serif); font-weight: 700; font-size: 2rem;
   letter-spacing: 2px; box-shadow: 0 8px 24px rgba(224,120,86,.3);
-  position: relative;
 }
-.avatar-edit {
-  position: absolute; bottom: 0; right: 0;
-  width: 28px; height: 28px; border-radius: 50%;
-  background: #fff; border: 2px solid var(--saffron);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-}
-.change-avatar {
-  font: var(--text-caption); color: var(--saffron); letter-spacing: 2px;
-  cursor: pointer; background: none; border: none;
-}
+.avatar-help { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1.5px; }
 
-/* Form groups */
 .form-groups { padding: 0 var(--sp-5) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
-
-.form-section-title {
-  font-family: var(--font-serif); font-weight: 700; color: var(--ink-2);
-  font-size: .8125rem; letter-spacing: 3px;
-  padding: 0 2px; margin-top: var(--sp-2);
-}
-
+.form-section-title { font-family: var(--font-serif); font-weight: 700; color: var(--ink-2); font-size: .8125rem; letter-spacing: 3px; padding: 0 2px; margin-top: var(--sp-2); }
 .field-row {
   background: var(--glass-thick); backdrop-filter: var(--blur);
   border: 1px solid var(--glass-border); border-radius: var(--r-lg);
-  padding: var(--sp-3) var(--sp-4);
-  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4); display: flex; align-items: center; gap: var(--sp-3);
 }
-.field-label {
-  font: var(--text-caption); font-weight: 600; color: var(--ink-2);
-  letter-spacing: 2px; width: 70px; flex-shrink: 0;
-}
-.field-input {
-  flex: 1; border: none; background: transparent;
-  font: var(--text-body); color: var(--ink); text-align: right;
-  letter-spacing: 1px; outline: none; font-family: inherit;
-}
+.field-label { font: var(--text-caption); font-weight: 600; color: var(--ink-2); letter-spacing: 2px; width: 74px; flex-shrink: 0; }
+.field-input { flex: 1; border: none; background: transparent; font: var(--text-body); color: var(--ink); text-align: right; letter-spacing: 1px; outline: none; font-family: inherit; }
 .field-input::placeholder { color: var(--ink-4); }
 .field-input[readonly] { color: var(--ink-3); }
-
-/* Gender chips */
-.chip-row { display: flex; gap: var(--sp-2); flex: 1; justify-content: flex-end; }
+.field-input.avatar-hint { width: 44px; text-align: center; font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; }
+.chip-row { display: flex; gap: var(--sp-2); flex: 1; justify-content: flex-end; flex-wrap: wrap; }
 .chip {
   padding: 5px 14px; border-radius: var(--r-pill);
   font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
-  background: rgba(43,34,24,.05); border: 1px solid transparent;
-  color: var(--ink-3); cursor: pointer; transition: all var(--dur) var(--ease);
+  background: rgba(43,34,24,.05); border: 1px solid transparent; color: var(--ink-3);
+  cursor: pointer; transition: all var(--dur) var(--ease);
 }
 .chip.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
 
-/* Bio */
-.bio-wrap {
-  background: var(--glass-thick); backdrop-filter: var(--blur);
-  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
-  padding: var(--sp-3) var(--sp-4);
-}
-.bio-label { font: var(--text-caption); font-weight: 600; color: var(--ink-2); letter-spacing: 2px; margin-bottom: var(--sp-2); }
-.bio-input {
-  width: 100%; min-height: 60px; border: none; background: transparent;
-  resize: none; font: var(--text-body); color: var(--ink); outline: none;
-  font-family: inherit; letter-spacing: 1px; line-height: 1.7;
-}
-.bio-count { text-align: right; font-size: .5625rem; color: var(--ink-4); letter-spacing: .5px; margin-top: 4px; }
+.form-msg { font: var(--text-caption); letter-spacing: 1px; padding: 10px 12px; border-radius: var(--r); min-height: 1em; margin: 0 var(--sp-5); }
+.form-msg.error { color: var(--crimson); background: rgba(192,57,43,.08); }
+.form-msg.ok    { color: var(--sage-dark); background: rgba(125,154,108,.12); }
+.form-msg:empty { display: none; }
 
-/* Goal chips wide */
-.goal-row {
-  background: var(--glass-thick); backdrop-filter: var(--blur);
-  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
-  padding: var(--sp-3) var(--sp-4);
-}
-.goal-row-label { font: var(--text-caption); font-weight: 600; color: var(--ink-2); letter-spacing: 2px; margin-bottom: var(--sp-2); }
-.goal-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); }
-.goal-chip {
-  padding: 7px 0; border-radius: var(--r-sm); text-align: center;
-  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
-  background: rgba(43,34,24,.05); border: 1.5px solid transparent;
-  color: var(--ink-3); cursor: pointer; transition: all var(--dur) var(--ease);
-}
-.goal-chip.active { background: var(--saffron-pale); border-color: var(--saffron); color: var(--saffron-dark); }
-
-/* Bottom save */
 .edit-action { padding: var(--sp-4) var(--sp-5) var(--sp-5); }
+.btn[aria-busy="true"] { opacity: .6; pointer-events: none; }
 </style>
 <script src="../shared/lang.js"></script>
 <script src="../shared/status-bar.js"></script>
@@ -143,103 +82,186 @@ body { background: var(--bg-scene); min-height: 100vh; }
       <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
     </a>
     <span class="top-nav-title"><span class="sc">编辑资料</span><span class="tc">編輯資料</span></span>
-    <a class="save-link" href="profile.html">保存</a>
+    <span></span>
   </div>
 
-  <!-- Avatar -->
+  <!-- Avatar preview -->
   <div class="avatar-section">
-    <div class="avatar-big">
-      明
-      <div class="avatar-edit">
-        <svg width="14" height="14" fill="none" stroke="var(--saffron)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-          <path d="M14.7 6.3l3 3L7 20H4v-3z"/>
-          <path d="M13.3 7.7l3 3"/>
-        </svg>
-      </div>
-    </div>
-    <button class="change-avatar"><span class="sc">更换头像</span><span class="tc">更換頭像</span></button>
+    <div class="avatar-big" id="avatar-preview">明</div>
+    <p class="avatar-help"><span class="sc">头像显示姓名首字</span><span class="tc">頭像顯示姓名首字</span></p>
   </div>
 
-  <div class="form-groups">
+  <form id="edit-form" class="form-groups" novalidate>
 
-    <!-- Basic info -->
     <p class="form-section-title"><span class="sc">基础资料</span><span class="tc">基礎資料</span></p>
 
     <div class="field-row">
-      <label class="field-label">法名 / 姓名</label>
-      <input class="field-input" type="text" value="明心" data-ph-sc="请输入姓名" data-ph-tc="請輸入姓名">
+      <label class="field-label" for="fld-name"><span class="sc">法名 / 姓名</span><span class="tc">法名 ／ 姓名</span></label>
+      <input class="field-input" id="fld-name" name="dharmaName" type="text" maxlength="32"
+        data-ph-sc="请输入姓名或法名" data-ph-tc="請輸入姓名或法名" placeholder="请输入姓名或法名">
     </div>
 
     <div class="field-row">
-      <label class="field-label"><span class="sc">性别</span><span class="tc">性別</span></label>
-      <div class="chip-row">
-        <span class="chip">男</span>
-        <span class="chip active">女</span>
-        <span class="chip">保密</span>
-      </div>
-    </div>
-
-    <div class="field-row">
-      <label class="field-label">生日</label>
-      <input class="field-input" type="text" value="1992-08-15" data-ph-sc="YYYY-MM-DD" data-ph-tc="YYYY-MM-DD">
-    </div>
-
-    <div class="field-row">
-      <label class="field-label"><span class="sc">手机号</span><span class="tc">手機號</span></label>
-      <input class="field-input" type="text" value="138 ****  6688" readonly>
+      <label class="field-label" for="fld-avatar"><span class="sc">头像字</span><span class="tc">頭像字</span></label>
+      <input class="field-input avatar-hint" id="fld-avatar" name="avatar" type="text" maxlength="2"
+        data-ph-sc="取首字" data-ph-tc="取首字" placeholder="取首字">
     </div>
 
     <div class="field-row">
       <label class="field-label"><span class="sc">邮箱</span><span class="tc">郵箱</span></label>
-      <input class="field-input" type="email" value="" data-ph-sc="未绑定" data-ph-tc="未綁定">
+      <input class="field-input" id="fld-email" type="email" readonly>
     </div>
 
-    <!-- Bio -->
-    <div class="bio-wrap">
-      <p class="bio-label"><span class="sc">个人简介</span><span class="tc">個人簡介</span></p>
-      <textarea class="bio-input" maxlength="80"
-        data-ph-sc="写下您的学佛愿景或座右铭"
-        data-ph-tc="寫下您的學佛願景或座右銘"
-        placeholder="写下您的学佛愿景或座右铭">愿以此功德，庄严佛净土。</textarea>
-      <p class="bio-count">12 / 80</p>
-    </div>
-
-    <!-- Learning prefs -->
-    <p class="form-section-title"><span class="sc">学习偏好</span><span class="tc">學習偏好</span></p>
-
-    <div class="goal-row">
-      <p class="goal-row-label"><span class="sc">每日学习目标</span><span class="tc">每日學習目標</span></p>
-      <div class="goal-chips">
-        <span class="goal-chip">15 <span class="sc">分钟</span><span class="tc">分鐘</span></span>
-        <span class="goal-chip active">30 <span class="sc">分钟</span><span class="tc">分鐘</span></span>
-        <span class="goal-chip">45 <span class="sc">分钟</span><span class="tc">分鐘</span></span>
-        <span class="goal-chip">60 <span class="sc">分钟</span><span class="tc">分鐘</span></span>
-      </div>
-    </div>
-
-    <div class="field-row">
-      <label class="field-label"><span class="sc">提醒时间</span><span class="tc">提醒時間</span></label>
-      <input class="field-input" type="text" value="每日 20:30" data-ph-sc="未设置" data-ph-tc="未設置">
-    </div>
+    <p class="form-section-title"><span class="sc">偏好设置</span><span class="tc">偏好設置</span></p>
 
     <div class="field-row">
       <label class="field-label"><span class="sc">首选语言</span><span class="tc">首選語言</span></label>
-      <div class="chip-row">
-        <span class="chip active" onclick="if(document.documentElement.getAttribute('data-lang')!=='sc')toggleLang();this.classList.add('active');this.nextElementSibling.classList.remove('active');"><span class="sc">简体</span><span class="tc">简體</span></span>
-        <span class="chip" onclick="if(document.documentElement.getAttribute('data-lang')!=='tc')toggleLang();this.classList.add('active');this.previousElementSibling.classList.remove('active');"><span class="sc">繁体</span><span class="tc">繁體</span></span>
+      <div class="chip-row" id="locale-chips">
+        <span class="chip" data-locale="zh-Hans"><span class="sc">简体</span><span class="tc">简體</span></span>
+        <span class="chip" data-locale="zh-Hant"><span class="sc">繁体</span><span class="tc">繁體</span></span>
       </div>
     </div>
 
-  </div>
+    <div class="field-row">
+      <label class="field-label"><span class="sc">时区</span><span class="tc">時區</span></label>
+      <div class="chip-row" id="tz-chips">
+        <span class="chip" data-tz="Asia/Taipei">台北</span>
+        <span class="chip" data-tz="Asia/Shanghai"><span class="sc">上海</span><span class="tc">上海</span></span>
+        <span class="chip" data-tz="Asia/Hong_Kong"><span class="sc">香港</span><span class="tc">香港</span></span>
+        <span class="chip" data-tz="America/Los_Angeles">LA</span>
+        <span class="chip" data-tz="Europe/London">London</span>
+      </div>
+    </div>
+
+    <div class="form-msg" id="edit-msg" role="status"></div>
+
+  </form>
 
   <div class="edit-action">
-    <a href="profile.html" class="btn btn-primary btn-lg btn-full btn-pill">
-      保存修改
-    </a>
+    <button type="button" id="btn-save" class="btn btn-primary btn-lg btn-full btn-pill">
+      <span class="sc">保存修改</span><span class="tc">保存修改</span>
+    </button>
   </div>
 
 </div><!-- /phone -->
 </div><!-- /phone-wrap -->
 <script src="../shared/nav.js"></script>
+<script>
+// profile-edit · PATCH /api/auth/me
+// 可改：dharmaName / avatar / locale / timezone（与 User schema 一一对应）
+var sc = window.JX.sc;
+
+function pickInitial(name) {
+  var s = (name || '').trim();
+  for (var i = 0; i < s.length; i++) {
+    if (/\S/.test(s.charAt(i))) return s.charAt(i);
+  }
+  return '·';
+}
+
+function setMsg(kind, text) {
+  var el = document.getElementById('edit-msg');
+  el.className = 'form-msg ' + kind;
+  el.textContent = text || '';
+}
+
+function activateChip(containerId, attr, value) {
+  var nodes = document.querySelectorAll('#' + containerId + ' .chip');
+  nodes.forEach(function (c) { c.classList.toggle('active', c.getAttribute(attr) === value); });
+}
+function currentChip(containerId, attr) {
+  var active = document.querySelector('#' + containerId + ' .chip.active');
+  return active ? active.getAttribute(attr) : null;
+}
+
+function setupChipGroup(containerId, attr) {
+  document.getElementById(containerId).addEventListener('click', function (ev) {
+    var chip = ev.target.closest('.chip');
+    if (!chip) return;
+    activateChip(containerId, attr, chip.getAttribute(attr));
+  });
+}
+setupChipGroup('locale-chips', 'data-locale');
+setupChipGroup('tz-chips', 'data-tz');
+
+// 姓名变化时同步预览头像
+document.getElementById('fld-name').addEventListener('input', function (ev) {
+  var explicit = document.getElementById('fld-avatar').value.trim();
+  document.getElementById('avatar-preview').textContent = explicit || pickInitial(ev.target.value);
+});
+document.getElementById('fld-avatar').addEventListener('input', function (ev) {
+  var v = ev.target.value.trim();
+  document.getElementById('avatar-preview').textContent =
+    v || pickInitial(document.getElementById('fld-name').value);
+});
+
+function hydrate(user) {
+  document.getElementById('fld-name').value = user.dharmaName || '';
+  document.getElementById('fld-avatar').value = user.avatar || '';
+  document.getElementById('fld-email').value = user.email || '';
+  document.getElementById('avatar-preview').textContent =
+    user.avatar || pickInitial(user.dharmaName || user.email || '');
+  activateChip('locale-chips', 'data-locale', user.locale || 'zh-Hans');
+  activateChip('tz-chips', 'data-tz', user.timezone || 'Asia/Taipei');
+}
+
+function collectPatch(original) {
+  var patch = {};
+  var name = document.getElementById('fld-name').value.trim();
+  var avatar = document.getElementById('fld-avatar').value.trim();
+  var locale = currentChip('locale-chips', 'data-locale') || 'zh-Hans';
+  var tz = currentChip('tz-chips', 'data-tz') || 'Asia/Taipei';
+  if (name !== (original.dharmaName || ''))       patch.dharmaName = name;
+  if (avatar !== (original.avatar || ''))         patch.avatar = avatar;
+  if (locale !== (original.locale || 'zh-Hans'))  patch.locale = locale;
+  if (tz !== (original.timezone || 'Asia/Taipei')) patch.timezone = tz;
+  return patch;
+}
+
+// 语言立即切换：locale 选择与 data-lang 同步
+document.getElementById('locale-chips').addEventListener('click', function (ev) {
+  var chip = ev.target.closest('.chip');
+  if (!chip) return;
+  var want = chip.getAttribute('data-locale') === 'zh-Hant' ? 'tc' : 'sc';
+  if ((document.documentElement.getAttribute('data-lang') || 'sc') !== want) {
+    if (typeof window.toggleLang === 'function') window.toggleLang();
+  }
+});
+
+var original = null;
+function boot() {
+  original = window.JX.user || null;
+  if (original) {
+    hydrate(original);
+  } else {
+    window.JX.api.get('/api/auth/me').then(function (u) { original = u; hydrate(u); });
+  }
+}
+
+document.getElementById('btn-save').addEventListener('click', function () {
+  setMsg('', '');
+  if (!original) return;
+  var patch = collectPatch(original);
+  if (Object.keys(patch).length === 0) {
+    setMsg('ok', sc('未做修改', '未做修改'));
+    return;
+  }
+  var btn = this;
+  btn.setAttribute('aria-busy', 'true');
+  window.JX.api.patch('/api/auth/me', patch).then(function (updated) {
+    setMsg('ok', sc('已保存', '已保存'));
+    original = updated;
+    window.JX.user = updated;
+    setTimeout(function () { location.href = 'profile.html'; }, 500);
+  }).catch(function (err) {
+    setMsg('error', sc('保存失败：', '保存失敗：') + (err.message || err));
+  }).finally(function () {
+    btn.removeAttribute('aria-busy');
+  });
+});
+
+document.addEventListener('jx:user-ready', boot);
+if (window.JX && window.JX.user) boot();
+</script>
 </body>
 </html>

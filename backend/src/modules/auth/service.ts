@@ -102,6 +102,30 @@ export async function refreshSession(
   return issuePair(app, session.user, ctx);
 }
 
+export interface UpdateMeInput {
+  dharmaName?: string | null;
+  avatar?: string | null;
+  timezone?: string;
+  locale?: string;
+}
+
+export async function updateMe(
+  userId: string,
+  patch: UpdateMeInput,
+): Promise<PublicUser> {
+  const data: UpdateMeInput = {};
+  if (patch.dharmaName !== undefined) data.dharmaName = patch.dharmaName || null;
+  if (patch.avatar !== undefined)     data.avatar     = patch.avatar || null;
+  if (patch.timezone !== undefined)   data.timezone   = patch.timezone;
+  if (patch.locale !== undefined)     data.locale     = patch.locale;
+  if (Object.keys(data).length === 0) {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    return stripPassword(user);
+  }
+  const user = await prisma.user.update({ where: { id: userId }, data });
+  return stripPassword(user);
+}
+
 export async function logout(
   app: FastifyInstance,
   refreshToken: string,
