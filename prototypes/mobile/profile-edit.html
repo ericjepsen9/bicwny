@@ -1,0 +1,276 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 编辑资料</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+
+.status-bar { display: flex; justify-content: space-between; align-items: center; padding: var(--sp-3) var(--sp-5) var(--sp-2); }
+.status-right { display: flex; align-items: center; gap: var(--sp-2); }
+.lang-btn {
+  height: 22px; padding: 0 8px; border-radius: var(--r-pill);
+  font-size: .625rem; font-weight: 700; letter-spacing: 1px;
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  border: 1px solid var(--saffron-light); cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.lang-btn:hover { background: var(--saffron-light); }
+
+/* Top nav */
+.top-nav { display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-5) var(--sp-4); }
+.top-nav-title { font-family: var(--font-serif); font-weight: 700; color: var(--ink); font-size: 1.0625rem; letter-spacing: 4px; flex: 1; }
+.nav-btn {
+  width: 34px; height: 34px; border-radius: var(--r-sm);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center;
+  text-decoration: none; cursor: pointer;
+}
+.save-link {
+  font: var(--text-caption); font-weight: 700; letter-spacing: 2px;
+  color: var(--saffron-dark); padding: 6px 10px; cursor: pointer;
+}
+
+/* Avatar section */
+.avatar-section {
+  display: flex; flex-direction: column; align-items: center;
+  padding: var(--sp-4) 0 var(--sp-6); gap: var(--sp-3);
+}
+.avatar-big {
+  width: 84px; height: 84px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-family: var(--font-serif); font-weight: 700; font-size: 2rem;
+  letter-spacing: 2px; box-shadow: 0 8px 24px rgba(224,120,86,.3);
+  position: relative;
+}
+.avatar-edit {
+  position: absolute; bottom: 0; right: 0;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--saffron);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.change-avatar {
+  font: var(--text-caption); color: var(--saffron); letter-spacing: 2px;
+  cursor: pointer; background: none; border: none;
+}
+
+/* Form groups */
+.form-groups { padding: 0 var(--sp-5) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-4); }
+
+.form-section-title {
+  font-family: var(--font-serif); font-weight: 700; color: var(--ink-2);
+  font-size: .8125rem; letter-spacing: 3px;
+  padding: 0 2px; margin-top: var(--sp-2);
+}
+
+.field-row {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
+  padding: var(--sp-3) var(--sp-4);
+  display: flex; align-items: center; gap: var(--sp-3);
+}
+.field-label {
+  font: var(--text-caption); font-weight: 600; color: var(--ink-2);
+  letter-spacing: 2px; width: 70px; flex-shrink: 0;
+}
+.field-input {
+  flex: 1; border: none; background: transparent;
+  font: var(--text-body); color: var(--ink); text-align: right;
+  letter-spacing: 1px; outline: none; font-family: inherit;
+}
+.field-input::placeholder { color: var(--ink-4); }
+.field-input[readonly] { color: var(--ink-3); }
+
+/* Gender chips */
+.chip-row { display: flex; gap: var(--sp-2); flex: 1; justify-content: flex-end; }
+.chip {
+  padding: 5px 14px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent;
+  color: var(--ink-3); cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.chip.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
+
+/* Bio */
+.bio-wrap {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
+  padding: var(--sp-3) var(--sp-4);
+}
+.bio-label { font: var(--text-caption); font-weight: 600; color: var(--ink-2); letter-spacing: 2px; margin-bottom: var(--sp-2); }
+.bio-input {
+  width: 100%; min-height: 60px; border: none; background: transparent;
+  resize: none; font: var(--text-body); color: var(--ink); outline: none;
+  font-family: inherit; letter-spacing: 1px; line-height: 1.7;
+}
+.bio-count { text-align: right; font-size: .5625rem; color: var(--ink-4); letter-spacing: .5px; margin-top: 4px; }
+
+/* Goal chips wide */
+.goal-row {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
+  padding: var(--sp-3) var(--sp-4);
+}
+.goal-row-label { font: var(--text-caption); font-weight: 600; color: var(--ink-2); letter-spacing: 2px; margin-bottom: var(--sp-2); }
+.goal-chips { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); }
+.goal-chip {
+  padding: 7px 0; border-radius: var(--r-sm); text-align: center;
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1.5px solid transparent;
+  color: var(--ink-3); cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.goal-chip.active { background: var(--saffron-pale); border-color: var(--saffron); color: var(--saffron-dark); }
+
+/* Bottom save */
+.edit-action { padding: var(--sp-4) var(--sp-5) var(--sp-5); }
+</style>
+<script src="../shared/lang.js"></script>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <div class="status-bar">
+    <span class="time" style="font-weight:600;font-size:.75rem;color:var(--ink-2);">9:41</span>
+    <div class="status-right">
+      <button class="lang-btn" onclick="toggleLang()">繁</button>
+      <svg width="56" height="12" viewBox="0 0 56 12" fill="#2B2218">
+        <rect x="0" y="7" width="3" height="5" rx=".5" opacity=".3"/>
+        <rect x="5" y="5" width="3" height="7" rx=".5" opacity=".5"/>
+        <rect x="10" y="2" width="3" height="10" rx=".5" opacity=".7"/>
+        <rect x="15" y="0" width="3" height="12" rx=".5"/>
+        <circle cx="26" cy="11" r="1"/>
+        <path d="M23 8a5 5 0 0 1 6 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".6"/>
+        <path d="M20.5 5.5a9 9 0 0 1 11 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".3"/>
+        <rect x="36" y="2" width="16" height="8" rx="1.5" stroke="#2B2218" stroke-opacity=".35" stroke-width=".8" fill="none"/>
+        <rect x="37" y="3" width="11" height="6" rx="1" opacity=".85"/>
+        <path d="M53 5v2a1.5 1.5 0 0 0 0-2z" opacity=".4"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="top-nav">
+    <a class="nav-btn" href="profile.html">
+      <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <span class="top-nav-title"><span class="sc">编辑资料</span><span class="tc">編輯資料</span></span>
+    <a class="save-link" href="profile.html"><span class="sc">保存</span><span class="tc">保存</span></a>
+  </div>
+
+  <!-- Avatar -->
+  <div class="avatar-section">
+    <div class="avatar-big">
+      明
+      <div class="avatar-edit">
+        <svg width="14" height="14" fill="none" stroke="var(--saffron)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M14.7 6.3l3 3L7 20H4v-3z"/>
+          <path d="M13.3 7.7l3 3"/>
+        </svg>
+      </div>
+    </div>
+    <button class="change-avatar"><span class="sc">更换头像</span><span class="tc">更換頭像</span></button>
+  </div>
+
+  <div class="form-groups">
+
+    <!-- Basic info -->
+    <p class="form-section-title"><span class="sc">基础资料</span><span class="tc">基礎資料</span></p>
+
+    <div class="field-row">
+      <label class="field-label"><span class="sc">法名 / 姓名</span><span class="tc">法名 / 姓名</span></label>
+      <input class="field-input" type="text" value="明心" data-ph-sc="请输入姓名" data-ph-tc="請輸入姓名">
+    </div>
+
+    <div class="field-row">
+      <label class="field-label"><span class="sc">性别</span><span class="tc">性別</span></label>
+      <div class="chip-row">
+        <span class="chip"><span class="sc">男</span><span class="tc">男</span></span>
+        <span class="chip active"><span class="sc">女</span><span class="tc">女</span></span>
+        <span class="chip"><span class="sc">保密</span><span class="tc">保密</span></span>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label class="field-label"><span class="sc">生日</span><span class="tc">生日</span></label>
+      <input class="field-input" type="text" value="1992-08-15" data-ph-sc="YYYY-MM-DD" data-ph-tc="YYYY-MM-DD">
+    </div>
+
+    <div class="field-row">
+      <label class="field-label"><span class="sc">手机号</span><span class="tc">手機號</span></label>
+      <input class="field-input" type="text" value="138 ****  6688" readonly>
+    </div>
+
+    <div class="field-row">
+      <label class="field-label"><span class="sc">邮箱</span><span class="tc">郵箱</span></label>
+      <input class="field-input" type="email" value="" data-ph-sc="未绑定" data-ph-tc="未綁定">
+    </div>
+
+    <!-- Bio -->
+    <div class="bio-wrap">
+      <p class="bio-label"><span class="sc">个人简介</span><span class="tc">個人簡介</span></p>
+      <textarea class="bio-input" maxlength="80"
+        data-ph-sc="写下您的学佛愿景或座右铭"
+        data-ph-tc="寫下您的學佛願景或座右銘"
+        placeholder="写下您的学佛愿景或座右铭">愿以此功德，庄严佛净土。</textarea>
+      <p class="bio-count">12 / 80</p>
+    </div>
+
+    <!-- Learning prefs -->
+    <p class="form-section-title"><span class="sc">学习偏好</span><span class="tc">學習偏好</span></p>
+
+    <div class="goal-row">
+      <p class="goal-row-label"><span class="sc">每日学习目标</span><span class="tc">每日學習目標</span></p>
+      <div class="goal-chips">
+        <span class="goal-chip">15 <span class="sc">分钟</span><span class="tc">分鐘</span></span>
+        <span class="goal-chip active">30 <span class="sc">分钟</span><span class="tc">分鐘</span></span>
+        <span class="goal-chip">45 <span class="sc">分钟</span><span class="tc">分鐘</span></span>
+        <span class="goal-chip">60 <span class="sc">分钟</span><span class="tc">分鐘</span></span>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <label class="field-label"><span class="sc">提醒时间</span><span class="tc">提醒時間</span></label>
+      <input class="field-input" type="text" value="每日 20:30" data-ph-sc="未设置" data-ph-tc="未設置">
+    </div>
+
+    <div class="field-row">
+      <label class="field-label"><span class="sc">首选语言</span><span class="tc">首選語言</span></label>
+      <div class="chip-row">
+        <span class="chip active" onclick="if(document.documentElement.getAttribute('data-lang')!=='sc')toggleLang();this.classList.add('active');this.nextElementSibling.classList.remove('active');"><span class="sc">简体</span><span class="tc">简體</span></span>
+        <span class="chip" onclick="if(document.documentElement.getAttribute('data-lang')!=='tc')toggleLang();this.classList.add('active');this.previousElementSibling.classList.remove('active');"><span class="sc">繁体</span><span class="tc">繁體</span></span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="edit-action">
+    <a href="profile.html" class="btn btn-primary btn-lg btn-full btn-pill">
+      <span class="sc">保存修改</span><span class="tc">保存修改</span>
+    </a>
+  </div>
+
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+<script src="../shared/nav.js"></script>
+</body>
+</html>
