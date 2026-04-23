@@ -35,10 +35,16 @@ async function requireCoachOnClass(
   await assertIsCoachOfClass(requireUserId(req), classId);
 }
 
+const TAGS = ['Coach'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const coachStatsRoutes: FastifyPluginAsync = async (app) => {
   app.get(
     '/api/coach/classes/:id/stats',
-    { preHandler: coachGuard },
+    {
+      preHandler: coachGuard,
+      schema: { tags: TAGS, summary: '班级聚合统计（成员 / 活跃 / 正确率 / 本周答题）', security: SEC },
+    },
     async (req) => {
       const pp = classIdParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');
@@ -53,7 +59,10 @@ export const coachStatsRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     '/api/coach/classes/:id/students/:uid',
-    { preHandler: coachGuard },
+    {
+      preHandler: coachGuard,
+      schema: { tags: TAGS, summary: '单学员学修详情（本班 coach 限访）', security: SEC },
+    },
     async (req) => {
       const pp = classStudentParams.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');

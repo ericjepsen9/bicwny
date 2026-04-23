@@ -26,8 +26,14 @@ async function requireClassCoachAccess(
   return userId;
 }
 
+const TAGS = ['Coach'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const coachClassRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/api/coach/classes', { preHandler: coachGuard }, async (req) => {
+  app.get('/api/coach/classes', {
+    preHandler: coachGuard,
+    schema: { tags: TAGS, summary: '我负责的班级', security: SEC },
+  }, async (req) => {
     const userId = requireUserId(req);
     const items = await listUserClasses(userId, 'coach');
     return { data: items };
@@ -35,7 +41,10 @@ export const coachClassRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     '/api/coach/classes/:id/members',
-    { preHandler: coachGuard },
+    {
+      preHandler: coachGuard,
+      schema: { tags: TAGS, summary: '班级成员（仅本班 coach / admin）', security: SEC },
+    },
     async (req) => {
       const parsed = idParam.safeParse(req.params);
       if (!parsed.success) throw BadRequest('路径参数不合法');

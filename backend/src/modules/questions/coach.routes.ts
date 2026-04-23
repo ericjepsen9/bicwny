@@ -78,10 +78,16 @@ const listQuery = z.object({
 
 const idParam = z.object({ id: z.string().min(1) });
 
+const TAGS = ['Coach'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const coachQuestionRoutes: FastifyPluginAsync = async (app) => {
   app.post(
     '/api/coach/questions',
-    { preHandler: coachGuard },
+    {
+      preHandler: coachGuard,
+      schema: { tags: TAGS, summary: '新建题目（public 进 pending / class_private 立即生效）', security: SEC },
+    },
     async (req, reply) => {
       const parsed = createBody.safeParse(req.body);
       if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
@@ -98,7 +104,10 @@ export const coachQuestionRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.get('/api/coach/questions', { preHandler: coachGuard }, async (req) => {
+  app.get('/api/coach/questions', {
+    preHandler: coachGuard,
+    schema: { tags: TAGS, summary: '我创建的题目列表（?classId 过滤）', security: SEC },
+  }, async (req) => {
     const parsed = listQuery.safeParse(req.query);
     if (!parsed.success) throw BadRequest('查询参数不合法');
     const userId = requireUserId(req);
@@ -108,7 +117,10 @@ export const coachQuestionRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     '/api/coach/questions/:id',
-    { preHandler: coachGuard },
+    {
+      preHandler: coachGuard,
+      schema: { tags: TAGS, summary: '题目详情（仅本人 / admin 超权）', security: SEC },
+    },
     async (req) => {
       const parsed = idParam.safeParse(req.params);
       if (!parsed.success) throw BadRequest('路径参数不合法');
@@ -126,7 +138,10 @@ export const coachQuestionRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch(
     '/api/coach/questions/:id',
-    { preHandler: coachGuard },
+    {
+      preHandler: coachGuard,
+      schema: { tags: TAGS, summary: '编辑题目（coach 改 public 题自动回 pending 重审）', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');
@@ -141,7 +156,10 @@ export const coachQuestionRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete(
     '/api/coach/questions/:id',
-    { preHandler: coachGuard },
+    {
+      preHandler: coachGuard,
+      schema: { tags: TAGS, summary: '删除题目（有答题记录或 approved public 禁删）', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');
@@ -154,7 +172,10 @@ export const coachQuestionRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     '/api/coach/questions/batch',
-    { preHandler: coachGuard },
+    {
+      preHandler: coachGuard,
+      schema: { tags: TAGS, summary: '批量导入题目（strict 原子 / partial 逐条，≤ 200 条/批）', security: SEC },
+    },
     async (req, reply) => {
       const parsed = batchBody.safeParse(req.body);
       if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
@@ -173,7 +194,10 @@ export const coachQuestionRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     '/api/coach/questions/generate',
-    { preHandler: coachGuard },
+    {
+      preHandler: coachGuard,
+      schema: { tags: TAGS, summary: 'LLM 辅助造题（passage + type + count → 预览 + 落库 pending）', security: SEC },
+    },
     async (req, reply) => {
       const parsed = generateBody.safeParse(req.body);
       if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
