@@ -12,6 +12,7 @@ import { requireUserId } from '../../lib/auth.js';
 import { BadRequest, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import {
+  changePassword,
   loginUser,
   logout,
   refreshSession,
@@ -33,6 +34,16 @@ const loginBody = z.object({
 const refreshBody = z.object({
   refreshToken: z.string().min(1),
 });
+
+const changePasswordBody = z
+  .object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(6).max(128),
+  })
+  .refine((p) => p.currentPassword !== p.newPassword, {
+    message: '新密码与旧密码不能相同',
+    path: ['newPassword'],
+  });
 
 const updateMeBody = z
   .object({
@@ -113,5 +124,14 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
     const user = await updateMe(userId, parsed.data);
     return { data: user };
+  });
+
+  // 改密后会吊销所有 session，前端应立即清 token 跳登录
+  app.post('/api/auth/change-password', async (req) => {
+    const userId = requireUserId(req);
+    const parsed = changePasswordBody.safeParse(req.body);
+    if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
+    await changePassword(userId, parsed.data.currentPassword, parsed.data.newPassword);
+    return { data: { ok: true } };
   });
 };

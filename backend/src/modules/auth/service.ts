@@ -2,7 +2,7 @@
 // 内部工具（issuePair / newSessionId / stripPassword / normalizeEmail）见 ./service.helpers.ts
 import type { UserRole } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
-import { Conflict, Unauthorized } from '../../lib/errors.js';
+import { BadRequest, Conflict, Unauthorized } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { hashPassword, verifyPassword } from './hash.js';
 import {
@@ -124,6 +124,30 @@ export async function updateMe(
   }
   const user = await prisma.user.update({ where: { id: userId }, data });
   return stripPassword(user);
+}
+
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  if (currentPassword === newPassword) {
+    throw BadRequest('新密码与旧密码相同');
+  }
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.passwordHash) throw Unauthorized('账户异常');
+  if (!(await verifyPassword(currentPassword, user.passwordHash))) {
+    throw Unauthorized('当前密码不正确');
+  }
+  const hash = await hashPassword(newPassword);
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { passwordHash: hash } }),
+    // 改密后吊销全部现存 session —— 强制所有设备重登
+    prisma.authSession.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  ]);
 }
 
 export async function logout(
