@@ -186,6 +186,13 @@ enum QuestionType {
   open
   sort
   match
+  // v2.0 题型：前端尚未上线，后端 schema + 评分就位
+  flip     // 速记卡片 · 无对错，用户自评驱动 SM-2
+  image    // 图片辨识 · 基于 imageUrl 的单选
+  listen   // 听颂选答 · 基于 audioUrl 的单选
+  flow     // 流程拖拽 · slot 坐标匹配
+  guided   // 引导分步 · 多步 AI 评分
+  scenario // 情境判断 · 多正确选项且每选项带 reason
 }
 
 enum Visibility {
@@ -215,13 +222,23 @@ model Question {
   source       String
 
   // 按 type 分的 payload
-  //   single: { options: [{text,correct}] }
-  //   fill:   { verseLines: string[], correctWord, options: string[], verseSource }
-  //   multi:  { options: [{text,correct}], scoringMode: "strict"|"partial" }
-  //   open:   { referenceAnswer, keyPoints:[{point,signals[]}], minLength, maxLength,
-  //             gradingHint?, strictMode? }
-  //   sort:   { items: [{text,order}] }
-  //   match:  { left: [{id,text}], right: [{id,text,match}] }
+  //   single:   { options: [{text,correct}] }
+  //   fill:     { verseLines: string[], correctWord, options: string[], verseSource }
+  //   multi:    { options: [{text,correct}], scoringMode: "strict"|"partial" }
+  //   open:     { referenceAnswer, keyPoints:[{point,signals[]}], minLength, maxLength,
+  //               gradingHint?, strictMode? }
+  //   sort:     { items: [{text,order}] }
+  //   match:    { left: [{id,text}], right: [{id,text,match}] }
+  //   ── v2.0 ──
+  //   flip:     { front:{text,subText?}, back:{text,example?}, noScoring:true }
+  //   image:    { imageUrl, imageCaption?, imageCredits?, options:[{text,correct}] }
+  //   listen:   { audioUrl, audioDuration, audioTranscript?, maxReplay?,
+  //               options:[{text,correct}] }
+  //   flow:     { canvas:{width,height,backgroundImage?},
+  //               slots:[{id,x,y,correctItem}], items:[{text}] }
+  //   guided:   { finalQuestion, steps:[{stepNum,prompt,hint?,keyPoints:string[]}] }
+  //   scenario: { scenario, scenarioImage?,
+  //               options:[{text,correct,reason}] }
   payload Json
 
   visibility    Visibility   @default(public)

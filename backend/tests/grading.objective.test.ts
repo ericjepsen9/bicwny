@@ -96,3 +96,87 @@ describe('gradeObjective · match', () => {
     expect(gradeObjective(q, { pairs: { L1: 'R2', L2: 'R1' } }).score).toBe(0);
   });
 });
+
+// ═══════════════════ v2.0 新增 ═══════════════════
+
+describe('gradeObjective · image', () => {
+  const q = makeQ('image', {
+    imageUrl: 'https://cdn/x.jpg',
+    options: [
+      { text: '观音', correct: true },
+      { text: '文殊', correct: false },
+    ],
+  });
+  it('选对像 single', () => {
+    expect(gradeObjective(q, { selectedIndex: 0 })).toMatchObject({ isCorrect: true, score: 100 });
+  });
+  it('选错', () => {
+    expect(gradeObjective(q, { selectedIndex: 1 }).isCorrect).toBe(false);
+  });
+});
+
+describe('gradeObjective · listen', () => {
+  const q = makeQ('listen', {
+    audioUrl: 'https://cdn/y.mp3',
+    options: [
+      { text: 'A', correct: false },
+      { text: 'B', correct: true },
+    ],
+  });
+  it('音频选对像 single', () => {
+    expect(gradeObjective(q, { selectedIndex: 1 }).score).toBe(100);
+  });
+});
+
+describe('gradeObjective · scenario', () => {
+  const q = makeQ('scenario', {
+    scenario: '受辱时对治',
+    options: [
+      { text: '安忍',  correct: true,  reason: 'r1' },
+      { text: '反驳',  correct: false, reason: 'r2' },
+      { text: '走开',  correct: false, reason: 'r3' },
+      { text: '慈悲',  correct: true,  reason: 'r4' },
+    ],
+  });
+  it('全选对 → 100 且 isCorrect', () => {
+    expect(gradeObjective(q, { selectedIndexes: [0, 3] })).toMatchObject({ isCorrect: true, score: 100 });
+  });
+  it('漏选 → 部分分 isCorrect=false', () => {
+    const r = gradeObjective(q, { selectedIndexes: [0] });
+    expect(r.isCorrect).toBe(false);
+    expect(r.score).toBe(50);
+  });
+  it('误选 → 负分归零', () => {
+    const r = gradeObjective(q, { selectedIndexes: [1, 2] });
+    expect(r.isCorrect).toBe(false);
+    expect(r.score).toBe(0);
+  });
+});
+
+describe('gradeObjective · flow', () => {
+  const q = makeQ('flow', {
+    canvas: { width: 400, height: 400 },
+    slots: [
+      { id: 's1', x: 100, y: 50, correctItem: '无明' },
+      { id: 's2', x: 200, y: 50, correctItem: '行' },
+      { id: 's3', x: 300, y: 50, correctItem: '识' },
+    ],
+    items: [{ text: '无明' }, { text: '行' }, { text: '识' }, { text: '名色' }],
+  });
+  it('全对 → 100', () => {
+    const r = gradeObjective(q, {
+      placements: { s1: '无明', s2: '行', s3: '识' },
+    });
+    expect(r).toMatchObject({ isCorrect: true, score: 100 });
+  });
+  it('部分对 → 按比例给分', () => {
+    const r = gradeObjective(q, {
+      placements: { s1: '无明', s2: '识', s3: '行' },
+    });
+    expect(r.score).toBe(33);
+    expect(r.isCorrect).toBe(false);
+  });
+  it('空作答 → 0', () => {
+    expect(gradeObjective(q, { placements: {} }).score).toBe(0);
+  });
+});

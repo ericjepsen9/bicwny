@@ -15,7 +15,11 @@ const createBody = z.object({
   courseId: z.string().min(1),
   chapterId: z.string().min(1),
   lessonId: z.string().min(1),
-  type: z.enum(['single', 'fill', 'multi', 'open', 'sort', 'match']),
+  type: z.enum([
+    'single', 'fill', 'multi', 'open', 'sort', 'match',
+    // v2.0：前端尚未上线，后端允许创建
+    'flip', 'image', 'listen', 'flow', 'guided', 'scenario',
+  ]),
   visibility: z.enum(['class_private', 'public']),
   ownerClassId: z.string().optional(),
   questionText: z.string().min(1),

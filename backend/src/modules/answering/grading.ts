@@ -1,10 +1,15 @@
 // 评分分发器
-// 客观题：gradeObjective（同步）
+// 客观题：gradeObjective（同步）含 single/fill/multi/sort/match/image/listen/scenario/flow
 // 开放题：默认 gradeMockOpen；opts.useLlm=true 走 gateway.chat('open_grading')
 //         LLM 解析失败或调用失败，自动降级到 mock，保证答题流不中断。
+// v2.0：
+//   flip   → gradeFlip（自评 → SM-2 quality）
+//   guided → gradeMockGuided（多步 keyPoint 命中；LLM 模式 TODO）
 import type { Question } from '@prisma/client';
 import { chat, type ChatContext } from '../llm/gateway.js';
 import { loadPromptTemplate, renderPrompt } from '../llm/prompt.js';
+import { gradeFlip } from './grading.flip.js';
+import { gradeMockGuided } from './grading.mockGuided.js';
 import { gradeMockOpen } from './grading.mockOpen.js';
 import { gradeObjective } from './grading.objective.js';
 
@@ -14,7 +19,16 @@ export interface AnswerGrade {
   feedback?: string;
   covered?: string[];
   missing?: string[];
-  source: 'objective' | 'mock_open' | 'llm_open';
+  source:
+    | 'objective'
+    | 'mock_open'
+    | 'llm_open'
+    | 'flip_self'
+    | 'mock_guided';
+  /** flip 题返回的 SM-2 quality 0..5 */
+  sm2Quality?: number;
+  /** guided 题每步详情 */
+  perStep?: Array<{ stepNum: number; score: number; hits: string[]; missed: string[] }>;
   /** 仅 llm_open 保留，供 Admin 调试 */
   raw?: unknown;
 }
@@ -29,11 +43,37 @@ export async function gradeAnswer(
   answer: unknown,
   opts: GradeOptions = {},
 ): Promise<AnswerGrade> {
+  // v2.0 flip：自评 → SM-2 quality
+  if (q.type === 'flip') {
+    const r = gradeFlip(q, answer);
+    return {
+      isCorrect: r.isCorrect,
+      score: r.score,
+      feedback: r.feedback,
+      sm2Quality: r.sm2Quality,
+      source: 'flip_self',
+    };
+  }
+
+  // v2.0 guided：多步骤 mock（未来可接 LLM per-step，同 open 降级模式）
+  if (q.type === 'guided') {
+    const r = gradeMockGuided(q, answer);
+    return {
+      isCorrect: r.isCorrect,
+      score: r.score,
+      feedback: r.feedback,
+      perStep: r.perStep,
+      source: 'mock_guided',
+    };
+  }
+
+  // 客观题（含 v2.0 的 image / listen / scenario / flow）
   if (q.type !== 'open') {
     const r = gradeObjective(q, answer);
     return { ...r, source: 'objective' };
   }
 
+  // 开放题
   if (opts.useLlm) {
     try {
       return await gradeOpenWithLlm(q, answer, opts.llmCtx ?? {});

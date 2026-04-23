@@ -61,6 +61,62 @@ function stripAnswers(type: QuestionType, payload: unknown): P {
       };
     case 'open':
       return { minLength: p.minLength, maxLength: p.maxLength };
+    // ── v2.0 ──
+    case 'image':
+      return {
+        imageUrl: p.imageUrl,
+        imageCaption: p.imageCaption,
+        imageCredits: p.imageCredits,
+        options: ((p.options ?? []) as Array<{ text: string }>).map((o) => ({ text: o.text })),
+      };
+    case 'listen':
+      return {
+        audioUrl: p.audioUrl,
+        audioDuration: p.audioDuration,
+        // audioTranscript 可选择剥除：背听不给文稿
+        ...(p.audioTranscript ? { audioTranscript: p.audioTranscript } : {}),
+        ...(p.maxReplay !== undefined ? { maxReplay: p.maxReplay } : {}),
+        options: ((p.options ?? []) as Array<{ text: string }>).map((o) => ({ text: o.text })),
+      };
+    case 'scenario':
+      // reason 字段留到答题后由 /answer 返回作为反馈，答前只给选项文本
+      return {
+        scenario: p.scenario,
+        scenarioImage: p.scenarioImage,
+        options: ((p.options ?? []) as Array<{ text: string }>).map((o) => ({ text: o.text })),
+      };
+    case 'flow':
+      // 保留 canvas + slots 的坐标（答题必需），剥除 correctItem
+      return {
+        canvas: p.canvas,
+        slots: ((p.slots ?? []) as Array<{ id: string; x: number; y: number }>).map((s) => ({
+          id: s.id,
+          x: s.x,
+          y: s.y,
+        })),
+        items: p.items,
+      };
+    case 'guided':
+      // 保留步骤提示，剥除每步的 keyPoints（评分用）
+      return {
+        finalQuestion: p.finalQuestion,
+        steps: ((p.steps ?? []) as Array<{
+          stepNum: number;
+          prompt: string;
+          hint?: string;
+        }>).map((s) => ({
+          stepNum: s.stepNum,
+          prompt: s.prompt,
+          ...(s.hint ? { hint: s.hint } : {}),
+        })),
+      };
+    case 'flip':
+      // 正反面都要暴露（用户翻转看答案是正常流程），但没有"正确选项"可剥
+      return {
+        front: p.front,
+        back: p.back,
+        noScoring: true,
+      };
     default:
       return {};
   }

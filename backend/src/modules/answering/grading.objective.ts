@@ -26,6 +26,15 @@ export function gradeObjective(q: Question, answer: unknown): GradeResult {
       return gradeSort(payload, answer);
     case 'match':
       return gradeMatch(payload, answer);
+    // v2.0 ──────────────────────────────────────────
+    case 'image':
+      return gradeSingle(payload, answer); // 图像选择：语义等同 single
+    case 'listen':
+      return gradeSingle(payload, answer); // 音频选择：语义等同 single
+    case 'scenario':
+      return gradeScenario(payload, answer);
+    case 'flow':
+      return gradeFlow(payload, answer);
     default:
       throw BadRequest(`gradeObjective 不支持题型: ${q.type}`);
   }
@@ -135,4 +144,69 @@ function gradeMatch(p: P, a: unknown): GradeResult {
   }
   const score = Math.round((hits / total) * 100);
   return { isCorrect: score === 100, score };
+}
+
+// ───── scenario (v2.0) ─────
+// 语义与 multi 近似（可多正确），但每个选项带 reason 供前端展开解释。
+// payload: { scenario, options: [{text, correct, reason}] }
+// answer:  { selectedIndexes: number[] }
+// 评分：严格模式（所选集合必须等于正确集合才满分，否则按命中比例给部分分）
+function gradeScenario(p: P, a: unknown): GradeResult {
+  const options = (p.options ?? []) as Option[];
+  const selected = new Set(
+    ((a as { selectedIndexes?: number[] })?.selectedIndexes ?? []).filter(
+      (i) => typeof i === 'number',
+    ),
+  );
+  const correctSet = new Set(
+    options.map((o, i) => (o.correct ? i : -1)).filter((i) => i >= 0),
+  );
+  if (correctSet.size === 0) return { isCorrect: false, score: 0 };
+
+  // 部分得分：命中 +1，误选 -1，归一到 0..100；全等才 isCorrect
+  let points = 0;
+  for (let i = 0; i < options.length; i++) {
+    const hit = selected.has(i);
+    const expected = correctSet.has(i);
+    if (expected && hit) points++;
+    else if (!expected && hit) points--;
+  }
+  const score = Math.max(0, Math.round((points / correctSet.size) * 100));
+  const exact =
+    selected.size === correctSet.size &&
+    [...selected].every((i) => correctSet.has(i));
+  return {
+    isCorrect: exact,
+    score,
+    feedback: exact ? undefined : `部分正确：${score} / 100`,
+  };
+}
+
+// ───── flow (v2.0) ─────
+// payload: {
+//   canvas:{width,height,backgroundImage?},
+//   slots:[{id,x,y,correctItem}],
+//   items:[{text}]
+// }
+// answer:  { placements: Record<slotId, itemText> }
+// 评分：每个 slot 放对 +1，全对满分；顺序无关（slot 位置是 payload 定的）
+interface FlowSlot {
+  id: string;
+  correctItem: string;
+}
+function gradeFlow(p: P, a: unknown): GradeResult {
+  const slots = (p.slots ?? []) as FlowSlot[];
+  const placements = ((a as { placements?: Record<string, string> })?.placements ?? {});
+  const total = slots.length;
+  if (total === 0) return { isCorrect: false, score: 0 };
+  let hits = 0;
+  for (const s of slots) {
+    if (placements[s.id] === s.correctItem) hits++;
+  }
+  const score = Math.round((hits / total) * 100);
+  return {
+    isCorrect: score === 100,
+    score,
+    feedback: score === 100 ? undefined : `放置正确：${hits} / ${total}`,
+  };
 }
