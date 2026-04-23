@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 答题流</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background: linear-gradient(160deg, #EDE0D4 0%, #D8C4AE 100%); min-height: 100vh; }
+.row {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  padding: 40px 20px;
+  flex-wrap: wrap;
+}
+.phone-caption {
+  text-align: center;
+  font: var(--text-meta);
+  color: var(--ink-2);
+  letter-spacing: 2px;
+  margin-bottom: var(--sp-3);
+}
+
+/* ── Quiz page layout ─────────────────────── */
+.quiz-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-5) var(--sp-4);
+}
+.back-btn {
+  width: 34px; height: 34px;
+  border-radius: var(--r-sm);
+  background: var(--glass-thick);
+  border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.quiz-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--saffron-light);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.quiz-progress-bar .fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--saffron), var(--saffron-dark));
+  border-radius: var(--r-pill);
+}
+.quiz-count {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--ink);
+  font-size: .875rem;
+  letter-spacing: 1px;
+  min-width: 38px;
+  text-align: right;
+}
+
+.quiz-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 var(--sp-5);
+  margin-bottom: var(--sp-3);
+}
+
+.question-card {
+  margin: 0 var(--sp-5);
+  padding: var(--sp-5);
+  position: relative;
+}
+.question-chapter {
+  font: var(--text-caption);
+  color: var(--ink-3);
+  letter-spacing: 2px;
+  margin-bottom: var(--sp-2);
+}
+.question-stem {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--ink);
+  letter-spacing: 2px;
+  line-height: 1.8;
+  margin-bottom: var(--sp-3);
+}
+.question-hint {
+  font: var(--text-body-serif);
+  color: var(--ink-2);
+  letter-spacing: 1px;
+  line-height: 1.7;
+  padding: var(--sp-3);
+  background: rgba(255,255,255,.55);
+  border-radius: var(--r-sm);
+  border-left: 2px solid var(--saffron);
+}
+
+.options {
+  margin: var(--sp-4) var(--sp-5) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.option-text {
+  font: var(--text-body);
+  color: var(--ink);
+  letter-spacing: 1px;
+  line-height: 1.5;
+  flex: 1;
+}
+.option.correct .option-text,
+.option.wrong   .option-text { font-weight: 600; }
+.option-icon { flex-shrink: 0; }
+
+.bottom-action {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: var(--sp-4) var(--sp-5) var(--sp-8);
+  background: linear-gradient(to top, rgba(255,245,235,.95) 50%, rgba(255,245,235,0) 100%);
+}
+
+/* Feedback state variants */
+.feedback-badge {
+  position: absolute;
+  top: -20px; right: 20px;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  font: var(--text-meta);
+  font-weight: 700;
+  letter-spacing: 2px;
+  box-shadow: var(--shadow-2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.feedback-badge.correct { background: var(--sage-dark); color: #FFF; }
+.feedback-badge.wrong   { background: var(--crimson); color: #FFF; }
+
+.explanation {
+  margin: var(--sp-4) var(--sp-5) 0;
+  padding: var(--sp-4);
+  background: var(--gold-pale);
+  border: 1px solid var(--gold-light);
+  border-radius: var(--r-lg);
+  display: flex;
+  gap: var(--sp-3);
+}
+.explanation-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--r-sm);
+  background: var(--gold-light);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.explanation-body { flex: 1; }
+.explanation-title {
+  font: var(--text-meta);
+  font-weight: 700;
+  color: var(--gold-dark);
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+.explanation-text {
+  font: var(--text-body-serif);
+  color: var(--ink-2);
+  letter-spacing: 1px;
+  line-height: 1.7;
+}
+
+.sm2-row {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.sm2-btn {
+  flex: 1;
+  padding: 10px 8px;
+  border-radius: var(--r-sm);
+  font: var(--text-caption);
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-align: center;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.6);
+  color: var(--ink-2);
+}
+.sm2-btn.easy   { border-color: var(--sage);    color: var(--sage-dark); background: var(--sage-light); }
+.sm2-btn.hard   { border-color: var(--crimson); color: var(--crimson); background: var(--crimson-light); }
+
+/* Misc */
+.chip-heart {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--text-caption);
+  font-weight: 600;
+  color: var(--crimson);
+  letter-spacing: 1px;
+}
+</style>
+</head>
+<body>
+
+<div class="row">
+
+  <!-- ════════ State 1: In-progress ════════ -->
+  <div>
+  <p class="phone-caption">选择题 · 作答中</p>
+  <div class="phone">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons">
+        <svg width="16" height="10" viewBox="0 0 16 10" fill="none"><rect x="0" y="6" width="3" height="4" rx="1" fill="#2B2218" opacity=".3"/><rect x="4.5" y="4" width="3" height="6" rx="1" fill="#2B2218" opacity=".5"/><rect x="9" y="2" width="3" height="8" rx="1" fill="#2B2218" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="10" rx="1" fill="#2B2218"/></svg>
+        <svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x=".5" y=".5" width="18" height="10" rx="2.5" stroke="#2B2218" stroke-opacity=".35"/><rect x="2" y="2" width="13" height="7" rx="1.5" fill="#2B2218" opacity=".85"/></svg>
+      </div>
+    </div>
+
+    <div class="quiz-top">
+      <button class="back-btn">
+        <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="quiz-progress-bar"><div class="fill" style="width:37%;"></div></div>
+      <span class="quiz-count">3 / 8</span>
+    </div>
+
+    <div class="quiz-meta-row">
+      <span class="tag tag-saffron">选择题</span>
+      <span class="chip-heart">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        × 3
+      </span>
+    </div>
+
+    <div class="question-card glass-card-thick">
+      <p class="question-chapter">《心经》· 第三章</p>
+      <p class="question-stem">「色即是空，空即是色」——<br>此处「色」最准确的含义是？</p>
+      <p class="question-hint">提示：此处「色」非颜色，指的是 rūpa，泛指一切有形的物质现象。</p>
+    </div>
+
+    <div class="options">
+      <div class="option">
+        <div class="option-letter">A</div>
+        <span class="option-text">五彩缤纷的色彩</span>
+      </div>
+      <div class="option selected">
+        <div class="option-letter">B</div>
+        <span class="option-text">一切物质现象与形体</span>
+      </div>
+      <div class="option">
+        <div class="option-letter">C</div>
+        <span class="option-text">世俗的欲望与贪恋</span>
+      </div>
+      <div class="option">
+        <div class="option-letter">D</div>
+        <span class="option-text">感官带来的感受</span>
+      </div>
+    </div>
+
+    <div class="bottom-action">
+      <button class="btn btn-primary btn-lg btn-full">确定答案</button>
+    </div>
+  </div>
+  </div>
+
+  <!-- ════════ State 2: Correct ════════ -->
+  <div>
+  <p class="phone-caption">✓ 答对反馈</p>
+  <div class="phone">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons">
+        <svg width="16" height="10" viewBox="0 0 16 10" fill="none"><rect x="0" y="6" width="3" height="4" rx="1" fill="#2B2218" opacity=".3"/><rect x="4.5" y="4" width="3" height="6" rx="1" fill="#2B2218" opacity=".5"/><rect x="9" y="2" width="3" height="8" rx="1" fill="#2B2218" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="10" rx="1" fill="#2B2218"/></svg>
+        <svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x=".5" y=".5" width="18" height="10" rx="2.5" stroke="#2B2218" stroke-opacity=".35"/><rect x="2" y="2" width="13" height="7" rx="1.5" fill="#2B2218" opacity=".85"/></svg>
+      </div>
+    </div>
+
+    <div class="quiz-top">
+      <button class="back-btn">
+        <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="quiz-progress-bar"><div class="fill" style="width:37%;"></div></div>
+      <span class="quiz-count">3 / 8</span>
+    </div>
+
+    <div class="quiz-meta-row">
+      <span class="tag tag-sage">✓ 答对</span>
+      <span class="chip-heart">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        × 3
+      </span>
+    </div>
+
+    <div class="question-card glass-card-thick">
+      <div class="feedback-badge correct">
+        <svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        正确
+      </div>
+      <p class="question-chapter">《心经》· 第三章</p>
+      <p class="question-stem" style="font-size:.9375rem;">「色即是空」——「色」的含义</p>
+    </div>
+
+    <div class="options">
+      <div class="option" style="opacity:.55;">
+        <div class="option-letter">A</div>
+        <span class="option-text">五彩缤纷的色彩</span>
+      </div>
+      <div class="option correct">
+        <div class="option-letter">B</div>
+        <span class="option-text">一切物质现象与形体</span>
+        <svg class="option-icon" width="20" height="20" fill="none" stroke="#7D9A6C" stroke-width="2.4" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="option" style="opacity:.55;">
+        <div class="option-letter">C</div>
+        <span class="option-text">世俗的欲望与贪恋</span>
+      </div>
+    </div>
+
+    <div class="explanation">
+      <div class="explanation-icon">
+        <svg width="16" height="16" fill="none" stroke="#B88956" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </div>
+      <div class="explanation-body">
+        <p class="explanation-title">释义</p>
+        <p class="explanation-text">「色」即 rūpa，泛指五蕴中一切物质与形体的存在。本句揭示有形与无形本为一体。</p>
+      </div>
+    </div>
+
+    <div class="bottom-action">
+      <button class="btn btn-primary btn-lg btn-full">下一题 →</button>
+    </div>
+  </div>
+  </div>
+
+  <!-- ════════ State 3: Wrong ════════ -->
+  <div>
+  <p class="phone-caption">✗ 答错解析</p>
+  <div class="phone">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons">
+        <svg width="16" height="10" viewBox="0 0 16 10" fill="none"><rect x="0" y="6" width="3" height="4" rx="1" fill="#2B2218" opacity=".3"/><rect x="4.5" y="4" width="3" height="6" rx="1" fill="#2B2218" opacity=".5"/><rect x="9" y="2" width="3" height="8" rx="1" fill="#2B2218" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="10" rx="1" fill="#2B2218"/></svg>
+        <svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x=".5" y=".5" width="18" height="10" rx="2.5" stroke="#2B2218" stroke-opacity=".35"/><rect x="2" y="2" width="13" height="7" rx="1.5" fill="#2B2218" opacity=".85"/></svg>
+      </div>
+    </div>
+
+    <div class="quiz-top">
+      <button class="back-btn">
+        <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="quiz-progress-bar"><div class="fill" style="width:37%;"></div></div>
+      <span class="quiz-count">3 / 8</span>
+    </div>
+
+    <div class="quiz-meta-row">
+      <span class="tag tag-crimson">✗ 答错</span>
+      <span class="chip-heart">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        × 2
+      </span>
+    </div>
+
+    <div class="question-card glass-card-thick">
+      <div class="feedback-badge wrong">
+        <svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        再学一次
+      </div>
+      <p class="question-chapter">《心经》· 第三章</p>
+      <p class="question-stem" style="font-size:.9375rem;">「色即是空」——「色」的含义</p>
+    </div>
+
+    <div class="options">
+      <div class="option wrong">
+        <div class="option-letter">A</div>
+        <span class="option-text">五彩缤纷的色彩</span>
+        <svg class="option-icon" width="20" height="20" fill="none" stroke="#A13C2E" stroke-width="2.4" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+      <div class="option correct">
+        <div class="option-letter">B</div>
+        <span class="option-text">一切物质现象与形体</span>
+        <svg class="option-icon" width="20" height="20" fill="none" stroke="#7D9A6C" stroke-width="2.4" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+    </div>
+
+    <div class="explanation">
+      <div class="explanation-icon">
+        <svg width="16" height="16" fill="none" stroke="#B88956" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div class="explanation-body">
+        <p class="explanation-title">辨析 · SM-2 节奏复习</p>
+        <p class="explanation-text">「色」在佛经中非指色彩，而是 rūpa，指一切有形之物。下次复习将在 <b style="color:var(--crimson);">1 天后</b>。</p>
+        <div class="sm2-row">
+          <button class="sm2-btn hard">忘记了</button>
+          <button class="sm2-btn">有印象</button>
+          <button class="sm2-btn easy">记住了</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-action">
+      <button class="btn btn-primary btn-lg btn-full">下一题 →</button>
+    </div>
+  </div>
+  </div>
+
+</div>
+</body>
+</html>

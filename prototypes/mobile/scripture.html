@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 法本</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background: linear-gradient(160deg, #EDE0D4 0%, #D8C4AE 100%); min-height: 100vh; }
+.row {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  padding: 40px 20px;
+  flex-wrap: wrap;
+}
+.phone-caption {
+  text-align: center;
+  font: var(--text-meta);
+  color: var(--ink-2);
+  letter-spacing: 2px;
+  margin-bottom: var(--sp-3);
+}
+
+/* ── Top Nav ─────────────────────────────── */
+.top-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-5) var(--sp-4);
+}
+.top-nav-title {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 1.0625rem;
+  letter-spacing: 4px;
+  flex: 1;
+}
+.top-nav-action {
+  width: 34px; height: 34px;
+  border-radius: var(--r-sm);
+  background: var(--glass-thick);
+  border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── List Page ───────────────────────────── */
+.sections { display: flex; flex-direction: column; gap: var(--sp-4); padding: 0 var(--sp-5) 100px; }
+
+/* Book cover banner */
+.book-hero {
+  padding: var(--sp-5);
+  background: linear-gradient(135deg, #E07856 0%, #A13C2E 100%);
+  color: #FFF;
+  border-radius: var(--r-lg);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(161,60,46,.25);
+}
+.book-hero::after {
+  content: '心経';
+  position: absolute;
+  right: -10px; bottom: -30px;
+  font-family: var(--font-serif);
+  font-size: 9rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.08);
+  letter-spacing: 8px;
+  line-height: .8;
+}
+.book-hero-label {
+  font: var(--text-caption);
+  letter-spacing: 3px;
+  opacity: .8;
+  margin-bottom: var(--sp-2);
+  font-weight: 600;
+}
+.book-hero-title {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 5px;
+  margin-bottom: var(--sp-2);
+}
+.book-hero-sub {
+  font: var(--text-caption);
+  letter-spacing: 2px;
+  opacity: .85;
+  margin-bottom: var(--sp-4);
+}
+.book-hero-stats {
+  display: flex;
+  gap: var(--sp-6);
+  position: relative;
+  z-index: 1;
+}
+.hero-stat-num {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 1.25rem;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+.hero-stat-lbl {
+  font-size: .625rem;
+  opacity: .75;
+  letter-spacing: 1px;
+}
+
+/* Chapter list */
+.chapter-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: rgba(255,255,255,.58);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--glass-border);
+  transition: all var(--dur) var(--ease);
+}
+.chapter-item.current {
+  background: var(--saffron-pale);
+  border: 1.5px solid var(--saffron);
+  box-shadow: 0 4px 14px rgba(224,120,86,.18);
+}
+.chapter-item.locked { opacity: .55; }
+
+.chapter-num {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: .875rem;
+  flex-shrink: 0;
+}
+.chapter-num.done    { background: var(--sage-dark);    color: #FFF; }
+.chapter-num.current { background: var(--saffron);      color: #FFF; box-shadow: 0 0 0 3px var(--saffron-light); }
+.chapter-num.locked  { background: rgba(43,34,24,.08);  color: var(--ink-4); }
+
+.chapter-body { flex: 1; min-width: 0; }
+.chapter-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  color: var(--ink);
+  font-size: .9375rem;
+  letter-spacing: 2px;
+  margin-bottom: 3px;
+}
+.chapter-meta {
+  font: var(--text-caption);
+  color: var(--ink-3);
+  letter-spacing: 1px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.chapter-meta .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
+.chapter-status { flex-shrink: 0; }
+
+.section-head-inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 2px;
+}
+.section-head-inline h3 {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 1rem;
+  letter-spacing: 3px;
+}
+.section-head-inline span {
+  font: var(--text-caption);
+  color: var(--ink-3);
+  letter-spacing: 1px;
+}
+
+/* ── Reading Page ────────────────────────── */
+.reading-header {
+  padding: 0 var(--sp-5) var(--sp-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.reading-progress {
+  font: var(--text-caption);
+  color: var(--ink-3);
+  letter-spacing: 1px;
+}
+
+.reading-body {
+  padding: var(--sp-4) var(--sp-5) 100px;
+}
+.reading-chapter-label {
+  font: var(--text-meta);
+  color: var(--saffron);
+  letter-spacing: 3px;
+  font-weight: 700;
+  margin-bottom: var(--sp-2);
+}
+.reading-chapter-title {
+  font-family: var(--font-serif);
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 5px;
+  margin-bottom: var(--sp-5);
+}
+
+.scripture-text {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  line-height: 2.2;
+  color: var(--ink);
+  letter-spacing: 3px;
+  margin-bottom: var(--sp-4);
+  text-align: justify;
+}
+.scripture-text .highlight {
+  background: linear-gradient(180deg, transparent 60%, rgba(224,120,86,.35) 60%);
+  padding: 0 2px;
+  cursor: pointer;
+}
+.scripture-text .annotated {
+  border-bottom: 1.5px dashed var(--gold-dark);
+  cursor: pointer;
+}
+
+.annotation-card {
+  padding: var(--sp-4);
+  background: var(--gold-pale);
+  border: 1px solid var(--gold-light);
+  border-left: 3px solid var(--gold);
+  border-radius: 0 var(--r) var(--r) 0;
+  margin-bottom: var(--sp-4);
+}
+.annotation-title {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--gold-dark);
+  font-size: .875rem;
+  letter-spacing: 2px;
+  margin-bottom: var(--sp-2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.annotation-body {
+  font: var(--text-body-serif);
+  color: var(--ink-2);
+  letter-spacing: 1px;
+  line-height: 1.75;
+}
+
+/* Reading tools bar */
+.reading-tools {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4) 28px;
+  background: var(--glass-thick);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-top: 1px solid var(--glass-border);
+}
+.tool-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px;
+  border-radius: var(--r-sm);
+}
+.tool-btn span {
+  font: var(--text-caption);
+  color: var(--ink-2);
+  letter-spacing: 1px;
+}
+.tool-btn.primary {
+  flex: 1.6;
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+  color: #FFF;
+  padding: 10px;
+  flex-direction: row;
+  gap: var(--sp-2);
+  box-shadow: 0 4px 14px rgba(224,120,86,.35);
+}
+.tool-btn.primary span { color: #FFF; font-weight: 700; letter-spacing: 2px; font-family: var(--font-serif); }
+</style>
+</head>
+<body>
+
+<div class="row">
+
+  <!-- Page 1: Book detail -->
+  <div>
+  <p class="phone-caption">法本详情 · 章节列表</p>
+  <div class="phone">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons">
+        <svg width="16" height="10" viewBox="0 0 16 10" fill="none"><rect x="0" y="6" width="3" height="4" rx="1" fill="#2B2218" opacity=".3"/><rect x="4.5" y="4" width="3" height="6" rx="1" fill="#2B2218" opacity=".5"/><rect x="9" y="2" width="3" height="8" rx="1" fill="#2B2218" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="10" rx="1" fill="#2B2218"/></svg>
+        <svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x=".5" y=".5" width="18" height="10" rx="2.5" stroke="#2B2218" stroke-opacity=".35"/><rect x="2" y="2" width="13" height="7" rx="1.5" fill="#2B2218" opacity=".85"/></svg>
+      </div>
+    </div>
+
+    <div class="top-nav">
+      <button class="top-nav-action">
+        <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="top-nav-title">法本详情</span>
+      <button class="top-nav-action">
+        <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </button>
+    </div>
+
+    <div class="scroll-area" style="height:728px;">
+    <div class="sections">
+
+      <div class="book-hero">
+        <p class="book-hero-label">佛陀智慧 · 经典</p>
+        <p class="book-hero-title">心　经</p>
+        <p class="book-hero-sub">般若波罗蜜多 · 全文 260 字</p>
+        <div class="book-hero-stats">
+          <div>
+            <p class="hero-stat-num">8</p>
+            <p class="hero-stat-lbl">章节</p>
+          </div>
+          <div>
+            <p class="hero-stat-num">42</p>
+            <p class="hero-stat-lbl">题目</p>
+          </div>
+          <div>
+            <p class="hero-stat-num">38%</p>
+            <p class="hero-stat-lbl">已学</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-head-inline">
+        <h3>章节目录</h3>
+        <span>3 / 8 已完成</span>
+      </div>
+
+      <div class="chapter-item">
+        <div class="chapter-num done">
+          <svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="chapter-body">
+          <p class="chapter-title">第一章 · 观自在</p>
+          <div class="chapter-meta">
+            <span>6 题</span><span class="dot"></span><span class="t-sage">100%</span>
+          </div>
+        </div>
+        <svg class="chapter-status" width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+
+      <div class="chapter-item">
+        <div class="chapter-num done">
+          <svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="chapter-body">
+          <p class="chapter-title">第二章 · 五蕴皆空</p>
+          <div class="chapter-meta">
+            <span>5 题</span><span class="dot"></span><span class="t-sage">100%</span>
+          </div>
+        </div>
+        <svg class="chapter-status" width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+
+      <div class="chapter-item current">
+        <div class="chapter-num current">3</div>
+        <div class="chapter-body">
+          <p class="chapter-title">第三章 · 色即是空</p>
+          <div class="chapter-meta">
+            <span class="t-saffron" style="font-weight:600;">阅读中</span><span class="dot"></span><span>6 题 · 待答 4</span>
+          </div>
+        </div>
+        <svg class="chapter-status" width="16" height="16" fill="none" stroke="#E07856" stroke-width="2.2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
+
+      <div class="chapter-item">
+        <div class="chapter-num locked">4</div>
+        <div class="chapter-body">
+          <p class="chapter-title">第四章 · 不生不灭</p>
+          <div class="chapter-meta">
+            <span>7 题</span><span class="dot"></span><span>未解锁</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chapter-item locked">
+        <div class="chapter-num locked">5</div>
+        <div class="chapter-body">
+          <p class="chapter-title">第五章 · 无眼耳鼻舌</p>
+          <div class="chapter-meta"><span>5 题</span></div>
+        </div>
+        <svg class="chapter-status" width="14" height="14" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+
+      <div class="chapter-item locked">
+        <div class="chapter-num locked">6</div>
+        <div class="chapter-body">
+          <p class="chapter-title">第六章 · 无苦集灭道</p>
+          <div class="chapter-meta"><span>6 题</span></div>
+        </div>
+        <svg class="chapter-status" width="14" height="14" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+
+    </div>
+    </div>
+  </div>
+  </div>
+
+  <!-- Page 2: Reading view -->
+  <div>
+  <p class="phone-caption">经文阅读 · 含注释</p>
+  <div class="phone">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="status-icons">
+        <svg width="16" height="10" viewBox="0 0 16 10" fill="none"><rect x="0" y="6" width="3" height="4" rx="1" fill="#2B2218" opacity=".3"/><rect x="4.5" y="4" width="3" height="6" rx="1" fill="#2B2218" opacity=".5"/><rect x="9" y="2" width="3" height="8" rx="1" fill="#2B2218" opacity=".7"/><rect x="13.5" y="0" width="2.5" height="10" rx="1" fill="#2B2218"/></svg>
+        <svg width="22" height="11" viewBox="0 0 22 11" fill="none"><rect x=".5" y=".5" width="18" height="10" rx="2.5" stroke="#2B2218" stroke-opacity=".35"/><rect x="2" y="2" width="13" height="7" rx="1.5" fill="#2B2218" opacity=".85"/></svg>
+      </div>
+    </div>
+
+    <div class="top-nav">
+      <button class="top-nav-action">
+        <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="top-nav-title">心经 · 第三章</span>
+      <button class="top-nav-action">
+        <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      </button>
+    </div>
+
+    <div class="reading-header">
+      <span class="reading-progress">阅读进度 · 2 / 5 段</span>
+      <span class="pill pill-saffron">精读中</span>
+    </div>
+
+    <div class="scroll-area" style="height:680px;">
+    <div class="reading-body">
+      <p class="reading-chapter-label">第三章 · CHAPTER III</p>
+      <h1 class="reading-chapter-title">色即是空</h1>
+
+      <p class="scripture-text">
+        <span class="annotated">舍利子</span>，
+        <span class="highlight">色不异空，空不异色；色即是空，空即是色</span>。
+        受、想、行、识，亦复如是。
+      </p>
+
+      <div class="annotation-card">
+        <p class="annotation-title">
+          <svg width="14" height="14" fill="none" stroke="#B88956" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          注 · 舍利子
+        </p>
+        <p class="annotation-body">佛陀十大弟子之一舍利弗，以智慧第一闻名。此处为观自在菩萨对他所说法。</p>
+      </div>
+
+      <p class="scripture-text">
+        <span class="annotated">舍利子</span>，是诸法空相，
+        <span class="highlight">不生不灭，不垢不净，不增不减</span>。
+      </p>
+
+      <div class="annotation-card">
+        <p class="annotation-title">
+          <svg width="14" height="14" fill="none" stroke="#B88956" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          释 · 色空不异
+        </p>
+        <p class="annotation-body">「色」指一切物质现象，「空」指无自性的本质。两者非二元对立，而是一体之两面。</p>
+      </div>
+
+      <p class="scripture-text">
+        是故空中无色，无受想行识，无眼耳鼻舌身意……
+      </p>
+    </div>
+    </div>
+
+    <div class="reading-tools">
+      <button class="tool-btn">
+        <svg width="20" height="20" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <span>收藏</span>
+      </button>
+      <button class="tool-btn">
+        <svg width="20" height="20" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <span>笔记</span>
+      </button>
+      <button class="tool-btn primary">
+        <svg width="16" height="16" fill="none" stroke="#FFF" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>开始答题</span>
+      </button>
+    </div>
+
+  </div>
+  </div>
+
+</div>
+</body>
+</html>
