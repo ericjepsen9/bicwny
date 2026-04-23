@@ -218,15 +218,7 @@ function collectPatch(original) {
   return patch;
 }
 
-// 语言立即切换：locale 选择与 data-lang 同步
-document.getElementById('locale-chips').addEventListener('click', function (ev) {
-  var chip = ev.target.closest('.chip');
-  if (!chip) return;
-  var want = chip.getAttribute('data-locale') === 'zh-Hant' ? 'tc' : 'sc';
-  if ((document.documentElement.getAttribute('data-lang') || 'sc') !== want) {
-    if (typeof window.toggleLang === 'function') window.toggleLang();
-  }
-});
+// locale 只在保存成功后同步到站点语言，避免 PATCH 失败后 UI / 服务端落地不一致
 
 var original = null;
 function boot() {
@@ -252,6 +244,13 @@ document.getElementById('btn-save').addEventListener('click', function () {
     setMsg('ok', sc('已保存', '已保存'));
     original = updated;
     window.JX.user = updated;
+    if (patch.locale) {
+      var want = patch.locale === 'zh-Hant' ? 'tc' : 'sc';
+      if ((document.documentElement.getAttribute('data-lang') || 'sc') !== want
+          && typeof window.toggleLang === 'function') {
+        window.toggleLang();
+      }
+    }
     setTimeout(function () { location.href = 'profile.html'; }, 500);
   }).catch(function (err) {
     setMsg('error', sc('保存失败：', '保存失敗：') + (err.message || err));

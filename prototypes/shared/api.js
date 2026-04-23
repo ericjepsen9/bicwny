@@ -137,15 +137,15 @@
   }
 
   function logout() {
+    // 先清本地 token：即使网络失败，本端也已登出
     var rt = getRefreshToken();
-    var p = rt
-      ? fetch(buildUrl('/api/auth/logout'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken: rt }),
-        }).catch(function () { /* 幂等，忽略 */ })
-      : Promise.resolve();
-    return p.then(function () { clearTokens(); });
+    clearTokens();
+    if (!rt) return Promise.resolve();
+    return fetch(buildUrl('/api/auth/logout'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: rt }),
+    }).catch(function () { /* 幂等，忽略 */ });
   }
 
   // ── 辅助 util ────────────────────────────────
