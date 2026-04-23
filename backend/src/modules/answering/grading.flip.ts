@@ -6,6 +6,7 @@
 import type { Question } from '@prisma/client';
 import { BadRequest } from '../../lib/errors.js';
 import type { GradeResult } from './grading.objective.js';
+import type { GradingStrategy } from './grading.strategy.js';
 
 export type FlipSelfRating = 'again' | 'hard' | 'good' | 'easy';
 
@@ -48,3 +49,17 @@ export function gradeFlip(q: Question, answer: unknown): FlipGradeResult {
     selfRating: rating,
   };
 }
+
+export const flipStrategy: GradingStrategy = {
+  types: ['flip'],
+  async grade(q, answer) {
+    const r = gradeFlip(q, answer);
+    return {
+      isCorrect: r.isCorrect,
+      score: r.score,
+      feedback: r.feedback,
+      sm2Quality: r.sm2Quality,
+      source: 'flip_self',
+    };
+  },
+};

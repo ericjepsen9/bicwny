@@ -4,6 +4,7 @@
 // 输出：{ isCorrect, score 0-100, feedback? }
 import type { Question } from '@prisma/client';
 import { BadRequest } from '../../lib/errors.js';
+import type { GradingStrategy } from './grading.strategy.js';
 
 export interface GradeResult {
   isCorrect: boolean;
@@ -210,3 +211,11 @@ function gradeFlow(p: P, a: unknown): GradeResult {
     feedback: score === 100 ? undefined : `放置正确：${hits} / ${total}`,
   };
 }
+
+export const objectiveStrategy: GradingStrategy = {
+  types: ['single', 'fill', 'multi', 'sort', 'match', 'image', 'listen', 'scenario', 'flow'],
+  async grade(q, answer) {
+    const r = gradeObjective(q, answer);
+    return { ...r, source: 'objective' };
+  },
+};

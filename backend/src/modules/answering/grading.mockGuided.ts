@@ -7,6 +7,7 @@
 import type { Question } from '@prisma/client';
 import { BadRequest } from '../../lib/errors.js';
 import type { GradeResult } from './grading.objective.js';
+import type { GradingStrategy } from './grading.strategy.js';
 
 interface GuidedStep {
   stepNum: number;
@@ -73,3 +74,17 @@ export function gradeMockGuided(q: Question, answer: unknown): GuidedGradeResult
     perStep,
   };
 }
+
+export const guidedStrategy: GradingStrategy = {
+  types: ['guided'],
+  async grade(q, answer) {
+    const r = gradeMockGuided(q, answer);
+    return {
+      isCorrect: r.isCorrect,
+      score: r.score,
+      feedback: r.feedback,
+      perStep: r.perStep,
+      source: 'mock_guided',
+    };
+  },
+};
