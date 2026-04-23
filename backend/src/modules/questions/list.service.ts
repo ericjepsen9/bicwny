@@ -7,12 +7,16 @@
 import type { Question } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 
-/** 观察者当前所在（未退出）的 classId 列表，class_private 过滤用 */
+/** 观察者当前所在（未退出、班级未归档且启用）的 classId 列表，class_private 过滤用 */
 export async function getUserActiveClassIds(
   userId: string,
 ): Promise<string[]> {
   const rows = await prisma.classMember.findMany({
-    where: { userId, removedAt: null },
+    where: {
+      userId,
+      removedAt: null,
+      class: { archivedAt: null, isActive: true },
+    },
     select: { classId: true },
   });
   return rows.map((r) => r.classId);

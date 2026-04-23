@@ -69,6 +69,7 @@ model Class {
 
   members        ClassMember[]
   ownedQuestions Question[]    @relation("ClassOwnedQuestions")
+  userAnswers    UserAnswer[]
 }
 
 model ClassMember {
@@ -250,11 +251,13 @@ model Question {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  course      Course       @relation(fields: [courseId], references: [id])
-  lesson      Lesson       @relation(fields: [lessonId], references: [id])
-  ownerClass  Class?       @relation("ClassOwnedQuestions", fields: [ownerClassId], references: [id], onDelete: SetNull)
-  userAnswers UserAnswer[]
-  sm2Cards    Sm2Card[]
+  course        Course            @relation(fields: [courseId], references: [id])
+  lesson        Lesson            @relation(fields: [lessonId], references: [id])
+  ownerClass    Class?            @relation("ClassOwnedQuestions", fields: [ownerClassId], references: [id], onDelete: SetNull)
+  userAnswers   UserAnswer[]
+  sm2Cards      Sm2Card[]
+  userFavorites UserFavorite[]
+  userMistakes  UserMistakeBook[]
 
   @@index([lessonId])
   @@index([courseId, visibility])
@@ -280,9 +283,11 @@ model UserAnswer {
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   question Question @relation(fields: [questionId], references: [id])
+  class    Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
 
   @@index([userId, questionId])
   @@index([userId, answeredAt])
+  @@index([classId, answeredAt])
 }
 
 enum Sm2Status {
@@ -320,7 +325,8 @@ model UserFavorite {
   questionId String
   createdAt  DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([userId, questionId])
 }
@@ -333,7 +339,8 @@ model UserMistakeBook {
   wrongCount  Int       @default(1)
   removedAt   DateTime?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([userId, questionId])
 }

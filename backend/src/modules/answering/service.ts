@@ -1,7 +1,7 @@
 // 答题主服务
 // 流程：取题 → 评分 → 写 UserAnswer → 错题本联动 → SM-2 排程
 import { Prisma, type Question } from '@prisma/client';
-import { NotFound } from '../../lib/errors.js';
+import { Forbidden, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import type { Sm2Rating } from '../sm2/algorithm.js';
 import { scheduleReview } from '../sm2/service.js';
@@ -35,6 +35,15 @@ export async function submitAnswer(
 ): Promise<SubmitResult> {
   const question = await prisma.question.findUnique({ where: { id: questionId } });
   if (!question) throw NotFound(`题目不存在: ${questionId}`);
+
+  // classId 是交给辅导员端统计用的归属字段，必须验证答题人确属该班级
+  if (opts.classId) {
+    const member = await prisma.classMember.findFirst({
+      where: { classId: opts.classId, userId, removedAt: null },
+      select: { id: true },
+    });
+    if (!member) throw Forbidden('非该班级成员，无法提交到该班级');
+  }
 
   const grade = await gradeAnswer(question, answer, {
     useLlm: opts.useLlmForOpen,
