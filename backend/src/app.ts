@@ -3,6 +3,8 @@
 // 测试用例也能通过 buildApp() 拉一个隔离实例。
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
+import fastifySwagger from '@fastify/swagger';
+import fastifySwaggerUi from '@fastify/swagger-ui';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { getUserId, jwtOptional } from './lib/auth.js';
 import { config, isDev } from './lib/config.js';
@@ -60,6 +62,43 @@ export async function buildApp(): Promise<FastifyInstance> {
     credentials: true,
   });
 
+  // OpenAPI · /openapi.json + /docs
+  // 路由通过 schema.* 自描述；未标注的路由仅列出 path+method
+  await app.register(fastifySwagger, {
+    openapi: {
+      info: {
+        title: '觉学 JueXue API',
+        description: '觉学学习平台后端 API · 答题 / SM-2 / LLM Gateway / 题库 CRUD',
+        version: '1.0.0',
+      },
+      servers: [
+        { url: 'http://localhost:3000', description: 'dev' },
+      ],
+      tags: [
+        { name: 'Auth', description: '注册 · 登录 · /me · 改密 · 注销' },
+        { name: 'Learning', description: '课程 · 课时 · 报名 · 进度' },
+        { name: 'Answering', description: '题目 · 提交 · 错题本 · 进度聚合' },
+        { name: 'SM-2', description: '记忆卡调度' },
+        { name: 'Classes', description: '班级与成员' },
+        { name: 'Coach', description: '辅导员侧 CRUD + LLM 造题' },
+        { name: 'Admin', description: '管理员审核 / 用户 / 班级 / 大盘 / LLM 管理' },
+        { name: 'Health', description: '健康检查' },
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        },
+      },
+    },
+  });
+  await app.register(fastifySwaggerUi, {
+    routePrefix: '/docs',
+    uiConfig: { docExpansion: 'list', deepLinking: false },
+  });
+
+  // 规范位置的 JSON（/docs/json 是 swagger-ui 内部路径，/openapi.json 做别名方便外部消费）
+  app.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
+
   // JWT：Sprint 2 接入真登录。全局 onRequest 钩子尝试验签，拿不到也不报错；
   //      路由级用 requireRole / requireUserId 判断
   await app.register(jwt, { secret: config.JWT_SECRET });
@@ -98,6 +137,23 @@ export async function buildApp(): Promise<FastifyInstance> {
         });
       }
       return reply.code(err.statusCode).send(err.toJSON());
+    }
+
+    // fastify 原生 validation 错误 (AJV) — statusCode=400 · code=FST_ERR_VALIDATION
+    // OpenAPI 接入后会走这条路径；映射为 BAD_REQUEST 而非 500
+    if ((err as { validation?: unknown }).validation) {
+      const fe = err as unknown as {
+        message: string;
+        statusCode?: number;
+        validation: unknown;
+        validationContext?: string;
+      };
+      req.log.warn({ validation: fe.validation }, 'validation error');
+      return reply.code(fe.statusCode ?? 400).send({
+        error: 'BAD_REQUEST',
+        message: fe.message,
+        details: { context: fe.validationContext, issues: fe.validation },
+      });
     }
 
     req.log.error({ err }, 'Unhandled error');
