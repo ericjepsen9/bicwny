@@ -1,0 +1,803 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280,initial-scale=1">
+<title>觉学 · 班级管理 · 管理员</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/desktop.css">
+<style>
+.side-avatar { background: linear-gradient(135deg, var(--crimson-light), var(--crimson)); }
+
+.filter-bar {
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+  margin-bottom: var(--sp-4); padding: var(--sp-3) var(--sp-4);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+}
+.fchips { display: flex; gap: var(--sp-2); }
+.fchip {
+  padding: 5px 14px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent; color: var(--ink-3);
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.fchip.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
+.fsearch {
+  flex: 1; min-width: 200px;
+  padding: 6px 12px; border-radius: var(--r-pill);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); outline: none;
+}
+.fcount { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; margin-left: auto; }
+
+.list-panel {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+table.c-list { width: 100%; border-collapse: collapse; }
+.c-list th, .c-list td {
+  padding: 12px 14px; text-align: left;
+  font: var(--text-caption); letter-spacing: .5px;
+  border-bottom: 1px solid var(--border-light);
+}
+.c-list th { color: var(--ink-3); font-weight: 600; background: rgba(43,34,24,.03); }
+.c-list td { color: var(--ink-2); }
+.c-list tr:last-child td { border-bottom: 0; }
+.c-list tr[data-row]:hover { background: rgba(224,120,86,.04); cursor: pointer; }
+.c-list tr[data-row].archived { opacity: .55; }
+.c-name-cell { display: flex; align-items: center; gap: 10px; }
+.c-emoji {
+  width: 32px; height: 32px; border-radius: var(--r-sm);
+  background: var(--saffron-pale); display: flex; align-items: center; justify-content: center;
+  font-size: 1.125rem; flex-shrink: 0;
+}
+.c-code {
+  font-family: 'SF Mono', ui-monospace, monospace; font-size: .75rem;
+  letter-spacing: 1.5px; color: var(--ink-3);
+  background: rgba(43,34,24,.06); padding: 2px 8px; border-radius: var(--r-sm);
+}
+
+.empty-state { padding: var(--sp-8) var(--sp-5); text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px; }
+.err-state { color: var(--crimson); }
+
+/* Modal · 新建班级 */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35);
+  opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 90;
+}
+.modal-backdrop.open { opacity: 1; pointer-events: auto; }
+.modal {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -46%);
+  width: 440px; max-width: 92vw;
+  background: #fff; border-radius: var(--r-lg);
+  box-shadow: 0 24px 48px rgba(0,0,0,.18);
+  opacity: 0; pointer-events: none; transition: opacity .2s var(--ease), transform .2s var(--ease);
+  z-index: 100; display: flex; flex-direction: column;
+}
+.modal.open { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%); }
+.modal-head { padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-light); font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.modal-body { padding: var(--sp-5); }
+.modal-foot { padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--border-light); background: rgba(43,34,24,.02); display: flex; justify-content: flex-end; gap: var(--sp-3); }
+.f-row { margin-bottom: var(--sp-4); }
+.f-row label { display: block; font: var(--text-caption); font-weight: 600; color: var(--ink-2); letter-spacing: 2px; margin-bottom: 6px; }
+.f-input, .f-area {
+  width: 100%; padding: 8px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-body); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.f-input:focus, .f-area:focus { border-color: var(--saffron); }
+.f-area { min-height: 60px; resize: vertical; }
+.f-split { display: grid; grid-template-columns: 80px 1fr; gap: var(--sp-3); }
+.f-err { color: var(--crimson); font: var(--text-caption); letter-spacing: 1px; margin-top: 4px; min-height: 1em; }
+.btn-apply { padding: 7px 18px; border-radius: var(--r-sm); background: var(--saffron); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+.btn-apply[disabled] { opacity: .5; cursor: not-allowed; }
+.btn-ghost-s { padding: 7px 18px; border-radius: var(--r-sm); background: transparent; color: var(--ink-2); border: 1px solid var(--border); font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer; }
+
+/* Drawer */
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 88; }
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 520px; max-width: 92vw;
+  background: #fff; box-shadow: -8px 0 24px rgba(0,0,0,.12);
+  transform: translateX(100%); transition: transform .25s var(--ease);
+  overflow: hidden; display: flex; flex-direction: column; z-index: 95;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-light); }
+.drawer-title { flex: 1; font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; min-width: 0; }
+.drawer-close { width: 28px; height: 28px; border-radius: var(--r-sm); background: rgba(43,34,24,.04); border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.drawer-body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
+.drawer-foot { display: flex; justify-content: flex-end; padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--border-light); background: rgba(43,34,24,.02); }
+.drawer h3 { font: var(--text-caption); font-weight: 700; letter-spacing: 2px; color: var(--ink-3); margin: var(--sp-4) 0 var(--sp-2); }
+.drawer h3:first-child { margin-top: 0; }
+
+.c-hero {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-4); background: rgba(43,34,24,.03); border-radius: var(--r-sm); margin-bottom: var(--sp-3);
+}
+.c-hero-emoji {
+  width: 48px; height: 48px; border-radius: var(--r-sm);
+  background: var(--saffron-pale); display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; flex-shrink: 0;
+}
+.c-hero-meta { flex: 1; min-width: 0; }
+.c-hero-name { font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.c-hero-sub { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; margin-top: 2px; }
+
+/* Member row */
+.m-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: 10px 12px; border-bottom: 1px solid var(--border-light);
+}
+.m-row:last-child { border-bottom: 0; }
+.m-av {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: .8125rem; flex-shrink: 0;
+}
+.m-info { flex: 1; min-width: 0; }
+.m-name { font: var(--text-body); color: var(--ink); letter-spacing: 1px; }
+.m-email { font: var(--text-caption); color: var(--ink-3); font-family: 'SF Mono', ui-monospace, monospace; letter-spacing: .5px; }
+.m-role-pill {
+  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: .6875rem; letter-spacing: 1px; font-weight: 600; margin-right: 6px;
+}
+.m-role-pill.coach   { background: var(--gold-pale);   color: var(--gold-dark); }
+.m-role-pill.student { background: rgba(43,34,24,.06); color: var(--ink-3); }
+.m-kick {
+  padding: 5px 10px; border-radius: var(--r-sm);
+  background: transparent; color: var(--crimson); border: 1px solid var(--crimson-light);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer;
+}
+.m-kick:hover { background: var(--crimson-light); }
+.m-kick[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* Add-member form */
+.add-wrap { padding: var(--sp-3); background: rgba(224,120,86,.05); border: 1px dashed var(--saffron-light); border-radius: var(--r-sm); position: relative; }
+.add-row { display: flex; gap: 8px; align-items: stretch; }
+.add-search {
+  flex: 1; padding: 7px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.add-search:focus { border-color: var(--saffron); }
+.add-role {
+  padding: 7px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: 1px; outline: none; font-family: inherit;
+}
+.search-dropdown {
+  position: absolute; top: calc(100% + 4px); left: var(--sp-3); right: calc(var(--sp-3) + 160px);
+  background: #fff; border: 1px solid var(--border); border-radius: var(--r-sm);
+  box-shadow: 0 6px 20px rgba(0,0,0,.10); z-index: 10;
+  max-height: 260px; overflow-y: auto;
+  display: none;
+}
+.search-dropdown.open { display: block; }
+.search-item {
+  padding: 8px 12px; cursor: pointer;
+  font: var(--text-caption); letter-spacing: .5px; color: var(--ink-2);
+  border-bottom: 1px solid var(--border-light);
+}
+.search-item:last-child { border-bottom: 0; }
+.search-item:hover { background: rgba(224,120,86,.06); color: var(--ink); }
+.search-item.empty { cursor: default; color: var(--ink-4); }
+.search-item .si-role { font-size: .625rem; padding: 1px 6px; border-radius: var(--r-pill); background: rgba(43,34,24,.06); margin-left: 6px; color: var(--ink-3); }
+
+.picked-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: var(--r-pill);
+  background: var(--sage-light); color: var(--sage-dark);
+  font: var(--text-caption); letter-spacing: .5px; margin-right: 6px;
+}
+.picked-chip button { background: none; border: 0; color: var(--sage-dark); cursor: pointer; padding: 0; font-size: 1rem; line-height: 1; }
+
+.dr-err { color: var(--crimson); font: var(--text-caption); letter-spacing: 1px; padding: 10px 12px; border-radius: var(--r-sm); background: rgba(192,57,43,.06); margin-top: 10px; display: none; }
+.dr-err.show { display: block; }
+.dr-ok { color: var(--sage-dark); font: var(--text-caption); letter-spacing: 1px; padding: 10px 12px; border-radius: var(--r-sm); background: rgba(125,154,108,.12); margin-top: 10px; display: none; }
+.dr-ok.show { display: block; }
+</style>
+<meta name="jx-require-role" content="admin">
+<script src="../shared/lang.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name"><span class="sc">觉学</span><span class="tc">覺學</span></div>
+        <div class="brand-sub"><span class="sc">管理员后台</span><span class="tc">管理員後台</span></div>
+      </div>
+    </div>
+
+    <div class="side-user">
+      <div class="side-avatar" data-jx-user="avatarInitial">—</div>
+      <div class="side-user-info">
+        <div class="side-user-name" data-jx-user="dharmaName">—</div>
+        <div class="side-user-role" data-jx-user="roleLabel">—</div>
+      </div>
+      <button type="button" id="btn-logout" title="退出登录" aria-label="退出登录"
+        style="margin-left:auto;background:none;border:0;color:var(--ink-3);cursor:pointer;padding:6px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-list">
+      <div class="nav-section"><span class="sc">数据</span><span class="tc">數據</span></div>
+      <a class="nav-item" href="admin.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span><span class="sc">数据总览</span><span class="tc">數據總覽</span></span>
+      </a>
+
+      <div class="nav-section"><span class="sc">审核</span><span class="tc">審核</span></div>
+      <a class="nav-item" href="admin-review.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span><span class="sc">题目审核</span><span class="tc">題目審核</span></span>
+      </a>
+
+      <div class="nav-section"><span class="sc">管理</span><span class="tc">管理</span></div>
+      <a class="nav-item" href="admin-users.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        <span><span class="sc">用户管理</span><span class="tc">用戶管理</span></span>
+      </a>
+      <a class="nav-item active" href="admin-classes.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span><span class="sc">班级管理</span><span class="tc">班級管理</span></span>
+      </a>
+
+      <div class="nav-section"><span class="sc">系统</span><span class="tc">系統</span></div>
+      <a class="nav-item" href="../mobile/home.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+        <span><span class="sc">学生端预览</span><span class="tc">學生端預覽</span></span>
+      </a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="page-title"><span class="sc">班级管理</span><span class="tc">班級管理</span></h1>
+        <p class="page-sub"><span class="sc">创建 · 归档 · 成员管理</span><span class="tc">建立 · 歸檔 · 成員管理</span></p>
+      </div>
+      <div class="top-actions">
+        <button class="lang-btn" onclick="toggleLang()">繁</button>
+        <button id="btn-new" class="btn btn-primary btn-pill" style="padding:6px 18px;">
+          + <span class="sc">新建班级</span><span class="tc">新建班級</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="fchips" id="status-chips">
+        <span class="fchip active" data-status="all"><span class="sc">全部</span><span class="tc">全部</span></span>
+        <span class="fchip" data-status="active"><span class="sc">活跃</span><span class="tc">活躍</span></span>
+        <span class="fchip" data-status="archived"><span class="sc">已归档</span><span class="tc">已歸檔</span></span>
+      </div>
+      <input class="fsearch" id="search-input" type="search"
+        data-ph-sc="搜索班级名或加入码" data-ph-tc="搜索班級名或加入碼" placeholder="搜索班级名或加入码">
+      <span class="fcount" id="filter-count">—</span>
+    </div>
+
+    <div class="list-panel">
+      <div id="list-body">
+        <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 新建班级 modal -->
+<div class="modal-backdrop" id="new-backdrop"></div>
+<div class="modal" id="new-modal" role="dialog" aria-hidden="true">
+  <div class="modal-head"><span class="sc">新建班级</span><span class="tc">新建班級</span></div>
+  <div class="modal-body">
+    <div class="f-row">
+      <label for="new-name"><span class="sc">班级名称</span><span class="tc">班級名稱</span></label>
+      <input class="f-input" id="new-name" type="text" maxlength="80" placeholder="心经共修班">
+    </div>
+    <div class="f-split">
+      <div class="f-row">
+        <label for="new-emoji"><span class="sc">图标</span><span class="tc">圖示</span></label>
+        <input class="f-input" id="new-emoji" type="text" maxlength="4" placeholder="🪷" style="text-align:center;font-size:1.25rem;">
+      </div>
+      <div class="f-row">
+        <label for="new-desc"><span class="sc">简介（可选，≤ 500 字）</span><span class="tc">簡介（可選，≤ 500 字）</span></label>
+        <textarea class="f-area" id="new-desc" maxlength="500" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="f-err" id="new-err"></div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn-ghost-s" id="new-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+    <button class="btn-apply" id="new-submit"><span class="sc">创建</span><span class="tc">建立</span></button>
+  </div>
+</div>
+
+<!-- Detail drawer (3b) -->
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="drawer-title" id="dr-title"><span class="sc">班级详情</span><span class="tc">班級詳情</span></span>
+    <button class="drawer-close" id="dr-close" aria-label="关闭">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="dr-body"></div>
+  <div class="drawer-foot" style="justify-content:space-between;">
+    <button class="m-kick" id="dr-archive" style="display:none;"><span class="sc">归档班级</span><span class="tc">歸檔班級</span></button>
+    <button class="btn-ghost-s" id="dr-cancel"><span class="sc">关闭</span><span class="tc">關閉</span></button>
+  </div>
+</aside>
+
+<script>
+// admin-classes · 3a 骨架：GET /api/admin/classes + POST /api/admin/classes
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var state = { all: [], statusFilter: 'all', search: '' };
+
+function filtered() {
+  var q = (state.search || '').trim().toLowerCase();
+  return state.all.filter(function (c) {
+    if (state.statusFilter === 'active' && !c.isActive) return false;
+    if (state.statusFilter === 'archived' && c.isActive) return false;
+    if (q) {
+      var nm = (c.name || '').toLowerCase();
+      var jc = (c.joinCode || '').toLowerCase();
+      if (nm.indexOf(q) < 0 && jc.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+}
+
+function renderList() {
+  var items = filtered();
+  document.getElementById('filter-count').textContent =
+    items.length + sc(' 条 · 总 ', ' 條 · 總 ') + state.all.length;
+
+  var body = document.getElementById('list-body');
+  if (!state.all.length) {
+    body.innerHTML = '<div class="empty-state">' +
+      escapeHtml(sc('尚无班级 · 点击「+ 新建班级」开始', '尚無班級 · 點擊「+ 新建班級」開始')) + '</div>';
+    return;
+  }
+  if (!items.length) {
+    body.innerHTML = '<div class="empty-state">' + escapeHtml(sc('当前筛选无结果', '當前篩選無結果')) + '</div>';
+    return;
+  }
+  var rows = items.map(function (c) {
+    var statusPill = c.isActive
+      ? '<span class="status-pill status-active">' + escapeHtml(sc('活跃', '活躍')) + '</span>'
+      : '<span class="status-pill status-blocked">' + escapeHtml(sc('已归档', '已歸檔')) + '</span>';
+    return '<tr data-row data-cid="' + escapeHtml(c.id) + '"' + (c.isActive ? '' : ' class="archived"') + '>' +
+      '<td><div class="c-name-cell"><div class="c-emoji">' + escapeHtml(c.coverEmoji || '🪷') + '</div>' +
+        '<span>' + escapeHtml(c.name || '—') + '</span></div></td>' +
+      '<td><span class="c-code">' + escapeHtml(c.joinCode || '—') + '</span></td>' +
+      '<td>' + escapeHtml(window.JX.util.relativeTime(c.createdAt)) + '</td>' +
+      '<td>' + statusPill + '</td>' +
+    '</tr>';
+  }).join('');
+  body.innerHTML =
+    '<table class="c-list"><thead><tr>' +
+      '<th>' + escapeHtml(sc('班级', '班級')) + '</th>' +
+      '<th>' + escapeHtml(sc('加入码', '加入碼')) + '</th>' +
+      '<th>' + escapeHtml(sc('创建时间', '建立時間')) + '</th>' +
+      '<th>' + escapeHtml(sc('状态', '狀態')) + '</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function showErr(msg) {
+  document.getElementById('list-body').innerHTML =
+    '<div class="empty-state err-state">' + escapeHtml(msg) + '</div>';
+  document.getElementById('filter-count').textContent = '';
+}
+
+function loadClasses() {
+  window.JX.api.get('/api/admin/classes')
+    .then(function (list) {
+      state.all = Array.isArray(list) ? list : [];
+      renderList();
+    })
+    .catch(function (err) {
+      showErr(sc('加载失败：', '加載失敗：') + (err && err.message || err));
+    });
+}
+
+// Filters
+document.getElementById('status-chips').addEventListener('click', function (ev) {
+  var chip = ev.target.closest('.fchip');
+  if (!chip) return;
+  document.querySelectorAll('#status-chips .fchip').forEach(function (c) { c.classList.remove('active'); });
+  chip.classList.add('active');
+  state.statusFilter = chip.getAttribute('data-status');
+  renderList();
+});
+var searchDebounce;
+document.getElementById('search-input').addEventListener('input', function (ev) {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(function () {
+    state.search = ev.target.value;
+    renderList();
+  }, 120);
+});
+
+// ── 详情抽屉 + 成员管理 (3b) ─────────────────────
+var drawerState = { cid: null, cls: null, members: [], pickedUser: null, searchResults: [] };
+
+var ROLE_LABELS = { coach: ['辅导员', '輔導員'], student: ['学员', '學員'] };
+function memberRoleLabel(r) { var m = ROLE_LABELS[r] || [r, r]; return sc(m[0], m[1]); }
+function memberName(m) {
+  var u = m.user || {};
+  return u.dharmaName || (u.email ? u.email.split('@')[0] : m.userId.slice(-6));
+}
+function memberInitial(m) {
+  var n = memberName(m);
+  for (var i = 0; i < n.length; i++) if (/\S/.test(n.charAt(i))) return n.charAt(i).toUpperCase();
+  return '·';
+}
+
+function setDrawerFlash(kind, msg) {
+  var ok = document.getElementById('dr-ok');
+  var err = document.getElementById('dr-err');
+  if (!ok || !err) return;
+  ok.classList.remove('show'); err.classList.remove('show');
+  if (!kind) return;
+  var el = kind === 'ok' ? ok : err;
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function memberRow(m) {
+  var av = '<div class="m-av" style="background:linear-gradient(135deg,var(--' +
+    (m.role === 'coach' ? 'gold-light),var(--gold))' : 'saffron),var(--saffron-dark))') + ';">' +
+    escapeHtml(memberInitial(m)) + '</div>';
+  return '<div class="m-row" data-uid="' + escapeHtml(m.userId) + '">' +
+    av +
+    '<div class="m-info">' +
+      '<div class="m-name">' + escapeHtml(memberName(m)) + '</div>' +
+      '<div class="m-email">' + escapeHtml((m.user && m.user.email) || '—') + '</div>' +
+    '</div>' +
+    '<span class="m-role-pill ' + m.role + '">' + escapeHtml(memberRoleLabel(m.role)) + '</span>' +
+    '<button class="m-kick" data-uid="' + escapeHtml(m.userId) + '">' + escapeHtml(sc('踢出', '踢出')) + '</button>' +
+  '</div>';
+}
+
+function renderDrawerBody() {
+  var c = drawerState.cls;
+  if (!c) return;
+  var membersHtml = drawerState.members.length
+    ? drawerState.members.map(memberRow).join('')
+    : '<p style="padding:var(--sp-3);color:var(--ink-4);font:var(--text-caption);">' +
+        escapeHtml(sc('暂无成员', '暫無成員')) + '</p>';
+
+  var pickedHtml = drawerState.pickedUser
+    ? '<span class="picked-chip">' +
+        escapeHtml(drawerState.pickedUser.dharmaName || drawerState.pickedUser.email || '—') +
+        '<button type="button" id="pick-clear" aria-label="清除">×</button>' +
+      '</span>'
+    : '';
+
+  document.getElementById('dr-body').innerHTML =
+    '<div class="c-hero">' +
+      '<div class="c-hero-emoji">' + escapeHtml(c.coverEmoji || '🪷') + '</div>' +
+      '<div class="c-hero-meta">' +
+        '<div class="c-hero-name">' + escapeHtml(c.name || '—') + '</div>' +
+        '<div class="c-hero-sub">' +
+          escapeHtml(sc('加入码 ', '加入碼 ')) + '<code>' + escapeHtml(c.joinCode || '—') + '</code>' +
+          ' · ' + escapeHtml(c.isActive ? sc('活跃', '活躍') : sc('已归档', '已歸檔')) +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    (c.description ? '<h3>' + escapeHtml(sc('简介', '簡介')) + '</h3>' +
+      '<p style="font:var(--text-caption);color:var(--ink-2);line-height:1.7;letter-spacing:.5px;">' +
+        escapeHtml(c.description) + '</p>' : '') +
+
+    '<h3>' + escapeHtml(sc('添加成员', '添加成員')) + '</h3>' +
+    '<div class="add-wrap">' +
+      (pickedHtml
+        ? '<div style="margin-bottom:8px;">' + pickedHtml + '</div>'
+        : '') +
+      '<div class="add-row">' +
+        '<input class="add-search" id="user-search" type="search" ' +
+          (drawerState.pickedUser ? 'disabled placeholder="' : 'placeholder="') +
+          escapeHtml(sc('搜索邮箱或法名', '搜索郵箱或法名')) + '">' +
+        '<select class="add-role" id="member-role">' +
+          '<option value="student">' + escapeHtml(sc('学员', '學員')) + '</option>' +
+          '<option value="coach">' + escapeHtml(sc('辅导员', '輔導員')) + '</option>' +
+        '</select>' +
+        '<button class="btn-apply" id="add-member"' + (drawerState.pickedUser ? '' : ' disabled') + '>' +
+          '<span class="sc">添加</span><span class="tc">添加</span>' +
+        '</button>' +
+      '</div>' +
+      '<div class="search-dropdown" id="search-dropdown"></div>' +
+    '</div>' +
+
+    '<h3>' + escapeHtml(sc('成员列表', '成員列表')) + ' · ' + drawerState.members.length + '</h3>' +
+    '<div>' + membersHtml + '</div>' +
+
+    '<div class="dr-ok" id="dr-ok"></div>' +
+    '<div class="dr-err" id="dr-err"></div>';
+
+  // 重新绑定动态事件
+  var searchInput = document.getElementById('user-search');
+  if (searchInput && !drawerState.pickedUser) {
+    searchInput.addEventListener('input', onSearchInput);
+    searchInput.addEventListener('blur', function () {
+      setTimeout(function () {
+        var dd = document.getElementById('search-dropdown');
+        if (dd) dd.classList.remove('open');
+      }, 150);
+    });
+  }
+  var clearBtn = document.getElementById('pick-clear');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      drawerState.pickedUser = null;
+      renderDrawerBody();
+    });
+  }
+  var addBtn = document.getElementById('add-member');
+  if (addBtn) addBtn.addEventListener('click', addMember);
+  document.querySelectorAll('.m-kick').forEach(function (btn) {
+    btn.addEventListener('click', function () { kickMember(btn.getAttribute('data-uid')); });
+  });
+}
+
+var searchDebounce2;
+function onSearchInput(ev) {
+  clearTimeout(searchDebounce2);
+  var q = ev.target.value.trim();
+  if (!q) {
+    document.getElementById('search-dropdown').classList.remove('open');
+    return;
+  }
+  searchDebounce2 = setTimeout(function () {
+    window.JX.api.get('/api/admin/users?limit=10&search=' + encodeURIComponent(q))
+      .then(function (list) {
+        drawerState.searchResults = Array.isArray(list) ? list : [];
+        renderSearchDropdown();
+      })
+      .catch(function () { /* 安静失败 */ });
+  }, 250);
+}
+
+function renderSearchDropdown() {
+  var dd = document.getElementById('search-dropdown');
+  if (!dd) return;
+  if (!drawerState.searchResults.length) {
+    dd.innerHTML = '<div class="search-item empty">' + escapeHtml(sc('无匹配用户', '無匹配用戶')) + '</div>';
+    dd.classList.add('open');
+    return;
+  }
+  // 过滤掉已在班级内的成员
+  var memberIds = {};
+  drawerState.members.forEach(function (m) { memberIds[m.userId] = true; });
+  var filtered = drawerState.searchResults.filter(function (u) { return !memberIds[u.id]; });
+  if (!filtered.length) {
+    dd.innerHTML = '<div class="search-item empty">' + escapeHtml(sc('候选均已在班', '候選均已在班')) + '</div>';
+    dd.classList.add('open');
+    return;
+  }
+  dd.innerHTML = filtered.map(function (u) {
+    var nm = u.dharmaName || (u.email ? u.email.split('@')[0] : u.id.slice(-6));
+    return '<div class="search-item" data-uid="' + escapeHtml(u.id) + '">' +
+      escapeHtml(nm) +
+      ' <code style="color:var(--ink-4);font-size:.625rem;">' + escapeHtml(u.email || '') + '</code>' +
+      '<span class="si-role">' + escapeHtml(u.role) + '</span>' +
+    '</div>';
+  }).join('');
+  dd.classList.add('open');
+  dd.querySelectorAll('.search-item[data-uid]').forEach(function (el) {
+    el.addEventListener('mousedown', function (ev) {
+      ev.preventDefault(); // 避免 blur 先触发
+      var uid = el.getAttribute('data-uid');
+      var u = drawerState.searchResults.find(function (x) { return x.id === uid; });
+      drawerState.pickedUser = u;
+      renderDrawerBody();
+    });
+  });
+}
+
+function addMember() {
+  var u = drawerState.pickedUser;
+  if (!u) return;
+  var role = document.getElementById('member-role').value;
+  var btn = document.getElementById('add-member');
+  btn.disabled = true;
+  setDrawerFlash(null);
+  window.JX.api.post('/api/admin/classes/' + encodeURIComponent(drawerState.cid) + '/members', {
+    userId: u.id, role: role,
+  }).then(function () {
+    drawerState.pickedUser = null;
+    return window.JX.api.get('/api/admin/classes/' + encodeURIComponent(drawerState.cid) + '/members');
+  }).then(function (members) {
+    drawerState.members = Array.isArray(members) ? members : [];
+    renderDrawerBody();
+    setDrawerFlash('ok', sc('已添加成员', '已添加成員'));
+  }).catch(function (err) {
+    renderDrawerBody();
+    setDrawerFlash('error', sc('添加失败：', '添加失敗：') + (err && err.message || err));
+  });
+}
+
+function kickMember(uid) {
+  if (!confirm(sc('确认将此成员移出班级？', '確認將此成員移出班級？'))) return;
+  document.querySelectorAll('.m-kick').forEach(function (b) { b.disabled = true; });
+  setDrawerFlash(null);
+  window.JX.api.del('/api/admin/classes/' + encodeURIComponent(drawerState.cid) + '/members/' + encodeURIComponent(uid))
+    .then(function () {
+      drawerState.members = drawerState.members.filter(function (m) { return m.userId !== uid; });
+      renderDrawerBody();
+      setDrawerFlash('ok', sc('已移出', '已移出'));
+    })
+    .catch(function (err) {
+      renderDrawerBody();
+      setDrawerFlash('error', sc('移出失败：', '移出失敗：') + (err && err.message || err));
+    });
+}
+
+function syncArchiveButton() {
+  var btn = document.getElementById('dr-archive');
+  if (!btn) return;
+  btn.style.display = (drawerState.cls && drawerState.cls.isActive) ? '' : 'none';
+  btn.disabled = false;
+}
+
+function openDetailDrawer(cid) {
+  var cls = state.all.find(function (x) { return x.id === cid; });
+  if (!cls) return;
+  drawerState = { cid: cid, cls: cls, members: [], pickedUser: null, searchResults: [] };
+  document.getElementById('dr-title').innerHTML = '<span class="sc">' + escapeHtml(cls.name) + '</span><span class="tc">' + escapeHtml(cls.name) + '</span>';
+  document.getElementById('dr-body').innerHTML = '<p style="padding:var(--sp-6);text-align:center;color:var(--ink-3);font:var(--text-caption);">' +
+    escapeHtml(sc('加载成员中…', '加載成員中…')) + '</p>';
+  syncArchiveButton();
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'false');
+
+  window.JX.api.get('/api/admin/classes/' + encodeURIComponent(cid) + '/members')
+    .then(function (members) {
+      drawerState.members = Array.isArray(members) ? members : [];
+      renderDrawerBody();
+    })
+    .catch(function (err) {
+      document.getElementById('dr-body').innerHTML = '<p style="padding:var(--sp-5);color:var(--crimson);">' +
+        escapeHtml(sc('加载失败：', '加載失敗：') + (err && err.message || err)) + '</p>';
+    });
+}
+
+function closeDetailDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'true');
+  drawerState = { cid: null, cls: null, members: [], pickedUser: null, searchResults: [] };
+}
+
+document.getElementById('dr-close').addEventListener('click', closeDetailDrawer);
+document.getElementById('dr-cancel').addEventListener('click', closeDetailDrawer);
+document.getElementById('drawer-backdrop').addEventListener('click', closeDetailDrawer);
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape' && document.getElementById('drawer').classList.contains('open')) closeDetailDrawer();
+});
+
+// 归档班级（one-way · 后端暂无 unarchive）
+document.getElementById('dr-archive').addEventListener('click', function () {
+  var cls = drawerState.cls;
+  if (!cls) return;
+  if (!confirm(sc(
+    '确认归档此班级？学员将立即失去访问权；此操作暂不可撤销。',
+    '確認歸檔此班級？學員將立即失去訪問權；此操作暫不可撤銷。',
+  ))) return;
+  var btn = this;
+  btn.disabled = true;
+  setDrawerFlash(null);
+  window.JX.api.patch('/api/admin/classes/' + encodeURIComponent(cls.id) + '/archive', {})
+    .then(function (updated) {
+      // 更新 state.all + 抽屉内 cls + 刷新列表 + 刷新抽屉
+      var idx = state.all.findIndex(function (x) { return x.id === updated.id; });
+      if (idx >= 0) state.all[idx] = updated;
+      drawerState.cls = updated;
+      renderList();
+      renderDrawerBody();
+      syncArchiveButton();
+      setDrawerFlash('ok', sc('班级已归档 · 学员已失去访问权', '班級已歸檔 · 學員已失去訪問權'));
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      setDrawerFlash('error', sc('归档失败：', '歸檔失敗：') + (err && err.message || err));
+    });
+});
+
+// 行点击 → 详情抽屉
+document.getElementById('list-body').addEventListener('click', function (ev) {
+  var tr = ev.target.closest('tr[data-row]');
+  if (!tr) return;
+  openDetailDrawer(tr.getAttribute('data-cid'));
+});
+
+// ── 新建班级 modal ─────────────────────────────
+function openNewModal() {
+  document.getElementById('new-name').value = '';
+  document.getElementById('new-emoji').value = '';
+  document.getElementById('new-desc').value = '';
+  document.getElementById('new-err').textContent = '';
+  document.getElementById('new-modal').classList.add('open');
+  document.getElementById('new-backdrop').classList.add('open');
+  document.getElementById('new-modal').setAttribute('aria-hidden', 'false');
+  setTimeout(function () { document.getElementById('new-name').focus(); }, 0);
+}
+function closeNewModal() {
+  document.getElementById('new-modal').classList.remove('open');
+  document.getElementById('new-backdrop').classList.remove('open');
+  document.getElementById('new-modal').setAttribute('aria-hidden', 'true');
+}
+
+document.getElementById('btn-new').addEventListener('click', openNewModal);
+document.getElementById('new-cancel').addEventListener('click', closeNewModal);
+document.getElementById('new-backdrop').addEventListener('click', closeNewModal);
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape' && document.getElementById('new-modal').classList.contains('open')) closeNewModal();
+});
+
+document.getElementById('new-submit').addEventListener('click', function () {
+  var name = document.getElementById('new-name').value.trim();
+  var emoji = document.getElementById('new-emoji').value.trim();
+  var desc = document.getElementById('new-desc').value.trim();
+  var errEl = document.getElementById('new-err');
+  errEl.textContent = '';
+  if (!name) { errEl.textContent = sc('请填写班级名称', '請填寫班級名稱'); return; }
+
+  var body = { name: name };
+  if (emoji) body.coverEmoji = emoji;
+  if (desc) body.description = desc;
+
+  var btn = this;
+  btn.disabled = true;
+  window.JX.api.post('/api/admin/classes', body)
+    .then(function (cls) {
+      state.all.unshift(cls);
+      renderList();
+      closeNewModal();
+    })
+    .catch(function (err) {
+      errEl.textContent = sc('创建失败：', '建立失敗：') + (err && err.message || err);
+    })
+    .finally(function () { btn.disabled = false; });
+});
+
+document.getElementById('btn-logout').addEventListener('click', function () {
+  if (!confirm(sc('确定退出登录？', '確定退出登入？'))) return;
+  window.JX.api.logout().finally(function () { location.replace('../mobile/auth.html'); });
+});
+
+document.addEventListener('jx:user-ready', loadClasses);
+document.addEventListener('langchange', renderList);
+if (window.JX && window.JX.user) loadClasses();
+</script>
+</body>
+</html>

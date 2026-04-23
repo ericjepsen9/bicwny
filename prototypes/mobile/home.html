@@ -1,0 +1,397 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 首页</title>
+<script src="../shared/lang.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:100vh; }
+.phone-wrap {
+  display:flex; justify-content:center; align-items:flex-start;
+  padding:40px 20px; min-height:100vh;
+}
+
+/* ── Header ──────────────────────────────── */
+.home-header {
+  padding: var(--sp-2) var(--sp-5) var(--sp-5);
+  display:flex; justify-content:space-between; align-items:flex-start;
+}
+.greeting-sub  { font:var(--text-caption); color:var(--ink-3); letter-spacing:2px; margin-bottom:4px; }
+.greeting-name { font-family:var(--font-serif); font-size:1.25rem; font-weight:700; color:var(--ink); letter-spacing:3px; }
+.header-right  { display:flex; gap:var(--sp-3); align-items:center; padding-top:4px; }
+
+/* ── Sections wrapper ────────────────────── */
+.sections {
+  display:flex; flex-direction:column;
+  gap:var(--sp-4);
+  padding:0 var(--sp-5) 100px;
+}
+
+/* ── 班级信息卡（简洁版）──────────────────── */
+.class-card {
+  display:flex; align-items:center; gap:var(--sp-3);
+  padding:10px var(--sp-4);
+  cursor:pointer;
+}
+.class-icon-sm {
+  width:30px; height:30px; border-radius:var(--r-sm);
+  background:var(--saffron-pale);
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.class-text { flex:1; min-width:0; }
+.class-name {
+  font-family:var(--font-serif); font-weight:700;
+  color:var(--ink); font-size:.8125rem; letter-spacing:2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.class-notice-line {
+  font:var(--text-caption); color:var(--ink-3); letter-spacing:.5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  margin-top:2px;
+}
+.class-notice-line .dot {
+  display:inline-block; width:5px; height:5px; border-radius:50%;
+  background:var(--saffron); margin-right:6px; vertical-align:middle;
+}
+.class-arrow {
+  flex-shrink:0; color:var(--ink-4);
+}
+
+/* ── 当前法本卡 ───────────────────────────── */
+.course-card {
+  padding:var(--sp-5); position:relative; overflow:hidden;
+}
+.course-card::before {
+  content:''; position:absolute; top:-24px; right:-24px;
+  width:110px; height:110px; border-radius:50%;
+  background:radial-gradient(circle,rgba(224,120,86,.13) 0%,transparent 70%);
+  pointer-events:none;
+}
+.course-label {
+  font:var(--text-caption); color:var(--ink-3); letter-spacing:2px;
+  margin-bottom:var(--sp-2); display:flex; align-items:center; gap:6px;
+}
+.course-label::before {
+  content:''; width:4px; height:4px; border-radius:50%; background:var(--saffron);
+}
+.course-title {
+  font-family:var(--font-serif); font-size:1.125rem; font-weight:700;
+  color:var(--ink); letter-spacing:3px; margin-bottom:var(--sp-3);
+}
+.course-meta   { display:flex; gap:var(--sp-2); flex-wrap:wrap; margin-bottom:var(--sp-4); }
+.progress-row  { display:flex; justify-content:space-between; margin-bottom:var(--sp-2); }
+
+/* ── 错题提醒 ─────────────────────────────── */
+.review-card {
+  display:flex; align-items:center; gap:var(--sp-3);
+  padding:var(--sp-4);
+  background:rgba(255,255,255,.62);
+  backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+  border-radius:var(--r-lg);
+  border:1px solid var(--glass-border);
+  border-left:3px solid var(--crimson);
+  box-shadow:var(--shadow-1);
+}
+.review-icon-wrap {
+  width:40px; height:40px; border-radius:var(--r-sm);
+  background:var(--crimson-light);
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.review-badge {
+  margin-left:auto; min-width:24px; height:24px;
+  border-radius:var(--r-pill); background:var(--crimson); color:#FFF;
+  font-size:.6rem; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  padding:0 6px; flex-shrink:0;
+}
+
+/* ── 快速入口 ─────────────────────────────── */
+.icon-grid {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:var(--sp-3);
+}
+</style>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <!-- Status Bar -->
+  <div class="status-bar" data-auto></div>
+
+  <!-- Scroll area -->
+  <div class="scroll-area" style="height:756px;">
+
+    <!-- Header -->
+    <div class="home-header">
+      <div>
+        <p class="greeting-sub" id="greeting-sub">早安 · 四月</p>
+        <p class="greeting-name" data-jx-user="dharmaName"><span class="sc">明心同学</span><span class="tc">明心同學</span></p>
+      </div>
+      <div class="header-right">
+        <a href="notification.html" style="position:relative;display:flex;">
+          <svg width="22" height="22" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <div class="notif-dot" style="position:absolute;top:-2px;right:-2px;"></div>
+        </a>
+        <a href="profile.html" class="avatar" data-jx-user="avatarInitial" aria-label="我的">明</a>
+      </div>
+    </div>
+
+    <div class="sections">
+
+      <!-- 班级信息（真数据；未加入班级隐藏）-->
+      <a href="class-detail.html" class="class-card glass-card" id="class-card" title="班级详情" style="display:none;">
+        <div class="class-icon-sm">
+          <svg width="16" height="16" fill="none" stroke="#E07856" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div class="class-text">
+          <p class="class-name" id="class-name">—</p>
+          <p class="class-notice-line"><span class="dot"></span><span id="class-notice">—</span></p>
+        </div>
+        <svg class="class-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </a>
+
+      <!-- 当前法本卡（真数据）-->
+      <div class="course-card glass-card-thick" id="course-card">
+        <p class="course-label"><span class="sc">当前法本</span><span class="tc">當前法本</span></p>
+        <p class="course-title" id="course-title"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+        <div class="course-meta" id="course-meta">
+          <span class="tag tag-ink" id="course-chapter-tag">—</span>
+          <span class="tag tag-sage" id="course-status-tag"><span class="sc">进行中</span><span class="tc">進行中</span></span>
+        </div>
+        <div class="progress-row">
+          <span class="t-caption t-ink-3"><span class="sc">学习进度</span><span class="tc">學習進度</span></span>
+          <span class="t-meta" id="course-percent" style="color:var(--saffron);font-weight:700;">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="course-progress-fill" style="width:0%;"></div>
+        </div>
+        <a href="quiz.html" id="course-cta" class="btn btn-primary btn-lg btn-full btn-pill" style="margin-top:var(--sp-4);">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span class="sc">继续学习</span><span class="tc">繼續學習</span>
+        </a>
+      </div>
+
+      <!-- 错题提醒（真数据，0 时隐藏）-->
+      <a href="mistakes.html" class="review-card" id="review-card" style="text-decoration:none;display:none;">
+        <div class="review-icon-wrap">
+          <svg width="18" height="18" fill="none" stroke="#A13C2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 .49-4.57"/>
+          </svg>
+        </div>
+        <div>
+          <p class="t-meta" style="color:var(--crimson);letter-spacing:1.5px;"><span class="sc">错题待复习</span><span class="tc">錯題待複習</span></p>
+          <p class="t-caption t-ink-3" style="margin-top:3px;" id="review-sub"><span class="sc">建议今日回顾，巩固记忆</span><span class="tc">建議今日回顧，鞏固記憶</span></p>
+        </div>
+        <div class="review-badge" id="review-badge">0</div>
+      </a>
+
+      <!-- 快速入口 -->
+      <div>
+        <div class="section-header">
+          <span class="section-title">快速入口</span>
+        </div>
+        <div class="icon-grid">
+          <a href="scripture-detail.html" class="icon-tile">
+            <div class="icon-bg icon-bg-saffron">
+              <svg width="22" height="22" fill="none" stroke="#E07856" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+            </div>
+            <span class="icon-label">法本</span>
+          </a>
+          <a href="mistakes.html" class="icon-tile">
+            <div class="icon-bg icon-bg-crimson">
+              <svg width="22" height="22" fill="none" stroke="#A13C2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 .49-4.57"/>
+              </svg>
+            </div>
+            <span class="icon-label"><span class="sc">错题</span><span class="tc">錯題</span></span>
+          </a>
+          <a href="#" class="icon-tile soon" title="功能开发中">
+            <div class="icon-bg icon-bg-gold">
+              <svg width="22" height="22" fill="none" stroke="#B88956" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </div>
+            <span class="icon-label">收藏</span>
+          </a>
+          <a href="achievement.html" class="icon-tile">
+            <div class="icon-bg icon-bg-sage">
+              <svg width="22" height="22" fill="none" stroke="#7D9A6C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="6"/>
+                <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
+              </svg>
+            </div>
+            <span class="icon-label">成就</span>
+          </a>
+        </div>
+      </div>
+
+    </div><!-- /sections -->
+  </div><!-- /scroll-area -->
+
+  <!-- Bottom Tab Bar -->
+  <div class="tab-bar">
+    <a href="home.html" class="tab-item active">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span><span class="sc">首页</span><span class="tc">首頁</span></span>
+    </a>
+    <a href="scripture-detail.html" class="tab-item">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      <span>法本</span>
+    </a>
+    <a href="quiz.html" class="tab-item">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <span><span class="sc">答题</span><span class="tc">答題</span></span>
+    </a>
+    <a href="profile.html" class="tab-item">
+      <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+      <span>我的</span>
+    </a>
+  </div>
+
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+<script src="../shared/nav.js"></script>
+<script>
+// ── home 数据卡联接后端 ─────────────────────────────
+//   /api/my/classes     → 顶部班级卡（空则隐藏）
+//   /api/my/enrollments → 当前法本卡；需再调 /api/courses/:slug 取 overlay.progressPercent
+//   /api/mistakes       → 错题 badge 数量（0 则隐藏整张卡）
+// ──────────────────────────────────────────────────
+var lang = window.JX.lang, sc = window.JX.sc;
+
+function renderGreeting() {
+  var h = new Date().getHours();
+  var sub;
+  if (h < 5)       sub = sc('深夜 · ', '深夜 · ');
+  else if (h < 11) sub = sc('早安 · ', '早安 · ');
+  else if (h < 13) sub = sc('午安 · ', '午安 · ');
+  else if (h < 18) sub = sc('下午 · ', '下午 · ');
+  else             sub = sc('晚安 · ', '晚安 · ');
+  var m = new Date().getMonth() + 1;
+  var months = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  document.getElementById('greeting-sub').textContent = sub + months[m - 1];
+}
+
+function renderClassCard(memberships) {
+  var card = document.getElementById('class-card');
+  if (!memberships || !memberships.length) {
+    card.style.display = 'none';
+    return;
+  }
+  var m = memberships[0];
+  var cls = m.class || {};
+  card.style.display = '';
+  document.getElementById('class-name').textContent = cls.name || sc('（未命名班级）', '（未命名班級）');
+  var joinedDays = 0;
+  if (m.joinedAt) joinedDays = Math.max(0, Math.floor((Date.now() - new Date(m.joinedAt)) / 86400000));
+  document.getElementById('class-notice').textContent = cls.joinCode
+    ? sc('班级码 ', '班級碼 ') + cls.joinCode + ' · ' + sc('已加入 ', '已加入 ') + joinedDays + sc(' 天', ' 天')
+    : sc('已加入 ', '已加入 ') + joinedDays + sc(' 天', ' 天');
+}
+
+function renderCourseCard(enrollment, overlay) {
+  if (!enrollment) {
+    document.getElementById('course-title').textContent = sc('尚未选修法本 · 点击下方去答题', '尚未選修法本 · 點擊下方去答題');
+    document.getElementById('course-chapter-tag').textContent = sc('—', '—');
+    document.getElementById('course-percent').textContent = '0%';
+    document.getElementById('course-progress-fill').style.width = '0%';
+    return;
+  }
+  var c = enrollment.course || {};
+  document.getElementById('course-title').textContent = c.title || '—';
+  var overlayObj = overlay || { progressPercent: 0, completedLessonIds: [], totalLessons: 0 };
+  var pct = overlayObj.progressPercent || 0;
+  document.getElementById('course-percent').textContent = pct + '%';
+  document.getElementById('course-progress-fill').style.width = pct + '%';
+  var done = (overlayObj.completedLessonIds || []).length;
+  var total = overlayObj.totalLessons || 0;
+  document.getElementById('course-chapter-tag').textContent =
+    sc('已完成 ', '已完成 ') + done + ' / ' + total + sc(' 课', ' 課');
+  // CTA 指向当前 lesson；若无则保持默认 quiz.html
+  if (overlayObj.currentLessonId) {
+    document.getElementById('course-cta').href = 'quiz.html?lessonId=' + encodeURIComponent(overlayObj.currentLessonId);
+  }
+}
+
+function renderReviewBadge(mistakes) {
+  var n = (mistakes || []).length;
+  var card = document.getElementById('review-card');
+  if (n === 0) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  document.getElementById('review-badge').textContent = n > 99 ? '99+' : String(n);
+}
+
+function boot() {
+  renderGreeting();
+
+  window.JX.api.get('/api/my/classes').then(renderClassCard).catch(function () {});
+
+  window.JX.api.get('/api/my/enrollments').then(function (list) {
+    if (!list || !list.length) { renderCourseCard(null, null); return; }
+    var first = list[0];
+    if (!first.course || !first.course.slug) { renderCourseCard(first, null); return; }
+    return window.JX.api.get('/api/courses/' + encodeURIComponent(first.course.slug))
+      .then(function (d) { renderCourseCard(first, d.overlay); });
+  }).catch(function () { renderCourseCard(null, null); });
+
+  window.JX.api.get('/api/mistakes?limit=500').then(renderReviewBadge).catch(function () {});
+}
+
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', renderGreeting);
+if (window.JX && window.JX.user) boot();
+</script>
+</body>
+</html>

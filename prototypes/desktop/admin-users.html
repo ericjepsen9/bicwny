@@ -1,0 +1,566 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280,initial-scale=1">
+<title>觉学 · 用户管理 · 管理员</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/desktop.css">
+<style>
+.side-avatar { background: linear-gradient(135deg, var(--crimson-light), var(--crimson)); }
+
+.filter-bar {
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+  margin-bottom: var(--sp-4); padding: var(--sp-3) var(--sp-4);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+}
+.fchips { display: flex; gap: var(--sp-2); }
+.fchip {
+  padding: 5px 14px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent; color: var(--ink-3);
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.fchip.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
+.fsearch {
+  flex: 1; min-width: 200px;
+  padding: 6px 12px; border-radius: var(--r-pill);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); outline: none;
+}
+.fcount { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; margin-left: auto; }
+
+.list-panel {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+table.u-list { width: 100%; border-collapse: collapse; }
+.u-list th, .u-list td {
+  padding: 10px 14px; text-align: left;
+  font: var(--text-caption); letter-spacing: .5px;
+  border-bottom: 1px solid var(--border-light);
+}
+.u-list th { color: var(--ink-3); font-weight: 600; background: rgba(43,34,24,.03); }
+.u-list td { color: var(--ink-2); }
+.u-list tr:last-child td { border-bottom: 0; }
+.u-list tr[data-row]:hover { background: rgba(224,120,86,.04); cursor: pointer; }
+.u-user-cell { display: flex; align-items: center; gap: 10px; }
+.u-av {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: .75rem; letter-spacing: .5px;
+  flex-shrink: 0;
+}
+.u-role {
+  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: .6875rem; letter-spacing: 1px; font-weight: 600;
+}
+.u-role.admin   { background: var(--crimson-light);  color: var(--crimson); }
+.u-role.coach   { background: var(--gold-pale);      color: var(--gold-dark); }
+.u-role.student { background: rgba(43,34,24,.06);    color: var(--ink-3); }
+
+.load-more {
+  width: 100%; padding: 12px; border: 0; border-top: 1px solid var(--border-light);
+  background: rgba(43,34,24,.02); color: var(--ink-3); cursor: pointer;
+  font: var(--text-caption); letter-spacing: 2px; font-weight: 600;
+}
+.load-more:hover:not([disabled]) { background: rgba(224,120,86,.06); color: var(--saffron-dark); }
+.load-more[disabled] { opacity: .5; cursor: default; }
+
+.empty-state { padding: var(--sp-8) var(--sp-5); text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px; }
+.err-state { color: var(--crimson); }
+
+/* Drawer */
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 90; }
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 460px; max-width: 92vw;
+  background: #fff; box-shadow: -8px 0 24px rgba(0,0,0,.12);
+  transform: translateX(100%); transition: transform .25s var(--ease);
+  overflow: hidden; display: flex; flex-direction: column; z-index: 100;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-light); }
+.drawer-title { flex: 1; font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.drawer-close { width: 28px; height: 28px; border-radius: var(--r-sm); background: rgba(43,34,24,.04); border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.drawer-body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
+.drawer-foot { display: flex; justify-content: flex-end; padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--border-light); background: rgba(43,34,24,.02); }
+.drawer h3 { font: var(--text-caption); font-weight: 700; letter-spacing: 2px; color: var(--ink-3); margin: var(--sp-4) 0 var(--sp-2); }
+.drawer h3:first-child { margin-top: 0; }
+
+.u-hero {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-4); background: rgba(43,34,24,.03); border-radius: var(--r-sm); margin-bottom: var(--sp-3);
+}
+.u-hero .u-av-lg {
+  width: 48px; height: 48px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-family: var(--font-serif); font-weight: 700; font-size: 1.25rem;
+  flex-shrink: 0;
+}
+.u-hero-meta { flex: 1; min-width: 0; }
+.u-hero-name { font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.u-hero-email { font: var(--text-caption); color: var(--ink-3); letter-spacing: .5px; font-family: 'SF Mono', ui-monospace, monospace; word-break: break-all; }
+
+.u-meta { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; line-height: 1.9; }
+.u-meta b { color: var(--ink-2); font-weight: 600; }
+
+.action-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.fsel {
+  padding: 6px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: 1px; outline: none; font-family: inherit;
+}
+.btn-ghost-s { padding: 7px 16px; border-radius: var(--r-sm); background: transparent; color: var(--ink-2); border: 1px solid var(--border); font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer; }
+.btn-ghost-s[disabled] { opacity: .5; cursor: not-allowed; }
+.btn-apply { padding: 7px 16px; border-radius: var(--r-sm); background: var(--saffron); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+.btn-danger { padding: 7px 16px; border-radius: var(--r-sm); background: var(--crimson); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+.btn-sage   { padding: 7px 16px; border-radius: var(--r-sm); background: var(--sage-dark); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+.btn-apply[disabled], .btn-danger[disabled], .btn-sage[disabled] { opacity: .5; cursor: not-allowed; }
+
+.dr-err { color: var(--crimson); font: var(--text-caption); letter-spacing: 1px; padding: 10px 12px; border-radius: var(--r-sm); background: rgba(192,57,43,.06); margin-bottom: var(--sp-3); display: none; }
+.dr-err.show { display: block; }
+.dr-ok { color: var(--sage-dark); font: var(--text-caption); letter-spacing: 1px; padding: 10px 12px; border-radius: var(--r-sm); background: rgba(125,154,108,.12); margin-bottom: var(--sp-3); display: none; }
+.dr-ok.show { display: block; }
+</style>
+<meta name="jx-require-role" content="admin">
+<script src="../shared/lang.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name"><span class="sc">觉学</span><span class="tc">覺學</span></div>
+        <div class="brand-sub"><span class="sc">管理员后台</span><span class="tc">管理員後台</span></div>
+      </div>
+    </div>
+
+    <div class="side-user">
+      <div class="side-avatar" data-jx-user="avatarInitial">—</div>
+      <div class="side-user-info">
+        <div class="side-user-name" data-jx-user="dharmaName">—</div>
+        <div class="side-user-role" data-jx-user="roleLabel">—</div>
+      </div>
+      <button type="button" id="btn-logout" title="退出登录" aria-label="退出登录"
+        style="margin-left:auto;background:none;border:0;color:var(--ink-3);cursor:pointer;padding:6px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-list">
+      <div class="nav-section"><span class="sc">数据</span><span class="tc">數據</span></div>
+      <a class="nav-item" href="admin.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span><span class="sc">数据总览</span><span class="tc">數據總覽</span></span>
+      </a>
+
+      <div class="nav-section"><span class="sc">审核</span><span class="tc">審核</span></div>
+      <a class="nav-item" href="admin-review.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span><span class="sc">题目审核</span><span class="tc">題目審核</span></span>
+      </a>
+
+      <div class="nav-section"><span class="sc">管理</span><span class="tc">管理</span></div>
+      <a class="nav-item active" href="admin-users.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        <span><span class="sc">用户管理</span><span class="tc">用戶管理</span></span>
+      </a>
+
+      <div class="nav-section"><span class="sc">系统</span><span class="tc">系統</span></div>
+      <a class="nav-item" href="../mobile/home.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+        <span><span class="sc">学生端预览</span><span class="tc">學生端預覽</span></span>
+      </a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="page-title"><span class="sc">用户管理</span><span class="tc">用戶管理</span></h1>
+        <p class="page-sub"><span class="sc">按注册时间倒序 · 游标分页</span><span class="tc">按註冊時間倒序 · 游標分頁</span></p>
+      </div>
+      <div class="top-actions">
+        <button class="lang-btn" onclick="toggleLang()">繁</button>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="fchips" id="role-chips">
+        <span class="fchip active" data-role=""><span class="sc">全部</span><span class="tc">全部</span></span>
+        <span class="fchip" data-role="student"><span class="sc">学员</span><span class="tc">學員</span></span>
+        <span class="fchip" data-role="coach"><span class="sc">辅导员</span><span class="tc">輔導員</span></span>
+        <span class="fchip" data-role="admin"><span class="sc">管理员</span><span class="tc">管理員</span></span>
+      </div>
+      <input class="fsearch" id="search-input" type="search"
+        data-ph-sc="搜索邮箱或法名" data-ph-tc="搜索郵箱或法名" placeholder="搜索邮箱或法名">
+      <span class="fcount" id="filter-count">—</span>
+    </div>
+
+    <div class="list-panel">
+      <div id="list-body">
+        <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+      </div>
+      <button id="load-more" class="load-more" style="display:none;">
+        <span class="sc">加载更多</span><span class="tc">加載更多</span>
+      </button>
+    </div>
+  </main>
+</div>
+
+<!-- Detail drawer -->
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="drawer-title" id="dr-title"><span class="sc">用户详情</span><span class="tc">用戶詳情</span></span>
+    <button class="drawer-close" id="dr-close" aria-label="关闭">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="dr-body"></div>
+  <div class="drawer-foot">
+    <button class="btn-ghost-s" id="dr-cancel"><span class="sc">关闭</span><span class="tc">關閉</span></button>
+  </div>
+</aside>
+
+<script>
+
+// admin-users · 2a 骨架：/api/admin/users 分页 + 筛选
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+var PAGE_SIZE = 50;
+
+var ROLE_LABELS = {
+  student: ['学员', '學員'],
+  coach:   ['辅导员', '輔導員'],
+  admin:   ['管理员', '管理員'],
+};
+function roleLabel(r) { var m = ROLE_LABELS[r] || [r, r]; return sc(m[0], m[1]); }
+
+var state = {
+  all: [],          // 已加载的用户累积
+  roleFilter: '',
+  search: '',
+  cursor: null,
+  done: false,      // 是否还有更多
+  fetching: false,
+};
+
+function userRow(u) {
+  var nm = u.dharmaName || (u.email ? u.email.split('@')[0] : '—');
+  var initial = (nm.charAt(0) || '·').toUpperCase();
+  var bgColors = {
+    admin: 'linear-gradient(135deg,var(--crimson-light),var(--crimson))',
+    coach: 'linear-gradient(135deg,var(--gold-light),var(--gold))',
+    student: 'linear-gradient(135deg,var(--saffron),var(--saffron-dark))',
+  };
+  var bg = bgColors[u.role] || bgColors.student;
+  var statusPill = u.isActive
+    ? '<span class="status-pill status-active">' + escapeHtml(sc('活跃', '活躍')) + '</span>'
+    : '<span class="status-pill status-blocked">' + escapeHtml(sc('已禁用', '已禁用')) + '</span>';
+  return '<tr data-row data-uid="' + escapeHtml(u.id) + '">' +
+    '<td><div class="u-user-cell"><div class="u-av" style="background:' + bg + ';">' + escapeHtml(initial) + '</div>' +
+      '<span>' + escapeHtml(nm) + '</span></div></td>' +
+    '<td><code style="font-size:.6875rem;color:var(--ink-3);">' + escapeHtml(u.email || '—') + '</code></td>' +
+    '<td><span class="u-role ' + u.role + '">' + escapeHtml(roleLabel(u.role)) + '</span></td>' +
+    '<td>' + escapeHtml(window.JX.util.relativeTime(u.createdAt)) + '</td>' +
+    '<td>' + escapeHtml(u.lastLoginAt ? window.JX.util.relativeTime(u.lastLoginAt) : sc('—', '—')) + '</td>' +
+    '<td>' + statusPill + '</td>' +
+  '</tr>';
+}
+
+function renderList() {
+  document.getElementById('filter-count').textContent =
+    sc('已加载 ', '已加載 ') + state.all.length + sc(' 名', ' 名');
+  var body = document.getElementById('list-body');
+  if (!state.all.length) {
+    body.innerHTML = '<div class="empty-state">' + escapeHtml(sc('无结果', '無結果')) + '</div>';
+    return;
+  }
+  body.innerHTML =
+    '<table class="u-list"><thead><tr>' +
+      '<th>' + escapeHtml(sc('用户', '用戶')) + '</th>' +
+      '<th>' + escapeHtml(sc('邮箱', '郵箱')) + '</th>' +
+      '<th>' + escapeHtml(sc('角色', '角色')) + '</th>' +
+      '<th>' + escapeHtml(sc('注册时间', '註冊時間')) + '</th>' +
+      '<th>' + escapeHtml(sc('上次登录', '上次登錄')) + '</th>' +
+      '<th>' + escapeHtml(sc('状态', '狀態')) + '</th>' +
+    '</tr></thead><tbody>' +
+      state.all.map(userRow).join('') +
+    '</tbody></table>';
+
+  var more = document.getElementById('load-more');
+  more.style.display = state.done ? 'none' : '';
+  more.disabled = state.fetching;
+  more.innerHTML = state.fetching
+    ? '<span class="sc">加载中…</span><span class="tc">加載中…</span>'
+    : '<span class="sc">加载更多</span><span class="tc">加載更多</span>';
+}
+
+function showErr(msg) {
+  document.getElementById('list-body').innerHTML =
+    '<div class="empty-state err-state">' + escapeHtml(msg) + '</div>';
+  document.getElementById('load-more').style.display = 'none';
+}
+
+function fetchPage(reset) {
+  if (state.fetching) return;
+  if (!reset && state.done) return;
+  state.fetching = true;
+  if (!reset) renderList();
+
+  var qs = ['limit=' + PAGE_SIZE];
+  if (state.roleFilter) qs.push('role=' + encodeURIComponent(state.roleFilter));
+  if (state.search) qs.push('search=' + encodeURIComponent(state.search));
+  if (!reset && state.cursor) qs.push('cursor=' + encodeURIComponent(state.cursor));
+
+  window.JX.api.get('/api/admin/users?' + qs.join('&'))
+    .then(function (list) {
+      list = Array.isArray(list) ? list : [];
+      if (reset) state.all = [];
+      state.all = state.all.concat(list);
+      state.cursor = list.length ? list[list.length - 1].id : state.cursor;
+      state.done = list.length < PAGE_SIZE;
+      state.fetching = false;
+      renderList();
+    })
+    .catch(function (err) {
+      state.fetching = false;
+      showErr(sc('加载失败：', '加載失敗：') + (err && err.message || err));
+    });
+}
+
+function resetAndFetch() {
+  state.cursor = null;
+  state.done = false;
+  state.all = [];
+  fetchPage(true);
+}
+
+// Filters
+document.getElementById('role-chips').addEventListener('click', function (ev) {
+  var chip = ev.target.closest('.fchip');
+  if (!chip) return;
+  document.querySelectorAll('#role-chips .fchip').forEach(function (c) { c.classList.remove('active'); });
+  chip.classList.add('active');
+  state.roleFilter = chip.getAttribute('data-role') || '';
+  resetAndFetch();
+});
+var searchDebounce;
+document.getElementById('search-input').addEventListener('input', function (ev) {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(function () {
+    state.search = ev.target.value.trim();
+    resetAndFetch();
+  }, 250);
+});
+document.getElementById('load-more').addEventListener('click', function () { fetchPage(false); });
+
+// ── 详情抽屉 + 改角色 + 启停账号 (2b) ────────────
+var currentUid = null;
+
+function fullName(u) {
+  return u.dharmaName || (u.email ? u.email.split('@')[0] : '—');
+}
+
+function setFlash(kind, msg) {
+  var ok = document.getElementById('dr-ok');
+  var err = document.getElementById('dr-err');
+  ok.classList.remove('show'); err.classList.remove('show');
+  if (!kind) return;
+  var el = kind === 'ok' ? ok : err;
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function renderDrawer(u) {
+  var isSelf = window.JX.user && window.JX.user.id === u.id;
+  var initial = (fullName(u).charAt(0) || '·').toUpperCase();
+  var bgColors = {
+    admin: 'linear-gradient(135deg,var(--crimson-light),var(--crimson))',
+    coach: 'linear-gradient(135deg,var(--gold-light),var(--gold))',
+    student: 'linear-gradient(135deg,var(--saffron),var(--saffron-dark))',
+  };
+  var bg = bgColors[u.role] || bgColors.student;
+
+  var statusPill = u.isActive
+    ? '<span class="status-pill status-active">' + escapeHtml(sc('活跃', '活躍')) + '</span>'
+    : '<span class="status-pill status-blocked">' + escapeHtml(sc('已禁用', '已禁用')) + '</span>';
+
+  // Role options
+  var roleOpts = ['student', 'coach', 'admin'].map(function (r) {
+    return '<option value="' + r + '"' + (r === u.role ? ' selected' : '') + '>' + escapeHtml(roleLabel(r)) + '</option>';
+  }).join('');
+
+  var activeBtn = u.isActive
+    ? '<button class="btn-danger" id="dr-toggle-active" data-next="false"' + (isSelf ? ' disabled' : '') + '>' +
+        '<span class="sc">停用账号</span><span class="tc">停用帳號</span>' + (isSelf ? sc('（不能停用自己）', '（不能停用自己）') : '') + '</button>'
+    : '<button class="btn-sage" id="dr-toggle-active" data-next="true">' +
+        '<span class="sc">启用账号</span><span class="tc">啟用帳號</span></button>';
+
+  document.getElementById('dr-body').innerHTML =
+    '<div class="dr-ok" id="dr-ok"></div>' +
+    '<div class="dr-err" id="dr-err"></div>' +
+
+    '<div class="u-hero">' +
+      '<div class="u-av-lg" style="background:' + bg + ';">' + escapeHtml(initial) + '</div>' +
+      '<div class="u-hero-meta">' +
+        '<div class="u-hero-name">' + escapeHtml(fullName(u)) + '</div>' +
+        '<div class="u-hero-email">' + escapeHtml(u.email || sc('（邮箱已释放）', '（郵箱已釋放）')) + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<h3>' + escapeHtml(sc('元数据', '元數據')) + '</h3>' +
+    '<div class="u-meta">' +
+      '<div><b>ID:</b> <code>' + escapeHtml(u.id) + '</code></div>' +
+      '<div><b>' + escapeHtml(sc('状态', '狀態')) + ':</b> ' + statusPill + '</div>' +
+      '<div><b>' + escapeHtml(sc('注册时间', '註冊時間')) + ':</b> ' + escapeHtml(window.JX.util.relativeTime(u.createdAt)) + '</div>' +
+      '<div><b>' + escapeHtml(sc('上次登录', '上次登錄')) + ':</b> ' + escapeHtml(u.lastLoginAt ? window.JX.util.relativeTime(u.lastLoginAt) : '—') + '</div>' +
+      '<div><b>' + escapeHtml(sc('时区', '時區')) + ':</b> ' + escapeHtml(u.timezone || '—') + ' · <b>' + escapeHtml(sc('语言', '語言')) + ':</b> ' + escapeHtml(u.locale || '—') + '</div>' +
+    '</div>' +
+
+    '<h3>' + escapeHtml(sc('角色', '角色')) + '</h3>' +
+    '<div class="action-row">' +
+      '<select class="fsel" id="dr-role-select" data-orig="' + escapeHtml(u.role) + '"' + (isSelf ? ' disabled' : '') + '>' + roleOpts + '</select>' +
+      '<button class="btn-apply" id="dr-role-apply" disabled>' +
+        '<span class="sc">应用</span><span class="tc">應用</span>' +
+      '</button>' +
+      (isSelf ? '<span style="font:var(--text-caption);color:var(--ink-4);margin-left:8px;">' + escapeHtml(sc('· 不能修改自己的角色', '· 不能修改自己的角色')) + '</span>' : '') +
+    '</div>' +
+
+    '<h3>' + escapeHtml(sc('账号状态', '帳號狀態')) + '</h3>' +
+    '<div class="action-row">' +
+      activeBtn +
+      '<span style="font:var(--text-caption);color:var(--ink-4);margin-left:8px;">' +
+        escapeHtml(u.isActive
+          ? sc('停用后该用户会立即登出所有设备', '停用後該用戶會立即登出所有設備')
+          : sc('启用后允许重新登录', '啟用後允許重新登錄')) +
+      '</span>' +
+    '</div>';
+
+  // Role apply state
+  var sel = document.getElementById('dr-role-select');
+  var applyBtn = document.getElementById('dr-role-apply');
+  sel.addEventListener('change', function () {
+    applyBtn.disabled = sel.value === sel.getAttribute('data-orig');
+  });
+  applyBtn.addEventListener('click', function () {
+    var newRole = sel.value;
+    if (!confirm(sc('确认将角色改为 ', '確認將角色改為 ') + roleLabel(newRole) + sc('？', '？'))) return;
+    applyBtn.disabled = true;
+    setFlash(null);
+    window.JX.api.patch('/api/admin/users/' + encodeURIComponent(u.id) + '/role', { role: newRole })
+      .then(function (updated) {
+        // 更新 state + 行
+        var idx = state.all.findIndex(function (x) { return x.id === updated.id; });
+        if (idx >= 0) state.all[idx] = updated;
+        renderList();
+        renderDrawer(updated);
+        setFlash('ok', sc('角色已更新', '角色已更新'));
+      })
+      .catch(function (err) {
+        setFlash('error',
+          err && err.status === 403
+            ? sc('无权：', '無權：') + (err.message || '')
+            : sc('更新失败：', '更新失敗：') + (err && err.message || err));
+        applyBtn.disabled = false;
+      });
+  });
+
+  // Active toggle
+  var tBtn = document.getElementById('dr-toggle-active');
+  if (tBtn && !isSelf) {
+    tBtn.addEventListener('click', function () {
+      var next = tBtn.getAttribute('data-next') === 'true';
+      var confirmMsg = next
+        ? sc('确认启用此账号？', '確認啟用此帳號？')
+        : sc('确认停用此账号？所有会话将被吊销。', '確認停用此帳號？所有會話將被吊銷。');
+      if (!confirm(confirmMsg)) return;
+      tBtn.disabled = true;
+      setFlash(null);
+      window.JX.api.post('/api/admin/users/' + encodeURIComponent(u.id) + '/active', { isActive: next })
+        .then(function (updated) {
+          var idx = state.all.findIndex(function (x) { return x.id === updated.id; });
+          if (idx >= 0) state.all[idx] = updated;
+          renderList();
+          renderDrawer(updated);
+          setFlash('ok', next ? sc('已启用', '已啟用') : sc('已停用 · 会话已吊销', '已停用 · 會話已吊銷'));
+        })
+        .catch(function (err) {
+          setFlash('error',
+            err && err.status === 403
+              ? sc('无权：', '無權：') + (err.message || '')
+              : sc('操作失败：', '操作失敗：') + (err && err.message || err));
+          tBtn.disabled = false;
+        });
+    });
+  }
+}
+
+function openDrawer(uid) {
+  var u = state.all.find(function (x) { return x.id === uid; });
+  if (!u) return;
+  currentUid = uid;
+  renderDrawer(u);
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'false');
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'true');
+  currentUid = null;
+}
+
+document.getElementById('dr-close').addEventListener('click', closeDrawer);
+document.getElementById('dr-cancel').addEventListener('click', closeDrawer);
+document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape') closeDrawer();
+});
+
+// 行点击 → 打开抽屉
+document.getElementById('list-body').addEventListener('click', function (ev) {
+  var tr = ev.target.closest('tr[data-row]');
+  if (!tr) return;
+  openDrawer(tr.getAttribute('data-uid'));
+});
+
+document.getElementById('btn-logout').addEventListener('click', function () {
+  if (!confirm(sc('确定退出登录？', '確定退出登入？'))) return;
+  window.JX.api.logout().finally(function () { location.replace('../mobile/auth.html'); });
+});
+
+document.addEventListener('jx:user-ready', resetAndFetch);
+document.addEventListener('langchange', renderList);
+if (window.JX && window.JX.user) resetAndFetch();
+</script>
+</body>
+</html>

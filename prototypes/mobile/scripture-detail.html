@@ -1,0 +1,252 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 心经</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
+
+/* Sections */
+.sections { display: flex; flex-direction: column; gap: var(--sp-4); padding: 0 var(--sp-5) var(--sp-8); }
+
+/* Book hero */
+.book-hero {
+  padding: var(--sp-5);
+  background: linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%);
+  color: #FFF; border-radius: var(--r-lg); position: relative; overflow: hidden;
+  box-shadow: 0 10px 30px rgba(161,60,46,.25);
+}
+.book-hero::after {
+  content: '心経';
+  position: absolute; right: -10px; bottom: -30px;
+  font-family: var(--font-serif); font-size: 9rem; font-weight: 700;
+  color: rgba(255,255,255,.08); letter-spacing: 8px; line-height: .8;
+}
+.book-hero-label { font: var(--text-caption); letter-spacing: 3px; opacity: .8; margin-bottom: var(--sp-2); font-weight: 600; }
+.book-hero-title { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 700; letter-spacing: 5px; margin-bottom: var(--sp-2); }
+.book-hero-sub { font: var(--text-caption); letter-spacing: 2px; opacity: .85; margin-bottom: var(--sp-4); }
+.book-hero-stats { display: flex; gap: var(--sp-6); position: relative; z-index: 1; }
+.hero-stat-num { font-family: var(--font-serif); font-weight: 700; font-size: 1.25rem; line-height: 1; margin-bottom: 2px; }
+.hero-stat-lbl { font-size: .625rem; opacity: .75; letter-spacing: 1px; }
+
+/* Section header */
+.section-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 2px; }
+.section-head h3 { font-family: var(--font-serif); font-weight: 700; color: var(--ink); font-size: 1rem; letter-spacing: 3px; }
+.section-head span { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; }
+
+/* Chapter items */
+.chapter-item {
+  display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4);
+  background: var(--glass); backdrop-filter: var(--blur);
+  border-radius: var(--r-lg); border: 1px solid var(--glass-border);
+  text-decoration: none; transition: all var(--dur) var(--ease);
+}
+.chapter-item:hover:not(.locked) { background: var(--glass-thick); }
+.chapter-item.current { background: var(--saffron-pale); border: 1.5px solid var(--saffron); box-shadow: 0 4px 14px rgba(224,120,86,.18); }
+.chapter-item.locked { opacity: .5; pointer-events: none; }
+.chapter-num {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-weight: 700; font-size: .875rem; flex-shrink: 0;
+}
+.chapter-num.done    { background: var(--sage-dark);   color: #FFF; }
+.chapter-num.current { background: var(--saffron);     color: #FFF; box-shadow: 0 0 0 3px var(--saffron-light); }
+.chapter-num.locked  { background: rgba(43,34,24,.08); color: var(--ink-4); }
+.chapter-body { flex: 1; min-width: 0; }
+.chapter-title { font-family: var(--font-serif); font-weight: 600; color: var(--ink); font-size: .9375rem; letter-spacing: 2px; margin-bottom: 3px; }
+.chapter-meta { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; display: flex; gap: 8px; align-items: center; }
+.dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
+</style>
+<script src="../shared/lang.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <div class="status-bar" data-auto></div>
+
+  <div class="top-nav">
+    <a class="nav-action" href="home.html">
+      <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <span class="top-nav-title"><span class="sc">法本详情</span><span class="tc">法本詳情</span></span>
+    <button class="nav-action">
+      <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    </button>
+  </div>
+
+  <div class="sections" id="sections">
+    <div class="book-hero" id="book-hero" style="display:none;">
+      <p class="book-hero-label" id="hero-label"></p>
+      <p class="book-hero-title" id="hero-title"></p>
+      <p class="book-hero-sub" id="hero-sub"></p>
+      <div class="book-hero-stats">
+        <div>
+          <p class="hero-stat-num" id="hero-chapters">—</p>
+          <p class="hero-stat-lbl"><span class="sc">章节</span><span class="tc">章節</span></p>
+        </div>
+        <div>
+          <p class="hero-stat-num" id="hero-lessons">—</p>
+          <p class="hero-stat-lbl"><span class="sc">课时</span><span class="tc">課時</span></p>
+        </div>
+        <div>
+          <p class="hero-stat-num" id="hero-progress">0%</p>
+          <p class="hero-stat-lbl"><span class="sc">已学</span><span class="tc">已學</span></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-head" id="section-head" style="display:none;">
+      <h3><span class="sc">章节目录</span><span class="tc">章節目錄</span></h3>
+      <span id="section-head-right">—</span>
+    </div>
+
+    <div id="chapters-list">
+      <div class="q-card" style="text-align:center;padding:var(--sp-6) var(--sp-5);background:rgba(255,255,255,.55);border-radius:var(--r-lg);">
+        <p style="font:var(--text-caption);color:var(--ink-3);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <a href="home.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span><span class="sc">首页</span><span class="tc">首頁</span></span></a>
+    <a href="scripture-detail.html" class="tab-item active"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span><span class="sc">法本</span><span class="tc">法本</span></span></a>
+    <a href="quiz.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span><span class="sc">答题</span><span class="tc">答題</span></span></a>
+    <a href="profile.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span><span class="sc">我的</span><span class="tc">我的</span></span></a>
+  </div>
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+<script src="../shared/nav.js"></script>
+<script>
+// scripture-detail · /api/courses/:slug（含 overlay）
+//   ?slug= 指定；否则取第一个已报名课；否则取首个已发布课
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+function resolveSlug() {
+  var q = window.JX.util.queryParam('slug');
+  if (q) return Promise.resolve(q);
+  return window.JX.api.get('/api/my/enrollments').then(function (list) {
+    if (list && list.length && list[0].course && list[0].course.slug) return list[0].course.slug;
+    return window.JX.api.get('/api/courses').then(function (courses) {
+      if (!courses || !courses.length) throw new Error(sc('暂无已发布法本', '暫無已發佈法本'));
+      return courses[0].slug;
+    });
+  });
+}
+
+function renderHero(course, overlay) {
+  document.getElementById('book-hero').style.display = '';
+  document.getElementById('section-head').style.display = '';
+  document.getElementById('hero-label').textContent =
+    (course.author ? course.author + ' · ' : '') + sc('论典', '論典');
+  document.getElementById('hero-title').textContent = course.title;
+  document.getElementById('hero-sub').textContent = course.description || '';
+  var chapters = course.chapters || [];
+  var totalLessons = chapters.reduce(function (n, c) { return n + (c.lessons || []).length; }, 0);
+  document.getElementById('hero-chapters').textContent = chapters.length;
+  document.getElementById('hero-lessons').textContent = totalLessons;
+  var pct = (overlay && overlay.progressPercent) || 0;
+  document.getElementById('hero-progress').textContent = pct + '%';
+}
+
+function renderChapters(course, overlay) {
+  var done = new Set((overlay && overlay.completedLessonIds) || []);
+  var currentLessonId = overlay && overlay.currentLessonId;
+  var chapters = course.chapters || [];
+  var totalChapters = chapters.length;
+  var doneChapters = 0;
+
+  var list = document.getElementById('chapters-list');
+  list.innerHTML = '';
+
+  chapters.forEach(function (ch, idx) {
+    var lessons = ch.lessons || [];
+    var doneCount = lessons.filter(function (l) { return done.has(l.id); }).length;
+    var firstLesson = lessons[0];
+    var chapterDone = lessons.length > 0 && doneCount === lessons.length;
+    var chapterCurrent = lessons.some(function (l) { return l.id === currentLessonId; });
+    if (chapterDone) doneChapters++;
+    var state = chapterDone ? 'done' : (chapterCurrent ? 'current' : 'pending');
+
+    var badge;
+    if (state === 'done') {
+      badge = '<svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+    } else if (state === 'current') {
+      badge = String(idx + 1);
+    } else {
+      badge = String(idx + 1);
+    }
+    var pct = lessons.length ? Math.round(doneCount / lessons.length * 100) : 0;
+    var meta = lessons.length + sc(' 课 · ', ' 課 · ') +
+      (chapterCurrent ? (sc('阅读中', '閱讀中')) : (pct + '%'));
+
+    var href = firstLesson
+      ? 'scripture-reading.html?slug=' + encodeURIComponent(course.slug) + '&lessonId=' + encodeURIComponent(firstLesson.id)
+      : '#';
+    var el = document.createElement(firstLesson ? 'a' : 'div');
+    el.className = 'chapter-item' + (state === 'current' ? ' current' : '');
+    if (firstLesson) el.href = href;
+    el.innerHTML =
+      '<div class="chapter-num ' + state + '">' + badge + '</div>' +
+      '<div class="chapter-body">' +
+        '<p class="chapter-title">' + escapeHtml((idx + 1) + '. ' + (ch.title || '—')) + '</p>' +
+        '<div class="chapter-meta">' +
+          (chapterCurrent
+            ? '<span style="color:var(--saffron);font-weight:600;">' + escapeHtml(sc('阅读中', '閱讀中')) + '</span><span class="dot"></span><span>' + lessons.length + sc(' 课', ' 課') + '</span>'
+            : '<span>' + escapeHtml(meta) + '</span>') +
+        '</div>' +
+      '</div>' +
+      '<svg width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>';
+    list.appendChild(el);
+  });
+
+  document.getElementById('section-head-right').textContent =
+    doneChapters + ' / ' + totalChapters + sc(' 已完成', ' 已完成');
+}
+
+function boot() {
+  resolveSlug()
+    .then(function (slug) { return window.JX.api.get('/api/courses/' + encodeURIComponent(slug)); })
+    .then(function (data) {
+      var course = data.course || data;
+      var overlay = data.overlay;
+      renderHero(course, overlay);
+      renderChapters(course, overlay);
+    })
+    .catch(function (err) {
+      document.getElementById('chapters-list').innerHTML =
+        '<div class="q-card" style="padding:var(--sp-6);text-align:center;color:var(--crimson);">'
+        + escapeHtml(sc('加载失败：', '加載失敗：') + (err.message || err))
+        + '</div>';
+    });
+}
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', boot);
+if (window.JX && window.JX.user) boot();
+</script>
+</body>
+</html>
