@@ -206,13 +206,12 @@
     <div class="top-bar">
       <div>
         <h1 class="page-title"><span class="sc">数据总览</span><span class="tc">數據總覽</span></h1>
-        <p class="page-sub"><span class="sc">周四 · 四月二十四日 · 实时数据</span><span class="tc">週四 · 四月二十四日 · 即時數據</span></p>
+        <p class="page-sub" id="page-sub">—</p>
       </div>
       <div class="top-actions">
         <button class="lang-btn" onclick="toggleLang()">繁</button>
-        <button class="icon-btn">
-          <svg width="16" height="16" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <div class="notif-dot"></div>
+        <button id="btn-refresh" class="btn btn-ghost btn-pill" style="padding:6px 16px;">
+          <span class="sc">↻ 刷新</span><span class="tc">↻ 重新整理</span>
         </button>
       </div>
     </div>
@@ -221,83 +220,42 @@
     <div class="kpi-grid">
       <div class="kpi-card">
         <p class="kpi-label"><span class="sc">注册用户</span><span class="tc">註冊用戶</span></p>
-        <p class="kpi-value">1,284</p>
-        <p class="kpi-trend">↑ 23% 本月</p>
+        <p class="kpi-value" id="kpi-users">—</p>
+        <p class="kpi-trend" id="kpi-users-sub">&nbsp;</p>
       </div>
       <div class="kpi-card">
-        <p class="kpi-label"><span class="sc">日活用户 DAU</span><span class="tc">日活用戶 DAU</span></p>
-        <p class="kpi-value">342</p>
-        <p class="kpi-trend">↑ 8%</p>
+        <p class="kpi-label"><span class="sc">近 7 日活跃</span><span class="tc">近 7 日活躍</span></p>
+        <p class="kpi-value" id="kpi-active">—</p>
+        <p class="kpi-trend" id="kpi-active-sub">&nbsp;</p>
       </div>
       <div class="kpi-card">
         <p class="kpi-label"><span class="sc">法本总数</span><span class="tc">法本總數</span></p>
-        <p class="kpi-value">18</p>
-        <p class="kpi-trend">↑ 本月新增 2 本</p>
+        <p class="kpi-value" id="kpi-courses">—</p>
+        <p class="kpi-trend" id="kpi-courses-sub">&nbsp;</p>
       </div>
       <div class="kpi-card">
         <p class="kpi-label"><span class="sc">累计答题</span><span class="tc">累計答題</span></p>
-        <p class="kpi-value">86.4k</p>
-        <p class="kpi-trend neg">↓ 3% <span class="sc">周环比</span><span class="tc">週環比</span></p>
+        <p class="kpi-value" id="kpi-answers">—</p>
+        <p class="kpi-trend" id="kpi-answers-sub">&nbsp;</p>
       </div>
     </div>
 
     <!-- Charts row -->
     <div class="two-col">
 
-      <!-- DAU bar chart -->
+      <!-- 用户 + 班级 分布 -->
       <div class="panel">
-        <p class="panel-title">近 7 日日活</p>
-        <div class="chart-bars">
-          <div class="bar-col"><div class="bar" style="height:52%"></div><span class="bar-lbl">周五</span></div>
-          <div class="bar-col"><div class="bar" style="height:44%"></div><span class="bar-lbl">周六</span></div>
-          <div class="bar-col"><div class="bar" style="height:38%"></div><span class="bar-lbl">周日</span></div>
-          <div class="bar-col"><div class="bar" style="height:68%"></div><span class="bar-lbl">周一</span></div>
-          <div class="bar-col"><div class="bar" style="height:74%"></div><span class="bar-lbl">周二</span></div>
-          <div class="bar-col"><div class="bar" style="height:82%"></div><span class="bar-lbl">周三</span></div>
-          <div class="bar-col"><div class="bar" style="height:90%"></div><span class="bar-lbl">周四</span></div>
-        </div>
-        <div class="chart-axis">
-          <span class="axis-lbl">0</span>
-          <span class="axis-lbl">100</span>
-          <span class="axis-lbl">200</span>
-          <span class="axis-lbl">342</span>
+        <p class="panel-title"><span class="sc">平台结构</span><span class="tc">平台結構</span></p>
+        <div class="book-rows" id="panel-distribution">
+          <p style="color:var(--ink-3);font:var(--text-caption);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
         </div>
       </div>
 
-      <!-- Book heat -->
+      <!-- 题库 / LLM 面板 -->
       <div class="panel">
-        <p class="panel-title"><span class="sc">法本热度排行</span><span class="tc">法本熱度排行</span></p>
-        <div class="book-rows">
-          <div class="book-row">
-            <span class="book-rank top">1</span>
-            <span class="book-name"><span class="sc">心经</span><span class="tc">心經</span></span>
-            <div class="book-bar-wrap"><div class="book-bar-track"><div class="book-bar-fill" style="width:100%"></div></div></div>
-            <span class="book-count">28.4k</span>
-          </div>
-          <div class="book-row">
-            <span class="book-rank top">2</span>
-            <span class="book-name"><span class="sc">金刚经</span><span class="tc">金剛經</span></span>
-            <div class="book-bar-wrap"><div class="book-bar-track"><div class="book-bar-fill" style="width:76%"></div></div></div>
-            <span class="book-count">21.6k</span>
-          </div>
-          <div class="book-row">
-            <span class="book-rank top">3</span>
-            <span class="book-name"><span class="sc">普贤行愿品</span><span class="tc">普賢行願品</span></span>
-            <div class="book-bar-wrap"><div class="book-bar-track"><div class="book-bar-fill" style="width:54%"></div></div></div>
-            <span class="book-count">15.3k</span>
-          </div>
-          <div class="book-row">
-            <span class="book-rank">4</span>
-            <span class="book-name"><span class="sc">药师经</span><span class="tc">藥師經</span></span>
-            <div class="book-bar-wrap"><div class="book-bar-track"><div class="book-bar-fill" style="width:38%"></div></div></div>
-            <span class="book-count">10.8k</span>
-          </div>
-          <div class="book-row">
-            <span class="book-rank">5</span>
-            <span class="book-name"><span class="sc">地藏经</span><span class="tc">地藏經</span></span>
-            <div class="book-bar-wrap"><div class="book-bar-track"><div class="book-bar-fill" style="width:28%"></div></div></div>
-            <span class="book-count">7.9k</span>
-          </div>
+        <p class="panel-title"><span class="sc">题库 · LLM</span><span class="tc">題庫 · LLM</span></p>
+        <div class="book-rows" id="panel-questions">
+          <p style="color:var(--ink-3);font:var(--text-caption);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
         </div>
       </div>
 
@@ -307,66 +265,21 @@
     <div class="full-section">
       <div class="section-head-d">
         <h2 class="section-title-d"><span class="sc">最近注册用户</span><span class="tc">最近註冊用戶</span></h2>
-        <span class="section-action"><span class="sc">用户管理 →</span><span class="tc">用戶管理 →</span></span>
+        <span class="section-action" id="users-count">—</span>
       </div>
       <div class="table-panel">
-        <div class="table-panel-head">
-          <span style="font:var(--text-caption);color:var(--ink-3);letter-spacing:1px;"><span class="sc">共 1,284 名用户</span><span class="tc">共 1,284 名用戶</span></span>
-          <button class="table-action-btn">+ <span class="sc">新增用户</span><span class="tc">新增用戶</span></button>
-        </div>
         <table class="data-table">
           <thead>
             <tr>
               <th><span class="sc">用户</span><span class="tc">用戶</span></th>
+              <th><span class="sc">邮箱</span><span class="tc">郵箱</span></th>
+              <th><span class="sc">角色</span><span class="tc">角色</span></th>
               <th><span class="sc">注册时间</span><span class="tc">註冊時間</span></th>
-              <th><span class="sc">所在班级</span><span class="tc">所在班級</span></th>
-              <th><span class="sc">等级</span><span class="tc">等級</span></th>
-              <th><span class="sc">答题数</span><span class="tc">答題數</span></th>
+              <th><span class="sc">上次登录</span><span class="tc">上次登錄</span></th>
               <th><span class="sc">状态</span><span class="tc">狀態</span></th>
             </tr>
           </thead>
-          <tbody>
-            <tr>
-              <td><div class="user-cell"><div class="user-av" style="background:linear-gradient(135deg,var(--saffron),var(--saffron-dark));">明</div><span>明心同学</span></div></td>
-              <td>2024-03-12</td>
-              <td><span class="sc">心经共修班</span><span class="tc">心經共修班</span></td>
-              <td>Lv.7</td>
-              <td>312</td>
-              <td><span class="status-pill status-active"><span class="sc">活跃</span><span class="tc">活躍</span></span></td>
-            </tr>
-            <tr>
-              <td><div class="user-cell"><div class="user-av" style="background:linear-gradient(135deg,var(--sage),var(--sage-dark));">慧</div><span>慧远居士</span></div></td>
-              <td>2024-03-28</td>
-              <td><span class="sc">金刚经研习班</span><span class="tc">金剛經研習班</span></td>
-              <td>Lv.9</td>
-              <td>487</td>
-              <td><span class="status-pill status-active"><span class="sc">活跃</span><span class="tc">活躍</span></span></td>
-            </tr>
-            <tr>
-              <td><div class="user-cell"><div class="user-av" style="background:linear-gradient(135deg,var(--gold-light),var(--gold));">法</div><span>法喜充满</span></div></td>
-              <td>2024-04-10</td>
-              <td><span class="sc">入门禅修班</span><span class="tc">入門禪修班</span></td>
-              <td>Lv.3</td>
-              <td>56</td>
-              <td><span class="status-pill status-pending"><span class="sc">待审核</span><span class="tc">待審核</span></span></td>
-            </tr>
-            <tr>
-              <td><div class="user-cell"><div class="user-av" style="background:linear-gradient(135deg,var(--ink-3),var(--ink));">净</div><span>净土行者</span></div></td>
-              <td>2024-04-18</td>
-              <td>—</td>
-              <td>Lv.1</td>
-              <td>8</td>
-              <td><span class="status-pill status-pending"><span class="sc">待审核</span><span class="tc">待審核</span></span></td>
-            </tr>
-            <tr>
-              <td><div class="user-cell"><div class="user-av" style="background:linear-gradient(135deg,var(--crimson-light),var(--crimson));">障</div><span>test_spam_01</span></div></td>
-              <td>2024-04-22</td>
-              <td>—</td>
-              <td>Lv.1</td>
-              <td>0</td>
-              <td><span class="status-pill status-blocked">已封禁</span></td>
-            </tr>
-          </tbody>
+          <tbody id="users-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -374,10 +287,184 @@
   </main>
 </div>
 <script>
+// admin dashboard 数据源
+//   GET /api/admin/platform-stats       users/classes/questions/answers/llm/sm2 聚合
+//   GET /api/courses                    法本总数
+//   GET /api/admin/users?limit=10       最近注册用户
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var ROLE_LABELS = {
+  student: ['学员', '學員'], coach: ['辅导员', '輔導員'], admin: ['管理员', '管理員'],
+};
+var TYPE_LABELS = {
+  single: ['单选', '單選'], multi: ['多选', '多選'], fill: ['填空', '填空'],
+  open: ['问答', '問答'], sort: ['排序', '排序'], match: ['匹配', '匹配'],
+  image: ['图识', '圖識'], listen: ['听颂', '聽誦'], scenario: ['情境', '情境'],
+  flow: ['流程', '流程'], guided: ['引导', '引導'], flip: ['速记卡', '速記卡'],
+};
+var STATUS_LABELS = {
+  pending: ['待审', '待審'], approved: ['已通过', '已通過'], rejected: ['已驳回', '已駁回'],
+};
+function localLabel(map, key) { var m = map[key] || [key, key]; return sc(m[0], m[1]); }
+
+function renderPageSub() {
+  var d = new Date();
+  var wk = ['日', '一', '二', '三', '四', '五', '六'];
+  var t = sc('周 ' + wk[d.getDay()] + ' · ', '週 ' + wk[d.getDay()] + ' · ') +
+    (d.getMonth() + 1) + sc(' 月 ', ' 月 ') + d.getDate() + sc(' 日 · 实时数据', ' 日 · 即時數據');
+  document.getElementById('page-sub').textContent = t;
+}
+function setSub(id, t) { document.getElementById(id).textContent = t; }
+function formatK(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e4) return (n / 1e3).toFixed(1) + 'k';
+  return String(n);
+}
+
+function renderKpis(stats, courses) {
+  document.getElementById('kpi-users').textContent = stats.users.total;
+  setSub('kpi-users-sub', sc('本周新增 ', '本週新增 ') + stats.users.newInWindow);
+  document.getElementById('kpi-active').textContent = stats.users.activeInWindow;
+  setSub('kpi-active-sub', sc('独立答题用户', '獨立答題用戶'));
+  document.getElementById('kpi-courses').textContent = (courses || []).length;
+  setSub('kpi-courses-sub', sc('已发布论典', '已發佈論典'));
+  document.getElementById('kpi-answers').textContent = formatK(stats.answers.total);
+  setSub('kpi-answers-sub',
+    sc('窗口内 ', '視窗內 ') + stats.answers.inWindow +
+    sc(' · 正确率 ', ' · 正確率 ') + Math.round(stats.answers.correctRate * 100) + '%');
+}
+
+function bookRow(rank, name, count, max, accent) {
+  var w = max > 0 ? Math.max(4, Math.round(count / max * 100)) : 0;
+  var rankClass = rank <= 3 ? 'book-rank top' : 'book-rank';
+  var fillStyle = accent ? 'background:' + accent + ';' : '';
+  return '<div class="book-row">' +
+    '<span class="' + rankClass + '">' + rank + '</span>' +
+    '<span class="book-name">' + escapeHtml(name) + '</span>' +
+    '<div class="book-bar-wrap"><div class="book-bar-track"><div class="book-bar-fill" style="width:' + w + '%;' + fillStyle + '"></div></div></div>' +
+    '<span class="book-count">' + formatK(count) + '</span>' +
+  '</div>';
+}
+
+function renderDistribution(stats) {
+  var byRole = stats.users.byRole || {};
+  var rolesOrder = ['student', 'coach', 'admin'];
+  var roleRows = rolesOrder.map(function (r) {
+    return { name: localLabel(ROLE_LABELS, r), count: byRole[r] || 0 };
+  }).filter(function (x) { return x.count > 0; });
+  var maxR = Math.max.apply(null, roleRows.map(function (r) { return r.count; }).concat(1));
+
+  var cls = stats.classes || {};
+  var classRows = [
+    { name: sc('班级 · 活跃', '班級 · 活躍'), count: cls.active || 0 },
+    { name: sc('班级 · 归档', '班級 · 歸檔'), count: cls.archived || 0 },
+  ].filter(function (r) { return r.count > 0; });
+  var maxC = Math.max.apply(null, classRows.map(function (r) { return r.count; }).concat(1));
+
+  var html = '<h3 style="font:var(--text-caption);color:var(--ink-3);letter-spacing:2px;margin:0 0 8px;">' +
+    escapeHtml(sc('用户 · 按角色', '用戶 · 按角色')) + '</h3>';
+  html += roleRows.length
+    ? roleRows.map(function (r, i) { return bookRow(i + 1, r.name, r.count, maxR); }).join('')
+    : '<p style="color:var(--ink-4);font:var(--text-caption);">' + escapeHtml(sc('无数据', '無數據')) + '</p>';
+  html += '<h3 style="font:var(--text-caption);color:var(--ink-3);letter-spacing:2px;margin:16px 0 8px;">' +
+    escapeHtml(sc('班级', '班級')) + '</h3>';
+  html += classRows.length
+    ? classRows.map(function (r, i) { return bookRow(i + 1, r.name, r.count, maxC, 'linear-gradient(90deg,var(--sage),var(--sage-dark))'); }).join('')
+    : '<p style="color:var(--ink-4);font:var(--text-caption);">' + escapeHtml(sc('暂无班级', '暫無班級')) + '</p>';
+  document.getElementById('panel-distribution').innerHTML = html;
+}
+
+function renderQuestionsAndLlm(stats) {
+  var byStatus = stats.questions.byStatus || {};
+  var statusRows = ['pending', 'approved', 'rejected'].map(function (s) {
+    return { name: localLabel(STATUS_LABELS, s), count: byStatus[s] || 0 };
+  }).filter(function (r) { return r.count > 0; });
+  var maxS = Math.max.apply(null, statusRows.map(function (r) { return r.count; }).concat(1));
+
+  var byType = stats.questions.byType || {};
+  var typeRows = Object.keys(byType).map(function (t) {
+    return { name: localLabel(TYPE_LABELS, t), count: byType[t] };
+  }).sort(function (a, b) { return b.count - a.count; });
+  var maxT = Math.max.apply(null, typeRows.map(function (r) { return r.count; }).concat(1));
+
+  var llm = stats.llm || {};
+  var html = '<h3 style="font:var(--text-caption);color:var(--ink-3);letter-spacing:2px;margin:0 0 8px;">' +
+    escapeHtml(sc('题库 · 按审核', '題庫 · 按審核')) + '</h3>';
+  html += statusRows.length
+    ? statusRows.map(function (r, i) { return bookRow(i + 1, r.name, r.count, maxS); }).join('')
+    : '<p style="color:var(--ink-4);font:var(--text-caption);">' + escapeHtml(sc('暂无题目', '暫無題目')) + '</p>';
+  html += '<h3 style="font:var(--text-caption);color:var(--ink-3);letter-spacing:2px;margin:16px 0 8px;">' +
+    escapeHtml(sc('题库 · 按题型', '題庫 · 按題型')) + '</h3>';
+  html += typeRows.length
+    ? typeRows.slice(0, 6).map(function (r, i) { return bookRow(i + 1, r.name, r.count, maxT, 'linear-gradient(90deg,var(--gold),var(--gold-dark))'); }).join('')
+    : '<p style="color:var(--ink-4);font:var(--text-caption);">—</p>';
+  html += '<h3 style="font:var(--text-caption);color:var(--ink-3);letter-spacing:2px;margin:16px 0 8px;">' +
+    escapeHtml(sc('LLM · 本月', 'LLM · 本月')) + '</h3>';
+  html += '<div style="font:var(--text-caption);color:var(--ink-2);letter-spacing:1px;line-height:1.9;">' +
+    escapeHtml(sc('请求 ', '請求 ')) + (llm.monthRequests || 0) +
+    escapeHtml(sc(' · Tokens ', ' · Tokens ')) + formatK(llm.monthTokens || 0) +
+    escapeHtml(sc(' · 错误率 ', ' · 錯誤率 ')) + Math.round((llm.errorRate || 0) * 100) + '%<br>' +
+    escapeHtml(sc('成本 $', '成本 $')) + (llm.monthCost || 0).toFixed(4) +
+  '</div>';
+  document.getElementById('panel-questions').innerHTML = html;
+}
+
+function renderUsersTable(users) {
+  var rows = (users || []).slice(0, 10).map(function (u) {
+    var nm = u.dharmaName || (u.email ? u.email.split('@')[0] : '—');
+    var initial = (nm.charAt(0) || '·').toUpperCase();
+    var roleLabel = localLabel(ROLE_LABELS, u.role);
+    var statusPill = u.isActive
+      ? '<span class="status-pill status-active">' + escapeHtml(sc('活跃', '活躍')) + '</span>'
+      : '<span class="status-pill status-blocked">' + escapeHtml(sc('已禁用', '已禁用')) + '</span>';
+    return '<tr>' +
+      '<td><div class="user-cell"><div class="user-av" style="background:linear-gradient(135deg,var(--saffron),var(--saffron-dark));">' +
+        escapeHtml(initial) + '</div><span>' + escapeHtml(nm) + '</span></div></td>' +
+      '<td><code style="font-size:.6875rem;color:var(--ink-3);">' + escapeHtml(u.email || '—') + '</code></td>' +
+      '<td>' + escapeHtml(roleLabel) + '</td>' +
+      '<td>' + escapeHtml(window.JX.util.relativeTime(u.createdAt)) + '</td>' +
+      '<td>' + escapeHtml(u.lastLoginAt ? window.JX.util.relativeTime(u.lastLoginAt) : sc('—', '—')) + '</td>' +
+      '<td>' + statusPill + '</td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('users-tbody').innerHTML = rows ||
+    '<tr><td colspan="6" style="padding:var(--sp-6);text-align:center;color:var(--ink-3);">' +
+      escapeHtml(sc('暂无用户数据', '暫無用戶數據')) + '</td></tr>';
+}
+
+function boot() {
+  renderPageSub();
+  Promise.all([
+    window.JX.api.get('/api/admin/platform-stats?windowDays=7'),
+    window.JX.api.get('/api/courses').catch(function () { return []; }),
+    window.JX.api.get('/api/admin/users?limit=10'),
+  ]).then(function (results) {
+    var stats = results[0];
+    var courses = results[1];
+    var users = results[2];
+    renderKpis(stats, courses);
+    renderDistribution(stats);
+    renderQuestionsAndLlm(stats);
+    var list = (users && users.items) ? users.items : (Array.isArray(users) ? users : []);
+    renderUsersTable(list);
+    var total = (users && users.total != null) ? users.total : list.length;
+    document.getElementById('users-count').textContent = sc('共 ', '共 ') + total + sc(' 名用户', ' 名用戶');
+  }).catch(function (err) {
+    document.getElementById('panel-distribution').innerHTML =
+      '<p style="color:var(--crimson);font:var(--text-caption);">' +
+      escapeHtml(sc('加载失败：', '加載失敗：') + (err.message || err)) + '</p>';
+  });
+}
+
+document.getElementById('btn-refresh').addEventListener('click', boot);
 document.getElementById('btn-logout').addEventListener('click', function () {
-  if (!confirm(window.JX.sc('确定退出登录？', '確定退出登入？'))) return;
+  if (!confirm(sc('确定退出登录？', '確定退出登入？'))) return;
   window.JX.api.logout().finally(function () { location.replace('../mobile/auth.html'); });
 });
+
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', boot);
+if (window.JX && window.JX.user) boot();
 </script>
 </body>
 </html>
