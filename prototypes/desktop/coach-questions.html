@@ -83,6 +83,72 @@ table.q-list { width: 100%; border-collapse: collapse; }
   text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px;
 }
 .err-state { color: var(--crimson); }
+
+/* Drawer */
+.drawer-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,.35);
+  opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 90;
+}
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 480px; max-width: 92vw;
+  background: #fff; box-shadow: -8px 0 24px rgba(0,0,0,.12);
+  transform: translateX(100%); transition: transform .25s var(--ease);
+  overflow: hidden; display: flex; flex-direction: column; z-index: 100;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-head {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--border-light);
+}
+.drawer-title { flex: 1; font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.drawer-close {
+  width: 28px; height: 28px; border-radius: var(--r-sm);
+  background: rgba(43,34,24,.04); border: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.drawer-body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
+.drawer-foot {
+  display: flex; gap: var(--sp-3); justify-content: flex-end;
+  padding: var(--sp-4) var(--sp-5);
+  border-top: 1px solid var(--border-light);
+  background: rgba(43,34,24,.02);
+}
+.drawer h3 {
+  font: var(--text-caption); font-weight: 700; letter-spacing: 2px;
+  color: var(--ink-3); margin: var(--sp-4) 0 var(--sp-2);
+}
+.drawer h3:first-child { margin-top: 0; }
+.dr-stem { font: var(--text-body-serif); color: var(--ink); line-height: 1.75; letter-spacing: 1px; }
+.dr-meta { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.dr-meta b { color: var(--ink-2); font-weight: 600; }
+.dr-opt {
+  display: flex; gap: 10px; padding: 10px 14px; margin-bottom: 8px;
+  background: rgba(43,34,24,.03); border-radius: var(--r-sm);
+  font: var(--text-caption); color: var(--ink); letter-spacing: 1px;
+}
+.dr-opt.correct { background: var(--sage-light); border-left: 3px solid var(--sage-dark); color: var(--ink); }
+.dr-letter { font-weight: 700; width: 20px; flex-shrink: 0; }
+.dr-code {
+  display: block; padding: var(--sp-3);
+  background: rgba(43,34,24,.04); border-radius: var(--r-sm);
+  font-family: 'SF Mono', ui-monospace, monospace; font-size: .75rem;
+  color: var(--ink-2); white-space: pre-wrap; word-break: break-all;
+}
+.btn-danger {
+  padding: 7px 16px; border-radius: var(--r-sm);
+  background: var(--crimson); color: #fff; border: 0;
+  font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer;
+}
+.btn-danger[disabled] { opacity: .5; cursor: not-allowed; }
+.btn-ghost-s {
+  padding: 7px 16px; border-radius: var(--r-sm);
+  background: transparent; color: var(--ink-2); border: 1px solid var(--border);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer;
+}
+.dr-err { color: var(--crimson); font: var(--text-caption); letter-spacing: 1px; margin-top: var(--sp-3); }
 </style>
 <meta name="jx-require-role" content="coach,admin">
 <script src="../shared/lang.js"></script>
@@ -183,6 +249,25 @@ table.q-list { width: 100%; border-collapse: collapse; }
   </main>
 </div>
 
+<!-- Detail drawer -->
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="q-type-badge" id="dr-type">—</span>
+    <span class="q-status" id="dr-status">—</span>
+    <span class="drawer-title" id="dr-title"><span class="sc">题目详情</span><span class="tc">題目詳情</span></span>
+    <button class="drawer-close" id="dr-close" aria-label="关闭">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="dr-body"></div>
+  <div class="drawer-foot">
+    <span class="dr-err" id="dr-err" style="flex:1;"></span>
+    <button class="btn-ghost-s" id="dr-cancel"><span class="sc">关闭</span><span class="tc">關閉</span></button>
+    <button class="btn-danger" id="dr-delete"><span class="sc">删除</span><span class="tc">刪除</span></button>
+  </div>
+</aside>
+
 <script>
 // coach-questions · 3a 只读骨架：/api/coach/questions 列表 + 客户端筛选
 var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
@@ -204,7 +289,8 @@ var VIS_LABELS = {
   draft: ['草稿', '草稿'],
 };
 
-var state = { all: [], statusFilter: 'all', typeFilter: 'all', search: '' };
+var state = { all: [], statusFilter: 'all', typeFilter: 'all', search: '', currentQid: null };
+var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 function truncate(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n) + '…' : s; }
 function typeLabel(t)   { var m = TYPE_LABELS[t] || [t, t];   return sc(m[0], m[1]); }
@@ -272,6 +358,144 @@ function boot() {
       showErr(sc('加载失败：', '加載失敗：') + (err.message || err));
     });
 }
+
+// ── 详情抽屉 (3b) ────────────────────────────────
+function renderPayload(q) {
+  var p = q.payload || {};
+  var t = q.type;
+  if (t === 'single' || t === 'image' || t === 'listen') {
+    var opts = p.options || [];
+    return opts.map(function (o, i) {
+      return '<div class="dr-opt' + (o.correct ? ' correct' : '') + '">' +
+        '<span class="dr-letter">' + LETTERS[i] + '</span>' +
+        '<span>' + escapeHtml(o.text) + '</span>' +
+      '</div>';
+    }).join('');
+  }
+  if (t === 'multi' || t === 'scenario') {
+    var opts2 = p.options || [];
+    var scenarioBlock = (t === 'scenario' && p.scenario)
+      ? '<p class="dr-stem" style="margin-bottom:var(--sp-3);font-style:italic;">' + escapeHtml(p.scenario) + '</p>' : '';
+    return scenarioBlock + opts2.map(function (o, i) {
+      return '<div class="dr-opt' + (o.correct ? ' correct' : '') + '">' +
+        '<span class="dr-letter">' + LETTERS[i] + '</span>' +
+        '<span>' + escapeHtml(o.text) +
+          (o.reason ? '<br><small style="color:var(--ink-3);">' + escapeHtml(o.reason) + '</small>' : '') +
+        '</span>' +
+      '</div>';
+    }).join('');
+  }
+  if (t === 'fill') {
+    var lines = (p.verseLines || []).map(function (l) {
+      return escapeHtml(l).replace('____', '<b style="color:var(--saffron);">' + escapeHtml(p.correctWord || '____') + '</b>');
+    }).join('<br>');
+    var opts3 = (p.options || []).map(function (o, i) {
+      var ok = o === p.correctWord;
+      return '<div class="dr-opt' + (ok ? ' correct' : '') + '"><span class="dr-letter">' + LETTERS[i] + '</span>' + escapeHtml(o) + '</div>';
+    }).join('');
+    return '<div style="padding:var(--sp-3);background:var(--saffron-pale);border-radius:var(--r-sm);margin-bottom:var(--sp-3);font-family:var(--font-serif);line-height:2;">' +
+      lines + '</div>' + opts3;
+  }
+  if (t === 'open') {
+    var ref = p.referenceAnswer || '—';
+    var kps = (p.keyPoints || []).map(function (k) {
+      var point = (k && k.point) || k;
+      return '<li>' + escapeHtml(point) + '</li>';
+    }).join('');
+    return '<p class="dr-stem" style="margin-bottom:var(--sp-3);">' + escapeHtml(ref) + '</p>' +
+      (kps ? '<ul style="padding-left:20px;color:var(--ink-2);">' + kps + '</ul>' : '');
+  }
+  // 其他题型：原始 JSON 预览
+  return '<pre class="dr-code">' + escapeHtml(JSON.stringify(p, null, 2)) + '</pre>';
+}
+
+function openDrawer(qid) {
+  var q = state.all.find(function (r) { return r.id === qid; });
+  if (!q) return;
+  state.currentQid = qid;
+
+  document.getElementById('dr-type').textContent = typeLabel(q.type);
+  var statusEl = document.getElementById('dr-status');
+  statusEl.className = 'q-status ' + q.reviewStatus;
+  statusEl.textContent = statusLabel(q.reviewStatus);
+  document.getElementById('dr-err').textContent = '';
+
+  var lockReason = '';
+  if (q.reviewStatus === 'approved' && q.visibility === 'public') {
+    lockReason = sc('已通过审核的公开题不可删除（会影响在学学员）', '已通過審核的公開題不可刪除（會影響在學學員）');
+  }
+  var delBtn = document.getElementById('dr-delete');
+  delBtn.disabled = !!lockReason;
+  if (lockReason) document.getElementById('dr-err').textContent = lockReason;
+
+  var body = document.getElementById('dr-body');
+  body.innerHTML =
+    '<h3>' + escapeHtml(sc('题干', '題幹')) + '</h3>' +
+    '<p class="dr-stem">' + escapeHtml(q.questionText) + '</p>' +
+    '<h3>' + escapeHtml(sc('选项 / 答案', '選項 / 答案')) + '</h3>' +
+    renderPayload(q) +
+    (q.correctText ? '<h3>' + escapeHtml(sc('解析', '解析')) + '</h3>' +
+      '<p class="dr-stem">' + escapeHtml(q.correctText) + '</p>' : '') +
+    (q.wrongText ? '<h3>' + escapeHtml(sc('易错点', '易錯點')) + '</h3>' +
+      '<p class="dr-stem">' + escapeHtml(q.wrongText) + '</p>' : '') +
+    '<h3>' + escapeHtml(sc('元数据', '元數據')) + '</h3>' +
+    '<div class="dr-meta">' +
+      '<span><b>' + escapeHtml(sc('可见性', '可見性')) + ':</b> ' + escapeHtml(visLabel(q.visibility)) + '</span>' +
+      '<span><b>' + escapeHtml(sc('难度', '難度')) + ':</b> ' + (q.difficulty || 0) + '</span>' +
+      '<span><b>' + escapeHtml(sc('来源', '來源')) + ':</b> ' + escapeHtml(q.source || '—') + '</span>' +
+      (q.tags && q.tags.length ? '<span><b>' + escapeHtml(sc('标签', '標籤')) + ':</b> ' + escapeHtml(q.tags.join(' · ')) + '</span>' : '') +
+      '<span><b>ID:</b> ' + escapeHtml(q.id) + '</span>' +
+    '</div>';
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'false');
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'true');
+  state.currentQid = null;
+}
+
+document.getElementById('dr-close').addEventListener('click', closeDrawer);
+document.getElementById('dr-cancel').addEventListener('click', closeDrawer);
+document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape') closeDrawer();
+});
+
+document.getElementById('dr-delete').addEventListener('click', function () {
+  var qid = state.currentQid;
+  if (!qid) return;
+  if (!confirm(sc('确认删除此题？此操作不可恢复。', '確認刪除此題？此操作不可恢復。'))) return;
+
+  var btn = this;
+  btn.disabled = true;
+  document.getElementById('dr-err').textContent = '';
+  window.JX.api.del('/api/coach/questions/' + encodeURIComponent(qid))
+    .then(function () {
+      state.all = state.all.filter(function (r) { return r.id !== qid; });
+      renderList();
+      closeDrawer();
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      var msg;
+      if (err && err.status === 400) msg = sc('有答题记录，不能删除 · 请联系管理员', '有答題記錄，不能刪除 · 請聯繫管理員');
+      else if (err && err.status === 403) msg = sc('无权删除此题', '無權刪除此題');
+      else msg = sc('删除失败：', '刪除失敗：') + (err && err.message || err);
+      document.getElementById('dr-err').textContent = msg;
+    });
+});
+
+// 行点击 → 打开抽屉
+document.getElementById('list-body').addEventListener('click', function (ev) {
+  var tr = ev.target.closest('tr[data-row]');
+  if (!tr) return;
+  openDrawer(tr.getAttribute('data-qid'));
+});
 
 // Filters
 document.getElementById('status-chips').addEventListener('click', function (ev) {
