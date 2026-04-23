@@ -149,6 +149,30 @@ table.q-list { width: 100%; border-collapse: collapse; }
   font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer;
 }
 .dr-err { color: var(--crimson); font: var(--text-caption); letter-spacing: 1px; margin-top: var(--sp-3); }
+
+/* Form fields */
+.f-row { margin-bottom: var(--sp-4); }
+.f-row label { display: block; font: var(--text-caption); color: var(--ink-3); letter-spacing: 2px; font-weight: 600; margin-bottom: 6px; }
+.f-input, .f-area, .f-sel {
+  width: 100%; padding: 8px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-body); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.f-input:focus, .f-area:focus, .f-sel:focus { border-color: var(--saffron); }
+.f-area { min-height: 70px; resize: vertical; }
+.f-row-split { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-3); }
+.f-opt-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.f-opt-row input[type=text] { flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: var(--r-sm); font: var(--text-caption); outline: none; font-family: inherit; }
+.f-opt-row input[type=text]:focus { border-color: var(--saffron); }
+.f-opt-mark { display: flex; align-items: center; gap: 4px; font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; padding: 0 4px; }
+.f-opt-del { background: none; border: 0; color: var(--ink-4); cursor: pointer; font-size: 1rem; padding: 4px 6px; }
+.f-opt-del:hover { color: var(--crimson); }
+.f-add-opt {
+  padding: 6px 12px; border-radius: var(--r-sm);
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  border: 1px dashed var(--saffron-light); font: var(--text-caption); letter-spacing: 1px; cursor: pointer; margin-top: 6px;
+}
+.f-hint { font-size: .6875rem; color: var(--ink-4); letter-spacing: .5px; margin-top: 4px; }
 </style>
 <meta name="jx-require-role" content="coach,admin">
 <script src="../shared/lang.js"></script>
@@ -209,6 +233,9 @@ table.q-list { width: 100%; border-collapse: collapse; }
       </div>
       <div class="top-actions">
         <button class="lang-btn" onclick="toggleLang()">繁</button>
+        <button id="btn-new" class="btn btn-primary btn-pill" style="padding:6px 18px;">
+          + <span class="sc">新建</span><span class="tc">新建</span>
+        </button>
       </div>
     </div>
 
@@ -264,7 +291,10 @@ table.q-list { width: 100%; border-collapse: collapse; }
   <div class="drawer-foot">
     <span class="dr-err" id="dr-err" style="flex:1;"></span>
     <button class="btn-ghost-s" id="dr-cancel"><span class="sc">关闭</span><span class="tc">關閉</span></button>
-    <button class="btn-danger" id="dr-delete"><span class="sc">删除</span><span class="tc">刪除</span></button>
+    <button class="btn-danger" id="dr-delete" style="display:none;"><span class="sc">删除</span><span class="tc">刪除</span></button>
+    <button class="btn btn-primary btn-pill" id="dr-save" style="display:none;padding:7px 18px;">
+      <span class="sc">保存</span><span class="tc">保存</span>
+    </button>
   </div>
 </aside>
 
@@ -349,6 +379,11 @@ function showErr(msg) {
 }
 
 function boot() {
+  // 课程列表（供新建表单复用）
+  window.JX.api.get('/api/courses')
+    .then(function (list) { courseList = Array.isArray(list) ? list : []; })
+    .catch(function () { courseList = []; });
+
   window.JX.api.get('/api/coach/questions?limit=500')
     .then(function (list) {
       state.all = Array.isArray(list) ? list : [];
@@ -413,6 +448,9 @@ function openDrawer(qid) {
   var q = state.all.find(function (r) { return r.id === qid; });
   if (!q) return;
   state.currentQid = qid;
+  state.drawerMode = 'view';
+  document.getElementById('dr-save').style.display = 'none';
+  document.getElementById('dr-delete').style.display = '';
 
   document.getElementById('dr-type').textContent = typeLabel(q.type);
   var statusEl = document.getElementById('dr-status');
@@ -488,6 +526,283 @@ document.getElementById('dr-delete').addEventListener('click', function () {
       else msg = sc('删除失败：', '刪除失敗：') + (err && err.message || err);
       document.getElementById('dr-err').textContent = msg;
     });
+});
+
+// ── 新建表单 (3c) ──────────────────────────────
+var courseCache = {}; // slug → full course (chapters+lessons)
+var courseList = [];  // published courses
+var createForm = {    // 临时表单状态
+  type: 'single',
+  courseSlug: '',
+  courseId: '',
+  chapterId: '',
+  lessonId: '',
+  options: [{ text: '', correct: true }, { text: '', correct: false }],
+};
+
+function loadCourseDetail(slug) {
+  if (courseCache[slug]) return Promise.resolve(courseCache[slug]);
+  return window.JX.api.get('/api/courses/' + encodeURIComponent(slug)).then(function (d) {
+    courseCache[slug] = d.course || d;
+    return courseCache[slug];
+  });
+}
+
+function setSelectOptions(sel, items, valueKey, labelFn, placeholder) {
+  sel.innerHTML = '<option value="">' + escapeHtml(placeholder) + '</option>' +
+    items.map(function (it) {
+      return '<option value="' + escapeHtml(it[valueKey]) + '">' + escapeHtml(labelFn(it)) + '</option>';
+    }).join('');
+}
+
+function renderTypeEditor() {
+  var host = document.getElementById('f-type-editor');
+  var t = createForm.type;
+  if (t === 'single' || t === 'multi') {
+    var labelOk = t === 'single'
+      ? sc('恰 1 个正确（radio）', '恰 1 個正確（radio）')
+      : sc('至少 1 个正确（可多选）', '至少 1 個正確（可多選）');
+    host.innerHTML = '<p class="f-hint">' + escapeHtml(labelOk) + '</p>' +
+      '<div id="opt-rows"></div>' +
+      '<button type="button" class="f-add-opt" id="btn-add-opt">+ ' + escapeHtml(sc('添加选项', '添加選項')) + '</button>';
+    renderOptionRows();
+    document.getElementById('btn-add-opt').addEventListener('click', function () {
+      createForm.options.push({ text: '', correct: false });
+      renderOptionRows();
+    });
+  } else if (t === 'fill') {
+    host.innerHTML =
+      '<div class="f-row"><label>' + escapeHtml(sc('偈颂行（每行一句，用 ____ 标空位）', '偈頌行（每行一句，用 ____ 標空位）')) + '</label>' +
+      '<textarea class="f-area" id="f-verselines" rows="3" placeholder="菩提心如劫末火\n刹那能毁诸 ____"></textarea></div>' +
+      '<div class="f-row-split">' +
+        '<div><label>' + escapeHtml(sc('正确字', '正確字')) + '</label>' +
+          '<input class="f-input" id="f-correctword" placeholder="重罪"></div>' +
+        '<div style="grid-column:span 2;"><label>' + escapeHtml(sc('备选（逗号分隔）', '備選（逗號分隔）')) + '</label>' +
+          '<input class="f-input" id="f-fillopts" placeholder="重罪, 善业, 功德, 无明"></div>' +
+      '</div>';
+  } else if (t === 'open') {
+    host.innerHTML =
+      '<div class="f-row"><label>' + escapeHtml(sc('参考答案', '參考答案')) + '</label>' +
+      '<textarea class="f-area" id="f-refans" rows="3"></textarea></div>' +
+      '<div class="f-row"><label>' + escapeHtml(sc('关键要点（每行一条）', '關鍵要點（每行一條）')) + '</label>' +
+      '<textarea class="f-area" id="f-keypoints" rows="4" placeholder="成佛因\n净罪障\n圆福德"></textarea></div>';
+  }
+}
+
+function renderOptionRows() {
+  var host = document.getElementById('opt-rows');
+  if (!host) return;
+  var t = createForm.type;
+  host.innerHTML = createForm.options.map(function (o, i) {
+    var markInput = t === 'single'
+      ? '<input type="radio" name="opt-correct" ' + (o.correct ? 'checked' : '') + ' data-i="' + i + '">'
+      : '<input type="checkbox" ' + (o.correct ? 'checked' : '') + ' data-i="' + i + '">';
+    return '<div class="f-opt-row">' +
+      '<span class="dr-letter">' + LETTERS[i] + '</span>' +
+      '<input type="text" value="' + escapeHtml(o.text) + '" data-i="' + i + '" placeholder="' + escapeHtml(sc('选项文本', '選項文本')) + '">' +
+      '<label class="f-opt-mark">' + markInput + escapeHtml(sc('正确', '正確')) + '</label>' +
+      (createForm.options.length > 2
+        ? '<button type="button" class="f-opt-del" data-del="' + i + '" aria-label="删除">×</button>' : '') +
+    '</div>';
+  }).join('');
+  // 绑定事件
+  host.querySelectorAll('input[type=text]').forEach(function (inp) {
+    inp.addEventListener('input', function () {
+      createForm.options[Number(this.dataset.i)].text = this.value;
+    });
+  });
+  host.querySelectorAll('input[type=radio], input[type=checkbox]').forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      var idx = Number(this.dataset.i);
+      if (t === 'single') {
+        createForm.options.forEach(function (o, j) { o.correct = (j === idx); });
+      } else {
+        createForm.options[idx].correct = this.checked;
+      }
+    });
+  });
+  host.querySelectorAll('.f-opt-del').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      createForm.options.splice(Number(this.dataset.del), 1);
+      renderOptionRows();
+    });
+  });
+}
+
+function renderCreateForm() {
+  var body = document.getElementById('dr-body');
+  body.innerHTML =
+    '<div class="f-row-split">' +
+      '<div><label>' + escapeHtml(sc('题型', '題型')) + '</label>' +
+        '<select class="f-sel" id="f-type">' +
+          '<option value="single">' + escapeHtml(sc('单选', '單選')) + '</option>' +
+          '<option value="multi">' + escapeHtml(sc('多选', '多選')) + '</option>' +
+          '<option value="fill">' + escapeHtml(sc('填空', '填空')) + '</option>' +
+          '<option value="open">' + escapeHtml(sc('问答', '問答')) + '</option>' +
+        '</select></div>' +
+      '<div><label>' + escapeHtml(sc('难度', '難度')) + '</label>' +
+        '<select class="f-sel" id="f-diff"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>' +
+      '<div><label>' + escapeHtml(sc('可见性', '可見性')) + '</label>' +
+        '<select class="f-sel" id="f-vis" disabled><option value="public">' + escapeHtml(sc('公开（待审）', '公開（待審）')) + '</option></select></div>' +
+    '</div>' +
+    '<div class="f-row-split">' +
+      '<div><label>' + escapeHtml(sc('法本', '法本')) + '</label><select class="f-sel" id="f-course"></select></div>' +
+      '<div><label>' + escapeHtml(sc('章', '章')) + '</label><select class="f-sel" id="f-chapter" disabled></select></div>' +
+      '<div><label>' + escapeHtml(sc('课时', '課時')) + '</label><select class="f-sel" id="f-lesson" disabled></select></div>' +
+    '</div>' +
+    '<div class="f-row"><label>' + escapeHtml(sc('题干', '題幹')) + '</label>' +
+      '<textarea class="f-area" id="f-stem" rows="2" required></textarea></div>' +
+    '<div class="f-row"><label>' + escapeHtml(sc('答案选项 / 内容', '答案選項 / 內容')) + '</label>' +
+      '<div id="f-type-editor"></div></div>' +
+    '<div class="f-row"><label>' + escapeHtml(sc('解析', '解析')) + '</label>' +
+      '<textarea class="f-area" id="f-correct" rows="2"></textarea></div>' +
+    '<div class="f-row"><label>' + escapeHtml(sc('易错点（可选）', '易錯點（可選）')) + '</label>' +
+      '<textarea class="f-area" id="f-wrong" rows="2"></textarea></div>' +
+    '<div class="f-row-split">' +
+      '<div style="grid-column:span 2;"><label>' + escapeHtml(sc('来源', '來源')) + '</label>' +
+        '<input class="f-input" id="f-source" placeholder="《入菩萨行论》第一品"></div>' +
+      '<div><label>' + escapeHtml(sc('标签（逗号分隔）', '標籤（逗號分隔）')) + '</label>' +
+        '<input class="f-input" id="f-tags" placeholder="菩提心, 发心"></div>' +
+    '</div>';
+
+  // 填充课程选择
+  setSelectOptions(document.getElementById('f-course'), courseList, 'slug', function (c) { return c.title; }, sc('选择法本', '選擇法本'));
+  document.getElementById('f-type').addEventListener('change', function () {
+    createForm.type = this.value;
+    if (this.value === 'single') createForm.options = [{ text: '', correct: true }, { text: '', correct: false }];
+    else if (this.value === 'multi') createForm.options = [{ text: '', correct: true }, { text: '', correct: true }, { text: '', correct: false }];
+    renderTypeEditor();
+  });
+  document.getElementById('f-course').addEventListener('change', function () {
+    var slug = this.value;
+    createForm.courseSlug = slug;
+    var chSel = document.getElementById('f-chapter');
+    var leSel = document.getElementById('f-lesson');
+    chSel.disabled = leSel.disabled = true;
+    chSel.innerHTML = '<option>' + escapeHtml(sc('加载中…', '加載中…')) + '</option>';
+    leSel.innerHTML = '';
+    if (!slug) { chSel.innerHTML = ''; return; }
+    loadCourseDetail(slug).then(function (c) {
+      createForm.courseId = c.id;
+      createForm.chapterId = '';
+      createForm.lessonId = '';
+      setSelectOptions(chSel, c.chapters || [], 'id', function (ch) { return ch.title; }, sc('选择章', '選擇章'));
+      chSel.disabled = false;
+    });
+  });
+  document.getElementById('f-chapter').addEventListener('change', function () {
+    createForm.chapterId = this.value;
+    var course = courseCache[createForm.courseSlug];
+    var ch = (course.chapters || []).find(function (x) { return x.id === createForm.chapterId; });
+    var leSel = document.getElementById('f-lesson');
+    setSelectOptions(leSel, (ch && ch.lessons) || [], 'id', function (l) { return l.title; }, sc('选择课时', '選擇課時'));
+    leSel.disabled = false;
+  });
+  document.getElementById('f-lesson').addEventListener('change', function () {
+    createForm.lessonId = this.value;
+  });
+
+  document.getElementById('f-type').value = createForm.type;
+  renderTypeEditor();
+}
+
+function openCreateDrawer() {
+  if (!courseList.length) {
+    alert(sc('课程列表加载中，请稍候', '課程列表加載中，請稍候'));
+    return;
+  }
+  state.drawerMode = 'create';
+  state.currentQid = null;
+  createForm = {
+    type: 'single', courseSlug: '', courseId: '', chapterId: '', lessonId: '',
+    options: [{ text: '', correct: true }, { text: '', correct: false }],
+  };
+
+  document.getElementById('dr-type').textContent = sc('新题', '新題');
+  var statusEl = document.getElementById('dr-status');
+  statusEl.className = 'q-status pending';
+  statusEl.textContent = sc('未保存', '未保存');
+  document.getElementById('dr-err').textContent = '';
+  document.getElementById('dr-delete').style.display = 'none';
+  document.getElementById('dr-save').style.display = '';
+
+  renderCreateForm();
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'false');
+}
+
+function collectCreateBody() {
+  var stem = document.getElementById('f-stem').value.trim();
+  if (!stem) throw new Error(sc('请填写题干', '請填寫題幹'));
+  if (!createForm.courseId || !createForm.chapterId || !createForm.lessonId) {
+    throw new Error(sc('请选择 法本 / 章 / 课时', '請選擇 法本 / 章 / 課時'));
+  }
+  var payload;
+  var t = createForm.type;
+  if (t === 'single' || t === 'multi') {
+    var opts = createForm.options.filter(function (o) { return (o.text || '').trim(); });
+    if (opts.length < 2) throw new Error(sc('至少 2 个选项', '至少 2 個選項'));
+    var nCorrect = opts.filter(function (o) { return o.correct; }).length;
+    if (t === 'single' && nCorrect !== 1) throw new Error(sc('单选题必须恰 1 个正确', '單選題必須恰 1 個正確'));
+    if (t === 'multi'  && nCorrect < 1)   throw new Error(sc('多选题至少 1 个正确', '多選題至少 1 個正確'));
+    payload = { options: opts };
+    if (t === 'multi') payload.scoringMode = 'strict';
+  } else if (t === 'fill') {
+    var vls = document.getElementById('f-verselines').value.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var cw = document.getElementById('f-correctword').value.trim();
+    var fopts = document.getElementById('f-fillopts').value.split(/[,，]/).map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!vls.length || !cw) throw new Error(sc('填空题：请填偈颂行 + 正确字', '填空題：請填偈頌行 + 正確字'));
+    if (!fopts.includes(cw)) fopts.push(cw);
+    payload = { verseLines: vls, correctWord: cw, options: fopts };
+  } else if (t === 'open') {
+    var ref = document.getElementById('f-refans').value.trim();
+    var kps = document.getElementById('f-keypoints').value.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean)
+      .map(function (pt) { return { point: pt, signals: [] }; });
+    if (!ref) throw new Error(sc('请填写参考答案', '請填寫參考答案'));
+    payload = { referenceAnswer: ref, keyPoints: kps, minLength: 20, maxLength: 400 };
+  } else {
+    throw new Error(sc('不支持的题型（请用批量导入）', '不支持的題型（請用批量導入）'));
+  }
+
+  var tags = document.getElementById('f-tags').value.split(/[,，]/).map(function (s) { return s.trim(); }).filter(Boolean);
+  return {
+    courseId: createForm.courseId,
+    chapterId: createForm.chapterId,
+    lessonId: createForm.lessonId,
+    type: t,
+    visibility: 'public',
+    questionText: stem,
+    correctText: document.getElementById('f-correct').value.trim(),
+    wrongText: document.getElementById('f-wrong').value.trim(),
+    source: document.getElementById('f-source').value.trim() || '—',
+    difficulty: Number(document.getElementById('f-diff').value),
+    tags: tags,
+    payload: payload,
+  };
+}
+
+document.getElementById('btn-new').addEventListener('click', openCreateDrawer);
+
+document.getElementById('dr-save').addEventListener('click', function () {
+  var btn = this;
+  var errEl = document.getElementById('dr-err');
+  errEl.textContent = '';
+  var body;
+  try { body = collectCreateBody(); }
+  catch (e) { errEl.textContent = e.message; return; }
+  btn.disabled = true;
+  window.JX.api.post('/api/coach/questions', body)
+    .then(function (q) {
+      state.all.unshift(q);
+      renderList();
+      closeDrawer();
+    })
+    .catch(function (err) {
+      errEl.textContent = sc('保存失败：', '保存失敗：') + (err && err.message || err);
+    })
+    .finally(function () { btn.disabled = false; });
 });
 
 // 行点击 → 打开抽屉
