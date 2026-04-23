@@ -31,6 +31,12 @@ export interface MyProgress {
     due: number;
     total: number;
   };
+  /** 累计活跃天数（有答题记录的不同 UTC 日数） */
+  totalDays: number;
+  /** 今日已答题数（UTC 日） */
+  todayAnswered: number;
+  /** 本周（UTC 周一起 7 天）活跃日 YYYY-MM-DD 集合 */
+  weekDays: string[];
 }
 
 export async function myProgress(userId: string): Promise<MyProgress> {
@@ -87,7 +93,15 @@ export async function myProgress(userId: string): Promise<MyProgress> {
     }))
     .sort((a, b) => b.answered - a.answered);
 
-  const streak = computeStreak([...daysSet].sort(), new Date());
+  const now = new Date();
+  const streak = computeStreak([...daysSet].sort(), now);
+  const today = utcDayKey(now);
+  const todayAnswered = answers.reduce(
+    (n, a) => (utcDayKey(a.answeredAt) === today ? n + 1 : n),
+    0,
+  );
+  const weekWindow = utcWeekDays(now);
+  const weekDays = weekWindow.filter((d) => daysSet.has(d));
 
   return {
     totalAnswers: answers.length,
@@ -95,6 +109,9 @@ export async function myProgress(userId: string): Promise<MyProgress> {
     byCourse,
     streak,
     sm2,
+    totalDays: daysSet.size,
+    todayAnswered,
+    weekDays,
   };
 }
 
@@ -102,6 +119,20 @@ export async function myProgress(userId: string): Promise<MyProgress> {
 
 function utcDayKey(d: Date): string {
   return d.toISOString().slice(0, 10);
+}
+
+/** 本周（UTC 周一 ~ 周日）的 7 个 YYYY-MM-DD 键；JS 的 getUTCDay 周日=0，需换算到 0=周一 */
+function utcWeekDays(now: Date): string[] {
+  const dow = (now.getUTCDay() + 6) % 7; // 0=周一 ... 6=周日
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  monday.setUTCDate(monday.getUTCDate() - dow);
+  const out: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setUTCDate(monday.getUTCDate() + i);
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
 }
 
 function addUtcDays(day: string, n: number): string {

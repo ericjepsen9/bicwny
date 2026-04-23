@@ -148,7 +148,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
     <!-- Header -->
     <div class="home-header">
       <div>
-        <p class="greeting-sub">早安 · 四月</p>
+        <p class="greeting-sub" id="greeting-sub">早安 · 四月</p>
         <p class="greeting-name" data-jx-user="dharmaName"><span class="sc">明心同学</span><span class="tc">明心同學</span></p>
       </div>
       <div class="header-right">
@@ -165,8 +165,8 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
 
     <div class="sections">
 
-      <!-- 班级信息（简洁卡，点击查看详情）-->
-      <a href="class-detail.html" class="class-card glass-card" title="班级详情">
+      <!-- 班级信息（真数据；未加入班级隐藏）-->
+      <a href="class-detail.html" class="class-card glass-card" id="class-card" title="班级详情" style="display:none;">
         <div class="class-icon-sm">
           <svg width="16" height="16" fill="none" stroke="#E07856" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -176,38 +176,37 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
           </svg>
         </div>
         <div class="class-text">
-          <p class="class-name"><span class="sc">心经共修班</span><span class="tc">心經共修班</span></p>
-          <p class="class-notice-line"><span class="dot"></span><span class="sc">本周五 20:00 线上共修</span><span class="tc">本週五 20:00 線上共修</span></p>
+          <p class="class-name" id="class-name">—</p>
+          <p class="class-notice-line"><span class="dot"></span><span id="class-notice">—</span></p>
         </div>
         <svg class="class-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24">
           <polyline points="9 18 15 12 9 6"/>
         </svg>
       </a>
 
-      <!-- 当前法本卡 -->
-      <div class="course-card glass-card-thick">
+      <!-- 当前法本卡（真数据）-->
+      <div class="course-card glass-card-thick" id="course-card">
         <p class="course-label"><span class="sc">当前法本</span><span class="tc">當前法本</span></p>
-        <p class="course-title"><span class="sc">《心经》全文贯通</span><span class="tc">《心經》全文貫通</span></p>
-        <div class="course-meta">
-          <span class="tag tag-saffron"><span class="sc">初级</span><span class="tc">初級</span></span>
-          <span class="tag tag-ink">第 3 章 · 共 8 章</span>
-          <span class="tag tag-sage"><span class="sc">进行中</span><span class="tc">進行中</span></span>
+        <p class="course-title" id="course-title"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+        <div class="course-meta" id="course-meta">
+          <span class="tag tag-ink" id="course-chapter-tag">—</span>
+          <span class="tag tag-sage" id="course-status-tag"><span class="sc">进行中</span><span class="tc">進行中</span></span>
         </div>
         <div class="progress-row">
           <span class="t-caption t-ink-3"><span class="sc">学习进度</span><span class="tc">學習進度</span></span>
-          <span class="t-meta" style="color:var(--saffron);font-weight:700;">38%</span>
+          <span class="t-meta" id="course-percent" style="color:var(--saffron);font-weight:700;">0%</span>
         </div>
         <div class="progress-track">
-          <div class="progress-fill" style="width:38%;"></div>
+          <div class="progress-fill" id="course-progress-fill" style="width:0%;"></div>
         </div>
-        <a href="quiz.html" class="btn btn-primary btn-lg btn-full btn-pill" style="margin-top:var(--sp-4);">
+        <a href="quiz.html" id="course-cta" class="btn btn-primary btn-lg btn-full btn-pill" style="margin-top:var(--sp-4);">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span class="sc">继续学习</span><span class="tc">繼續學習</span>
         </a>
       </div>
 
-      <!-- 错题提醒 -->
-      <a href="mistakes.html" class="review-card" style="text-decoration:none;">
+      <!-- 错题提醒（真数据，0 时隐藏）-->
+      <a href="mistakes.html" class="review-card" id="review-card" style="text-decoration:none;display:none;">
         <div class="review-icon-wrap">
           <svg width="18" height="18" fill="none" stroke="#A13C2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
             <polyline points="1 4 1 10 7 10"/>
@@ -216,9 +215,9 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
         </div>
         <div>
           <p class="t-meta" style="color:var(--crimson);letter-spacing:1.5px;"><span class="sc">错题待复习</span><span class="tc">錯題待複習</span></p>
-          <p class="t-caption t-ink-3" style="margin-top:3px;"><span class="sc">「色即是空」相关 · 建议今日回顾</span><span class="tc">「色即是空」相關 · 建議今日回顧</span></p>
+          <p class="t-caption t-ink-3" style="margin-top:3px;" id="review-sub"><span class="sc">建议今日回顾，巩固记忆</span><span class="tc">建議今日回顧，鞏固記憶</span></p>
         </div>
-        <div class="review-badge">4</div>
+        <div class="review-badge" id="review-badge">0</div>
       </a>
 
       <!-- 快速入口 -->
@@ -304,5 +303,96 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
 </div><!-- /phone -->
 </div><!-- /phone-wrap -->
 <script src="../shared/nav.js"></script>
+<script>
+// ── home 数据卡联接后端 ─────────────────────────────
+//   /api/my/classes     → 顶部班级卡（空则隐藏）
+//   /api/my/enrollments → 当前法本卡；需再调 /api/courses/:slug 取 overlay.progressPercent
+//   /api/mistakes       → 错题 badge 数量（0 则隐藏整张卡）
+// ──────────────────────────────────────────────────
+function lang() { return document.documentElement.getAttribute('data-lang') || 'sc'; }
+function sc(a, b) { return lang() === 'sc' ? a : b; }
+
+function renderGreeting() {
+  var h = new Date().getHours();
+  var sub;
+  if (h < 5)       sub = sc('深夜 · ', '深夜 · ');
+  else if (h < 11) sub = sc('早安 · ', '早安 · ');
+  else if (h < 13) sub = sc('午安 · ', '午安 · ');
+  else if (h < 18) sub = sc('下午 · ', '下午 · ');
+  else             sub = sc('晚安 · ', '晚安 · ');
+  var m = new Date().getMonth() + 1;
+  var months = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  document.getElementById('greeting-sub').textContent = sub + months[m - 1];
+}
+
+function renderClassCard(memberships) {
+  var card = document.getElementById('class-card');
+  if (!memberships || !memberships.length) {
+    card.style.display = 'none';
+    return;
+  }
+  var m = memberships[0];
+  var cls = m.class || {};
+  card.style.display = '';
+  document.getElementById('class-name').textContent = cls.name || sc('（未命名班级）', '（未命名班級）');
+  var joinedDays = 0;
+  if (m.joinedAt) joinedDays = Math.max(0, Math.floor((Date.now() - new Date(m.joinedAt)) / 86400000));
+  document.getElementById('class-notice').textContent = cls.joinCode
+    ? sc('班级码 ', '班級碼 ') + cls.joinCode + ' · ' + sc('已加入 ', '已加入 ') + joinedDays + sc(' 天', ' 天')
+    : sc('已加入 ', '已加入 ') + joinedDays + sc(' 天', ' 天');
+}
+
+function renderCourseCard(enrollment, overlay) {
+  if (!enrollment) {
+    document.getElementById('course-title').textContent = sc('尚未选修法本 · 点击下方去答题', '尚未選修法本 · 點擊下方去答題');
+    document.getElementById('course-chapter-tag').textContent = sc('—', '—');
+    document.getElementById('course-percent').textContent = '0%';
+    document.getElementById('course-progress-fill').style.width = '0%';
+    return;
+  }
+  var c = enrollment.course || {};
+  document.getElementById('course-title').textContent = c.title || '—';
+  var overlayObj = overlay || { progressPercent: 0, completedLessonIds: [], totalLessons: 0 };
+  var pct = overlayObj.progressPercent || 0;
+  document.getElementById('course-percent').textContent = pct + '%';
+  document.getElementById('course-progress-fill').style.width = pct + '%';
+  var done = (overlayObj.completedLessonIds || []).length;
+  var total = overlayObj.totalLessons || 0;
+  document.getElementById('course-chapter-tag').textContent =
+    sc('已完成 ', '已完成 ') + done + ' / ' + total + sc(' 课', ' 課');
+  // CTA 指向当前 lesson；若无则保持默认 quiz.html
+  if (overlayObj.currentLessonId) {
+    document.getElementById('course-cta').href = 'quiz.html?lessonId=' + encodeURIComponent(overlayObj.currentLessonId);
+  }
+}
+
+function renderReviewBadge(mistakes) {
+  var n = (mistakes || []).length;
+  var card = document.getElementById('review-card');
+  if (n === 0) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  document.getElementById('review-badge').textContent = n > 99 ? '99+' : String(n);
+}
+
+function boot() {
+  renderGreeting();
+
+  window.JX.api.get('/api/my/classes').then(renderClassCard).catch(function () {});
+
+  window.JX.api.get('/api/my/enrollments').then(function (list) {
+    if (!list || !list.length) { renderCourseCard(null, null); return; }
+    var first = list[0];
+    if (!first.course || !first.course.slug) { renderCourseCard(first, null); return; }
+    return window.JX.api.get('/api/courses/' + encodeURIComponent(first.course.slug))
+      .then(function (d) { renderCourseCard(first, d.overlay); });
+  }).catch(function () { renderCourseCard(null, null); });
+
+  window.JX.api.get('/api/mistakes?limit=500').then(renderReviewBadge).catch(function () {});
+}
+
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', renderGreeting);
+if (window.JX && window.JX.user) boot();
+</script>
 </body>
 </html>
