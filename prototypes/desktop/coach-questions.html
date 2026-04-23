@@ -173,6 +173,30 @@ table.q-list { width: 100%; border-collapse: collapse; }
   border: 1px dashed var(--saffron-light); font: var(--text-caption); letter-spacing: 1px; cursor: pointer; margin-top: 6px;
 }
 .f-hint { font-size: .6875rem; color: var(--ink-4); letter-spacing: .5px; margin-top: 4px; }
+
+/* Generate results */
+.gen-summary {
+  padding: var(--sp-4); border-radius: var(--r);
+  background: var(--sage-light); border-left: 3px solid var(--sage-dark);
+  font: var(--text-caption); letter-spacing: 1px; margin-bottom: var(--sp-4);
+}
+.gen-summary.has-err { background: var(--gold-pale); border-left-color: var(--gold-dark); }
+.gen-skip-item {
+  padding: 10px 14px; border-radius: var(--r-sm); margin-bottom: 6px;
+  background: rgba(192,57,43,.06); border-left: 3px solid var(--crimson-light);
+  font: var(--text-caption); color: var(--ink-2); letter-spacing: .5px;
+}
+.gen-ok-item {
+  padding: 10px 14px; border-radius: var(--r-sm); margin-bottom: 6px;
+  background: rgba(125,154,108,.08); border-left: 3px solid var(--sage);
+  font: var(--text-caption); color: var(--ink-2); letter-spacing: .5px;
+}
+.gen-loading {
+  padding: var(--sp-6); text-align: center;
+  font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px;
+}
+.spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--saffron-light); border-top-color: var(--saffron-dark); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 <meta name="jx-require-role" content="coach,admin">
 <script src="../shared/lang.js"></script>
@@ -233,6 +257,9 @@ table.q-list { width: 100%; border-collapse: collapse; }
       </div>
       <div class="top-actions">
         <button class="lang-btn" onclick="toggleLang()">繁</button>
+        <button id="btn-generate" class="btn btn-ghost btn-pill" style="padding:6px 16px;">
+          <span class="sc">⚡ LLM 生成</span><span class="tc">⚡ LLM 生成</span>
+        </button>
         <button id="btn-new" class="btn btn-primary btn-pill" style="padding:6px 18px;">
           + <span class="sc">新建</span><span class="tc">新建</span>
         </button>
@@ -507,6 +534,10 @@ function closeDrawer() {
   state.currentQid = null;
   state.drawerMode = null;
   document.getElementById('dr-edit').style.display = 'none';
+  // 复位 save 按钮（generate 流可能改了 label）
+  var save = document.getElementById('dr-save');
+  save.innerHTML = '<span class="sc">保存</span><span class="tc">保存</span>';
+  save.removeAttribute('data-result');
 }
 
 document.getElementById('dr-close').addEventListener('click', closeDrawer);
@@ -908,9 +939,194 @@ function openEditDrawer() {
 
 document.getElementById('dr-edit').addEventListener('click', openEditDrawer);
 
+// ── LLM 生成向导 (3e) ────────────────────────────
+var genForm = { courseSlug: '', courseId: '', chapterId: '', lessonId: '', type: 'single', count: 5, difficulty: 2 };
+
+function renderGenerateForm() {
+  var body = document.getElementById('dr-body');
+  body.innerHTML =
+    '<div class="f-row-split">' +
+      '<div><label>' + escapeHtml(sc('法本', '法本')) + '</label>' +
+        '<select class="f-sel" id="g-course"></select></div>' +
+      '<div><label>' + escapeHtml(sc('章', '章')) + '</label>' +
+        '<select class="f-sel" id="g-chapter" disabled></select></div>' +
+      '<div><label>' + escapeHtml(sc('课时', '課時')) + '</label>' +
+        '<select class="f-sel" id="g-lesson" disabled></select></div>' +
+    '</div>' +
+    '<div class="f-row-split">' +
+      '<div><label>' + escapeHtml(sc('题型', '題型')) + '</label>' +
+        '<select class="f-sel" id="g-type">' +
+          '<option value="single">' + escapeHtml(sc('单选', '單選')) + '</option>' +
+          '<option value="multi">' + escapeHtml(sc('多选', '多選')) + '</option>' +
+          '<option value="fill">' + escapeHtml(sc('填空', '填空')) + '</option>' +
+          '<option value="open">' + escapeHtml(sc('问答', '問答')) + '</option>' +
+        '</select></div>' +
+      '<div><label>' + escapeHtml(sc('数量', '數量')) + '</label>' +
+        '<select class="f-sel" id="g-count">' +
+          '<option value="3">3</option><option value="5" selected>5</option>' +
+          '<option value="8">8</option><option value="12">12</option>' +
+        '</select></div>' +
+      '<div><label>' + escapeHtml(sc('难度', '難度')) + '</label>' +
+        '<select class="f-sel" id="g-diff"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select></div>' +
+    '</div>' +
+    '<div class="f-row"><label>' + escapeHtml(sc('法本原文（≥ 20 字；越充分生成越好）', '法本原文（≥ 20 字；越充分生成越好）')) + '</label>' +
+      '<textarea class="f-area" id="g-passage" rows="10" placeholder="' +
+        escapeHtml(sc('粘贴想要让 LLM 参考的法本原文段落，可包含偈颂 + 注释。', '貼上想要讓 LLM 參考的法本原文段落，可包含偈頌 + 註釋。')) +
+      '"></textarea>' +
+      '<p class="f-hint">' + escapeHtml(sc('生成耗时约 10-30 秒 · 生成后所有题目进入待审状态', '生成耗時約 10-30 秒 · 生成後所有題目進入待審狀態')) + '</p>' +
+    '</div>';
+
+  setSelectOptions(document.getElementById('g-course'), courseList, 'slug', function (c) { return c.title; }, sc('选择法本', '選擇法本'));
+
+  document.getElementById('g-course').addEventListener('change', function () {
+    var slug = this.value;
+    genForm.courseSlug = slug;
+    var chSel = document.getElementById('g-chapter');
+    var leSel = document.getElementById('g-lesson');
+    chSel.disabled = leSel.disabled = true;
+    chSel.innerHTML = '<option>' + escapeHtml(sc('加载中…', '加載中…')) + '</option>';
+    leSel.innerHTML = '';
+    if (!slug) { chSel.innerHTML = ''; return; }
+    loadCourseDetail(slug).then(function (c) {
+      genForm.courseId = c.id; genForm.chapterId = ''; genForm.lessonId = '';
+      setSelectOptions(chSel, c.chapters || [], 'id', function (ch) { return ch.title; }, sc('选择章', '選擇章'));
+      chSel.disabled = false;
+    });
+  });
+  document.getElementById('g-chapter').addEventListener('change', function () {
+    genForm.chapterId = this.value;
+    var c = courseCache[genForm.courseSlug];
+    var ch = (c.chapters || []).find(function (x) { return x.id === genForm.chapterId; });
+    var leSel = document.getElementById('g-lesson');
+    setSelectOptions(leSel, (ch && ch.lessons) || [], 'id', function (l) { return l.title; }, sc('选择课时', '選擇課時'));
+    leSel.disabled = false;
+  });
+  document.getElementById('g-lesson').addEventListener('change', function () { genForm.lessonId = this.value; });
+  document.getElementById('g-type').addEventListener('change', function () { genForm.type = this.value; });
+  document.getElementById('g-count').addEventListener('change', function () { genForm.count = Number(this.value); });
+  document.getElementById('g-diff').addEventListener('change', function () { genForm.difficulty = Number(this.value); });
+}
+
+function openGenerateDrawer() {
+  if (!courseList.length) {
+    alert(sc('课程列表加载中，请稍候', '課程列表加載中，請稍候'));
+    return;
+  }
+  state.drawerMode = 'generate';
+  state.currentQid = null;
+  genForm = { courseSlug: '', courseId: '', chapterId: '', lessonId: '', type: 'single', count: 5, difficulty: 2 };
+
+  document.getElementById('dr-type').textContent = '⚡ LLM';
+  var statusEl = document.getElementById('dr-status');
+  statusEl.className = 'q-status pending';
+  statusEl.textContent = sc('生成', '生成');
+  document.getElementById('dr-err').textContent = '';
+  document.getElementById('dr-delete').style.display = 'none';
+  document.getElementById('dr-edit').style.display = 'none';
+  document.getElementById('dr-save').style.display = '';
+  document.getElementById('dr-save').innerHTML = '<span class="sc">生成</span><span class="tc">生成</span>';
+
+  renderGenerateForm();
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'false');
+}
+
+function renderGenerateResult(data) {
+  state.drawerMode = 'generate-done';
+  var body = document.getElementById('dr-body');
+  var ok = data.succeeded, fail = data.failed, tot = data.total;
+  var summaryClass = fail > 0 ? 'gen-summary has-err' : 'gen-summary';
+  var summaryHtml =
+    '<p style="font-weight:700;margin-bottom:6px;">' +
+      escapeHtml(sc('LLM 已返回 ', 'LLM 已返回 ')) + tot +
+      escapeHtml(sc(' 道题 · 落库 ', ' 道題 · 落庫 ')) + ok +
+      escapeHtml(sc(' · 丢弃 ', ' · 丟棄 ')) + fail +
+    '</p>' +
+    '<p style="color:var(--ink-3);">' +
+      escapeHtml(sc('新题均为「待审」状态，可在列表筛选查看', '新題均為「待審」狀態，可在列表篩選查看')) +
+    '</p>';
+
+  var okListHtml = (data.questions || []).map(function (q) {
+    return '<div class="gen-ok-item">' +
+      '<b>✓</b> ' + escapeHtml(q.questionText).slice(0, 80) +
+    '</div>';
+  }).join('');
+  var skipListHtml = (data.skipped || []).map(function (s) {
+    var raw = s.raw ? ('<br><small style="color:var(--ink-4);">' + escapeHtml(JSON.stringify(s.raw).slice(0, 120)) + '…</small>') : '';
+    return '<div class="gen-skip-item">' +
+      '<b>✗ #' + s.index + '</b> ' + escapeHtml(s.reason) + raw +
+    '</div>';
+  }).join('');
+
+  body.innerHTML =
+    '<div class="' + summaryClass + '">' + summaryHtml + '</div>' +
+    (okListHtml ? '<h3>' + escapeHtml(sc('成功落库', '成功落庫')) + '</h3>' + okListHtml : '') +
+    (skipListHtml ? '<h3>' + escapeHtml(sc('未入库（含原因）', '未入庫（含原因）')) + '</h3>' + skipListHtml : '');
+
+  // 底栏：生成完毕 → 只留关闭 + 完成
+  document.getElementById('dr-save').innerHTML = '<span class="sc">完成</span><span class="tc">完成</span>';
+  document.getElementById('dr-save').setAttribute('data-result', '1');
+}
+
+function runGenerate() {
+  if (!genForm.courseId || !genForm.chapterId || !genForm.lessonId) {
+    document.getElementById('dr-err').textContent = sc('请选择 法本 / 章 / 课时', '請選擇 法本 / 章 / 課時');
+    return;
+  }
+  var passage = document.getElementById('g-passage').value.trim();
+  if (passage.length < 20) {
+    document.getElementById('dr-err').textContent = sc('法本原文至少 20 字', '法本原文至少 20 字');
+    return;
+  }
+  var errEl = document.getElementById('dr-err');
+  errEl.textContent = '';
+
+  var btn = document.getElementById('dr-save');
+  btn.disabled = true;
+  document.getElementById('dr-body').innerHTML =
+    '<div class="gen-loading">' +
+      '<span class="spin"></span>' +
+      escapeHtml(sc('正在召唤 LLM 生成题目，约需 10-30 秒…', '正在召喚 LLM 生成題目，約需 10-30 秒…')) +
+    '</div>';
+
+  window.JX.api.post('/api/coach/questions/generate', {
+    courseId: genForm.courseId,
+    chapterId: genForm.chapterId,
+    lessonId: genForm.lessonId,
+    passage: passage,
+    type: genForm.type,
+    count: genForm.count,
+    difficulty: genForm.difficulty,
+    visibility: 'public',
+  }).then(function (result) {
+    // 把新题 unshift 进 list state
+    (result.questions || []).forEach(function (q) { state.all.unshift(q); });
+    renderList();
+    renderGenerateResult(result);
+    btn.disabled = false;
+  }).catch(function (err) {
+    btn.disabled = false;
+    var s = err && err.status;
+    var msg;
+    if (s === 502 || s === 503) msg = sc('LLM 服务暂不可用（可能 API key 未配置或额度耗尽）', 'LLM 服務暫不可用（可能 API key 未配置或額度耗盡）');
+    else msg = sc('生成失败：', '生成失敗：') + (err && err.message || err);
+    renderGenerateForm();
+    document.getElementById('dr-err').textContent = msg;
+  });
+}
+
+document.getElementById('btn-generate').addEventListener('click', openGenerateDrawer);
+
 document.getElementById('dr-save').addEventListener('click', function () {
   var btn = this;
   var errEl = document.getElementById('dr-err');
+
+  // 3e: LLM 生成流
+  if (state.drawerMode === 'generate') { runGenerate(); return; }
+  if (state.drawerMode === 'generate-done') { closeDrawer(); return; }
+
   errEl.textContent = '';
   var body;
   try { body = collectCreateBody(); }
