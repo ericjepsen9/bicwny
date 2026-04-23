@@ -257,6 +257,9 @@ table.q-list { width: 100%; border-collapse: collapse; }
       </div>
       <div class="top-actions">
         <button class="lang-btn" onclick="toggleLang()">繁</button>
+        <button id="btn-batch" class="btn btn-ghost btn-pill" style="padding:6px 16px;">
+          <span class="sc">📥 批量导入</span><span class="tc">📥 批量匯入</span>
+        </button>
         <button id="btn-generate" class="btn btn-ghost btn-pill" style="padding:6px 16px;">
           <span class="sc">⚡ LLM 生成</span><span class="tc">⚡ LLM 生成</span>
         </button>
@@ -1119,6 +1122,163 @@ function runGenerate() {
 
 document.getElementById('btn-generate').addEventListener('click', openGenerateDrawer);
 
+// ── 批量导入 (3f) ────────────────────────────────
+var BATCH_SAMPLE_ITEM = {
+  courseId: '（从 URL 或 Prisma Studio 查）',
+  chapterId: '（同上）',
+  lessonId: '（同上）',
+  type: 'single',
+  visibility: 'public',
+  questionText: '示例：菩提心最核心的愿心是？',
+  correctText: '菩提心即为利众生愿成佛之心',
+  wrongText: '',
+  source: '《入菩萨行论》第一品',
+  difficulty: 2,
+  tags: ['菩提心'],
+  payload: {
+    options: [
+      { text: '为利众生愿成佛', correct: true },
+      { text: '仅求自己解脱', correct: false },
+    ],
+  },
+};
+
+function renderBatchForm() {
+  var body = document.getElementById('dr-body');
+  body.innerHTML =
+    '<p class="f-hint" style="margin-bottom:var(--sp-3);line-height:1.7;">' +
+      escapeHtml(sc(
+        'JSON 数组，每项结构同「新建单题」的 body。支持最多 200 条。',
+        'JSON 陣列，每項結構同「新建單題」的 body。支持最多 200 條。',
+      )) +
+    '</p>' +
+    '<div class="f-row">' +
+      '<label>' +
+        '<input type="checkbox" id="b-partial" checked style="margin-right:6px;">' +
+        escapeHtml(sc('容错模式（单条失败不阻断整批）', '容錯模式（單條失敗不阻斷整批）')) +
+      '</label>' +
+      '<p class="f-hint">' + escapeHtml(sc('关闭则任一失败整批回滚', '關閉則任一失敗整批回滾')) + '</p>' +
+    '</div>' +
+    '<div class="f-row">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+        '<label style="margin-bottom:0;">' + escapeHtml(sc('条目 JSON', '條目 JSON')) + '</label>' +
+        '<button type="button" class="f-add-opt" id="b-fill-sample" style="margin:0;padding:3px 10px;">' +
+          escapeHtml(sc('填入样例', '填入樣例')) + '</button>' +
+      '</div>' +
+      '<textarea class="f-area" id="b-items" rows="16" style="font-family:\'SF Mono\',ui-monospace,monospace;font-size:.75rem;" placeholder="[ { &quot;type&quot;: &quot;single&quot;, ... } ]"></textarea>' +
+      '<p class="f-hint" id="b-status">—</p>' +
+    '</div>';
+
+  document.getElementById('b-fill-sample').addEventListener('click', function () {
+    document.getElementById('b-items').value = JSON.stringify([BATCH_SAMPLE_ITEM], null, 2);
+    updateBatchStatus();
+  });
+  document.getElementById('b-items').addEventListener('input', updateBatchStatus);
+  updateBatchStatus();
+}
+
+function updateBatchStatus() {
+  var raw = (document.getElementById('b-items').value || '').trim();
+  var statusEl = document.getElementById('b-status');
+  if (!raw) { statusEl.textContent = sc('待粘贴 JSON', '待貼上 JSON'); return; }
+  try {
+    var arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) { statusEl.textContent = sc('不是数组', '不是陣列'); return; }
+    statusEl.textContent = sc('已识别 ', '已辨識 ') + arr.length + sc(' 条', ' 條');
+  } catch (e) {
+    statusEl.textContent = sc('JSON 解析失败：', 'JSON 解析失敗：') + e.message;
+  }
+}
+
+function openBatchDrawer() {
+  state.drawerMode = 'batch';
+  state.currentQid = null;
+
+  document.getElementById('dr-type').textContent = '📥';
+  var statusEl = document.getElementById('dr-status');
+  statusEl.className = 'q-status pending';
+  statusEl.textContent = sc('批量', '批量');
+  document.getElementById('dr-err').textContent = '';
+  document.getElementById('dr-delete').style.display = 'none';
+  document.getElementById('dr-edit').style.display = 'none';
+  document.getElementById('dr-save').style.display = '';
+  document.getElementById('dr-save').innerHTML = '<span class="sc">导入</span><span class="tc">匯入</span>';
+
+  renderBatchForm();
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'false');
+}
+
+function renderBatchResult(result) {
+  state.drawerMode = 'batch-done';
+  var body = document.getElementById('dr-body');
+  var ok = result.succeeded, fail = result.failed, tot = result.total;
+  var klass = fail > 0 ? 'gen-summary has-err' : 'gen-summary';
+  var summary =
+    '<p style="font-weight:700;margin-bottom:6px;">' +
+      escapeHtml(sc('共 ', '共 ')) + tot +
+      escapeHtml(sc(' 条 · 成功 ', ' 條 · 成功 ')) + ok +
+      escapeHtml(sc(' · 失败 ', ' · 失敗 ')) + fail +
+    '</p>' +
+    '<p style="color:var(--ink-3);">' +
+      escapeHtml(sc('public 题进入待审，class_private 题立即生效', 'public 題進入待審，class_private 題立即生效')) +
+    '</p>';
+
+  var items = (result.items || []).map(function (it) {
+    if (it.ok) {
+      return '<div class="gen-ok-item"><b>✓ #' + it.index + '</b> id:<code>' + escapeHtml((it.id || '').slice(-8)) + '</code></div>';
+    }
+    return '<div class="gen-skip-item"><b>✗ #' + it.index + '</b> ' + escapeHtml(it.error || '未知错误') + '</div>';
+  }).join('');
+
+  body.innerHTML = '<div class="' + klass + '">' + summary + '</div>' +
+    (items ? '<h3>' + escapeHtml(sc('逐条结果', '逐條結果')) + '</h3>' + items : '');
+
+  document.getElementById('dr-save').innerHTML = '<span class="sc">完成</span><span class="tc">完成</span>';
+}
+
+function runBatch() {
+  var errEl = document.getElementById('dr-err');
+  errEl.textContent = '';
+  var raw = (document.getElementById('b-items').value || '').trim();
+  if (!raw) { errEl.textContent = sc('请粘贴 JSON 数组', '請貼上 JSON 陣列'); return; }
+  var items;
+  try { items = JSON.parse(raw); }
+  catch (e) { errEl.textContent = sc('JSON 解析失败：', 'JSON 解析失敗：') + e.message; return; }
+  if (!Array.isArray(items) || !items.length) { errEl.textContent = sc('需要一个非空数组', '需要一個非空陣列'); return; }
+  if (items.length > 200) { errEl.textContent = sc('最多 200 条/批', '最多 200 條/批'); return; }
+  var partial = document.getElementById('b-partial').checked;
+
+  var btn = document.getElementById('dr-save');
+  btn.disabled = true;
+  document.getElementById('dr-body').innerHTML =
+    '<div class="gen-loading"><span class="spin"></span>' +
+      escapeHtml(sc('正在导入…', '正在匯入…')) +
+    '</div>';
+
+  window.JX.api.post('/api/coach/questions/batch', { partial: partial, items: items })
+    .then(function (result) {
+      (result.questions || []).forEach(function (q) { state.all.unshift(q); });
+      renderList();
+      renderBatchResult(result);
+      btn.disabled = false;
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      renderBatchForm();
+      // strict 模式整批失败 → 400；partial 模式下一般不会走到这里
+      if (err && err.details && err.details.fieldErrors) {
+        errEl.textContent = sc('参数校验失败：', '參數校驗失敗：') + JSON.stringify(err.details.fieldErrors).slice(0, 200);
+      } else {
+        errEl.textContent = sc('导入失败：', '匯入失敗：') + (err && err.message || err);
+      }
+    });
+}
+
+document.getElementById('btn-batch').addEventListener('click', openBatchDrawer);
+
 document.getElementById('dr-save').addEventListener('click', function () {
   var btn = this;
   var errEl = document.getElementById('dr-err');
@@ -1126,6 +1286,9 @@ document.getElementById('dr-save').addEventListener('click', function () {
   // 3e: LLM 生成流
   if (state.drawerMode === 'generate') { runGenerate(); return; }
   if (state.drawerMode === 'generate-done') { closeDrawer(); return; }
+  // 3f: 批量导入流
+  if (state.drawerMode === 'batch') { runBatch(); return; }
+  if (state.drawerMode === 'batch-done') { closeDrawer(); return; }
 
   errEl.textContent = '';
   var body;
