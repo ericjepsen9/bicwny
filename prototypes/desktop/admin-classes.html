@@ -348,7 +348,8 @@ table.c-list { width: 100%; border-collapse: collapse; }
     </button>
   </div>
   <div class="drawer-body" id="dr-body"></div>
-  <div class="drawer-foot">
+  <div class="drawer-foot" style="justify-content:space-between;">
+    <button class="m-kick" id="dr-archive" style="display:none;"><span class="sc">归档班级</span><span class="tc">歸檔班級</span></button>
     <button class="btn-ghost-s" id="dr-cancel"><span class="sc">关闭</span><span class="tc">關閉</span></button>
   </div>
 </aside>
@@ -660,6 +661,13 @@ function kickMember(uid) {
     });
 }
 
+function syncArchiveButton() {
+  var btn = document.getElementById('dr-archive');
+  if (!btn) return;
+  btn.style.display = (drawerState.cls && drawerState.cls.isActive) ? '' : 'none';
+  btn.disabled = false;
+}
+
 function openDetailDrawer(cid) {
   var cls = state.all.find(function (x) { return x.id === cid; });
   if (!cls) return;
@@ -667,6 +675,7 @@ function openDetailDrawer(cid) {
   document.getElementById('dr-title').innerHTML = '<span class="sc">' + escapeHtml(cls.name) + '</span><span class="tc">' + escapeHtml(cls.name) + '</span>';
   document.getElementById('dr-body').innerHTML = '<p style="padding:var(--sp-6);text-align:center;color:var(--ink-3);font:var(--text-caption);">' +
     escapeHtml(sc('加载成员中…', '加載成員中…')) + '</p>';
+  syncArchiveButton();
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawer-backdrop').classList.add('open');
   document.getElementById('drawer').setAttribute('aria-hidden', 'false');
@@ -694,6 +703,34 @@ document.getElementById('dr-cancel').addEventListener('click', closeDetailDrawer
 document.getElementById('drawer-backdrop').addEventListener('click', closeDetailDrawer);
 document.addEventListener('keydown', function (ev) {
   if (ev.key === 'Escape' && document.getElementById('drawer').classList.contains('open')) closeDetailDrawer();
+});
+
+// 归档班级（one-way · 后端暂无 unarchive）
+document.getElementById('dr-archive').addEventListener('click', function () {
+  var cls = drawerState.cls;
+  if (!cls) return;
+  if (!confirm(sc(
+    '确认归档此班级？学员将立即失去访问权；此操作暂不可撤销。',
+    '確認歸檔此班級？學員將立即失去訪問權；此操作暫不可撤銷。',
+  ))) return;
+  var btn = this;
+  btn.disabled = true;
+  setDrawerFlash(null);
+  window.JX.api.patch('/api/admin/classes/' + encodeURIComponent(cls.id) + '/archive', {})
+    .then(function (updated) {
+      // 更新 state.all + 抽屉内 cls + 刷新列表 + 刷新抽屉
+      var idx = state.all.findIndex(function (x) { return x.id === updated.id; });
+      if (idx >= 0) state.all[idx] = updated;
+      drawerState.cls = updated;
+      renderList();
+      renderDrawerBody();
+      syncArchiveButton();
+      setDrawerFlash('ok', sc('班级已归档 · 学员已失去访问权', '班級已歸檔 · 學員已失去訪問權'));
+    })
+    .catch(function (err) {
+      btn.disabled = false;
+      setDrawerFlash('error', sc('归档失败：', '歸檔失敗：') + (err && err.message || err));
+    });
 });
 
 // 行点击 → 详情抽屉
