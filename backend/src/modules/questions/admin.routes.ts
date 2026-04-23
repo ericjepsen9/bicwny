@@ -23,10 +23,16 @@ const reviewBody = z.object({
   reason: z.string().max(500).optional(),
 });
 
+const TAGS = ['Admin'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const adminQuestionRoutes: FastifyPluginAsync = async (app) => {
   app.get(
     '/api/admin/questions/pending',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '待审题目队列（FIFO · ?courseId 过滤）', security: SEC },
+    },
     async (req) => {
       const parsed = pendingQuery.safeParse(req.query);
       if (!parsed.success) throw BadRequest('查询参数不合法');
@@ -37,7 +43,10 @@ export const adminQuestionRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     '/api/admin/questions/:id',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '任意题目详情（完整 payload）', security: SEC },
+    },
     async (req) => {
       const parsed = idParam.safeParse(req.params);
       if (!parsed.success) throw BadRequest('路径参数不合法');
@@ -51,7 +60,10 @@ export const adminQuestionRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     '/api/admin/questions/:id/review',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '审核（approve / reject + reason → AuditLog）', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');

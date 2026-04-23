@@ -18,8 +18,13 @@ const query = z.object({
   cursor: z.string().optional(),
 });
 
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const adminAuditRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/api/admin/audit', { preHandler: adminGuard }, async (req) => {
+  app.get('/api/admin/audit', {
+    preHandler: adminGuard,
+    schema: { tags: ['Admin'], summary: '审计日志（AuditLog · filter + 游标分页）', security: SEC },
+  }, async (req) => {
     const parsed = query.safeParse(req.query);
     if (!parsed.success) throw BadRequest('查询参数不合法');
     const q = parsed.data;

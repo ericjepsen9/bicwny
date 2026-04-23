@@ -69,15 +69,24 @@ function serialize(p: LlmProviderConfig) {
   };
 }
 
+const TAGS = ['Admin'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const llmAdminRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/api/admin/llm/providers', { preHandler: adminGuard }, async () => {
+  app.get('/api/admin/llm/providers', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: 'LLM provider 列表（含配额 / 健康 / 熔断状态）', security: SEC },
+  }, async () => {
     const items = await listProvidersAdmin();
     return { data: items.map(serialize) };
   });
 
   app.patch(
     '/api/admin/llm/providers/:id',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '更新 provider 配置（配额 / 角色 / 成本等）', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');
@@ -91,7 +100,10 @@ export const llmAdminRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     '/api/admin/llm/providers/:id/toggle',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '启停 provider（isEnabled）', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');
@@ -105,7 +117,10 @@ export const llmAdminRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     '/api/admin/llm/providers/:id/reset-circuit',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '手动重置熔断（清 circuitOpenUntil + 计数归零）', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');
@@ -117,7 +132,10 @@ export const llmAdminRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     '/api/admin/llm/providers/:id/usage',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '单 provider 用量时序（按周期 year / month / day / hour / minute）', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');
@@ -128,13 +146,19 @@ export const llmAdminRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.get('/api/admin/llm/usage', { preHandler: adminGuard }, async (req) => {
+  app.get('/api/admin/llm/usage', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: '平台总用量汇总（跨 provider）', security: SEC },
+  }, async (req) => {
     const pq = platformUsageQuery.safeParse(req.query);
     if (!pq.success) throw BadRequest('查询参数不合法');
     return { data: await platformUsageSummary(pq.data) };
   });
 
-  app.get('/api/admin/llm/logs', { preHandler: adminGuard }, async (req) => {
+  app.get('/api/admin/llm/logs', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: 'LLM 调用日志（filter + 游标分页）', security: SEC },
+  }, async (req) => {
     const pq = logsQuery.safeParse(req.query);
     if (!pq.success) throw BadRequest('查询参数不合法');
     return { data: await listCallLogs(pq.data) };

@@ -29,8 +29,14 @@ const statsQuery = z.object({
   windowDays: z.coerce.number().int().min(1).max(90).optional(),
 });
 
+const TAGS = ['Admin'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const adminRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/api/admin/users', { preHandler: adminGuard }, async (req) => {
+  app.get('/api/admin/users', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: '用户列表（?role / ?search / 游标分页）', security: SEC },
+  }, async (req) => {
     const parsed = listUsersQuery.safeParse(req.query);
     if (!parsed.success) throw BadRequest('查询参数不合法');
     return { data: await listUsers(parsed.data) };
@@ -38,7 +44,10 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch(
     '/api/admin/users/:id/role',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '改用户角色（禁止自己降级）+ AuditLog', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');
@@ -52,7 +61,10 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     '/api/admin/users/:id/active',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '启停账号（停用时吊销所有活跃 session）+ AuditLog', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');
@@ -66,7 +78,10 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     '/api/admin/platform-stats',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '平台大盘（users / classes / questions / answers / llm / sm2）', security: SEC },
+    },
     async (req) => {
       const parsed = statsQuery.safeParse(req.query);
       if (!parsed.success) throw BadRequest('查询参数不合法');

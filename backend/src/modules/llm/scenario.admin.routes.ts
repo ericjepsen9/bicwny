@@ -37,14 +37,23 @@ const createPromptBody = z.object({
   content: z.string().min(1),
 });
 
+const TAGS = ['Admin'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const llmScenarioAdminRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/api/admin/llm/scenarios', { preHandler: adminGuard }, async () => {
+  app.get('/api/admin/llm/scenarios', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: 'LLM 场景列表（open_grading / question_generation ...）', security: SEC },
+  }, async () => {
     return { data: await listScenarios() };
   });
 
   app.patch(
     '/api/admin/llm/scenarios/:id',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '更新场景（主/备 provider + 温度 / maxTokens / 模板绑定）', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');
@@ -56,7 +65,10 @@ export const llmScenarioAdminRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.get('/api/admin/llm/prompts', { preHandler: adminGuard }, async (req) => {
+  app.get('/api/admin/llm/prompts', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: 'Prompt 模板列表（?scenario 过滤）', security: SEC },
+  }, async (req) => {
     const pq = promptsQuery.safeParse(req.query);
     if (!pq.success) throw BadRequest('查询参数不合法');
     return { data: await listPromptTemplates(pq.data.scenario) };
@@ -64,7 +76,10 @@ export const llmScenarioAdminRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     '/api/admin/llm/prompts',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '创建 Prompt 模板（默认未激活，需显式 activate）', security: SEC },
+    },
     async (req, reply) => {
       const parsed = createPromptBody.safeParse(req.body);
       if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
@@ -77,7 +92,10 @@ export const llmScenarioAdminRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     '/api/admin/llm/prompts/:id/activate',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '激活 Prompt 模板（同 scenario 旧版自动停用）', security: SEC },
+    },
     async (req) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');

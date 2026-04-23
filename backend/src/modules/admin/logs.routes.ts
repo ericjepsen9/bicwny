@@ -18,8 +18,13 @@ const listQuery = z.object({
   cursor: z.string().optional(),
 });
 
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const adminLogsRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/api/admin/logs', { preHandler: adminGuard }, async (req) => {
+  app.get('/api/admin/logs', {
+    preHandler: adminGuard,
+    schema: { tags: ['Admin'], summary: '运行日志（ErrorLog · filter + 游标分页）', security: SEC },
+  }, async (req) => {
     const parsed = listQuery.safeParse(req.query);
     if (!parsed.success) throw BadRequest('查询参数不合法');
     const q = parsed.data;
@@ -38,7 +43,10 @@ export const adminLogsRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     '/api/admin/logs/stats',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: ['Admin'], summary: '近 24h 各 kind 计数（error / slow_request / slow_query）', security: SEC },
+    },
     async () => {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const groups = await prisma.errorLog.groupBy({

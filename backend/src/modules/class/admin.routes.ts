@@ -38,10 +38,16 @@ const addMemberBody = z.object({
   role: z.enum(['coach', 'student']),
 });
 
+const TAGS = ['Admin'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const adminClassRoutes: FastifyPluginAsync = async (app) => {
   app.post(
     '/api/admin/classes',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '创建班级（自动生成 6 字加入码）', security: SEC },
+    },
     async (req, reply) => {
       const parsed = createBody.safeParse(req.body);
       if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
@@ -51,7 +57,10 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.get('/api/admin/classes', { preHandler: adminGuard }, async () => {
+  app.get('/api/admin/classes', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: '全部班级列表', security: SEC },
+  }, async () => {
     const items = await prisma.class.findMany({
       orderBy: { createdAt: 'desc' },
       take: 200,
@@ -61,7 +70,10 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
 
   app.patch(
     '/api/admin/classes/:id/archive',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '归档班级（one-way · 学员立即失去访问权）', security: SEC },
+    },
     async (req) => {
       const parsed = idParam.safeParse(req.params);
       if (!parsed.success) throw BadRequest('路径参数不合法');
@@ -72,7 +84,10 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
 
   app.get(
     '/api/admin/classes/:id/members',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '班级成员（admin 超权）', security: SEC },
+    },
     async (req) => {
       const parsed = idParam.safeParse(req.params);
       if (!parsed.success) throw BadRequest('路径参数不合法');
@@ -84,7 +99,10 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
 
   app.post(
     '/api/admin/classes/:id/members',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '添加成员（指定 role=coach / student）', security: SEC },
+    },
     async (req, reply) => {
       const pp = idParam.safeParse(req.params);
       if (!pp.success) throw BadRequest('路径参数不合法');
@@ -99,7 +117,10 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete(
     '/api/admin/classes/:id/members/:userId',
-    { preHandler: adminGuard },
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '移出班级成员（软删除 removedAt）', security: SEC },
+    },
     async (req) => {
       const parsed = memberParams.safeParse(req.params);
       if (!parsed.success) throw BadRequest('路径参数不合法');
