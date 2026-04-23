@@ -99,111 +99,148 @@ body { background: var(--bg-scene); min-height: 100vh; }
     </button>
   </div>
 
-  <div class="sections">
-
-    <div class="book-hero">
-      <p class="book-hero-label"><span class="sc">佛陀智慧 · 经典</span><span class="tc">佛陀智慧 · 經典</span></p>
-      <p class="book-hero-title"><span class="sc">心　经</span><span class="tc">心　經</span></p>
-      <p class="book-hero-sub"><span class="sc">般若波罗蜜多 · 全文 260 字</span><span class="tc">般若波羅蜜多 · 全文 260 字</span></p>
+  <div class="sections" id="sections">
+    <div class="book-hero" id="book-hero" style="display:none;">
+      <p class="book-hero-label" id="hero-label"></p>
+      <p class="book-hero-title" id="hero-title"></p>
+      <p class="book-hero-sub" id="hero-sub"></p>
       <div class="book-hero-stats">
         <div>
-          <p class="hero-stat-num">8</p>
+          <p class="hero-stat-num" id="hero-chapters">—</p>
           <p class="hero-stat-lbl"><span class="sc">章节</span><span class="tc">章節</span></p>
         </div>
         <div>
-          <p class="hero-stat-num">42</p>
-          <p class="hero-stat-lbl"><span class="sc">题目</span><span class="tc">題目</span></p>
+          <p class="hero-stat-num" id="hero-lessons">—</p>
+          <p class="hero-stat-lbl"><span class="sc">课时</span><span class="tc">課時</span></p>
         </div>
         <div>
-          <p class="hero-stat-num">38%</p>
+          <p class="hero-stat-num" id="hero-progress">0%</p>
           <p class="hero-stat-lbl"><span class="sc">已学</span><span class="tc">已學</span></p>
         </div>
       </div>
     </div>
 
-    <div class="section-head">
+    <div class="section-head" id="section-head" style="display:none;">
       <h3><span class="sc">章节目录</span><span class="tc">章節目錄</span></h3>
-      <span>3 / 8 已完成</span>
+      <span id="section-head-right">—</span>
     </div>
 
-    <a class="chapter-item" href="scripture-reading.html">
-      <div class="chapter-num done">
-        <svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    <div id="chapters-list">
+      <div class="q-card" style="text-align:center;padding:var(--sp-6) var(--sp-5);background:rgba(255,255,255,.55);border-radius:var(--r-lg);">
+        <p style="font:var(--text-caption);color:var(--ink-3);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
       </div>
-      <div class="chapter-body">
-        <p class="chapter-title"><span class="sc">第一章 · 观自在</span><span class="tc">第一章 · 觀自在</span></p>
-        <div class="chapter-meta">
-          <span>6 <span class="sc">题</span><span class="tc">題</span></span>
-          <span class="dot"></span>
-          <span style="color:var(--sage-dark);">100%</span>
-        </div>
-      </div>
-      <svg width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-    </a>
-
-    <a class="chapter-item" href="scripture-reading.html">
-      <div class="chapter-num done">
-        <svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <div class="chapter-body">
-        <p class="chapter-title"><span class="sc">第二章 · 五蕴皆空</span><span class="tc">第二章 · 五蘊皆空</span></p>
-        <div class="chapter-meta">
-          <span>5 <span class="sc">题</span><span class="tc">題</span></span>
-          <span class="dot"></span>
-          <span style="color:var(--sage-dark);">100%</span>
-        </div>
-      </div>
-      <svg width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-    </a>
-
-    <a class="chapter-item current" href="scripture-reading.html">
-      <div class="chapter-num current">3</div>
-      <div class="chapter-body">
-        <p class="chapter-title">第三章 · 色即是空</p>
-        <div class="chapter-meta">
-          <span style="color:var(--saffron);font-weight:600;"><span class="sc">阅读中</span><span class="tc">閱讀中</span></span>
-          <span class="dot"></span>
-          <span>6 <span class="sc">题 · 待答 4</span><span class="tc">題 · 待答 4</span></span>
-        </div>
-      </div>
-      <svg width="16" height="16" fill="none" stroke="#E07856" stroke-width="2.2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-    </a>
-
-    <div class="chapter-item locked">
-      <div class="chapter-num locked">4</div>
-      <div class="chapter-body">
-        <p class="chapter-title"><span class="sc">第四章 · 不生不灭</span><span class="tc">第四章 · 不生不滅</span></p>
-        <div class="chapter-meta">
-          <span>7 <span class="sc">题</span><span class="tc">題</span></span>
-          <span class="dot"></span>
-          <span><span class="sc">未解锁</span><span class="tc">未解鎖</span></span>
-        </div>
-      </div>
-      <svg width="14" height="14" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
     </div>
-
-    <div class="chapter-item locked">
-      <div class="chapter-num locked">5</div>
-      <div class="chapter-body">
-        <p class="chapter-title"><span class="sc">第五章 · 无眼耳鼻舌</span><span class="tc">第五章 · 無眼耳鼻舌</span></p>
-        <div class="chapter-meta"><span>5 <span class="sc">题</span><span class="tc">題</span></span></div>
-      </div>
-      <svg width="14" height="14" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-    </div>
-
-    <div class="chapter-item locked">
-      <div class="chapter-num locked">6</div>
-      <div class="chapter-body">
-        <p class="chapter-title"><span class="sc">第六章 · 无苦集灭道</span><span class="tc">第六章 · 無苦集滅道</span></p>
-        <div class="chapter-meta"><span>6 <span class="sc">题</span><span class="tc">題</span></span></div>
-      </div>
-      <svg width="14" height="14" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-    </div>
-
   </div>
 
 </div><!-- /phone -->
 </div><!-- /phone-wrap -->
 <script src="../shared/nav.js"></script>
+<script>
+// scripture-detail · /api/courses/:slug（含 overlay）
+//   ?slug= 指定；否则取第一个已报名课；否则取首个已发布课
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+function resolveSlug() {
+  var q = window.JX.util.queryParam('slug');
+  if (q) return Promise.resolve(q);
+  return window.JX.api.get('/api/my/enrollments').then(function (list) {
+    if (list && list.length && list[0].course && list[0].course.slug) return list[0].course.slug;
+    return window.JX.api.get('/api/courses').then(function (courses) {
+      if (!courses || !courses.length) throw new Error(sc('暂无已发布法本', '暫無已發佈法本'));
+      return courses[0].slug;
+    });
+  });
+}
+
+function renderHero(course, overlay) {
+  document.getElementById('book-hero').style.display = '';
+  document.getElementById('section-head').style.display = '';
+  document.getElementById('hero-label').textContent =
+    (course.author ? course.author + ' · ' : '') + sc('论典', '論典');
+  document.getElementById('hero-title').textContent = course.title;
+  document.getElementById('hero-sub').textContent = course.description || '';
+  var chapters = course.chapters || [];
+  var totalLessons = chapters.reduce(function (n, c) { return n + (c.lessons || []).length; }, 0);
+  document.getElementById('hero-chapters').textContent = chapters.length;
+  document.getElementById('hero-lessons').textContent = totalLessons;
+  var pct = (overlay && overlay.progressPercent) || 0;
+  document.getElementById('hero-progress').textContent = pct + '%';
+}
+
+function renderChapters(course, overlay) {
+  var done = new Set((overlay && overlay.completedLessonIds) || []);
+  var currentLessonId = overlay && overlay.currentLessonId;
+  var chapters = course.chapters || [];
+  var totalChapters = chapters.length;
+  var doneChapters = 0;
+
+  var list = document.getElementById('chapters-list');
+  list.innerHTML = '';
+
+  chapters.forEach(function (ch, idx) {
+    var lessons = ch.lessons || [];
+    var doneCount = lessons.filter(function (l) { return done.has(l.id); }).length;
+    var firstLesson = lessons[0];
+    var chapterDone = lessons.length > 0 && doneCount === lessons.length;
+    var chapterCurrent = lessons.some(function (l) { return l.id === currentLessonId; });
+    if (chapterDone) doneChapters++;
+    var state = chapterDone ? 'done' : (chapterCurrent ? 'current' : 'pending');
+
+    var badge;
+    if (state === 'done') {
+      badge = '<svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+    } else if (state === 'current') {
+      badge = String(idx + 1);
+    } else {
+      badge = String(idx + 1);
+    }
+    var pct = lessons.length ? Math.round(doneCount / lessons.length * 100) : 0;
+    var meta = lessons.length + sc(' 课 · ', ' 課 · ') +
+      (chapterCurrent ? (sc('阅读中', '閱讀中')) : (pct + '%'));
+
+    var href = firstLesson
+      ? 'scripture-reading.html?slug=' + encodeURIComponent(course.slug) + '&lessonId=' + encodeURIComponent(firstLesson.id)
+      : '#';
+    var el = document.createElement(firstLesson ? 'a' : 'div');
+    el.className = 'chapter-item' + (state === 'current' ? ' current' : '');
+    if (firstLesson) el.href = href;
+    el.innerHTML =
+      '<div class="chapter-num ' + state + '">' + badge + '</div>' +
+      '<div class="chapter-body">' +
+        '<p class="chapter-title">' + escapeHtml((idx + 1) + '. ' + (ch.title || '—')) + '</p>' +
+        '<div class="chapter-meta">' +
+          (chapterCurrent
+            ? '<span style="color:var(--saffron);font-weight:600;">' + escapeHtml(sc('阅读中', '閱讀中')) + '</span><span class="dot"></span><span>' + lessons.length + sc(' 课', ' 課') + '</span>'
+            : '<span>' + escapeHtml(meta) + '</span>') +
+        '</div>' +
+      '</div>' +
+      '<svg width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>';
+    list.appendChild(el);
+  });
+
+  document.getElementById('section-head-right').textContent =
+    doneChapters + ' / ' + totalChapters + sc(' 已完成', ' 已完成');
+}
+
+function boot() {
+  resolveSlug()
+    .then(function (slug) { return window.JX.api.get('/api/courses/' + encodeURIComponent(slug)); })
+    .then(function (data) {
+      var course = data.course || data;
+      var overlay = data.overlay;
+      renderHero(course, overlay);
+      renderChapters(course, overlay);
+    })
+    .catch(function (err) {
+      document.getElementById('chapters-list').innerHTML =
+        '<div class="q-card" style="padding:var(--sp-6);text-align:center;color:var(--crimson);">'
+        + escapeHtml(sc('加载失败：', '加載失敗：') + (err.message || err))
+        + '</div>';
+    });
+}
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', boot);
+if (window.JX && window.JX.user) boot();
+</script>
 </body>
 </html>

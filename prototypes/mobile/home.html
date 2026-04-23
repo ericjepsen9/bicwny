@@ -309,8 +309,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
 //   /api/my/enrollments → 当前法本卡；需再调 /api/courses/:slug 取 overlay.progressPercent
 //   /api/mistakes       → 错题 badge 数量（0 则隐藏整张卡）
 // ──────────────────────────────────────────────────
-function lang() { return document.documentElement.getAttribute('data-lang') || 'sc'; }
-function sc(a, b) { return lang() === 'sc' ? a : b; }
+var lang = window.JX.lang, sc = window.JX.sc;
 
 function renderGreeting() {
   var h = new Date().getHours();

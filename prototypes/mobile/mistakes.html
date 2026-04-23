@@ -107,13 +107,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 var allMistakes = [];
 var currentFilter = 'all';
 
-function lang() { return document.documentElement.getAttribute('data-lang') || 'sc'; }
-function sc(a, b) { return lang() === 'sc' ? a : b; }
-function escapeHtml(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
+var lang = window.JX.lang, sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
 
 function isToday(iso) {
   if (!iso) return false;

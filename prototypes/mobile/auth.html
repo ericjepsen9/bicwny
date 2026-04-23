@@ -188,21 +188,15 @@ function showScreen(id) {
   clearMsg('reg-msg');
 }
 
+var sc = window.JX.sc;
+
 // ── 多语言错误信息归一 ──────────────────────────
 function localizedError(err) {
   var code = (err && err.code) || '';
   var msg = (err && err.message) || '请求失败';
-  var lang = document.documentElement.getAttribute('data-lang') || 'sc';
-  // 后端已是中文，但网络/未知错按语言本地化
-  if (err && err.status === 0) {
-    return lang === 'sc' ? '网络异常，请检查连接' : '網絡異常，請檢查連接';
-  }
-  if (code === 'UNAUTHORIZED') {
-    return lang === 'sc' ? '邮箱或密码错误' : '電子郵箱或密碼錯誤';
-  }
-  if (code === 'CONFLICT') {
-    return lang === 'sc' ? '该邮箱已注册，请直接登录' : '該郵箱已註冊，請直接登錄';
-  }
+  if (err && err.status === 0)   return sc('网络异常，请检查连接', '網絡異常，請檢查連接');
+  if (code === 'UNAUTHORIZED')   return sc('邮箱或密码错误', '電子郵箱或密碼錯誤');
+  if (code === 'CONFLICT')       return sc('该邮箱已注册，请直接登录', '該郵箱已註冊，請直接登錄');
   return msg;
 }
 
@@ -225,10 +219,7 @@ document.getElementById('screen-login').addEventListener('submit', function (ev)
   var email = document.getElementById('login-email').value.trim();
   var password = document.getElementById('login-password').value;
   if (!email || !password) {
-    setMsg('login-msg', 'error',
-      (document.documentElement.getAttribute('data-lang') === 'tc')
-        ? '請輸入郵箱和密碼'
-        : '请输入邮箱和密码');
+    setMsg('login-msg', 'error', sc('请输入邮箱和密码', '請輸入郵箱和密碼'));
     return;
   }
   var btn = ev.target.querySelector('button[type="submit"]');
@@ -255,10 +246,7 @@ document.getElementById('screen-register').addEventListener('submit', function (
   var password = document.getElementById('reg-password').value;
   var dharmaName = document.getElementById('reg-dharma').value.trim();
   if (!email || !password || password.length < 6) {
-    setMsg('reg-msg', 'error',
-      (document.documentElement.getAttribute('data-lang') === 'tc')
-        ? '請填寫郵箱與至少 6 位密碼'
-        : '请填写邮箱与至少 6 位密码');
+    setMsg('reg-msg', 'error', sc('请填写邮箱与至少 6 位密码', '請填寫郵箱與至少 6 位密碼'));
     return;
   }
   var btn = ev.target.querySelector('button[type="submit"]');

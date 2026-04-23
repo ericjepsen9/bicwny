@@ -246,12 +246,8 @@ document.addEventListener('langchange', syncLangChips);
 
 // 退出登录：调后端 /logout 吊销 refresh，再跳登录页
 document.getElementById('btn-logout').addEventListener('click', function () {
-  var lang = document.documentElement.getAttribute('data-lang') || 'sc';
-  var ok = confirm(lang === 'sc' ? '确定退出登录？' : '確定退出登入？');
-  if (!ok) return;
-  window.JX.api.logout().finally(function () {
-    location.replace('auth.html');
-  });
+  if (!confirm(window.JX.sc('确定退出登录？', '確定退出登入？'))) return;
+  window.JX.api.logout().finally(function () { location.replace('auth.html'); });
 });
 </script>
 </body>

@@ -234,8 +234,7 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
 // ── profile 数据 ──────────────────────────────────
 //   /api/my/progress → totalDays/byCourse/streak/sm2/todayAnswered/weekDays
 // ──────────────────────────────────────────────────
-function lang() { return document.documentElement.getAttribute('data-lang') || 'sc'; }
-function sc(a, b) { return lang() === 'sc' ? a : b; }
+var lang = window.JX.lang, sc = window.JX.sc;
 
 // 级别估算（内部）：每 50 次正确答题 = 1 级，最高 12
 // titleBand 根据总答题量给语义性称号；launch 期先轻量
