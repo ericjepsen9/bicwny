@@ -60,18 +60,19 @@
   }
 
   // 单例飞行中的 refresh，并发 401 只触发一次
+  // `refreshing` 直到整条链（成功 setTokens 或失败 clear）完全结束才清空，
+  // 避免早于最终态的并发 401 再次发起 refresh 请求
   var refreshing = null;
   function refreshOnce() {
     if (refreshing) return refreshing;
     var rt = getRefreshToken();
     if (!rt) return Promise.reject(ApiError(401, 'NO_REFRESH', '未登录或会话已过期'));
-    refreshing = fetch(buildUrl('/api/auth/refresh'), {
+    var p = fetch(buildUrl('/api/auth/refresh'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: rt }),
     })
       .then(function (res) {
-        refreshing = null;
         if (!res.ok) {
           clearTokens();
           throw ApiError(res.status, 'REFRESH_FAILED', '会话刷新失败');
@@ -86,8 +87,9 @@
         }
         setTokens(d);
         return d.accessToken;
-      })
-      .catch(function (err) { refreshing = null; throw err; });
+      });
+    // 只在整条 promise 完结后（无论成功失败）才解锁单飞状态
+    refreshing = p.finally(function () { refreshing = null; });
     return refreshing;
   }
 
