@@ -91,3 +91,8 @@
   --ease: cubic-bezier(.25,.1,.25,1);
   --dur:  180ms;
 }
+
+/* ── 简繁切换 ────────────────────────────────── */
+.tc { display: none; }
+[data-lang="tc"] .sc { display: none; }
+[data-lang="tc"] .tc { display: inline; }
