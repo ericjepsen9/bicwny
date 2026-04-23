@@ -25,40 +25,30 @@
 <link rel="stylesheet" href="../shared/base.css">
 <link rel="stylesheet" href="../shared/components.css">
 <style>
-body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:100vh; }
-.row { display:flex; justify-content:center; gap:28px; padding:40px 20px; flex-wrap:wrap; }
-.phone-caption { text-align:center; font:var(--text-meta); color:var(--ink-2); letter-spacing:2px; margin-bottom:var(--sp-3); }
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display:flex; justify-content:center; padding:40px 20px; }
 
-/* ── Top Nav ──────────────────────────────── */
-.top-nav { display:flex; align-items:center; gap:var(--sp-3); padding:0 var(--sp-5) var(--sp-4); }
-.nav-back {
-  width:34px; height:34px; border-radius:var(--r-sm);
-  background:var(--glass-thick); border:1px solid var(--glass-border);
-  display:flex; align-items:center; justify-content:center; flex-shrink:0;
-  text-decoration:none; cursor:pointer;
-}
-.nav-title { font-family:var(--font-serif); font-weight:700; color:var(--ink); font-size:1.0625rem; letter-spacing:4px; flex:1; }
-
-/* ── Filter Tabs ──────────────────────────── */
 .filter-tabs { display:flex; gap:var(--sp-2); padding:0 var(--sp-5) var(--sp-4); overflow-x:auto; scrollbar-width:none; }
 .filter-tabs::-webkit-scrollbar { display:none; }
 .ftab {
   padding:6px 14px; border-radius:var(--r-pill); white-space:nowrap;
   font:var(--text-caption); font-weight:600; letter-spacing:1.5px;
   background:rgba(255,255,255,.55); border:1px solid var(--glass-border);
-  color:var(--ink-3);
+  color:var(--ink-3); cursor:pointer;
 }
 .ftab.active { background:var(--saffron); color:#FFF; border-color:var(--saffron-dark); }
 
-/* ── Mistake Card ─────────────────────────── */
 .mistake-card {
-  padding:var(--sp-4);
+  display:block; padding:var(--sp-4);
   background:rgba(255,255,255,.62);
   backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
   border-radius:var(--r-lg); border:1px solid var(--glass-border);
   border-left:3px solid var(--crimson);
   box-shadow:var(--shadow-1);
+  text-decoration:none; color:inherit; cursor:pointer;
+  transition:transform var(--dur) var(--ease);
 }
+.mistake-card:hover { transform:translateY(-1px); box-shadow:var(--shadow-2); }
 .mistake-chapter { font:var(--text-caption); color:var(--ink-3); letter-spacing:1.5px; margin-bottom:var(--sp-2); }
 .mistake-stem { font:var(--text-body); color:var(--ink); letter-spacing:1px; line-height:1.5; margin-bottom:var(--sp-3); }
 .mistake-footer { display:flex; align-items:center; justify-content:space-between; }
@@ -68,35 +58,13 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
   font:var(--text-caption); font-weight:600; color:var(--crimson); letter-spacing:1px;
 }
 
-/* ── Detail Page ──────────────────────────── */
-.breadcrumb { font:var(--text-caption); color:var(--ink-3); letter-spacing:1.5px; margin-bottom:var(--sp-3); display:flex; align-items:center; gap:4px; }
-.question-block { padding:var(--sp-4); margin-bottom:var(--sp-4); }
-.q-stem { font:var(--text-body-serif); color:var(--ink); letter-spacing:2px; line-height:1.8; margin-bottom:var(--sp-4); }
-.answer-label { font:var(--text-caption); font-weight:700; letter-spacing:2px; margin-bottom:var(--sp-2); }
-.answer-label.wrong-lbl   { color:var(--crimson); }
-.answer-label.correct-lbl { color:var(--sage-dark); }
-
-/* SM-2 next review card */
-.sm2-card {
-  display:flex; align-items:center; gap:var(--sp-3);
-  padding:var(--sp-3) var(--sp-4);
-  background:var(--gold-pale); border:1px solid var(--gold-light);
-  border-radius:var(--r-lg);
-}
-.sm2-icon { width:32px; height:32px; border-radius:var(--r-sm); background:var(--gold-light); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.sm2-label { font:var(--text-caption); color:var(--ink-3); letter-spacing:1px; }
-.sm2-date  { font:var(--text-meta); font-weight:700; color:var(--gold-dark); letter-spacing:1px; margin-top:2px; }
-
 .sections { display:flex; flex-direction:column; gap:var(--sp-3); padding:0 var(--sp-5) 100px; }
 </style>
 </head>
-<body>
-<div class="row">
-
-<!-- ══ 列表页 ══ -->
-<div>
-<p class="phone-caption">错题本 · 列表</p>
+<body class="scene">
+<div class="phone-wrap">
 <div class="phone">
+
   <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
@@ -115,7 +83,7 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
   <div class="scroll-area" style="height:680px;">
   <div class="sections">
 
-    <div class="mistake-card">
+    <a class="mistake-card" href="mistake-detail.html">
       <p class="mistake-chapter"><span class="sc">心经 · 第三章 · 色即是空</span><span class="tc">心經 · 第三章 · 色即是空</span></p>
       <p class="mistake-stem"><span class="sc">「色不异空」中，「色」指的是什么？</span><span class="tc">「色不異空」中，「色」指的是什麼？</span></p>
       <div class="mistake-footer">
@@ -125,18 +93,18 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
           <span class="sc">今日复习</span><span class="tc">今日複習</span>
         </span>
       </div>
-    </div>
+    </a>
 
-    <div class="mistake-card">
+    <a class="mistake-card" href="mistake-detail.html">
       <p class="mistake-chapter"><span class="sc">心经 · 第三章 · 色即是空</span><span class="tc">心經 · 第三章 · 色即是空</span></p>
       <p class="mistake-stem"><span class="sc">「受想行识，亦复如是」中「五蕴」包含哪些？</span><span class="tc">「受想行識，亦復如是」中「五蘊」包含哪些？</span></p>
       <div class="mistake-footer">
         <span class="mistake-time">2 天前</span>
         <span class="review-countdown" style="color:var(--ink-3);"><span class="sc">3 天后</span><span class="tc">3 天後</span></span>
       </div>
-    </div>
+    </a>
 
-    <div class="mistake-card">
+    <a class="mistake-card" href="mistake-detail.html">
       <p class="mistake-chapter"><span class="sc">心经 · 第四章 · 不生不灭</span><span class="tc">心經 · 第四章 · 不生不滅</span></p>
       <p class="mistake-stem"><span class="sc">「不垢不净」说明了什么样的空性本质？</span><span class="tc">「不垢不淨」說明了什麼樣的空性本質？</span></p>
       <div class="mistake-footer">
@@ -146,101 +114,24 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
           <span class="sc">今日复习</span><span class="tc">今日複習</span>
         </span>
       </div>
-    </div>
+    </a>
 
-    <div class="mistake-card">
+    <a class="mistake-card" href="mistake-detail.html">
       <p class="mistake-chapter"><span class="sc">金刚经 · 第一章 · 如是我闻</span><span class="tc">金剛經 · 第一章 · 如是我聞</span></p>
       <p class="mistake-stem"><span class="sc">「一时佛在舍卫国祇树给孤独园」中「祇树」名称的由来？</span><span class="tc">「一時佛在舍衛國祇樹給孤獨園」中「祇樹」名稱的由來？</span></p>
       <div class="mistake-footer">
         <span class="mistake-time">5 天前</span>
         <span class="review-countdown" style="color:var(--ink-3);"><span class="sc">5 天后</span><span class="tc">5 天後</span></span>
       </div>
-    </div>
+    </a>
 
-    <div class="mistake-card" style="opacity:.6;">
+    <a class="mistake-card" href="mistake-detail.html" style="opacity:.6;">
       <p class="mistake-chapter"><span class="sc">心经 · 第二章 · 五蕴皆空</span><span class="tc">心經 · 第二章 · 五蘊皆空</span></p>
       <p class="mistake-stem"><span class="sc">「照见五蕴皆空」——「照见」的修行含义是？</span><span class="tc">「照見五蘊皆空」——「照見」的修行含義是？</span></p>
       <div class="mistake-footer">
         <span class="mistake-time">7 天前</span>
         <span class="review-countdown" style="color:var(--sage-dark);">已掌握</span>
       </div>
-    </div>
-
-  </div>
-  </div>
-
-  <div class="tab-bar">
-    <a href="home.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span><span class="sc">首页</span><span class="tc">首頁</span></span></a>
-    <a href="scripture-detail.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>法本</span></a>
-    <a href="quiz.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span><span class="sc">答题</span><span class="tc">答題</span></span></a>
-    <a href="profile.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>我的</span></a>
-  </div>
-</div>
-</div>
-
-<!-- ══ 详情页 ══ -->
-<div>
-<p class="phone-caption">错题详情 · 解析</p>
-<div class="phone">
-  <div class="status-bar" data-auto></div>
-
-  <div class="top-nav">
-    <a class="nav-back" href="mistakes.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
-    <span class="nav-title"><span class="sc">错题解析</span><span class="tc">錯題解析</span></span>
-    <div style="width:34px;"></div>
-  </div>
-
-  <div class="scroll-area" style="height:700px;">
-  <div style="padding:0 var(--sp-5) 100px; display:flex; flex-direction:column; gap:var(--sp-4);">
-
-    <div class="breadcrumb">
-      <span><span class="sc">心经</span><span class="tc">心經</span></span>
-      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-      <span>第三章</span>
-      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-      <span style="color:var(--crimson);">色即是空</span>
-    </div>
-
-    <div class="question-block glass-card-thick">
-      <span class="tag tag-crimson" style="margin-bottom:var(--sp-3);display:inline-block;">✗ <span class="sc">答错</span><span class="tc">答錯</span></span>
-      <p class="q-stem"><span class="sc">「色不异空，空不异色」中，「色」最准确的含义是？</span><span class="tc">「色不異空，空不異色」中，「色」最準確的含義是？</span></p>
-      <p class="answer-label wrong-lbl">我的答案</p>
-      <div class="option wrong" style="margin-bottom:var(--sp-3);">
-        <div class="option-letter">A</div>
-        <span class="option-text"><span class="sc">五彩缤纷的色彩</span><span class="tc">五彩繽紛的色彩</span></span>
-        <svg width="18" height="18" fill="none" stroke="#A13C2E" stroke-width="2.4" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </div>
-      <p class="answer-label correct-lbl"><span class="sc">正确答案</span><span class="tc">正確答案</span></p>
-      <div class="option correct">
-        <div class="option-letter">B</div>
-        <span class="option-text"><span class="sc">一切物质现象与形体</span><span class="tc">一切物質現象與形體</span></span>
-        <svg width="18" height="18" fill="none" stroke="#7D9A6C" stroke-width="2.4" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-    </div>
-
-    <div class="explanation" style="margin:0;">
-      <div class="explanation-icon">
-        <svg width="16" height="16" fill="none" stroke="#B88956" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      </div>
-      <div class="explanation-body">
-        <p class="explanation-title"><span class="sc">释义</span><span class="tc">釋義</span></p>
-        <p class="explanation-text"><span class="sc">「色」即梵文 rūpa，指五蕴中物质与形体的存在，非指颜色。此句揭示有形与无形本为一体的空性智慧。</span><span class="tc">「色」即梵文 rūpa，指五蘊中物質與形體的存在，非指顏色。此句揭示有形與無形本為一體的空性智慧。</span></p>
-      </div>
-    </div>
-
-    <div class="sm2-card">
-      <div class="sm2-icon">
-        <svg width="16" height="16" fill="none" stroke="#B88956" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      </div>
-      <div>
-        <p class="sm2-label">SM-2 · <span class="sc">下次复习</span><span class="tc">下次複習</span></p>
-        <p class="sm2-date">明日 · 2026-04-24</p>
-      </div>
-    </div>
-
-    <a href="quiz.html" class="btn btn-primary btn-lg btn-full btn-pill">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-      <span class="sc">再练一次</span><span class="tc">再練一次</span>
     </a>
 
   </div>
@@ -252,9 +143,8 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
     <a href="quiz.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span><span class="sc">答题</span><span class="tc">答題</span></span></a>
     <a href="profile.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>我的</span></a>
   </div>
-</div>
-</div>
 
+</div>
 </div>
 <script src="../shared/nav.js"></script>
 </body>

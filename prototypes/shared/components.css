@@ -383,3 +383,22 @@
   transition: all var(--dur) var(--ease);
 }
 .lang-btn:hover { background: var(--saffron-light); }
+
+/* ── "Coming soon" placeholder for unbuilt pages ─ */
+.soon { opacity: .55; pointer-events: none; }
+
+/* ── Mobile top navigation bar ──────────────── */
+.top-nav {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: 0 var(--sp-5) var(--sp-4);
+}
+.nav-btn, .nav-back, .nav-action {
+  width: 34px; height: 34px; border-radius: var(--r-sm);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; text-decoration: none; cursor: pointer;
+}
+.top-nav-title, .nav-title {
+  font-family: var(--font-serif); font-weight: 700; color: var(--ink);
+  font-size: 1.0625rem; letter-spacing: 4px; flex: 1;
+}
