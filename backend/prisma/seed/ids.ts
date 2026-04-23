@@ -23,3 +23,7 @@ export const PROVIDER_IDS = {
 
 export const SCENARIO_ID = 'scenario_open_grading';
 export const PROMPT_TEMPLATE_ID = 'prompt_open_grading_v3_1';
+
+// question_generation · LLM 辅助造题
+export const QGEN_SCENARIO_ID = 'scenario_question_generation';
+export const QGEN_PROMPT_TEMPLATE_ID = 'prompt_question_generation_v1_0';
