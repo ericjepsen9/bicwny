@@ -179,18 +179,10 @@
     <div class="top-bar">
       <div>
         <h1 class="page-title"><span class="sc">我的班级</span><span class="tc">我的班級</span></h1>
-        <p class="page-sub"><span class="sc">周四 · 四月二十四日</span><span class="tc">週四 · 四月二十四日</span></p>
+        <p class="page-sub" id="page-sub">—</p>
       </div>
       <div class="top-actions">
-        <div class="search-box">
-          <svg width="14" height="14" fill="none" stroke="#857360" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" data-ph-sc="搜索班级或学生" data-ph-tc="搜尋班級或學生" placeholder="搜索班级或学生">
-        </div>
         <button class="lang-btn" onclick="toggleLang()">繁</button>
-        <button class="icon-btn">
-          <svg width="16" height="16" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <div class="notif-dot"></div>
-        </button>
       </div>
     </div>
 
@@ -198,23 +190,23 @@
     <div class="kpi-grid">
       <div class="kpi-card">
         <p class="kpi-label"><span class="sc">我的班级</span><span class="tc">我的班級</span></p>
-        <p class="kpi-value">3</p>
-        <p class="kpi-trend">↑ <span class="sc">本月新增 1 个</span><span class="tc">本月新增 1 個</span></p>
+        <p class="kpi-value" id="kpi-classes">—</p>
+        <p class="kpi-trend" id="kpi-classes-sub">&nbsp;</p>
       </div>
       <div class="kpi-card">
         <p class="kpi-label"><span class="sc">学生总数</span><span class="tc">學生總數</span></p>
-        <p class="kpi-value">68</p>
-        <p class="kpi-trend">↑ 12%</p>
+        <p class="kpi-value" id="kpi-members">—</p>
+        <p class="kpi-trend" id="kpi-members-sub">&nbsp;</p>
       </div>
       <div class="kpi-card">
         <p class="kpi-label"><span class="sc">本周答题</span><span class="tc">本週答題</span></p>
-        <p class="kpi-value">842</p>
-        <p class="kpi-trend">↑ 8%</p>
+        <p class="kpi-value" id="kpi-answers">—</p>
+        <p class="kpi-trend" id="kpi-answers-sub">&nbsp;</p>
       </div>
       <div class="kpi-card">
-        <p class="kpi-label"><span class="sc">错题均数</span><span class="tc">錯題均數</span></p>
-        <p class="kpi-value">4.2</p>
-        <p class="kpi-trend down">↓ 0.3</p>
+        <p class="kpi-label"><span class="sc">正确率</span><span class="tc">正確率</span></p>
+        <p class="kpi-value" id="kpi-accuracy">—</p>
+        <p class="kpi-trend" id="kpi-accuracy-sub">&nbsp;</p>
       </div>
     </div>
 
@@ -222,154 +214,169 @@
     <div class="section">
       <div class="section-head-d">
         <h2 class="section-title-d"><span class="sc">班级列表</span><span class="tc">班級列表</span></h2>
-        <span class="section-action">+ <span class="sc">新建班级</span><span class="tc">新建班級</span></span>
       </div>
-      <div class="class-grid">
-
-        <div class="class-card-d">
-          <div class="class-head">
-            <div class="class-icon-d">
-              <svg width="22" height="22" fill="none" stroke="#E07856" stroke-width="1.6" stroke-linecap="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            </div>
-            <div class="class-info-d">
-              <p class="class-name-d"><span class="sc">心经共修班</span><span class="tc">心經共修班</span></p>
-              <p class="class-code">XJ-2024-A</p>
-            </div>
-          </div>
-          <div class="class-stats">
-            <div class="class-stat">
-              <p class="class-stat-val">24</p>
-              <p class="class-stat-lbl"><span class="sc">成员</span><span class="tc">成員</span></p>
-            </div>
-            <div class="class-stat">
-              <p class="class-stat-val">18</p>
-              <p class="class-stat-lbl"><span class="sc">周活跃</span><span class="tc">週活躍</span></p>
-            </div>
-            <div class="class-stat">
-              <p class="class-stat-val">4.5</p>
-              <p class="class-stat-lbl"><span class="sc">均错数</span><span class="tc">均錯數</span></p>
-            </div>
-          </div>
-          <div class="class-progress">
-            <div class="class-progress-label">
-              <span><span class="sc">课程进度</span><span class="tc">課程進度</span></span>
-              <span>62%</span>
-            </div>
-            <div class="class-progress-track"><div class="class-progress-fill" style="width:62%"></div></div>
-          </div>
-          <div class="class-actions">
-            <a class="class-btn" href="#"><span class="sc">学员</span><span class="tc">學員</span></a>
-            <a class="class-btn primary" href="#"><span class="sc">发公告</span><span class="tc">發公告</span></a>
-          </div>
-        </div>
-
-        <div class="class-card-d">
-          <div class="class-head">
-            <div class="class-icon-d" style="background:var(--sage-light);">
-              <svg width="22" height="22" fill="none" stroke="var(--sage-dark)" stroke-width="1.6" stroke-linecap="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            </div>
-            <div class="class-info-d">
-              <p class="class-name-d"><span class="sc">金刚经研习班</span><span class="tc">金剛經研習班</span></p>
-              <p class="class-code">JG-2024-B</p>
-            </div>
-          </div>
-          <div class="class-stats">
-            <div class="class-stat"><p class="class-stat-val">32</p><p class="class-stat-lbl"><span class="sc">成员</span><span class="tc">成員</span></p></div>
-            <div class="class-stat"><p class="class-stat-val">27</p><p class="class-stat-lbl"><span class="sc">周活跃</span><span class="tc">週活躍</span></p></div>
-            <div class="class-stat"><p class="class-stat-val">3.8</p><p class="class-stat-lbl"><span class="sc">均错数</span><span class="tc">均錯數</span></p></div>
-          </div>
-          <div class="class-progress">
-            <div class="class-progress-label"><span><span class="sc">课程进度</span><span class="tc">課程進度</span></span><span>38%</span></div>
-            <div class="class-progress-track"><div class="class-progress-fill" style="width:38%;background:linear-gradient(90deg,var(--sage),var(--sage-dark));"></div></div>
-          </div>
-          <div class="class-actions">
-            <a class="class-btn" href="#"><span class="sc">学员</span><span class="tc">學員</span></a>
-            <a class="class-btn primary" href="#"><span class="sc">发公告</span><span class="tc">發公告</span></a>
-          </div>
-        </div>
-
-        <div class="class-card-d">
-          <div class="class-head">
-            <div class="class-icon-d" style="background:var(--gold-pale);">
-              <svg width="22" height="22" fill="none" stroke="var(--gold-dark)" stroke-width="1.6" stroke-linecap="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            </div>
-            <div class="class-info-d">
-              <p class="class-name-d"><span class="sc">入门禅修班</span><span class="tc">入門禪修班</span></p>
-              <p class="class-code">RM-2024-C</p>
-            </div>
-          </div>
-          <div class="class-stats">
-            <div class="class-stat"><p class="class-stat-val">12</p><p class="class-stat-lbl"><span class="sc">成员</span><span class="tc">成員</span></p></div>
-            <div class="class-stat"><p class="class-stat-val">10</p><p class="class-stat-lbl"><span class="sc">周活跃</span><span class="tc">週活躍</span></p></div>
-            <div class="class-stat"><p class="class-stat-val">5.1</p><p class="class-stat-lbl"><span class="sc">均错数</span><span class="tc">均錯數</span></p></div>
-          </div>
-          <div class="class-progress">
-            <div class="class-progress-label"><span><span class="sc">课程进度</span><span class="tc">課程進度</span></span><span>15%</span></div>
-            <div class="class-progress-track"><div class="class-progress-fill" style="width:15%;background:linear-gradient(90deg,var(--gold),var(--gold-dark));"></div></div>
-          </div>
-          <div class="class-actions">
-            <a class="class-btn" href="#"><span class="sc">学员</span><span class="tc">學員</span></a>
-            <a class="class-btn primary" href="#"><span class="sc">发公告</span><span class="tc">發公告</span></a>
-          </div>
-        </div>
-
+      <div class="class-grid" id="class-grid">
+        <p style="color:var(--ink-3);font:var(--text-caption);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
       </div>
     </div>
 
-    <!-- Activity feed -->
+    <!-- 我的待办：pending 题目 -->
     <div class="section">
       <div class="section-head-d">
-        <h2 class="section-title-d"><span class="sc">待处理事项</span><span class="tc">待處理事項</span></h2>
-        <span class="section-action">全部 →</span>
+        <h2 class="section-title-d"><span class="sc">我的待办</span><span class="tc">我的待辦</span></h2>
+        <span id="feed-count" class="page-sub">—</span>
       </div>
-      <div class="feed">
-
-        <div class="feed-item">
-          <div class="feed-icon saffron">
-            <svg width="18" height="18" fill="none" stroke="var(--saffron)" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          </div>
-          <div class="feed-body">
-            <p class="feed-title"><span class="sc">明心同学提问 · 心经第三章</span><span class="tc">明心同學提問 · 心經第三章</span></p>
-            <p class="feed-meta"><span class="sc">「色不异空」与「色即是空」如何区分？</span><span class="tc">「色不異空」與「色即是空」如何區分？</span></p>
-          </div>
-          <span class="feed-time">12 min</span>
-          <button class="feed-action">回答</button>
-        </div>
-
-        <div class="feed-item">
-          <div class="feed-icon gold">
-            <svg width="18" height="18" fill="none" stroke="var(--gold-dark)" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          </div>
-          <div class="feed-body">
-            <p class="feed-title"><span class="sc">3 份作业待批改 · 金刚经班</span><span class="tc">3 份作業待批改 · 金剛經班</span></p>
-            <p class="feed-meta"><span class="sc">第二章阅读心得提交</span><span class="tc">第二章閱讀心得提交</span></p>
-          </div>
-          <span class="feed-time">1 h</span>
-          <button class="feed-action">批改</button>
-        </div>
-
-        <div class="feed-item">
-          <div class="feed-icon sage">
-            <svg width="18" height="18" fill="none" stroke="var(--sage-dark)" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-          </div>
-          <div class="feed-body">
-            <p class="feed-title"><span class="sc">2 个新成员申请加入 · 入门禅修班</span><span class="tc">2 個新成員申請加入 · 入門禪修班</span></p>
-            <p class="feed-meta"><span class="sc">法喜、觉慧 申请加入</span><span class="tc">法喜、覺慧 申請加入</span></p>
-          </div>
-          <span class="feed-time">3 h</span>
-          <button class="feed-action"><span class="sc">审核</span><span class="tc">審核</span></button>
-        </div>
-
+      <div class="feed" id="feed">
+        <p style="color:var(--ink-3);font:var(--text-caption);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
       </div>
     </div>
 
   </main>
 </div>
 <script>
+// coach dashboard 数据源
+//   GET /api/coach/classes                      我负责的班级
+//   GET /api/coach/classes/:id/stats            单班级聚合（本周窗口）
+//   GET /api/coach/questions                    我创建的题（筛 reviewStatus=pending 作待办）
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+function renderPageSub() {
+  var d = new Date();
+  var weeks = ['日','一','二','三','四','五','六'];
+  var txt = sc(
+    '周 ' + weeks[d.getDay()] + ' · ' + (d.getMonth()+1) + ' 月 ' + d.getDate() + ' 日',
+    '週 ' + weeks[d.getDay()] + ' · ' + (d.getMonth()+1) + ' 月 ' + d.getDate() + ' 日',
+  );
+  document.getElementById('page-sub').textContent = txt;
+}
+
+function pct(v)        { return Math.round((v || 0) * 100) + '%'; }
+function setSub(id, t) { document.getElementById(id).textContent = t; }
+
+function renderKpis(classes, statsList) {
+  document.getElementById('kpi-classes').textContent = classes.length;
+  setSub('kpi-classes-sub', sc('覆盖班级总数', '覆蓋班級總數'));
+
+  var members = 0, answers = 0, correctSum = 0, active = 0;
+  statsList.forEach(function (s) {
+    if (!s) return;
+    members += s.memberCount || 0;
+    answers += s.totalAnswers || 0;
+    correctSum += (s.correctRate || 0) * (s.totalAnswers || 0);
+    active += s.activeInWindow || 0;
+  });
+
+  document.getElementById('kpi-members').textContent = members;
+  setSub('kpi-members-sub', sc('本周活跃 ', '本週活躍 ') + active);
+  document.getElementById('kpi-answers').textContent = answers;
+  setSub('kpi-answers-sub', sc('近 7 天窗口', '近 7 天視窗'));
+  document.getElementById('kpi-accuracy').textContent = answers
+    ? pct(correctSum / answers) : '—';
+  setSub('kpi-accuracy-sub', sc('学员答题加权', '學員答題加權'));
+}
+
+function renderClassCards(memberships, statsMap) {
+  var grid = document.getElementById('class-grid');
+  if (!memberships.length) {
+    grid.innerHTML = '<p style="color:var(--ink-3);font:var(--text-caption);">' +
+      escapeHtml(sc('尚未负责任何班级，请联系管理员分配', '尚未負責任何班級，請聯繫管理員分配')) +
+      '</p>';
+    return;
+  }
+  grid.innerHTML = memberships.map(function (m) {
+    var cls = m.class || {};
+    var s = statsMap[cls.id] || { memberCount: 0, activeInWindow: 0, correctRate: 0, totalAnswers: 0 };
+    return '<div class="class-card-d" data-class-id="' + escapeHtml(cls.id) + '">' +
+      '<div class="class-head">' +
+        '<div class="class-icon-d"><svg width="22" height="22" fill="none" stroke="#E07856" stroke-width="1.6" stroke-linecap="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>' +
+        '<div class="class-info-d">' +
+          '<p class="class-name-d">' + escapeHtml(cls.name || '—') + '</p>' +
+          '<p class="class-code">' + escapeHtml(cls.joinCode || '—') + '</p>' +
+        '</div>' +
+      '</div>' +
+      '<div class="class-stats">' +
+        '<div class="class-stat"><p class="class-stat-val">' + s.memberCount + '</p>' +
+          '<p class="class-stat-lbl">' + escapeHtml(sc('成员', '成員')) + '</p></div>' +
+        '<div class="class-stat"><p class="class-stat-val">' + s.activeInWindow + '</p>' +
+          '<p class="class-stat-lbl">' + escapeHtml(sc('周活跃', '週活躍')) + '</p></div>' +
+        '<div class="class-stat"><p class="class-stat-val">' + pct(s.correctRate) + '</p>' +
+          '<p class="class-stat-lbl">' + escapeHtml(sc('正确率', '正確率')) + '</p></div>' +
+      '</div>' +
+      '<div class="class-progress">' +
+        '<div class="class-progress-label">' +
+          '<span>' + escapeHtml(sc('本周答题', '本週答題')) + '</span>' +
+          '<span>' + s.totalAnswers + '</span>' +
+        '</div>' +
+        '<div class="class-progress-track"><div class="class-progress-fill" style="width:' +
+          Math.min(100, Math.round(s.totalAnswers / 5)) + '%"></div></div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderFeed(items) {
+  var feed = document.getElementById('feed');
+  var count = items.length;
+  document.getElementById('feed-count').textContent =
+    count ? (sc('共 ', '共 ') + count + sc(' 条', ' 條')) : '';
+  if (!count) {
+    feed.innerHTML = '<p style="color:var(--ink-3);font:var(--text-caption);">' +
+      escapeHtml(sc('暂无待办，所有题目均已审核', '暫無待辦，所有題目均已審核')) + '</p>';
+    return;
+  }
+  feed.innerHTML = items.map(function (q) {
+    var when = window.JX.util.relativeTime(q.createdAt);
+    return '<div class="feed-item">' +
+      '<div class="feed-icon gold"><svg width="18" height="18" fill="none" stroke="var(--gold-dark)" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="12 6 12 12 16 14"/><circle cx="12" cy="12" r="10"/></svg></div>' +
+      '<div class="feed-body">' +
+        '<p class="feed-title">' + escapeHtml(sc('待审 · ', '待審 · ')) + escapeHtml(q.source || '—') + '</p>' +
+        '<p class="feed-meta">' + escapeHtml(q.questionText) + '</p>' +
+      '</div>' +
+      '<span class="feed-time">' + escapeHtml(when) + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+function boot() {
+  renderPageSub();
+
+  window.JX.api.get('/api/coach/classes')
+    .then(function (memberships) {
+      var items = Array.isArray(memberships) ? memberships : [];
+      // 并行拉每班统计
+      return Promise.all(items.map(function (m) {
+        return window.JX.api.get('/api/coach/classes/' + encodeURIComponent(m.classId) + '/stats?windowDays=7')
+          .then(function (s) { return { classId: m.classId, stats: s }; })
+          .catch(function () { return { classId: m.classId, stats: null }; });
+      })).then(function (results) {
+        var statsMap = {};
+        results.forEach(function (r) { statsMap[r.classId] = r.stats; });
+        renderKpis(items, results.map(function (r) { return r.stats; }));
+        renderClassCards(items, statsMap);
+      });
+    })
+    .catch(function (err) {
+      document.getElementById('class-grid').innerHTML =
+        '<p style="color:var(--crimson);">' +
+        escapeHtml(sc('加载失败：', '加載失敗：') + (err.message || err)) + '</p>';
+    });
+
+  window.JX.api.get('/api/coach/questions?limit=200')
+    .then(function (list) {
+      var pending = (list || []).filter(function (q) { return q.reviewStatus === 'pending'; }).slice(0, 8);
+      renderFeed(pending);
+    })
+    .catch(function () { renderFeed([]); });
+}
+
 document.getElementById('btn-logout').addEventListener('click', function () {
-  if (!confirm(window.JX.sc('确定退出登录？', '確定退出登入？'))) return;
+  if (!confirm(sc('确定退出登录？', '確定退出登入？'))) return;
   window.JX.api.logout().finally(function () { location.replace('../mobile/auth.html'); });
 });
+
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', boot);
+if (window.JX && window.JX.user) boot();
 </script>
 </body>
 </html>
