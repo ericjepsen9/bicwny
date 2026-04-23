@@ -1,12 +1,13 @@
 // 错题本 HTTP 路由（service 复用 Sprint 1 的 mistakes.ts）
 //   GET    /api/mistakes                  未移除的错题（含 question 剥答案视图）
+//   GET    /api/mistakes/:questionId      错题详情（含完整 question + 最近作答，仅 owner 可见）
 //   DELETE /api/mistakes/:questionId      手动移除（用户掌握后）
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
-import { listActiveMistakes, removeMistake } from './mistakes.js';
+import { getMistakeDetail, listActiveMistakes, removeMistake } from './mistakes.js';
 import { toPublicView } from './publicView.js';
 
 const qidParam = z.object({ questionId: z.string().min(1) });
@@ -41,6 +42,13 @@ export const mistakesRoutes: FastifyPluginAsync = async (app) => {
         };
       }),
     };
+  });
+
+  app.get('/api/mistakes/:questionId', async (req) => {
+    const userId = requireUserId(req);
+    const parsed = qidParam.safeParse(req.params);
+    if (!parsed.success) throw BadRequest('路径参数不合法');
+    return { data: await getMistakeDetail(userId, parsed.data.questionId) };
   });
 
   app.delete('/api/mistakes/:questionId', async (req) => {

@@ -153,10 +153,10 @@ function renderCards() {
         'border:1px solid var(--glass-border);background:rgba(255,255,255,.7);' +
         'color:var(--ink-3);cursor:pointer;font-size:14px;line-height:1;">✕</button>';
 
-    // 点击卡片主体 → 去答题页重答该题
+    // 点击卡片主体 → 去错题解析页
     card.addEventListener('click', function (ev) {
       if (ev.target.closest('.mistake-remove')) return;
-      if (q.lessonId) location.href = 'quiz.html?lessonId=' + encodeURIComponent(q.lessonId);
+      location.href = 'mistake-detail.html?questionId=' + encodeURIComponent(m.questionId);
     });
     // 移除按钮
     card.querySelector('.mistake-remove').addEventListener('click', function (ev) {
