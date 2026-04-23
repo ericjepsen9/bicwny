@@ -291,6 +291,9 @@ table.q-list { width: 100%; border-collapse: collapse; }
   <div class="drawer-foot">
     <span class="dr-err" id="dr-err" style="flex:1;"></span>
     <button class="btn-ghost-s" id="dr-cancel"><span class="sc">关闭</span><span class="tc">關閉</span></button>
+    <button class="btn-ghost-s" id="dr-edit" style="display:none;">
+      <span class="sc">编辑</span><span class="tc">編輯</span>
+    </button>
     <button class="btn-danger" id="dr-delete" style="display:none;"><span class="sc">删除</span><span class="tc">刪除</span></button>
     <button class="btn btn-primary btn-pill" id="dr-save" style="display:none;padding:7px 18px;">
       <span class="sc">保存</span><span class="tc">保存</span>
@@ -451,6 +454,13 @@ function openDrawer(qid) {
   state.drawerMode = 'view';
   document.getElementById('dr-save').style.display = 'none';
   document.getElementById('dr-delete').style.display = '';
+  // 3d: edit 按钮显示规则 —— 已 approved 的 public 题对非 admin 锁；其它情况显示
+  var role = (window.JX.user && window.JX.user.role) || 'student';
+  var locked = role !== 'admin' && q.visibility === 'public' && q.reviewStatus === 'approved';
+  var editBtn = document.getElementById('dr-edit');
+  editBtn.style.display = locked ? 'none' : '';
+  // 非单/多/填/问的题型 3c 表单不支持 → 编辑按钮一并隐藏
+  if (!/^(single|multi|fill|open)$/.test(q.type)) editBtn.style.display = 'none';
 
   document.getElementById('dr-type').textContent = typeLabel(q.type);
   var statusEl = document.getElementById('dr-status');
@@ -495,6 +505,8 @@ function closeDrawer() {
   document.getElementById('drawer-backdrop').classList.remove('open');
   document.getElementById('drawer').setAttribute('aria-hidden', 'true');
   state.currentQid = null;
+  state.drawerMode = null;
+  document.getElementById('dr-edit').style.display = 'none';
 }
 
 document.getElementById('dr-close').addEventListener('click', closeDrawer);
@@ -727,6 +739,12 @@ function openCreateDrawer() {
   document.getElementById('dr-save').style.display = '';
 
   renderCreateForm();
+  // 从 edit 模式切回后可能禁用；确保 create 模式重新启用
+  ['f-type', 'f-course', 'f-chapter', 'f-lesson'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el && id !== 'f-chapter' && id !== 'f-lesson') el.disabled = false;
+    // chapter/lesson 仍需级联选完课才能启用
+  });
 
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawer-backdrop').classList.add('open');
@@ -785,6 +803,111 @@ function collectCreateBody() {
 
 document.getElementById('btn-new').addEventListener('click', openCreateDrawer);
 
+// ── 编辑抽屉 (3d) —— 复用 renderCreateForm 然后 prefill ──
+function prefillEditForm(q) {
+  // type + editor
+  createForm.type = q.type;
+  var p = q.payload || {};
+  if (q.type === 'single' || q.type === 'multi') {
+    createForm.options = (p.options || []).map(function (o) {
+      return { text: o.text || '', correct: !!o.correct };
+    });
+    if (createForm.options.length < 2) {
+      createForm.options = [{ text: '', correct: true }, { text: '', correct: false }];
+    }
+  }
+  document.getElementById('f-type').value = q.type;
+  renderTypeEditor();
+
+  if (q.type === 'fill') {
+    var lines = (p.verseLines || []).join('\n');
+    document.getElementById('f-verselines').value = lines;
+    document.getElementById('f-correctword').value = p.correctWord || '';
+    document.getElementById('f-fillopts').value = (p.options || []).join(', ');
+  } else if (q.type === 'open') {
+    document.getElementById('f-refans').value = p.referenceAnswer || '';
+    var pts = (p.keyPoints || []).map(function (k) { return (k && k.point) || k || ''; });
+    document.getElementById('f-keypoints').value = pts.join('\n');
+  }
+
+  // 课/章/课时：edit 模式下锁死（后端 PATCH 不接受 location 变更）
+  var course = courseList.find(function (c) { return c.id === q.courseId; });
+  var fCourse = document.getElementById('f-course');
+  var fChap = document.getElementById('f-chapter');
+  var fLess = document.getElementById('f-lesson');
+  var cascadePromise;
+  if (course) {
+    createForm.courseSlug = course.slug;
+    createForm.courseId = course.id;
+    fCourse.value = course.slug;
+    cascadePromise = loadCourseDetail(course.slug).then(function (d) {
+      setSelectOptions(fChap, d.chapters || [], 'id', function (ch) { return ch.title; }, sc('选择章', '選擇章'));
+      fChap.value = q.chapterId;
+      createForm.chapterId = q.chapterId;
+      var ch = (d.chapters || []).find(function (x) { return x.id === q.chapterId; });
+      if (ch) {
+        setSelectOptions(fLess, ch.lessons || [], 'id', function (l) { return l.title; }, sc('选择课时', '選擇課時'));
+        fLess.value = q.lessonId;
+        createForm.lessonId = q.lessonId;
+      }
+    });
+  } else {
+    // 找不到所属课程（可能已下架）→ 保留 id，禁用级联
+    createForm.courseId = q.courseId;
+    createForm.chapterId = q.chapterId;
+    createForm.lessonId = q.lessonId;
+    cascadePromise = Promise.resolve();
+  }
+  cascadePromise.then(function () {
+    [fCourse, fChap, fLess].forEach(function (sel) { sel.disabled = true; });
+  });
+
+  document.getElementById('f-stem').value = q.questionText;
+  document.getElementById('f-correct').value = q.correctText || '';
+  document.getElementById('f-wrong').value = q.wrongText || '';
+  document.getElementById('f-source').value = q.source || '';
+  document.getElementById('f-diff').value = String(q.difficulty || 2);
+  document.getElementById('f-tags').value = (q.tags || []).join(', ');
+
+  // type select 也禁用（避免从 single 切到 fill 后后端 PATCH 难处理）
+  document.getElementById('f-type').disabled = true;
+}
+
+function openEditDrawer() {
+  var qid = state.currentQid;
+  if (!qid) return;
+  var q = state.all.find(function (r) { return r.id === qid; });
+  if (!q) return;
+  state.drawerMode = 'edit';
+
+  // 重置临时表单
+  createForm = {
+    type: q.type, courseSlug: '', courseId: '', chapterId: '', lessonId: '',
+    options: [{ text: '', correct: true }, { text: '', correct: false }],
+  };
+
+  document.getElementById('dr-type').textContent = typeLabel(q.type);
+  var statusEl = document.getElementById('dr-status');
+  statusEl.className = 'q-status ' + q.reviewStatus;
+  statusEl.textContent = statusLabel(q.reviewStatus);
+  document.getElementById('dr-err').textContent = '';
+  document.getElementById('dr-edit').style.display = 'none';
+  document.getElementById('dr-delete').style.display = 'none';
+  document.getElementById('dr-save').style.display = '';
+
+  renderCreateForm();
+  prefillEditForm(q);
+
+  // 给 coach 提示：改 public 题会触发重审
+  var role = (window.JX.user && window.JX.user.role) || 'student';
+  if (role !== 'admin' && q.visibility === 'public') {
+    document.getElementById('dr-err').textContent =
+      sc('提示：保存后此题将回到"待审"状态', '提示：保存後此題將回到「待審」狀態');
+  }
+}
+
+document.getElementById('dr-edit').addEventListener('click', openEditDrawer);
+
 document.getElementById('dr-save').addEventListener('click', function () {
   var btn = this;
   var errEl = document.getElementById('dr-err');
@@ -793,16 +916,45 @@ document.getElementById('dr-save').addEventListener('click', function () {
   try { body = collectCreateBody(); }
   catch (e) { errEl.textContent = e.message; return; }
   btn.disabled = true;
-  window.JX.api.post('/api/coach/questions', body)
-    .then(function (q) {
-      state.all.unshift(q);
-      renderList();
-      closeDrawer();
-    })
-    .catch(function (err) {
-      errEl.textContent = sc('保存失败：', '保存失敗：') + (err && err.message || err);
-    })
-    .finally(function () { btn.disabled = false; });
+
+  if (state.drawerMode === 'edit') {
+    // PATCH 只送后端允许的字段（不含 location）
+    var patchBody = {
+      type: body.type,
+      questionText: body.questionText,
+      correctText: body.correctText,
+      wrongText: body.wrongText,
+      source: body.source,
+      difficulty: body.difficulty,
+      tags: body.tags,
+      payload: body.payload,
+    };
+    window.JX.api.patch('/api/coach/questions/' + encodeURIComponent(state.currentQid), patchBody)
+      .then(function (updated) {
+        var idx = state.all.findIndex(function (r) { return r.id === updated.id; });
+        if (idx >= 0) state.all[idx] = updated;
+        renderList();
+        closeDrawer();
+      })
+      .catch(function (err) {
+        var s = err && err.status;
+        errEl.textContent = s === 403
+          ? sc('无权编辑此题（已通过审核）', '無權編輯此題（已通過審核）')
+          : (sc('保存失败：', '保存失敗：') + (err && err.message || err));
+      })
+      .finally(function () { btn.disabled = false; });
+  } else {
+    window.JX.api.post('/api/coach/questions', body)
+      .then(function (q) {
+        state.all.unshift(q);
+        renderList();
+        closeDrawer();
+      })
+      .catch(function (err) {
+        errEl.textContent = sc('保存失败：', '保存失敗：') + (err && err.message || err);
+      })
+      .finally(function () { btn.disabled = false; });
+  }
 });
 
 // 行点击 → 打开抽屉
