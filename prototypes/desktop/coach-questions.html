@@ -1,0 +1,308 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280,initial-scale=1">
+<title>觉学 · 题库 · 辅导员</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/desktop.css">
+<style>
+/* Filter bar */
+.filter-bar {
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+  margin-bottom: var(--sp-4); padding: var(--sp-3) var(--sp-4);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+}
+.fchips { display: flex; gap: var(--sp-2); }
+.fchip {
+  padding: 5px 14px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent;
+  color: var(--ink-3); cursor: pointer; transition: all var(--dur) var(--ease);
+  user-select: none;
+}
+.fchip.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
+.fsel {
+  padding: 6px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: 1px; outline: none;
+}
+.fsearch {
+  flex: 1; min-width: 200px;
+  padding: 6px 12px; border-radius: var(--r-pill);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); outline: none;
+}
+.fcount { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; margin-left: auto; }
+
+/* List table */
+.list-panel {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+table.q-list { width: 100%; border-collapse: collapse; }
+.q-list th, .q-list td {
+  padding: 10px 14px; text-align: left;
+  font: var(--text-caption); letter-spacing: .5px;
+  border-bottom: 1px solid var(--border-light);
+}
+.q-list th { color: var(--ink-3); font-weight: 600; background: rgba(43,34,24,.03); }
+.q-list td { color: var(--ink-2); }
+.q-list tr:last-child td { border-bottom: 0; }
+.q-list tr[data-row]:hover { background: rgba(224,120,86,.04); cursor: pointer; }
+.q-stem-cell { color: var(--ink); font-weight: 500; }
+.q-type-badge {
+  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+  background: rgba(43,34,24,.06); font-size: .6875rem; letter-spacing: 1px;
+}
+.q-status { padding: 2px 10px; border-radius: var(--r-pill); font-size: .6875rem; font-weight: 700; letter-spacing: 1px; }
+.q-status.pending  { background: var(--gold-pale);    color: var(--gold-dark); }
+.q-status.approved { background: var(--sage-light);    color: var(--sage-dark); }
+.q-status.rejected { background: var(--crimson-light); color: var(--crimson); }
+.q-vis { font-size: .6875rem; color: var(--ink-4); letter-spacing: 1px; }
+
+.empty-state {
+  padding: var(--sp-8) var(--sp-5);
+  text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px;
+}
+.err-state { color: var(--crimson); }
+</style>
+<meta name="jx-require-role" content="coach,admin">
+<script src="../shared/lang.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name"><span class="sc">觉学</span><span class="tc">覺學</span></div>
+        <div class="brand-sub"><span class="sc">辅导员后台</span><span class="tc">輔導員後台</span></div>
+      </div>
+    </div>
+
+    <div class="side-user">
+      <div class="side-avatar" data-jx-user="avatarInitial">—</div>
+      <div class="side-user-info">
+        <div class="side-user-name" data-jx-user="dharmaName">—</div>
+        <div class="side-user-role" data-jx-user="roleLabel">—</div>
+      </div>
+      <button type="button" id="btn-logout" title="退出登录" aria-label="退出登录"
+        style="margin-left:auto;background:none;border:0;color:var(--ink-3);cursor:pointer;padding:6px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-list">
+      <div class="nav-section"><span class="sc">教学</span><span class="tc">教學</span></div>
+      <a class="nav-item" href="coach.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <span><span class="sc">我的班级</span><span class="tc">我的班級</span></span>
+      </a>
+      <a class="nav-item active" href="coach-questions.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M9 12h6M9 16h6M9 8h6"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        <span><span class="sc">题库</span><span class="tc">題庫</span></span>
+      </a>
+
+      <div class="nav-section"><span class="sc">系统</span><span class="tc">系統</span></div>
+      <a class="nav-item" href="../mobile/home.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+        <span><span class="sc">学生端预览</span><span class="tc">學生端預覽</span></span>
+      </a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="page-title"><span class="sc">题库</span><span class="tc">題庫</span></h1>
+        <p class="page-sub"><span class="sc">我创建的题目列表</span><span class="tc">我建立的題目列表</span></p>
+      </div>
+      <div class="top-actions">
+        <button class="lang-btn" onclick="toggleLang()">繁</button>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <div class="fchips" id="status-chips">
+        <span class="fchip active" data-status="all"><span class="sc">全部</span><span class="tc">全部</span></span>
+        <span class="fchip" data-status="pending"><span class="sc">待审</span><span class="tc">待審</span></span>
+        <span class="fchip" data-status="approved"><span class="sc">已通过</span><span class="tc">已通過</span></span>
+        <span class="fchip" data-status="rejected"><span class="sc">已驳回</span><span class="tc">已駁回</span></span>
+      </div>
+      <select class="fsel" id="type-select">
+        <option value="all">全部题型</option>
+        <option value="single">单选</option>
+        <option value="multi">多选</option>
+        <option value="fill">填空</option>
+        <option value="open">问答</option>
+        <option value="sort">排序</option>
+        <option value="match">匹配</option>
+        <option value="flip">速记卡</option>
+        <option value="image">图识</option>
+        <option value="listen">听颂</option>
+        <option value="scenario">情境</option>
+        <option value="flow">流程</option>
+        <option value="guided">引导</option>
+      </select>
+      <input class="fsearch" id="search-input" type="search"
+        data-ph-sc="搜索题干文字" data-ph-tc="搜索題幹文字" placeholder="搜索题干文字">
+      <span class="fcount" id="filter-count">—</span>
+    </div>
+
+    <!-- List -->
+    <div class="list-panel">
+      <div id="list-body">
+        <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// coach-questions · 3a 只读骨架：/api/coach/questions 列表 + 客户端筛选
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var TYPE_LABELS = {
+  single: ['单选', '單選'], multi: ['多选', '多選'], fill: ['填空', '填空'],
+  open: ['问答', '問答'], sort: ['排序', '排序'], match: ['匹配', '匹配'],
+  image: ['图识', '圖識'], listen: ['听颂', '聽誦'], scenario: ['情境', '情境'],
+  flow: ['流程', '流程'], guided: ['引导', '引導'], flip: ['速记卡', '速記卡'],
+};
+var STATUS_LABELS = {
+  pending: ['待审', '待審'],
+  approved: ['已通过', '已通過'],
+  rejected: ['已驳回', '已駁回'],
+};
+var VIS_LABELS = {
+  public: ['公开', '公開'],
+  class_private: ['班私有', '班私有'],
+  draft: ['草稿', '草稿'],
+};
+
+var state = { all: [], statusFilter: 'all', typeFilter: 'all', search: '' };
+
+function truncate(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n) + '…' : s; }
+function typeLabel(t)   { var m = TYPE_LABELS[t] || [t, t];   return sc(m[0], m[1]); }
+function statusLabel(s) { var m = STATUS_LABELS[s] || [s, s]; return sc(m[0], m[1]); }
+function visLabel(v)    { var m = VIS_LABELS[v] || [v, v];    return sc(m[0], m[1]); }
+
+function filtered() {
+  var q = (state.search || '').trim();
+  return state.all.filter(function (row) {
+    if (state.statusFilter !== 'all' && row.reviewStatus !== state.statusFilter) return false;
+    if (state.typeFilter !== 'all' && row.type !== state.typeFilter) return false;
+    if (q && row.questionText.indexOf(q) < 0) return false;
+    return true;
+  });
+}
+
+function renderList() {
+  var items = filtered();
+  document.getElementById('filter-count').textContent =
+    items.length + sc(' 条 · 总 ', ' 條 · 總 ') + state.all.length;
+
+  var body = document.getElementById('list-body');
+  if (!state.all.length) {
+    body.innerHTML = '<div class="empty-state">' +
+      escapeHtml(sc('尚无题目 · 即将支持 + 新建', '尚無題目 · 即將支持 + 新建')) + '</div>';
+    return;
+  }
+  if (!items.length) {
+    body.innerHTML = '<div class="empty-state">' +
+      escapeHtml(sc('当前筛选无结果', '當前篩選無結果')) + '</div>';
+    return;
+  }
+  var rows = items.map(function (r) {
+    return '<tr data-row data-qid="' + escapeHtml(r.id) + '">' +
+      '<td class="q-stem-cell">' + escapeHtml(truncate(r.questionText, 48)) + '</td>' +
+      '<td><span class="q-type-badge">' + escapeHtml(typeLabel(r.type)) + '</span></td>' +
+      '<td><span class="q-vis">' + escapeHtml(visLabel(r.visibility)) + '</span></td>' +
+      '<td><span class="q-status ' + r.reviewStatus + '">' + escapeHtml(statusLabel(r.reviewStatus)) + '</span></td>' +
+      '<td>' + escapeHtml(window.JX.util.relativeTime(r.createdAt)) + '</td>' +
+    '</tr>';
+  }).join('');
+  body.innerHTML =
+    '<table class="q-list"><thead><tr>' +
+      '<th>' + escapeHtml(sc('题干', '題幹')) + '</th>' +
+      '<th>' + escapeHtml(sc('题型', '題型')) + '</th>' +
+      '<th>' + escapeHtml(sc('可见性', '可見性')) + '</th>' +
+      '<th>' + escapeHtml(sc('审核', '審核')) + '</th>' +
+      '<th>' + escapeHtml(sc('创建时间', '建立時間')) + '</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function showErr(msg) {
+  document.getElementById('list-body').innerHTML =
+    '<div class="empty-state err-state">' + escapeHtml(msg) + '</div>';
+  document.getElementById('filter-count').textContent = '';
+}
+
+function boot() {
+  window.JX.api.get('/api/coach/questions?limit=500')
+    .then(function (list) {
+      state.all = Array.isArray(list) ? list : [];
+      renderList();
+    })
+    .catch(function (err) {
+      showErr(sc('加载失败：', '加載失敗：') + (err.message || err));
+    });
+}
+
+// Filters
+document.getElementById('status-chips').addEventListener('click', function (ev) {
+  var chip = ev.target.closest('.fchip');
+  if (!chip) return;
+  document.querySelectorAll('#status-chips .fchip').forEach(function (c) { c.classList.remove('active'); });
+  chip.classList.add('active');
+  state.statusFilter = chip.getAttribute('data-status');
+  renderList();
+});
+document.getElementById('type-select').addEventListener('change', function (ev) {
+  state.typeFilter = ev.target.value;
+  renderList();
+});
+var searchDebounce;
+document.getElementById('search-input').addEventListener('input', function (ev) {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(function () {
+    state.search = ev.target.value;
+    renderList();
+  }, 120);
+});
+
+document.getElementById('btn-logout').addEventListener('click', function () {
+  if (!confirm(sc('确定退出登录？', '確定退出登入？'))) return;
+  window.JX.api.logout().finally(function () { location.replace('../mobile/auth.html'); });
+});
+
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', renderList);
+if (window.JX && window.JX.user) boot();
+</script>
+</body>
+</html>
