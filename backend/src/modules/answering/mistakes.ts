@@ -2,10 +2,12 @@
 // - upsertMistake：答错时 wrongCount+1 / 刷新 lastWrongAt / 清 removedAt（重新入册）
 // - removeMistake：用户手动移除或掌握后软删除（填 removedAt）
 // - listActiveMistakes：未移除的记录，最近错误时间倒序
+// - listActiveMistakesWithQuestions：同上 + join 每条的 Question（剥答案）· 供 /api/mistakes 路由直接回包
 // - getMistakeDetail：单条错题详情（题目全量 + 最近一次作答），owner 访问
 import type { Question, UserAnswer, UserMistakeBook } from '@prisma/client';
 import { NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { toPublicView, type PublicQuestion } from './publicView.js';
 
 export async function upsertMistake(
   userId: string,
@@ -41,6 +43,40 @@ export async function listActiveMistakes(
     where: { userId, removedAt: null },
     orderBy: { lastWrongAt: 'desc' },
     take: limit,
+  });
+}
+
+export interface MistakeListItem {
+  id: string;
+  questionId: string;
+  wrongCount: number;
+  lastWrongAt: Date;
+  question: PublicQuestion | null;
+}
+
+/**
+ * 列表页用：一次查本 + 批量 join Question 并剥答案。
+ * UserMistakeBook 与 Question 没有 Prisma 关系，所以 N+1 规避靠 IN 查询。
+ */
+export async function listActiveMistakesWithQuestions(
+  userId: string,
+  limit = 50,
+): Promise<MistakeListItem[]> {
+  const items = await listActiveMistakes(userId, limit);
+  if (items.length === 0) return [];
+  const questions = await prisma.question.findMany({
+    where: { id: { in: items.map((m) => m.questionId) } },
+  });
+  const qMap = new Map(questions.map((q) => [q.id, q]));
+  return items.map((m) => {
+    const q = qMap.get(m.questionId);
+    return {
+      id: m.id,
+      questionId: m.questionId,
+      wrongCount: m.wrongCount,
+      lastWrongAt: m.lastWrongAt,
+      question: q ? toPublicView(q) : null,
+    };
   });
 }
 
