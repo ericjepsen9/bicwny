@@ -1,0 +1,93 @@
+/* ===================================================
+   觉学 Design Tokens · Single Source of Truth
+   Generated from design-system/tokens.json spec
+   =================================================== */
+
+:root {
+  /* ── Brand · Saffron 藏红 ─────────────────────── */
+  --saffron:        #E07856;
+  --saffron-dark:   #C55F3D;
+  --saffron-light:  #FBE5DA;
+  --saffron-pale:   #FDF4EE;
+
+  /* ── Success · Sage 竹叶绿 ───────────────────── */
+  --sage:           #A8BC9A;
+  --sage-dark:      #7D9A6C;
+  --sage-light:     #E5EFDF;
+
+  /* ── Error · Crimson 深绛红 ─────────────────── */
+  --crimson:        #A13C2E;
+  --crimson-dark:   #822E21;
+  --crimson-light:  #F5D9D3;
+
+  /* ── Level · Gold 禅金 ──────────────────────── */
+  --gold:           #D4A574;
+  --gold-dark:      #B88956;
+  --gold-light:     #F5E3CE;
+  --gold-pale:      #FBF3E8;
+
+  /* ── Neutral · Ink 暖墨 ─────────────────────── */
+  --ink:            #2B2218;
+  --ink-2:          #55463A;
+  --ink-3:          #857360;
+  --ink-4:          #B5A99A;
+  --ink-5:          #DDD3CA;
+
+  /* ── Background ─────────────────────────────── */
+  --bg-scene: linear-gradient(135deg,
+              #FFFAF4 0%, #FDF1E5 40%,
+              #FAE8D8 75%, #F6DFCA 100%);
+  --bg-card:  #FFFFFF;
+  --bg-input: rgba(255,255,255,.70);
+
+  /* ── Glass System ───────────────────────────── */
+  --glass:          rgba(255,255,255,.55);
+  --glass-thick:    rgba(255,255,255,.78);
+  --glass-border:   rgba(255,255,255,.88);
+  --glass-shadow:   0 6px 22px rgba(160,100,60,.10);
+  --blur:           blur(20px) saturate(140%);
+
+  /* ── Shadow ─────────────────────────────────── */
+  --shadow-1: 0 1px 2px  rgba(160,100,60,.05);
+  --shadow-2: 0 4px 14px rgba(160,100,60,.08);
+  --shadow-3: 0 8px 28px rgba(160,100,60,.12);
+
+  /* ── Border ─────────────────────────────────── */
+  --border:       rgba(43,34,24,.10);
+  --border-light: rgba(43,34,24,.06);
+
+  /* ── Spacing ────────────────────────────────── */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+
+  /* ── Radius ─────────────────────────────────── */
+  --r-sm:   8px;
+  --r:      12px;
+  --r-lg:   16px;
+  --r-xl:   20px;
+  --r-pill: 9999px;
+
+  /* ── Typography Scale ───────────────────────── */
+  --font-serif: 'Noto Serif SC', 'Songti SC', serif;
+  --font-sans:  'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+  --text-display: 700 2rem/1.3   var(--font-serif);
+  --text-h1:      700 1.5rem/1.4 var(--font-serif);
+  --text-h2:      600 1.25rem/1.4 var(--font-serif);
+  --text-h3:      700 1rem/1.5   var(--font-serif);
+  --text-body-serif: 400 0.9375rem/1.7 var(--font-serif);
+  --text-body:    400 0.875rem/1.6 var(--font-sans);
+  --text-meta:    500 0.75rem/1.4  var(--font-sans);
+  --text-caption: 400 0.6875rem/1.4 var(--font-sans);
+
+  /* ── Transition ─────────────────────────────── */
+  --ease: cubic-bezier(.25,.1,.25,1);
+  --dur:  180ms;
+}
