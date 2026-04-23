@@ -18,8 +18,13 @@ const joinBody = z.object({
 });
 const idParam = z.object({ id: z.string().min(1) });
 
+const TAGS = ['Classes'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
 export const studentClassRoutes: FastifyPluginAsync = async (app) => {
-  app.post('/api/classes/join', async (req, reply) => {
+  app.post('/api/classes/join', {
+    schema: { tags: TAGS, summary: '凭加入码加入班级', security: SEC },
+  }, async (req, reply) => {
     const userId = requireUserId(req);
     const parsed = joinBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
@@ -34,7 +39,9 @@ export const studentClassRoutes: FastifyPluginAsync = async (app) => {
     return { data: { class: cls, member } };
   });
 
-  app.post('/api/classes/:id/leave', async (req) => {
+  app.post('/api/classes/:id/leave', {
+    schema: { tags: TAGS, summary: '退出班级（软删除 removedAt）', security: SEC },
+  }, async (req) => {
     const userId = requireUserId(req);
     const parsed = idParam.safeParse(req.params);
     if (!parsed.success) throw BadRequest('路径参数不合法');
@@ -42,7 +49,9 @@ export const studentClassRoutes: FastifyPluginAsync = async (app) => {
     return { data: { ok: true } };
   });
 
-  app.get('/api/my/classes', async (req) => {
+  app.get('/api/my/classes', {
+    schema: { tags: TAGS, summary: '我加入的班级', security: SEC },
+  }, async (req) => {
     const userId = requireUserId(req);
     const items = await listUserClasses(userId);
     return { data: items };
