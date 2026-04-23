@@ -13,6 +13,7 @@ import { BadRequest, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   changePassword,
+  deleteAccount,
   loginUser,
   logout,
   refreshSession,
@@ -33,6 +34,10 @@ const loginBody = z.object({
 
 const refreshBody = z.object({
   refreshToken: z.string().min(1),
+});
+
+const deleteMeBody = z.object({
+  currentPassword: z.string().min(1),
 });
 
 const changePasswordBody = z
@@ -132,6 +137,16 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const parsed = changePasswordBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
     await changePassword(userId, parsed.data.currentPassword, parsed.data.newPassword);
+    return { data: { ok: true } };
+  });
+
+  // 注销：软删除（isActive=false + 清 email/passwordHash）+ 吊销全部 session
+  // 保留 UserAnswer / Sm2Card / AuditLog 等历史记录的 FK 完整性
+  app.delete('/api/auth/me', async (req) => {
+    const userId = requireUserId(req);
+    const parsed = deleteMeBody.safeParse(req.body);
+    if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
+    await deleteAccount(userId, parsed.data.currentPassword);
     return { data: { ok: true } };
   });
 };

@@ -150,6 +150,35 @@ export async function changePassword(
   ]);
 }
 
+export async function deleteAccount(
+  userId: string,
+  currentPassword: string,
+): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.passwordHash || !user.isActive) throw Unauthorized('账户异常');
+  if (!(await verifyPassword(currentPassword, user.passwordHash))) {
+    throw Unauthorized('当前密码不正确');
+  }
+  // 软删除：保留 FK 关联的答题记录 / SM-2 卡 / 审核日志；
+  // 置空 email 释放 unique 约束，允许同邮箱重新注册
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        isActive: false,
+        email: null,
+        passwordHash: null,
+        dharmaName: null,
+        avatar: null,
+      },
+    }),
+    prisma.authSession.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  ]);
+}
+
 export async function logout(
   app: FastifyInstance,
   refreshToken: string,

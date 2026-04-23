@@ -182,7 +182,8 @@
     get:   function (p, o)    { return request('GET',    p, undefined, o); },
     post:  function (p, b, o) { return request('POST',   p, b || {},   o); },
     patch: function (p, b, o) { return request('PATCH',  p, b || {},   o); },
-    del:   function (p, o)    { return request('DELETE', p, undefined, o); },
+    // 可带 body（用于二次确认）；路径-only 调用 body 为 undefined = 不发 body
+    del: function (p, b, o) { return request('DELETE', p, b, o); },
     setTokens: setTokens,
     clearTokens: clearTokens,
     getAccessToken: getAccessToken,
