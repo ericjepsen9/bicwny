@@ -26,16 +26,6 @@
 body { background: var(--bg-scene); min-height: 100vh; }
 .phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
 
-.status-bar { display: flex; justify-content: space-between; align-items: center; padding: var(--sp-3) var(--sp-5) var(--sp-2); }
-.status-right { display: flex; align-items: center; gap: var(--sp-2); }
-.lang-btn {
-  height: 22px; padding: 0 8px; border-radius: var(--r-pill);
-  font-size: .625rem; font-weight: 700; letter-spacing: 1px;
-  background: var(--saffron-pale); color: var(--saffron-dark);
-  border: 1px solid var(--saffron-light); cursor: pointer; transition: all var(--dur) var(--ease);
-}
-.lang-btn:hover { background: var(--saffron-light); }
-
 /* Top nav */
 .top-nav { display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-5) var(--sp-4); }
 .top-nav-title { font-family: var(--font-serif); font-weight: 700; color: var(--ink); font-size: 1.0625rem; letter-spacing: 4px; flex: 1; }
@@ -148,29 +138,13 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .activity-tag { flex-shrink: 0; }
 </style>
 <script src="../shared/lang.js"></script>
+<script src="../shared/status-bar.js"></script>
 </head>
 <body class="scene">
 <div class="phone-wrap">
 <div class="phone">
 
-  <div class="status-bar">
-    <span class="time" style="font-weight:600;font-size:.75rem;color:var(--ink-2);">9:41</span>
-    <div class="status-right">
-      <button class="lang-btn" onclick="toggleLang()">繁</button>
-      <svg width="56" height="12" viewBox="0 0 56 12" fill="#2B2218">
-        <rect x="0" y="7" width="3" height="5" rx=".5" opacity=".3"/>
-        <rect x="5" y="5" width="3" height="7" rx=".5" opacity=".5"/>
-        <rect x="10" y="2" width="3" height="10" rx=".5" opacity=".7"/>
-        <rect x="15" y="0" width="3" height="12" rx=".5"/>
-        <circle cx="26" cy="11" r="1"/>
-        <path d="M23 8a5 5 0 0 1 6 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".6"/>
-        <path d="M20.5 5.5a9 9 0 0 1 11 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".3"/>
-        <rect x="36" y="2" width="16" height="8" rx="1.5" stroke="#2B2218" stroke-opacity=".35" stroke-width=".8" fill="none"/>
-        <rect x="37" y="3" width="11" height="6" rx="1" opacity=".85"/>
-        <path d="M53 5v2a1.5 1.5 0 0 0 0-2z" opacity=".4"/>
-      </svg>
-    </div>
-  </div>
+  <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
     <a class="nav-btn" href="home.html">
@@ -186,7 +160,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
     <!-- Class hero -->
     <div class="class-hero">
-      <span class="hero-tag"><span class="sc">共修班</span><span class="tc">共修班</span></span>
+      <span class="hero-tag">共修班</span>
       <p class="hero-name"><span class="sc">心经共修班</span><span class="tc">心經共修班</span></p>
       <div class="hero-stats">
         <div>
@@ -195,7 +169,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
         </div>
         <div>
           <p class="hero-stat-num">68</p>
-          <p class="hero-stat-lbl"><span class="sc">共修天</span><span class="tc">共修天</span></p>
+          <p class="hero-stat-lbl">共修天</p>
         </div>
         <div>
           <p class="hero-stat-num">3</p>
@@ -232,13 +206,13 @@ body { background: var(--bg-scene); min-height: 100vh; }
         <p class="teacher-name"><span class="sc">慧明法师</span><span class="tc">慧明法師</span></p>
         <p class="teacher-role"><span class="sc">藏传佛教 · 格鲁派</span><span class="tc">藏傳佛教 · 格魯派</span></p>
       </div>
-      <button class="msg-btn"><span class="sc">留言</span><span class="tc">留言</span></button>
+      <button class="msg-btn">留言</button>
     </div>
 
     <!-- Members -->
     <div class="sec-head">
       <span class="sec-title"><span class="sc">共修成员</span><span class="tc">共修成員</span></span>
-      <span class="sec-more"><span class="sc">全部 24 →</span><span class="tc">全部 24 →</span></span>
+      <span class="sec-more">全部 24 →</span>
     </div>
     <div class="members-grid">
       <div class="member-item">
@@ -270,12 +244,12 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
     <!-- Schedule -->
     <div class="sec-head">
-      <span class="sec-title"><span class="sc">近期共修</span><span class="tc">近期共修</span></span>
+      <span class="sec-title">近期共修</span>
     </div>
 
     <div class="activity-item">
       <div class="activity-date">
-        <span class="month"><span class="sc">四月</span><span class="tc">四月</span></span>
+        <span class="month">四月</span>
         <span class="day">25</span>
       </div>
       <div class="activity-info">
@@ -287,7 +261,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
     <div class="activity-item">
       <div class="activity-date">
-        <span class="month"><span class="sc">五月</span><span class="tc">五月</span></span>
+        <span class="month">五月</span>
         <span class="day">02</span>
       </div>
       <div class="activity-info">

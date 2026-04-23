@@ -17,6 +17,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>觉学 · 错题本</title>
 <script src="../shared/lang.js"></script>
+<script src="../shared/status-bar.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
@@ -87,17 +88,6 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
 .sm2-date  { font:var(--text-meta); font-weight:700; color:var(--gold-dark); letter-spacing:1px; margin-top:2px; }
 
 .sections { display:flex; flex-direction:column; gap:var(--sp-3); padding:0 var(--sp-5) 100px; }
-
-/* ── Lang toggle ──────────────────────────── */
-.lang-btn {
-  height:22px; padding:0 8px; border-radius:var(--r-pill);
-  font-size:.625rem; font-weight:700; letter-spacing:1px;
-  background:var(--saffron-pale); color:var(--saffron-dark);
-  border:1px solid var(--saffron-light); cursor:pointer;
-}
-.lang-btn:hover { background:var(--saffron-light); }
-.status-bar { display:flex; justify-content:space-between; align-items:center; padding:var(--sp-3) var(--sp-5) var(--sp-2); }
-.status-right { display:flex; align-items:center; gap:var(--sp-2); }
 </style>
 </head>
 <body>
@@ -107,17 +97,7 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
 <div>
 <p class="phone-caption">错题本 · 列表</p>
 <div class="phone">
-  <div class="status-bar">
-    <span class="time">9:41</span>
-    <div class="status-right">
-      <button class="lang-btn" onclick="toggleLang()">繁</button>
-      <svg width="56" height="12" viewBox="0 0 56 12" fill="#2B2218">
-        <rect x="0" y="7" width="3" height="5" rx=".5" opacity=".3"/><rect x="5" y="5" width="3" height="7" rx=".5" opacity=".5"/><rect x="10" y="2" width="3" height="10" rx=".5" opacity=".7"/><rect x="15" y="0" width="3" height="12" rx=".5"/>
-        <circle cx="26" cy="11" r="1"/><path d="M23 8a5 5 0 0 1 6 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".6"/><path d="M20.5 5.5a9 9 0 0 1 11 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".3"/>
-        <rect x="36" y="2" width="16" height="8" rx="1.5" stroke="#2B2218" stroke-opacity=".35" stroke-width=".8" fill="none"/><rect x="37" y="3" width="11" height="6" rx="1" opacity=".85"/><path d="M53 5v2a1.5 1.5 0 0 0 0-2z" opacity=".4"/>
-      </svg>
-    </div>
-  </div>
+  <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
     <a class="nav-back" href="home.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
@@ -126,8 +106,8 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
   </div>
 
   <div class="filter-tabs">
-    <span class="ftab active"><span class="sc">全部</span><span class="tc">全部</span> (12)</span>
-    <span class="ftab"><span class="sc">今日</span><span class="tc">今日</span> (4)</span>
+    <span class="ftab active">全部 (12)</span>
+    <span class="ftab">今日 (4)</span>
     <span class="ftab"><span class="sc">心经</span><span class="tc">心經</span></span>
     <span class="ftab"><span class="sc">金刚经</span><span class="tc">金剛經</span></span>
   </div>
@@ -139,7 +119,7 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
       <p class="mistake-chapter"><span class="sc">心经 · 第三章 · 色即是空</span><span class="tc">心經 · 第三章 · 色即是空</span></p>
       <p class="mistake-stem"><span class="sc">「色不异空」中，「色」指的是什么？</span><span class="tc">「色不異空」中，「色」指的是什麼？</span></p>
       <div class="mistake-footer">
-        <span class="mistake-time"><span class="sc">昨日 14:32</span><span class="tc">昨日 14:32</span></span>
+        <span class="mistake-time">昨日 14:32</span>
         <span class="review-countdown">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span class="sc">今日复习</span><span class="tc">今日複習</span>
@@ -151,7 +131,7 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
       <p class="mistake-chapter"><span class="sc">心经 · 第三章 · 色即是空</span><span class="tc">心經 · 第三章 · 色即是空</span></p>
       <p class="mistake-stem"><span class="sc">「受想行识，亦复如是」中「五蕴」包含哪些？</span><span class="tc">「受想行識，亦復如是」中「五蘊」包含哪些？</span></p>
       <div class="mistake-footer">
-        <span class="mistake-time"><span class="sc">2 天前</span><span class="tc">2 天前</span></span>
+        <span class="mistake-time">2 天前</span>
         <span class="review-countdown" style="color:var(--ink-3);"><span class="sc">3 天后</span><span class="tc">3 天後</span></span>
       </div>
     </div>
@@ -160,7 +140,7 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
       <p class="mistake-chapter"><span class="sc">心经 · 第四章 · 不生不灭</span><span class="tc">心經 · 第四章 · 不生不滅</span></p>
       <p class="mistake-stem"><span class="sc">「不垢不净」说明了什么样的空性本质？</span><span class="tc">「不垢不淨」說明了什麼樣的空性本質？</span></p>
       <div class="mistake-footer">
-        <span class="mistake-time"><span class="sc">3 天前</span><span class="tc">3 天前</span></span>
+        <span class="mistake-time">3 天前</span>
         <span class="review-countdown">
           <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           <span class="sc">今日复习</span><span class="tc">今日複習</span>
@@ -172,7 +152,7 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
       <p class="mistake-chapter"><span class="sc">金刚经 · 第一章 · 如是我闻</span><span class="tc">金剛經 · 第一章 · 如是我聞</span></p>
       <p class="mistake-stem"><span class="sc">「一时佛在舍卫国祇树给孤独园」中「祇树」名称的由来？</span><span class="tc">「一時佛在舍衛國祇樹給孤獨園」中「祇樹」名稱的由來？</span></p>
       <div class="mistake-footer">
-        <span class="mistake-time"><span class="sc">5 天前</span><span class="tc">5 天前</span></span>
+        <span class="mistake-time">5 天前</span>
         <span class="review-countdown" style="color:var(--ink-3);"><span class="sc">5 天后</span><span class="tc">5 天後</span></span>
       </div>
     </div>
@@ -181,8 +161,8 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
       <p class="mistake-chapter"><span class="sc">心经 · 第二章 · 五蕴皆空</span><span class="tc">心經 · 第二章 · 五蘊皆空</span></p>
       <p class="mistake-stem"><span class="sc">「照见五蕴皆空」——「照见」的修行含义是？</span><span class="tc">「照見五蘊皆空」——「照見」的修行含義是？</span></p>
       <div class="mistake-footer">
-        <span class="mistake-time"><span class="sc">7 天前</span><span class="tc">7 天前</span></span>
-        <span class="review-countdown" style="color:var(--sage-dark);"><span class="sc">已掌握</span><span class="tc">已掌握</span></span>
+        <span class="mistake-time">7 天前</span>
+        <span class="review-countdown" style="color:var(--sage-dark);">已掌握</span>
       </div>
     </div>
 
@@ -191,9 +171,9 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
 
   <div class="tab-bar">
     <a href="home.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span><span class="sc">首页</span><span class="tc">首頁</span></span></a>
-    <a href="scripture-detail.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span><span class="sc">法本</span><span class="tc">法本</span></span></a>
+    <a href="scripture-detail.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>法本</span></a>
     <a href="quiz.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span><span class="sc">答题</span><span class="tc">答題</span></span></a>
-    <a href="profile.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span><span class="sc">我的</span><span class="tc">我的</span></span></a>
+    <a href="profile.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>我的</span></a>
   </div>
 </div>
 </div>
@@ -202,17 +182,7 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
 <div>
 <p class="phone-caption">错题详情 · 解析</p>
 <div class="phone">
-  <div class="status-bar">
-    <span class="time">9:41</span>
-    <div class="status-right">
-      <button class="lang-btn" onclick="toggleLang()">繁</button>
-      <svg width="56" height="12" viewBox="0 0 56 12" fill="#2B2218">
-        <rect x="0" y="7" width="3" height="5" rx=".5" opacity=".3"/><rect x="5" y="5" width="3" height="7" rx=".5" opacity=".5"/><rect x="10" y="2" width="3" height="10" rx=".5" opacity=".7"/><rect x="15" y="0" width="3" height="12" rx=".5"/>
-        <circle cx="26" cy="11" r="1"/><path d="M23 8a5 5 0 0 1 6 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".6"/><path d="M20.5 5.5a9 9 0 0 1 11 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".3"/>
-        <rect x="36" y="2" width="16" height="8" rx="1.5" stroke="#2B2218" stroke-opacity=".35" stroke-width=".8" fill="none"/><rect x="37" y="3" width="11" height="6" rx="1" opacity=".85"/><path d="M53 5v2a1.5 1.5 0 0 0 0-2z" opacity=".4"/>
-      </svg>
-    </div>
-  </div>
+  <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
     <a class="nav-back" href="mistakes.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
@@ -226,15 +196,15 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
     <div class="breadcrumb">
       <span><span class="sc">心经</span><span class="tc">心經</span></span>
       <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-      <span><span class="sc">第三章</span><span class="tc">第三章</span></span>
+      <span>第三章</span>
       <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-      <span style="color:var(--crimson);"><span class="sc">色即是空</span><span class="tc">色即是空</span></span>
+      <span style="color:var(--crimson);">色即是空</span>
     </div>
 
     <div class="question-block glass-card-thick">
       <span class="tag tag-crimson" style="margin-bottom:var(--sp-3);display:inline-block;">✗ <span class="sc">答错</span><span class="tc">答錯</span></span>
       <p class="q-stem"><span class="sc">「色不异空，空不异色」中，「色」最准确的含义是？</span><span class="tc">「色不異空，空不異色」中，「色」最準確的含義是？</span></p>
-      <p class="answer-label wrong-lbl"><span class="sc">我的答案</span><span class="tc">我的答案</span></p>
+      <p class="answer-label wrong-lbl">我的答案</p>
       <div class="option wrong" style="margin-bottom:var(--sp-3);">
         <div class="option-letter">A</div>
         <span class="option-text"><span class="sc">五彩缤纷的色彩</span><span class="tc">五彩繽紛的色彩</span></span>
@@ -264,7 +234,7 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
       </div>
       <div>
         <p class="sm2-label">SM-2 · <span class="sc">下次复习</span><span class="tc">下次複習</span></p>
-        <p class="sm2-date"><span class="sc">明日</span><span class="tc">明日</span> · 2026-04-24</p>
+        <p class="sm2-date">明日 · 2026-04-24</p>
       </div>
     </div>
 
@@ -278,9 +248,9 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
 
   <div class="tab-bar">
     <a href="home.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span><span class="sc">首页</span><span class="tc">首頁</span></span></a>
-    <a href="scripture-detail.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span><span class="sc">法本</span><span class="tc">法本</span></span></a>
+    <a href="scripture-detail.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>法本</span></a>
     <a href="quiz.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span><span class="sc">答题</span><span class="tc">答題</span></span></a>
-    <a href="profile.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span><span class="sc">我的</span><span class="tc">我的</span></span></a>
+    <a href="profile.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>我的</span></a>
   </div>
 </div>
 </div>

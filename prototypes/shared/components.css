@@ -363,3 +363,23 @@
   mask: radial-gradient(farthest-side, transparent 62%, black 63%);
   -webkit-mask: radial-gradient(farthest-side, transparent 62%, black 63%);
 }
+
+/* ── Phone status bar (mobile mockup) ───────── */
+.status-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: var(--sp-3) var(--sp-5) var(--sp-2);
+}
+.status-bar .time {
+  font-weight: 600; font-size: .75rem; color: var(--ink-2);
+}
+.status-right { display: flex; align-items: center; gap: var(--sp-2); }
+
+/* ── Language toggle button (mobile default) ── */
+.lang-btn {
+  height: 22px; padding: 0 8px; border-radius: var(--r-pill);
+  font-size: .625rem; font-weight: 700; letter-spacing: 1px;
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  border: 1px solid var(--saffron-light); cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.lang-btn:hover { background: var(--saffron-light); }

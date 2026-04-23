@@ -26,16 +26,6 @@
 body { background: var(--bg-scene); min-height: 100vh; }
 .phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
 
-.status-bar { display: flex; justify-content: space-between; align-items: center; padding: var(--sp-3) var(--sp-5) var(--sp-2); }
-.status-right { display: flex; align-items: center; gap: var(--sp-2); }
-.lang-btn {
-  height: 22px; padding: 0 8px; border-radius: var(--r-pill);
-  font-size: .625rem; font-weight: 700; letter-spacing: 1px;
-  background: var(--saffron-pale); color: var(--saffron-dark);
-  border: 1px solid var(--saffron-light); cursor: pointer; transition: all var(--dur) var(--ease);
-}
-.lang-btn:hover { background: var(--saffron-light); }
-
 /* Top nav */
 .top-nav { display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-5) var(--sp-3); }
 .top-nav-title { font-family: var(--font-serif); font-weight: 700; color: var(--ink); font-size: 1rem; letter-spacing: 3px; flex: 1; }
@@ -99,29 +89,13 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .tool-btn.primary span { color: #FFF; font-weight: 700; letter-spacing: 2px; font-family: var(--font-serif); }
 </style>
 <script src="../shared/lang.js"></script>
+<script src="../shared/status-bar.js"></script>
 </head>
 <body class="scene">
 <div class="phone-wrap">
 <div class="phone" style="position:relative;overflow:hidden;">
 
-  <div class="status-bar">
-    <span class="time" style="font-weight:600;font-size:.75rem;color:var(--ink-2);">9:41</span>
-    <div class="status-right">
-      <button class="lang-btn" onclick="toggleLang()">繁</button>
-      <svg width="56" height="12" viewBox="0 0 56 12" fill="#2B2218">
-        <rect x="0" y="7" width="3" height="5" rx=".5" opacity=".3"/>
-        <rect x="5" y="5" width="3" height="7" rx=".5" opacity=".5"/>
-        <rect x="10" y="2" width="3" height="10" rx=".5" opacity=".7"/>
-        <rect x="15" y="0" width="3" height="12" rx=".5"/>
-        <circle cx="26" cy="11" r="1"/>
-        <path d="M23 8a5 5 0 0 1 6 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".6"/>
-        <path d="M20.5 5.5a9 9 0 0 1 11 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".3"/>
-        <rect x="36" y="2" width="16" height="8" rx="1.5" stroke="#2B2218" stroke-opacity=".35" stroke-width=".8" fill="none"/>
-        <rect x="37" y="3" width="11" height="6" rx="1" opacity=".85"/>
-        <path d="M53 5v2a1.5 1.5 0 0 0 0-2z" opacity=".4"/>
-      </svg>
-    </div>
-  </div>
+  <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
     <a class="nav-action" href="scripture-detail.html">
@@ -140,7 +114,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
   <div class="reading-body">
     <p class="reading-chapter-label">
-      <span class="sc">第三章 · CHAPTER III</span><span class="tc">第三章 · CHAPTER III</span>
+      第三章 · CHAPTER III
     </p>
     <h1 class="reading-chapter-title">色即是空</h1>
 
@@ -153,7 +127,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
     <div class="annotation-card">
       <p class="annotation-title">
         <svg width="14" height="14" fill="none" stroke="#B88956" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        <span class="sc">注 · 舍利子</span><span class="tc">注 · 舍利子</span>
+        注 · 舍利子
       </p>
       <p class="annotation-body">
         <span class="sc">佛陀十大弟子之一舍利弗，以智慧第一闻名。此处为观自在菩萨对他所说法。</span>
@@ -185,7 +159,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
   <div class="reading-tools">
     <button class="tool-btn">
       <svg width="20" height="20" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-      <span><span class="sc">收藏</span><span class="tc">收藏</span></span>
+      <span>收藏</span>
     </button>
     <button class="tool-btn">
       <svg width="20" height="20" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>

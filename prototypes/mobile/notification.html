@@ -26,16 +26,6 @@
 body { background: var(--bg-scene); min-height: 100vh; }
 .phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 40px 20px; }
 
-.status-bar { display: flex; justify-content: space-between; align-items: center; padding: var(--sp-3) var(--sp-5) var(--sp-2); }
-.status-right { display: flex; align-items: center; gap: var(--sp-2); }
-.lang-btn {
-  height: 22px; padding: 0 8px; border-radius: var(--r-pill);
-  font-size: .625rem; font-weight: 700; letter-spacing: 1px;
-  background: var(--saffron-pale); color: var(--saffron-dark);
-  border: 1px solid var(--saffron-light); cursor: pointer; transition: all var(--dur) var(--ease);
-}
-.lang-btn:hover { background: var(--saffron-light); }
-
 /* Top nav */
 .top-nav { display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-5) var(--sp-3); }
 .top-nav-title { font-family: var(--font-serif); font-weight: 700; color: var(--ink); font-size: 1.0625rem; letter-spacing: 4px; flex: 1; }
@@ -107,49 +97,33 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .notif-list { display: flex; flex-direction: column; gap: var(--sp-3); padding: 0 var(--sp-5) var(--sp-8); }
 </style>
 <script src="../shared/lang.js"></script>
+<script src="../shared/status-bar.js"></script>
 </head>
 <body class="scene">
 <div class="phone-wrap">
 <div class="phone">
 
-  <div class="status-bar">
-    <span class="time" style="font-weight:600;font-size:.75rem;color:var(--ink-2);">9:41</span>
-    <div class="status-right">
-      <button class="lang-btn" onclick="toggleLang()">繁</button>
-      <svg width="56" height="12" viewBox="0 0 56 12" fill="#2B2218">
-        <rect x="0" y="7" width="3" height="5" rx=".5" opacity=".3"/>
-        <rect x="5" y="5" width="3" height="7" rx=".5" opacity=".5"/>
-        <rect x="10" y="2" width="3" height="10" rx=".5" opacity=".7"/>
-        <rect x="15" y="0" width="3" height="12" rx=".5"/>
-        <circle cx="26" cy="11" r="1"/>
-        <path d="M23 8a5 5 0 0 1 6 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".6"/>
-        <path d="M20.5 5.5a9 9 0 0 1 11 0" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" fill="none" opacity=".3"/>
-        <rect x="36" y="2" width="16" height="8" rx="1.5" stroke="#2B2218" stroke-opacity=".35" stroke-width=".8" fill="none"/>
-        <rect x="37" y="3" width="11" height="6" rx="1" opacity=".85"/>
-        <path d="M53 5v2a1.5 1.5 0 0 0 0-2z" opacity=".4"/>
-      </svg>
-    </div>
-  </div>
+  <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
     <a class="nav-btn" href="home.html">
       <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
     </a>
-    <span class="top-nav-title"><span class="sc">通知</span><span class="tc">通知</span></span>
+    <span class="top-nav-title">通知</span>
     <span class="read-all"><span class="sc">全部已读</span><span class="tc">全部已讀</span></span>
   </div>
 
   <div class="filter-tabs">
-    <span class="ftab active"><span class="sc">全部</span><span class="tc">全部</span></span>
+    <span class="ftab active">全部</span>
     <span class="ftab"><span class="sc">班级</span><span class="tc">班級</span></span>
     <span class="ftab"><span class="sc">学习</span><span class="tc">學習</span></span>
-    <span class="ftab"><span class="sc">成就</span><span class="tc">成就</span></span>
+    <span class="ftab">成就</span>
     <span class="ftab"><span class="sc">系统</span><span class="tc">系統</span></span>
   </div>
 
   <div class="notif-list">
 
-    <p class="group-label"><span class="sc">今日</span><span class="tc">今日</span></p>
+    <p class="group-label">今日</p>
 
     <!-- 班级公告 unread -->
     <div class="notif-item unread">
@@ -201,7 +175,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
       <div class="notif-right"><div class="unread-dot"></div></div>
     </div>
 
-    <p class="group-label"><span class="sc">昨日</span><span class="tc">昨日</span></p>
+    <p class="group-label">昨日</p>
 
     <!-- 学习完成 read -->
     <div class="notif-item">
@@ -228,14 +202,14 @@ body { background: var(--bg-scene); min-height: 100vh; }
         </svg>
       </div>
       <div class="notif-body">
-        <p class="notif-title"><span class="sc">法本更新通知</span><span class="tc">法本更新通知</span></p>
+        <p class="notif-title">法本更新通知</p>
         <p class="notif-preview"><span class="sc">《金刚经》已更新至第 5 章，新增注释 12 条，快去阅读吧。</span><span class="tc">《金剛經》已更新至第 5 章，新增注釋 12 條，快去閱讀吧。</span></p>
-        <p class="notif-time"><span class="sc">3 天前</span><span class="tc">3 天前</span></p>
+        <p class="notif-time">3 天前</p>
       </div>
       <div class="notif-right"></div>
     </div>
 
-    <p class="group-label"><span class="sc">更早</span><span class="tc">更早</span></p>
+    <p class="group-label">更早</p>
 
     <!-- 系统通知 read -->
     <div class="notif-item">
@@ -247,7 +221,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
       <div class="notif-body">
         <p class="notif-title"><span class="sc">账号绑定成功</span><span class="tc">帳號綁定成功</span></p>
         <p class="notif-preview"><span class="sc">您的账号已成功绑定手机号，登录更安全。</span><span class="tc">您的帳號已成功綁定手機號，登入更安全。</span></p>
-        <p class="notif-time"><span class="sc">7 天前</span><span class="tc">7 天前</span></p>
+        <p class="notif-time">7 天前</p>
       </div>
       <div class="notif-right"></div>
     </div>

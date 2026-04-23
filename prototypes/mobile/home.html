@@ -17,6 +17,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>觉学 · 首页</title>
 <script src="../shared/lang.js"></script>
+<script src="../shared/status-bar.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
@@ -129,16 +130,6 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
 .icon-grid {
   display:grid; grid-template-columns:repeat(4,1fr); gap:var(--sp-3);
 }
-
-/* ── Lang toggle button ──────────────────── */
-.lang-btn {
-  height: 22px; padding: 0 8px; border-radius: var(--r-pill);
-  font-size: .625rem; font-weight: 700; letter-spacing: 1px;
-  background: var(--saffron-pale); color: var(--saffron-dark);
-  border: 1px solid var(--saffron-light); cursor: pointer;
-  margin-right: var(--sp-2);
-}
-.lang-btn:hover { background: var(--saffron-light); }
 </style>
 </head>
 <body class="scene">
@@ -146,28 +137,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
 <div class="phone">
 
   <!-- Status Bar -->
-  <div class="status-bar">
-    <span class="time">9:41</span>
-    <div class="status-icons">
-      <button class="lang-btn" onclick="toggleLang()">繁</button>
-      <svg width="16" height="10" viewBox="0 0 16 10" fill="none">
-        <rect x="0"    y="6" width="3"   height="4"  rx="1" fill="#2B2218" opacity=".3"/>
-        <rect x="4.5"  y="4" width="3"   height="6"  rx="1" fill="#2B2218" opacity=".5"/>
-        <rect x="9"    y="2" width="3"   height="8"  rx="1" fill="#2B2218" opacity=".7"/>
-        <rect x="13.5" y="0" width="2.5" height="10" rx="1" fill="#2B2218"/>
-      </svg>
-      <svg width="14" height="11" viewBox="0 0 14 11" fill="none">
-        <path d="M7 9.5a1 1 0 1 1 0 1.5A1 1 0 0 1 7 9.5z" fill="#2B2218"/>
-        <path d="M3.5 6A5 5 0 0 1 7 4.8 5 5 0 0 1 10.5 6" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" opacity=".6"/>
-        <path d="M1 3A8 8 0 0 1 7 .5 8 8 0 0 1 13 3" stroke="#2B2218" stroke-width="1.4" stroke-linecap="round" opacity=".3"/>
-      </svg>
-      <svg width="22" height="11" viewBox="0 0 22 11" fill="none">
-        <rect x=".5" y=".5" width="18" height="10" rx="2.5" stroke="#2B2218" stroke-opacity=".35"/>
-        <rect x="2"  y="2"  width="13" height="7"  rx="1.5" fill="#2B2218" opacity=".85"/>
-        <path d="M20 3.5v4a1.5 1.5 0 0 0 0-4z" fill="#2B2218" opacity=".4"/>
-      </svg>
-    </div>
-  </div>
+  <div class="status-bar" data-auto></div>
 
   <!-- Scroll area -->
   <div class="scroll-area" style="height:756px;">
@@ -175,7 +145,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
     <!-- Header -->
     <div class="home-header">
       <div>
-        <p class="greeting-sub"><span class="sc">早安 · 四月</span><span class="tc">早安 · 四月</span></p>
+        <p class="greeting-sub">早安 · 四月</p>
         <p class="greeting-name"><span class="sc">明心同学</span><span class="tc">明心同學</span></p>
       </div>
       <div class="header-right">
@@ -217,7 +187,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
         <p class="course-title"><span class="sc">《心经》全文贯通</span><span class="tc">《心經》全文貫通</span></p>
         <div class="course-meta">
           <span class="tag tag-saffron"><span class="sc">初级</span><span class="tc">初級</span></span>
-          <span class="tag tag-ink"><span class="sc">第 3 章 · 共 8 章</span><span class="tc">第 3 章 · 共 8 章</span></span>
+          <span class="tag tag-ink">第 3 章 · 共 8 章</span>
           <span class="tag tag-sage"><span class="sc">进行中</span><span class="tc">進行中</span></span>
         </div>
         <div class="progress-row">
@@ -251,7 +221,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
       <!-- 快速入口 -->
       <div>
         <div class="section-header">
-          <span class="section-title"><span class="sc">快速入口</span><span class="tc">快速入口</span></span>
+          <span class="section-title">快速入口</span>
         </div>
         <div class="icon-grid">
           <a href="scripture-detail.html" class="icon-tile">
@@ -261,7 +231,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
                 <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
               </svg>
             </div>
-            <span class="icon-label"><span class="sc">法本</span><span class="tc">法本</span></span>
+            <span class="icon-label">法本</span>
           </a>
           <a href="mistakes.html" class="icon-tile">
             <div class="icon-bg icon-bg-crimson">
@@ -278,7 +248,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
               </svg>
             </div>
-            <span class="icon-label"><span class="sc">收藏</span><span class="tc">收藏</span></span>
+            <span class="icon-label">收藏</span>
           </a>
           <a href="achievement.html" class="icon-tile">
             <div class="icon-bg icon-bg-sage">
@@ -287,7 +257,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
                 <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>
               </svg>
             </div>
-            <span class="icon-label"><span class="sc">成就</span><span class="tc">成就</span></span>
+            <span class="icon-label">成就</span>
           </a>
         </div>
       </div>
@@ -309,7 +279,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
         <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
         <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
       </svg>
-      <span><span class="sc">法本</span><span class="tc">法本</span></span>
+      <span>法本</span>
     </a>
     <a href="quiz.html" class="tab-item">
       <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
@@ -324,7 +294,7 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
         <circle cx="12" cy="7" r="4"/>
       </svg>
-      <span><span class="sc">我的</span><span class="tc">我的</span></span>
+      <span>我的</span>
     </a>
   </div>
 
