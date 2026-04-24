@@ -162,11 +162,28 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
         timezone: true,
         locale: true,
         isActive: true,
+        hasOnboarded: true,
         lastLoginAt: true,
         createdAt: true,
       },
     });
     if (!user) throw NotFound('用户不存在');
+    return { data: user };
+  });
+
+  // 首次登录引导完成 · 任一选择（加入班级 / 自由学习）后调一次
+  app.post('/api/auth/onboarding-done', {
+    schema: {
+      tags: TAGS, summary: '标记首次引导已完成',
+      security: [{ bearerAuth: [] }],
+    },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { hasOnboarded: true },
+      select: { id: true, hasOnboarded: true },
+    });
     return { data: user };
   });
 

@@ -32,6 +32,7 @@ model User {
   avatar       String?
   timezone     String    @default("Asia/Taipei")
   locale       String    @default("zh-Hans")
+  hasOnboarded Boolean   @default(false) // 首次登录引导是否完成（加入班级 / 选自由学习）
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
