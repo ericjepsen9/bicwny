@@ -35,14 +35,15 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  answers     UserAnswer[]
-  sm2Cards    Sm2Card[]
-  favorites   UserFavorite[]
-  mistakes    UserMistakeBook[]
-  reports     QuestionReport[]
-  enrollments UserCourseEnrollment[]
-  memberships ClassMember[]
-  sessions    AuthSession[]
+  answers          UserAnswer[]
+  sm2Cards         Sm2Card[]
+  favorites        UserFavorite[]
+  mistakes         UserMistakeBook[]
+  reports          QuestionReport[]
+  enrollments      UserCourseEnrollment[]
+  memberships      ClassMember[]
+  sessions         AuthSession[]
+  createdQuestions Question[]             @relation("CreatedQuestions")
 
   @@index([role])
 }
@@ -133,20 +134,21 @@ model Course {
 }
 
 model Chapter {
-  id               String   @id @default(cuid())
+  id               String  @id @default(cuid())
   courseId         String
   order            Int
   title            String
   titleTraditional String?
 
-  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  lessons Lesson[]
+  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons   Lesson[]
+  questions Question[]
 
   @@unique([courseId, order])
 }
 
 model Lesson {
-  id               String   @id @default(cuid())
+  id               String  @id @default(cuid())
   chapterId        String
   order            Int
   title            String
@@ -161,14 +163,14 @@ model Lesson {
 }
 
 model UserCourseEnrollment {
-  id              String   @id @default(cuid())
-  userId          String
-  courseId        String
-  enrolledAt      DateTime @default(now())
-  lastStudiedAt   DateTime?
-  completedAt     DateTime?
-  currentLessonId String?
-  lessonsCompleted String[] @default([])
+  id               String    @id @default(cuid())
+  userId           String
+  courseId         String
+  enrolledAt       DateTime  @default(now())
+  lastStudiedAt    DateTime?
+  completedAt      DateTime?
+  currentLessonId  String?
+  lessonsCompleted String[]  @default([])
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -188,11 +190,11 @@ enum QuestionType {
   sort
   match
   // v2.0 题型：前端尚未上线，后端 schema + 评分就位
-  flip     // 速记卡片 · 无对错，用户自评驱动 SM-2
-  image    // 图片辨识 · 基于 imageUrl 的单选
-  listen   // 听颂选答 · 基于 audioUrl 的单选
-  flow     // 流程拖拽 · slot 坐标匹配
-  guided   // 引导分步 · 多步 AI 评分
+  flip // 速记卡片 · 无对错，用户自评驱动 SM-2
+  image // 图片辨识 · 基于 imageUrl 的单选
+  listen // 听颂选答 · 基于 audioUrl 的单选
+  flow // 流程拖拽 · slot 坐标匹配
+  guided // 引导分步 · 多步 AI 评分
   scenario // 情境判断 · 多正确选项且每选项带 reason
 }
 
@@ -209,13 +211,13 @@ enum ReviewStatus {
 }
 
 model Question {
-  id           String       @id @default(cuid())
-  type         QuestionType
-  courseId     String
-  chapterId    String
-  lessonId     String
-  difficulty   Int          @default(2)
-  tags         String[]     @default([])
+  id         String       @id @default(cuid())
+  type       QuestionType
+  courseId   String
+  chapterId  String
+  lessonId   String
+  difficulty Int          @default(2)
+  tags       String[]     @default([])
 
   questionText String
   correctText  String
@@ -242,9 +244,9 @@ model Question {
   //               options:[{text,correct,reason}] }
   payload Json
 
-  visibility    Visibility   @default(public)
-  ownerClassId  String?
-  reviewStatus  ReviewStatus @default(approved)
+  visibility   Visibility   @default(public)
+  ownerClassId String?
+  reviewStatus ReviewStatus @default(approved)
 
   createdByUserId String?
   reviewed        Boolean  @default(true)
@@ -252,17 +254,22 @@ model Question {
   updatedAt       DateTime @updatedAt
 
   course        Course            @relation(fields: [courseId], references: [id])
+  chapter       Chapter           @relation(fields: [chapterId], references: [id])
   lesson        Lesson            @relation(fields: [lessonId], references: [id])
   ownerClass    Class?            @relation("ClassOwnedQuestions", fields: [ownerClassId], references: [id], onDelete: SetNull)
+  createdBy     User?             @relation("CreatedQuestions", fields: [createdByUserId], references: [id], onDelete: SetNull)
   userAnswers   UserAnswer[]
   sm2Cards      Sm2Card[]
   userFavorites UserFavorite[]
   userMistakes  UserMistakeBook[]
+  reports       QuestionReport[]
 
   @@index([lessonId])
+  @@index([chapterId])
   @@index([courseId, visibility])
   @@index([reviewStatus])
   @@index([ownerClassId])
+  @@index([createdByUserId])
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -368,7 +375,11 @@ model QuestionReport {
   status     ReportStatus @default(pending)
   createdAt  DateTime     @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([questionId])
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -395,15 +406,15 @@ enum OveragePolicy {
 }
 
 model LlmProviderConfig {
-  id          String @id @default(cuid())
-  name        String @unique // "minimax" | "claude" | "deepseek"
-  displayName String
-  baseUrl     String
-  apiKeyEnv   String // 只保存 env var 名称，不落库 API Key 本身
+  id           String       @id @default(cuid())
+  name         String       @unique // "minimax" | "claude" | "deepseek"
+  displayName  String
+  baseUrl      String
+  apiKeyEnv    String // 只保存 env var 名称，不落库 API Key 本身
   defaultModel String
-  isEnabled   Boolean      @default(true)
-  role        ProviderRole @default(fallback)
-  priority    Int          @default(50)
+  isEnabled    Boolean      @default(true)
+  role         ProviderRole @default(fallback)
+  priority     Int          @default(50)
 
   // 额度（按套餐填；null 表示不限）
   yearlyTokenQuota  BigInt?
@@ -436,7 +447,7 @@ model LlmProviderConfig {
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 
-  usages  LlmProviderUsage[]
+  usages LlmProviderUsage[]
 }
 
 enum PeriodType {
@@ -470,56 +481,56 @@ model LlmProviderUsage {
 }
 
 model LlmScenarioConfig {
-  id                 String  @id @default(cuid())
-  scenario           String  @unique // "open_grading" | "question_gen"
-  primaryProviderId  String
-  primaryModel       String
-  fallbackProviderId String?
-  fallbackModel      String?
-  temperature        Float   @default(0.3)
-  maxTokens          Int     @default(1500)
-  promptTemplateId   String?
-  estimatedTokensPerCall Int @default(1200)
+  id                     String  @id @default(cuid())
+  scenario               String  @unique // "open_grading" | "question_gen"
+  primaryProviderId      String
+  primaryModel           String
+  fallbackProviderId     String?
+  fallbackModel          String?
+  temperature            Float   @default(0.3)
+  maxTokens              Int     @default(1500)
+  promptTemplateId       String?
+  estimatedTokensPerCall Int     @default(1200)
 
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 }
 
 model LlmPromptTemplate {
-  id        String   @id @default(cuid())
-  scenario  String
-  version   String
-  content   String   @db.Text
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  scenario         String
+  version          String
+  content          String   @db.Text
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
   createdByAdminId String?
 
   @@unique([scenario, version])
 }
 
 model LlmCallLog {
-  id            String   @id @default(cuid())
-  requestId     String   @unique
-  scenario      String
-  userId        String?
-  coachId       String?
+  id        String  @id @default(cuid())
+  requestId String  @unique
+  scenario  String
+  userId    String?
+  coachId   String?
 
   providerUsed  String
   providerTried String[] @default([])
   switched      Boolean  @default(false)
   switchReason  String?
 
-  model         String
-  inputTokens   Int
-  outputTokens  Int
-  cost          Decimal  @default(0) @db.Decimal(14, 6)
-  latencyMs     Int
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  cost         Decimal @default(0) @db.Decimal(14, 6)
+  latencyMs    Int
 
-  success       Boolean
-  errorCode     String?
-  errorMessage  String?
+  success      Boolean
+  errorCode    String?
+  errorMessage String?
 
-  timestamp     DateTime @default(now())
+  timestamp DateTime @default(now())
 
   @@index([timestamp])
   @@index([userId, timestamp])
@@ -572,4 +583,3 @@ model ErrorLog {
   @@index([userId, createdAt])
   @@index([createdAt])
 }
-
