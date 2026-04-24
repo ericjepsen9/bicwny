@@ -21,6 +21,7 @@
     tQuestionStart: Date.now(),
     answer: null,        // 当前题用户答案（原始结构）
     lastGrade: null,     // 当前题后端返回的 grade
+    favoriteIds: {},     // { [questionId]: true } · 本轮题目的收藏态
   };
 
   // ── 各题型渲染器 ────────────────────────────────────
@@ -184,6 +185,13 @@
     document.getElementById('lives-display').textContent =
       '❤'.repeat(state.lives) + (state.lives < 3 ? '♡'.repeat(3 - state.lives) : '');
 
+    // 同步收藏按钮状态（若页面提供了 #q-fav 元素）
+    var fav = document.getElementById('q-fav');
+    if (fav) {
+      fav.classList.toggle('active', !!state.favoriteIds[q.id]);
+      fav.setAttribute('data-qid', q.id);
+    }
+
     var ol = document.getElementById('options-list');
     ol.innerHTML = '';
     (renderers[q.type] || placeholder)(q, ol);
@@ -316,6 +324,17 @@
       state.tStart = Date.now();
       state.tQuestionStart = Date.now();
       render();
+
+      // 预加载本轮题目的收藏态（失败不影响答题）
+      window.JX.api.get('/api/favorites?limit=500').then(function (items) {
+        (items || []).forEach(function (f) {
+          if (f.questionId) state.favoriteIds[f.questionId] = true;
+        });
+        // 如果当前题已经在收藏列表里，刷新按钮态
+        var q = state.questions[state.qi];
+        var fb = document.getElementById('q-fav');
+        if (q && fb) fb.classList.toggle('active', !!state.favoriteIds[q.id]);
+      }).catch(function () {});
     }).catch(function (err) {
       showEmptyState(sc('加载失败：', '加載失敗：') + (err.message || err));
     });
@@ -358,6 +377,28 @@
   // 暴露少量内部对象供后续单测或 desktop 端复用
   window.JX = window.JX || {};
   window.JX.Quiz = { renderers: renderers, state: state };
+
+  // ── 收藏按钮（页面可选提供 #q-fav；点击切换 POST/DELETE /api/favorites/:qid）──
+  var favBtn = document.getElementById('q-fav');
+  if (favBtn) {
+    favBtn.addEventListener('click', function () {
+      var q = state.questions[state.qi];
+      if (!q || !q.id) return;
+      var on = state.favoriteIds[q.id];
+      favBtn.setAttribute('aria-busy', 'true');
+      var req = on
+        ? window.JX.api.del('/api/favorites/' + encodeURIComponent(q.id))
+        : window.JX.api.post('/api/favorites/' + encodeURIComponent(q.id), {});
+      req.then(function () {
+        state.favoriteIds[q.id] = !on;
+        favBtn.classList.toggle('active', !on);
+      }).catch(function () {
+        // 失败静默；收藏非核心路径，不打断答题
+      }).finally(function () {
+        favBtn.removeAttribute('aria-busy');
+      });
+    });
+  }
 
   document.addEventListener('langchange', render);
   // require-auth 先跑 /me；完成后再加载题目，确保带上 Bearer token

@@ -46,6 +46,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
   background: var(--glass-thick); backdrop-filter: var(--blur);
   border: 1px solid var(--glass-border); border-radius: var(--r-xl);
   padding: var(--sp-5); box-shadow: var(--glass-shadow);
+  position: relative;
 }
 .q-tag {
   display: inline-block; font: var(--text-caption); font-weight: 700;
@@ -55,6 +56,25 @@ body { background: var(--bg-scene); min-height: 100vh; }
 }
 .q-num { font: var(--text-caption); color: var(--ink-4); margin-bottom: var(--sp-2); }
 .q-text { font: var(--text-body-serif); color: var(--ink); line-height: 1.7; }
+
+/* Favorite button (top-right of q-card) */
+.q-fav {
+  position: absolute; top: var(--sp-4); right: var(--sp-4);
+  width: 32px; height: 32px; border-radius: 50%;
+  background: transparent; border: 1px solid var(--border-light);
+  color: var(--ink-4);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.q-fav:hover { border-color: var(--gold-dark); color: var(--gold-dark); }
+.q-fav[aria-busy="true"] { opacity: .5; pointer-events: none; }
+.q-fav.active {
+  background: var(--gold-pale);
+  border-color: var(--gold-dark);
+  color: var(--gold-dark);
+}
+.q-fav.active svg { fill: currentColor; }
 
 /* Options */
 .options { display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -148,6 +168,11 @@ body { background: var(--bg-scene); min-height: 100vh; }
   <div class="quiz-body">
     <div class="q-card">
       <span class="q-tag"><span class="sc">单选题</span><span class="tc">單選題</span></span>
+      <button type="button" class="q-fav" id="q-fav" title="收藏此题" aria-label="收藏此题">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      </button>
       <div class="q-num" id="q-num">Q1</div>
       <div class="q-text" id="q-text"></div>
     </div>
