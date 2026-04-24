@@ -25,6 +25,7 @@
     flipped: false,      // flip 题本张是否已翻面（随 nextQ 重置）
     matchActive: null,   // match 题：当前选中的 left.id（随 nextQ 重置）
     matchRightOrder: null, // match 题：右列展示顺序的 id 列表（shuffle 一次，nextQ 重置）
+    flowActive: null,    // flow 题：当前选中的 item text（随 nextQ 重置）
   };
 
   // ── 各题型渲染器 ────────────────────────────────────
@@ -142,9 +143,112 @@
     container.appendChild(div);
     state.answer = { __placeholder: true };
   }
-  ['flow', 'guided'].forEach(function (t) {
+  ['guided'].forEach(function (t) {
     renderers[t] = placeholder;
   });
+
+  // ── flow（流程拖拽）· 画布 slot 放置 · 点选后点 slot ──
+  // payload: { canvas:{width,height,backgroundImage?}, slots:[{id,x,y}], items:[{text}] }
+  // answer : { placements: { [slotId]: itemText } }
+  // 评分：每个 slot 放对 +1（答对即 placements[slot.id] === slot.correctItem）
+  renderers.flow = function (q, container) {
+    var p = q.payload || {};
+    var canvas = p.canvas || { width: 400, height: 300 };
+    var slots = p.slots || [];
+    var items = p.items || [];
+    if (!slots.length || !items.length) {
+      container.appendChild(document.createElement('div'));
+      return;
+    }
+    if (!state.answer || typeof state.answer.placements !== 'object') {
+      state.answer = { placements: {} };
+    }
+    var placements = state.answer.placements;
+
+    function placedItemTextFor(slotId) { return placements[slotId] || null; }
+
+    function onClickSlot(slotId) {
+      if (state.confirmed) return;
+      if (placements[slotId]) {
+        // 已放：清除
+        delete placements[slotId];
+      } else if (state.flowActive) {
+        // 有激活 item：放上
+        placements[slotId] = state.flowActive;
+        state.flowActive = null;
+      }
+      render();
+    }
+    function onClickItem(text) {
+      if (state.confirmed) return;
+      state.flowActive = (state.flowActive === text) ? null : text;
+      render();
+    }
+
+    // 画布容器（保持画布宽高比，宽度撑满父容器）
+    var canvasWrap = document.createElement('div');
+    canvasWrap.className = 'flow-canvas';
+    canvasWrap.style.aspectRatio = canvas.width + ' / ' + canvas.height;
+    if (canvas.backgroundImage) {
+      canvasWrap.style.backgroundImage = 'url(' + canvas.backgroundImage + ')';
+    }
+
+    slots.forEach(function (s) {
+      var leftPct = (s.x / canvas.width) * 100;
+      var topPct  = (s.y / canvas.height) * 100;
+      var placed = placedItemTextFor(s.id);
+      var node = document.createElement('button');
+      node.type = 'button';
+      node.className = 'flow-slot' + (placed ? ' filled' : '');
+      node.style.left = leftPct + '%';
+      node.style.top  = topPct + '%';
+
+      if (state.confirmed) {
+        // 提交后比对 correctItem（回写的完整 payload）
+        var slotFull = (q.payload.slots || []).find(function (x) { return x.id === s.id; });
+        if (slotFull && placed && placed === slotFull.correctItem) node.classList.add('slot-correct');
+        else if (placed) node.classList.add('slot-wrong');
+      }
+      if (placed) {
+        node.textContent = placed;
+      } else {
+        node.innerHTML = '<span class="flow-slot-hint">?</span>';
+      }
+      node.addEventListener('click', function () { onClickSlot(s.id); });
+      canvasWrap.appendChild(node);
+    });
+
+    container.appendChild(canvasWrap);
+
+    // 提示
+    var hint = document.createElement('p');
+    hint.className = 'sort-hint';
+    var placedCnt = Object.keys(placements).length;
+    hint.innerHTML =
+      '<span class="sc">已放置 ' + placedCnt + ' / ' + slots.length + ' · 先点下方条目，再点画布上的 ? 放置</span>' +
+      '<span class="tc">已放置 ' + placedCnt + ' / ' + slots.length + ' · 先點下方條目，再點畫布上的 ? 放置</span>';
+    container.appendChild(hint);
+
+    // 条目池
+    var pool = document.createElement('div');
+    pool.className = 'flow-pool';
+    items.forEach(function (it) {
+      var text = it.text || '';
+      var placedCount = 0;
+      for (var sid in placements) {
+        if (placements[sid] === text) placedCount++;
+      }
+      var isActive = state.flowActive === text;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'flow-item' + (isActive ? ' active' : '') + (placedCount > 0 ? ' used' : '');
+      btn.innerHTML = escapeHtml(text) +
+        (placedCount > 0 ? '<span class="flow-item-badge">×' + placedCount + '</span>' : '');
+      btn.addEventListener('click', function () { onClickItem(text); });
+      pool.appendChild(btn);
+    });
+    container.appendChild(pool);
+  };
 
   // ── match（连线配对）· 点左 → 点右 成对 ──
   // payload: { left: [{id, text}], right: [{id, text}] }   正确 match 字段在答完后补全
@@ -482,6 +586,11 @@
         var need = ((q2 && q2.payload && q2.payload.left) || []).length;
         return Object.keys(state.answer.pairs || {}).length === need;
       }
+      case 'flow':     {
+        var q3 = state.questions[state.qi];
+        var slots = ((q3 && q3.payload && q3.payload.slots) || []).length;
+        return Object.keys(state.answer.placements || {}).length === slots;
+      }
       default:         return !!state.answer.__placeholder;
     }
   }
@@ -616,6 +725,7 @@
     state.flipped = false;
     state.matchActive = null;
     state.matchRightOrder = null;
+    state.flowActive = null;
     state.tQuestionStart = Date.now();
     render();
   }

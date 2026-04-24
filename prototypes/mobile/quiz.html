@@ -113,6 +113,63 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .quiz-action { padding: var(--sp-3) var(--sp-5) var(--sp-5); }
 @keyframes slideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
 
+/* ── Flow（画布拖拽）───────────────────────────────── */
+.flow-canvas {
+  position: relative; width: 100%;
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  background-size: cover; background-position: center;
+  overflow: hidden;
+}
+.flow-slot {
+  position: absolute; transform: translate(-50%, -50%);
+  min-width: 58px; min-height: 34px; padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--glass-thick); border: 2px dashed var(--saffron-light);
+  color: var(--ink-3); font: var(--text-caption); font-weight: 600;
+  letter-spacing: 1px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--dur) var(--ease);
+}
+.flow-slot:hover { border-color: var(--saffron); background: var(--saffron-pale); color: var(--saffron-dark); }
+.flow-slot-hint { font-weight: 700; font-size: 1rem; opacity: .5; }
+.flow-slot.filled {
+  background: var(--saffron-pale); border-style: solid; border-color: var(--saffron);
+  color: var(--saffron-dark);
+}
+.flow-slot.slot-correct {
+  background: var(--sage-light); border-color: var(--sage); color: var(--sage-dark);
+}
+.flow-slot.slot-wrong {
+  background: var(--crimson-light); border-color: var(--crimson); color: var(--crimson);
+}
+
+.flow-pool {
+  display: flex; flex-wrap: wrap; gap: var(--sp-2);
+  padding: var(--sp-3); margin-top: var(--sp-2);
+  background: rgba(43,34,24,.04);
+  border-radius: var(--r-lg);
+}
+.flow-item {
+  position: relative;
+  padding: 8px 14px; border-radius: var(--r-pill);
+  background: var(--glass); border: 1.5px solid var(--glass-border);
+  font: var(--text-body); color: var(--ink); letter-spacing: .5px;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.flow-item:hover:not(.active) { background: var(--glass-thick); border-color: var(--saffron-light); }
+.flow-item.active {
+  background: var(--saffron-pale); border-color: var(--saffron);
+  box-shadow: 0 0 0 2px var(--saffron-light);
+  color: var(--saffron-dark); font-weight: 700;
+}
+.flow-item.used { opacity: .55; }
+.flow-item-badge {
+  margin-left: 6px; padding: 1px 6px; border-radius: var(--r-pill);
+  background: var(--saffron); color: #fff;
+  font-size: .625rem; font-weight: 700; letter-spacing: .5px;
+}
+
 /* ── Match（连线配对）──────────────────────────────── */
 .match-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);
