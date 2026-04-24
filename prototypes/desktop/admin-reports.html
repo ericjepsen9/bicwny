@@ -15,7 +15,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1280,initial-scale=1">
-<title>觉学 · 审计日志 · 管理员</title>
+<title>觉学 · 举报处理 · 管理员</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
@@ -31,6 +31,7 @@
   background: var(--glass-thick); border: 1px solid var(--glass-border);
   border-radius: var(--r-lg);
 }
+.fchips { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .fchip {
   padding: 5px 14px; border-radius: var(--r-pill);
   font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
@@ -38,70 +39,63 @@
   cursor: pointer; transition: all var(--dur) var(--ease);
 }
 .fchip.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
-.fsearch {
-  flex: 1; min-width: 200px;
-  padding: 6px 12px; border-radius: var(--r-pill);
-  border: 1px solid var(--border); background: #fff;
-  font: var(--text-caption); color: var(--ink); outline: none;
-}
 .fcount { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; margin-left: auto; }
 
 .list-panel {
   background: var(--glass-thick); border: 1px solid var(--glass-border);
   border-radius: var(--r-lg); overflow: hidden;
 }
-table.a-list { width: 100%; border-collapse: collapse; }
-.a-list th, .a-list td {
-  padding: 10px 14px; text-align: left; vertical-align: top;
-  font: var(--text-caption); letter-spacing: .5px;
+.r-item {
+  display: grid;
+  grid-template-columns: 140px 120px 1fr 180px;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
   border-bottom: 1px solid var(--border-light);
+  align-items: flex-start;
 }
-.a-list th { color: var(--ink-3); font-weight: 600; background: rgba(43,34,24,.03); white-space: nowrap; }
-.a-list td { color: var(--ink-2); }
-.a-list tr:last-child td { border-bottom: 0; }
-.a-list tr.expanded { background: rgba(224,120,86,.04); }
-.a-list tr[data-row] { cursor: pointer; }
-.a-list tr[data-row]:hover { background: rgba(224,120,86,.04); }
-
-.action-tag {
-  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+.r-item:last-child { border-bottom: 0; }
+.r-time { font: var(--text-caption); color: var(--ink-3); letter-spacing: .5px; }
+.r-time .when { color: var(--ink-2); }
+.r-reason {
+  display: inline-block; padding: 3px 10px; border-radius: var(--r-pill);
   font-size: .6875rem; font-weight: 600; letter-spacing: 1px;
   background: var(--saffron-pale); color: var(--saffron-dark);
 }
-.action-tag.danger { background: var(--crimson-light); color: var(--crimson); }
-.action-tag.ok     { background: var(--sage-light);     color: var(--sage-dark); }
+.r-reason.wrong_answer    { background: var(--crimson-light); color: var(--crimson); }
+.r-reason.sensitive       { background: #F3D4D1; color: #8B1E17; }
+.r-reason.doctrine_error  { background: var(--gold-pale); color: var(--gold-dark); }
+.r-reason.typo            { background: rgba(43,34,24,.08); color: var(--ink-3); }
+.r-reason.other           { background: var(--saffron-pale); color: var(--saffron-dark); }
 
-.detail-row td {
-  padding: 0 14px 12px;
-  background: rgba(43,34,24,.03);
-}
-.detail-diff {
-  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);
-  padding: var(--sp-3); border-radius: var(--r);
-  background: #fff; border: 1px solid var(--border-light);
+.r-detail { font: var(--text-caption); color: var(--ink-2); letter-spacing: .5px; line-height: 1.7; }
+.r-detail .qid {
   font-family: 'SF Mono', Consolas, monospace; font-size: .75rem;
+  color: var(--ink-3); background: rgba(43,34,24,.05);
+  padding: 2px 8px; border-radius: var(--r-sm); cursor: pointer;
 }
-.detail-diff h5 {
-  font-family: var(--font-sans); font-weight: 700; font-size: .6875rem;
-  letter-spacing: 1.5px; color: var(--ink-3); margin-bottom: 6px;
+.r-detail .qid:hover { background: var(--saffron-pale); color: var(--saffron-dark); }
+.r-detail .qtext {
+  display: block; margin-top: 8px; padding: 10px 12px;
+  background: #fff; border: 1px solid var(--border-light); border-radius: var(--r-sm);
+  font: var(--text-body); color: var(--ink); letter-spacing: .5px;
 }
-.detail-diff pre {
-  white-space: pre-wrap; word-break: break-word;
-  color: var(--ink); font-size: .75rem; line-height: 1.5;
+.r-detail .note { margin-top: 6px; font-style: italic; color: var(--ink-3); }
+
+.r-actions { display: flex; gap: var(--sp-2); align-items: flex-start; justify-content: flex-end; }
+.r-btn {
+  padding: 6px 14px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 700; letter-spacing: 1px;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+  border: 1px solid;
 }
-.detail-diff .before h5 { color: var(--crimson); }
-.detail-diff .after  h5 { color: var(--sage-dark); }
+.r-btn.accept { background: var(--sage-light); color: var(--sage-dark); border-color: var(--sage); }
+.r-btn.accept:hover { background: var(--sage); color: #fff; }
+.r-btn.reject { background: transparent; color: var(--ink-3); border-color: var(--border); }
+.r-btn.reject:hover { color: var(--crimson); border-color: var(--crimson); }
+.r-btn[aria-busy="true"] { opacity: .5; pointer-events: none; }
 
 .empty-state { padding: var(--sp-8) var(--sp-5); text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px; }
 .err-state { color: var(--crimson); }
-
-.load-more {
-  width: 100%; padding: 12px; border: 0; border-top: 1px solid var(--border-light);
-  background: rgba(255,255,255,.5); color: var(--saffron-dark);
-  font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer;
-}
-.load-more:hover { background: var(--saffron-pale); }
-.load-more[disabled] { opacity: .5; cursor: default; }
 </style>
 <script src="../shared/lang.js"></script>
 <script src="../shared/config.js"></script>
@@ -141,7 +135,7 @@ table.a-list { width: 100%; border-collapse: collapse; }
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         <span><span class="sc">数据总览</span><span class="tc">數據總覽</span></span>
       </a>
-      <a class="nav-item active" href="admin-audit.html">
+      <a class="nav-item" href="admin-audit.html">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span><span class="sc">审计日志</span><span class="tc">審計日誌</span></span>
       </a>
@@ -155,7 +149,7 @@ table.a-list { width: 100%; border-collapse: collapse; }
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span><span class="sc">题目审核</span><span class="tc">題目審核</span></span>
       </a>
-      <a class="nav-item" href="admin-reports.html">
+      <a class="nav-item active" href="admin-reports.html">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         <span><span class="sc">举报处理</span><span class="tc">舉報處理</span></span>
       </a>
@@ -181,8 +175,8 @@ table.a-list { width: 100%; border-collapse: collapse; }
   <main class="main">
     <div class="top-bar">
       <div>
-        <h1 class="page-title"><span class="sc">审计日志</span><span class="tc">審計日誌</span></h1>
-        <p class="page-sub"><span class="sc">按时间倒序 · 游标分页 · 展开查看 before / after 差异</span><span class="tc">按時間倒序 · 游標分頁 · 展開查看 before / after 差異</span></p>
+        <h1 class="page-title"><span class="sc">举报处理</span><span class="tc">舉報處理</span></h1>
+        <p class="page-sub"><span class="sc">学员上报的题目问题 · 按 reason 过滤 · 处理会写 AuditLog</span><span class="tc">學員上報的題目問題 · 按 reason 過濾 · 處理會寫 AuditLog</span></p>
       </div>
       <div class="top-actions">
         <button class="lang-btn" onclick="toggleLang()">繁</button>
@@ -190,17 +184,14 @@ table.a-list { width: 100%; border-collapse: collapse; }
     </div>
 
     <div class="filter-bar">
-      <div class="fchips" id="action-chips" style="display:flex;gap:var(--sp-2);">
-        <span class="fchip active" data-action=""><span class="sc">全部动作</span><span class="tc">全部動作</span></span>
-        <span class="fchip" data-action="user.updateRole">改角色</span>
-        <span class="fchip" data-action="user.deactivate">停用</span>
-        <span class="fchip" data-action="user.reactivate"><span class="sc">启用</span><span class="tc">啟用</span></span>
-        <span class="fchip" data-action="class.archive"><span class="sc">归档班级</span><span class="tc">歸檔班級</span></span>
-        <span class="fchip" data-action="question.approve"><span class="sc">通过题目</span><span class="tc">通過題目</span></span>
-        <span class="fchip" data-action="question.reject"><span class="sc">驳回题目</span><span class="tc">駁回題目</span></span>
+      <div class="fchips" id="reason-chips">
+        <span class="fchip active" data-reason=""><span class="sc">全部</span><span class="tc">全部</span></span>
+        <span class="fchip" data-reason="wrong_answer"><span class="sc">答案错误</span><span class="tc">答案錯誤</span></span>
+        <span class="fchip" data-reason="doctrine_error"><span class="sc">教义错误</span><span class="tc">教義錯誤</span></span>
+        <span class="fchip" data-reason="sensitive"><span class="sc">涉敏</span><span class="tc">涉敏</span></span>
+        <span class="fchip" data-reason="typo"><span class="sc">错别字</span><span class="tc">錯別字</span></span>
+        <span class="fchip" data-reason="other"><span class="sc">其他</span><span class="tc">其他</span></span>
       </div>
-      <input class="fsearch" id="search-input" type="search"
-        data-ph-sc="按 adminId / targetId 过滤" data-ph-tc="按 adminId / targetId 過濾" placeholder="按 adminId / targetId 过滤">
       <span class="fcount" id="filter-count">—</span>
     </div>
 
@@ -208,28 +199,30 @@ table.a-list { width: 100%; border-collapse: collapse; }
       <div id="list-body">
         <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
       </div>
-      <button id="load-more" class="load-more" style="display:none;">
-        <span class="sc">加载更多</span><span class="tc">加載更多</span>
-      </button>
     </div>
   </main>
 </div>
 
 <script>
-// admin-audit · GET /api/admin/audit
-// 过滤：action chip · adminId / targetId 搜索（简单 contains 前端过滤不做）
-// 展开：点行切换 before/after JSON diff
+// admin-reports · GET /api/admin/reports/pending
+// POST /api/admin/reports/:id/handle { decision, note }
+//   accept = 举报成立（题目会被平台侧后续处理 / 下架）
+//   reject = 举报不成立
 var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
 
 var state = {
-  action: '',
-  searchType: null, // 'adminId' | 'targetId' · 从搜索值猜
-  searchVal: '',
-  limit: 50,
-  cursor: null,
+  reason: '',
   items: [],
-  hasMore: false,
-  expandedId: null,
+  // 缓存已加载的题目内容，避免重复拉 /api/questions/:id
+  qCache: {},
+};
+
+var REASON_LABELS = {
+  wrong_answer:   ['答案错误', '答案錯誤'],
+  doctrine_error: ['教义错误', '教義錯誤'],
+  sensitive:      ['涉敏', '涉敏'],
+  typo:           ['错别字', '錯別字'],
+  other:          ['其他', '其他'],
 };
 
 function fmtTime(iso) {
@@ -239,123 +232,118 @@ function fmtTime(iso) {
   return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
     pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
-
-function actionClass(a) {
-  if (/deactivate|reject|archive|delete/i.test(a)) return 'danger';
-  if (/activate|approve|restore/i.test(a)) return 'ok';
-  return '';
-}
-
-function buildQS() {
-  var qs = ['limit=' + state.limit];
-  if (state.action) qs.push('action=' + encodeURIComponent(state.action));
-  if (state.cursor) qs.push('cursor=' + encodeURIComponent(state.cursor));
-  if (state.searchVal) {
-    // 用户输入较短 → 默认当 targetId；包含 cmk 开头可能是 adminId cuid
-    if (state.searchVal.length > 10) qs.push('adminId=' + encodeURIComponent(state.searchVal));
-    else qs.push('targetId=' + encodeURIComponent(state.searchVal));
-  }
-  return qs.join('&');
+function relAge(iso) {
+  if (!iso) return '';
+  var diff = Date.now() - new Date(iso).getTime();
+  var h = Math.floor(diff / 3600000);
+  if (h < 1) return sc('不到 1 小时', '不到 1 小時');
+  if (h < 24) return h + sc(' 小时前', ' 小時前');
+  return Math.floor(h / 24) + sc(' 天前', ' 天前');
 }
 
 function render() {
   var body = document.getElementById('list-body');
-  var loadMore = document.getElementById('load-more');
+  document.getElementById('filter-count').textContent = state.items.length + sc(' 条待处理', ' 條待處理');
 
   if (!state.items.length) {
     body.innerHTML = '<div class="empty-state">' +
-      escapeHtml(sc('暂无审计记录', '暫無審計記錄')) + '</div>';
-    loadMore.style.display = 'none';
-    document.getElementById('filter-count').textContent = '0';
+      escapeHtml(sc('暂无待处理举报', '暫無待處理舉報')) + '</div>';
     return;
   }
 
-  var rows = state.items.map(function (it) {
-    var expanded = state.expandedId === it.id;
-    var detailRow = '';
-    if (expanded) {
-      var beforeStr = JSON.stringify(it.before || {}, null, 2);
-      var afterStr = JSON.stringify(it.after || {}, null, 2);
-      detailRow =
-        '<tr class="detail-row"><td colspan="5">' +
-          '<div class="detail-diff">' +
-            '<div class="before"><h5>BEFORE</h5><pre>' + escapeHtml(beforeStr) + '</pre></div>' +
-            '<div class="after"><h5>AFTER</h5><pre>' + escapeHtml(afterStr) + '</pre></div>' +
-          '</div>' +
-        '</td></tr>';
-    }
+  body.innerHTML = state.items.map(function (r) {
+    var label = REASON_LABELS[r.reason] || [r.reason, r.reason];
+    var qText = state.qCache[r.questionId];
     return ''
-      + '<tr data-row data-id="' + escapeHtml(it.id) + '"' + (expanded ? ' class="expanded"' : '') + '>'
-      +   '<td style="white-space:nowrap;color:var(--ink-3);">' + fmtTime(it.timestamp) + '</td>'
-      +   '<td style="white-space:nowrap;color:var(--ink-3);font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;">' + escapeHtml(it.adminId || '—') + '</td>'
-      +   '<td><span class="action-tag ' + actionClass(it.action) + '">' + escapeHtml(it.action || '—') + '</span></td>'
-      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;">'
-      +     '<span style="color:var(--ink-4);">' + escapeHtml(it.targetType || '—') + ':</span> '
-      +     escapeHtml(it.targetId || '—')
-      +   '</td>'
-      +   '<td style="width:30px;color:var(--ink-4);">' + (expanded ? '▾' : '▸') + '</td>'
-      + '</tr>'
-      + detailRow;
-  });
+      + '<div class="r-item" data-rid="' + escapeHtml(r.id) + '">'
+      +   '<div class="r-time">'
+      +     '<div class="when">' + fmtTime(r.createdAt) + '</div>'
+      +     '<div>' + relAge(r.createdAt) + '</div>'
+      +   '</div>'
+      +   '<div><span class="r-reason ' + escapeHtml(r.reason) + '">' + label[0] + '</span></div>'
+      +   '<div class="r-detail">'
+      +     (r.details ? '<div>' + escapeHtml(r.details) + '</div>' : '<div style="color:var(--ink-4);">' + sc('（无补充说明）', '（無補充說明）') + '</div>')
+      +     '<div style="margin-top:6px;">'
+      +       sc('题目 ', '題目 ') + '<span class="qid" data-qid="' + escapeHtml(r.questionId) + '">' + escapeHtml(r.questionId) + '</span>'
+      +     '</div>'
+      +     (qText
+        ? '<div class="qtext">' + escapeHtml(qText) + '</div>'
+        : '')
+      +     '<div class="note">' + sc('举报人 ', '舉報人 ') + escapeHtml(r.userId || '—') + '</div>'
+      +   '</div>'
+      +   '<div class="r-actions">'
+      +     '<button class="r-btn accept" data-action="accept" data-rid="' + escapeHtml(r.id) + '">'
+      +       sc('✓ 成立', '✓ 成立') + '</button>'
+      +     '<button class="r-btn reject" data-action="reject" data-rid="' + escapeHtml(r.id) + '">'
+      +       sc('✗ 不成立', '✗ 不成立') + '</button>'
+      +   '</div>'
+      + '</div>';
+  }).join('');
 
-  body.innerHTML =
-    '<table class="a-list"><thead><tr>' +
-      '<th><span class="sc">时间</span><span class="tc">時間</span></th>' +
-      '<th>Admin ID</th>' +
-      '<th><span class="sc">动作</span><span class="tc">動作</span></th>' +
-      '<th><span class="sc">目标</span><span class="tc">目標</span></th>' +
-      '<th></th>' +
-    '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
-
-  body.querySelectorAll('tr[data-row]').forEach(function (tr) {
-    tr.addEventListener('click', function () {
-      var id = tr.getAttribute('data-id');
-      state.expandedId = (state.expandedId === id) ? null : id;
-      render();
+  // 点 qid → 拉题目详情并注入
+  body.querySelectorAll('.qid[data-qid]').forEach(function (el) {
+    el.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var qid = el.getAttribute('data-qid');
+      if (state.qCache[qid]) return; // 已展开
+      window.JX.api.get('/api/questions/' + encodeURIComponent(qid)).then(function (q) {
+        state.qCache[qid] = q.questionText || '(无题干)';
+        render();
+      }).catch(function (err) {
+        state.qCache[qid] = sc('（题目加载失败：', '（題目載入失敗：') + ((err && err.message) || '') + '）';
+        render();
+      });
     });
   });
 
-  document.getElementById('filter-count').textContent = state.items.length + (state.hasMore ? '+' : '');
-  loadMore.style.display = state.hasMore ? '' : 'none';
+  // 处理按钮
+  body.querySelectorAll('.r-btn[data-action]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (btn.getAttribute('aria-busy') === 'true') return;
+      var rid = btn.getAttribute('data-rid');
+      var action = btn.getAttribute('data-action');
+      var noteMsg = action === 'accept'
+        ? sc('可选 · 备注(写给自己或下一位 admin)：', '可選 · 備註(寫給自己或下一位 admin)：')
+        : sc('可选 · 驳回原因：', '可選 · 駁回原因：');
+      var note = prompt(noteMsg) || '';
+      btn.setAttribute('aria-busy', 'true');
+      window.JX.api.post('/api/admin/reports/' + encodeURIComponent(rid) + '/handle', {
+        decision: action, note: note,
+      }).then(function () {
+        // 本地移除（乐观）+ 重新拉
+        state.items = state.items.filter(function (r) { return r.id !== rid; });
+        render();
+      }).catch(function (err) {
+        alert(sc('处理失败：', '處理失敗：') + ((err && err.message) || err));
+        btn.removeAttribute('aria-busy');
+      });
+    });
+  });
 }
 
-function fetchPage(append) {
-  window.JX.api.get('/api/admin/audit?' + buildQS()).then(function (data) {
-    var batch = data || [];
-    state.items = append ? state.items.concat(batch) : batch;
-    state.hasMore = batch.length === state.limit;
-    state.cursor = state.hasMore ? batch[batch.length - 1].id : null;
+function loadReports() {
+  var qs = [];
+  if (state.reason) qs.push('reason=' + encodeURIComponent(state.reason));
+  qs.push('limit=200');
+  window.JX.api.get('/api/admin/reports/pending?' + qs.join('&')).then(function (data) {
+    state.items = data || [];
     render();
   }).catch(function (err) {
     document.getElementById('list-body').innerHTML =
-      '<div class="empty-state err-state">' + escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
+      '<div class="empty-state err-state">' +
+      escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
   });
 }
 
-// 筛选 chip
-document.querySelectorAll('.fchip').forEach(function (chip) {
+// Reason chips
+document.querySelectorAll('.fchip[data-reason]').forEach(function (chip) {
   chip.addEventListener('click', function () {
-    document.querySelectorAll('.fchip').forEach(function (c) { c.classList.remove('active'); });
+    document.querySelectorAll('.fchip[data-reason]').forEach(function (c) { c.classList.remove('active'); });
     chip.classList.add('active');
-    state.action = chip.getAttribute('data-action') || '';
-    state.cursor = null;
-    fetchPage(false);
+    state.reason = chip.getAttribute('data-reason') || '';
+    loadReports();
   });
 });
-
-// 搜索 · 简单 debounce
-var searchTimer;
-document.getElementById('search-input').addEventListener('input', function (e) {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(function () {
-    state.searchVal = (e.target.value || '').trim();
-    state.cursor = null;
-    fetchPage(false);
-  }, 300);
-});
-
-// 加载更多
-document.getElementById('load-more').addEventListener('click', function () { fetchPage(true); });
 
 // 退出登录
 document.getElementById('btn-logout').addEventListener('click', function () {
@@ -363,8 +351,8 @@ document.getElementById('btn-logout').addEventListener('click', function () {
 });
 
 // 初始加载
-document.addEventListener('jx:user-ready', function () { fetchPage(false); });
-if (window.JX && window.JX.user) fetchPage(false);
+document.addEventListener('jx:user-ready', loadReports);
+if (window.JX && window.JX.user) loadReports();
 </script>
 </body>
 </html>
