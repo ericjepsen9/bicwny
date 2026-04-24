@@ -184,6 +184,23 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
         </svg>
       </a>
 
+      <!-- 未加入班级的引导卡（默认隐藏，仅当 /api/my/classes 返回空时显示）-->
+      <a href="join-class.html" class="class-card glass-card" id="join-cta" title="加入班级" style="display:none;">
+        <div class="class-icon-sm">
+          <svg width="16" height="16" fill="none" stroke="#E07856" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </div>
+        <div class="class-text">
+          <p class="class-name"><span class="sc">加入班级</span><span class="tc">加入班級</span></p>
+          <p class="class-notice-line"><span class="dot"></span><span><span class="sc">输入辅导员提供的 6 位邀请码</span><span class="tc">輸入輔導員提供的 6 位邀請碼</span></span></p>
+        </div>
+        <svg class="class-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </a>
+
       <!-- 当前法本卡（真数据）-->
       <div class="course-card glass-card-thick" id="course-card">
         <p class="course-label"><span class="sc">当前法本</span><span class="tc">當前法本</span></p>
@@ -326,10 +343,13 @@ function renderGreeting() {
 
 function renderClassCard(memberships) {
   var card = document.getElementById('class-card');
+  var cta  = document.getElementById('join-cta');
   if (!memberships || !memberships.length) {
     card.style.display = 'none';
+    if (cta) cta.style.display = '';
     return;
   }
+  if (cta) cta.style.display = 'none';
   var m = memberships[0];
   var cls = m.class || {};
   card.style.display = '';
