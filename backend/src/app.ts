@@ -27,6 +27,7 @@ import { healthRoutes } from './modules/health/routes.js';
 import { learningRoutes } from './modules/learning/routes.js';
 import { llmAdminRoutes } from './modules/llm/admin.routes.js';
 import { llmScenarioAdminRoutes } from './modules/llm/scenario.admin.routes.js';
+import { achievementsRoutes } from './modules/achievements/routes.js';
 import { notificationsRoutes } from './modules/notifications/routes.js';
 import { adminQuestionRoutes } from './modules/questions/admin.routes.js';
 import { coachQuestionRoutes } from './modules/questions/coach.routes.js';
@@ -85,6 +86,8 @@ export async function buildApp(): Promise<FastifyInstance> {
         { name: 'Classes', description: '班级与成员' },
         { name: 'Coach', description: '辅导员侧 CRUD + LLM 造题' },
         { name: 'Admin', description: '管理员审核 / 用户 / 班级 / 大盘 / LLM 管理' },
+        { name: 'Notifications', description: '本人站内通知' },
+        { name: 'Achievements', description: '本人徽章墙（从答题数据派生）' },
         { name: 'Health', description: '健康检查' },
       ],
       components: {
@@ -203,6 +206,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(reportsRoutes);
   await app.register(sm2Routes);
   await app.register(notificationsRoutes);
+  await app.register(achievementsRoutes);
 
   return app;
 }
