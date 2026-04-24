@@ -245,7 +245,13 @@ document.getElementById('screen-login').addEventListener('submit', function (ev)
   window.JX.api.post('/api/auth/login', { email: email, password: password }, { noAuth: true })
     .then(function (data) {
       window.JX.api.setTokens(data);
-      location.replace('home.html');
+      // 学员未完成首次引导 → onboarding.html · 已完成或非学员 → home.html
+      var u = data && data.user;
+      if (u && u.role === 'student' && !u.hasOnboarded) {
+        location.replace('onboarding.html');
+      } else {
+        location.replace('home.html');
+      }
     })
     .catch(function (err) {
       setMsg('login-msg', 'error', localizedError(err));
@@ -275,7 +281,8 @@ document.getElementById('screen-register').addEventListener('submit', function (
   window.JX.api.post('/api/auth/register', body, { noAuth: true })
     .then(function (data) {
       window.JX.api.setTokens(data);
-      location.replace('home.html');
+      // 新注册账号 hasOnboarded=false · 直接进引导页
+      location.replace('onboarding.html');
     })
     .catch(function (err) {
       setMsg('reg-msg', 'error', localizedError(err));

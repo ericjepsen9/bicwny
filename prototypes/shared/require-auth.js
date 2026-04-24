@@ -18,6 +18,7 @@
 
   var path = location.pathname.toLowerCase();
   if (/\/auth\.html$/.test(path)) return;
+  var isOnboardingPage = /\/onboarding\.html$/.test(path);
 
   function pathRelative(target) {
     var base = location.pathname.replace(/[^/]*$/, '');
@@ -28,6 +29,11 @@
     // 桌面页跳到 ../mobile/home.html；移动页同目录
     if (/\/desktop\//.test(path)) location.replace('../mobile/home.html');
     else location.replace(pathRelative('home.html'));
+  }
+  function redirectToOnboarding() {
+    // 桌面页跳到 ../mobile/onboarding.html；移动页同目录
+    if (/\/desktop\//.test(path)) location.replace('../mobile/onboarding.html');
+    else location.replace(pathRelative('onboarding.html'));
   }
 
   if (!api.isAuthed()) { redirectToAuth(); return; }
@@ -82,6 +88,16 @@
   api.get('/api/auth/me').then(
     function (user) {
       if (requiredRoles.length && requiredRoles.indexOf(user.role) < 0) {
+        redirectToMobileHome();
+        return;
+      }
+      // 首次登录引导守卫：未完成 onboarding 强制跳引导页；已完成进引导页则回首页
+      // 仅对 student 生效（coach/admin 不走移动端引导流程）
+      if (user.role === 'student') {
+        if (!user.hasOnboarded && !isOnboardingPage) { redirectToOnboarding(); return; }
+        if (user.hasOnboarded && isOnboardingPage)   { redirectToMobileHome(); return; }
+      } else if (isOnboardingPage) {
+        // 非 student 误入引导页直接回首页
         redirectToMobileHome();
         return;
       }
