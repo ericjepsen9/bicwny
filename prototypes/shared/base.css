@@ -39,8 +39,8 @@ input, textarea, select { font: inherit; }
   background: var(--bg-scene);
   overflow: visible; /* 允许 position:fixed 的 tab-bar 正常展示在视口底部 */
   position: relative;
-  /* iOS 刘海 / 安卓状态栏 · 顶部留出安全边距；无安全区时保底 12px 避免内容贴浏览器地址栏 */
-  padding-top: max(env(safe-area-inset-top), 12px);
+  /* iOS 刘海 / 安卓状态栏 · 顶部留出安全边距；无安全区时保底 16px 避免内容贴浏览器地址栏 */
+  padding-top: max(env(safe-area-inset-top), 16px);
 }
 /* 原型样机模式恢复无 safe-area padding（它是纸面样机，没有真 status bar）*/
 body.prototype-frame .phone { padding-top: 0; overflow: hidden; }

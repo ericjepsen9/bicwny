@@ -412,7 +412,7 @@ body.prototype-frame:has(.tab-bar) .phone { padding-bottom: 0; }
 /* ── Mobile top navigation bar ──────────────── */
 .top-nav {
   display: flex; align-items: center; gap: var(--sp-3);
-  padding: 0 var(--sp-5) var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
 }
 .nav-btn, .nav-back, .nav-action {
   width: 34px; height: 34px; border-radius: var(--r-sm);
