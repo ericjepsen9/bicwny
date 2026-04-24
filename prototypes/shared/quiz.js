@@ -143,9 +143,92 @@
     container.appendChild(div);
     state.answer = { __placeholder: true };
   }
-  ['guided'].forEach(function (t) {
-    renderers[t] = placeholder;
-  });
+  // ── guided（引导分步）· 多步 textarea，整题提交 · 每步 AI 评分 ──
+  // payload: { finalQuestion, steps: [{stepNum, prompt, hint?}] }（keyPoints 公开视图剥除）
+  // answer : { stepAnswers: { [stepNum: string]: string } }
+  // grade.perStep: [{stepNum, score, hits[], missed[]}] — 仅 confirmed 后出现
+  renderers.guided = function (q, container) {
+    var p = q.payload || {};
+    var steps = p.steps || [];
+    if (!steps.length) {
+      container.appendChild(document.createElement('div'));
+      return;
+    }
+    if (!state.answer || typeof state.answer.stepAnswers !== 'object') {
+      state.answer = { stepAnswers: {} };
+    }
+    var stepAnswers = state.answer.stepAnswers;
+
+    // 最终问题提示（置顶，告诉用户"最终要回答的是什么"）
+    if (p.finalQuestion) {
+      var fq = document.createElement('div');
+      fq.className = 'guided-final';
+      fq.innerHTML =
+        '<span class="guided-final-label"><span class="sc">最终问题</span><span class="tc">最終問題</span></span>' +
+        '<p class="guided-final-text">' + escapeHtml(p.finalQuestion) + '</p>';
+      container.appendChild(fq);
+    }
+
+    // 每步一个卡片
+    steps.forEach(function (s, i) {
+      var key = String(s.stepNum);
+      var text = stepAnswers[key] || '';
+      var step = document.createElement('div');
+      step.className = 'guided-step';
+      if (state.confirmed) step.classList.add('confirmed');
+
+      // 提交后的分数徽章
+      var perStep = (state.lastGrade && state.lastGrade.perStep) || [];
+      var result = perStep.find(function (r) { return r.stepNum === s.stepNum; });
+      var scoreBadge = '';
+      if (state.confirmed && result) {
+        var cls = result.score >= 80 ? 'ok' : (result.score >= 60 ? 'mid' : 'bad');
+        scoreBadge = '<span class="guided-score guided-score-' + cls + '">' + result.score + '</span>';
+      }
+
+      step.innerHTML =
+        '<div class="guided-step-head">' +
+          '<span class="guided-step-num">' + (i + 1) + '</span>' +
+          '<p class="guided-step-prompt">' + escapeHtml(s.prompt) + '</p>' +
+          scoreBadge +
+        '</div>' +
+        (s.hint ? '<p class="guided-step-hint">· ' + escapeHtml(s.hint) + '</p>' : '');
+
+      var ta = document.createElement('textarea');
+      ta.className = 'input-field guided-step-input';
+      ta.rows = 3;
+      ta.placeholder = window.JX.sc('请在此作答…', '請在此作答…');
+      ta.value = text;
+      if (state.confirmed) ta.disabled = true;
+      ta.addEventListener('input', function () {
+        stepAnswers[key] = ta.value;
+        // 只更新 action-btn 可用状态；不整页 render 避免光标丢失
+        var btn = document.getElementById('action-btn');
+        btn.disabled = !canSubmit();
+      });
+      step.appendChild(ta);
+
+      // 提交后附命中 / 遗漏
+      if (state.confirmed && result) {
+        if (result.hits && result.hits.length) {
+          var hitsEl = document.createElement('p');
+          hitsEl.className = 'guided-kp guided-hits';
+          hitsEl.innerHTML = '<span class="sc">✓ 命中：</span><span class="tc">✓ 命中：</span>' +
+            result.hits.map(escapeHtml).join('、');
+          step.appendChild(hitsEl);
+        }
+        if (result.missed && result.missed.length) {
+          var missEl = document.createElement('p');
+          missEl.className = 'guided-kp guided-missed';
+          missEl.innerHTML = '<span class="sc">✗ 遗漏：</span><span class="tc">✗ 遺漏：</span>' +
+            result.missed.map(escapeHtml).join('、');
+          step.appendChild(missEl);
+        }
+      }
+
+      container.appendChild(step);
+    });
+  };
 
   // ── flow（流程拖拽）· 画布 slot 放置 · 点选后点 slot ──
   // payload: { canvas:{width,height,backgroundImage?}, slots:[{id,x,y}], items:[{text}] }
@@ -590,6 +673,15 @@
         var q3 = state.questions[state.qi];
         var slots = ((q3 && q3.payload && q3.payload.slots) || []).length;
         return Object.keys(state.answer.placements || {}).length === slots;
+      }
+      case 'guided':   {
+        var q4 = state.questions[state.qi];
+        var steps4 = (q4 && q4.payload && q4.payload.steps) || [];
+        if (steps4.length === 0) return false;
+        var ans = state.answer.stepAnswers || {};
+        return steps4.every(function (s) {
+          return (ans[String(s.stepNum)] || '').trim().length > 0;
+        });
       }
       default:         return !!state.answer.__placeholder;
     }

@@ -113,6 +113,67 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .quiz-action { padding: var(--sp-3) var(--sp-5) var(--sp-5); }
 @keyframes slideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
 
+/* ── Guided（引导分步）────────────────────────────── */
+.guided-final {
+  background: var(--saffron-pale); border: 1px solid var(--saffron-light);
+  border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-2);
+}
+.guided-final-label {
+  font: var(--text-caption); font-weight: 700; letter-spacing: 2px;
+  color: var(--saffron-dark); text-transform: uppercase;
+}
+.guided-final-text {
+  margin-top: 4px;
+  font: var(--text-body-serif); font-size: .9375rem; line-height: 1.7;
+  letter-spacing: .5px; color: var(--ink);
+}
+.guided-step {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-2);
+}
+.guided-step.confirmed { border-color: var(--border); }
+.guided-step-head {
+  display: flex; align-items: center; gap: var(--sp-2);
+}
+.guided-step-num {
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  background: var(--saffron); color: #fff;
+  font-size: .75rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.guided-step-prompt {
+  flex: 1; font: var(--text-body); color: var(--ink);
+  letter-spacing: .5px; line-height: 1.5; font-weight: 600;
+}
+.guided-step-hint {
+  font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px;
+  line-height: 1.6; padding-left: 32px;
+}
+.guided-step-input {
+  width: 100%; resize: vertical; min-height: 72px; font: var(--text-body);
+}
+.guided-step-input:disabled { opacity: .85; background: rgba(43,34,24,.03); }
+
+.guided-score {
+  min-width: 36px; height: 24px; padding: 0 8px;
+  border-radius: var(--r-pill);
+  font-size: .75rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.guided-score-ok  { background: var(--sage-dark); color: #fff; }
+.guided-score-mid { background: var(--gold-dark); color: #fff; }
+.guided-score-bad { background: var(--crimson); color: #fff; }
+
+.guided-kp {
+  font: var(--text-caption); letter-spacing: 1px;
+  line-height: 1.7; padding: 6px 10px; border-radius: var(--r);
+}
+.guided-hits   { color: var(--sage-dark);   background: rgba(125,154,108,.10); }
+.guided-missed { color: var(--crimson);     background: rgba(192,57,43,.08); }
+
 /* ── Flow（画布拖拽）───────────────────────────────── */
 .flow-canvas {
   position: relative; width: 100%;
