@@ -47,6 +47,35 @@
   background: var(--glass-thick); border: 1px solid var(--glass-border);
   border-radius: var(--r-lg); overflow: hidden;
 }
+table.s-list { width: 100%; border-collapse: collapse; }
+.s-list th, .s-list td {
+  padding: 10px 14px; text-align: left;
+  font: var(--text-caption); letter-spacing: .5px;
+  border-bottom: 1px solid var(--border-light);
+}
+.s-list th { color: var(--ink-3); font-weight: 600; background: rgba(43,34,24,.03); }
+.s-list td { color: var(--ink-2); }
+.s-list tr:last-child td { border-bottom: 0; }
+.s-list tr[data-uid] { cursor: pointer; transition: background var(--dur) var(--ease); }
+.s-list tr[data-uid]:hover { background: rgba(212,165,116,.08); }
+
+.s-user { display: flex; align-items: center; gap: 10px; }
+.s-av {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: .8125rem;
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+}
+.s-av.coach { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); }
+.s-name { font-weight: 600; color: var(--ink); }
+.s-email { color: var(--ink-4); font-size: .75rem; margin-top: 2px; }
+.s-role {
+  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: .6875rem; letter-spacing: 1px; font-weight: 600;
+}
+.s-role.coach   { background: var(--gold-pale);      color: var(--gold-dark); }
+.s-role.student { background: rgba(43,34,24,.06);    color: var(--ink-3); }
+
 .empty-state { padding: var(--sp-8) var(--sp-5); text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px; }
 .err-state { color: var(--crimson); }
 </style>
@@ -172,11 +201,104 @@ function updateTitle() {
   $('class-title').textContent = name;
 }
 
+function fmtDate(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+function relTime(iso) {
+  if (!iso) return sc('从未登录', '從未登入');
+  var diff = Date.now() - new Date(iso).getTime();
+  var d = Math.floor(diff / 86400000);
+  if (d < 1) {
+    var h = Math.floor(diff / 3600000);
+    if (h < 1) return sc('刚刚', '剛剛');
+    return h + sc(' 小时前', ' 小時前');
+  }
+  if (d < 30) return d + sc(' 天前', ' 天前');
+  return Math.floor(d / 30) + sc(' 个月前', ' 個月前');
+}
+
+function avatarInitial(u) {
+  var n = u.dharmaName || u.email || '?';
+  for (var i = 0; i < n.length; i++) {
+    var c = n.charAt(i);
+    if (/\S/.test(c)) return c;
+  }
+  return '·';
+}
+
+function renderStudents(members) {
+  if (!members || !members.length) {
+    $('list-body').innerHTML = '<div class="empty-state">' +
+      escapeHtml(sc('该班级暂无成员', '該班級暫無成員')) + '</div>';
+    $('cls-count').textContent = '0';
+    return;
+  }
+
+  // 先按 role 排（coach 在前）、再按 joinedAt 正序（后端已排好，保底）
+  var coaches = members.filter(function (m) { return m.role === 'coach'; });
+  var students = members.filter(function (m) { return m.role === 'student'; });
+  var sorted = coaches.concat(students);
+
+  var rows = sorted.map(function (m) {
+    var u = m.user || {};
+    var isCoach = m.role === 'coach';
+    var roleLabel = isCoach ? [sc('辅导员', '輔導員')] : [sc('学员', '學員')];
+    return ''
+      + '<tr data-uid="' + escapeHtml(u.id || '') + '" data-role="' + escapeHtml(m.role) + '">'
+      +   '<td>'
+      +     '<div class="s-user">'
+      +       '<div class="s-av' + (isCoach ? ' coach' : '') + '">' + escapeHtml(avatarInitial(u)) + '</div>'
+      +       '<div>'
+      +         '<div class="s-name">' + escapeHtml(u.dharmaName || u.email || '—') + '</div>'
+      +         (u.email ? '<div class="s-email">' + escapeHtml(u.email) + '</div>' : '')
+      +       '</div>'
+      +     '</div>'
+      +   '</td>'
+      +   '<td><span class="s-role ' + escapeHtml(m.role) + '">' + roleLabel[0] + '</span></td>'
+      +   '<td>' + fmtDate(m.joinedAt) + '</td>'
+      +   '<td style="color:var(--ink-3);">' + relTime(u.lastLoginAt) + '</td>'
+      +   '<td style="width:30px;text-align:right;color:var(--ink-4);">›</td>'
+      + '</tr>';
+  }).join('');
+
+  $('list-body').innerHTML =
+    '<table class="s-list"><thead><tr>' +
+      '<th><span class="sc">成员</span><span class="tc">成員</span></th>' +
+      '<th><span class="sc">角色</span><span class="tc">角色</span></th>' +
+      '<th><span class="sc">加入时间</span><span class="tc">加入時間</span></th>' +
+      '<th><span class="sc">最后登录</span><span class="tc">最後登入</span></th>' +
+      '<th></th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+
+  // 行点击占位（子步 3 打开抽屉）
+  $('list-body').querySelectorAll('tr[data-uid]').forEach(function (tr) {
+    tr.addEventListener('click', function () {
+      var uid = tr.getAttribute('data-uid');
+      var role = tr.getAttribute('data-role');
+      if (role === 'coach') return; // coach 自己不展开
+      if (typeof window.openStudentDrawer === 'function') {
+        window.openStudentDrawer(uid);
+      }
+    });
+  });
+
+  $('cls-count').textContent =
+    sorted.length + sc(' 成员 · ', ' 成員 · ') + students.length + sc(' 学员', ' 學員');
+}
+
 function loadStudents() {
-  // 子步 2 实现
+  if (!state.currentCid) return;
   $('list-body').innerHTML = '<div class="empty-state">' +
-    escapeHtml(sc('（学员列表将在子步 2 实现）', '（學員列表將在子步 2 實現）')) + '</div>';
-  $('cls-count').textContent = '—';
+    sc('加载中…', '加載中…') + '</div>';
+  window.JX.api.get('/api/coach/classes/' + encodeURIComponent(state.currentCid) + '/members')
+    .then(renderStudents)
+    .catch(function (err) {
+      $('list-body').innerHTML = '<div class="empty-state err-state">' +
+        escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
+    });
 }
 
 function boot() {
