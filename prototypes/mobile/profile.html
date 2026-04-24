@@ -98,6 +98,7 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
 .menu-arrow { color:var(--ink-4); }
 .menu-item.danger .menu-label { color:var(--crimson); }
 .menu-item.danger .menu-icon  { background:var(--crimson-light); }
+.menu-badge   { min-width:18px; height:18px; padding:0 6px; border-radius:9px; background:var(--crimson); color:#fff; font:600 11px/18px var(--font-sans); text-align:center; }
 </style>
 </head>
 <body class="scene">
@@ -194,7 +195,14 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
           <span class="menu-label"><span class="sc">学习统计</span><span class="tc">學習統計</span></span>
           <svg class="menu-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </a>
-        <!-- 消息通知入口已暂时隐藏：后端 /api/notifications 尚未实现 -->
+        <a href="notification.html" class="menu-item" id="profile-notif-link">
+          <div class="menu-icon" style="background:var(--sage-light);">
+            <svg width="18" height="18" fill="none" stroke="#7D9A6C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+          <span class="menu-label"><span class="sc">消息通知</span><span class="tc">消息通知</span></span>
+          <span id="profile-notif-count" class="menu-badge" style="display:none;"></span>
+          <svg class="menu-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
         <a href="settings.html" class="menu-item">
           <div class="menu-icon" style="background:rgba(43,34,24,.06);">
             <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -335,6 +343,17 @@ function renderBackofficeLink(user) {
   }
 }
 
+function renderNotifBadge(n) {
+  var el = document.getElementById('profile-notif-count');
+  if (!el) return;
+  if (n > 0) {
+    el.textContent = n > 99 ? '99+' : String(n);
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
 function boot() {
   renderBackofficeLink(window.JX && window.JX.user);
   window.JX.api.get('/api/my/progress').then(renderProgress).catch(function (err) {
@@ -342,6 +361,9 @@ function boot() {
     // 降级：至少渲染空骨架
     renderProgress({ totalAnswers: 0, correctRate: 0, byCourse: [], streak: { current: 0 }, sm2: {}, totalDays: 0, todayAnswered: 0, weekDays: [] });
   });
+  window.JX.api.get('/api/notifications/unread-count').then(function (r) {
+    renderNotifBadge((r && r.data && r.data.count) | 0);
+  }).catch(function () {});
 }
 
 // 退出登录 · 调后端吊销 refresh

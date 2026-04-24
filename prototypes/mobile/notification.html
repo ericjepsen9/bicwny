@@ -24,73 +24,87 @@
 <link rel="stylesheet" href="../shared/components.css">
 <style>
 body { background: var(--bg-scene); min-height: 100vh; }
-.phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; }
 
 .read-all {
   font: var(--text-caption); color: var(--saffron); letter-spacing: 1px;
-  cursor: pointer; padding: 4px 0;
+  cursor: pointer;
+  padding: 4px 10px; border-radius: var(--r-pill);
 }
+.read-all:hover { background: var(--saffron-pale); }
+.read-all[aria-busy="true"] { opacity: .5; pointer-events: none; }
+.read-all.disabled { color: var(--ink-4); cursor: default; }
 
-/* Filter tabs */
-.filter-tabs { display: flex; gap: var(--sp-2); padding: 0 var(--sp-5) var(--sp-4); overflow-x: auto; scrollbar-width: none; }
+.filter-tabs {
+  display: flex; gap: var(--sp-2); padding: 0 var(--sp-5) var(--sp-3);
+  overflow-x: auto; scrollbar-width: none;
+}
 .filter-tabs::-webkit-scrollbar { display: none; }
 .ftab {
-  padding: 5px 14px; border-radius: var(--r-pill); white-space: nowrap;
+  padding: 5px 14px; border-radius: var(--r-pill); flex-shrink: 0;
   font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
-  background: var(--glass); border: 1px solid var(--glass-border); cursor: pointer;
-  transition: all var(--dur) var(--ease); color: var(--ink-3);
+  background: rgba(43,34,24,.05); border: 1px solid transparent;
+  color: var(--ink-3); cursor: pointer; transition: all var(--dur) var(--ease);
 }
 .ftab.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
 
-/* Group label */
-.group-label { font: var(--text-caption); color: var(--ink-4); letter-spacing: 2px; padding: 0 2px; margin-top: var(--sp-2); }
+.notif-list { padding: 0 var(--sp-5) var(--sp-8); display: flex; flex-direction: column; gap: var(--sp-2); }
 
-/* Notification item */
 .notif-item {
-  display: flex; align-items: flex-start; gap: var(--sp-3);
-  background: var(--glass-thick); backdrop-filter: var(--blur);
-  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
-  padding: var(--sp-4); transition: background var(--dur) var(--ease);
-  cursor: pointer;
+  display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); cursor: pointer;
+  transition: background var(--dur) var(--ease);
+  position: relative;
 }
-.notif-item.unread { border-color: rgba(224,120,86,.2); }
 .notif-item:hover { background: rgba(255,255,255,.85); }
+.notif-item.unread { border-left: 3px solid var(--saffron); padding-left: calc(var(--sp-4) - 3px); }
 
 .notif-icon {
-  width: 40px; height: 40px; border-radius: var(--r); flex-shrink: 0;
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
+  background: var(--saffron-pale);
 }
-.notif-icon.saffron { background: var(--saffron-pale); }
-.notif-icon.gold    { background: var(--gold-pale); }
-.notif-icon.sage    { background: var(--sage-light); }
-.notif-icon.ink     { background: rgba(43,34,24,.06); }
+.notif-icon.system { background: rgba(43,34,24,.06); }
+.notif-icon.class_announcement { background: var(--saffron-pale); }
+.notif-icon.achievement { background: var(--gold-pale); }
+.notif-icon.reminder { background: var(--sage-light); }
 
 .notif-body { flex: 1; min-width: 0; }
 .notif-title {
   font: var(--text-body); font-weight: 600; color: var(--ink);
   letter-spacing: .5px; margin-bottom: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.notif-item:not(.unread) .notif-title { color: var(--ink-3); font-weight: 400; }
 .notif-preview {
   font: var(--text-caption); color: var(--ink-3); letter-spacing: .5px;
-  line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical; overflow: hidden;
+  line-height: 1.6; max-width: 100%;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
 }
-.notif-time { font-size: .5625rem; color: var(--ink-4); letter-spacing: .5px; margin-top: 4px; }
+.notif-time { font-size: .6875rem; color: var(--ink-4); letter-spacing: 1px; margin-top: 4px; }
 
-.notif-right { display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); flex-shrink: 0; }
-.unread-dot {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--saffron); flex-shrink: 0; margin-top: 2px;
+.notif-right { flex-shrink: 0; display: flex; align-items: center; padding-left: 8px; }
+.unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--saffron); }
+
+.empty-block {
+  padding: var(--sp-8) var(--sp-5); text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
 }
-
-/* List */
-.notif-list { display: flex; flex-direction: column; gap: var(--sp-3); padding: 0 var(--sp-5) var(--sp-8); }
+.empty-icon {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  display: flex; align-items: center; justify-content: center;
+}
+.empty-title { font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; letter-spacing: 4px; color: var(--ink); }
+.empty-desc { font: var(--text-body); color: var(--ink-2); letter-spacing: 1px; line-height: 1.7; max-width: 280px; }
+.err-state { color: var(--crimson); }
 </style>
 <script src="../shared/lang.js"></script>
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/api.js"></script>
+<script src="../shared/toast.js"></script>
 <script src="../shared/require-auth.js"></script>
 </head>
 <body class="scene">
@@ -100,130 +114,169 @@ body { background: var(--bg-scene); min-height: 100vh; }
   <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
-    <a class="nav-btn" href="home.html">
-      <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-    </a>
-    <span class="top-nav-title">通知</span>
-    <span class="read-all"><span class="sc">全部已读</span><span class="tc">全部已讀</span></span>
+    <a class="nav-back" href="home.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
+    <span class="nav-title"><span class="sc">通知</span><span class="tc">通知</span></span>
+    <span class="read-all" id="btn-read-all"><span class="sc">全部已读</span><span class="tc">全部已讀</span></span>
   </div>
 
-  <div class="filter-tabs">
-    <span class="ftab active">全部</span>
-    <span class="ftab"><span class="sc">班级</span><span class="tc">班級</span></span>
-    <span class="ftab"><span class="sc">学习</span><span class="tc">學習</span></span>
-    <span class="ftab">成就</span>
-    <span class="ftab"><span class="sc">系统</span><span class="tc">系統</span></span>
+  <div class="filter-tabs" id="filter-tabs">
+    <span class="ftab active" data-filter=""><span class="sc">全部</span><span class="tc">全部</span></span>
+    <span class="ftab" data-filter="unread"><span class="sc">未读</span><span class="tc">未讀</span></span>
+    <span class="ftab" data-type="class_announcement"><span class="sc">班级</span><span class="tc">班級</span></span>
+    <span class="ftab" data-type="reminder"><span class="sc">学习</span><span class="tc">學習</span></span>
+    <span class="ftab" data-type="achievement"><span class="sc">成就</span><span class="tc">成就</span></span>
+    <span class="ftab" data-type="system"><span class="sc">系统</span><span class="tc">系統</span></span>
   </div>
 
-  <div class="notif-list">
-
-    <p class="group-label">今日</p>
-
-    <!-- 班级公告 unread -->
-    <div class="notif-item unread">
-      <div class="notif-icon saffron">
-        <svg width="20" height="20" fill="none" stroke="var(--saffron)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-        </svg>
-      </div>
-      <div class="notif-body">
-        <p class="notif-title"><span class="sc">心经共修班 · 班级公告</span><span class="tc">心經共修班 · 班級公告</span></p>
-        <p class="notif-preview"><span class="sc">本周五（4月25日）20:00 将举行线上共修，请各位同学提前准备好法本第三章内容…</span><span class="tc">本週五（4月25日）20:00 將舉行線上共修，請各位同學提前準備好法本第三章內容…</span></p>
-        <p class="notif-time">10 <span class="sc">分钟前</span><span class="tc">分鐘前</span></p>
-      </div>
-      <div class="notif-right"><div class="unread-dot"></div></div>
+  <div class="notif-list" id="notif-list">
+    <div class="empty-block">
+      <p class="empty-desc"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
     </div>
-
-    <!-- 答题提醒 unread -->
-    <div class="notif-item unread">
-      <div class="notif-icon saffron">
-        <svg width="20" height="20" fill="none" stroke="var(--saffron)" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-          <line x1="12" y1="17" x2="12.01" y2="17"/>
-        </svg>
-      </div>
-      <div class="notif-body">
-        <p class="notif-title"><span class="sc">错题复习提醒</span><span class="tc">錯題複習提醒</span></p>
-        <p class="notif-preview"><span class="sc">您有 4 道错题到达最佳复习时间，趁热打铁效果最好！</span><span class="tc">您有 4 道錯題到達最佳複習時間，趁熱打鐵效果最好！</span></p>
-        <p class="notif-time">1 <span class="sc">小时前</span><span class="tc">小時前</span></p>
-      </div>
-      <div class="notif-right"><div class="unread-dot"></div></div>
-    </div>
-
-    <!-- 成就解锁 unread -->
-    <div class="notif-item unread">
-      <div class="notif-icon gold">
-        <svg width="20" height="20" fill="none" stroke="var(--gold-dark)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-        </svg>
-      </div>
-      <div class="notif-body">
-        <p class="notif-title"><span class="sc">成就解锁 · 法海行者</span><span class="tc">成就解鎖 · 法海行者</span></p>
-        <p class="notif-preview"><span class="sc">恭喜！您已连续学习 7 天，成功解锁「法海行者」成就徽章。</span><span class="tc">恭喜！您已連續學習 7 天，成功解鎖「法海行者」成就徽章。</span></p>
-        <p class="notif-time">09:30</p>
-      </div>
-      <div class="notif-right"><div class="unread-dot"></div></div>
-    </div>
-
-    <p class="group-label">昨日</p>
-
-    <!-- 学习完成 read -->
-    <div class="notif-item">
-      <div class="notif-icon sage">
-        <svg width="20" height="20" fill="none" stroke="var(--sage-dark)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
-      </div>
-      <div class="notif-body">
-        <p class="notif-title"><span class="sc">昨日学习目标完成</span><span class="tc">昨日學習目標完成</span></p>
-        <p class="notif-preview"><span class="sc">昨日共学习 45 分钟，完成每日目标，继续加油！</span><span class="tc">昨日共學習 45 分鐘，完成每日目標，繼續加油！</span></p>
-        <p class="notif-time">22:15</p>
-      </div>
-      <div class="notif-right"></div>
-    </div>
-
-    <!-- 系统通知 read -->
-    <div class="notif-item">
-      <div class="notif-icon ink">
-        <svg width="20" height="20" fill="none" stroke="var(--ink-3)" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="16" x2="12" y2="12"/>
-          <line x1="12" y1="8" x2="12.01" y2="8"/>
-        </svg>
-      </div>
-      <div class="notif-body">
-        <p class="notif-title">法本更新通知</p>
-        <p class="notif-preview"><span class="sc">《金刚经》已更新至第 5 章，新增注释 12 条，快去阅读吧。</span><span class="tc">《金剛經》已更新至第 5 章，新增注釋 12 條，快去閱讀吧。</span></p>
-        <p class="notif-time">3 天前</p>
-      </div>
-      <div class="notif-right"></div>
-    </div>
-
-    <p class="group-label">更早</p>
-
-    <!-- 系统通知 read -->
-    <div class="notif-item">
-      <div class="notif-icon ink">
-        <svg width="20" height="20" fill="none" stroke="var(--ink-3)" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-        </svg>
-      </div>
-      <div class="notif-body">
-        <p class="notif-title"><span class="sc">账号绑定成功</span><span class="tc">帳號綁定成功</span></p>
-        <p class="notif-preview"><span class="sc">您的账号已成功绑定手机号，登录更安全。</span><span class="tc">您的帳號已成功綁定手機號，登入更安全。</span></p>
-        <p class="notif-time">7 天前</p>
-      </div>
-      <div class="notif-right"></div>
-    </div>
-
   </div>
 
 </div><!-- /phone -->
 </div><!-- /phone-wrap -->
 <script src="../shared/nav.js"></script>
+<script>
+// notification · 接 /api/notifications + /api/notifications/:id/read + /read-all
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var state = {
+  // filter: '' = 全部 | 'unread' = 只看未读 | 具体类型字符串 = 按 type 筛
+  filter: '',
+  items: [], // 后端返回的原始列表（最多 50 条，已按 createdAt desc）
+};
+
+var TYPE_LABEL = {
+  system: [sc('系统', '系統'), '系統'],
+  class_announcement: [sc('班级', '班級'), '班級'],
+  achievement: [sc('成就', '成就'), '成就'],
+  reminder: [sc('提醒', '提醒'), '提醒'],
+};
+var TYPE_ICON_PATHS = {
+  system:             '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  class_announcement: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+  achievement:        '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  reminder:           '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+};
+
+function relTime(iso) {
+  var diff = Date.now() - new Date(iso).getTime();
+  var m = Math.floor(diff / 60000);
+  if (m < 1)   return sc('刚刚', '剛剛');
+  if (m < 60)  return m + sc(' 分钟前', ' 分鐘前');
+  var h = Math.floor(m / 60);
+  if (h < 24)  return h + sc(' 小时前', ' 小時前');
+  var d = Math.floor(h / 24);
+  if (d < 30)  return d + sc(' 天前', ' 天前');
+  var mo = Math.floor(d / 30);
+  return mo + sc(' 个月前', ' 個月前');
+}
+
+function currentList() {
+  if (state.filter === '') return state.items;
+  if (state.filter === 'unread') return state.items.filter(function (n) { return !n.isRead; });
+  return state.items.filter(function (n) { return n.type === state.filter; });
+}
+
+function render() {
+  var list = currentList();
+  var container = document.getElementById('notif-list');
+
+  // "全部已读" 按钮：未读为 0 时禁用
+  var hasUnread = state.items.some(function (n) { return !n.isRead; });
+  var readAllBtn = document.getElementById('btn-read-all');
+  if (hasUnread) readAllBtn.classList.remove('disabled');
+  else readAllBtn.classList.add('disabled');
+
+  if (!list.length) {
+    var emptyMsg = state.filter === 'unread'
+      ? sc('没有未读通知', '沒有未讀通知')
+      : state.filter
+        ? sc('该类型暂无通知', '該類型暫無通知')
+        : sc('暂无通知', '暫無通知');
+    container.innerHTML =
+      '<div class="empty-block">' +
+        '<div class="empty-icon"><svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">' +
+          '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>' +
+        '</svg></div>' +
+        '<p class="empty-title">' + emptyMsg + '</p>' +
+        '<p class="empty-desc">' + sc('新的班级公告、学习提醒、成就解锁会出现在此', '新的班級公告、學習提醒、成就解鎖會出現在此') + '</p>' +
+      '</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(function (n) {
+    var type = n.type || 'system';
+    var iconSvg = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">' + (TYPE_ICON_PATHS[type] || '') + '</svg>';
+    return ''
+      + '<div class="notif-item ' + (n.isRead ? '' : 'unread ') + escapeHtml(type) + '" data-id="' + escapeHtml(n.id) + '" data-link="' + escapeHtml(n.link || '') + '">'
+      +   '<div class="notif-icon ' + escapeHtml(type) + '">' + iconSvg + '</div>'
+      +   '<div class="notif-body">'
+      +     '<p class="notif-title">' + escapeHtml(n.title || '—') + '</p>'
+      +     (n.body ? '<p class="notif-preview">' + escapeHtml(n.body) + '</p>' : '')
+      +     '<p class="notif-time">' + relTime(n.createdAt) + '</p>'
+      +   '</div>'
+      +   '<div class="notif-right">' + (n.isRead ? '' : '<div class="unread-dot"></div>') + '</div>'
+      + '</div>';
+  }).join('');
+
+  container.querySelectorAll('.notif-item').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var id = el.getAttribute('data-id');
+      var link = el.getAttribute('data-link');
+      var item = state.items.find(function (n) { return n.id === id; });
+      // 未读 → 本地置读 + 调 API
+      if (item && !item.isRead) {
+        item.isRead = true;
+        render();
+        window.JX.api.post('/api/notifications/' + encodeURIComponent(id) + '/read', {})
+          .catch(function () { /* 静默；下次进来会重拉 */ });
+      }
+      if (link) location.href = link;
+    });
+  });
+}
+
+function load() {
+  window.JX.api.get('/api/notifications?limit=50').then(function (data) {
+    state.items = data || [];
+    render();
+  }).catch(function (err) {
+    document.getElementById('notif-list').innerHTML =
+      '<div class="empty-block"><p class="empty-desc err-state">' +
+        escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) +
+      '</p></div>';
+  });
+}
+
+// 过滤 chip
+document.querySelectorAll('.ftab').forEach(function (chip) {
+  chip.addEventListener('click', function () {
+    document.querySelectorAll('.ftab').forEach(function (c) { c.classList.remove('active'); });
+    chip.classList.add('active');
+    state.filter = chip.getAttribute('data-type') || chip.getAttribute('data-filter') || '';
+    render();
+  });
+});
+
+// 全部已读
+document.getElementById('btn-read-all').addEventListener('click', function () {
+  if (this.classList.contains('disabled') || this.getAttribute('aria-busy') === 'true') return;
+  this.setAttribute('aria-busy', 'true');
+  window.JX.api.post('/api/notifications/read-all', {}).then(function () {
+    state.items.forEach(function (n) { n.isRead = true; });
+    render();
+    window.JX.toast && window.JX.toast.ok(sc('已标记全部为已读', '已標記全部為已讀'));
+  }).catch(function (err) {
+    window.JX.toast && window.JX.toast.error(sc('失败：', '失敗：') + ((err && err.message) || ''));
+  }).finally(function () {
+    document.getElementById('btn-read-all').removeAttribute('aria-busy');
+  });
+});
+
+document.addEventListener('jx:user-ready', load);
+if (window.JX && window.JX.user) load();
+</script>
 </body>
 </html>
