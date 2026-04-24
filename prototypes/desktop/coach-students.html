@@ -78,6 +78,73 @@ table.s-list { width: 100%; border-collapse: collapse; }
 
 .empty-state { padding: var(--sp-8) var(--sp-5); text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px; }
 .err-state { color: var(--crimson); }
+
+/* Drawer（右侧抽屉）· 复用 admin-users.html 约定，样式就近内联 */
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 90; }
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 520px; max-width: 94vw;
+  background: #fff; box-shadow: -8px 0 24px rgba(0,0,0,.12);
+  transform: translateX(100%); transition: transform .25s var(--ease);
+  overflow: hidden; display: flex; flex-direction: column; z-index: 100;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-head {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-light);
+}
+.drawer-title { flex: 1; font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.drawer-close { width: 28px; height: 28px; border-radius: var(--r-sm); background: rgba(43,34,24,.04); border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.drawer-body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
+
+.dr-section { margin-bottom: var(--sp-5); }
+.dr-h3 { font: var(--text-caption); font-weight: 700; letter-spacing: 2px; color: var(--ink-3); margin-bottom: var(--sp-2); text-transform: uppercase; }
+
+.dr-hero {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-4); background: rgba(212,165,116,.08);
+  border: 1px solid var(--gold-light); border-radius: var(--r-lg);
+}
+.dr-hero .big-av {
+  width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+  color: #fff; font-family: var(--font-serif); font-weight: 700; font-size: 1.25rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.dr-hero .dn { font-family: var(--font-serif); font-weight: 700; font-size: 1rem; letter-spacing: 2px; color: var(--ink); }
+.dr-hero .em { font-size: .75rem; color: var(--ink-3); margin-top: 2px; }
+.dr-hero .st { font-size: .6875rem; letter-spacing: 1px; color: var(--ink-4); margin-top: 4px; }
+
+.sum-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2);
+}
+.sum-cell {
+  padding: var(--sp-3) var(--sp-2); border-radius: var(--r);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  text-align: center;
+}
+.sum-val { font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; color: var(--ink); line-height: 1; }
+.sum-lbl { font-size: .6875rem; color: var(--ink-3); letter-spacing: 1px; margin-top: 4px; }
+
+.list-item {
+  display: grid; grid-template-columns: 1fr auto;
+  gap: var(--sp-2); padding: 8px 10px;
+  border-bottom: 1px solid var(--border-light);
+  font: var(--text-caption); letter-spacing: .5px;
+}
+.list-item:last-child { border-bottom: 0; }
+.list-item .title { color: var(--ink-2); }
+.list-item .meta  { color: var(--ink-4); font-size: .6875rem; }
+.list-item .tag-ok  { color: var(--sage-dark); font-weight: 700; }
+.list-item .tag-bad { color: var(--crimson); font-weight: 700; }
+
+.sm2-bar {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; padding: 10px 0;
+}
+.sm2-cell { padding: 8px 4px; border-radius: var(--r-sm); text-align: center; background: rgba(43,34,24,.03); }
+.sm2-cell .v { font-family: var(--font-serif); font-weight: 700; font-size: 1rem; color: var(--ink); line-height: 1; }
+.sm2-cell .l { font-size: .625rem; color: var(--ink-3); letter-spacing: .5px; margin-top: 3px; }
 </style>
 <script src="../shared/lang.js"></script>
 <script src="../shared/config.js"></script>
@@ -158,6 +225,20 @@ table.s-list { width: 100%; border-collapse: collapse; }
     </div>
   </main>
 </div>
+
+<!-- Student detail drawer -->
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="drawer-title" id="dr-title"><span class="sc">学员详情</span><span class="tc">學員詳情</span></span>
+    <button class="drawer-close" id="dr-close" aria-label="关闭">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="dr-body">
+    <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+  </div>
+</aside>
 
 <script>
 // coach-students · 子步 1 · 骨架
@@ -325,7 +406,146 @@ function boot() {
   });
 }
 
-// 退出登录
+// ═════════ 学员详情抽屉 ═════════
+
+function closeDrawer() {
+  $('drawer').classList.remove('open');
+  $('drawer').setAttribute('aria-hidden', 'true');
+  $('drawer-backdrop').classList.remove('open');
+}
+
+$('dr-close').addEventListener('click', closeDrawer);
+$('drawer-backdrop').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape') closeDrawer();
+});
+
+window.openStudentDrawer = function (uid) {
+  if (!uid || !state.currentCid) return;
+  $('drawer').classList.add('open');
+  $('drawer').setAttribute('aria-hidden', 'false');
+  $('drawer-backdrop').classList.add('open');
+  $('dr-body').innerHTML = '<div class="empty-state">' + sc('加载中…', '加載中…') + '</div>';
+
+  var url = '/api/coach/classes/' + encodeURIComponent(state.currentCid) +
+            '/students/' + encodeURIComponent(uid) + '?recentLimit=20';
+  window.JX.api.get(url)
+    .then(renderStudentDetail)
+    .catch(function (err) {
+      $('dr-body').innerHTML = '<div class="empty-state err-state">' +
+        escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
+    });
+};
+
+function renderStudentDetail(d) {
+  d = d || {};
+  var u = d.user || {};
+  var s = d.summary || {};
+  var sm = d.sm2Progress || {};
+  var recent = d.recentAnswers || [];
+  var mistakes = d.mistakes || [];
+  var enrollments = d.enrollments || [];
+
+  $('dr-title').textContent = u.dharmaName || u.email || sc('学员详情', '學員詳情');
+
+  // Hero
+  var initial = avatarInitial(u);
+  var heroHtml =
+    '<div class="dr-section">' +
+      '<div class="dr-hero">' +
+        '<div class="big-av">' + escapeHtml(initial) + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div class="dn">' + escapeHtml(u.dharmaName || u.email || '—') + '</div>' +
+          (u.email ? '<div class="em">' + escapeHtml(u.email) + '</div>' : '') +
+          '<div class="st">' +
+            (u.isActive ? sc('✓ 账号启用', '✓ 帳號啟用') : sc('⊘ 账号停用', '⊘ 帳號停用')) +
+            ' · ' + sc('最后登录 ', '最後登入 ') + relTime(u.lastLoginAt) +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  // Summary 4 cells
+  var sumHtml =
+    '<div class="dr-section">' +
+      '<h3 class="dr-h3">' + sc('总览', '總覽') + '</h3>' +
+      '<div class="sum-grid">' +
+        '<div class="sum-cell"><div class="sum-val">' + (s.totalAnswers || 0) + '</div><div class="sum-lbl">' + sc('累计答题', '累計答題') + '</div></div>' +
+        '<div class="sum-cell"><div class="sum-val">' + Math.round((s.correctRate || 0) * 100) + '%</div><div class="sum-lbl">' + sc('正确率', '正確率') + '</div></div>' +
+        '<div class="sum-cell"><div class="sum-val" style="font-size:.75rem;line-height:1.4;">' + (s.firstAnswerAt ? fmtDate(s.firstAnswerAt) : '—') + '</div><div class="sum-lbl">' + sc('首答日期', '首答日期') + '</div></div>' +
+        '<div class="sum-cell"><div class="sum-val" style="font-size:.75rem;line-height:1.4;">' + relTime(s.lastActiveAt) + '</div><div class="sum-lbl">' + sc('最近活跃', '最近活躍') + '</div></div>' +
+      '</div>' +
+    '</div>';
+
+  // SM-2
+  var sm2Html =
+    '<div class="dr-section">' +
+      '<h3 class="dr-h3">SM-2 ' + sc('进度', '進度') + '</h3>' +
+      '<div class="sm2-bar">' +
+        '<div class="sm2-cell"><div class="v">' + (sm['new'] || 0) + '</div><div class="l">' + sc('新', '新') + '</div></div>' +
+        '<div class="sm2-cell"><div class="v">' + (sm.learning || 0) + '</div><div class="l">' + sc('学习', '學習') + '</div></div>' +
+        '<div class="sm2-cell"><div class="v">' + (sm.review || 0) + '</div><div class="l">' + sc('复习', '複習') + '</div></div>' +
+        '<div class="sm2-cell"><div class="v" style="color:var(--sage-dark);">' + (sm.mastered || 0) + '</div><div class="l">' + sc('掌握', '掌握') + '</div></div>' +
+        '<div class="sm2-cell"><div class="v" style="color:var(--saffron-dark);">' + (sm.due || 0) + '</div><div class="l">' + sc('到期', '到期') + '</div></div>' +
+        '<div class="sm2-cell"><div class="v">' + (sm.total || 0) + '</div><div class="l">' + sc('总计', '總計') + '</div></div>' +
+      '</div>' +
+    '</div>';
+
+  // Recent answers
+  var recentHtml =
+    '<div class="dr-section">' +
+      '<h3 class="dr-h3">' + sc('近期答题 · ', '近期答題 · ') + recent.length + sc(' 条', ' 條') + '</h3>' +
+      (recent.length
+        ? recent.map(function (r) {
+            var mark = r.isCorrect === true ? '<span class="tag-ok">✓</span>' :
+                       r.isCorrect === false ? '<span class="tag-bad">✗</span>' :
+                       '<span style="color:var(--ink-4);">—</span>';
+            var scoreBit = r.score != null ? ' · ' + r.score : '';
+            return '<div class="list-item">' +
+              '<div class="title">' + escapeHtml(r.lessonTitle || '—') + '</div>' +
+              '<div class="meta">' + mark + scoreBit + ' · ' + relTime(r.answeredAt) + '</div>' +
+            '</div>';
+          }).join('')
+        : '<div class="empty-state">' + sc('暂无答题记录', '暫無答題記錄') + '</div>')
+    + '</div>';
+
+  // Mistakes
+  var mistakesHtml =
+    '<div class="dr-section">' +
+      '<h3 class="dr-h3">' + sc('错题本 · ', '錯題本 · ') + mistakes.length + sc(' 题', ' 題') + '</h3>' +
+      (mistakes.length
+        ? mistakes.map(function (m) {
+            return '<div class="list-item">' +
+              '<div class="title">' + escapeHtml((m.questionText || '').slice(0, 60)) + (m.questionText && m.questionText.length > 60 ? '…' : '') + '</div>' +
+              '<div class="meta"><span class="tag-bad">× ' + (m.wrongCount || 1) + '</span> · ' + relTime(m.lastWrongAt) + '</div>' +
+            '</div>';
+          }).join('')
+        : '<div class="empty-state">' + sc('暂无错题', '暫無錯題') + '</div>')
+    + '</div>';
+
+  // Enrollments
+  var enrHtml =
+    '<div class="dr-section">' +
+      '<h3 class="dr-h3">' + sc('已选法本 · ', '已選法本 · ') + enrollments.length + sc(' 部', ' 部') + '</h3>' +
+      (enrollments.length
+        ? enrollments.map(function (e) {
+            var status = e.completedAt
+              ? '<span class="tag-ok">' + sc('已完成', '已完成') + '</span>'
+              : e.lastStudiedAt
+                ? '<span style="color:var(--saffron-dark);">' + sc('学习中', '學習中') + '</span>'
+                : '<span style="color:var(--ink-4);">' + sc('未开始', '未開始') + '</span>';
+            return '<div class="list-item">' +
+              '<div class="title">' + escapeHtml(e.title || '—') + '</div>' +
+              '<div class="meta">' + status + (e.lastStudiedAt ? ' · ' + relTime(e.lastStudiedAt) : '') + '</div>' +
+            '</div>';
+          }).join('')
+        : '<div class="empty-state">' + sc('尚未选修任何法本', '尚未選修任何法本') + '</div>')
+    + '</div>';
+
+  $('dr-body').innerHTML = heroHtml + sumHtml + sm2Html + recentHtml + mistakesHtml + enrHtml;
+}
+
+// ═════════ 退出登录 ═════════
 $('btn-logout').addEventListener('click', function () {
   window.JX.api.logout().finally(function () { location.replace('../mobile/auth.html'); });
 });
