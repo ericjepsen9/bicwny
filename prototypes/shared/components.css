@@ -170,6 +170,12 @@
 /* textarea 与 select 同理 */
 textarea.input-field,
 select.input-field { font-size: 16px; }
+
+/* 兜底：凡是 input / textarea / select 都 ≥ 16px（防止 .input-field 之外
+   某处用裸元素仍触发 iOS 放大）· 桌面端视觉影响很小（原本 14→16） */
+input, textarea, select {
+  font-size: max(16px, 1rem);
+}
 .input-field::placeholder { color: var(--ink-4); }
 .input-field:focus {
   outline: none;
@@ -179,18 +185,35 @@ select.input-field { font-size: 16px; }
 }
 
 /* ── Bottom Tab Bar ─────────────────────────────── */
+/* 生产模式：固定在视口底部，桌面宽屏限宽 480px 并居中（跟 .phone 同宽）
+   padding-bottom 吃 iOS Safe Area，避免 home indicator 压住图标 */
 .tab-bar {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
   display: flex;
   justify-content: space-around;
   align-items: center;
-  padding: var(--sp-3) var(--sp-4) 28px;
+  padding: var(--sp-3) var(--sp-4) calc(var(--sp-3) + env(safe-area-inset-bottom, 12px));
   background: var(--glass-thick);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   border-top: 1px solid var(--glass-border);
+  z-index: 20;
 }
+/* 原型样机模式下保持原 absolute + 375 宽 */
+body.prototype-frame .tab-bar {
+  position: absolute;
+  left: 0; transform: none;
+  max-width: none;
+  padding: var(--sp-3) var(--sp-4) 28px;
+}
+/* 凡是含 .tab-bar 的页，主内容区域自动垫 80px 避免被 tab 挡 */
+body:has(.tab-bar) .phone { padding-bottom: 80px; }
+body.prototype-frame:has(.tab-bar) .phone { padding-bottom: 0; }
 .tab-item {
   display: flex;
   flex-direction: column;
