@@ -160,10 +160,16 @@
   border-radius: var(--r);
   padding: var(--sp-3) var(--sp-4);
   font: var(--text-body);
+  /* iOS Safari 对 font-size < 16px 的输入框聚焦时自动放大视口 ·
+     显式设 16px 保留视觉层级（--text-body 为 14px）同时避免放大 */
+  font-size: 16px;
   color: var(--ink);
   width: 100%;
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
+/* textarea 与 select 同理 */
+textarea.input-field,
+select.input-field { font-size: 16px; }
 .input-field::placeholder { color: var(--ink-4); }
 .input-field:focus {
   outline: none;
