@@ -159,21 +159,34 @@ body { background: var(--bg-scene); min-height: 100vh; }
     </p>
   </form>
 
-  <!-- ══ 屏三：找回密码（待后端支持邮件发送后启用）══ -->
-  <div class="auth-screen" id="screen-forgot">
+  <!-- ══ 屏三：找回密码 · 输邮箱 ══ -->
+  <form class="auth-screen" id="screen-forgot" novalidate>
     <p class="screen-title"><span class="sc">找回密码</span><span class="tc">找回密碼</span></p>
 
     <div class="form-msg info" style="display:block;">
-      <span class="sc">找回密码功能即将上线。如需重置密码，请联系管理员或在班级群中求助。</span>
-      <span class="tc">找回密碼功能即將上線。如需重置密碼，請聯繫管理員或在班級群中求助。</span>
+      <span class="sc">输入您的注册邮箱，我们将发送重置链接。链接 30 分钟内有效。</span>
+      <span class="tc">輸入您的註冊郵箱，我們將發送重設連結。連結 30 分鐘內有效。</span>
     </div>
+
+    <div class="input-group">
+      <label class="input-label" for="forgot-email"><span class="sc">邮箱地址</span><span class="tc">電子郵箱</span></label>
+      <input class="input-field" id="forgot-email" name="email" type="email" autocomplete="email" required
+        data-ph-sc="请输入注册邮箱" data-ph-tc="請輸入註冊郵箱" placeholder="请输入注册邮箱">
+    </div>
+
+    <div class="form-msg" id="forgot-msg" role="status"></div>
+    <div id="forgot-dev-hint" style="display:none;" class="form-msg info"></div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-full btn-pill">
+      <span class="sc">发送重置链接</span><span class="tc">發送重設連結</span>
+    </button>
 
     <p class="auth-center">
       <span class="auth-link muted" onclick="showScreen('screen-login')">
         <span class="sc">返回登录</span><span class="tc">返回登錄</span>
       </span>
     </p>
-  </div>
+  </form>
 
 </div><!-- /phone -->
 </div><!-- /phone-wrap -->
@@ -186,6 +199,9 @@ function showScreen(id) {
   if (el) el.classList.add('active');
   clearMsg('login-msg');
   clearMsg('reg-msg');
+  clearMsg('forgot-msg');
+  var hint = document.getElementById('forgot-dev-hint');
+  if (hint) { hint.style.display = 'none'; hint.textContent = ''; }
 }
 
 var sc = window.JX.sc;
@@ -263,6 +279,43 @@ document.getElementById('screen-register').addEventListener('submit', function (
     })
     .catch(function (err) {
       setMsg('reg-msg', 'error', localizedError(err));
+    })
+    .finally(function () {
+      btn.removeAttribute('aria-busy');
+    });
+});
+
+// ── 找回密码 · 请求重置链接 ───────────────────────
+document.getElementById('screen-forgot').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var email = document.getElementById('forgot-email').value.trim();
+  if (!email) {
+    setMsg('forgot-msg', 'error', sc('请输入邮箱', '請輸入郵箱'));
+    return;
+  }
+  var btn = ev.target.querySelector('button[type="submit"]');
+  btn.setAttribute('aria-busy', 'true');
+  clearMsg('forgot-msg');
+
+  window.JX.api.post('/api/auth/forgot', { email: email }, { noAuth: true })
+    .then(function (data) {
+      setMsg('forgot-msg', 'info',
+        sc('已发送重置链接，请查收邮件（含垃圾邮件夹）。链接 30 分钟内有效。',
+           '已發送重設連結，請查收郵件（含垃圾郵件匣）。連結 30 分鐘內有效。'));
+      // Dev 环境：后端会回传 devToken，把 reset-confirm 链接给开发者
+      if (data && data.devToken) {
+        var hint = document.getElementById('forgot-dev-hint');
+        var link = 'reset-confirm.html?token=' + encodeURIComponent(data.devToken);
+        hint.innerHTML = '<span style="opacity:.7">[dev] </span>'
+          + '<a href="' + link + '" style="color:var(--saffron-dark);text-decoration:underline;">'
+          + sc('直接进入重置页 →', '直接進入重設頁 →')
+          + '</a>';
+        hint.style.display = 'block';
+      }
+    })
+    .catch(function (err) {
+      // forgot 几乎不会报错（后端防枚举一律 200），这里兜网络错
+      setMsg('forgot-msg', 'error', localizedError(err));
     })
     .finally(function () {
       btn.removeAttribute('aria-busy');
