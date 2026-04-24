@@ -140,9 +140,97 @@
     container.appendChild(div);
     state.answer = { __placeholder: true };
   }
-  ['sort', 'match', 'flow', 'guided'].forEach(function (t) {
+  ['match', 'flow', 'guided'].forEach(function (t) {
     renderers[t] = placeholder;
   });
+
+  // ── sort（排序题）· 上下按钮调位 ──
+  // payload: { items: [{text, order}] }  order 是 1-indexed 正确位置
+  // answer : { order: number[] } 数组元素是原始 index 序列（用户摆放顺序）
+  renderers.sort = function (q, container) {
+    var p = q.payload || {};
+    var items = (p.items || []).map(function (it, i) {
+      return { text: it.text || '', origIdx: i };
+    });
+    if (items.length === 0) {
+      container.appendChild(document.createElement('div'));
+      return;
+    }
+
+    // 首次渲染：洗牌一个初始顺序（避免正好是正确答案）
+    if (!state.answer || !Array.isArray(state.answer.order) || state.answer.order.length !== items.length) {
+      var origIndexes = items.map(function (_, i) { return i; });
+      // Fisher-Yates；若洗出的顺序刚好对，再洗一次
+      function shuffle(arr) {
+        for (var i = arr.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+        }
+      }
+      var attempts = 0;
+      do {
+        shuffle(origIndexes);
+        attempts++;
+      } while (
+        attempts < 5 &&
+        origIndexes.every(function (oi, pos) { return (p.items[oi].order || 0) === pos + 1; })
+      );
+      state.answer = { order: origIndexes.slice() };
+    }
+
+    var order = state.answer.order;
+
+    function moveUp(i) {
+      if (i <= 0 || state.confirmed) return;
+      var tmp = order[i]; order[i] = order[i - 1]; order[i - 1] = tmp;
+      render();
+    }
+    function moveDown(i) {
+      if (i >= order.length - 1 || state.confirmed) return;
+      var tmp = order[i]; order[i] = order[i + 1]; order[i + 1] = tmp;
+      render();
+    }
+
+    var list = document.createElement('div');
+    list.className = 'sort-list';
+
+    order.forEach(function (origIdx, pos) {
+      var it = p.items[origIdx] || { text: '' };
+      var row = document.createElement('div');
+      row.className = 'sort-row';
+      if (state.confirmed) {
+        var isRight = (it.order === pos + 1);
+        row.classList.add(isRight ? 'sort-correct' : 'sort-wrong');
+      }
+
+      row.innerHTML =
+        '<span class="sort-pos">' + (pos + 1) + '</span>' +
+        '<span class="sort-text">' + escapeHtml(it.text) + '</span>' +
+        '<span class="sort-ctl">' +
+          '<button type="button" class="sort-btn up" aria-label="上移"' + (pos === 0 || state.confirmed ? ' disabled' : '') + '>' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>' +
+          '</button>' +
+          '<button type="button" class="sort-btn down" aria-label="下移"' + (pos === order.length - 1 || state.confirmed ? ' disabled' : '') + '>' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+          '</button>' +
+        '</span>';
+
+      row.querySelector('.up').addEventListener('click', function () { moveUp(pos); });
+      row.querySelector('.down').addEventListener('click', function () { moveDown(pos); });
+
+      list.appendChild(row);
+    });
+
+    // 提示
+    if (!state.confirmed) {
+      var hint = document.createElement('p');
+      hint.className = 'sort-hint';
+      hint.innerHTML = '<span class="sc">用 ↑↓ 把各项调整到正确顺序</span><span class="tc">用 ↑↓ 把各項調整到正確順序</span>';
+      list.appendChild(hint);
+    }
+
+    container.appendChild(list);
+  };
 
   // ── flip（速记卡）· 无对错，四档自评 → SM-2 quality ──
   // payload: { front:{text,subText?}, back:{text,example?}, noScoring:true }
@@ -233,6 +321,7 @@
       case 'fill':     return typeof state.answer.selectedOption === 'number';
       case 'open':     return (state.answer.text || '').trim().length >= 20;
       case 'flip':     return !!state.answer.selfRating;
+      case 'sort':     return Array.isArray(state.answer.order) && state.answer.order.length > 0;
       default:         return !!state.answer.__placeholder;
     }
   }

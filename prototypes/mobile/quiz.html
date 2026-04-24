@@ -113,6 +113,48 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .quiz-action { padding: var(--sp-3) var(--sp-5) var(--sp-5); }
 @keyframes slideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
 
+/* ── Sort（排序题）─────────────────────────────────── */
+.sort-list {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+}
+.sort-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-3) var(--sp-4);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.sort-row.sort-correct { background: var(--sage-light);    border-color: var(--sage); }
+.sort-row.sort-wrong   { background: var(--crimson-light); border-color: var(--crimson); }
+.sort-pos {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  font-size: .8125rem; font-weight: 700; letter-spacing: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.sort-row.sort-correct .sort-pos { background: var(--sage); color: #fff; }
+.sort-row.sort-wrong   .sort-pos { background: var(--crimson); color: #fff; }
+.sort-text {
+  flex: 1; font: var(--text-body); color: var(--ink);
+  letter-spacing: .5px; line-height: 1.5;
+}
+.sort-ctl { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+.sort-btn {
+  width: 28px; height: 22px; border-radius: var(--r-sm);
+  background: rgba(43,34,24,.05); border: 1px solid var(--border-light);
+  color: var(--ink-3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--dur) var(--ease);
+}
+.sort-btn:hover:not([disabled]) { background: var(--saffron-pale); color: var(--saffron-dark); border-color: var(--saffron-light); }
+.sort-btn:active:not([disabled]) { transform: scale(.92); }
+.sort-btn[disabled] { opacity: .3; cursor: default; }
+.sort-hint {
+  text-align: center; font: var(--text-caption); color: var(--ink-4);
+  letter-spacing: 1.5px; padding: var(--sp-2) 0;
+}
+
 /* ── Flip card（v2 题型：速记卡）─────────────────────── */
 .flip-card {
   position: relative; min-height: 180px; perspective: 1200px;
