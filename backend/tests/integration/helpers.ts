@@ -27,6 +27,7 @@ export async function resetDb(): Promise<void> {
     prisma.sm2Card.deleteMany(),
     prisma.userAnswer.deleteMany(),
     prisma.userCourseEnrollment.deleteMany(),
+    prisma.passwordResetToken.deleteMany(),
     prisma.authSession.deleteMany(),
     prisma.classMember.deleteMany(),
     prisma.class.deleteMany(),

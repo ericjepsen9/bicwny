@@ -12,6 +12,7 @@ import { requireUserId } from '../../lib/auth.js';
 import { BadRequest, NotFound } from '../../lib/errors.js';
 import { zBody } from '../../lib/openapi.js';
 import { prisma } from '../../lib/prisma.js';
+import { forgotPassword, resetPassword } from './password-reset.service.js';
 import {
   changePassword,
   deleteAccount,
@@ -50,6 +51,15 @@ const changePasswordBody = z
     message: '新密码与旧密码不能相同',
     path: ['newPassword'],
   });
+
+const forgotBody = z.object({
+  email: z.string().email(),
+});
+
+const resetBody = z.object({
+  token: z.string().min(20).max(128),
+  newPassword: z.string().min(6).max(128),
+});
 
 const updateMeBody = z
   .object({
@@ -102,6 +112,27 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       ip: req.ip,
     });
     return { data: result };
+  });
+
+  // 忘记密码：请求重置链接。无论邮箱是否存在，响应一致 { ok: true }，防枚举。
+  // Dev 环境响应带 devToken，便于本地不接 SMTP 走通流程。
+  app.post('/api/auth/forgot', {
+    schema: { tags: TAGS, summary: '忘记密码 · 发送重置链接', body: zBody(forgotBody) },
+  }, async (req) => {
+    const parsed = forgotBody.safeParse(req.body);
+    if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
+    const result = await forgotPassword(parsed.data.email, req.ip);
+    return { data: { ok: true, ...result } };
+  });
+
+  // 重置密码：凭 forgot 下发的 token 设置新密码。成功后所有 session 吊销。
+  app.post('/api/auth/reset', {
+    schema: { tags: TAGS, summary: '重置密码 · 用 forgot 下发的 token', body: zBody(resetBody) },
+  }, async (req) => {
+    const parsed = resetBody.safeParse(req.body);
+    if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
+    await resetPassword(parsed.data.token, parsed.data.newPassword);
+    return { data: { ok: true } };
   });
 
   app.post('/api/auth/logout', {

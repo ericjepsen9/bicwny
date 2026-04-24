@@ -44,6 +44,7 @@ model User {
   memberships      ClassMember[]
   sessions         AuthSession[]
   createdQuestions Question[]             @relation("CreatedQuestions")
+  resetTokens      PasswordResetToken[]
 
   @@index([role])
 }
@@ -106,6 +107,25 @@ model AuthSession {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
+}
+
+// 密码找回 token · 明文发邮件 / 短信给用户，DB 只存 sha256
+// - expiresAt：通常 30 分钟
+// - usedAt：单次消费；重置成功后同一用户其它未用 token 一并标记，防并发滥用
+// - requestIp：用于审计和简易限流判断
+model PasswordResetToken {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  requestedAt DateTime  @default(now())
+  requestIp   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@index([expiresAt])
 }
 
 // ═══════════════════════════════════════════════════════════════
