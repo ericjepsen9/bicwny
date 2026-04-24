@@ -1,0 +1,252 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 收藏</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<script src="../shared/lang.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+<style>
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; padding: 40px 20px; }
+
+.fav-wrap { padding: var(--sp-4) var(--sp-5) var(--sp-8); display: flex; flex-direction: column; gap: var(--sp-3); }
+
+.fav-summary {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: var(--sp-2) 0;
+  font: var(--text-caption); color: var(--ink-3); letter-spacing: 1.5px;
+}
+
+.fav-item {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r); padding: var(--sp-3) var(--sp-4);
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color var(--dur) var(--ease);
+}
+.fav-item:hover { border-color: var(--saffron-light); }
+.fav-top {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2);
+}
+.fav-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.fav-tag {
+  padding: 1px 8px; border-radius: var(--r-pill);
+  font-size: .6875rem; font-weight: 600; letter-spacing: 1.5px;
+  background: var(--sage-light); color: var(--sage-dark);
+}
+.fav-tag.type  { background: var(--saffron-pale); color: var(--saffron-dark); }
+.fav-text {
+  font: var(--text-body); line-height: 1.7; letter-spacing: .5px;
+  color: var(--ink); display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; overflow: hidden;
+}
+.fav-actions {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 4px;
+}
+.fav-time { font: var(--text-caption); color: var(--ink-4); letter-spacing: 1px; }
+.fav-remove {
+  padding: 4px 10px; border-radius: var(--r-pill);
+  background: transparent; border: 1px solid var(--border-light);
+  color: var(--ink-3); font-size: .75rem; letter-spacing: 1px;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.fav-remove:hover { border-color: var(--crimson); color: var(--crimson); }
+.fav-remove[aria-busy="true"] { opacity: .5; pointer-events: none; }
+
+/* 空态 */
+.empty-block {
+  padding: var(--sp-8) var(--sp-5);
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+  text-align: center;
+}
+.empty-icon {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: var(--gold-pale); color: var(--gold-dark);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: var(--sp-3);
+}
+.empty-title { font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; letter-spacing: 4px; color: var(--ink); }
+.empty-desc { font: var(--text-body); color: var(--ink-2); letter-spacing: 1px; line-height: 1.7; max-width: 280px; }
+</style>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <div class="status-bar" data-auto></div>
+
+  <div class="top-nav">
+    <a class="nav-back" href="home.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
+    <span class="nav-title"><span class="sc">收藏</span><span class="tc">收藏</span></span>
+    <div style="width:34px;"></div>
+  </div>
+
+  <div id="list-block" class="fav-wrap">
+    <div class="fav-summary">
+      <span id="count-label"><span class="sc">加载中…</span><span class="tc">加載中…</span></span>
+    </div>
+    <div id="items"></div>
+  </div>
+
+  <div id="empty-block" class="empty-block" style="display:none;">
+    <div class="empty-icon">
+      <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+    </div>
+    <p class="empty-title"><span class="sc">还没有收藏</span><span class="tc">還沒有收藏</span></p>
+    <p class="empty-desc">
+      <span class="sc">在答题或阅读法本时，点击 ☆ 即可收藏题目或经句，方便随时复习。</span>
+      <span class="tc">在答題或閱讀法本時，點擊 ☆ 即可收藏題目或經句，方便隨時複習。</span>
+    </p>
+    <a href="home.html" class="btn btn-primary btn-lg btn-pill" style="padding-left:36px;padding-right:36px;margin-top:var(--sp-4);">
+      <span class="sc">返回首页</span><span class="tc">返回首頁</span>
+    </a>
+  </div>
+
+</div>
+</div>
+<script src="../shared/nav.js"></script>
+<script>
+// 收藏列表 · GET /api/favorites
+// 点击单条 → 进题目详情（复用 mistake-detail？当前直接跳到 quiz.html 作答一遍）
+// 点 × 删除 → DELETE /api/favorites/:questionId → 本地移除
+var sc = window.JX.sc;
+
+var typeLabel = {
+  single: [sc('单选', '單選'), '單選'],
+  multi:  [sc('多选', '多選'), '多選'],
+  fill:   [sc('填空', '填空'), '填空'],
+  open:   [sc('开放', '開放'), '開放'],
+  sort:   [sc('排序', '排序'), '排序'],
+  match:  [sc('连线', '連線'), '連線'],
+  image:  [sc('图片', '圖片'), '圖片'],
+  listen: [sc('听颂', '聽頌'), '聽頌'],
+  flip:   [sc('速记', '速記'), '速記'],
+  flow:   [sc('流程', '流程'), '流程'],
+  guided: [sc('引导', '引導'), '引導'],
+  scenario: [sc('情境', '情境'), '情境'],
+};
+
+function relTime(iso) {
+  if (!iso) return '';
+  var ts = new Date(iso).getTime();
+  var diff = Date.now() - ts;
+  var days = Math.floor(diff / 86400000);
+  if (days < 1) return sc('今日', '今日');
+  if (days < 7) return sc(days + ' 天前', days + ' 天前');
+  var weeks = Math.floor(days / 7);
+  if (weeks < 4) return sc(weeks + ' 周前', weeks + ' 週前');
+  var months = Math.floor(days / 30);
+  if (months < 12) return sc(months + ' 个月前', months + ' 個月前');
+  return sc(Math.floor(days / 365) + ' 年前', Math.floor(days / 365) + ' 年前');
+}
+
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function render(items) {
+  var block = document.getElementById('items');
+  var countLabel = document.getElementById('count-label');
+  var listBlock = document.getElementById('list-block');
+  var emptyBlock = document.getElementById('empty-block');
+
+  if (!items || !items.length) {
+    listBlock.style.display = 'none';
+    emptyBlock.style.display = '';
+    return;
+  }
+
+  listBlock.style.display = '';
+  emptyBlock.style.display = 'none';
+
+  countLabel.textContent = sc(
+    '共 ' + items.length + ' 条收藏',
+    '共 ' + items.length + ' 條收藏'
+  );
+
+  block.innerHTML = items.map(function (it) {
+    var q = it.question || {};
+    var qid = it.questionId || q.id;
+    var type = q.type || 'single';
+    var typeT = (typeLabel[type] || [type, type])[0];
+    var sourceTag = q.source ? '<span class="fav-tag">' + escapeHtml(q.source) + '</span>' : '';
+    return ''
+      + '<div class="fav-item" data-qid="' + escapeHtml(qid) + '">'
+      +   '<div class="fav-top">'
+      +     '<div class="fav-tags">'
+      +       '<span class="fav-tag type">' + typeT + '</span>'
+      +       sourceTag
+      +     '</div>'
+      +   '</div>'
+      +   '<p class="fav-text">' + escapeHtml(q.questionText || sc('（题目已下架）', '（題目已下架）')) + '</p>'
+      +   '<div class="fav-actions">'
+      +     '<span class="fav-time">' + sc('收藏于 ', '收藏於 ') + relTime(it.createdAt) + '</span>'
+      +     '<button type="button" class="fav-remove" data-qid="' + escapeHtml(qid) + '">'
+      +       '<span class="sc">取消收藏</span><span class="tc">取消收藏</span>'
+      +     '</button>'
+      +   '</div>'
+      + '</div>';
+  }).join('');
+
+  // 绑定删除按钮
+  block.querySelectorAll('.fav-remove').forEach(function (btn) {
+    btn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var qid = btn.getAttribute('data-qid');
+      if (!qid || !confirm(sc('取消收藏该题？', '取消收藏該題？'))) return;
+      btn.setAttribute('aria-busy', 'true');
+      window.JX.api.del('/api/favorites/' + encodeURIComponent(qid))
+        .then(function () {
+          var item = btn.closest('.fav-item');
+          if (item) item.remove();
+          // 更新计数 / 重新判空
+          var rest = block.querySelectorAll('.fav-item').length;
+          if (rest === 0) render([]);
+          else {
+            countLabel.textContent = sc(
+              '共 ' + rest + ' 条收藏',
+              '共 ' + rest + ' 條收藏'
+            );
+          }
+        })
+        .catch(function (err) {
+          btn.removeAttribute('aria-busy');
+          alert(sc('取消失败：', '取消失敗：') + ((err && err.message) || err));
+        });
+    });
+  });
+}
+
+window.JX.api.get('/api/favorites?limit=200').then(render).catch(function (err) {
+  console.error('[favorites] 拉取失败', err);
+  render([]);
+});
+</script>
+</body>
+</html>
