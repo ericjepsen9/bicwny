@@ -27,6 +27,7 @@ import { healthRoutes } from './modules/health/routes.js';
 import { learningRoutes } from './modules/learning/routes.js';
 import { llmAdminRoutes } from './modules/llm/admin.routes.js';
 import { llmScenarioAdminRoutes } from './modules/llm/scenario.admin.routes.js';
+import { notificationsRoutes } from './modules/notifications/routes.js';
 import { adminQuestionRoutes } from './modules/questions/admin.routes.js';
 import { coachQuestionRoutes } from './modules/questions/coach.routes.js';
 import { reportsRoutes } from './modules/reports/routes.js';
@@ -201,6 +202,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(mistakesRoutes);
   await app.register(reportsRoutes);
   await app.register(sm2Routes);
+  await app.register(notificationsRoutes);
 
   return app;
 }
