@@ -130,6 +130,31 @@ table.p-list { width: 100%; border-collapse: collapse; }
   font-size: .6875rem; font-weight: 600; letter-spacing: 1px;
   display: inline-block; margin-left: 8px;
 }
+
+/* ── 调用日志表 ─────────────────────────────────── */
+.log-filter { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border-light); background: rgba(43,34,24,.02); }
+.log-filter .fchip {
+  padding: 5px 14px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent; color: var(--ink-3);
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.log-filter .fchip.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
+
+.log-tag {
+  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: .6875rem; font-weight: 600; letter-spacing: 1px;
+}
+.log-tag.ok   { background: var(--sage-light);    color: var(--sage-dark); }
+.log-tag.err  { background: var(--crimson-light); color: var(--crimson); }
+.log-tag.switched { background: var(--gold-pale); color: var(--gold-dark); margin-left: 6px; }
+
+.log-load-more {
+  width: 100%; padding: 12px; border: 0; border-top: 1px solid var(--border-light);
+  background: rgba(255,255,255,.5); color: var(--saffron-dark);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer;
+}
+.log-load-more:hover { background: var(--saffron-pale); }
 </style>
 <script src="../shared/lang.js"></script>
 <script src="../shared/config.js"></script>
@@ -214,7 +239,7 @@ table.p-list { width: 100%; border-collapse: collapse; }
     <div class="top-bar">
       <div>
         <h1 class="page-title">LLM <span class="sc">管理</span><span class="tc">管理</span></h1>
-        <p class="page-sub"><span class="sc">供应商列表 · 启停 · 熔断重置 · 本月用量</span><span class="tc">供應商列表 · 啟停 · 熔斷重置 · 本月用量</span></p>
+        <p class="page-sub"><span class="sc">供应商列表 · 启停 · 熔断重置 · 本月用量 · 调用日志</span><span class="tc">供應商列表 · 啟停 · 熔斷重置 · 本月用量 · 調用日誌</span></p>
       </div>
       <div class="top-actions">
         <button class="lang-btn" onclick="toggleLang()">繁</button>
@@ -254,6 +279,25 @@ table.p-list { width: 100%; border-collapse: collapse; }
       <div id="providers-body">
         <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
       </div>
+    </div>
+
+    <!-- 调用日志 · GET /api/admin/llm/logs -->
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title"><span class="sc">调用日志</span><span class="tc">調用日誌</span></span>
+        <span class="panel-hint"><span class="sc">最近 LLM 调用 · 倒序 · 游标分页</span><span class="tc">最近 LLM 調用 · 倒序 · 游標分頁</span></span>
+      </div>
+      <div class="log-filter">
+        <span class="fchip active" data-success=""><span class="sc">全部</span><span class="tc">全部</span></span>
+        <span class="fchip" data-success="true"><span class="sc">成功</span><span class="tc">成功</span></span>
+        <span class="fchip" data-success="false"><span class="sc">失败</span><span class="tc">失敗</span></span>
+      </div>
+      <div id="logs-body">
+        <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+      </div>
+      <button id="logs-load-more" class="log-load-more" style="display:none;">
+        <span class="sc">加载更多</span><span class="tc">加載更多</span>
+      </button>
     </div>
   </main>
 </div>
@@ -379,14 +423,105 @@ function loadAll() {
   });
 }
 
+// ─── 调用日志 · /api/admin/llm/logs ────────────────────────────
+var logState = {
+  success: '', // '' | 'true' | 'false'
+  limit: 50,
+  cursor: null,
+  items: [],
+  hasMore: false,
+};
+
+function fmtLogTime(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+  return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
+    pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+function buildLogQS() {
+  var qs = ['limit=' + logState.limit];
+  if (logState.success) qs.push('success=' + logState.success);
+  if (logState.cursor)  qs.push('cursor=' + encodeURIComponent(logState.cursor));
+  return qs.join('&');
+}
+
+function renderLogs() {
+  var body = document.getElementById('logs-body');
+  var loadMore = document.getElementById('logs-load-more');
+  if (!logState.items.length) {
+    body.innerHTML = '<div class="empty-state">' +
+      escapeHtml(sc('暂无调用记录', '暫無調用記錄')) + '</div>';
+    loadMore.style.display = 'none';
+    return;
+  }
+  var rows = logState.items.map(function (l) {
+    var tokens = (l.inputTokens || 0) + (l.outputTokens || 0);
+    var cost = Number(l.cost || 0).toFixed(4);
+    var latency = l.latencyMs != null ? (l.latencyMs + ' ms') : '—';
+    return ''
+      + '<tr>'
+      +   '<td style="white-space:nowrap;color:var(--ink-3);">' + fmtLogTime(l.timestamp || l.createdAt) + '</td>'
+      +   '<td>'
+      +     '<span class="log-tag ' + (l.success ? 'ok' : 'err') + '">' + (l.success ? sc('成功', '成功') : sc('失败', '失敗')) + '</span>'
+      +     (l.switched ? '<span class="log-tag switched">' + sc('降级', '降級') + '</span>' : '')
+      +   '</td>'
+      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;color:var(--ink);">' + escapeHtml(l.scenario || '—') + '</td>'
+      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;color:var(--ink-3);">' + escapeHtml(l.providerUsed || '—') + '</td>'
+      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;color:var(--ink-3);">' + escapeHtml(l.model || '—') + '</td>'
+      +   '<td style="text-align:right;color:var(--ink-2);">' + fmtNum(tokens) + '</td>'
+      +   '<td style="text-align:right;color:var(--ink-2);font-family:\'SF Mono\',Consolas,monospace;">$' + cost + '</td>'
+      +   '<td style="text-align:right;color:var(--ink-3);">' + escapeHtml(latency) + '</td>'
+      + '</tr>';
+  });
+  body.innerHTML =
+    '<table class="p-list"><thead><tr>' +
+      '<th><span class="sc">时间</span><span class="tc">時間</span></th>' +
+      '<th><span class="sc">状态</span><span class="tc">狀態</span></th>' +
+      '<th><span class="sc">场景</span><span class="tc">場景</span></th>' +
+      '<th><span class="sc">供应商</span><span class="tc">供應商</span></th>' +
+      '<th><span class="sc">模型</span><span class="tc">模型</span></th>' +
+      '<th style="text-align:right;">Tokens</th>' +
+      '<th style="text-align:right;"><span class="sc">成本</span><span class="tc">成本</span></th>' +
+      '<th style="text-align:right;"><span class="sc">耗时</span><span class="tc">耗時</span></th>' +
+    '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  loadMore.style.display = logState.hasMore ? '' : 'none';
+}
+
+function fetchLogs(append) {
+  window.JX.api.get('/api/admin/llm/logs?' + buildLogQS()).then(function (data) {
+    var batch = data || [];
+    logState.items = append ? logState.items.concat(batch) : batch;
+    logState.hasMore = batch.length === logState.limit;
+    logState.cursor = logState.hasMore ? batch[batch.length - 1].id : null;
+    renderLogs();
+  }).catch(function (err) {
+    document.getElementById('logs-body').innerHTML =
+      '<div class="empty-state err-state">' + escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
+  });
+}
+
+document.querySelectorAll('.log-filter .fchip').forEach(function (chip) {
+  chip.addEventListener('click', function () {
+    document.querySelectorAll('.log-filter .fchip').forEach(function (c) { c.classList.remove('active'); });
+    chip.classList.add('active');
+    logState.success = chip.getAttribute('data-success') || '';
+    logState.cursor = null;
+    fetchLogs(false);
+  });
+});
+document.getElementById('logs-load-more').addEventListener('click', function () { fetchLogs(true); });
+
 // 退出登录
 document.getElementById('btn-logout').addEventListener('click', function () {
   window.JX.api.logout().finally(function () { location.replace('../mobile/auth.html'); });
 });
 
 // 初始加载
-document.addEventListener('jx:user-ready', loadAll);
-if (window.JX && window.JX.user) loadAll();
+function boot() { loadAll(); fetchLogs(false); }
+document.addEventListener('jx:user-ready', boot);
+if (window.JX && window.JX.user) boot();
 </script>
 </body>
 </html>
