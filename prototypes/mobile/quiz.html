@@ -113,6 +113,72 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .quiz-action { padding: var(--sp-3) var(--sp-5) var(--sp-5); }
 @keyframes slideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
 
+/* ── Flip card（v2 题型：速记卡）─────────────────────── */
+.flip-card {
+  position: relative; min-height: 180px; perspective: 1200px;
+  cursor: pointer;
+}
+.flip-inner {
+  position: relative; width: 100%; min-height: 180px;
+  transform-style: preserve-3d;
+  transition: transform .55s cubic-bezier(.4,.0,.2,1);
+}
+.flip-card.flipped .flip-inner { transform: rotateY(180deg); }
+
+.flip-face {
+  position: absolute; inset: 0;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  border-radius: var(--r-lg); padding: var(--sp-5);
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  text-align: center; gap: var(--sp-3);
+  border: 1px solid var(--glass-border);
+}
+.flip-front {
+  background: var(--glass-thick);
+  color: var(--ink);
+}
+.flip-back {
+  background: var(--sage-light);
+  color: var(--ink);
+  transform: rotateY(180deg);
+}
+.flip-face .flip-text {
+  font: var(--text-body-serif); font-size: 1.0625rem; line-height: 1.7;
+  letter-spacing: 1px;
+}
+.flip-face .flip-sub, .flip-face .flip-example {
+  font: var(--text-caption); color: var(--ink-3); letter-spacing: 1.5px;
+  line-height: 1.6; max-width: 90%;
+}
+.flip-face .flip-example { color: var(--sage-dark); font-style: italic; }
+.flip-hint {
+  position: absolute; bottom: 10px; left: 0; right: 0;
+  text-align: center;
+  font: var(--text-caption); color: var(--ink-4); letter-spacing: 2px;
+}
+
+/* 评分按钮 */
+.flip-ratings {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-2); margin-top: var(--sp-3);
+}
+.flip-rating {
+  padding: 10px 4px; border-radius: var(--r);
+  border: 1px solid transparent;
+  font-weight: 700; letter-spacing: 1.5px; cursor: pointer;
+  transition: transform var(--dur) var(--ease);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.flip-rating:active { transform: scale(.96); }
+.flip-rating .label { font-size: .875rem; }
+.flip-rating .sub   { font-size: .625rem; opacity: .75; letter-spacing: 1px; }
+.flip-r-again { background: rgba(192,57,43,.10); color: var(--crimson);     border-color: rgba(192,57,43,.25); }
+.flip-r-hard  { background: var(--gold-pale);    color: var(--gold-dark);   border-color: var(--gold-light); }
+.flip-r-good  { background: var(--sage-light);   color: var(--sage-dark);   border-color: var(--sage-dark); }
+.flip-r-easy  { background: var(--saffron-pale); color: var(--saffron-dark);border-color: var(--saffron-light); }
+.flip-rating.selected { box-shadow: 0 0 0 2px currentColor; font-weight: 800; }
+.flip-rating.disabled { opacity: .5; pointer-events: none; }
+
 /* Result overlay */
 .result-overlay {
   display: none; position: absolute; inset: 0;

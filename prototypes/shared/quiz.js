@@ -22,6 +22,7 @@
     answer: null,        // 当前题用户答案（原始结构）
     lastGrade: null,     // 当前题后端返回的 grade
     favoriteIds: {},     // { [questionId]: true } · 本轮题目的收藏态
+    flipped: false,      // flip 题本张是否已翻面（随 nextQ 重置）
   };
 
   // ── 各题型渲染器 ────────────────────────────────────
@@ -139,9 +140,85 @@
     container.appendChild(div);
     state.answer = { __placeholder: true };
   }
-  ['sort', 'match', 'flip', 'flow', 'guided'].forEach(function (t) {
+  ['sort', 'match', 'flow', 'guided'].forEach(function (t) {
     renderers[t] = placeholder;
   });
+
+  // ── flip（速记卡）· 无对错，四档自评 → SM-2 quality ──
+  // payload: { front:{text,subText?}, back:{text,example?}, noScoring:true }
+  // answer : { selfRating: 'again'|'hard'|'good'|'easy' }
+  renderers.flip = function (q, container) {
+    var p = q.payload || {};
+    var front = p.front || {};
+    var back = p.back || {};
+
+    // 外层 flip 卡片（3D 翻转容器）
+    var card = document.createElement('div');
+    card.className = 'flip-card' + (state.flipped ? ' flipped' : '');
+
+    var inner = document.createElement('div');
+    inner.className = 'flip-inner';
+
+    // 正面
+    var fr = document.createElement('div');
+    fr.className = 'flip-face flip-front';
+    fr.innerHTML =
+      '<p class="flip-text">' + escapeHtml(front.text || '') + '</p>' +
+      (front.subText ? '<p class="flip-sub">' + escapeHtml(front.subText) + '</p>' : '') +
+      '<p class="flip-hint">' + sc('点击卡片翻转', '點擊卡片翻轉') + '</p>';
+
+    // 背面
+    var bk = document.createElement('div');
+    bk.className = 'flip-face flip-back';
+    bk.innerHTML =
+      '<p class="flip-text">' + escapeHtml(back.text || '') + '</p>' +
+      (back.example ? '<p class="flip-example">' + escapeHtml(back.example) + '</p>' : '');
+
+    inner.appendChild(fr);
+    inner.appendChild(bk);
+    card.appendChild(inner);
+    container.appendChild(card);
+
+    // 点任意一面翻转（确认后禁止再翻）
+    card.addEventListener('click', function () {
+      if (state.confirmed) return;
+      state.flipped = !state.flipped;
+      card.classList.toggle('flipped', state.flipped);
+      // 翻到背面时显示评分按钮；翻回正面时隐藏（但已选答案保留）
+      ratings.style.display = state.flipped ? '' : 'none';
+    });
+
+    // 四档自评按钮（仅翻到背面后显示）
+    var ratings = document.createElement('div');
+    ratings.className = 'flip-ratings';
+    ratings.style.display = state.flipped ? '' : 'none';
+
+    var options = [
+      { key: 'again', sc: ['重来', '重來'], sub: [sc('完全忘了', '完全忘了')] },
+      { key: 'hard',  sc: ['困难', '困難'], sub: [sc('想起费力', '想起費力')] },
+      { key: 'good',  sc: ['良好', '良好'], sub: [sc('正常想起', '正常想起')] },
+      { key: 'easy',  sc: ['简单', '簡單'], sub: [sc('一眼认出', '一眼認出')] },
+    ];
+    options.forEach(function (o) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'flip-rating flip-r-' + o.key;
+      if (state.answer && state.answer.selfRating === o.key) btn.classList.add('selected');
+      if (state.confirmed) btn.classList.add('disabled');
+      btn.innerHTML =
+        '<span class="label"><span class="sc">' + o.sc[0] + '</span><span class="tc">' + o.sc[1] + '</span></span>' +
+        '<span class="sub">' + o.sub[0] + '</span>';
+      btn.addEventListener('click', function (ev) {
+        ev.stopPropagation(); // 不触发 card 的翻转
+        if (state.confirmed) return;
+        state.answer = { selfRating: o.key };
+        render();
+      });
+      ratings.appendChild(btn);
+    });
+
+    container.appendChild(ratings);
+  };
 
   // ── 提交前校验 ──────────────────────────────────────
   function canSubmit() {
@@ -155,6 +232,7 @@
       case 'scenario': return (state.answer.selectedIndexes || []).length > 0;
       case 'fill':     return typeof state.answer.selectedOption === 'number';
       case 'open':     return (state.answer.text || '').trim().length >= 20;
+      case 'flip':     return !!state.answer.selfRating;
       default:         return !!state.answer.__placeholder;
     }
   }
@@ -283,6 +361,7 @@
     state.confirmed = false;
     state.answer = null;
     state.lastGrade = null;
+    state.flipped = false;
     state.tQuestionStart = Date.now();
     render();
   }
