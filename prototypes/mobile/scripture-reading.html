@@ -26,15 +26,8 @@
 body { background: var(--bg-scene); min-height: 100vh; }
 .phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
 
-/* Top nav */
-.top-nav { display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-5) var(--sp-3); }
-.top-nav-title { font-family: var(--font-serif); font-weight: 700; color: var(--ink); font-size: 1rem; letter-spacing: 3px; flex: 1; }
-.nav-action {
-  width: 34px; height: 34px; border-radius: var(--r-sm);
-  background: var(--glass-thick); border: 1px solid var(--glass-border);
-  display: flex; align-items: center; justify-content: center;
-  text-decoration: none; cursor: pointer;
-}
+/* Top nav · 复用 components.css 共享样式 · 此处仅压低标题字号 */
+.top-nav .nav-title { font-size: 1rem; letter-spacing: 3px; }
 
 /* Reading header */
 .reading-header { padding: 0 var(--sp-5) var(--sp-3); display: flex; justify-content: space-between; align-items: center; }
@@ -101,10 +94,10 @@ body { background: var(--bg-scene); min-height: 100vh; }
   <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
-    <a class="nav-action" id="back-link" href="scripture-detail.html">
+    <a class="nav-back" id="back-link" href="scripture-detail.html" aria-label="返回">
       <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
     </a>
-    <span class="top-nav-title" id="top-title">—</span>
+    <span class="nav-title" id="top-title">—</span>
     <button class="nav-action" id="prev-lesson" aria-label="上一课">
       <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
