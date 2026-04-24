@@ -131,6 +131,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/api.js"></script>
+<script src="../shared/toast.js"></script>
 <script src="../shared/require-auth.js"></script>
 </head>
 <body class="scene">
@@ -296,7 +297,7 @@ function renderClass(mem) {
     if (!confirm(sc('确定退出班级？退出后学习数据保留。', '確定退出班級？退出後學習資料保留。'))) return;
     window.JX.api.post('/api/classes/' + encodeURIComponent(cls.id) + '/leave', {})
       .then(function () { location.reload(); })
-      .catch(function (err) { alert(sc('退出失败：', '退出失敗：') + (err.message || err)); });
+      .catch(function (err) { window.JX.toast.error(sc('退出失败：', '退出失敗：') + (err.message || err)); });
   };
 }
 

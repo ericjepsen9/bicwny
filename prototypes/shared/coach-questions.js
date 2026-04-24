@@ -424,7 +424,7 @@ function renderCreateForm() {
 
 function openCreateDrawer() {
   if (!courseList.length) {
-    alert(sc('课程列表加载中，请稍候', '課程列表加載中，請稍候'));
+    window.JX.toast.warn(sc('课程列表加载中，请稍候', '課程列表加載中，請稍候'));
     return;
   }
   state.drawerMode = 'create';
@@ -682,7 +682,7 @@ function renderGenerateForm() {
 
 function openGenerateDrawer() {
   if (!courseList.length) {
-    alert(sc('课程列表加载中，请稍候', '課程列表加載中，請稍候'));
+    window.JX.toast.warn(sc('课程列表加载中，请稍候', '課程列表加載中，請稍候'));
     return;
   }
   state.drawerMode = 'generate';

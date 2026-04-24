@@ -805,7 +805,7 @@
       render();
     }).catch(function (err) {
       btn.disabled = false;
-      alert(sc('提交失败：', '提交失敗：') + (err.message || err));
+      window.JX.toast.error(sc('提交失败：', '提交失敗：') + (err.message || err));
     });
   }
 

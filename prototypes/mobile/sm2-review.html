@@ -26,6 +26,7 @@
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/api.js"></script>
+<script src="../shared/toast.js"></script>
 <script src="../shared/require-auth.js"></script>
 <style>
 body { background: var(--bg-scene); min-height: 100vh; }
@@ -388,7 +389,7 @@ function submitRating(rating) {
     document.querySelectorAll('.rating-btn').forEach(function (b) {
       b.removeAttribute('aria-busy');
     });
-    alert(sc('提交失败：', '提交失敗：') + ((err && err.message) || err));
+    window.JX.toast.error(sc('提交失败：', '提交失敗：') + ((err && err.message) || err));
   });
 }
 

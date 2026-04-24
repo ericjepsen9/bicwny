@@ -26,6 +26,7 @@
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/api.js"></script>
+<script src="../shared/toast.js"></script>
 <script src="../shared/require-auth.js"></script>
 <style>
 body { background: var(--bg-scene); min-height: 100vh; }
@@ -237,7 +238,7 @@ function render(items) {
         })
         .catch(function (err) {
           btn.removeAttribute('aria-busy');
-          alert(sc('取消失败：', '取消失敗：') + ((err && err.message) || err));
+          window.JX.toast.error(sc('取消失败：', '取消失敗：') + ((err && err.message) || err));
         });
     });
   });
