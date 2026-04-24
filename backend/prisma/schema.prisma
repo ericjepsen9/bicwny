@@ -45,6 +45,7 @@ model User {
   sessions         AuthSession[]
   createdQuestions Question[]             @relation("CreatedQuestions")
   resetTokens      PasswordResetToken[]
+  notifications    Notification[]
 
   @@index([role])
 }
@@ -126,6 +127,34 @@ model PasswordResetToken {
 
   @@index([userId, usedAt])
   @@index([expiresAt])
+}
+
+// 通知 · 系统/班级/成就/提醒 四类 · 全部落此表
+// - type 标明来源；title / body 是展示文本
+// - link 是点击跳转的前端相对路径（可选，如 "class-detail.html"）
+// - isRead 读后不重置；前端 header 未读计数 = count(isRead=false)
+enum NotificationType {
+  system       // 系统通知（版本更新 / 维护预告）
+  class_announcement // 班级公告（辅导员发给班级成员）
+  achievement  // 成就解锁
+  reminder     // 学习提醒（今日到期 / 错题堆积）
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String?
+  link      String? // 前端相对路径，如 "sm2-review.html"
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@index([userId, createdAt])
 }
 
 // ═══════════════════════════════════════════════════════════════
