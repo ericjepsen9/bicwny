@@ -15,7 +15,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1280,initial-scale=1">
-<title>觉学 · 审计日志 · 管理员</title>
+<title>觉学 · 运行日志 · 管理员</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
@@ -25,12 +25,27 @@
 <style>
 .side-avatar { background: linear-gradient(135deg, var(--crimson-light), var(--crimson)); }
 
+.stats-strip {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.stat-card {
+  padding: var(--sp-3) var(--sp-4); border-radius: var(--r-lg);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+}
+.stat-label { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1.5px; }
+.stat-value { font-family: var(--font-serif); font-size: 1.75rem; font-weight: 700; color: var(--ink); margin-top: 4px; }
+.stat-card.error    .stat-value { color: var(--crimson); }
+.stat-card.slow-req .stat-value { color: var(--saffron-dark); }
+.stat-card.slow-q   .stat-value { color: var(--gold-dark); }
+
 .filter-bar {
   display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
   margin-bottom: var(--sp-4); padding: var(--sp-3) var(--sp-4);
   background: var(--glass-thick); border: 1px solid var(--glass-border);
   border-radius: var(--r-lg);
 }
+.fchips { display: flex; gap: var(--sp-2); }
 .fchip {
   padding: 5px 14px; border-radius: var(--r-pill);
   font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
@@ -63,34 +78,38 @@ table.a-list { width: 100%; border-collapse: collapse; }
 .a-list tr[data-row] { cursor: pointer; }
 .a-list tr[data-row]:hover { background: rgba(224,120,86,.04); }
 
-.action-tag {
+.kind-tag {
   display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
   font-size: .6875rem; font-weight: 600; letter-spacing: 1px;
-  background: var(--saffron-pale); color: var(--saffron-dark);
 }
-.action-tag.danger { background: var(--crimson-light); color: var(--crimson); }
-.action-tag.ok     { background: var(--sage-light);     color: var(--sage-dark); }
+.kind-tag.error        { background: var(--crimson-light); color: var(--crimson); }
+.kind-tag.slow_request { background: var(--saffron-pale);  color: var(--saffron-dark); }
+.kind-tag.slow_query   { background: var(--gold-pale);     color: var(--gold-dark); }
+
+.msg-cell {
+  max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: 'SF Mono', Consolas, monospace; font-size: .75rem;
+}
 
 .detail-row td {
   padding: 0 14px 12px;
   background: rgba(43,34,24,.03);
 }
-.detail-diff {
-  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);
+.detail-pane {
   padding: var(--sp-3); border-radius: var(--r);
   background: #fff; border: 1px solid var(--border-light);
   font-family: 'SF Mono', Consolas, monospace; font-size: .75rem;
+  margin-top: var(--sp-2);
 }
-.detail-diff h5 {
+.detail-pane h5 {
   font-family: var(--font-sans); font-weight: 700; font-size: .6875rem;
   letter-spacing: 1.5px; color: var(--ink-3); margin-bottom: 6px;
 }
-.detail-diff pre {
+.detail-pane pre {
   white-space: pre-wrap; word-break: break-word;
-  color: var(--ink); font-size: .75rem; line-height: 1.5;
+  color: var(--ink); font-size: .75rem; line-height: 1.5; max-height: 320px; overflow: auto;
 }
-.detail-diff .before h5 { color: var(--crimson); }
-.detail-diff .after  h5 { color: var(--sage-dark); }
+.detail-pane.stack pre { color: var(--crimson); }
 
 .empty-state { padding: var(--sp-8) var(--sp-5); text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px; }
 .err-state { color: var(--crimson); }
@@ -141,11 +160,11 @@ table.a-list { width: 100%; border-collapse: collapse; }
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         <span><span class="sc">数据总览</span><span class="tc">數據總覽</span></span>
       </a>
-      <a class="nav-item active" href="admin-audit.html">
+      <a class="nav-item" href="admin-audit.html">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         <span><span class="sc">审计日志</span><span class="tc">審計日誌</span></span>
       </a>
-      <a class="nav-item" href="admin-logs.html">
+      <a class="nav-item active" href="admin-logs.html">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         <span><span class="sc">运行日志</span><span class="tc">運行日誌</span></span>
       </a>
@@ -185,26 +204,38 @@ table.a-list { width: 100%; border-collapse: collapse; }
   <main class="main">
     <div class="top-bar">
       <div>
-        <h1 class="page-title"><span class="sc">审计日志</span><span class="tc">審計日誌</span></h1>
-        <p class="page-sub"><span class="sc">按时间倒序 · 游标分页 · 展开查看 before / after 差异</span><span class="tc">按時間倒序 · 游標分頁 · 展開查看 before / after 差異</span></p>
+        <h1 class="page-title"><span class="sc">运行日志</span><span class="tc">運行日誌</span></h1>
+        <p class="page-sub"><span class="sc">近 24h 统计 · 游标分页 · 展开查看 stack / context</span><span class="tc">近 24h 統計 · 游標分頁 · 展開查看 stack / context</span></p>
       </div>
       <div class="top-actions">
         <button class="lang-btn" onclick="toggleLang()">繁</button>
       </div>
     </div>
 
+    <div class="stats-strip">
+      <div class="stat-card error">
+        <div class="stat-label"><span class="sc">错误 (24h)</span><span class="tc">錯誤 (24h)</span></div>
+        <div class="stat-value" id="stat-error">—</div>
+      </div>
+      <div class="stat-card slow-req">
+        <div class="stat-label"><span class="sc">慢请求 (24h)</span><span class="tc">慢請求 (24h)</span></div>
+        <div class="stat-value" id="stat-slow-request">—</div>
+      </div>
+      <div class="stat-card slow-q">
+        <div class="stat-label"><span class="sc">慢查询 (24h)</span><span class="tc">慢查詢 (24h)</span></div>
+        <div class="stat-value" id="stat-slow-query">—</div>
+      </div>
+    </div>
+
     <div class="filter-bar">
-      <div class="fchips" id="action-chips" style="display:flex;gap:var(--sp-2);">
-        <span class="fchip active" data-action=""><span class="sc">全部动作</span><span class="tc">全部動作</span></span>
-        <span class="fchip" data-action="user.updateRole">改角色</span>
-        <span class="fchip" data-action="user.deactivate">停用</span>
-        <span class="fchip" data-action="user.reactivate"><span class="sc">启用</span><span class="tc">啟用</span></span>
-        <span class="fchip" data-action="class.archive"><span class="sc">归档班级</span><span class="tc">歸檔班級</span></span>
-        <span class="fchip" data-action="question.approve"><span class="sc">通过题目</span><span class="tc">通過題目</span></span>
-        <span class="fchip" data-action="question.reject"><span class="sc">驳回题目</span><span class="tc">駁回題目</span></span>
+      <div class="fchips" id="kind-chips">
+        <span class="fchip active" data-kind=""><span class="sc">全部</span><span class="tc">全部</span></span>
+        <span class="fchip" data-kind="error"><span class="sc">错误</span><span class="tc">錯誤</span></span>
+        <span class="fchip" data-kind="slow_request"><span class="sc">慢请求</span><span class="tc">慢請求</span></span>
+        <span class="fchip" data-kind="slow_query"><span class="sc">慢查询</span><span class="tc">慢查詢</span></span>
       </div>
       <input class="fsearch" id="search-input" type="search"
-        data-ph-sc="按 adminId / targetId 过滤" data-ph-tc="按 adminId / targetId 過濾" placeholder="按 adminId / targetId 过滤">
+        data-ph-sc="按 userId / requestId 过滤" data-ph-tc="按 userId / requestId 過濾" placeholder="按 userId / requestId 过滤">
       <span class="fcount" id="filter-count">—</span>
     </div>
 
@@ -220,14 +251,12 @@ table.a-list { width: 100%; border-collapse: collapse; }
 </div>
 
 <script>
-// admin-audit · GET /api/admin/audit
-// 过滤：action chip · adminId / targetId 搜索（简单 contains 前端过滤不做）
-// 展开：点行切换 before/after JSON diff
+// admin-logs · GET /api/admin/logs (filter + cursor) + /api/admin/logs/stats (24h counts)
+// 展开行：显示 message / stack / context JSON
 var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
 
 var state = {
-  action: '',
-  searchType: null, // 'adminId' | 'targetId' · 从搜索值猜
+  kind: '',
   searchVal: '',
   limit: 50,
   cursor: null,
@@ -241,23 +270,17 @@ function fmtTime(iso) {
   var d = new Date(iso);
   var pad = function (n) { return n < 10 ? '0' + n : String(n); };
   return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
-    pad(d.getHours()) + ':' + pad(d.getMinutes());
-}
-
-function actionClass(a) {
-  if (/deactivate|reject|archive|delete/i.test(a)) return 'danger';
-  if (/activate|approve|restore/i.test(a)) return 'ok';
-  return '';
+    pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
 }
 
 function buildQS() {
   var qs = ['limit=' + state.limit];
-  if (state.action) qs.push('action=' + encodeURIComponent(state.action));
+  if (state.kind) qs.push('kind=' + encodeURIComponent(state.kind));
   if (state.cursor) qs.push('cursor=' + encodeURIComponent(state.cursor));
   if (state.searchVal) {
-    // 用户输入较短 → 默认当 targetId；包含 cmk 开头可能是 adminId cuid
-    if (state.searchVal.length > 10) qs.push('adminId=' + encodeURIComponent(state.searchVal));
-    else qs.push('targetId=' + encodeURIComponent(state.searchVal));
+    // cuid 通常 >= 20 字符；requestId 为 UUID/短串；简单启发式 ≥ 15 当 userId
+    if (state.searchVal.length >= 15) qs.push('userId=' + encodeURIComponent(state.searchVal));
+    else qs.push('requestId=' + encodeURIComponent(state.searchVal));
   }
   return qs.join('&');
 }
@@ -268,7 +291,7 @@ function render() {
 
   if (!state.items.length) {
     body.innerHTML = '<div class="empty-state">' +
-      escapeHtml(sc('暂无审计记录', '暫無審計記錄')) + '</div>';
+      escapeHtml(sc('暂无日志记录', '暫無日誌記錄')) + '</div>';
     loadMore.style.display = 'none';
     document.getElementById('filter-count').textContent = '0';
     return;
@@ -278,25 +301,24 @@ function render() {
     var expanded = state.expandedId === it.id;
     var detailRow = '';
     if (expanded) {
-      var beforeStr = JSON.stringify(it.before || {}, null, 2);
-      var afterStr = JSON.stringify(it.after || {}, null, 2);
+      var ctxStr = JSON.stringify(it.context || {}, null, 2);
+      var stackHtml = it.stack
+        ? '<div class="detail-pane stack"><h5>STACK</h5><pre>' + escapeHtml(it.stack) + '</pre></div>'
+        : '';
       detailRow =
-        '<tr class="detail-row"><td colspan="5">' +
-          '<div class="detail-diff">' +
-            '<div class="before"><h5>BEFORE</h5><pre>' + escapeHtml(beforeStr) + '</pre></div>' +
-            '<div class="after"><h5>AFTER</h5><pre>' + escapeHtml(afterStr) + '</pre></div>' +
-          '</div>' +
+        '<tr class="detail-row"><td colspan="6">' +
+          '<div class="detail-pane"><h5>MESSAGE</h5><pre>' + escapeHtml(it.message || '') + '</pre></div>' +
+          stackHtml +
+          '<div class="detail-pane"><h5>CONTEXT</h5><pre>' + escapeHtml(ctxStr) + '</pre></div>' +
         '</td></tr>';
     }
     return ''
       + '<tr data-row data-id="' + escapeHtml(it.id) + '"' + (expanded ? ' class="expanded"' : '') + '>'
-      +   '<td style="white-space:nowrap;color:var(--ink-3);">' + fmtTime(it.timestamp) + '</td>'
-      +   '<td style="white-space:nowrap;color:var(--ink-3);font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;">' + escapeHtml(it.adminId || '—') + '</td>'
-      +   '<td><span class="action-tag ' + actionClass(it.action) + '">' + escapeHtml(it.action || '—') + '</span></td>'
-      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;">'
-      +     '<span style="color:var(--ink-4);">' + escapeHtml(it.targetType || '—') + ':</span> '
-      +     escapeHtml(it.targetId || '—')
-      +   '</td>'
+      +   '<td style="white-space:nowrap;color:var(--ink-3);">' + fmtTime(it.createdAt) + '</td>'
+      +   '<td><span class="kind-tag ' + escapeHtml(it.kind) + '">' + escapeHtml(it.kind) + '</span></td>'
+      +   '<td class="msg-cell" title="' + escapeHtml(it.message || '') + '">' + escapeHtml(it.message || '—') + '</td>'
+      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;color:var(--ink-3);">' + escapeHtml(it.userId || '—') + '</td>'
+      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;color:var(--ink-3);">' + escapeHtml(it.requestId || '—') + '</td>'
       +   '<td style="width:30px;color:var(--ink-4);">' + (expanded ? '▾' : '▸') + '</td>'
       + '</tr>'
       + detailRow;
@@ -305,9 +327,10 @@ function render() {
   body.innerHTML =
     '<table class="a-list"><thead><tr>' +
       '<th><span class="sc">时间</span><span class="tc">時間</span></th>' +
-      '<th>Admin ID</th>' +
-      '<th><span class="sc">动作</span><span class="tc">動作</span></th>' +
-      '<th><span class="sc">目标</span><span class="tc">目標</span></th>' +
+      '<th><span class="sc">类型</span><span class="tc">類型</span></th>' +
+      '<th><span class="sc">消息</span><span class="tc">消息</span></th>' +
+      '<th>User ID</th>' +
+      '<th>Request ID</th>' +
       '<th></th>' +
     '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
 
@@ -324,7 +347,7 @@ function render() {
 }
 
 function fetchPage(append) {
-  window.JX.api.get('/api/admin/audit?' + buildQS()).then(function (data) {
+  window.JX.api.get('/api/admin/logs?' + buildQS()).then(function (data) {
     var batch = data || [];
     state.items = append ? state.items.concat(batch) : batch;
     state.hasMore = batch.length === state.limit;
@@ -336,12 +359,25 @@ function fetchPage(append) {
   });
 }
 
-// 筛选 chip
+function fetchStats() {
+  window.JX.api.get('/api/admin/logs/stats').then(function (data) {
+    var c = (data && data.counts) || {};
+    document.getElementById('stat-error').textContent = c.error || 0;
+    document.getElementById('stat-slow-request').textContent = c.slow_request || 0;
+    document.getElementById('stat-slow-query').textContent = c.slow_query || 0;
+  }).catch(function () {
+    document.getElementById('stat-error').textContent = '—';
+    document.getElementById('stat-slow-request').textContent = '—';
+    document.getElementById('stat-slow-query').textContent = '—';
+  });
+}
+
+// kind 筛选
 document.querySelectorAll('.fchip').forEach(function (chip) {
   chip.addEventListener('click', function () {
     document.querySelectorAll('.fchip').forEach(function (c) { c.classList.remove('active'); });
     chip.classList.add('active');
-    state.action = chip.getAttribute('data-action') || '';
+    state.kind = chip.getAttribute('data-kind') || '';
     state.cursor = null;
     fetchPage(false);
   });
@@ -367,8 +403,9 @@ document.getElementById('btn-logout').addEventListener('click', function () {
 });
 
 // 初始加载
-document.addEventListener('jx:user-ready', function () { fetchPage(false); });
-if (window.JX && window.JX.user) fetchPage(false);
+function boot() { fetchStats(); fetchPage(false); }
+document.addEventListener('jx:user-ready', boot);
+if (window.JX && window.JX.user) boot();
 </script>
 </body>
 </html>
