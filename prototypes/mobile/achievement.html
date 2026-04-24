@@ -15,7 +15,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>觉学 · 成就</title>
+<title>觉学 · 学习统计</title>
 <script src="../shared/lang.js"></script>
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
@@ -99,126 +99,128 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
   <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
-    <a class="nav-back" href="home.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
-    <span class="nav-title"><span class="sc">成就大厅</span><span class="tc">成就大廳</span></span>
+    <a class="nav-back" href="profile.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
+    <span class="nav-title"><span class="sc">学习统计</span><span class="tc">學習統計</span></span>
     <div style="width:34px;"></div>
   </div>
 
   <div class="scroll-area" style="height:726px;">
 
-    <!-- Level ring -->
+    <!-- 总览环：累计答题数 -->
     <div class="level-section">
       <div class="level-ring-wrap">
-        <div class="level-ring-track"></div>
+        <div class="level-ring-track" id="stat-ring"></div>
         <div class="level-ring-inner">
-          <span class="level-num">7</span>
-          <span class="level-word"><span class="sc">等级</span><span class="tc">等級</span></span>
+          <span class="level-num" id="stat-total">—</span>
+          <span class="level-word"><span class="sc">累计答题</span><span class="tc">累計答題</span></span>
         </div>
       </div>
-      <p class="level-title">般若行者</p>
-      <p class="level-subtitle"><span class="sc">距下一级还需 240 点 · 70%</span><span class="tc">距下一級還需 240 點 · 70%</span></p>
+      <p class="level-title" id="stat-days-title">—</p>
+      <p class="level-subtitle" id="stat-today">—</p>
     </div>
 
-    <!-- Stats -->
+    <!-- 三项指标 -->
     <div class="stats-row">
       <div class="stat-pair">
-        <span class="stat-value">328</span>
-        <span class="stat-label"><span class="sc">累计答题</span><span class="tc">累計答題</span></span>
-      </div>
-      <div class="stats-sep"></div>
-      <div class="stat-pair">
-        <span class="stat-value" style="color:var(--saffron);">21</span>
+        <span class="stat-value" id="stat-streak">—</span>
         <span class="stat-label"><span class="sc">连续天数</span><span class="tc">連續天數</span></span>
       </div>
       <div class="stats-sep"></div>
       <div class="stat-pair">
-        <span class="stat-value" style="color:var(--sage-dark);">84%</span>
+        <span class="stat-value" id="stat-rate" style="color:var(--sage-dark);">—</span>
         <span class="stat-label"><span class="sc">正确率</span><span class="tc">正確率</span></span>
       </div>
+      <div class="stats-sep"></div>
+      <div class="stat-pair">
+        <span class="stat-value" id="stat-mastered" style="color:var(--saffron);">—</span>
+        <span class="stat-label"><span class="sc">已掌握</span><span class="tc">已掌握</span></span>
+      </div>
     </div>
 
-    <!-- Badges -->
+    <!-- 按课程分列 -->
     <div class="badge-section">
       <div class="section-header">
-        <span class="section-title"><span class="sc">成就勋章</span><span class="tc">成就勳章</span></span>
-        <span class="section-action">6 / 18 <span class="sc">已获得</span><span class="tc">已獲得</span></span>
+        <span class="section-title"><span class="sc">按法本分列</span><span class="tc">按法本分列</span></span>
       </div>
-      <div class="badge-grid">
-
-        <div class="badge-item earned">
-          <div class="badge-icon">
-            <svg width="22" height="22" fill="none" stroke="#B88956" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </div>
-          <span class="badge-name">初心者</span>
-          <span class="badge-cond"><span class="sc">完成首次答题</span><span class="tc">完成首次答題</span></span>
-        </div>
-
-        <div class="badge-item earned">
-          <div class="badge-icon">
-            <svg width="22" height="22" fill="none" stroke="#B88956" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-          </div>
-          <span class="badge-name"><span class="sc">精进者</span><span class="tc">精進者</span></span>
-          <span class="badge-cond"><span class="sc">连续 7 天</span><span class="tc">連續 7 天</span></span>
-        </div>
-
-        <div class="badge-item earned">
-          <div class="badge-icon">
-            <svg width="22" height="22" fill="none" stroke="#B88956" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-          </div>
-          <span class="badge-name">法本通</span>
-          <span class="badge-cond">完成一部法本</span>
-        </div>
-
-        <div class="badge-item earned">
-          <div class="badge-icon">
-            <svg width="22" height="22" fill="none" stroke="#B88956" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
-          </div>
-          <span class="badge-name"><span class="sc">荣誉学员</span><span class="tc">榮譽學員</span></span>
-          <span class="badge-cond"><span class="sc">正确率达 80%</span><span class="tc">正確率達 80%</span></span>
-        </div>
-
-        <div class="badge-item locked">
-          <div class="badge-icon">
-            <svg width="22" height="22" fill="none" stroke="#B5A99A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </div>
-          <span class="badge-name">共修之友</span>
-          <span class="badge-cond"><span class="sc">参与 3 次共修</span><span class="tc">參與 3 次共修</span></span>
-        </div>
-
-        <div class="badge-item locked">
-          <div class="badge-icon">
-            <svg width="22" height="22" fill="none" stroke="#B5A99A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </div>
-          <span class="badge-name"><span class="sc">百题达人</span><span class="tc">百題達人</span></span>
-          <span class="badge-cond"><span class="sc">累计答对 100 题</span><span class="tc">累計答對 100 題</span></span>
-        </div>
-
-        <div class="badge-item locked">
-          <div class="badge-icon">
-            <svg width="22" height="22" fill="none" stroke="#B5A99A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.57"/></svg>
-          </div>
-          <span class="badge-name"><span class="sc">错题克星</span><span class="tc">錯題剋星</span></span>
-          <span class="badge-cond"><span class="sc">清空错题本</span><span class="tc">清空錯題本</span></span>
-        </div>
-
-        <div class="badge-item locked">
-          <div class="badge-icon">
-            <svg width="22" height="22" fill="none" stroke="#B5A99A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </div>
-          <span class="badge-name"><span class="sc">坚持三旬</span><span class="tc">堅持三旬</span></span>
-          <span class="badge-cond"><span class="sc">连续 30 天</span><span class="tc">連續 30 天</span></span>
-        </div>
-
-        <div class="badge-item locked">
-          <div class="badge-icon">
-            <svg width="22" height="22" fill="none" stroke="#B5A99A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-          </div>
-          <span class="badge-name">般若智者</span>
-          <span class="badge-cond"><span class="sc">达到等级 10</span><span class="tc">達到等級 10</span></span>
-        </div>
-
+      <div id="by-course-list" style="margin-top:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2);">
+        <div style="text-align:center;padding:var(--sp-4);font:var(--text-caption);color:var(--ink-3);"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
       </div>
     </div>
 
-  </div>
+    <!-- 勋章系统占位（待后端 /api/achievements 实现） -->
+    <div class="badge-section" style="padding-top:0;">
+      <div class="section-header">
+        <span class="section-title"><span class="sc">成就勋章</span><span class="tc">成就勳章</span></span>
+      </div>
+      <div style="margin-top:var(--sp-3);padding:var(--sp-5);background:rgba(255,255,255,.45);border:1px dashed var(--border);border-radius:var(--r-lg);text-align:center;">
+        <p style="font:var(--text-body);color:var(--ink-3);letter-spacing:1.5px;line-height:1.7;">
+          <span class="sc">勋章系统开发中，敬请期待</span>
+          <span class="tc">勳章系統開發中，敬請期待</span>
+        </p>
+      </div>
+    </div>
+
+  </div><!-- /scroll-area -->
+
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+<script src="../shared/nav.js"></script>
+<script>
+// achievement（学习统计）· GET /api/my/progress
+// 勋章系统目前无后端 /api/achievements，前端仅展示统计 + "开发中" 占位
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+function $(id) { return document.getElementById(id); }
+
+function render(p) {
+  p = p || {};
+  $('stat-total').textContent = p.totalAnswers || 0;
+  $('stat-streak').textContent = (p.streak && p.streak.current) || 0;
+  $('stat-rate').textContent = Math.round((p.correctRate || 0) * 100) + '%';
+  $('stat-mastered').textContent = (p.sm2 && p.sm2.mastered) || 0;
+
+  // 顶部环下方副标题：活跃天数 / 今日答题
+  var totalDays = p.totalDays || 0;
+  var todayAns = p.todayAnswered || 0;
+  $('stat-days-title').innerHTML = '<span class="sc">共 ' + totalDays + ' 天活跃</span><span class="tc">共 ' + totalDays + ' 天活躍</span>';
+  $('stat-today').innerHTML = '<span class="sc">今日已答 ' + todayAns + ' 题</span><span class="tc">今日已答 ' + todayAns + ' 題</span>';
+
+  // 环的进度：用今日答题数映射到 0-100%（简易视觉）
+  var pct = Math.min(100, Math.round((todayAns / 20) * 100));
+  var deg = Math.round(pct * 3.6);
+  $('stat-ring').style.background =
+    'conic-gradient(var(--gold) 0deg, var(--gold-dark) ' + deg + 'deg, var(--gold-light) ' + deg + 'deg)';
+
+  // 按课程列
+  var list = $('by-course-list');
+  var byCourse = p.byCourse || [];
+  if (!byCourse.length) {
+    list.innerHTML =
+      '<div style="padding:var(--sp-4);text-align:center;color:var(--ink-4);font:var(--text-caption);letter-spacing:1px;">'
+      + sc('尚未有答题记录', '尚未有答題記錄')
+      + '</div>';
+    return;
+  }
+  list.innerHTML = byCourse.map(function (c) {
+    var rate = Math.round((c.correctRate || 0) * 100);
+    return ''
+      + '<div style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);background:var(--glass-thick);border:1px solid var(--glass-border);border-radius:var(--r-lg);">'
+      +   '<div style="flex:1;min-width:0;">'
+      +     '<p style="font-family:var(--font-serif);font-weight:700;color:var(--ink);font-size:.9375rem;letter-spacing:2px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(c.title || '—') + '</p>'
+      +     '<p style="font:var(--text-caption);color:var(--ink-3);letter-spacing:1px;">' + sc('答 ', '答 ') + (c.answered || 0) + sc(' 题 · 正确率 ', ' 題 · 正確率 ') + rate + '%</p>'
+      +   '</div>'
+      +   '<span style="flex-shrink:0;padding:4px 10px;border-radius:var(--r-pill);font:var(--text-caption);font-weight:700;letter-spacing:1px;'
+      +     (rate >= 80 ? 'background:var(--sage-light);color:var(--sage-dark);' : rate >= 60 ? 'background:var(--gold-pale);color:var(--gold-dark);' : 'background:rgba(192,57,43,.10);color:var(--crimson);')
+      +   '">' + rate + '%</span>'
+      + '</div>';
+  }).join('');
+}
+
+window.JX.api.get('/api/my/progress').then(render).catch(function (err) {
+  console.warn('[achievement] /api/my/progress 拉取失败', err);
+  render({});
+});
+</script>
+</body>
+</html>
 
