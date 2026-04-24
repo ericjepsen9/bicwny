@@ -422,5 +422,5 @@ body.prototype-frame:has(.tab-bar) .phone { padding-bottom: 0; }
 }
 .top-nav-title, .nav-title {
   font-family: var(--font-serif); font-weight: 700; color: var(--ink);
-  font-size: 1.0625rem; letter-spacing: 4px; flex: 1;
+  font-size: 1.0625rem; letter-spacing: 4px; flex: 1; text-align: center;
 }
