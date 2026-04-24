@@ -84,6 +84,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .footer-info { text-align: center; font: var(--text-caption); color: var(--ink-4); letter-spacing: 1px; padding: var(--sp-2) 0 var(--sp-4); }
 </style>
 <script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/api.js"></script>
@@ -137,6 +138,22 @@ body { background: var(--bg-scene); min-height: 100vh; }
             繁體中文
           </span>
         </div>
+      </div>
+    </div>
+
+    <!-- Font size -->
+    <p class="section-title"><span class="sc">字体大小</span><span class="tc">字體大小</span></p>
+    <div class="group">
+      <div class="row" style="cursor:default;flex-direction:column;align-items:stretch;gap:var(--sp-3);padding:var(--sp-4);">
+        <div style="display:flex;align-items:center;gap:var(--sp-3);">
+          <span class="row-label"><span class="sc">界面字号</span><span class="tc">介面字號</span></span>
+          <span class="row-value" id="font-size-cur"><span class="sc">标准</span><span class="tc">標準</span></span>
+        </div>
+        <div class="lang-picker" id="font-size-picker" style="flex-wrap:wrap;"></div>
+        <p style="font:var(--text-caption);color:var(--ink-3);letter-spacing:1px;line-height:1.6;margin-top:4px;">
+          <span class="sc">建议年长用户选择「大」或「超大」</span>
+          <span class="tc">建議年長用戶選擇「大」或「超大」</span>
+        </p>
       </div>
     </div>
 
@@ -245,6 +262,43 @@ function syncLangChips() {
 }
 document.addEventListener('DOMContentLoaded', syncLangChips);
 document.addEventListener('langchange', syncLangChips);
+
+// 字号选择器
+function renderFontSizePicker() {
+  var fz = window.JX && window.JX.fontSize;
+  if (!fz) return;
+  var box = document.getElementById('font-size-picker');
+  if (!box) return;
+  var cur = fz.get();
+  var lang = window.JX.lang ? window.JX.lang() : 'sc';
+  box.innerHTML = fz.list().map(function (s) {
+    var label = lang === 'tc' ? s.labelTc : s.labelSc;
+    var active = Math.abs(s.value - cur) < 0.001;
+    // 缩放预览：让 chip 自身也按 scale 显示，让用户直观看到效果
+    var px = (13 * s.value).toFixed(0);
+    return '<span class="lang-pick-chip' + (active ? ' active' : '') + '" '
+      + 'data-fs="' + s.value + '" '
+      + 'style="font-size:' + px + 'px;line-height:1.4;">'
+      + label + '</span>';
+  }).join('');
+  // 当前态文字
+  var curObj = fz.list().find(function (s) { return Math.abs(s.value - cur) < 0.001; });
+  var cell = document.getElementById('font-size-cur');
+  if (cell && curObj) {
+    cell.innerHTML =
+      '<span class="sc">' + curObj.labelSc + '</span>' +
+      '<span class="tc">' + curObj.labelTc + '</span>';
+  }
+}
+document.addEventListener('DOMContentLoaded', renderFontSizePicker);
+document.addEventListener('langchange', renderFontSizePicker);
+document.getElementById('font-size-picker').addEventListener('click', function (e) {
+  var chip = e.target.closest('[data-fs]');
+  if (!chip) return;
+  var v = parseFloat(chip.getAttribute('data-fs'));
+  if (window.JX && window.JX.fontSize) window.JX.fontSize.set(v);
+  renderFontSizePicker();
+});
 
 // 退出登录：调后端 /logout 吊销 refresh，再跳登录页
 document.getElementById('btn-logout').addEventListener('click', function () {

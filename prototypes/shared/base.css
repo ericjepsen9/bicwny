@@ -4,7 +4,11 @@
 
 /* ── Reset ──────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  /* 基础字号 17px（高于浏览器默认 16px · 适合年长用户）· 接 --font-scale 用户调节 */
+  font-size: calc(17px * var(--font-scale, 1));
+}
 body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 img, svg { display: block; max-width: 100%; }
 a { color: inherit; text-decoration: none; }
