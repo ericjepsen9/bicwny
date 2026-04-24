@@ -364,15 +364,8 @@
   -webkit-mask: radial-gradient(farthest-side, transparent 62%, black 63%);
 }
 
-/* ── Phone status bar (mobile mockup) ───────── */
-.status-bar {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: var(--sp-3) var(--sp-5) var(--sp-2);
-}
-.status-bar .time {
-  font-weight: 600; font-size: .75rem; color: var(--ink-2);
-}
-.status-right { display: flex; align-items: center; gap: var(--sp-2); }
+/* ── Phone status bar · 生产默认隐藏 · 原型样机视觉由 base.css 的
+   body.prototype-frame .status-bar 激活，定义在 base.css，不再此处重复 ── */
 
 /* ── Language toggle button (mobile default) ── */
 .lang-btn {
