@@ -236,10 +236,51 @@ function boot() {
       renderChapters(course, overlay);
     })
     .catch(function (err) {
-      document.getElementById('chapters-list').innerHTML =
-        '<div class="q-card" style="padding:var(--sp-6);text-align:center;color:var(--crimson);">'
-        + escapeHtml(sc('加载失败：', '加載失敗：') + (err.message || err))
-        + '</div>';
+      var msg = (err && err.message) || '';
+      // 后端无课程 → 友好空态；其他错 → 错误 + 重试
+      var isEmpty = /暂无|暫無|no course|NOT_FOUND/i.test(msg) ||
+                    (err && err.status === 404);
+      var html;
+      if (isEmpty) {
+        html =
+          '<div style="text-align:center;padding:var(--sp-8) var(--sp-4);">' +
+            '<div style="width:88px;height:88px;border-radius:50%;background:var(--saffron-pale);color:var(--saffron-dark);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4);">' +
+              '<svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">' +
+                '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>' +
+                '<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>' +
+              '</svg>' +
+            '</div>' +
+            '<p style="font-family:var(--font-serif);font-weight:700;font-size:1.125rem;letter-spacing:4px;color:var(--ink);margin-bottom:var(--sp-2);">' +
+              '<span class="sc">暂未上架法本</span><span class="tc">暫未上架法本</span>' +
+            '</p>' +
+            '<p style="font:var(--text-body);color:var(--ink-2);letter-spacing:1px;line-height:1.7;max-width:280px;margin:0 auto var(--sp-5);">' +
+              '<span class="sc">管理员正在整理课程。您已加入的班级若有新法本，会在此显示。</span>' +
+              '<span class="tc">管理員正在整理課程。您已加入的班級若有新法本，會在此顯示。</span>' +
+            '</p>' +
+            '<a href="home.html" class="btn btn-primary btn-lg btn-pill" style="padding-left:36px;padding-right:36px;">' +
+              '<span class="sc">返回首页</span><span class="tc">返回首頁</span>' +
+            '</a>' +
+          '</div>';
+      } else {
+        html =
+          '<div style="text-align:center;padding:var(--sp-8) var(--sp-4);">' +
+            '<div style="width:72px;height:72px;border-radius:50%;background:rgba(192,57,43,.10);color:var(--crimson);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4);">' +
+              '<svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">' +
+                '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' +
+              '</svg>' +
+            '</div>' +
+            '<p style="font-family:var(--font-serif);font-weight:700;font-size:1rem;letter-spacing:3px;color:var(--ink);margin-bottom:var(--sp-2);">' +
+              '<span class="sc">加载失败</span><span class="tc">載入失敗</span>' +
+            '</p>' +
+            '<p style="font:var(--text-caption);color:var(--ink-3);letter-spacing:1px;margin-bottom:var(--sp-4);">' +
+              escapeHtml(msg || sc('网络异常', '網絡異常')) +
+            '</p>' +
+            '<button type="button" onclick="location.reload()" class="btn btn-ghost btn-lg btn-pill" style="padding-left:32px;padding-right:32px;">' +
+              '<span class="sc">重试</span><span class="tc">重試</span>' +
+            '</button>' +
+          '</div>';
+      }
+      document.getElementById('chapters-list').innerHTML = html;
     });
 }
 document.addEventListener('jx:user-ready', boot);
