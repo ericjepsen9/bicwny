@@ -113,6 +113,47 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .quiz-action { padding: var(--sp-3) var(--sp-5) var(--sp-5); }
 @keyframes slideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
 
+/* ── Match（连线配对）──────────────────────────────── */
+.match-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);
+}
+.match-col { display: flex; flex-direction: column; gap: var(--sp-2); }
+.match-item {
+  display: flex; align-items: center; gap: var(--sp-2);
+  background: var(--glass); border: 1.5px solid var(--glass-border);
+  border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-3);
+  color: var(--ink); text-align: left; min-height: 48px;
+  font: var(--text-body); letter-spacing: .5px; line-height: 1.4;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.match-item:hover:not(.paired):not(:disabled) { background: var(--glass-thick); border-color: var(--saffron-light); }
+.match-item.active { background: var(--saffron-pale); border-color: var(--saffron); box-shadow: 0 0 0 2px var(--saffron-light); }
+.match-item .match-badge {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(43,34,24,.08); color: var(--ink-4);
+  font-size: .75rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.match-item .match-text { flex: 1; word-break: break-word; }
+
+/* 配对色组：用徽章 + 边框色区分同号 */
+.match-item.paired.pair-saffron { background: var(--saffron-pale); border-color: var(--saffron-light); }
+.match-item.paired.pair-saffron .match-badge { background: var(--saffron); color: #fff; }
+.match-item.paired.pair-sage    { background: var(--sage-light);    border-color: var(--sage); }
+.match-item.paired.pair-sage    .match-badge { background: var(--sage-dark); color: #fff; }
+.match-item.paired.pair-gold    { background: var(--gold-pale);     border-color: var(--gold-light); }
+.match-item.paired.pair-gold    .match-badge { background: var(--gold-dark); color: #fff; }
+.match-item.paired.pair-crimson { background: var(--crimson-light); border-color: var(--crimson); }
+.match-item.paired.pair-crimson .match-badge { background: var(--crimson); color: #fff; }
+.match-item.paired.pair-ink     { background: rgba(43,34,24,.06);   border-color: var(--ink-3); }
+.match-item.paired.pair-ink     .match-badge { background: var(--ink-2); color: #fff; }
+
+/* 提交后的对错覆盖 */
+.match-item.match-correct { background: var(--sage-light);    border-color: var(--sage); }
+.match-item.match-correct .match-badge { background: var(--sage); color: #fff; }
+.match-item.match-wrong   { background: var(--crimson-light); border-color: var(--crimson); }
+.match-item.match-wrong   .match-badge { background: var(--crimson); color: #fff; }
+
 /* ── Sort（排序题）─────────────────────────────────── */
 .sort-list {
   display: flex; flex-direction: column; gap: var(--sp-2);

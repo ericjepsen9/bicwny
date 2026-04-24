@@ -23,6 +23,8 @@
     lastGrade: null,     // 当前题后端返回的 grade
     favoriteIds: {},     // { [questionId]: true } · 本轮题目的收藏态
     flipped: false,      // flip 题本张是否已翻面（随 nextQ 重置）
+    matchActive: null,   // match 题：当前选中的 left.id（随 nextQ 重置）
+    matchRightOrder: null, // match 题：右列展示顺序的 id 列表（shuffle 一次，nextQ 重置）
   };
 
   // ── 各题型渲染器 ────────────────────────────────────
@@ -140,9 +142,162 @@
     container.appendChild(div);
     state.answer = { __placeholder: true };
   }
-  ['match', 'flow', 'guided'].forEach(function (t) {
+  ['flow', 'guided'].forEach(function (t) {
     renderers[t] = placeholder;
   });
+
+  // ── match（连线配对）· 点左 → 点右 成对 ──
+  // payload: { left: [{id, text}], right: [{id, text}] }   正确 match 字段在答完后补全
+  // answer : { pairs: { [leftId]: rightId } }
+  // 配对色循环：saffron / sage / gold / crimson / ink
+  var MATCH_COLORS = ['saffron', 'sage', 'gold', 'crimson', 'ink'];
+  var MATCH_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+  renderers.match = function (q, container) {
+    var p = q.payload || {};
+    var left = (p.left || []);
+    var right = (p.right || []);
+    if (!left.length || !right.length) {
+      container.appendChild(document.createElement('div'));
+      return;
+    }
+
+    if (!state.answer || typeof state.answer.pairs !== 'object') {
+      state.answer = { pairs: {} };
+    }
+    // 右列首次展示时洗牌，保存到 state.matchRightOrder（id 数组）避免每次 render 重洗
+    if (!state.matchRightOrder || state.matchRightOrder.length !== right.length) {
+      var rids = right.map(function (r) { return r.id; });
+      for (var i = rids.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = rids[i]; rids[i] = rids[j]; rids[j] = t;
+      }
+      state.matchRightOrder = rids;
+    }
+
+    var pairs = state.answer.pairs;
+
+    // 稳定的配对编号：按左列顺序首次遇到的 pair 编号从 0 开始
+    function pairIndexOfLeft(lid) {
+      var idx = 0;
+      for (var i = 0; i < left.length; i++) {
+        if (left[i].id === lid) {
+          return pairs[lid] ? (idx) : -1;
+        }
+        if (pairs[left[i].id]) idx++;
+      }
+      return -1;
+    }
+    function pairColorClass(idx) {
+      return idx < 0 ? '' : 'pair-' + MATCH_COLORS[idx % MATCH_COLORS.length];
+    }
+    function pairLetter(idx) {
+      return idx < 0 ? '' : MATCH_LETTERS[idx % MATCH_LETTERS.length];
+    }
+
+    // 查 rightId 对应的左侧 leftId（反向）
+    function leftOfRight(rid) {
+      for (var lid in pairs) {
+        if (pairs[lid] === rid) return lid;
+      }
+      return null;
+    }
+
+    function onClickLeft(lid) {
+      if (state.confirmed) return;
+      // 已配对 → 拆
+      if (pairs[lid]) {
+        delete pairs[lid];
+        state.matchActive = null;
+      } else if (state.matchActive === lid) {
+        state.matchActive = null;
+      } else {
+        state.matchActive = lid;
+      }
+      render();
+    }
+    function onClickRight(rid) {
+      if (state.confirmed) return;
+      // 已配对 → 拆（反向找 leftId）
+      var existingLeft = leftOfRight(rid);
+      if (existingLeft) {
+        delete pairs[existingLeft];
+        if (state.matchActive === existingLeft) state.matchActive = null;
+      } else if (state.matchActive) {
+        // 有激活 left → 创建配对
+        pairs[state.matchActive] = rid;
+        state.matchActive = null;
+      }
+      // 无激活 left 点右列：暂不响应（视觉可提示，但简化先不加）
+      render();
+    }
+
+    var wrap = document.createElement('div');
+    wrap.className = 'match-grid';
+
+    var colL = document.createElement('div');
+    colL.className = 'match-col';
+    left.forEach(function (l) {
+      var pIdx = pairIndexOfLeft(l.id);
+      var paired = pIdx >= 0;
+      var isActive = state.matchActive === l.id;
+      var correctCls = '';
+      if (state.confirmed) {
+        var key = (q.payload.right || []).find(function (r) { return r.id === pairs[l.id]; });
+        // 正确 match 字段在 confirm 后 payload 会被 submit 响应补全
+        var rightForThisLeft = (q.payload.right || []).find(function (r) { return r.match === l.id; });
+        var userRid = pairs[l.id];
+        if (rightForThisLeft && userRid === rightForThisLeft.id) correctCls = ' match-correct';
+        else if (userRid) correctCls = ' match-wrong';
+      }
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'match-item' + (paired ? ' paired ' + pairColorClass(pIdx) : '') + (isActive ? ' active' : '') + correctCls;
+      row.innerHTML =
+        '<span class="match-badge">' + (paired ? pairLetter(pIdx) : '') + '</span>' +
+        '<span class="match-text">' + escapeHtml(l.text) + '</span>';
+      row.addEventListener('click', function () { onClickLeft(l.id); });
+      colL.appendChild(row);
+    });
+
+    var colR = document.createElement('div');
+    colR.className = 'match-col';
+    state.matchRightOrder.forEach(function (rid) {
+      var r = right.find(function (x) { return x.id === rid; }) || { id: rid, text: '' };
+      var lid = leftOfRight(rid);
+      var pIdx = lid ? pairIndexOfLeft(lid) : -1;
+      var paired = pIdx >= 0;
+      var correctCls = '';
+      if (state.confirmed) {
+        // 用后端返回的 right[i].match 对比
+        var rightFull = (q.payload.right || []).find(function (x) { return x.id === rid; });
+        if (rightFull && lid && rightFull.match === lid) correctCls = ' match-correct';
+        else if (lid) correctCls = ' match-wrong';
+      }
+      var row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'match-item' + (paired ? ' paired ' + pairColorClass(pIdx) : '') + correctCls;
+      row.innerHTML =
+        '<span class="match-text">' + escapeHtml(r.text) + '</span>' +
+        '<span class="match-badge">' + (paired ? pairLetter(pIdx) : '') + '</span>';
+      row.addEventListener('click', function () { onClickRight(rid); });
+      colR.appendChild(row);
+    });
+
+    wrap.appendChild(colL);
+    wrap.appendChild(colR);
+    container.appendChild(wrap);
+
+    if (!state.confirmed) {
+      var hint = document.createElement('p');
+      hint.className = 'sort-hint';
+      var pairedN = Object.keys(pairs).length;
+      hint.innerHTML = '<span class="sc">已配对 ' + pairedN + ' / ' + left.length + ' · 点左侧、再点右侧建立配对</span>' +
+                      '<span class="tc">已配對 ' + pairedN + ' / ' + left.length + ' · 點左側、再點右側建立配對</span>';
+      container.appendChild(hint);
+    }
+  };
+
 
   // ── sort（排序题）· 上下按钮调位 ──
   // payload: { items: [{text, order}] }  order 是 1-indexed 正确位置
@@ -322,6 +477,11 @@
       case 'open':     return (state.answer.text || '').trim().length >= 20;
       case 'flip':     return !!state.answer.selfRating;
       case 'sort':     return Array.isArray(state.answer.order) && state.answer.order.length > 0;
+      case 'match':    {
+        var q2 = state.questions[state.qi];
+        var need = ((q2 && q2.payload && q2.payload.left) || []).length;
+        return Object.keys(state.answer.pairs || {}).length === need;
+      }
       default:         return !!state.answer.__placeholder;
     }
   }
@@ -436,6 +596,9 @@
     window.JX.api.post('/api/answers', body).then(function (data) {
       state.confirmed = true;
       state.lastGrade = data.grade;
+      // 后端返回的 question 含完整 payload（不剥答案），用它替换本题的 public view，
+      // 让 single/multi/fill/match 的"提交后高亮正确项"能真正生效
+      if (data.question) state.questions[state.qi] = data.question;
       if (data.grade.isCorrect) state.correctCount++;
       else { state.wrongCount++; state.lives = Math.max(0, state.lives - 1); }
       render();
@@ -451,6 +614,8 @@
     state.answer = null;
     state.lastGrade = null;
     state.flipped = false;
+    state.matchActive = null;
+    state.matchRightOrder = null;
     state.tQuestionStart = Date.now();
     render();
   }
