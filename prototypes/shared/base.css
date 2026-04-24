@@ -20,28 +20,42 @@ input, textarea, select { font: inherit; }
   font: var(--text-body);
 }
 
-/* ── Phone Mockup (prototypes only) ────────────── */
+/* ── Mobile App Layout ──────────────────────────
+   生产模式：内容铺满视口；桌面宽屏下居中成 480px 的"手机宽度"列。
+   假 iOS status-bar 在真实浏览器环境里多余（手机本身有状态栏），隐藏。
+   若要回到原型样机视觉，body 加 class="prototype-frame" 即可。
+   ============================================== */
 .phone-wrap {
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  padding: var(--sp-8) var(--sp-4);
+  align-items: stretch;
   min-height: 100vh;
   background: var(--bg-scene);
 }
 .phone {
-  width: 375px;
-  min-height: 812px;
+  width: 100%;
+  max-width: 480px;
+  min-height: 100vh;
   background: var(--bg-scene);
-  border-radius: 44px;
   overflow: hidden;
   position: relative;
+}
+.status-bar { display: none; }
+
+/* ── Prototype Frame（可选 · body.prototype-frame 激活） ── */
+body.prototype-frame .phone-wrap {
+  align-items: flex-start;
+  padding: var(--sp-8) var(--sp-4);
+}
+body.prototype-frame .phone {
+  width: 375px;
+  max-width: 375px;
+  min-height: 812px;
+  border-radius: 44px;
   box-shadow: 0 24px 64px rgba(43,34,24,.18), 0 4px 12px rgba(43,34,24,.10);
   border: 1px solid rgba(255,255,255,.7);
 }
-
-/* ── Status Bar ─────────────────────────────────── */
-.status-bar {
+body.prototype-frame .status-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -50,8 +64,8 @@ input, textarea, select { font: inherit; }
   color: var(--ink-2);
   letter-spacing: .5px;
 }
-.status-bar .time { font-weight: 600; font-size: .75rem; }
-.status-icons { display: flex; gap: var(--sp-1); align-items: center; }
+body.prototype-frame .status-bar .time { font-weight: 600; font-size: .75rem; }
+body.prototype-frame .status-icons { display: flex; gap: var(--sp-1); align-items: center; }
 
 /* ── Typography ─────────────────────────────────── */
 .t-display { font: var(--text-display); letter-spacing: 6px; }
