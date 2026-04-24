@@ -237,6 +237,21 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
         <div class="review-badge" id="review-badge">0</div>
       </a>
 
+      <!-- SM-2 今日待复习（0 时隐藏；颜色上与错题区分，用藏香黄）-->
+      <a href="sm2-review.html" class="review-card" id="sm2-card" style="text-decoration:none;display:none;background:rgba(236,180,86,.08);border-color:rgba(236,180,86,.25);">
+        <div class="review-icon-wrap" style="background:var(--gold-pale);">
+          <svg width="18" height="18" fill="none" stroke="#B88956" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div>
+          <p class="t-meta" style="color:var(--gold-dark);letter-spacing:1.5px;"><span class="sc">今日待复习</span><span class="tc">今日待複習</span></p>
+          <p class="t-caption t-ink-3" style="margin-top:3px;" id="sm2-sub"><span class="sc">按 SM-2 算法安排间隔复习</span><span class="tc">按 SM-2 演算法安排間隔複習</span></p>
+        </div>
+        <div class="review-badge" id="sm2-badge" style="background:var(--gold-dark);">0</div>
+      </a>
+
       <!-- 快速入口 -->
       <div>
         <div class="section-header">
@@ -393,6 +408,20 @@ function renderReviewBadge(mistakes) {
   document.getElementById('review-badge').textContent = n > 99 ? '99+' : String(n);
 }
 
+function renderSm2Badge(stats) {
+  var n = (stats && typeof stats.due === 'number') ? stats.due : 0;
+  var card = document.getElementById('sm2-card');
+  if (!card) return;
+  if (n === 0) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  document.getElementById('sm2-badge').textContent = n > 99 ? '99+' : String(n);
+  var sub = sc(
+    '共 ' + n + ' 张卡片到期 · 建议今日完成',
+    '共 ' + n + ' 張卡片到期 · 建議今日完成'
+  );
+  document.getElementById('sm2-sub').textContent = sub;
+}
+
 function boot() {
   renderGreeting();
 
@@ -407,6 +436,7 @@ function boot() {
   }).catch(function () { renderCourseCard(null, null); });
 
   window.JX.api.get('/api/mistakes?limit=500').then(renderReviewBadge).catch(function () {});
+  window.JX.api.get('/api/sm2/stats').then(renderSm2Badge).catch(function () {});
 }
 
 document.addEventListener('jx:user-ready', boot);

@@ -49,6 +49,12 @@ export const sm2Routes: FastifyPluginAsync = async (app) => {
         lastReviewed: c.lastReviewed,
         lastRating: c.lastRating,
         question: toPublicView(c.question),
+        // SM-2 复习是学过内容的再巩固，用户需要"显示答案"做自评
+        // correctText / wrongText 只在复习队列里返回，不在 /api/questions/:id 公开
+        answerReveal: {
+          correctText: c.question.correctText,
+          wrongText: c.question.wrongText,
+        },
       })),
     };
   });

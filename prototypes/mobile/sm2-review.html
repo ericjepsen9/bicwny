@@ -1,0 +1,434 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · SM-2 复习</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<script src="../shared/lang.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+<style>
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; padding: 40px 20px; }
+
+.sm2-wrap { display: flex; flex-direction: column; min-height: calc(100vh - 80px); }
+
+.progress-bar {
+  height: 4px; background: var(--border-light);
+  position: relative; overflow: hidden;
+}
+.progress-bar .fill {
+  position: absolute; top: 0; left: 0; bottom: 0;
+  background: linear-gradient(90deg, var(--saffron), var(--saffron-dark));
+  transition: width .3s var(--ease);
+}
+
+.card-meta {
+  padding: var(--sp-3) var(--sp-5);
+  display: flex; justify-content: space-between; align-items: center;
+  font: var(--text-caption); color: var(--ink-3); letter-spacing: 1.5px;
+}
+.card-meta .badge {
+  padding: 2px 10px; border-radius: var(--r-pill);
+  font-size: .6875rem; font-weight: 700; letter-spacing: 1.5px;
+}
+.badge-new      { background: var(--saffron-pale); color: var(--saffron-dark); }
+.badge-learning { background: var(--gold-pale);    color: var(--gold-dark); }
+.badge-review   { background: var(--sage-light);   color: var(--sage-dark); }
+.badge-mastered { background: rgba(43,34,24,.08);  color: var(--ink-2); }
+
+.card-body {
+  flex: 1; padding: var(--sp-4) var(--sp-5) var(--sp-5);
+  display: flex; flex-direction: column; gap: var(--sp-4);
+}
+.q-prompt {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); padding: var(--sp-5);
+  min-height: 120px;
+  font: var(--text-body-serif); font-size: 1rem; line-height: 1.9;
+  letter-spacing: 1px; color: var(--ink);
+}
+.q-source {
+  font: var(--text-caption); color: var(--ink-4); letter-spacing: 1.5px; text-align: right;
+}
+
+.reveal-area {
+  background: var(--sage-light);
+  border: 1px solid var(--sage-light);
+  border-radius: var(--r-lg); padding: var(--sp-4) var(--sp-5);
+  display: none; flex-direction: column; gap: var(--sp-3);
+  animation: fadeIn .25s var(--ease);
+}
+.reveal-area.visible { display: flex; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.reveal-label { font: var(--text-caption); color: var(--sage-dark); letter-spacing: 2px; font-weight: 700; }
+.reveal-text  { font: var(--text-body); line-height: 1.8; letter-spacing: .5px; color: var(--ink); }
+
+.reveal-btn {
+  padding: var(--sp-4);
+  border: 2px dashed var(--border);
+  border-radius: var(--r-lg);
+  background: transparent;
+  color: var(--ink-2);
+  font: var(--text-body); letter-spacing: 2px;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.reveal-btn:hover { border-color: var(--saffron); color: var(--saffron-dark); }
+
+.rating-row {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-2); padding: var(--sp-3) var(--sp-5) var(--sp-5);
+  background: var(--bg-scene);
+  border-top: 1px solid var(--border-light);
+}
+.rating-btn {
+  padding: var(--sp-3) 4px;
+  border-radius: var(--r);
+  border: 1px solid transparent;
+  font-weight: 700; letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.rating-btn:active { transform: scale(.97); }
+.rating-btn[aria-busy="true"] { opacity: .6; pointer-events: none; }
+.rating-btn .label { font-size: .875rem; }
+.rating-btn .interval { font-size: .6875rem; font-weight: 400; opacity: .8; letter-spacing: 1px; }
+.rating-again { background: rgba(192,57,43,.10); color: var(--crimson); border-color: rgba(192,57,43,.25); }
+.rating-hard  { background: var(--gold-pale);    color: var(--gold-dark); border-color: var(--gold-light); }
+.rating-good  { background: var(--sage-light);   color: var(--sage-dark); border-color: var(--sage-dark); }
+.rating-easy  { background: var(--saffron-pale); color: var(--saffron-dark); border-color: var(--saffron-light); }
+
+/* 空态 / 完成态 */
+.state-block {
+  padding: var(--sp-8) var(--sp-5);
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+  text-align: center;
+}
+.state-icon {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: var(--sage-light); color: var(--sage-dark);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: var(--sp-3);
+}
+.state-title { font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; letter-spacing: 4px; color: var(--ink); }
+.state-desc { font: var(--text-body); color: var(--ink-2); letter-spacing: 1px; line-height: 1.7; max-width: 280px; }
+</style>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <div class="status-bar" data-auto></div>
+
+  <div class="top-nav">
+    <a class="nav-back" href="home.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
+    <span class="nav-title"><span class="sc">间隔复习</span><span class="tc">間隔複習</span></span>
+    <span id="progress-text" class="nav-title" style="font-size:.75rem;color:var(--ink-3);font-weight:400;width:auto;">—</span>
+  </div>
+
+  <div class="progress-bar"><div class="fill" id="progress-fill" style="width:0;"></div></div>
+
+  <!-- 加载态 -->
+  <div id="loading-block" class="state-block">
+    <p class="state-desc"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+  </div>
+
+  <!-- 空态：没有待复习卡片 -->
+  <div id="empty-block" class="state-block" style="display:none;">
+    <div class="state-icon">
+      <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+    <p class="state-title"><span class="sc">今日已复习完毕</span><span class="tc">今日已複習完畢</span></p>
+    <p class="state-desc">
+      <span class="sc">没有到期复习的题目。继续答题积累新卡片，系统会按 SM-2 间隔提醒您复习。</span>
+      <span class="tc">沒有到期複習的題目。繼續答題累積新卡片，系統會按 SM-2 間隔提醒您複習。</span>
+    </p>
+    <a href="home.html" class="btn btn-primary btn-lg btn-pill" style="padding-left:36px;padding-right:36px;margin-top:var(--sp-4);">
+      <span class="sc">返回首页</span><span class="tc">返回首頁</span>
+    </a>
+  </div>
+
+  <!-- 完成态：本轮全部复习完 -->
+  <div id="done-block" class="state-block" style="display:none;">
+    <div class="state-icon" style="background:var(--saffron-pale);color:var(--saffron-dark);">
+      <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+      </svg>
+    </div>
+    <p class="state-title"><span class="sc">本轮复习已完成</span><span class="tc">本輪複習已完成</span></p>
+    <p class="state-desc" id="done-summary">
+      <span class="sc">愿以此功德庄严佛净土。</span>
+      <span class="tc">願以此功德莊嚴佛淨土。</span>
+    </p>
+    <a href="home.html" class="btn btn-primary btn-lg btn-pill" style="padding-left:36px;padding-right:36px;margin-top:var(--sp-4);">
+      <span class="sc">返回首页</span><span class="tc">返回首頁</span>
+    </a>
+  </div>
+
+  <!-- 卡片主体 -->
+  <div id="card-block" class="sm2-wrap" style="display:none;">
+
+    <div class="card-meta">
+      <span id="meta-badge" class="badge badge-review">—</span>
+      <span id="meta-interval">—</span>
+    </div>
+
+    <div class="card-body">
+      <p id="q-prompt" class="q-prompt">—</p>
+      <p id="q-source" class="q-source">—</p>
+
+      <button type="button" id="btn-reveal" class="reveal-btn">
+        <span class="sc">显示答案</span><span class="tc">顯示答案</span>
+      </button>
+
+      <div id="reveal-area" class="reveal-area">
+        <p class="reveal-label"><span class="sc">✓ 参考答案</span><span class="tc">✓ 參考答案</span></p>
+        <p class="reveal-text" id="reveal-correct">—</p>
+        <p class="reveal-label" style="color:var(--crimson);"><span class="sc">✗ 常见误区</span><span class="tc">✗ 常見誤區</span></p>
+        <p class="reveal-text" id="reveal-wrong" style="color:var(--ink-2);">—</p>
+      </div>
+    </div>
+
+    <div class="rating-row" id="rating-row" style="display:none;">
+      <button type="button" class="rating-btn rating-again" data-rating="0">
+        <span class="label"><span class="sc">重来</span><span class="tc">重來</span></span>
+        <span class="interval">1 d</span>
+      </button>
+      <button type="button" class="rating-btn rating-hard" data-rating="1">
+        <span class="label"><span class="sc">困难</span><span class="tc">困難</span></span>
+        <span class="interval" id="int-hard">—</span>
+      </button>
+      <button type="button" class="rating-btn rating-good" data-rating="2">
+        <span class="label"><span class="sc">良好</span><span class="tc">良好</span></span>
+        <span class="interval" id="int-good">—</span>
+      </button>
+      <button type="button" class="rating-btn rating-easy" data-rating="3">
+        <span class="label"><span class="sc">简单</span><span class="tc">簡單</span></span>
+        <span class="interval" id="int-easy">—</span>
+      </button>
+    </div>
+
+  </div>
+
+</div>
+</div>
+<script src="../shared/nav.js"></script>
+<script>
+// SM-2 复习页
+// 流程：拉 /api/sm2/due → 逐张显示 → 点"显示答案" → 四档自评 →
+//       POST /api/sm2/review → 下一张 → 全部完成/退出
+var sc = window.JX.sc;
+
+var state = {
+  queue: [],      // 待复习卡片（从服务端拿）
+  index: 0,       // 当前显示的下标
+  revealed: false,// 是否已点"显示答案"
+  total: 0,       // 本轮总数
+  done: 0,        // 已完成数
+  retrySkipped: 0,// 暂时跳过（评"重来"会追加到队尾）
+};
+
+function $(id) { return document.getElementById(id); }
+
+function setVisible(id, show) {
+  $(id).style.display = show ? '' : 'none';
+}
+
+function showOnly(blockId) {
+  ['loading-block', 'empty-block', 'done-block', 'card-block'].forEach(function (id) {
+    setVisible(id, id === blockId);
+  });
+}
+
+// 按题型粗略生成提示文案。payload 里的选项/填空等原样可作辅助回忆
+function formatPrompt(q) {
+  var base = q.questionText || '—';
+  var p = q.payload || {};
+  var hint = '';
+  if (q.type === 'single' || q.type === 'multi' || q.type === 'image' || q.type === 'listen') {
+    if (p.options && p.options.length) {
+      hint = '\n\n' + p.options.map(function (o, i) {
+        return String.fromCharCode(65 + i) + '. ' + (o.text || '');
+      }).join('\n');
+    }
+  } else if (q.type === 'fill') {
+    if (p.verseLines && p.verseLines.length) {
+      hint = '\n\n' + p.verseLines.join('\n');
+    }
+  } else if (q.type === 'sort' && p.items) {
+    hint = '\n\n' + p.items.map(function (it) { return '· ' + (it.text || ''); }).join('\n');
+  }
+  return base + hint;
+}
+
+function renderCard() {
+  if (state.index >= state.queue.length) {
+    // 全部完成
+    $('done-summary').innerHTML = sc(
+      '共复习 ' + state.done + ' 题 · 愿以此功德庄严佛净土。',
+      '共複習 ' + state.done + ' 題 · 願以此功德莊嚴佛淨土。'
+    );
+    showOnly('done-block');
+    return;
+  }
+
+  var c = state.queue[state.index];
+  var q = c.question || {};
+
+  // 进度条 + 右上角计数
+  var pct = state.total > 0 ? Math.round(state.done / state.total * 100) : 0;
+  $('progress-fill').style.width = pct + '%';
+  $('progress-text').textContent = (state.index + 1) + ' / ' + state.queue.length;
+
+  // 状态徽标
+  var badge = $('meta-badge');
+  badge.className = 'badge badge-' + (c.status || 'review');
+  var statusLabels = {
+    'new':      [sc('新学', '新學'),      sc('新學', '新學')],
+    'learning': [sc('学习中', '學習中'),  sc('學習中', '學習中')],
+    'review':   [sc('复习中', '複習中'),  sc('複習中', '複習中')],
+    'mastered': [sc('已掌握', '已掌握'),  sc('已掌握', '已掌握')],
+  };
+  badge.textContent = (statusLabels[c.status] || [sc('复习', '複習')])[0];
+
+  // interval 信息
+  $('meta-interval').textContent = sc(
+    '上次间隔 ' + (c.interval || 0) + ' 天 · EF ' + (c.easeFactor || 2.5).toFixed(2),
+    '上次間隔 ' + (c.interval || 0) + ' 天 · EF ' + (c.easeFactor || 2.5).toFixed(2)
+  );
+
+  // 题干
+  $('q-prompt').textContent = formatPrompt(q);
+  $('q-source').textContent = q.source ? (sc('来源：', '來源：') + q.source) : '';
+
+  // 答案区初始隐藏
+  var rev = c.answerReveal || {};
+  $('reveal-correct').textContent = rev.correctText || sc('（未录入参考答案）', '（未錄入參考答案）');
+  $('reveal-wrong').textContent   = rev.wrongText   || sc('（未录入常见误区）', '（未錄入常見誤區）');
+
+  $('reveal-area').classList.remove('visible');
+  setVisible('btn-reveal', true);
+  setVisible('rating-row', false);
+  state.revealed = false;
+
+  // 估算各档下次间隔（粗略，与后端 algorithm.ts 一致趋势）
+  var curInt = c.interval || 0;
+  var curReps = c.repetitions || 0;
+  function estNext(rating) {
+    if (rating === 0) return 1;
+    if (curReps === 0) return 1;
+    if (curReps === 1) return 6;
+    // 之后按 interval * ef_multiplier 估算（rating 低 / 高调整）
+    var mult = rating === 1 ? 1.2 : (rating === 2 ? 2.5 : 3.5);
+    return Math.max(1, Math.round(curInt * mult));
+  }
+  $('int-hard').textContent = estNext(1) + ' d';
+  $('int-good').textContent = estNext(2) + ' d';
+  $('int-easy').textContent = estNext(3) + ' d';
+
+  showOnly('card-block');
+}
+
+function reveal() {
+  if (state.revealed) return;
+  $('reveal-area').classList.add('visible');
+  setVisible('btn-reveal', false);
+  setVisible('rating-row', true);
+  state.revealed = true;
+}
+
+function submitRating(rating) {
+  if (!state.revealed) return;
+  var c = state.queue[state.index];
+  if (!c) return;
+
+  // 所有评分按钮置忙
+  document.querySelectorAll('.rating-btn').forEach(function (b) {
+    b.setAttribute('aria-busy', 'true');
+  });
+
+  window.JX.api.post('/api/sm2/review', {
+    questionId: c.questionId,
+    courseId:   c.courseId,
+    rating:     rating,
+  }).then(function () {
+    state.done += 1;
+    if (rating === 0) {
+      // "重来" · 把本张再压回队尾一次（本地行为；服务端已标为重新开始）
+      state.queue.push(Object.assign({}, c));
+      state.retrySkipped += 1;
+    }
+    state.index += 1;
+    renderCard();
+  }).catch(function (err) {
+    document.querySelectorAll('.rating-btn').forEach(function (b) {
+      b.removeAttribute('aria-busy');
+    });
+    alert(sc('提交失败：', '提交失敗：') + ((err && err.message) || err));
+  });
+}
+
+// 载入
+showOnly('loading-block');
+
+window.JX.api.get('/api/sm2/due?limit=50').then(function (cards) {
+  state.queue = cards || [];
+  state.total = state.queue.length;
+  if (state.total === 0) {
+    showOnly('empty-block');
+    return;
+  }
+  renderCard();
+}).catch(function (err) {
+  showOnly('empty-block');
+  console.error('[sm2-review] 拉取失败', err);
+});
+
+// 事件绑定
+$('btn-reveal').addEventListener('click', reveal);
+document.querySelectorAll('.rating-btn').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var r = parseInt(btn.getAttribute('data-rating'), 10);
+    if (!isNaN(r)) submitRating(r);
+  });
+});
+
+// 键盘加速：1/2/3/4 评分 · 空格显示答案
+document.addEventListener('keydown', function (ev) {
+  if (ev.target && ev.target.tagName === 'INPUT') return;
+  if (ev.code === 'Space' || ev.key === ' ') {
+    ev.preventDefault();
+    if (!state.revealed) reveal();
+    return;
+  }
+  if (!state.revealed) return;
+  var map = { '1': 0, '2': 1, '3': 2, '4': 3 };
+  if (map.hasOwnProperty(ev.key)) submitRating(map[ev.key]);
+});
+</script>
+</body>
+</html>
