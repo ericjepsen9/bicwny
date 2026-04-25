@@ -225,6 +225,123 @@
 
 /* ── 课时模态框（更宽，因为有大段 textarea） ── */
 .modal.modal-wide { max-width: 820px; }
+.modal.modal-x-wide { max-width: 1080px; max-height: 92vh; }
+
+/* ── 导入文件 模态框（F2.3） ───────────────────── */
+.im-step { display: none; }
+.im-step.active { display: block; }
+
+.im-drop {
+  border: 2px dashed var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-8) var(--sp-5);
+  text-align: center;
+  background: rgba(43,34,24,.02);
+  transition: all var(--dur) var(--ease);
+}
+.im-drop.dragover { border-color: var(--saffron); background: var(--saffron-pale); }
+.im-drop-hint { font: var(--text-body); color: var(--ink-3); letter-spacing: 1px; margin-bottom: var(--sp-3); }
+.im-drop-sub { font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px; margin-top: var(--sp-2); }
+
+.im-loading {
+  text-align: center; padding: var(--sp-8); color: var(--ink-3);
+  font: var(--text-body); letter-spacing: 1px;
+}
+.im-spinner {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 3px solid var(--border-light); border-top-color: var(--saffron);
+  margin: 0 auto var(--sp-3); animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.im-file-meta {
+  padding: var(--sp-3) var(--sp-4);
+  background: rgba(43,34,24,.03); border-radius: var(--r-sm);
+  font: var(--text-caption); color: var(--ink-2); letter-spacing: 1px;
+  margin-bottom: var(--sp-4);
+}
+.im-file-meta b { color: var(--ink); font-family: var(--font-serif); }
+
+.im-target { margin-bottom: var(--sp-4); }
+.im-target-row { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
+.im-target-row label { font: var(--text-caption); color: var(--ink-2); letter-spacing: 1px; cursor: pointer; }
+.im-target-row input[type="radio"] { width: 16px; height: 16px; accent-color: var(--saffron); }
+
+.im-target-fields { padding-left: 24px; display: none; }
+.im-target-fields.active { display: block; }
+.im-target-fields .cs-grid { margin-top: 8px; }
+
+.im-tree {
+  border: 1px solid var(--border-light); border-radius: var(--r-sm);
+  background: rgba(255,255,255,.5);
+  max-height: 50vh; overflow-y: auto;
+  padding: var(--sp-3);
+}
+.im-chapter {
+  background: #fff; border: 1px solid var(--border-light);
+  border-radius: var(--r-sm); margin-bottom: var(--sp-2);
+  overflow: hidden;
+}
+.im-ch-head {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 8px 10px; background: rgba(43,34,24,.03);
+  cursor: pointer;
+}
+.im-ch-toggle { flex-shrink: 0; width: 16px; transition: transform var(--dur) var(--ease); color: var(--ink-3); }
+.im-chapter.expanded .im-ch-toggle { transform: rotate(90deg); }
+.im-ch-order {
+  flex-shrink: 0; min-width: 28px;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: .6875rem; font-weight: 700;
+  color: var(--saffron-dark); background: var(--saffron-pale);
+  padding: 2px 6px; border-radius: var(--r-sm); text-align: center;
+}
+.im-ch-title-input {
+  flex: 1; min-width: 0;
+  padding: 5px 8px; border-radius: var(--r-sm);
+  border: 1px solid transparent; background: transparent;
+  font: var(--text-caption); font-weight: 700; color: var(--ink);
+  letter-spacing: 1px; outline: none; font-family: inherit;
+}
+.im-ch-title-input:focus, .im-ch-title-input:hover { border-color: var(--border); background: #fff; }
+.im-ch-meta { font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px; flex-shrink: 0; }
+
+.im-ch-body { display: none; padding: var(--sp-2) var(--sp-3); }
+.im-chapter.expanded .im-ch-body { display: block; }
+
+.im-lesson {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; margin-bottom: 6px;
+  background: rgba(43,34,24,.02); border-radius: var(--r-sm);
+}
+.im-le-head { display: flex; align-items: center; gap: var(--sp-2); }
+.im-le-order {
+  flex-shrink: 0; min-width: 24px; font-family: 'SF Mono', Consolas, monospace;
+  font-size: .6875rem; color: var(--ink-3); text-align: center;
+}
+.im-le-title-input {
+  flex: 1; padding: 4px 8px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.im-le-title-input:focus { border-color: var(--saffron); }
+.im-le-text-input {
+  width: 100%; min-height: 80px; max-height: 30vh;
+  padding: 6px 8px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: .75rem; color: var(--ink); line-height: 1.6;
+  outline: none; resize: vertical;
+}
+.im-le-text-input:focus { border-color: var(--saffron); }
+.im-le-len { font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px; font-size: .6875rem; }
+.im-del-tiny {
+  flex-shrink: 0; width: 22px; height: 22px;
+  border-radius: 50%; border: 0; background: rgba(192,57,43,.08);
+  color: var(--crimson); cursor: pointer; font-size: .8rem;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.im-del-tiny:hover { background: var(--crimson-light); }
 .cs-field.le-textarea textarea {
   min-height: 200px; max-height: 50vh;
   font-family: 'SF Mono', ui-monospace, Consolas, monospace;
@@ -278,6 +395,10 @@
         <p class="page-sub"><span class="sc">论典 / 章 / 节 三级结构 · 含未发布</span><span class="tc">論典 / 章 / 節 三級結構 · 含未發佈</span></p>
       </div>
       <div class="top-actions">
+        <button class="btn-ghost-s" id="btn-import-file" title="导入 PDF / DOCX">
+          <span style="font-size:.85rem;margin-right:4px;">📄</span>
+          <span><span class="sc">导入文件</span><span class="tc">導入文件</span></span>
+        </button>
         <button class="btn-new" id="btn-new-course">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           <span><span class="sc">新建法本</span><span class="tc">新建法本</span></span>
@@ -363,6 +484,91 @@
       <button type="submit" class="btn-apply" id="new-submit"><span class="sc">创建</span><span class="tc">創建</span></button>
     </div>
   </form>
+</div>
+
+<!-- 导入文件 模态框（F2.3 · 上传 PDF/DOCX → 预览 → 提交） -->
+<div class="modal-backdrop" id="im-backdrop">
+  <div class="modal modal-x-wide">
+    <div class="modal-head">
+      <span class="modal-title" id="im-title"><span class="sc">导入法本</span><span class="tc">導入法本</span></span>
+    </div>
+    <div class="modal-body">
+      <div class="dr-err" id="im-err"></div>
+
+      <!-- 步骤 1 · 上传 -->
+      <div class="im-step active" id="im-step-upload">
+        <div class="im-drop" id="im-drop">
+          <div class="im-drop-hint"><span class="sc">点击或拖拽文件到此</span><span class="tc">點擊或拖拽文件到此</span></div>
+          <button type="button" class="btn-apply" id="im-pick"><span class="sc">选择文件</span><span class="tc">選擇文件</span></button>
+          <input type="file" id="im-file" accept=".pdf,.docx" style="display:none;">
+          <div class="im-drop-sub">
+            <span class="sc">支持 .pdf · .docx · 上限 20 MB · 扫描版 PDF 不支持 OCR</span>
+            <span class="tc">支持 .pdf · .docx · 上限 20 MB · 掃描版 PDF 不支持 OCR</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步骤 2 · 解析中 -->
+      <div class="im-step" id="im-step-parsing">
+        <div class="im-loading">
+          <div class="im-spinner"></div>
+          <span class="sc">正在解析文件…</span><span class="tc">正在解析文件…</span>
+        </div>
+      </div>
+
+      <!-- 步骤 3 · 预览 + 编辑 + 选目标 -->
+      <div class="im-step" id="im-step-preview">
+        <div class="im-file-meta" id="im-file-meta"></div>
+
+        <div class="im-target">
+          <div class="im-target-row">
+            <input type="radio" name="im-mode" id="im-mode-new" value="new" checked>
+            <label for="im-mode-new"><span class="sc">新建法本</span><span class="tc">新建法本</span></label>
+          </div>
+          <div class="im-target-fields active" id="im-fields-new">
+            <div class="cs-grid">
+              <div class="cs-field">
+                <label for="im-new-slug">slug<span class="req">*</span></label>
+                <input id="im-new-slug" type="text" maxlength="80" pattern="[a-z0-9-]+">
+              </div>
+              <div class="cs-field">
+                <label for="im-new-title"><span class="sc">书名</span><span class="tc">書名</span><span class="req">*</span></label>
+                <input id="im-new-title" type="text" maxlength="120">
+              </div>
+              <div class="cs-field full">
+                <label class="cs-checkbox-row">
+                  <input id="im-new-pub" type="checkbox">
+                  <span><span class="sc">立即发布（默认未发布，导入后再校对）</span><span class="tc">立即發佈（默認未發佈，導入後再校對）</span></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="im-target-row">
+            <input type="radio" name="im-mode" id="im-mode-append" value="append">
+            <label for="im-mode-append"><span class="sc">追加到现有法本</span><span class="tc">追加到現有法本</span></label>
+          </div>
+          <div class="im-target-fields" id="im-fields-append">
+            <div class="cs-field">
+              <label for="im-append-target"><span class="sc">目标法本</span><span class="tc">目標法本</span></label>
+              <select id="im-append-target"></select>
+              <span class="hint"><span class="sc">章节追加在末尾</span><span class="tc">章節追加在末尾</span></span>
+            </div>
+          </div>
+        </div>
+
+        <h4 style="font-family:var(--font-serif);font-weight:700;letter-spacing:2px;color:var(--ink);margin:0 0 8px;font-size:.875rem;">
+          <span class="sc">章节预览（可编辑标题 / 正文 / 删除）</span><span class="tc">章節預覽（可編輯標題 / 正文 / 刪除）</span>
+        </h4>
+        <div class="im-tree" id="im-tree"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost-s" id="im-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+      <button type="button" class="btn-ghost-s" id="im-back" style="display:none;"><span class="sc">← 重新上传</span><span class="tc">← 重新上傳</span></button>
+      <button type="button" class="btn-apply" id="im-submit" style="display:none;"><span class="sc">确认导入</span><span class="tc">確認導入</span></button>
+    </div>
+  </div>
 </div>
 
 <!-- 课时 新建/编辑 模态框（mode=new|edit · F1.4） -->
@@ -1013,6 +1219,9 @@ document.addEventListener('DOMContentLoaded', function () {
     .finally(function () { leSubmit.removeAttribute('aria-busy'); });
   });
 
+  // ── 导入文件 模态框（F2.3）─────────────────
+  bindImportModal();
+
   newForm.addEventListener('submit', function (ev) {
     ev.preventDefault();
     var slug  = document.getElementById('new-slug').value.trim().toLowerCase();
@@ -1057,6 +1266,295 @@ document.addEventListener('DOMContentLoaded', function () {
       .finally(function () { newSubmit.removeAttribute('aria-busy'); });
   });
 });
+
+// ── 导入文件 模态框（F2.3）──────────────────
+// 三步：upload → parsing → preview · admin 编辑预览 → commit
+state.importPreview = null;   // { source, filename, charCount, chapters }
+
+function imShowStep(step) {
+  ['upload', 'parsing', 'preview'].forEach(function (s) {
+    var el = document.getElementById('im-step-' + s);
+    if (el) el.classList.toggle('active', s === step);
+  });
+  document.getElementById('im-back').style.display   = step === 'preview' ? '' : 'none';
+  document.getElementById('im-submit').style.display = step === 'preview' ? '' : 'none';
+}
+
+function imOpen() {
+  state.importPreview = null;
+  document.getElementById('im-err').classList.remove('show');
+  document.getElementById('im-err').textContent = '';
+  document.getElementById('im-file').value = '';
+  imShowStep('upload');
+  document.getElementById('im-backdrop').classList.add('open');
+}
+function imClose() {
+  document.getElementById('im-backdrop').classList.remove('open');
+}
+function imErr(msg) {
+  var el = document.getElementById('im-err');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+// 上传文件 · 走 raw fetch（api.js 是 JSON-only，不能传 multipart）
+function imUpload(file) {
+  if (!file) return;
+  if (!/\.(pdf|docx)$/i.test(file.name)) {
+    imErr(sc('仅支持 .pdf / .docx', '僅支持 .pdf / .docx'));
+    return;
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    imErr(sc('文件超过 20 MB 上限', '文件超過 20 MB 上限'));
+    return;
+  }
+  imShowStep('parsing');
+  document.getElementById('im-err').classList.remove('show');
+
+  var fd = new FormData();
+  fd.append('file', file);
+  var base = (window.JX && window.JX.API_BASE) || '';
+  fetch(base + '/api/admin/courses/import-file/preview', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + window.JX.api.getAccessToken() },
+    body: fd,
+  }).then(function (res) {
+    return res.json().then(function (json) { return { res: res, json: json }; });
+  }).then(function (r) {
+    if (!r.res.ok) {
+      imShowStep('upload');
+      imErr((r.json && r.json.message) || sc('解析失败', '解析失敗'));
+      return;
+    }
+    state.importPreview = r.json.data;
+    imRenderPreview();
+    imShowStep('preview');
+  }).catch(function (err) {
+    imShowStep('upload');
+    imErr((err && err.message) || sc('上传失败', '上傳失敗'));
+  });
+}
+
+function imRenderPreview() {
+  var pv = state.importPreview;
+  if (!pv) return;
+
+  // 文件元信息
+  var totalLessons = pv.chapters.reduce(function (s, ch) { return s + (ch.lessons || []).length; }, 0);
+  document.getElementById('im-file-meta').innerHTML =
+    '<b>' + escapeHtml(pv.filename) + '</b> · ' + pv.source.toUpperCase() + ' · ' +
+    pv.charCount + sc(' 字 · ', ' 字 · ') + pv.chapters.length + sc(' 章 · ', ' 章 · ') +
+    totalLessons + sc(' 课时', ' 課時');
+
+  // 默认 slug：用文件名（去后缀）转拉丁
+  if (!document.getElementById('im-new-slug').value) {
+    var fallbackSlug = pv.filename.replace(/\.[^.]+$/, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+    if (fallbackSlug) document.getElementById('im-new-slug').value = fallbackSlug;
+  }
+  if (!document.getElementById('im-new-title').value) {
+    document.getElementById('im-new-title').value = pv.filename.replace(/\.[^.]+$/, '');
+  }
+
+  // append 目标下拉：state.list 已有
+  var sel = document.getElementById('im-append-target');
+  sel.innerHTML = state.list.map(function (c) {
+    return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.title) + (c.isPublished ? '' : sc(' (未发布)', ' (未發佈)')) + '</option>';
+  }).join('');
+
+  // 章节树
+  imRenderTree();
+}
+
+function imRenderTree() {
+  var pv = state.importPreview;
+  var tree = document.getElementById('im-tree');
+  if (!pv.chapters.length) {
+    tree.innerHTML = '<div class="cs-empty-mini">' + escapeHtml(sc('章节为空，请重新上传', '章節為空，請重新上傳')) + '</div>';
+    return;
+  }
+  tree.innerHTML = pv.chapters.map(function (ch, ci) {
+    return ''
+      + '<div class="im-chapter" data-ci="' + ci + '">'
+      +   '<div class="im-ch-head" data-toggle="' + ci + '">'
+      +     '<svg class="im-ch-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>'
+      +     '<span class="im-ch-order">' + (ci + 1) + '</span>'
+      +     '<input class="im-ch-title-input" type="text" data-ch-title="' + ci + '" value="' + escapeHtml(ch.title) + '">'
+      +     '<span class="im-ch-meta">' + (ch.lessons || []).length + sc(' 节', ' 節') + '</span>'
+      +     '<button type="button" class="im-del-tiny" data-del-ch="' + ci + '" title="删除整章">✕</button>'
+      +   '</div>'
+      +   '<div class="im-ch-body">'
+      +     (ch.lessons || []).map(function (le, li) {
+        var refLen = (le.referenceText || '').length;
+        return ''
+          + '<div class="im-lesson" data-ci="' + ci + '" data-li="' + li + '">'
+          +   '<div class="im-le-head">'
+          +     '<span class="im-le-order">' + (li + 1) + '</span>'
+          +     '<input class="im-le-title-input" type="text" data-le-title="' + ci + '_' + li + '" value="' + escapeHtml(le.title) + '">'
+          +     '<span class="im-le-len">' + refLen + sc(' 字', ' 字') + '</span>'
+          +     '<button type="button" class="im-del-tiny" data-del-le="' + ci + '_' + li + '" title="删除此节">✕</button>'
+          +   '</div>'
+          +   '<textarea class="im-le-text-input" data-le-text="' + ci + '_' + li + '">' + escapeHtml(le.referenceText || '') + '</textarea>'
+          + '</div>';
+      }).join('')
+      +   '</div>'
+      + '</div>';
+  }).join('');
+
+  // 绑定折叠 / 删除 / input
+  tree.querySelectorAll('[data-toggle]').forEach(function (h) {
+    h.addEventListener('click', function (ev) {
+      // 点击 input / 删除按钮 不触发折叠
+      if (ev.target.closest('.im-ch-title-input') || ev.target.closest('.im-del-tiny')) return;
+      h.parentElement.classList.toggle('expanded');
+    });
+  });
+  tree.querySelectorAll('[data-ch-title]').forEach(function (inp) {
+    inp.addEventListener('input', function () {
+      var ci = parseInt(inp.getAttribute('data-ch-title'), 10);
+      pv.chapters[ci].title = inp.value;
+    });
+  });
+  tree.querySelectorAll('[data-le-title]').forEach(function (inp) {
+    inp.addEventListener('input', function () {
+      var p = inp.getAttribute('data-le-title').split('_');
+      var ci = +p[0], li = +p[1];
+      pv.chapters[ci].lessons[li].title = inp.value;
+    });
+  });
+  tree.querySelectorAll('[data-le-text]').forEach(function (ta) {
+    ta.addEventListener('input', function () {
+      var p = ta.getAttribute('data-le-text').split('_');
+      var ci = +p[0], li = +p[1];
+      pv.chapters[ci].lessons[li].referenceText = ta.value;
+      // 更新字数显示
+      var lenEl = ta.parentElement.querySelector('.im-le-len');
+      if (lenEl) lenEl.textContent = ta.value.length + sc(' 字', ' 字');
+    });
+  });
+  tree.querySelectorAll('[data-del-ch]').forEach(function (btn) {
+    btn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var ci = +btn.getAttribute('data-del-ch');
+      if (!confirm(sc('确定删除整章「' + pv.chapters[ci].title + '」？', '確定刪除整章「' + pv.chapters[ci].title + '」？'))) return;
+      pv.chapters.splice(ci, 1);
+      imRenderPreview();
+    });
+  });
+  tree.querySelectorAll('[data-del-le]').forEach(function (btn) {
+    btn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var p = btn.getAttribute('data-del-le').split('_');
+      var ci = +p[0], li = +p[1];
+      var ch = pv.chapters[ci];
+      if (ch.lessons.length <= 1) {
+        if (!confirm(sc('章下仅剩此 1 节，删除将连同整章一起删除。', '章下僅剩此 1 節，刪除將連同整章一起刪除。'))) return;
+        pv.chapters.splice(ci, 1);
+      } else {
+        ch.lessons.splice(li, 1);
+      }
+      imRenderPreview();
+    });
+  });
+}
+
+function imSubmit() {
+  var pv = state.importPreview;
+  if (!pv) return;
+  var mode = document.querySelector('input[name="im-mode"]:checked').value;
+  var body = { mode: mode, chapters: pv.chapters };
+
+  if (mode === 'new') {
+    var slug  = document.getElementById('im-new-slug').value.trim().toLowerCase();
+    var title = document.getElementById('im-new-title').value.trim();
+    if (!slug || !title) {
+      imErr(sc('请填写 slug 和书名', '請填寫 slug 和書名'));
+      return;
+    }
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      imErr(sc('slug 只能含字母 / 数字 / 连字符', 'slug 只能含字母 / 數字 / 連字符'));
+      return;
+    }
+    body.newCourse = {
+      slug: slug, title: title,
+      isPublished: document.getElementById('im-new-pub').checked,
+    };
+  } else {
+    var sel = document.getElementById('im-append-target');
+    if (!sel.value) {
+      imErr(sc('请选择目标法本', '請選擇目標法本'));
+      return;
+    }
+    body.courseId = sel.value;
+  }
+
+  var btn = document.getElementById('im-submit');
+  btn.setAttribute('aria-busy', 'true');
+  document.getElementById('im-err').classList.remove('show');
+
+  window.JX.api.post('/api/admin/courses/import-file/commit', body)
+    .then(function (resp) {
+      imClose();
+      return fetchList().then(function () {
+        if (resp && resp.courseId) selectCourse(resp.courseId);
+      });
+    })
+    .catch(function (err) {
+      imErr((err && err.message) || sc('导入失败', '導入失敗'));
+    })
+    .finally(function () { btn.removeAttribute('aria-busy'); });
+}
+
+function bindImportModal() {
+  var imBackdrop = document.getElementById('im-backdrop');
+  var fileInput  = document.getElementById('im-file');
+  var dropZone   = document.getElementById('im-drop');
+
+  document.getElementById('btn-import-file').addEventListener('click', imOpen);
+  document.getElementById('im-cancel').addEventListener('click', imClose);
+  document.getElementById('im-back').addEventListener('click', function () {
+    state.importPreview = null;
+    imShowStep('upload');
+  });
+  imBackdrop.addEventListener('click', function (ev) { if (ev.target === imBackdrop) imClose(); });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && imBackdrop.classList.contains('open')) imClose();
+  });
+
+  // 文件选择
+  document.getElementById('im-pick').addEventListener('click', function () { fileInput.click(); });
+  dropZone.addEventListener('click', function (ev) {
+    if (ev.target === dropZone || ev.target.classList.contains('im-drop-hint') || ev.target.classList.contains('im-drop-sub')) {
+      fileInput.click();
+    }
+  });
+  fileInput.addEventListener('change', function () { imUpload(fileInput.files[0]); });
+
+  // 拖拽
+  ['dragover', 'dragenter'].forEach(function (e) {
+    dropZone.addEventListener(e, function (ev) { ev.preventDefault(); dropZone.classList.add('dragover'); });
+  });
+  ['dragleave', 'drop'].forEach(function (e) {
+    dropZone.addEventListener(e, function (ev) { ev.preventDefault(); dropZone.classList.remove('dragover'); });
+  });
+  dropZone.addEventListener('drop', function (ev) {
+    if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]) {
+      imUpload(ev.dataTransfer.files[0]);
+    }
+  });
+
+  // 模式切换
+  document.querySelectorAll('input[name="im-mode"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      var mode = r.value;
+      document.getElementById('im-fields-new').classList.toggle('active', mode === 'new');
+      document.getElementById('im-fields-append').classList.toggle('active', mode === 'append');
+    });
+  });
+
+  // 提交
+  document.getElementById('im-submit').addEventListener('click', imSubmit);
+}
 
 // ── 退出登录 ─────────────────────────────────────
 document.getElementById('btn-logout').addEventListener('click', function () {
