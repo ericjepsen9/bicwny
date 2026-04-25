@@ -6,6 +6,10 @@ export function toUpdateInput(
   p: UpdateProviderPatch,
 ): Prisma.LlmProviderConfigUpdateInput {
   return {
+    // I 阶段补 · 允许 admin 改 标识 / 端点 / api key 变量名
+    name: p.name,
+    baseUrl: p.baseUrl,
+    apiKeyEnv: p.apiKeyEnv,
     displayName: p.displayName,
     defaultModel: p.defaultModel,
     isEnabled: p.isEnabled,

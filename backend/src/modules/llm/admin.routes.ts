@@ -1,6 +1,7 @@
 // Admin LLM 运维路由（全部 admin 角色）
 //   GET   /api/admin/llm/providers                        listProvidersAdmin
-//   PATCH /api/admin/llm/providers/:id                    updateProvider
+//   POST  /api/admin/llm/providers                        createProvider · I 阶段
+//   PATCH /api/admin/llm/providers/:id                    updateProvider · I 阶段补 baseUrl/apiKeyEnv/name
 //   POST  /api/admin/llm/providers/:id/toggle             toggleEnabled
 //   POST  /api/admin/llm/providers/:id/reset-circuit      resetCircuit
 //   GET   /api/admin/llm/providers/:id/usage              providerUsageSummary
@@ -12,6 +13,7 @@ import { z } from 'zod';
 import { requireRole, requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import {
+  createProvider,
   listProvidersAdmin,
   resetCircuit,
   toggleEnabled,
@@ -27,7 +29,12 @@ const adminGuard = requireRole('admin');
 const periodType = z.enum(['year', 'month', 'day', 'hour', 'minute']);
 const idParam = z.object({ id: z.string().min(1) });
 
+// I 阶段：patchBody 解锁 name / baseUrl / apiKeyEnv
+//   apiKey 本身仍走 env 不落库 · 改 apiKeyEnv 只改"环境变量名"指针
 const patchBody = z.object({
+  name: z.string().trim().min(1).max(64).regex(/^[a-z0-9_-]+$/i).optional(),
+  baseUrl: z.string().trim().url().max(500).optional(),
+  apiKeyEnv: z.string().trim().min(1).max(100).regex(/^[A-Z][A-Z0-9_]*$/, '只能含大写字母 / 数字 / 下划线 · 以字母开头').optional(),
   displayName: z.string().optional(),
   defaultModel: z.string().optional(),
   isEnabled: z.boolean().optional(),
@@ -44,6 +51,25 @@ const patchBody = z.object({
   overagePolicy: z.enum(['stop', 'pay_as_you_go', 'fallback']).optional(),
   inputCostPer1k: z.number().min(0).optional(),
   outputCostPer1k: z.number().min(0).optional(),
+});
+
+// I 阶段 · 创建新 provider
+const createBody = z.object({
+  name: z.string().trim().min(1).max(64).regex(/^[a-z0-9_-]+$/i),
+  displayName: z.string().trim().min(1).max(120),
+  baseUrl: z.string().trim().url().max(500),
+  apiKeyEnv: z.string().trim().min(1).max(100).regex(/^[A-Z][A-Z0-9_]*$/, '只能含大写字母 / 数字 / 下划线 · 以字母开头'),
+  defaultModel: z.string().trim().min(1).max(120),
+  role: z.enum(['primary', 'fallback', 'disabled']).optional(),
+  priority: z.number().int().min(0).optional(),
+  isEnabled: z.boolean().optional(),
+  inputCostPer1k: z.number().min(0).optional(),
+  outputCostPer1k: z.number().min(0).optional(),
+  monthlyTokenQuota: z.number().int().nullable().optional(),
+  dailyRequestQuota: z.number().int().nullable().optional(),
+  rpmLimit: z.number().int().nullable().optional(),
+  concurrencyLimit: z.number().int().nullable().optional(),
+  overagePolicy: z.enum(['stop', 'pay_as_you_go', 'fallback']).optional(),
 });
 
 const toggleBody = z.object({ isEnabled: z.boolean() });
@@ -80,6 +106,23 @@ export const llmAdminRoutes: FastifyPluginAsync = async (app) => {
     const items = await listProvidersAdmin();
     return { data: items.map(serialize) };
   });
+
+  // I 阶段 · 新建 provider
+  app.post(
+    '/api/admin/llm/providers',
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '新建 provider（默认 isEnabled=false 防误触）', security: SEC },
+    },
+    async (req, reply) => {
+      const pb = createBody.safeParse(req.body);
+      if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
+      const adminId = requireUserId(req);
+      const p = await createProvider(adminId, pb.data);
+      reply.code(201);
+      return { data: serialize(p) };
+    },
+  );
 
   app.patch(
     '/api/admin/llm/providers/:id',
