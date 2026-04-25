@@ -232,6 +232,30 @@ body { background: var(--bg-scene); min-height: 100vh; }
       </div>
     </div>
 
+    <!-- 主修法本卡 · 加入班级即开始学的法本 -->
+    <a id="cls-course-card" href="#"
+       style="display:none;text-decoration:none;color:inherit;
+              padding:var(--sp-4);background:var(--glass-thick);backdrop-filter:var(--blur);
+              border:1px solid var(--glass-border);border-radius:var(--r-lg);
+              border-left:3px solid var(--gold-dark);
+              display:flex;align-items:center;gap:var(--sp-3);">
+      <div id="cls-course-emoji"
+           style="width:46px;height:46px;border-radius:var(--r-lg);flex-shrink:0;
+                  background:var(--gold-pale);display:flex;align-items:center;
+                  justify-content:center;font-size:1.5rem;">🪷</div>
+      <div style="flex:1;min-width:0;">
+        <p style="font:var(--text-caption);color:var(--gold-dark);letter-spacing:1.5px;margin-bottom:2px;">
+          📍 <span class="sc">主修法本</span><span class="tc">主修法本</span>
+        </p>
+        <p id="cls-course-title"
+           style="font-family:var(--font-serif);font-weight:700;color:var(--ink);
+                  font-size:1rem;letter-spacing:2px;">—</p>
+        <p id="cls-course-author"
+           style="font:var(--text-caption);color:var(--ink-3);letter-spacing:.5px;margin-top:2px;display:none;">—</p>
+      </div>
+      <svg width="16" height="16" fill="none" stroke="var(--ink-4)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+
     <!-- Announcement · 暂无后端支持，空态提示 -->
     <div class="sec-head">
       <span class="sec-title"><span class="sc">班级公告</span><span class="tc">班級公告</span></span>
@@ -288,6 +312,19 @@ function renderClass(mem) {
     $('cls-joined-days').textContent = days;
   } else {
     $('cls-joined-days').textContent = '—';
+  }
+  // 主修法本卡（来自 cls.course · 阶段 1 后端已返回）
+  if (cls.course) {
+    var card = $('cls-course-card');
+    var title = sc(cls.course.title, cls.course.titleTraditional || cls.course.title);
+    $('cls-course-emoji').textContent = cls.course.coverEmoji || '🪷';
+    $('cls-course-title').textContent = title;
+    if (cls.course.author) {
+      $('cls-course-author').textContent = cls.course.author;
+      $('cls-course-author').style.display = '';
+    }
+    card.href = 'scripture-detail.html?slug=' + encodeURIComponent(cls.course.slug || '');
+    card.style.display = 'flex';
   }
   showOnly('has-class-block');
   $('action-wrap').style.display = '';

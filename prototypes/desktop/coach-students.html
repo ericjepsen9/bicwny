@@ -257,8 +257,14 @@ function renderClassChips() {
   var html = state.classes.map(function (m) {
     var c = m.class || {};
     var active = c.id === state.currentCid;
+    var courseHint = c.course
+      ? ' <span style="opacity:.6;font-size:.85em;">' + (c.course.coverEmoji || '') + ' ' + escapeHtml(sc(c.course.title, c.course.titleTraditional || c.course.title)) + '</span>'
+      : '';
     return '<span class="cls-chip' + (active ? ' active' : '') + '" data-cid="' +
-      escapeHtml(c.id) + '">' + escapeHtml(c.name || '—') + '</span>';
+      escapeHtml(c.id) + '" title="' + escapeHtml(sc('主修法本', '主修法本')) + '">'
+      + escapeHtml(c.name || '—')
+      + courseHint
+      + '</span>';
   }).join('');
   $('cls-chips').innerHTML = html || '<span style="font:var(--text-caption);color:var(--ink-4);">' + sc('您还没有带班', '您還沒有帶班') + '</span>';
 

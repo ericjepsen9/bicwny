@@ -26,6 +26,28 @@ var state = { all: [], statusFilter: 'all', typeFilter: 'all', search: '', curre
 var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 
 function truncate(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n) + '…' : s; }
+
+// 把 myCoachClasses 填入 #f-class · 有班则默认选第一个 + 触发锁课
+function populateClassSelect() {
+  var sel = document.getElementById('f-class');
+  if (!sel) return;
+  if (!myCoachClasses.length) {
+    sel.innerHTML = '<option value="">' + escapeHtml(sc('— 您没有负责的班级 —', '— 您沒有負責的班級 —')) + '</option>';
+    createForm.ownerClassId = '';
+    return;
+  }
+  sel.innerHTML = myCoachClasses.map(function (m) {
+    var cls = m.class || {};
+    var courseTitle = cls.course ? sc(cls.course.title, cls.course.titleTraditional || cls.course.title) : sc('未绑定', '未綁定');
+    return '<option value="' + escapeHtml(cls.id) + '">'
+      + (cls.coverEmoji || '📚') + ' ' + escapeHtml(cls.name || '—')
+      + ' · ' + escapeHtml(sc('主修 ', '主修 ')) + escapeHtml(courseTitle)
+      + '</option>';
+  }).join('');
+  // 默认选第一个并触发锁课
+  sel.value = myCoachClasses[0].class.id;
+  sel.dispatchEvent(new Event('change'));
+}
 function typeLabel(t)   { var m = TYPE_LABELS[t] || [t, t];   return sc(m[0], m[1]); }
 function statusLabel(s) { var m = STATUS_LABELS[s] || [s, s]; return sc(m[0], m[1]); }
 function visLabel(v)    { var m = VIS_LABELS[v] || [v, v];    return sc(m[0], m[1]); }
@@ -86,6 +108,11 @@ function boot() {
   window.JX.api.get('/api/courses')
     .then(function (list) { courseList = Array.isArray(list) ? list : []; })
     .catch(function () { courseList = []; });
+
+  // 我的班级（供 class_private 选项预拉，可能 admin 没班级则空）
+  window.JX.api.get('/api/coach/classes')
+    .then(function (list) { myCoachClasses = Array.isArray(list) ? list : []; })
+    .catch(function () { myCoachClasses = []; });
 
   window.JX.api.get('/api/coach/questions?limit=500')
     .then(function (list) {
@@ -247,12 +274,14 @@ document.getElementById('dr-delete').addEventListener('click', function () {
 // ── 新建表单 (3c) ──────────────────────────────
 var courseCache = {}; // slug → full course (chapters+lessons)
 var courseList = [];  // published courses
+var myCoachClasses = []; // 我作为 coach 负责的班级（含 .class.course）
 var createForm = {    // 临时表单状态
   type: 'single',
   courseSlug: '',
   courseId: '',
   chapterId: '',
   lessonId: '',
+  ownerClassId: '',
   options: [{ text: '', correct: true }, { text: '', correct: false }],
 };
 
@@ -359,7 +388,14 @@ function renderCreateForm() {
       '<div><label>' + escapeHtml(sc('难度', '難度')) + '</label>' +
         '<select class="f-sel" id="f-diff"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>' +
       '<div><label>' + escapeHtml(sc('可见性', '可見性')) + '</label>' +
-        '<select class="f-sel" id="f-vis" disabled><option value="public">' + escapeHtml(sc('公开（待审）', '公開（待審）')) + '</option></select></div>' +
+        '<select class="f-sel" id="f-vis">' +
+          '<option value="public">' + escapeHtml(sc('公开（待审）', '公開（待審）')) + '</option>' +
+          '<option value="class_private">' + escapeHtml(sc('班级私题（无需审核）', '班級私題（無需審核）')) + '</option>' +
+        '</select></div>' +
+    '</div>' +
+    '<div class="f-row" id="f-class-row" style="display:none;">' +
+      '<label>' + escapeHtml(sc('归属班级 · 自动绑该班主修法本', '歸屬班級 · 自動綁該班主修法本')) + '</label>' +
+      '<select class="f-sel" id="f-class"></select>' +
     '</div>' +
     '<div class="f-row-split">' +
       '<div><label>' + escapeHtml(sc('法本', '法本')) + '</label><select class="f-sel" id="f-course"></select></div>' +
@@ -383,6 +419,36 @@ function renderCreateForm() {
 
   // 填充课程选择
   setSelectOptions(document.getElementById('f-course'), courseList, 'slug', function (c) { return c.title; }, sc('选择法本', '選擇法本'));
+
+  // 可见性切换：class_private 显示班级选择 + 锁定课程到该班主修
+  document.getElementById('f-vis').addEventListener('change', function () {
+    var vis = this.value;
+    var classRow = document.getElementById('f-class-row');
+    var courseSel = document.getElementById('f-course');
+    if (vis === 'class_private') {
+      classRow.style.display = '';
+      populateClassSelect();
+    } else {
+      classRow.style.display = 'none';
+      courseSel.disabled = false;
+      createForm.ownerClassId = '';
+    }
+  });
+
+  // 班级 picker：选中后自动锁课
+  document.getElementById('f-class').addEventListener('change', function () {
+    var classId = this.value;
+    createForm.ownerClassId = classId;
+    if (!classId) return;
+    var m = myCoachClasses.find(function (x) { return x.class && x.class.id === classId; });
+    if (!m || !m.class.course) return;
+    var courseSel = document.getElementById('f-course');
+    courseSel.value = m.class.course.slug;
+    courseSel.disabled = true;
+    // 触发 change 加载章节
+    courseSel.dispatchEvent(new Event('change'));
+  });
+
   document.getElementById('f-type').addEventListener('change', function () {
     createForm.type = this.value;
     if (this.value === 'single') createForm.options = [{ text: '', correct: true }, { text: '', correct: false }];
@@ -430,7 +496,7 @@ function openCreateDrawer() {
   state.drawerMode = 'create';
   state.currentQid = null;
   createForm = {
-    type: 'single', courseSlug: '', courseId: '', chapterId: '', lessonId: '',
+    type: 'single', courseSlug: '', courseId: '', chapterId: '', lessonId: '', ownerClassId: '',
     options: [{ text: '', correct: true }, { text: '', correct: false }],
   };
 
@@ -489,12 +555,18 @@ function collectCreateBody() {
   }
 
   var tags = document.getElementById('f-tags').value.split(/[,，]/).map(function (s) { return s.trim(); }).filter(Boolean);
+  var visEl = document.getElementById('f-vis');
+  var visibility = (visEl && visEl.value) || 'public';
+  if (visibility === 'class_private' && !createForm.ownerClassId) {
+    throw new Error(sc('班级私题需选择归属班级', '班級私題需選擇歸屬班級'));
+  }
   return {
     courseId: createForm.courseId,
     chapterId: createForm.chapterId,
     lessonId: createForm.lessonId,
     type: t,
-    visibility: 'public',
+    visibility: visibility,
+    ownerClassId: visibility === 'class_private' ? createForm.ownerClassId : undefined,
     questionText: stem,
     correctText: document.getElementById('f-correct').value.trim(),
     wrongText: document.getElementById('f-wrong').value.trim(),
