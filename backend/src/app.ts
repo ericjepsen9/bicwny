@@ -3,6 +3,7 @@
 // 测试用例也能通过 buildApp() 拉一个隔离实例。
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
+import multipart from '@fastify/multipart';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -23,6 +24,7 @@ import { coachClassRoutes } from './modules/class/coach.routes.js';
 import { studentClassRoutes } from './modules/class/student.routes.js';
 import { coachStatsRoutes } from './modules/coach/routes.js';
 import { adminCoursesRoutes } from './modules/courses/admin.routes.js';
+import { adminCoursesImportRoutes } from './modules/courses/import.routes.js';
 import { favoritesRoutes } from './modules/favorites/routes.js';
 import { healthRoutes } from './modules/health/routes.js';
 import { learningRoutes } from './modules/learning/routes.js';
@@ -63,6 +65,14 @@ export async function buildApp(): Promise<FastifyInstance> {
         ? corsWhitelist
         : false,
     credentials: true,
+  });
+
+  // 文件上传 · admin 法本导入用 (PDF / DOCX) · 单文件 20 MB
+  await app.register(multipart, {
+    limits: {
+      fileSize: 20 * 1024 * 1024,
+      files: 1,
+    },
   });
 
   // OpenAPI · /openapi.json + /docs
@@ -201,6 +211,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(llmAdminRoutes);
   await app.register(llmScenarioAdminRoutes);
   await app.register(adminCoursesRoutes);
+  await app.register(adminCoursesImportRoutes);
   await app.register(learningRoutes);
   await app.register(favoritesRoutes);
   await app.register(answeringRoutes);

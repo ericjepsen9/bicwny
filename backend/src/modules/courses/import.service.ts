@@ -1,25 +1,27 @@
-// 法本导入解析 service · F2.1
+// 法本导入解析 service · F2.1 + F2.2
 //
-// 输入：上传文件 buffer + mime/扩展
-// 输出：预览结构 { source, filename, chapters: [{ title, lessons: [{ title, referenceText }] }] }
+// F2.1 阶段（解析）：
+//   parsePdf / parseDocx → 纯文本
+//   splitToChapters → 按"第X章"启发切章；章内按"第X节"切节
+//   buildPreviewFromBuffer 主入口（不写库，返回预览结构）
 //
-// 流程：
-//   1. parsePdf / parseDocx → 纯文本
-//   2. splitToChapters → 按"第X章"启发切章；章内按"第X节"切节
-//      · 无章标题 → 整篇做一个 chapter，章 title = 文件名
-//      · 章内无节 → 章下放一个 lesson，lesson title 同章 title
-//   3. 返回结构供 admin 在前端预览编辑后再 commit 写库
+// F2.2 阶段（写入）：
+//   commitImport
+//     · mode=new   → 创建新 course + chapters + lessons
+//     · mode=append → 在现有 course 末尾追加 chapters + lessons
+//   单事务原子性 · 写入 AuditLog (course.import)
 //
 // 不在范围：
 //   · OCR（扫描版 PDF 无文字层 → 抛 EMPTY_TEXT）
 //   · 复杂格式（DOCX 表格 / 图片 / 公式）只取 raw text
-//   · 中文姓名 / 标题正则边界 case 由 admin 在预览中手改
 
+import type { Prisma } from '@prisma/client';
 import mammoth from 'mammoth';
 // pdf-parse@1.1.1 有顶层副作用（找测试 PDF）→ 走 lib 子路径绕开
 import pdf from 'pdf-parse/lib/pdf-parse.js';
 
-import { BadRequest } from '../../lib/errors.js';
+import { BadRequest, Conflict, NotFound } from '../../lib/errors.js';
+import { prisma } from '../../lib/prisma.js';
 
 export interface PreviewLesson {
   title: string;
@@ -176,4 +178,139 @@ export async function buildPreviewFromBuffer(
     charCount: rawText.length,
     chapters,
   };
+}
+
+// ── 写入：commit 预览到数据库 ─────────────────────
+
+export interface CommitNewCourse {
+  slug: string;
+  title: string;
+  titleTraditional?: string;
+  author?: string;
+  description?: string;
+  coverEmoji?: string;
+  isPublished?: boolean;
+}
+
+export interface CommitInput {
+  /** new = 创建新法本; append = 在现有法本末尾追加章节 */
+  mode: 'new' | 'append';
+  /** mode=append 必填 */
+  courseId?: string;
+  /** mode=new 必填 */
+  newCourse?: CommitNewCourse;
+  chapters: PreviewChapter[];
+}
+
+export interface CommitResult {
+  courseId: string;
+  chapterCount: number;
+  lessonCount: number;
+}
+
+/** 写入预览树到数据库，单事务保证原子性 */
+export async function commitImport(
+  adminId: string,
+  input: CommitInput,
+): Promise<CommitResult> {
+  if (!Array.isArray(input.chapters) || input.chapters.length === 0) {
+    throw BadRequest('章节列表不能为空');
+  }
+  for (const ch of input.chapters) {
+    if (!ch.title || !ch.title.trim()) throw BadRequest('每章必须有标题');
+    if (!Array.isArray(ch.lessons) || ch.lessons.length === 0) {
+      throw BadRequest(`章「${ch.title}」下必须至少 1 个课时`);
+    }
+    for (const le of ch.lessons) {
+      if (!le.title || !le.title.trim()) {
+        throw BadRequest(`章「${ch.title}」下有课时缺标题`);
+      }
+    }
+  }
+
+  let appendCourseId = '';
+  let baseChapterOrder = 0;
+
+  if (input.mode === 'new') {
+    if (!input.newCourse) throw BadRequest('mode=new 必须提供 newCourse');
+    const nc = input.newCourse;
+    if (!nc.slug || !nc.title) throw BadRequest('newCourse 缺 slug / title');
+    if (await prisma.course.findUnique({ where: { slug: nc.slug } })) {
+      throw Conflict('slug 已被占用');
+    }
+  } else {
+    if (!input.courseId) throw BadRequest('mode=append 必须提供 courseId');
+    const exist = await prisma.course.findUnique({
+      where: { id: input.courseId },
+      include: { chapters: { orderBy: { order: 'desc' }, take: 1 } },
+    });
+    if (!exist) throw NotFound('目标法本不存在');
+    appendCourseId = exist.id;
+    baseChapterOrder = exist.chapters[0]?.order ?? 0;
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    let cid: string;
+
+    if (input.mode === 'new') {
+      const nc = input.newCourse!;
+      const course = await tx.course.create({
+        data: {
+          slug: nc.slug.trim(),
+          title: nc.title.trim(),
+          titleTraditional: nc.titleTraditional?.trim() || null,
+          author: nc.author?.trim() || null,
+          description: nc.description?.trim() || null,
+          coverEmoji: nc.coverEmoji?.trim() || '🪷',
+          isPublished: nc.isPublished ?? false, // 导入默认 未发布 · admin 校对后再发
+        },
+      });
+      cid = course.id;
+    } else {
+      cid = appendCourseId;
+    }
+
+    let totalLessons = 0;
+    for (let ci = 0; ci < input.chapters.length; ci++) {
+      const ch = input.chapters[ci];
+      const chapter = await tx.chapter.create({
+        data: {
+          courseId: cid,
+          order: baseChapterOrder + ci + 1,
+          title: ch.title.trim(),
+        },
+      });
+      for (let li = 0; li < ch.lessons.length; li++) {
+        const le = ch.lessons[li];
+        await tx.lesson.create({
+          data: {
+            chapterId: chapter.id,
+            order: li + 1,
+            title: le.title.trim(),
+            referenceText: le.referenceText?.trim() || null,
+            teachingSummary: le.teachingSummary?.trim() || null,
+          },
+        });
+        totalLessons++;
+      }
+    }
+
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: input.mode === 'new' ? 'course.import.new' : 'course.import.append',
+        targetType: 'course',
+        targetId: cid,
+        after: {
+          mode: input.mode,
+          chapterCount: input.chapters.length,
+          lessonCount: totalLessons,
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    return { courseId: cid, chapterCount: input.chapters.length, lessonCount: totalLessons };
+  });
+
+  return result;
 }
