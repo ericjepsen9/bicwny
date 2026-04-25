@@ -28,6 +28,55 @@
 
 /* KPI grid */
 .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-6); }
+
+/* 快速操作 · G1 阶段 ─────────────────────────── */
+.qa-section {
+  margin-bottom: var(--sp-6);
+}
+.qa-title {
+  font-family: var(--font-serif); font-weight: 700; font-size: 1rem;
+  color: var(--ink); letter-spacing: 3px; margin-bottom: var(--sp-3);
+}
+.qa-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-3);
+}
+@media (max-width: 1023px) { .qa-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 767px)  { .qa-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 479px)  { .qa-grid { grid-template-columns: 1fr; } }
+
+.qa-card {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
+  text-decoration: none; color: inherit;
+  transition: all var(--dur) var(--ease);
+}
+.qa-card:hover {
+  border-color: var(--saffron-light);
+  background: var(--saffron-pale);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(224,120,86,.10);
+}
+.qa-icon {
+  width: 36px; height: 36px; border-radius: var(--r-sm);
+  background: rgba(224,120,86,.12); color: var(--saffron-dark);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.qa-card:hover .qa-icon {
+  background: var(--saffron); color: #fff;
+}
+.qa-name {
+  font-family: var(--font-serif); font-weight: 700; color: var(--ink);
+  letter-spacing: 1px; font-size: .9375rem;
+}
+.qa-sub {
+  font: var(--text-caption); color: var(--ink-3);
+  letter-spacing: .5px; margin-top: 2px;
+}
+.qa-card:hover .qa-sub { color: var(--saffron-dark); }
+.qa-info { flex: 1; min-width: 0; }
 .kpi-card {
   background: var(--glass-thick); backdrop-filter: var(--blur);
   border: 1px solid var(--glass-border); border-radius: var(--r-xl);
@@ -198,6 +247,85 @@
         <p class="kpi-label"><span class="sc">累计答题</span><span class="tc">累計答題</span></p>
         <p class="kpi-value" id="kpi-answers">—</p>
         <p class="kpi-trend" id="kpi-answers-sub">&nbsp;</p>
+      </div>
+    </div>
+
+    <!-- 快速操作 · G1 阶段 -->
+    <div class="qa-section">
+      <p class="qa-title"><span class="sc">快速操作</span><span class="tc">快速操作</span></p>
+      <div class="qa-grid">
+        <a class="qa-card" href="admin-users.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">用户管理</span><span class="tc">用戶管理</span></div>
+            <div class="qa-sub"><span class="sc">新建 / 启停 / 改角色</span><span class="tc">新建 / 啟停 / 改角色</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-classes.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">班级管理</span><span class="tc">班級管理</span></div>
+            <div class="qa-sub"><span class="sc">建班 / 添加成员 / 归档</span><span class="tc">建班 / 添加成員 / 歸檔</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-courses.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">法本管理</span><span class="tc">法本管理</span></div>
+            <div class="qa-sub"><span class="sc">手工 / 文件 / URL 导入</span><span class="tc">手工 / 文件 / URL 導入</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-llm.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2a9 9 0 1 0 9 9"/><path d="M12 2v9l7 5"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name">LLM <span class="sc">管理</span><span class="tc">管理</span></div>
+            <div class="qa-sub"><span class="sc">Provider 配置 / 用量 / 日志</span><span class="tc">Provider 配置 / 用量 / 日誌</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-review.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">题目审核</span><span class="tc">題目審核</span></div>
+            <div class="qa-sub"><span class="sc">辅导员投递的待审题</span><span class="tc">輔導員投遞的待審題</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-reports.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">举报处理</span><span class="tc">舉報處理</span></div>
+            <div class="qa-sub"><span class="sc">学员提交的题目举报</span><span class="tc">學員提交的題目舉報</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-audit.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">审计日志</span><span class="tc">審計日誌</span></div>
+            <div class="qa-sub"><span class="sc">所有 admin 操作可追溯</span><span class="tc">所有 admin 操作可追溯</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-logs.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">运行日志</span><span class="tc">運行日誌</span></div>
+            <div class="qa-sub"><span class="sc">错误 · 慢请求 · 慢查询</span><span class="tc">錯誤 · 慢請求 · 慢查詢</span></div>
+          </div>
+        </a>
       </div>
     </div>
 
