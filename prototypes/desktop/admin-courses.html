@@ -551,10 +551,19 @@
 
         <div class="cs-grid" style="margin-bottom:8px;">
           <div class="cs-field full">
-            <label for="im-batch-pattern"><span class="sc">URL 模板</span><span class="tc">URL 模板</span></label>
-            <input class="im-url-input" id="im-batch-pattern" type="text"
-              placeholder="https://mingguang.im/r/da-yuan-man-qian-xing-jiang-jie-di-{n}-ke/">
-            <span class="hint"><span class="sc">用 {n} 作为序号占位符 · 系统会替换为 from..to 的数字</span><span class="tc">用 {n} 作為序號佔位符</span></span>
+            <label for="im-batch-pattern"><span class="sc">URL 模板 或 URL 列表</span><span class="tc">URL 模板 或 URL 列表</span></label>
+            <textarea class="im-url-input" id="im-batch-pattern" rows="4" style="font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:.8125rem;"
+              placeholder="模板模式（一行 · 含 {n}）：
+https://mingguang.im/r/da-yuan-man-qian-xing-jiang-jie-di-{n}-ke/
+
+或 URL 列表模式（多行 · 一行一个 URL · 不含 {n}）：
+https://www.buli.page/zh-hans/view/lesson/abc123/text/
+https://www.buli.page/zh-hans/view/lesson/def456/text/
+...."></textarea>
+            <span class="hint">
+              <span class="sc">含 {n} → 模板模式 · 用 from/to 替换。多行 URL → 列表模式 · 忽略 from/to。</span>
+              <span class="tc">含 {n} → 模板模式。多行 URL → 列表模式。</span>
+            </span>
           </div>
           <div class="cs-field">
             <label for="im-batch-from"><span class="sc">从</span><span class="tc">從</span></label>
@@ -1457,29 +1466,49 @@ function imFetchUrl(url) {
 //   pattern 内的 {n} 替换为 from..to · 抓到的每篇正文 → 一个 Chapter
 //   失败的累积到 state.importBatchFailed · admin 可点 重试失败的 / 复制 URL
 function imBatchFetch() {
-  var pattern = document.getElementById('im-batch-pattern').value.trim();
-  var from    = parseInt(document.getElementById('im-batch-from').value, 10);
-  var to      = parseInt(document.getElementById('im-batch-to').value, 10);
+  var raw = document.getElementById('im-batch-pattern').value.trim();
+  // 拆行 · 去空行
+  var lines = raw.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+  if (lines.length === 0) {
+    imErr(sc('URL 模板或 URL 列表必填', 'URL 模板或 URL 列表必填'));
+    return;
+  }
 
-  if (!pattern || pattern.indexOf('{n}') < 0) {
-    var hint = '';
-    // 用户贴了普通 URL 没换 {n} · 自动建议哪里要换
-    var m = pattern && pattern.match(/^(.*?)(\d+)([^\d]*)$/);
-    if (m) {
-      hint = '\n\n你的 URL 末尾的数字 ' + m[2] + ' 可能就是页码。\n试试改成：\n' + m[1] + '{n}' + m[3];
-    } else {
-      hint = '\n\n例：https://mingguang.im/r/da-yuan-man-qian-xing-jiang-jie-di-{n}-ke/';
+  var urls = [];
+
+  // 自动模式识别：
+  //   一行且含 {n} → 模板模式 + from/to
+  //   多行 + 全是 http/https URL → 列表模式
+  //   一行不含 {n} → 报错（让用户填 {n} 或贴更多）
+  var hasTemplate = lines.some(function (l) { return l.indexOf('{n}') >= 0; });
+
+  if (hasTemplate) {
+    // 模板模式 · 只取第一行有 {n} 的（防止用户贴多行模板混淆）
+    var pattern = lines.find(function (l) { return l.indexOf('{n}') >= 0; });
+    var from = parseInt(document.getElementById('im-batch-from').value, 10);
+    var to   = parseInt(document.getElementById('im-batch-to').value, 10);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from < 1 || to < from) {
+      imErr(sc('from / to 不合法 · 模板模式需填范围', 'from / to 不合法'));
+      return;
     }
-    imErr(sc('URL 模板必填，必须用 {n} 占位序号。', 'URL 模板必填 · 必須用 {n} 佔位序號。') + hint);
-    return;
+    for (var n = from; n <= to; n++) urls.push(pattern.replace(/\{n\}/g, String(n)));
+  } else {
+    // 列表模式 · 验证每行都是合法 URL
+    var bad = lines.filter(function (l) { return !/^https?:\/\//i.test(l); });
+    if (bad.length) {
+      imErr(sc(
+        'URL 列表模式：每行必须是 http/https URL。\n问题行：\n' + bad.slice(0, 3).join('\n'),
+        'URL 列表模式：每行必須是 http/https URL'
+      ));
+      return;
+    }
+    urls = lines;
   }
-  if (!Number.isFinite(from) || !Number.isFinite(to) || from < 1 || to < from) {
-    imErr(sc('from / to 不合法', 'from / to 不合法'));
-    return;
-  }
-  var total = to - from + 1;
-  if (total > 200) {
-    imErr(sc('单批最多 200 条 · 当前 ' + total, '單批最多 200 條'));
+
+  var total = urls.length;
+  if (total > 300) {
+    imErr(sc('单批最多 300 条 · 当前 ' + total + ' · 请分批跑',
+             '單批最多 300 條 · 當前 ' + total));
     return;
   }
   // 计算预计时长（按用户选的间隔 + 强制最小 5s）
@@ -1490,10 +1519,6 @@ function imBatchFetch() {
     '将串行抓取 ' + total + ' 条 URL（每条间隔 ≥ ' + sec + ' 秒，预计 ' + estMin + ' 分钟）。\n\n首先会预检 1 条确认源站可达。\n开始？',
     '將串行抓取 ' + total + ' 條 URL，預計 ' + estMin + ' 分鐘'
   ))) return;
-
-  // 生成 URL 列表
-  var urls = [];
-  for (var n = from; n <= to; n++) urls.push(pattern.replace(/\{n\}/g, String(n)));
 
   // ③ 健康预检 · 先抓第一条，失败就警告别浪费时间
   document.getElementById('im-err').classList.remove('show');
