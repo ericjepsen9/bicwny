@@ -70,6 +70,54 @@ body { background: var(--bg-scene); min-height: 100vh; }
 }
 .q-fav.active svg { fill: currentColor; }
 
+/* Report button (left of fav) */
+.q-report {
+  position: absolute; top: var(--sp-4); right: calc(var(--sp-4) + 40px);
+  width: 32px; height: 32px; border-radius: 50%;
+  background: transparent; border: 1px solid var(--border-light);
+  color: var(--ink-4);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.q-report:hover { border-color: var(--crimson); color: var(--crimson); }
+.q-report[aria-busy="true"] { opacity: .5; pointer-events: none; }
+
+/* Report 模态框 · 底部弹起式 */
+.rpt-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 110; display: flex; align-items: flex-end; justify-content: center; }
+.rpt-backdrop.open { opacity: 1; pointer-events: auto; }
+.rpt-sheet {
+  width: 100%; max-width: 480px;
+  background: #fff; border-radius: var(--r-xl) var(--r-xl) 0 0;
+  transform: translateY(100%); transition: transform .25s var(--ease);
+  padding: var(--sp-5) var(--sp-5) var(--sp-6);
+  max-height: 80vh; overflow-y: auto;
+}
+.rpt-backdrop.open .rpt-sheet { transform: translateY(0); }
+.rpt-title { font-family: var(--font-serif); font-weight: 700; font-size: 1.0625rem; color: var(--ink); letter-spacing: 2px; margin-bottom: var(--sp-3); }
+.rpt-reasons { display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--sp-3); }
+.rpt-reason {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--r);
+  border: 1px solid var(--border-light); background: #fff;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+  font: var(--text-body); color: var(--ink); letter-spacing: 1px;
+}
+.rpt-reason:hover { border-color: var(--saffron-light); background: var(--saffron-pale); }
+.rpt-reason.checked { border-color: var(--saffron); background: var(--saffron-pale); color: var(--saffron-dark); font-weight: 600; }
+.rpt-reason input { width: 16px; height: 16px; accent-color: var(--saffron); }
+.rpt-details {
+  width: 100%; min-height: 80px; resize: vertical;
+  padding: 10px 12px; border-radius: var(--r);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-body); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.rpt-details:focus { border-color: var(--saffron); }
+.rpt-err { color: var(--crimson); font: var(--text-caption); letter-spacing: 1px; padding: 8px 10px; border-radius: var(--r); background: rgba(192,57,43,.06); margin-bottom: var(--sp-2); display: none; }
+.rpt-err.show { display: block; }
+.rpt-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
+.rpt-actions .btn { flex: 1; }
+
 /* Options */
 .options { display: flex; flex-direction: column; gap: var(--sp-3); }
 .opt {
@@ -431,6 +479,12 @@ body { background: var(--bg-scene); min-height: 100vh; }
   <div class="quiz-body">
     <div class="q-card">
       <span class="q-tag"><span class="sc">单选题</span><span class="tc">單選題</span></span>
+      <button type="button" class="q-report" id="q-report" title="举报此题" aria-label="举报此题">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+          <line x1="4" y1="22" x2="4" y2="15"/>
+        </svg>
+      </button>
       <button type="button" class="q-fav" id="q-fav" title="收藏此题" aria-label="收藏此题">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -488,8 +542,125 @@ body { background: var(--bg-scene); min-height: 100vh; }
     </div>
   </div>
 
+  <!-- 举报题目 模态框 -->
+  <div class="rpt-backdrop" id="rpt-backdrop">
+    <form class="rpt-sheet" id="rpt-form" novalidate>
+      <div class="rpt-title"><span class="sc">举报此题</span><span class="tc">舉報此題</span></div>
+      <div class="rpt-err" id="rpt-err"></div>
+      <div class="rpt-reasons" id="rpt-reasons"></div>
+      <textarea class="rpt-details" id="rpt-details" maxlength="500"
+        data-ph-sc="可选 · 补充说明（最多 500 字）" data-ph-tc="可選 · 補充說明（最多 500 字）"
+        placeholder="可选 · 补充说明（最多 500 字）"></textarea>
+      <div class="rpt-actions">
+        <button type="button" class="btn btn-ghost btn-pill" id="rpt-cancel">
+          <span class="sc">取消</span><span class="tc">取消</span>
+        </button>
+        <button type="submit" class="btn btn-primary btn-pill" id="rpt-submit">
+          <span class="sc">提交举报</span><span class="tc">提交舉報</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
 </div><!-- /phone -->
 </div><!-- /phone-wrap -->
+
+<script>
+// ── 举报题目：quiz.js 在 render() 时给 #q-fav 写了 data-qid，这里复用同一来源 ──
+(function () {
+  var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+  var REASONS = [
+    { value: 'wrong_answer',   sc: '答案有误',   tc: '答案有誤' },
+    { value: 'doctrine_error', sc: '义理错误',   tc: '義理錯誤' },
+    { value: 'typo',           sc: '错别字 / 排版问题', tc: '錯別字 / 排版問題' },
+    { value: 'sensitive',      sc: '涉及冒犯',   tc: '涉及冒犯' },
+    { value: 'other',          sc: '其他',       tc: '其他' },
+  ];
+
+  var backdrop = document.getElementById('rpt-backdrop');
+  var form     = document.getElementById('rpt-form');
+  var errBox   = document.getElementById('rpt-err');
+  var detailsI = document.getElementById('rpt-details');
+  var submitBt = document.getElementById('rpt-submit');
+  var reasonsC = document.getElementById('rpt-reasons');
+  var reportBt = document.getElementById('q-report');
+
+  function renderReasons() {
+    reasonsC.innerHTML = REASONS.map(function (r, i) {
+      var id = 'rpt-r-' + i;
+      return '<label class="rpt-reason" for="' + id + '">' +
+        '<input type="radio" name="reason" id="' + id + '" value="' + r.value + '">' +
+        '<span>' + escapeHtml(sc(r.sc, r.tc)) + '</span>' +
+        '</label>';
+    }).join('');
+  }
+
+  function open() {
+    // 当前题目 id：quiz.js render() 写在 #q-fav[data-qid]
+    var fav = document.getElementById('q-fav');
+    var qid = fav && fav.getAttribute('data-qid');
+    if (!qid) {
+      window.JX.toast && window.JX.toast.error(sc('题目未加载', '題目未載入'));
+      return;
+    }
+    form.dataset.qid = qid;
+    renderReasons();
+    form.reset();
+    errBox.classList.remove('show');
+    errBox.textContent = '';
+    backdrop.classList.add('open');
+  }
+  function close() { backdrop.classList.remove('open'); }
+
+  // radio 选中时高亮外层 label
+  reasonsC.addEventListener('change', function () {
+    reasonsC.querySelectorAll('.rpt-reason').forEach(function (el) {
+      var input = el.querySelector('input');
+      el.classList.toggle('checked', input && input.checked);
+    });
+  });
+
+  if (reportBt) reportBt.addEventListener('click', open);
+  document.getElementById('rpt-cancel').addEventListener('click', close);
+  backdrop.addEventListener('click', function (ev) {
+    if (ev.target === backdrop) close();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && backdrop.classList.contains('open')) close();
+  });
+  document.addEventListener('langchange', function () {
+    if (backdrop.classList.contains('open')) renderReasons();
+  });
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var qid = form.dataset.qid;
+    var reason = form.querySelector('input[name="reason"]:checked');
+    if (!qid || !reason) {
+      errBox.textContent = sc('请选择举报原因', '請選擇舉報原因');
+      errBox.classList.add('show');
+      return;
+    }
+    var details = (detailsI.value || '').trim();
+    var body = { questionId: qid, reason: reason.value };
+    if (details) body.details = details;
+
+    submitBt.setAttribute('aria-busy', 'true');
+    errBox.classList.remove('show');
+
+    window.JX.api.post('/api/reports', body)
+      .then(function () {
+        close();
+        window.JX.toast && window.JX.toast.success(sc('举报已提交，感谢反馈', '舉報已提交，感謝反饋'));
+      })
+      .catch(function (err) {
+        errBox.textContent = (err && err.message) || sc('提交失败，请稍后重试', '提交失敗，請稍後重試');
+        errBox.classList.add('show');
+      })
+      .finally(function () { submitBt.removeAttribute('aria-busy'); });
+  });
+})();
+</script>
 
 </body>
 </html>
