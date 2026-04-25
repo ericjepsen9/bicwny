@@ -1,10 +1,13 @@
 // Admin 用户管理
 // - listUsers：createdAt 降序 + 游标分页，可按 role 过滤 / email+dharmaName 模糊搜索
+// - createUser：admin 创建任意 role 账号 + AuditLog （student 无需 onboarding 也能由 admin 创建）
 // - updateUserRole：禁止把自己降级（防锁死所有 admin）+ AuditLog
 // - setUserActive：停用时在同事务内吊销所有活跃 AuthSession + AuditLog
 import type { Prisma, User, UserRole } from '@prisma/client';
-import { Forbidden, NotFound } from '../../lib/errors.js';
+import { Conflict, Forbidden, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { hashPassword } from '../auth/hash.js';
+import { normalizeEmail } from '../auth/service.helpers.js';
 
 export type PublicUser = Omit<User, 'passwordHash'>;
 
@@ -41,6 +44,49 @@ export async function listUsers(
     ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
   });
   return rows.map(stripPassword);
+}
+
+export interface CreateUserInput {
+  email: string;
+  password: string;
+  role: UserRole;
+  dharmaName?: string;
+}
+
+export async function createUser(
+  adminId: string,
+  input: CreateUserInput,
+): Promise<PublicUser> {
+  const email = normalizeEmail(input.email);
+  if (await prisma.user.findUnique({ where: { email } })) {
+    throw Conflict('邮箱已被占用');
+  }
+  const passwordHash = await hashPassword(input.password);
+  const created = await prisma.$transaction(async (tx) => {
+    const u = await tx.user.create({
+      data: {
+        email,
+        passwordHash,
+        role: input.role,
+        dharmaName: input.dharmaName?.trim() || null,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: 'user.create',
+        targetType: 'user',
+        targetId: u.id,
+        after: {
+          email: u.email,
+          role: u.role,
+          dharmaName: u.dharmaName,
+        } as Prisma.InputJsonValue,
+      },
+    });
+    return u;
+  });
+  return stripPassword(created);
 }
 
 export async function updateUserRole(

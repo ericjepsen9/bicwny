@@ -140,6 +140,37 @@ table.u-list { width: 100%; border-collapse: collapse; }
 .dr-err.show { display: block; }
 .dr-ok { color: var(--sage-dark); font: var(--text-caption); letter-spacing: 1px; padding: 10px 12px; border-radius: var(--r-sm); background: rgba(125,154,108,.12); margin-bottom: var(--sp-3); display: none; }
 .dr-ok.show { display: block; }
+
+/* 新建用户 模态框（居中卡片，区别于详情抽屉） */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 110; display: flex; align-items: center; justify-content: center; padding: var(--sp-6); }
+.modal-backdrop.open { opacity: 1; pointer-events: auto; }
+.modal {
+  width: 100%; max-width: 440px;
+  background: #fff; border-radius: var(--r-lg);
+  box-shadow: 0 24px 60px rgba(0,0,0,.18);
+  transform: scale(.96); transition: transform .2s var(--ease);
+  display: flex; flex-direction: column; max-height: 90vh;
+}
+.modal-backdrop.open .modal { transform: scale(1); }
+.modal-head { display: flex; align-items: center; padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-light); }
+.modal-title { flex: 1; font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.modal-body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
+.modal-foot { display: flex; justify-content: flex-end; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--border-light); background: rgba(43,34,24,.02); border-radius: 0 0 var(--r-lg) var(--r-lg); }
+
+.mfield { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--sp-3); }
+.mfield label { font: var(--text-caption); font-weight: 600; letter-spacing: 1px; color: var(--ink-2); }
+.mfield label .req { color: var(--crimson); margin-left: 3px; }
+.mfield input, .mfield select {
+  padding: 8px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.mfield input:focus, .mfield select:focus { border-color: var(--saffron); }
+.mhint { font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px; margin-top: 2px; }
+
+.btn-new { padding: 7px 16px; border-radius: var(--r-pill); background: var(--saffron); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn-new:hover { background: var(--saffron-dark); }
+.btn-new[aria-busy="true"] { opacity: .6; pointer-events: none; }
 </style>
 <meta name="jx-require-role" content="admin">
 <script src="../shared/lang.js"></script>
@@ -185,6 +216,10 @@ table.u-list { width: 100%; border-collapse: collapse; }
         <p class="page-sub"><span class="sc">按注册时间倒序 · 游标分页</span><span class="tc">按註冊時間倒序 · 游標分頁</span></p>
       </div>
       <div class="top-actions">
+        <button class="btn-new" id="btn-new-user">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span><span class="sc">新建用户</span><span class="tc">新建用戶</span></span>
+        </button>
         <button class="lang-btn" onclick="toggleLang()">繁</button>
       </div>
     </div>
@@ -210,6 +245,42 @@ table.u-list { width: 100%; border-collapse: collapse; }
       </button>
     </div>
   </main>
+</div>
+
+<!-- 新建用户 模态框 -->
+<div class="modal-backdrop" id="new-user-backdrop">
+  <form class="modal" id="new-user-form" novalidate>
+    <div class="modal-head">
+      <span class="modal-title"><span class="sc">新建用户</span><span class="tc">新建用戶</span></span>
+    </div>
+    <div class="modal-body">
+      <div class="dr-err" id="nu-err"></div>
+      <div class="mfield">
+        <label for="nu-email"><span class="sc">邮箱</span><span class="tc">郵箱</span><span class="req">*</span></label>
+        <input id="nu-email" type="email" required autocomplete="off"
+          data-ph-sc="user@example.com" data-ph-tc="user@example.com" placeholder="user@example.com">
+      </div>
+      <div class="mfield">
+        <label for="nu-password"><span class="sc">初始密码</span><span class="tc">初始密碼</span><span class="req">*</span></label>
+        <input id="nu-password" type="text" minlength="6" required autocomplete="off"
+          data-ph-sc="至少 6 位" data-ph-tc="至少 6 位" placeholder="至少 6 位">
+        <div class="mhint"><span class="sc">用户首次登录后可自行修改</span><span class="tc">用戶首次登入後可自行修改</span></div>
+      </div>
+      <div class="mfield">
+        <label for="nu-role"><span class="sc">角色</span><span class="tc">角色</span><span class="req">*</span></label>
+        <select id="nu-role" required></select>
+      </div>
+      <div class="mfield">
+        <label for="nu-dharma"><span class="sc">法名 / 姓名（可选）</span><span class="tc">法名 / 姓名（可選）</span></label>
+        <input id="nu-dharma" type="text" maxlength="100" autocomplete="off"
+          data-ph-sc="留空则使用邮箱前缀" data-ph-tc="留空則使用郵箱前綴" placeholder="留空则使用邮箱前缀">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost-s" id="nu-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+      <button type="submit" class="btn-apply" id="nu-submit"><span class="sc">创建</span><span class="tc">創建</span></button>
+    </div>
+  </form>
 </div>
 
 <!-- Detail drawer -->
@@ -529,6 +600,81 @@ document.getElementById('list-body').addEventListener('click', function (ev) {
   var tr = ev.target.closest('tr[data-row]');
   if (!tr) return;
   openDrawer(tr.getAttribute('data-uid'));
+});
+
+// ── 新建用户 模态框 ─────────────────────────────
+var nuBackdrop = document.getElementById('new-user-backdrop');
+var nuForm     = document.getElementById('new-user-form');
+var nuErr      = document.getElementById('nu-err');
+var nuSubmit   = document.getElementById('nu-submit');
+
+function renderRoleOptions() {
+  var sel = document.getElementById('nu-role');
+  if (!sel) return;
+  var current = sel.value || 'student';
+  sel.innerHTML =
+    '<option value="student">' + escapeHtml(sc('学员', '學員')) + '</option>' +
+    '<option value="coach">'   + escapeHtml(sc('辅导员', '輔導員')) + '</option>' +
+    '<option value="admin">'   + escapeHtml(sc('管理员', '管理員')) + '</option>';
+  sel.value = current;
+}
+
+function openNewUser() {
+  nuForm.reset();
+  nuErr.classList.remove('show');
+  nuErr.textContent = '';
+  renderRoleOptions();
+  nuBackdrop.classList.add('open');
+  setTimeout(function () { document.getElementById('nu-email').focus(); }, 100);
+}
+function closeNewUser() {
+  nuBackdrop.classList.remove('open');
+}
+
+document.getElementById('btn-new-user').addEventListener('click', openNewUser);
+document.getElementById('nu-cancel').addEventListener('click', closeNewUser);
+nuBackdrop.addEventListener('click', function (ev) {
+  if (ev.target === nuBackdrop) closeNewUser();
+});
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape' && nuBackdrop.classList.contains('open')) closeNewUser();
+});
+document.addEventListener('langchange', renderRoleOptions);
+
+nuForm.addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var email    = document.getElementById('nu-email').value.trim();
+  var password = document.getElementById('nu-password').value;
+  var role     = document.getElementById('nu-role').value;
+  var dharma   = document.getElementById('nu-dharma').value.trim();
+
+  if (!email || !password || password.length < 6 || !role) {
+    nuErr.textContent = sc('请填写邮箱、至少 6 位密码、角色', '請填寫郵箱、至少 6 位密碼、角色');
+    nuErr.classList.add('show');
+    return;
+  }
+
+  var body = { email: email, password: password, role: role };
+  if (dharma) body.dharmaName = dharma;
+
+  nuSubmit.setAttribute('aria-busy', 'true');
+  nuErr.classList.remove('show');
+
+  window.JX.api.post('/api/admin/users', body)
+    .then(function () {
+      closeNewUser();
+      resetAndFetch();
+    })
+    .catch(function (err) {
+      var code = err && err.code;
+      var msg = err && err.message || sc('创建失败', '創建失敗');
+      if (code === 'CONFLICT') msg = sc('该邮箱已被占用', '該郵箱已被佔用');
+      nuErr.textContent = msg;
+      nuErr.classList.add('show');
+    })
+    .finally(function () {
+      nuSubmit.removeAttribute('aria-busy');
+    });
 });
 
 document.getElementById('btn-logout').addEventListener('click', function () {

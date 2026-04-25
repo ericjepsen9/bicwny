@@ -1,5 +1,6 @@
 // Admin 用户 + 平台大盘路由（全部 admin）
 //   GET   /api/admin/users                 列表（role/search/cursor/limit）
+//   POST  /api/admin/users                 新建用户 { email, password, role, dharmaName? }
 //   PATCH /api/admin/users/:id/role        { role }
 //   POST  /api/admin/users/:id/active      { isActive }
 //   GET   /api/admin/platform-stats        platformStats（windowDays 可配）
@@ -8,7 +9,7 @@ import { z } from 'zod';
 import { requireRole, requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import { platformStats } from './platform-stats.service.js';
-import { listUsers, setUserActive, updateUserRole } from './users.service.js';
+import { createUser, listUsers, setUserActive, updateUserRole } from './users.service.js';
 
 const adminGuard = requireRole('admin');
 
@@ -20,6 +21,13 @@ const listUsersQuery = z.object({
   cursor: z.string().optional(),
   role: roleEnum.optional(),
   search: z.string().min(1).max(100).optional(),
+});
+
+const createUserBody = z.object({
+  email: z.string().email().max(200),
+  password: z.string().min(6).max(200),
+  role: roleEnum,
+  dharmaName: z.string().trim().min(1).max(100).optional(),
 });
 
 const roleBody = z.object({ role: roleEnum });
@@ -40,6 +48,16 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     const parsed = listUsersQuery.safeParse(req.query);
     if (!parsed.success) throw BadRequest('查询参数不合法');
     return { data: await listUsers(parsed.data) };
+  });
+
+  app.post('/api/admin/users', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: '新建用户（admin/coach/student）+ AuditLog', security: SEC },
+  }, async (req) => {
+    const parsed = createUserBody.safeParse(req.body);
+    if (!parsed.success) throw BadRequest('请求参数不合法', parsed.error.flatten());
+    const adminId = requireUserId(req);
+    return { data: await createUser(adminId, parsed.data) };
   });
 
   app.patch(
