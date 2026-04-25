@@ -25,6 +25,7 @@ import { lookup } from 'node:dns/promises';
 import type { Prisma } from '@prisma/client';
 import mammoth from 'mammoth';
 // pdf-parse@1.1.1 有顶层副作用（找测试 PDF）→ 走 lib 子路径绕开
+// @ts-expect-error pdf-parse 的 lib 子路径无 .d.ts 声明，但运行时 OK
 import pdf from 'pdf-parse/lib/pdf-parse.js';
 
 import { BadRequest, Conflict, NotFound } from '../../lib/errors.js';
@@ -32,7 +33,7 @@ import { prisma } from '../../lib/prisma.js';
 
 export interface PreviewLesson {
   title: string;
-  referenceText: string;
+  referenceText?: string;   // optional · 与 Zod schema 一致
   teachingSummary?: string;
 }
 export interface PreviewChapter {
@@ -426,8 +427,10 @@ export function extractMainText(html: string): { title: string; text: string } {
   $('script, style, noscript, nav, footer, header, aside, form, iframe, .ad, .ads').remove();
 
   // 优先级：article > main > [role=main] > .content > #content > body
+  // 类型用 any · cheerio 1.0 的 Element vs AnyNode 类型严格度过敏
   const candidates = ['article', 'main', '[role="main"]', '.content', '#content', '.post', '.article-content'];
-  let $root = $('body');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let $root: any = $('body');
   for (const sel of candidates) {
     const $el = $(sel).first();
     if ($el.length && $el.text().trim().length > 200) {
@@ -436,14 +439,14 @@ export function extractMainText(html: string): { title: string; text: string } {
     }
   }
 
-  // 块级元素后塞换行，行内元素留空格
+  // 块级元素后塞换行 · each callback 显式 void 返回（避免 cheerio chain 被当 boolean）
   const blockTags = ['p', 'div', 'section', 'article', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'li', 'blockquote', 'pre', 'tr'];
-  blockTags.forEach((t) => $root.find(t).each((_, el) => $(el).append('\n')));
+  blockTags.forEach((t) => { $root.find(t).each((_: number, el: unknown) => { $(el as never).append('\n'); }); });
 
   // 标题加 markdown 风格便于 splitToChapters 识别
-  $root.find('h1').each((_, el) => $(el).prepend('# '));
-  $root.find('h2').each((_, el) => $(el).prepend('## '));
-  $root.find('h3').each((_, el) => $(el).prepend('### '));
+  $root.find('h1').each((_: number, el: unknown) => { $(el as never).prepend('# '); });
+  $root.find('h2').each((_: number, el: unknown) => { $(el as never).prepend('## '); });
+  $root.find('h3').each((_: number, el: unknown) => { $(el as never).prepend('### '); });
 
   let text = $root.text();
   // 归一空白
