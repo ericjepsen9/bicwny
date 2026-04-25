@@ -1452,7 +1452,15 @@ function imBatchFetch() {
   var to      = parseInt(document.getElementById('im-batch-to').value, 10);
 
   if (!pattern || pattern.indexOf('{n}') < 0) {
-    imErr(sc('URL 模板必填且必须含 {n}', 'URL 模板必填且必須含 {n}'));
+    var hint = '';
+    // 用户贴了普通 URL 没换 {n} · 自动建议哪里要换
+    var m = pattern && pattern.match(/^(.*?)(\d+)([^\d]*)$/);
+    if (m) {
+      hint = '\n\n你的 URL 末尾的数字 ' + m[2] + ' 可能就是页码。\n试试改成：\n' + m[1] + '{n}' + m[3];
+    } else {
+      hint = '\n\n例：https://mingguang.im/r/da-yuan-man-qian-xing-jiang-jie-di-{n}-ke/';
+    }
+    imErr(sc('URL 模板必填，必须用 {n} 占位序号。', 'URL 模板必填 · 必須用 {n} 佔位序號。') + hint);
     return;
   }
   if (!Number.isFinite(from) || !Number.isFinite(to) || from < 1 || to < from) {
