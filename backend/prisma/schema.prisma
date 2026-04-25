@@ -66,14 +66,18 @@ model Class {
   description String?
   joinCode    String    @unique // 6-8 位字母数字，学员凭此加入
   coverEmoji  String    @default("📚")
+  courseId    String // 主修法本 · 创建班级时必选 · 加入班级自动报名该法本
   isActive    Boolean   @default(true)
   archivedAt  DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  course         Course        @relation(fields: [courseId], references: [id])
   members        ClassMember[]
   ownedQuestions Question[]    @relation("ClassOwnedQuestions")
   userAnswers    UserAnswer[]
+
+  @@index([courseId])
 }
 
 model ClassMember {
@@ -181,6 +185,7 @@ model Course {
   questions   Question[]
   sm2Cards    Sm2Card[]
   enrollments UserCourseEnrollment[]
+  classes     Class[]
 }
 
 model Chapter {

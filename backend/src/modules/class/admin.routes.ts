@@ -29,6 +29,7 @@ const memberParams = z.object({
 
 const createBody = z.object({
   name: z.string().min(1).max(80),
+  courseId: z.string().min(1), // 主修法本 · 必填
   description: z.string().max(500).optional(),
   coverEmoji: z.string().max(8).optional(),
 });
@@ -59,11 +60,19 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/api/admin/classes', {
     preHandler: adminGuard,
-    schema: { tags: TAGS, summary: '全部班级列表', security: SEC },
+    schema: { tags: TAGS, summary: '全部班级列表（含主修法本）', security: SEC },
   }, async () => {
     const items = await prisma.class.findMany({
       orderBy: { createdAt: 'desc' },
       take: 200,
+      include: {
+        course: {
+          select: {
+            id: true, slug: true, title: true, titleTraditional: true,
+            author: true, coverEmoji: true,
+          },
+        },
+      },
     });
     return { data: items };
   });

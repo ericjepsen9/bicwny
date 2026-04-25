@@ -337,6 +337,19 @@ table.c-list { width: 100%; border-collapse: collapse; }
       <label for="new-name"><span class="sc">班级名称</span><span class="tc">班級名稱</span></label>
       <input class="f-input" id="new-name" type="text" maxlength="80" placeholder="心经共修班">
     </div>
+    <div class="f-row">
+      <label for="new-course">
+        <span class="sc">主修法本</span><span class="tc">主修法本</span>
+        <span style="color:var(--crimson);">*</span>
+      </label>
+      <select class="f-input" id="new-course" style="font-family:inherit;">
+        <option value=""><span class="sc">加载中…</span></option>
+      </select>
+      <p style="font:var(--text-caption);color:var(--ink-3);letter-spacing:.5px;margin-top:4px;">
+        <span class="sc">学员加入班级后会自动开始学习该法本</span>
+        <span class="tc">學員加入班級後會自動開始學習該法本</span>
+      </p>
+    </div>
     <div class="f-split">
       <div class="f-row">
         <label for="new-emoji"><span class="sc">图标</span><span class="tc">圖示</span></label>
@@ -758,14 +771,37 @@ document.getElementById('list-body').addEventListener('click', function (ev) {
 });
 
 // ── 新建班级 modal ─────────────────────────────
+// 法本下拉缓存
+var coursesCache = null;
+function ensureCoursesLoaded() {
+  if (coursesCache) return Promise.resolve(coursesCache);
+  return window.JX.api.get('/api/courses').then(function (list) {
+    coursesCache = Array.isArray(list) ? list.filter(function (c) { return c.isPublished; }) : [];
+    var sel = document.getElementById('new-course');
+    sel.innerHTML = coursesCache.length
+      ? '<option value="">' + sc('— 请选择 —', '— 請選擇 —') + '</option>'
+        + coursesCache.map(function (c) {
+            var t = sc(c.title, c.titleTraditional || c.title);
+            return '<option value="' + escapeHtml(c.id) + '">'
+              + (c.coverEmoji || '') + ' ' + escapeHtml(t)
+              + (c.author ? ' · ' + escapeHtml(c.author) : '')
+              + '</option>';
+          }).join('')
+      : '<option value="">' + sc('暂无已发布法本', '暫無已發佈法本') + '</option>';
+    return coursesCache;
+  });
+}
+
 function openNewModal() {
   document.getElementById('new-name').value = '';
   document.getElementById('new-emoji').value = '';
   document.getElementById('new-desc').value = '';
+  document.getElementById('new-course').value = '';
   document.getElementById('new-err').textContent = '';
   document.getElementById('new-modal').classList.add('open');
   document.getElementById('new-backdrop').classList.add('open');
   document.getElementById('new-modal').setAttribute('aria-hidden', 'false');
+  ensureCoursesLoaded().catch(function () {});
   setTimeout(function () { document.getElementById('new-name').focus(); }, 0);
 }
 function closeNewModal() {
@@ -785,11 +821,13 @@ document.getElementById('new-submit').addEventListener('click', function () {
   var name = document.getElementById('new-name').value.trim();
   var emoji = document.getElementById('new-emoji').value.trim();
   var desc = document.getElementById('new-desc').value.trim();
+  var courseId = document.getElementById('new-course').value;
   var errEl = document.getElementById('new-err');
   errEl.textContent = '';
   if (!name) { errEl.textContent = sc('请填写班级名称', '請填寫班級名稱'); return; }
+  if (!courseId) { errEl.textContent = sc('请选择主修法本', '請選擇主修法本'); return; }
 
-  var body = { name: name };
+  var body = { name: name, courseId: courseId };
   if (emoji) body.coverEmoji = emoji;
   if (desc) body.description = desc;
 

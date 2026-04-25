@@ -6,6 +6,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
+import { prisma } from '../../lib/prisma.js';
 import {
   addMember,
   findClassByCode,
@@ -35,8 +36,19 @@ export const studentClassRoutes: FastifyPluginAsync = async (app) => {
     const member = await addMember(cls.id, userId, 'student', {
       preserveExistingRole: true,
     });
+    // 自动报名班级主修法本（已报名则 no-op；upsert 幂等）
+    await prisma.userCourseEnrollment.upsert({
+      where: { userId_courseId: { userId, courseId: cls.courseId } },
+      create: { userId, courseId: cls.courseId },
+      update: {}, // 已存在则保留 enrolledAt / lessonsCompleted 等
+    });
+    // 返回时附 course 让前端可立刻提示"已加入 XXX 法本"
+    const course = await prisma.course.findUnique({
+      where: { id: cls.courseId },
+      select: { id: true, slug: true, title: true, titleTraditional: true, coverEmoji: true },
+    });
     reply.code(201);
-    return { data: { class: cls, member } };
+    return { data: { class: { ...cls, course }, member } };
   });
 
   app.post('/api/classes/:id/leave', {

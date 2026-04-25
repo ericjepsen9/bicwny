@@ -256,14 +256,24 @@ document.getElementById('btn-join').addEventListener('click', function () {
   var btn = document.getElementById('btn-join');
   btn.setAttribute('aria-busy', 'true');
   setMsg('', '');
+  var joinedCourse = null;
   window.JX.api.post('/api/classes/join', { joinCode: code })
-    .then(function () {
+    .then(function (data) {
+      // 后端返回 { class: { ..., course }, member } · 拿主修法本名
+      joinedCourse = data && data.class && data.class.course;
       // 加入成功后顺带标记 onboarding 完成
       return onboardingDone();
     })
     .then(function () {
-      window.JX.toast && window.JX.toast.ok(sc('加入成功，欢迎加入！', '加入成功，歡迎加入！'));
-      setTimeout(gotoHome, 700);
+      if (joinedCourse) {
+        var title = sc(joinedCourse.title, joinedCourse.titleTraditional || joinedCourse.title);
+        window.JX.toast && window.JX.toast.ok(
+          sc('已加入班级，开始学习《', '已加入班級，開始學習《') + title + '》'
+        );
+      } else {
+        window.JX.toast && window.JX.toast.ok(sc('加入成功，欢迎加入！', '加入成功，歡迎加入！'));
+      }
+      setTimeout(gotoHome, 900);
     })
     .catch(function (err) {
       btn.removeAttribute('aria-busy');

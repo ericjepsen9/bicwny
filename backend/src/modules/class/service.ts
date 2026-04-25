@@ -12,11 +12,17 @@ const MAX_CODE_RETRIES = 3;
 
 export interface CreateClassInput {
   name: string;
+  courseId: string; // 主修法本 · 必填
   description?: string;
   coverEmoji?: string;
 }
 
 export async function createClass(input: CreateClassInput): Promise<Class> {
+  // 校验 course 存在 + 已发布
+  const course = await prisma.course.findUnique({ where: { id: input.courseId } });
+  if (!course) throw NotFound('指定的法本不存在');
+  if (!course.isPublished) throw NotFound('指定的法本未发布');
+
   for (let i = 0; i < MAX_CODE_RETRIES; i++) {
     const joinCode = generateJoinCode();
     const exists = await prisma.class.findUnique({ where: { joinCode } });
@@ -26,6 +32,7 @@ export async function createClass(input: CreateClassInput): Promise<Class> {
           name: input.name,
           description: input.description,
           coverEmoji: input.coverEmoji,
+          courseId: input.courseId,
           joinCode,
         },
       });
@@ -101,7 +108,18 @@ export async function listUserClasses(
       class: { isActive: true },
     },
     orderBy: { joinedAt: 'desc' },
-    include: { class: true },
+    include: {
+      class: {
+        include: {
+          course: {
+            select: {
+              id: true, slug: true, title: true, titleTraditional: true,
+              author: true, coverEmoji: true,
+            },
+          },
+        },
+      },
+    },
   });
 }
 
