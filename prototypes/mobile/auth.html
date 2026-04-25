@@ -26,6 +26,25 @@
 body { background: var(--bg-scene); min-height: 100vh; }
 .phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
 
+/* admin / coach 经 require-auth.js 守卫从 desktop/*.html 重定向过来时，
+   ?next= 含 /desktop/ → 切桌面登录卡片：更宽、居中、玻璃质感。
+   学生端 / 直接打开 mobile/auth.html 不受影响。 */
+html.jx-desktop-auth body { display: flex; align-items: center; justify-content: center; padding: var(--sp-6) var(--sp-4); }
+html.jx-desktop-auth .phone-wrap { width: 100%; min-height: auto; align-items: stretch; }
+html.jx-desktop-auth .phone {
+  max-width: 520px;
+  min-height: auto;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-2) var(--sp-8);
+  background: var(--glass-thick);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  box-shadow: 0 24px 60px rgba(43,34,24,.12), 0 4px 16px rgba(43,34,24,.06);
+}
+html.jx-desktop-auth .status-bar { display: none !important; }
+html.jx-desktop-auth .logo-block { padding-top: var(--sp-4); padding-bottom: var(--sp-3); }
+
 /* ── Logo ─────────────────────────────────── */
 .logo-block { text-align: center; padding: var(--sp-8) var(--sp-5) var(--sp-6); }
 .logo-icon {
@@ -63,6 +82,17 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
 .btn[aria-busy="true"] { opacity: .6; pointer-events: none; }
 </style>
+<!-- ?next= 含 /desktop/ → 提前给 <html> 加 jx-desktop-auth 类，CSS 切桌面卡片
+     避免 FOUC：必须在样式 link 之后、布局开始之前同步打类 -->
+<script>
+  (function () {
+    var s = location.search || '';
+    if (/[?&]next=[^&]*%2[Ff]desktop%2[Ff]/i.test(s) ||
+        /[?&]next=[^&]*\/desktop\//i.test(s)) {
+      document.documentElement.classList.add('jx-desktop-auth');
+    }
+  })();
+</script>
 <!-- lang.js 必须在 <head> 最后，data-lang 在渲染前生效避免文字闪烁 -->
 <script src="../shared/lang.js"></script>
 <script src="../shared/font-size.js"></script>
