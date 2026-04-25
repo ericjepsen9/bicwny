@@ -570,6 +570,16 @@
               placeholder="例：华智仁波切·造论 · 索达吉堪布·译讲">
             <span class="hint"><span class="sc">提交导入时会写入 法本.作者 字段</span><span class="tc">提交導入時會寫入 法本.作者 欄位</span></span>
           </div>
+          <div class="cs-field">
+            <label for="im-batch-delay"><span class="sc">间隔秒数</span><span class="tc">間隔秒數</span></label>
+            <input class="im-url-input" id="im-batch-delay" type="number" min="0.5" max="30" step="0.5" value="2">
+            <span class="hint"><span class="sc">默认 2 秒 · 被限流可改 5-10 秒</span><span class="tc">默認 2 秒 · 被限流可改 5-10 秒</span></span>
+          </div>
+          <div class="cs-field">
+            <label for="im-batch-retry-delay"><span class="sc">重试时的间隔</span><span class="tc">重試時的間隔</span></label>
+            <input class="im-url-input" id="im-batch-retry-delay" type="number" min="1" max="60" step="0.5" value="5">
+            <span class="hint"><span class="sc">点 重试失败的 时使用</span><span class="tc">點 重試失敗的 時使用</span></span>
+          </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <button type="button" class="btn-apply" id="im-batch-start">
@@ -1485,10 +1495,18 @@ function imBatchFetch() {
 
 // 核心循环：串行抓 urls 数组 · 失败的累积 · 支持暂停/取消
 //   isRetry=true 时复用之前 state.importPreview.chapters · 累加新成功的章
-function imBatchFetchUrls(urls, isRetry) {
+//   delayMs：每条间隔（毫秒）· 默认从 #im-batch-delay 读
+function imBatchFetchUrls(urls, isRetry, delayMs) {
   document.getElementById('im-err').classList.remove('show');
   state.batchControl = { status: 'running' };
   imRenderBatchControlButtons();
+
+  // 间隔默认从 UI 读
+  if (typeof delayMs !== 'number' || !isFinite(delayMs) || delayMs < 500) {
+    var sec = parseFloat(document.getElementById('im-batch-delay').value || '2');
+    if (!isFinite(sec) || sec < 0.5) sec = 2;
+    delayMs = Math.round(sec * 1000);
+  }
 
   var collected = isRetry && state.importPreview && state.importPreview.chapters
     ? state.importPreview.chapters.slice()
@@ -1583,9 +1601,9 @@ function imBatchFetchUrls(urls, isRetry) {
       .finally(function () {
         i++;
         updateProgress();
-        // 取消优先 · 否则间隔 1.5 秒
+        // 取消优先 · 否则按可配置间隔
         if (state.batchControl.status === 'cancelled') { finalize(); return; }
-        setTimeout(step, 1500);
+        setTimeout(step, delayMs);
       });
   }
   step();
@@ -1644,13 +1662,18 @@ function imRenderBatchFailedBox() {
 function imBatchRetryFailed() {
   var failed = state.importBatchFailed || [];
   if (!failed.length) return;
+  // 重试用更慢的间隔（默认 5s · 给被限流的源站缓口气）
+  var retrySec = parseFloat(document.getElementById('im-batch-retry-delay').value || '5');
+  if (!isFinite(retrySec) || retrySec < 1) retrySec = 5;
+  var retryMs = Math.round(retrySec * 1000);
   if (!confirm(sc(
-    '将重试 ' + failed.length + ' 条失败 URL（每条间隔 1.5 秒）。开始？',
+    '将重试 ' + failed.length + ' 条失败 URL（每条间隔 ' + retrySec + ' 秒，约 ' +
+      Math.ceil(failed.length * retrySec / 60) + ' 分钟）。\n开始？',
     '將重試 ' + failed.length + ' 條失敗 URL'
   ))) return;
   var urls = failed.map(function (f) { return f.url; });
   state.importBatchFailed = [];
-  imBatchFetchUrls(urls, /* isRetry */ true);
+  imBatchFetchUrls(urls, /* isRetry */ true, retryMs);
 }
 
 function imBatchCopyFailed() {
