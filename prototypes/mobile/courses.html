@@ -52,6 +52,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
   position: relative;
 }
 .course-card.enrolled { border-left: 3px solid var(--saffron); }
+.course-card.class-main { border-left-color: var(--gold-dark); background: linear-gradient(90deg, rgba(184,137,86,.06), var(--glass-thick) 30%); }
 
 .cover-emoji {
   width: 56px; height: 56px; border-radius: var(--r-lg); flex-shrink: 0;
@@ -145,6 +146,9 @@ var state = {
 function isEnrolled(courseId) {
   return state.enrollments.some(function (e) { return e.course && e.course.id === courseId; });
 }
+function getEnrollment(courseId) {
+  return state.enrollments.find(function (e) { return e.course && e.course.id === courseId; }) || null;
+}
 
 function render() {
   var list = document.getElementById('course-list');
@@ -165,29 +169,50 @@ function render() {
   }
 
   list.innerHTML = visible.map(function (c) {
-    var enrolled = isEnrolled(c.id);
+    var enr = getEnrollment(c.id);
+    var enrolled = !!enr;
+    var isClassMain = enr && enr.source === 'class';
     var title = sc(c.title, c.titleTraditional || c.title);
     var emoji = c.coverEmoji || '🪷';
     var author = c.author ? '<p class="course-author">' + escapeHtml(c.author) + '</p>' : '';
     var desc = c.description
       ? '<p class="course-desc">' + escapeHtml(c.description) + '</p>'
       : '';
-    var actions = enrolled
-      ? '<div class="card-actions">'
+    var pill = isClassMain
+      ? '<span class="enrolled-pill" style="background:var(--gold-dark);">📍 ' + sc('班级主修', '班級主修') + '</span>'
+      : enrolled
+        ? '<span class="enrolled-pill">' + sc('已加入', '已加入') + '</span>'
+        : '';
+    var actions;
+    if (isClassMain) {
+      actions = '<div class="card-actions">'
+        + '<a href="scripture-detail.html?slug=' + encodeURIComponent(c.slug) + '" class="act-btn primary">'
+        +   sc('进入学习', '進入學習')
+        + '</a>'
+        + '<button class="act-btn ghost" disabled '
+        +   'title="' + sc('班级主修法本不能退出 · 请先退班', '班級主修法本不能退出 · 請先退班') + '" '
+        +   'style="opacity:.45;cursor:not-allowed;">'
+        +   sc('班级主修', '班級主修')
+        + '</button>'
+        + '</div>';
+    } else if (enrolled) {
+      actions = '<div class="card-actions">'
         + '<a href="scripture-detail.html?slug=' + encodeURIComponent(c.slug) + '" class="act-btn primary">'
         +   sc('进入学习', '進入學習')
         + '</a>'
         + '<button class="act-btn ghost danger" data-drop="' + escapeHtml(c.id) + '">'
         +   sc('退出', '退出')
         + '</button>'
-        + '</div>'
-      : '<div class="card-actions">'
+        + '</div>';
+    } else {
+      actions = '<div class="card-actions">'
         + '<button class="act-btn primary" data-enroll="' + escapeHtml(c.id) + '">'
         +   sc('加入学习', '加入學習')
         + '</button>'
         + '</div>';
-    return '<div class="course-card' + (enrolled ? ' enrolled' : '') + '">'
-      + (enrolled ? '<span class="enrolled-pill">' + sc('已加入', '已加入') + '</span>' : '')
+    }
+    return '<div class="course-card' + (enrolled ? ' enrolled' : '') + (isClassMain ? ' class-main' : '') + '">'
+      + pill
       + '<div class="cover-emoji">' + emoji + '</div>'
       + '<div class="course-info">'
       +   '<p class="course-name">' + escapeHtml(title) + '</p>'

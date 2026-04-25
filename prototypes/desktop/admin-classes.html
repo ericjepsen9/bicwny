@@ -423,9 +423,16 @@ function renderList() {
     var statusPill = c.isActive
       ? '<span class="status-pill status-active">' + escapeHtml(sc('活跃', '活躍')) + '</span>'
       : '<span class="status-pill status-blocked">' + escapeHtml(sc('已归档', '已歸檔')) + '</span>';
+    var courseCell = c.course
+      ? '<span style="display:inline-flex;align-items:center;gap:4px;font-size:.875rem;">'
+        + (c.course.coverEmoji || '🪷')
+        + ' ' + escapeHtml(sc(c.course.title, c.course.titleTraditional || c.course.title))
+        + '</span>'
+      : '<span style="color:var(--ink-4);">—</span>';
     return '<tr data-row data-cid="' + escapeHtml(c.id) + '"' + (c.isActive ? '' : ' class="archived"') + '>' +
       '<td><div class="c-name-cell"><div class="c-emoji">' + escapeHtml(c.coverEmoji || '🪷') + '</div>' +
         '<span>' + escapeHtml(c.name || '—') + '</span></div></td>' +
+      '<td>' + courseCell + '</td>' +
       '<td><span class="c-code">' + escapeHtml(c.joinCode || '—') + '</span></td>' +
       '<td>' + escapeHtml(window.JX.util.relativeTime(c.createdAt)) + '</td>' +
       '<td>' + statusPill + '</td>' +
@@ -434,6 +441,7 @@ function renderList() {
   body.innerHTML =
     '<table class="c-list"><thead><tr>' +
       '<th>' + escapeHtml(sc('班级', '班級')) + '</th>' +
+      '<th>' + escapeHtml(sc('主修法本', '主修法本')) + '</th>' +
       '<th>' + escapeHtml(sc('加入码', '加入碼')) + '</th>' +
       '<th>' + escapeHtml(sc('创建时间', '建立時間')) + '</th>' +
       '<th>' + escapeHtml(sc('状态', '狀態')) + '</th>' +
@@ -531,6 +539,28 @@ function renderDrawerBody() {
       '</span>'
     : '';
 
+  var courseBlock = c.course
+    ? '<h3>' + escapeHtml(sc('主修法本', '主修法本')) + '</h3>' +
+      '<div style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3);background:var(--saffron-pale);border-radius:var(--r-sm);">' +
+        '<div style="width:36px;height:36px;border-radius:var(--r-sm);background:#fff;display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0;">' +
+          escapeHtml(c.course.coverEmoji || '🪷') +
+        '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-family:var(--font-serif);font-weight:700;color:var(--ink);letter-spacing:1.5px;">' +
+            escapeHtml(sc(c.course.title, c.course.titleTraditional || c.course.title)) +
+          '</div>' +
+          (c.course.author
+            ? '<div style="font:var(--text-caption);color:var(--ink-3);letter-spacing:.5px;margin-top:2px;">' +
+              escapeHtml(c.course.author) + '</div>'
+            : '') +
+        '</div>' +
+        '<a href="../mobile/scripture-detail.html?slug=' + escapeHtml(c.course.slug || '') + '" target="_blank" ' +
+          'style="font:var(--text-caption);color:var(--saffron-dark);letter-spacing:1px;text-decoration:none;">' +
+          sc('查看 →', '查看 →') +
+        '</a>' +
+      '</div>'
+    : '';
+
   document.getElementById('dr-body').innerHTML =
     '<div class="c-hero">' +
       '<div class="c-hero-emoji">' + escapeHtml(c.coverEmoji || '🪷') + '</div>' +
@@ -542,6 +572,8 @@ function renderDrawerBody() {
         '</div>' +
       '</div>' +
     '</div>' +
+
+    courseBlock +
 
     (c.description ? '<h3>' + escapeHtml(sc('简介', '簡介')) + '</h3>' +
       '<p style="font:var(--text-caption);color:var(--ink-2);line-height:1.7;letter-spacing:.5px;">' +

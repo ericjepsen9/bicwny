@@ -36,11 +36,20 @@ export const studentClassRoutes: FastifyPluginAsync = async (app) => {
     const member = await addMember(cls.id, userId, 'student', {
       preserveExistingRole: true,
     });
-    // 自动报名班级主修法本（已报名则 no-op；upsert 幂等）
+    // 自动报名班级主修法本（upsert 幂等）
+    // 已 self 报名 → 升级为 'class' 源（用户失去退课权但可保留进度）
+    // 已 class 源（来自其他班级）→ 不动 source · 仍指向最早绑定的班级
     await prisma.userCourseEnrollment.upsert({
       where: { userId_courseId: { userId, courseId: cls.courseId } },
-      create: { userId, courseId: cls.courseId },
-      update: {}, // 已存在则保留 enrolledAt / lessonsCompleted 等
+      create: {
+        userId, courseId: cls.courseId,
+        source: 'class', enrolledViaClassId: cls.id,
+      },
+      update: {
+        // 仅在原 source=self 时升级为 class · 其他班级源保持不动
+        source: 'class',
+        enrolledViaClassId: cls.id,
+      },
     });
     // 返回时附 course 让前端可立刻提示"已加入 XXX 法本"
     const course = await prisma.course.findUnique({

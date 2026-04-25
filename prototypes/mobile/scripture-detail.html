@@ -244,6 +244,7 @@ function renderChapters(course, overlay) {
 }
 
 // 已报名论典切换 chip 行（>1 个时显示） · 末尾"更多"链 courses.html
+// source='class' 的法本前面加 📍 主修标，tooltip 解释
 function renderCourseSwitch(currentSlug) {
   var box = document.getElementById('course-switch');
   if (!box) return;
@@ -253,9 +254,14 @@ function renderCourseSwitch(currentSlug) {
       var c = e.course || {};
       var title = sc(c.title, c.titleTraditional || c.title);
       var active = c.slug === currentSlug;
+      var isClassMain = e.source === 'class';
+      var prefix = isClassMain
+        ? '<span title="' + sc('班级主修', '班級主修') + '" style="margin-right:2px;">📍</span>'
+        : (c.coverEmoji ? c.coverEmoji + ' ' : '');
       return '<a class="cs-chip' + (active ? ' active' : '') + '" '
+        + (isClassMain ? 'data-class-main="1" ' : '')
         + 'href="scripture-detail.html?slug=' + encodeURIComponent(c.slug || '') + '">'
-        + (c.coverEmoji ? c.coverEmoji + ' ' : '')
+        + prefix
         + escapeHtml(title)
         + '</a>';
     });

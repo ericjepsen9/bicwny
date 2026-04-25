@@ -32,8 +32,16 @@ export async function enroll(
 }
 
 export async function drop(userId: string, courseId: string): Promise<void> {
-  await prisma.userCourseEnrollment.deleteMany({
-    where: { userId, courseId },
+  // 班级主修法本不能直接退课，需先退班 · 给清晰错误提示
+  const existing = await prisma.userCourseEnrollment.findUnique({
+    where: { userId_courseId: { userId, courseId } },
+  });
+  if (!existing) return; // 没报名直接 no-op，幂等
+  if (existing.source === 'class') {
+    throw Conflict('该法本由班级带来，请先退出班级再退课');
+  }
+  await prisma.userCourseEnrollment.delete({
+    where: { userId_courseId: { userId, courseId } },
   });
 }
 
@@ -83,6 +91,8 @@ export async function markCompleted(
 }
 
 export async function listMyEnrollments(userId: string) {
+  // source / enrolledViaClassId 是 model 标量字段会默认返回，
+  // 但显式 select 主要数据 + 关联班级名（避免前端多次请求拼）
   return prisma.userCourseEnrollment.findMany({
     where: { userId },
     orderBy: { enrolledAt: 'desc' },

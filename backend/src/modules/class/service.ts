@@ -72,10 +72,17 @@ export async function removeMember(
   classId: string,
   userId: string,
 ): Promise<void> {
-  await prisma.classMember.updateMany({
-    where: { classId, userId, removedAt: null },
-    data: { removedAt: new Date() },
-  });
+  // 退班联动：把通过该班级带来的 enrollment 转回 self（保留进度，但用户重获退课权）
+  await prisma.$transaction([
+    prisma.classMember.updateMany({
+      where: { classId, userId, removedAt: null },
+      data: { removedAt: new Date() },
+    }),
+    prisma.userCourseEnrollment.updateMany({
+      where: { userId, enrolledViaClassId: classId },
+      data: { source: 'self', enrolledViaClassId: null },
+    }),
+  ]);
 }
 
 export async function listMembers(classId: string) {

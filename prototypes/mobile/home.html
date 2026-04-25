@@ -211,6 +211,9 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
           </a>
         </div>
         <p class="course-title" id="course-title"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+        <p id="course-class-line" style="display:none;font:var(--text-caption);color:var(--gold-dark);letter-spacing:1px;margin-bottom:var(--sp-3);">
+          📍 <span id="course-class-name">—</span>
+        </p>
         <div class="course-meta" id="course-meta">
           <span class="tag tag-ink" id="course-chapter-tag">—</span>
           <span class="tag tag-sage" id="course-status-tag"><span class="sc">进行中</span><span class="tc">進行中</span></span>
@@ -363,6 +366,8 @@ function renderGreeting() {
 }
 
 function renderClassCard(memberships) {
+  // 缓存供 renderCourseCard 反查 enrolledViaClassId → 班级名
+  window.__jxMyClasses = memberships || [];
   var card = document.getElementById('class-card');
   var cta  = document.getElementById('join-cta');
   if (!memberships || !memberships.length) {
@@ -383,6 +388,8 @@ function renderClassCard(memberships) {
 }
 
 function renderCourseCard(enrollment, overlay) {
+  var classLine = document.getElementById('course-class-line');
+  if (classLine) classLine.style.display = 'none';
   if (!enrollment) {
     document.getElementById('course-title').textContent = sc('尚未选修法本 · 点击下方去答题', '尚未選修法本 · 點擊下方去答題');
     document.getElementById('course-chapter-tag').textContent = sc('—', '—');
@@ -392,6 +399,18 @@ function renderCourseCard(enrollment, overlay) {
   }
   var c = enrollment.course || {};
   document.getElementById('course-title').textContent = c.title || '—';
+  // 若来自班级 · 把对应班级名显示在标题下方
+  if (enrollment.source === 'class' && enrollment.enrolledViaClassId) {
+    var membersCache = window.__jxMyClasses || [];
+    var match = membersCache.find(function (m) {
+      return m.class && m.class.id === enrollment.enrolledViaClassId;
+    });
+    if (match && classLine) {
+      document.getElementById('course-class-name').textContent =
+        sc('来自《', '來自《') + (match.class.name || '') + '》';
+      classLine.style.display = '';
+    }
+  }
   var overlayObj = overlay || { progressPercent: 0, completedLessonIds: [], totalLessons: 0 };
   var pct = overlayObj.progressPercent || 0;
   document.getElementById('course-percent').textContent = pct + '%';
@@ -431,15 +450,21 @@ function renderSm2Badge(stats) {
 function boot() {
   renderGreeting();
 
-  window.JX.api.get('/api/my/classes').then(renderClassCard).catch(function () {});
-
-  window.JX.api.get('/api/my/enrollments').then(function (list) {
+  // /classes 先 resolve（renderClassCard 缓存 memberships）· /enrollments 跟着 render
+  // 避免 race：course-card 显示班级名依赖 __jxMyClasses 缓存
+  Promise.all([
+    window.JX.api.get('/api/my/classes').catch(function () { return []; }),
+    window.JX.api.get('/api/my/enrollments').catch(function () { return []; }),
+  ]).then(function (r) {
+    renderClassCard(r[0]);
+    var list = r[1];
     if (!list || !list.length) { renderCourseCard(null, null); return; }
     var first = list[0];
     if (!first.course || !first.course.slug) { renderCourseCard(first, null); return; }
-    return window.JX.api.get('/api/courses/' + encodeURIComponent(first.course.slug))
-      .then(function (d) { renderCourseCard(first, d.overlay); });
-  }).catch(function () { renderCourseCard(null, null); });
+    window.JX.api.get('/api/courses/' + encodeURIComponent(first.course.slug))
+      .then(function (d) { renderCourseCard(first, d.overlay); })
+      .catch(function () { renderCourseCard(first, null); });
+  });
 
   window.JX.api.get('/api/mistakes?limit=500').then(renderReviewBadge).catch(function () {});
   window.JX.api.get('/api/sm2/stats').then(renderSm2Badge).catch(function () {});

@@ -218,19 +218,22 @@ model Lesson {
 }
 
 model UserCourseEnrollment {
-  id               String    @id @default(cuid())
-  userId           String
-  courseId         String
-  enrolledAt       DateTime  @default(now())
-  lastStudiedAt    DateTime?
-  completedAt      DateTime?
-  currentLessonId  String?
-  lessonsCompleted String[]  @default([])
+  id                 String    @id @default(cuid())
+  userId             String
+  courseId           String
+  source             String    @default("self") // 'self' = 自学 · 'class' = 加入班级带来
+  enrolledViaClassId String? // source='class' 时指向具体班级 · 用于退班联动
+  enrolledAt         DateTime  @default(now())
+  lastStudiedAt      DateTime?
+  completedAt        DateTime?
+  currentLessonId    String?
+  lessonsCompleted   String[]  @default([])
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([userId, courseId])
+  @@index([enrolledViaClassId])
 }
 
 // ═══════════════════════════════════════════════════════════════
