@@ -76,6 +76,22 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .chapter-title { font-family: var(--font-serif); font-weight: 600; color: var(--ink); font-size: .9375rem; letter-spacing: 2px; margin-bottom: 3px; }
 .chapter-meta { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; display: flex; gap: 8px; align-items: center; }
 .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
+
+/* 论典切换 chip */
+.course-switch {
+  display: flex; gap: var(--sp-2); padding: 0 var(--sp-5) var(--sp-3);
+  overflow-x: auto; scrollbar-width: none;
+}
+.course-switch::-webkit-scrollbar { display: none; }
+.cs-chip {
+  flex-shrink: 0; padding: 5px 12px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent;
+  color: var(--ink-3); cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.cs-chip.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
+.cs-chip.more   { color: var(--saffron-dark); border: 1px dashed var(--saffron-light); background: transparent; }
 </style>
 <script src="../shared/lang.js"></script>
 <script src="../shared/font-size.js"></script>
@@ -95,6 +111,8 @@ body { background: var(--bg-scene); min-height: 100vh; }
     <span class="nav-title"><span class="sc">法本详情</span><span class="tc">法本詳情</span></span>
     <div style="width:34px;"></div>
   </div>
+
+  <div class="course-switch" id="course-switch" style="display:none;"></div>
 
   <div class="sections" id="sections">
     <div class="book-hero" id="book-hero" style="display:none;">
@@ -225,6 +243,29 @@ function renderChapters(course, overlay) {
     doneChapters + ' / ' + totalChapters + sc(' 已完成', ' 已完成');
 }
 
+// 已报名论典切换 chip 行（>1 个时显示） · 末尾"更多"链 courses.html
+function renderCourseSwitch(currentSlug) {
+  var box = document.getElementById('course-switch');
+  if (!box) return;
+  window.JX.api.get('/api/my/enrollments').then(function (list) {
+    var items = Array.isArray(list) ? list : [];
+    var chips = items.map(function (e) {
+      var c = e.course || {};
+      var title = sc(c.title, c.titleTraditional || c.title);
+      var active = c.slug === currentSlug;
+      return '<a class="cs-chip' + (active ? ' active' : '') + '" '
+        + 'href="scripture-detail.html?slug=' + encodeURIComponent(c.slug || '') + '">'
+        + (c.coverEmoji ? c.coverEmoji + ' ' : '')
+        + escapeHtml(title)
+        + '</a>';
+    });
+    chips.push('<a class="cs-chip more" href="courses.html">+ '
+      + sc('全部论典', '全部論典') + '</a>');
+    box.innerHTML = chips.join('');
+    box.style.display = chips.length > 1 ? 'flex' : 'none';
+  }).catch(function () { /* 静默 */ });
+}
+
 function boot() {
   resolveSlug()
     .then(function (slug) { return window.JX.api.get('/api/courses/' + encodeURIComponent(slug)); })
@@ -233,6 +274,7 @@ function boot() {
       var overlay = data.overlay;
       renderHero(course, overlay);
       renderChapters(course, overlay);
+      renderCourseSwitch(course.slug);
     })
     .catch(function (err) {
       var msg = (err && err.message) || '';

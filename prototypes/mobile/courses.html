@@ -1,0 +1,266 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 全部论典</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/toast.js"></script>
+<script src="../shared/require-auth.js"></script>
+<style>
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; }
+
+.filter-tabs { display: flex; gap: var(--sp-2); padding: 0 var(--sp-5) var(--sp-3); }
+.ftab {
+  padding: 5px 14px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent;
+  color: var(--ink-3); cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.ftab.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
+
+.sections { display: flex; flex-direction: column; gap: var(--sp-4); padding: 0 var(--sp-5) var(--sp-8); }
+
+.course-card {
+  display: flex; gap: var(--sp-4); padding: var(--sp-4);
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+  position: relative;
+}
+.course-card.enrolled { border-left: 3px solid var(--saffron); }
+
+.cover-emoji {
+  width: 56px; height: 56px; border-radius: var(--r-lg); flex-shrink: 0;
+  background: linear-gradient(135deg, var(--saffron-pale), var(--gold-pale));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.875rem;
+}
+
+.course-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.course-name {
+  font-family: var(--font-serif); font-weight: 700;
+  font-size: 1.0625rem; color: var(--ink); letter-spacing: 2px;
+}
+.course-author { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; }
+.course-desc {
+  font: var(--text-caption); color: var(--ink-2); letter-spacing: .5px; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.enrolled-pill {
+  position: absolute; top: var(--sp-3); right: var(--sp-3);
+  padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: .625rem; font-weight: 700; letter-spacing: 1px;
+  background: var(--saffron); color: #fff;
+}
+
+.card-actions {
+  display: flex; gap: var(--sp-2); margin-top: var(--sp-3); padding-top: var(--sp-3);
+  border-top: 1px solid var(--border-light);
+}
+.act-btn {
+  flex: 1; padding: 8px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 700; letter-spacing: 1.5px;
+  border: 1px solid; cursor: pointer; text-align: center; text-decoration: none;
+  transition: all var(--dur) var(--ease);
+}
+.act-btn.primary  { background: var(--saffron); color: #fff; border-color: var(--saffron-dark); }
+.act-btn.primary:hover { background: var(--saffron-dark); }
+.act-btn.ghost    { background: transparent; color: var(--ink-3); border-color: var(--border); }
+.act-btn.ghost:hover { color: var(--saffron-dark); border-color: var(--saffron-light); }
+.act-btn.danger:hover { color: var(--crimson); border-color: var(--crimson); }
+.act-btn[aria-busy="true"] { opacity: .5; pointer-events: none; }
+
+.empty-state {
+  text-align: center; padding: var(--sp-8) var(--sp-5);
+  color: var(--ink-3); font: var(--text-body); letter-spacing: 1px;
+}
+</style>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <div class="status-bar" data-auto></div>
+
+  <div class="top-nav">
+    <a class="nav-back" href="scripture-detail.html" aria-label="返回">
+      <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <span class="nav-title"><span class="sc">全部论典</span><span class="tc">全部論典</span></span>
+    <div style="width:34px;"></div>
+  </div>
+
+  <div class="filter-tabs">
+    <span class="ftab active" data-filter="all"><span class="sc">全部</span><span class="tc">全部</span></span>
+    <span class="ftab" data-filter="enrolled"><span class="sc">已加入</span><span class="tc">已加入</span></span>
+    <span class="ftab" data-filter="available"><span class="sc">未加入</span><span class="tc">未加入</span></span>
+  </div>
+
+  <div class="sections" id="course-list">
+    <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+  </div>
+
+</div>
+</div>
+
+<script src="../shared/nav.js"></script>
+<script>
+// courses · GET /api/courses + GET /api/my/enrollments
+//   报名：POST /api/enrollments { courseId }
+//   退课：DELETE /api/enrollments/:courseId
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var state = {
+  courses: [],
+  enrollments: [],
+  filter: 'all', // all | enrolled | available
+};
+
+function isEnrolled(courseId) {
+  return state.enrollments.some(function (e) { return e.course && e.course.id === courseId; });
+}
+
+function render() {
+  var list = document.getElementById('course-list');
+  var visible = state.courses.filter(function (c) {
+    if (state.filter === 'enrolled')  return isEnrolled(c.id);
+    if (state.filter === 'available') return !isEnrolled(c.id);
+    return true;
+  });
+
+  if (!visible.length) {
+    var msg = state.filter === 'enrolled'
+      ? sc('您还没有加入任何论典', '您還沒有加入任何論典')
+      : state.filter === 'available'
+        ? sc('已加入全部论典', '已加入全部論典')
+        : sc('暂无可学习的论典', '暫無可學習的論典');
+    list.innerHTML = '<div class="empty-state">' + escapeHtml(msg) + '</div>';
+    return;
+  }
+
+  list.innerHTML = visible.map(function (c) {
+    var enrolled = isEnrolled(c.id);
+    var title = sc(c.title, c.titleTraditional || c.title);
+    var emoji = c.coverEmoji || '🪷';
+    var author = c.author ? '<p class="course-author">' + escapeHtml(c.author) + '</p>' : '';
+    var desc = c.description
+      ? '<p class="course-desc">' + escapeHtml(c.description) + '</p>'
+      : '';
+    var actions = enrolled
+      ? '<div class="card-actions">'
+        + '<a href="scripture-detail.html?slug=' + encodeURIComponent(c.slug) + '" class="act-btn primary">'
+        +   sc('进入学习', '進入學習')
+        + '</a>'
+        + '<button class="act-btn ghost danger" data-drop="' + escapeHtml(c.id) + '">'
+        +   sc('退出', '退出')
+        + '</button>'
+        + '</div>'
+      : '<div class="card-actions">'
+        + '<button class="act-btn primary" data-enroll="' + escapeHtml(c.id) + '">'
+        +   sc('加入学习', '加入學習')
+        + '</button>'
+        + '</div>';
+    return '<div class="course-card' + (enrolled ? ' enrolled' : '') + '">'
+      + (enrolled ? '<span class="enrolled-pill">' + sc('已加入', '已加入') + '</span>' : '')
+      + '<div class="cover-emoji">' + emoji + '</div>'
+      + '<div class="course-info">'
+      +   '<p class="course-name">' + escapeHtml(title) + '</p>'
+      +   author
+      +   desc
+      +   actions
+      + '</div>'
+      + '</div>';
+  }).join('');
+
+  // 绑定加入
+  list.querySelectorAll('[data-enroll]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var cid = btn.getAttribute('data-enroll');
+      btn.setAttribute('aria-busy', 'true');
+      window.JX.api.post('/api/enrollments', { courseId: cid }).then(function () {
+        return reload();
+      }).then(function () {
+        window.JX.toast && window.JX.toast.ok(sc('已加入论典', '已加入論典'));
+      }).catch(function (err) {
+        btn.removeAttribute('aria-busy');
+        window.JX.toast && window.JX.toast.error(sc('加入失败：', '加入失敗：') + ((err && err.message) || ''));
+      });
+    });
+  });
+
+  // 绑定退出
+  list.querySelectorAll('[data-drop]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var cid = btn.getAttribute('data-drop');
+      if (!confirm(sc('确认退出该论典？您的答题与 SM-2 复习记录会保留。',
+                     '確認退出該論典？您的答題與 SM-2 複習記錄會保留。'))) return;
+      btn.setAttribute('aria-busy', 'true');
+      window.JX.api.del('/api/enrollments/' + encodeURIComponent(cid)).then(function () {
+        return reload();
+      }).then(function () {
+        window.JX.toast && window.JX.toast.ok(sc('已退出论典', '已退出論典'));
+      }).catch(function (err) {
+        btn.removeAttribute('aria-busy');
+        window.JX.toast && window.JX.toast.error(sc('退出失败：', '退出失敗：') + ((err && err.message) || ''));
+      });
+    });
+  });
+}
+
+function reload() {
+  return Promise.all([
+    window.JX.api.get('/api/courses'),
+    window.JX.api.get('/api/my/enrollments'),
+  ]).then(function (r) {
+    state.courses = Array.isArray(r[0]) ? r[0] : [];
+    state.enrollments = Array.isArray(r[1]) ? r[1] : [];
+    render();
+  }).catch(function (err) {
+    document.getElementById('course-list').innerHTML =
+      '<div class="empty-state" style="color:var(--crimson);">' +
+      escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
+  });
+}
+
+// filter tabs
+document.querySelectorAll('.ftab').forEach(function (tab) {
+  tab.addEventListener('click', function () {
+    document.querySelectorAll('.ftab').forEach(function (t) { t.classList.remove('active'); });
+    tab.classList.add('active');
+    state.filter = tab.getAttribute('data-filter');
+    render();
+  });
+});
+
+document.addEventListener('jx:user-ready', reload);
+document.addEventListener('langchange', render);
+if (window.JX && window.JX.user) reload();
+</script>
+</body>
+</html>

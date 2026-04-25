@@ -204,7 +204,12 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
 
       <!-- 当前法本卡（真数据）-->
       <div class="course-card glass-card-thick" id="course-card">
-        <p class="course-label"><span class="sc">当前法本</span><span class="tc">當前法本</span></p>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-2);">
+          <p class="course-label" style="margin-bottom:0;"><span class="sc">当前法本</span><span class="tc">當前法本</span></p>
+          <a href="courses.html" style="font:var(--text-caption);color:var(--saffron-dark);letter-spacing:1px;text-decoration:none;">
+            <span class="sc">全部论典 →</span><span class="tc">全部論典 →</span>
+          </a>
+        </div>
         <p class="course-title" id="course-title"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
         <div class="course-meta" id="course-meta">
           <span class="tag tag-ink" id="course-chapter-tag">—</span>
