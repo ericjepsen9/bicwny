@@ -76,3 +76,70 @@ body {
   position: absolute; top: 4px; right: 4px;
   width: 7px; height: 7px; border-radius: 50%; background: var(--saffron);
 }
+
+/* ───────────────────────────────────────────────────
+   响应式 · 窄屏（< 768px）侧栏抽屉化
+   汉堡按钮 + backdrop 由 shared/desktop-mobile.js 自注入
+   =================================================== */
+.mb-hamburger {
+  display: none;
+  position: fixed; top: 12px; left: 12px;
+  width: 40px; height: 40px; border-radius: var(--r-sm);
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  color: var(--ink-2); cursor: pointer;
+  align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(43,34,24,.08);
+  z-index: 80;
+  transition: background var(--dur) var(--ease);
+}
+.mb-hamburger:hover { background: var(--saffron-pale); color: var(--saffron-dark); }
+
+.mb-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.4); opacity: 0;
+  transition: opacity .2s var(--ease);
+  z-index: 90;
+  pointer-events: none;
+}
+.mb-backdrop.open { opacity: 1; pointer-events: auto; }
+
+@media (max-width: 767px) {
+  /* shell 改单列 · 主区域全宽 */
+  .shell { grid-template-columns: 1fr; }
+
+  /* 侧边栏离屏 · 抽屉式 */
+  .side-nav {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: 280px; max-width: 86vw;
+    transform: translateX(-100%);
+    transition: transform .25s var(--ease);
+    z-index: 100;
+    overflow-y: auto;
+    box-shadow: 4px 0 24px rgba(43,34,24,.12);
+  }
+  .shell.nav-open .side-nav { transform: translateX(0); }
+
+  /* 汉堡按钮 + backdrop 仅在窄屏可见 */
+  .mb-hamburger { display: inline-flex; }
+  .mb-backdrop  { display: block; }
+
+  /* main 区域 · 顶部留汉堡空间 + 边距收紧 */
+  .main { padding: var(--sp-6) var(--sp-4) var(--sp-5); padding-top: 64px; }
+
+  /* top-bar 换行 · 标题 + 操作栏分两行 */
+  .top-bar {
+    flex-direction: column; align-items: stretch;
+    gap: var(--sp-3); margin-bottom: var(--sp-4);
+  }
+  .top-actions { flex-wrap: wrap; gap: var(--sp-2); }
+  .page-title { font-size: 1.25rem; letter-spacing: 3px; }
+
+  /* 表格在窄屏 · 横向滚动兜底（卡片化由各页自行迁移） */
+  .main table { display: block; overflow-x: auto; max-width: 100%; }
+
+  /* 模态框边距收紧 · 全宽利用 */
+  .modal-backdrop { padding: var(--sp-3) !important; align-items: flex-start !important; padding-top: 12vh !important; }
+  .modal { max-width: 100% !important; max-height: 80vh !important; }
+}
