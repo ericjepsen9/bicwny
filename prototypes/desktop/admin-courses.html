@@ -606,10 +606,10 @@
           </div>
           <div id="im-batch-progress-current" style="font:var(--text-caption);color:var(--ink-4);font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:.6875rem;margin-top:6px;word-break:break-all;">—</div>
         </div>
-        <span id="im-batch-progress" style="display:none;"></span><!-- 旧元素保留兼容（旧代码引用），新版用 progress-box -->
+        <span id="im-batch-progress" style="display:none;"></span><!-- 旧元素保留兼容 -->
         <div class="im-url-hint">
-          <span class="sc">每条间隔 1.5 秒抓取（避免被源站封 IP）· 失败的会单独列出可重试</span>
-          <span class="tc">每條間隔 1.5 秒抓取 · 失敗的會單獨列出可重試</span>
+          <span class="sc">按上方"间隔秒数"串行抓取 · 失败的会单独列出可重试</span>
+          <span class="tc">按上方「間隔秒數」串行抓取 · 失敗的會單獨列出可重試</span>
         </div>
 
         <!-- 失败列表 · 每次抓完显示 · admin 可重试或导出 -->
@@ -1496,8 +1496,13 @@ function imBatchFetch() {
 // 核心循环：串行抓 urls 数组 · 失败的累积 · 支持暂停/取消
 //   isRetry=true 时复用之前 state.importPreview.chapters · 累加新成功的章
 //   delayMs：每条间隔（毫秒）· 默认从 #im-batch-delay 读
+//   防并发：用 batchToken · 旧 closure 在每次 step 前检查自己的 token
+//          被新一轮覆盖时，旧 closure 立即退出，不再写 DOM
+state.batchToken = state.batchToken || 0;
 function imBatchFetchUrls(urls, isRetry, delayMs) {
   document.getElementById('im-err').classList.remove('show');
+  state.batchToken = (state.batchToken || 0) + 1;
+  var myToken = state.batchToken;
   state.batchControl = { status: 'running' };
   imRenderBatchControlButtons();
 
@@ -1563,6 +1568,8 @@ function imBatchFetchUrls(urls, isRetry, delayMs) {
   }
 
   function step() {
+    // 已被新一轮覆盖 · 旧 closure 自杀（不再写 DOM 不再调 fetch）
+    if (state.batchToken !== myToken) return;
     // 取消 → 立即结束（已抓的进入预览）
     if (state.batchControl.status === 'cancelled') { finalize(); return; }
     // 暂停 → 250ms 后再检查
@@ -1575,6 +1582,8 @@ function imBatchFetchUrls(urls, isRetry, delayMs) {
 
     window.JX.api.post('/api/admin/courses/import-url/preview', { url: url })
       .then(function (data) {
+        // closure 已被覆盖 · 不写 closure 内变量
+        if (state.batchToken !== myToken) return;
         if (data && Array.isArray(data.chapters) && data.chapters.length) {
           var chTitle = data.filename || url;
           if (data.chapters.length === 1 && data.chapters[0].lessons.length === 1) {
@@ -1595,10 +1604,12 @@ function imBatchFetchUrls(urls, isRetry, delayMs) {
         }
       })
       .catch(function (err) {
+        if (state.batchToken !== myToken) return;
         failed.push({ url: url, err: (err && err.message) || String(err) });
         imRenderBatchFailedBox();   // 实时更新
       })
       .finally(function () {
+        if (state.batchToken !== myToken) return;
         i++;
         updateProgress();
         // 取消优先 · 否则按可配置间隔
@@ -1612,10 +1623,16 @@ function imBatchFetchUrls(urls, isRetry, delayMs) {
 // 控制按钮显隐：根据 batchControl.status
 function imRenderBatchControlButtons() {
   var s = (state.batchControl || { status: 'idle' }).status;
-  document.getElementById('im-batch-start').style.display  = s === 'idle' ? '' : 'none';
+  var startBtn = document.getElementById('im-batch-start');
+  // idle 时显示开始；running/paused 时彻底隐藏（防双击）
+  startBtn.style.display  = s === 'idle' ? '' : 'none';
+  startBtn.disabled = (s !== 'idle');
   document.getElementById('im-batch-pause').style.display  = s === 'running' ? '' : 'none';
   document.getElementById('im-batch-resume').style.display = s === 'paused' ? '' : 'none';
   document.getElementById('im-batch-cancel').style.display = (s === 'running' || s === 'paused') ? '' : 'none';
+  // 重试按钮也禁用避免新建并发
+  var retryBtn = document.getElementById('im-batch-retry');
+  if (retryBtn) retryBtn.disabled = (s !== 'idle');
 }
 
 function imBatchPause() {
