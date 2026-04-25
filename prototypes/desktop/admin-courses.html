@@ -546,6 +546,41 @@
           <span class="sc">仅 http/https · 8 MB / 12 秒上限 · 禁内网地址 · 不解析 SPA</span>
           <span class="tc">僅 http/https · 8 MB / 12 秒上限 · 禁內網地址 · 不解析 SPA</span>
         </div>
+
+        <div class="im-or"><span class="sc">或批量抓取（按模板）</span><span class="tc">或批量抓取（按模板）</span></div>
+
+        <div class="cs-grid" style="margin-bottom:8px;">
+          <div class="cs-field full">
+            <label for="im-batch-pattern"><span class="sc">URL 模板</span><span class="tc">URL 模板</span></label>
+            <input class="im-url-input" id="im-batch-pattern" type="text"
+              placeholder="https://mingguang.im/r/da-yuan-man-qian-xing-jiang-jie-di-{n}-ke/">
+            <span class="hint"><span class="sc">用 {n} 作为序号占位符 · 系统会替换为 from..to 的数字</span><span class="tc">用 {n} 作為序號佔位符</span></span>
+          </div>
+          <div class="cs-field">
+            <label for="im-batch-from"><span class="sc">从</span><span class="tc">從</span></label>
+            <input class="im-url-input" id="im-batch-from" type="number" min="1" value="1">
+          </div>
+          <div class="cs-field">
+            <label for="im-batch-to"><span class="sc">到</span><span class="tc">到</span></label>
+            <input class="im-url-input" id="im-batch-to" type="number" min="1" value="10">
+          </div>
+          <div class="cs-field full">
+            <label for="im-batch-author"><span class="sc">作者 / 译者署名（可选）</span><span class="tc">作者 / 譯者署名（可選）</span></label>
+            <input class="im-url-input" id="im-batch-author" type="text"
+              placeholder="例：华智仁波切·造论 · 索达吉堪布·译讲">
+            <span class="hint"><span class="sc">提交导入时会写入 法本.作者 字段</span><span class="tc">提交導入時會寫入 法本.作者 欄位</span></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button type="button" class="btn-apply" id="im-batch-start">
+            <span class="sc">开始批量抓取</span><span class="tc">開始批量抓取</span>
+          </button>
+          <span id="im-batch-progress" style="font:var(--text-caption);color:var(--ink-3);letter-spacing:.5px;"></span>
+        </div>
+        <div class="im-url-hint">
+          <span class="sc">每条间隔 1.5 秒抓取（避免被源站封 IP）· 失败的会单独列出可重试</span>
+          <span class="tc">每條間隔 1.5 秒抓取 · 失敗的會單獨列出可重試</span>
+        </div>
       </div>
 
       <!-- 步骤 2 · 解析中 -->
@@ -1322,11 +1357,15 @@ function imShowStep(step) {
 
 function imOpen() {
   state.importPreview = null;
+  state.importBatchAuthor = null;
   document.getElementById('im-err').classList.remove('show');
   document.getElementById('im-err').textContent = '';
   document.getElementById('im-file').value = '';
   var urlInput = document.getElementById('im-url');
   if (urlInput) urlInput.value = '';
+  // 批量字段不重置 · admin 可能想连续多次用同一模板
+  var prog = document.getElementById('im-batch-progress');
+  if (prog) prog.textContent = '';
   imShowStep('upload');
   document.getElementById('im-backdrop').classList.add('open');
 }
@@ -1358,6 +1397,113 @@ function imFetchUrl(url) {
       imShowStep('upload');
       imErr((err && err.message) || sc('抓取失败', '抓取失敗'));
     });
+}
+
+// F3 · 批量按模板抓取 · 串行 · 每条间隔 1.5s · 全部走现有 /import-url/preview
+//   pattern 内的 {n} 替换为 from..to · 抓到的每篇正文 → 一个 Chapter
+//   Chapter.title = preview.filename · 单 Lesson · referenceText = 抓到的全文
+//   全过程实时刷新 #im-batch-progress · 失败的列在 #im-err 里
+function imBatchFetch() {
+  var pattern = document.getElementById('im-batch-pattern').value.trim();
+  var from    = parseInt(document.getElementById('im-batch-from').value, 10);
+  var to      = parseInt(document.getElementById('im-batch-to').value, 10);
+  var author  = document.getElementById('im-batch-author').value.trim();
+  var btn     = document.getElementById('im-batch-start');
+  var prog    = document.getElementById('im-batch-progress');
+
+  if (!pattern || pattern.indexOf('{n}') < 0) {
+    imErr(sc('URL 模板必填且必须含 {n}', 'URL 模板必填且必須含 {n}'));
+    return;
+  }
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from < 1 || to < from) {
+    imErr(sc('from / to 不合法', 'from / to 不合法'));
+    return;
+  }
+  var total = to - from + 1;
+  if (total > 200) {
+    imErr(sc('单批最多 200 条 · 当前 ' + total, '單批最多 200 條'));
+    return;
+  }
+  if (!confirm(sc(
+    '将串行抓取 ' + total + ' 条 URL（每条间隔 1.5 秒，预计 ' + Math.ceil(total * 4 / 60) + ' 分钟）。\n开始？',
+    '將串行抓取 ' + total + ' 條 URL，預計 ' + Math.ceil(total * 4 / 60) + ' 分鐘'
+  ))) return;
+
+  btn.setAttribute('aria-busy', 'true');
+  document.getElementById('im-err').classList.remove('show');
+
+  var collected = [];   // PreviewChapter[]
+  var failed = [];      // { url, err }
+  var i = 0;
+
+  function step() {
+    if (i >= total) {
+      // 全部抓完
+      btn.removeAttribute('aria-busy');
+      if (collected.length === 0) {
+        imErr(sc('全部失败 · ' + failed.length + ' 条', '全部失敗'));
+        return;
+      }
+      // 进入预览
+      state.importPreview = {
+        source: 'text',
+        filename: '批量抓取 (' + collected.length + ' 课)',
+        charCount: collected.reduce(function (s, c) {
+          return s + c.lessons.reduce(function (s2, l) { return s2 + (l.referenceText || '').length; }, 0);
+        }, 0),
+        chapters: collected,
+      };
+      // 把作者署名先存到 form 里供后续 commit · 自动填进新建法本字段
+      if (author) {
+        // 选 mode=new 时塞进去（commit 阶段会读 im-new-author 还是用 newCourse.author）
+        // 我们没有 im-new-author 字段 · author 在 commit body 走 newCourse.author（已支持 schema 里）
+        state.importBatchAuthor = author;
+      }
+      // 失败列出来给重试
+      if (failed.length) {
+        imErr(sc(
+          '完成 · 成功 ' + collected.length + ' / 失败 ' + failed.length +
+          '\n失败 URL（可手工再试）：\n' + failed.slice(0, 10).map(function (f) { return f.url; }).join('\n'),
+          '完成'
+        ));
+      }
+      imRenderPreview();
+      imShowStep('preview');
+      return;
+    }
+    var n = from + i;
+    var url = pattern.replace(/\{n\}/g, String(n));
+    prog.textContent = sc('抓取中 ' + (i + 1) + ' / ' + total + ' · ', '抓取中 ' + (i + 1) + ' / ' + total + ' · ') + url;
+    window.JX.api.post('/api/admin/courses/import-url/preview', { url: url })
+      .then(function (data) {
+        // data.chapters 可能多个章 · 全部并入；title 用文件名（页面 title）
+        if (data && Array.isArray(data.chapters) && data.chapters.length) {
+          // 把 data.chapters 全合并；如果只有 1 章而且 title 不区分，加序号
+          var chTitle = data.filename || ('第 ' + n + ' 课');
+          if (data.chapters.length === 1 && data.chapters[0].lessons.length === 1) {
+            collected.push({
+              title: chTitle,
+              lessons: [{
+                title: chTitle,
+                referenceText: data.chapters[0].lessons[0].referenceText || '',
+              }],
+            });
+          } else {
+            data.chapters.forEach(function (ch) { collected.push(ch); });
+          }
+        } else {
+          failed.push({ url: url, err: '空内容' });
+        }
+      })
+      .catch(function (err) {
+        failed.push({ url: url, err: (err && err.message) || String(err) });
+      })
+      .finally(function () {
+        i++;
+        setTimeout(step, 1500);
+      });
+  }
+  step();
 }
 
 // 上传文件 · 走 raw fetch（api.js 是 JSON-only，不能传 multipart）
@@ -1542,6 +1688,8 @@ function imSubmit() {
       slug: slug, title: title,
       isPublished: document.getElementById('im-new-pub').checked,
     };
+    // F3 批量抓取 · 把署名带过来
+    if (state.importBatchAuthor) body.newCourse.author = state.importBatchAuthor;
   } else {
     var sel = document.getElementById('im-append-target');
     if (!sel.value) {
@@ -1601,6 +1749,10 @@ function bindImportModal() {
   urlInput.addEventListener('keydown', function (ev) {
     if (ev.key === 'Enter') { ev.preventDefault(); imFetchUrl(urlInput.value.trim()); }
   });
+
+  // F3 · 批量按模板抓取
+  var batchStart = document.getElementById('im-batch-start');
+  if (batchStart) batchStart.addEventListener('click', imBatchFetch);
 
   // 拖拽
   ['dragover', 'dragenter'].forEach(function (e) {
