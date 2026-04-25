@@ -581,6 +581,25 @@
           <span class="sc">每条间隔 1.5 秒抓取（避免被源站封 IP）· 失败的会单独列出可重试</span>
           <span class="tc">每條間隔 1.5 秒抓取 · 失敗的會單獨列出可重試</span>
         </div>
+
+        <!-- 失败列表 · 每次抓完显示 · admin 可重试或导出 -->
+        <div id="im-batch-failed" style="display:none;margin-top:var(--sp-3);padding:var(--sp-3);border:1px solid var(--crimson-light);border-radius:var(--r-sm);background:rgba(192,57,43,.04);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <strong style="font:var(--text-caption);color:var(--crimson);letter-spacing:1px;" id="im-batch-failed-title"></strong>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="p-action-btn" id="im-batch-retry">
+                <span class="sc">重试失败的</span><span class="tc">重試失敗的</span>
+              </button>
+              <button type="button" class="p-action-btn" id="im-batch-copy-failed">
+                <span class="sc">复制失败 URL</span><span class="tc">複製失敗 URL</span>
+              </button>
+              <button type="button" class="p-action-btn" id="im-batch-clear-failed">
+                <span class="sc">关闭</span><span class="tc">關閉</span>
+              </button>
+            </div>
+          </div>
+          <pre id="im-batch-failed-list" style="margin:0;font:var(--text-caption);font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:.6875rem;color:var(--ink-2);white-space:pre-wrap;word-break:break-all;max-height:160px;overflow-y:auto;"></pre>
+        </div>
       </div>
 
       <!-- 步骤 2 · 解析中 -->
@@ -1358,6 +1377,7 @@ function imShowStep(step) {
 function imOpen() {
   state.importPreview = null;
   state.importBatchAuthor = null;
+  state.importBatchFailed = [];
   document.getElementById('im-err').classList.remove('show');
   document.getElementById('im-err').textContent = '';
   document.getElementById('im-file').value = '';
@@ -1366,6 +1386,8 @@ function imOpen() {
   // 批量字段不重置 · admin 可能想连续多次用同一模板
   var prog = document.getElementById('im-batch-progress');
   if (prog) prog.textContent = '';
+  var failedBox = document.getElementById('im-batch-failed');
+  if (failedBox) failedBox.style.display = 'none';
   imShowStep('upload');
   document.getElementById('im-backdrop').classList.add('open');
 }
@@ -1401,15 +1423,11 @@ function imFetchUrl(url) {
 
 // F3 · 批量按模板抓取 · 串行 · 每条间隔 1.5s · 全部走现有 /import-url/preview
 //   pattern 内的 {n} 替换为 from..to · 抓到的每篇正文 → 一个 Chapter
-//   Chapter.title = preview.filename · 单 Lesson · referenceText = 抓到的全文
-//   全过程实时刷新 #im-batch-progress · 失败的列在 #im-err 里
+//   失败的累积到 state.importBatchFailed · admin 可点 重试失败的 / 复制 URL
 function imBatchFetch() {
   var pattern = document.getElementById('im-batch-pattern').value.trim();
   var from    = parseInt(document.getElementById('im-batch-from').value, 10);
   var to      = parseInt(document.getElementById('im-batch-to').value, 10);
-  var author  = document.getElementById('im-batch-author').value.trim();
-  var btn     = document.getElementById('im-batch-start');
-  var prog    = document.getElementById('im-batch-progress');
 
   if (!pattern || pattern.indexOf('{n}') < 0) {
     imErr(sc('URL 模板必填且必须含 {n}', 'URL 模板必填且必須含 {n}'));
@@ -1429,22 +1447,43 @@ function imBatchFetch() {
     '將串行抓取 ' + total + ' 條 URL，預計 ' + Math.ceil(total * 4 / 60) + ' 分鐘'
   ))) return;
 
+  // 生成 URL 列表
+  var urls = [];
+  for (var n = from; n <= to; n++) urls.push(pattern.replace(/\{n\}/g, String(n)));
+  imBatchFetchUrls(urls, /* isRetry */ false);
+}
+
+// 核心循环：串行抓 urls 数组 · 失败的累积
+//   isRetry=true 时复用之前 state.importPreview.chapters · 累加新成功的章
+function imBatchFetchUrls(urls, isRetry) {
+  var btn = document.getElementById('im-batch-start');
+  var prog = document.getElementById('im-batch-progress');
   btn.setAttribute('aria-busy', 'true');
   document.getElementById('im-err').classList.remove('show');
 
-  var collected = [];   // PreviewChapter[]
-  var failed = [];      // { url, err }
+  var collected = isRetry && state.importPreview && state.importPreview.chapters
+    ? state.importPreview.chapters.slice()
+    : [];
+  var failed = [];
   var i = 0;
+  var total = urls.length;
 
   function step() {
     if (i >= total) {
-      // 全部抓完
       btn.removeAttribute('aria-busy');
+      // 暴露失败列表给重试按钮
+      state.importBatchFailed = failed;
+      imRenderBatchFailedBox();
+
       if (collected.length === 0) {
-        imErr(sc('全部失败 · ' + failed.length + ' 条', '全部失敗'));
+        prog.textContent = '';
+        imErr(sc('全部失败 · ' + failed.length + ' 条 · 见下方失败列表',
+                 '全部失敗 · ' + failed.length + ' 條'));
         return;
       }
+
       // 进入预览
+      var author = document.getElementById('im-batch-author').value.trim();
       state.importPreview = {
         source: 'text',
         filename: '批量抓取 (' + collected.length + ' 课)',
@@ -1453,33 +1492,18 @@ function imBatchFetch() {
         }, 0),
         chapters: collected,
       };
-      // 把作者署名先存到 form 里供后续 commit · 自动填进新建法本字段
-      if (author) {
-        // 选 mode=new 时塞进去（commit 阶段会读 im-new-author 还是用 newCourse.author）
-        // 我们没有 im-new-author 字段 · author 在 commit body 走 newCourse.author（已支持 schema 里）
-        state.importBatchAuthor = author;
-      }
-      // 失败列出来给重试
-      if (failed.length) {
-        imErr(sc(
-          '完成 · 成功 ' + collected.length + ' / 失败 ' + failed.length +
-          '\n失败 URL（可手工再试）：\n' + failed.slice(0, 10).map(function (f) { return f.url; }).join('\n'),
-          '完成'
-        ));
-      }
+      if (author) state.importBatchAuthor = author;
       imRenderPreview();
       imShowStep('preview');
+      // 失败列表保留显示在批量区，admin 切回上一步还能看到 + 重试
       return;
     }
-    var n = from + i;
-    var url = pattern.replace(/\{n\}/g, String(n));
+    var url = urls[i];
     prog.textContent = sc('抓取中 ' + (i + 1) + ' / ' + total + ' · ', '抓取中 ' + (i + 1) + ' / ' + total + ' · ') + url;
     window.JX.api.post('/api/admin/courses/import-url/preview', { url: url })
       .then(function (data) {
-        // data.chapters 可能多个章 · 全部并入；title 用文件名（页面 title）
         if (data && Array.isArray(data.chapters) && data.chapters.length) {
-          // 把 data.chapters 全合并；如果只有 1 章而且 title 不区分，加序号
-          var chTitle = data.filename || ('第 ' + n + ' 课');
+          var chTitle = data.filename || url;
           if (data.chapters.length === 1 && data.chapters[0].lessons.length === 1) {
             collected.push({
               title: chTitle,
@@ -1504,6 +1528,56 @@ function imBatchFetch() {
       });
   }
   step();
+}
+
+// 显示失败列表区 + 绑定按钮（仅一次）· retry/copy/clear 三按钮
+function imRenderBatchFailedBox() {
+  var box   = document.getElementById('im-batch-failed');
+  var title = document.getElementById('im-batch-failed-title');
+  var list  = document.getElementById('im-batch-failed-list');
+  var failed = state.importBatchFailed || [];
+  if (!failed.length) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = '';
+  title.textContent = sc('失败 ' + failed.length + ' 条', '失敗 ' + failed.length + ' 條');
+  list.textContent = failed.map(function (f) {
+    return f.url + '\n  → ' + (f.err || '未知错误');
+  }).join('\n\n');
+}
+
+function imBatchRetryFailed() {
+  var failed = state.importBatchFailed || [];
+  if (!failed.length) return;
+  if (!confirm(sc(
+    '将重试 ' + failed.length + ' 条失败 URL（每条间隔 1.5 秒）。开始？',
+    '將重試 ' + failed.length + ' 條失敗 URL'
+  ))) return;
+  var urls = failed.map(function (f) { return f.url; });
+  state.importBatchFailed = [];
+  imBatchFetchUrls(urls, /* isRetry */ true);
+}
+
+function imBatchCopyFailed() {
+  var failed = state.importBatchFailed || [];
+  if (!failed.length) return;
+  var text = failed.map(function (f) { return f.url; }).join('\n');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () {
+      alert(sc('已复制 ' + failed.length + ' 条 URL 到剪贴板', '已複製 ' + failed.length + ' 條'));
+    }, function () {
+      // fallback：旧浏览器
+      window.prompt(sc('请手动复制：', '請手動複製：'), text);
+    });
+  } else {
+    window.prompt(sc('请手动复制：', '請手動複製：'), text);
+  }
+}
+
+function imBatchClearFailed() {
+  state.importBatchFailed = [];
+  imRenderBatchFailedBox();
 }
 
 // 上传文件 · 走 raw fetch（api.js 是 JSON-only，不能传 multipart）
@@ -1750,9 +1824,15 @@ function bindImportModal() {
     if (ev.key === 'Enter') { ev.preventDefault(); imFetchUrl(urlInput.value.trim()); }
   });
 
-  // F3 · 批量按模板抓取
+  // F3 · 批量按模板抓取 · 主按钮 + 失败列表的 重试/复制/关闭
   var batchStart = document.getElementById('im-batch-start');
   if (batchStart) batchStart.addEventListener('click', imBatchFetch);
+  var batchRetry = document.getElementById('im-batch-retry');
+  if (batchRetry) batchRetry.addEventListener('click', imBatchRetryFailed);
+  var batchCopy  = document.getElementById('im-batch-copy-failed');
+  if (batchCopy)  batchCopy.addEventListener('click', imBatchCopyFailed);
+  var batchClear = document.getElementById('im-batch-clear-failed');
+  if (batchClear) batchClear.addEventListener('click', imBatchClearFailed);
 
   // 拖拽
   ['dragover', 'dragenter'].forEach(function (e) {
