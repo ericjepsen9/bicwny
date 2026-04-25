@@ -1,10 +1,11 @@
-// Admin 法本导入路由 · F2.2
+// Admin 法本导入路由 · F2.2 + F3.1
 //
-//   POST /api/admin/courses/import-file/preview   (multipart) → 预览结构
+//   POST /api/admin/courses/import-file/preview   (multipart) → 预览结构 · F2
+//   POST /api/admin/courses/import-url/preview    (JSON)      → 预览结构 · F3
 //   POST /api/admin/courses/import-file/commit    (JSON)      → 写入数据库
 //
 // 前端流程：
-//   1. 选 PDF/DOCX 上传 preview → 拿章节树
+//   1. (F2) 选 PDF/DOCX 上传 / (F3) 输 URL → preview 拿章节树
 //   2. admin 在前端编辑（改章名/课时名/挪动/删除）
 //   3. POST commit { mode: 'new' | 'append', ..., chapters }
 //
@@ -16,6 +17,7 @@ import { requireRole, requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import {
   buildPreviewFromBuffer,
+  buildPreviewFromUrl,
   commitImport,
 } from './import.service.js';
 
@@ -46,6 +48,10 @@ const commitBody = z.object({
   chapters: z.array(previewChapterSchema).min(1).max(200),
 });
 
+const urlPreviewBody = z.object({
+  url: z.string().url().max(2000),
+});
+
 const TAGS = ['Admin'];
 const SEC = [{ bearerAuth: [] as string[] }];
 
@@ -71,6 +77,17 @@ export const adminCoursesImportRoutes: FastifyPluginAsync = async (app) => {
     }
     const buf = Buffer.concat(chunks);
     const preview = await buildPreviewFromBuffer(filename, buf);
+    return { data: preview };
+  });
+
+  // ── F3.1 · 网页抓取 → 预览（与 import-file 同 commit 端点）──
+  app.post('/api/admin/courses/import-url/preview', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: '导入法本 · 抓取 URL → 预览章节树（不写库）', security: SEC },
+  }, async (req) => {
+    const parsed = urlPreviewBody.safeParse(req.body);
+    if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
+    const preview = await buildPreviewFromUrl(parsed.data.url);
     return { data: preview };
   });
 

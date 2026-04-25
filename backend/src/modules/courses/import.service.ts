@@ -1,4 +1,4 @@
-// 法本导入解析 service · F2.1 + F2.2
+// 法本导入解析 service · F2.1 + F2.2 + F3.1
 //
 // F2.1 阶段（解析）：
 //   parsePdf / parseDocx → 纯文本
@@ -11,10 +11,17 @@
 //     · mode=append → 在现有 course 末尾追加 chapters + lessons
 //   单事务原子性 · 写入 AuditLog (course.import)
 //
+// F3.1 阶段（网页抓取）：
+//   fetchUrlText → 经 SSRF 防护取 HTML → cheerio 抽正文 → splitToChapters
+//   buildPreviewFromUrl 主入口
+//
 // 不在范围：
 //   · OCR（扫描版 PDF 无文字层 → 抛 EMPTY_TEXT）
 //   · 复杂格式（DOCX 表格 / 图片 / 公式）只取 raw text
+//   · JS 渲染网页 (SPA · 需要 headless browser，本期不做)
 
+import * as cheerio from 'cheerio';
+import { lookup } from 'node:dns/promises';
 import type { Prisma } from '@prisma/client';
 import mammoth from 'mammoth';
 // pdf-parse@1.1.1 有顶层副作用（找测试 PDF）→ 走 lib 子路径绕开
@@ -313,4 +320,156 @@ export async function commitImport(
   });
 
   return result;
+}
+
+// ── F3.1 · URL 抓取 + HTML 转纯文本 ────────────────
+
+const FETCH_TIMEOUT_MS = 12_000;
+const MAX_HTML_BYTES = 8 * 1024 * 1024; // 8 MB
+const USER_AGENT = 'JuexueImporter/1.0 (admin upload tool)';
+
+/** SSRF 防护：拒绝内网 / 链路本地 / loopback / 多播 IP */
+function isPrivateIp(ip: string): boolean {
+  // IPv6 loopback / link-local / unique-local
+  if (ip === '::1' || /^fe80:/i.test(ip) || /^fc[0-9a-f]{2}:/i.test(ip) || /^fd[0-9a-f]{2}:/i.test(ip)) {
+    return true;
+  }
+  // IPv4 (含 IPv4-mapped IPv6 ::ffff:1.2.3.4)
+  const v4 = ip.replace(/^::ffff:/i, '');
+  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(v4);
+  if (!m) return false;
+  const a = +m[1], b = +m[2];
+  // 0/8 reserved, 10/8 private, 127/8 loopback, 169.254/16 link-local,
+  // 172.16/12 private, 192.168/16 private, 100.64/10 carrier-grade NAT,
+  // 224/4 multicast, 240/4 reserved
+  if (a === 0)   return true;
+  if (a === 10)  return true;
+  if (a === 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a >= 224)  return true;
+  return false;
+}
+
+async function assertSafeUrl(rawUrl: string): Promise<URL> {
+  let u: URL;
+  try { u = new URL(rawUrl); } catch { throw BadRequest('URL 格式不合法'); }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw BadRequest('仅允许 http / https 协议');
+  }
+  // 解析 hostname → 确认非内网 IP
+  const host = u.hostname;
+  // 字面 IP 直接判
+  if (/^[0-9.]+$/.test(host) || host.includes(':')) {
+    if (isPrivateIp(host)) throw BadRequest('禁止抓取内网地址');
+    return u;
+  }
+  // 域名 → DNS 查 · 取所有结果都判
+  try {
+    const records = await lookup(host, { all: true });
+    for (const r of records) {
+      if (isPrivateIp(r.address)) {
+        throw BadRequest('域名解析到内网地址，禁止抓取');
+      }
+    }
+  } catch (err: any) {
+    if (err && err.code === 'BAD_REQUEST') throw err;
+    throw BadRequest('无法解析域名：' + (err?.message || host));
+  }
+  return u;
+}
+
+async function fetchHtml(url: URL): Promise<{ html: string; finalUrl: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      },
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      throw BadRequest(`抓取失败：HTTP ${res.status} ${res.statusText}`);
+    }
+    const ctype = res.headers.get('content-type') || '';
+    if (!/text\/html|application\/xhtml/i.test(ctype)) {
+      throw BadRequest(`目标不是 HTML（content-type: ${ctype || '未知'}）`);
+    }
+    // 流式读取 + 尺寸限幅
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength > MAX_HTML_BYTES) {
+      throw BadRequest(`HTML 超过 ${MAX_HTML_BYTES / 1024 / 1024} MB 上限`);
+    }
+    const text = new TextDecoder('utf-8', { fatal: false }).decode(buf);
+    return { html: text, finalUrl: res.url };
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw BadRequest('抓取超时（>12 s）');
+    if (err && err.code === 'BAD_REQUEST') throw err;
+    throw BadRequest('网络异常：' + (err?.message || String(err)));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** 用 cheerio 抽正文：优先 article / main，失败则用 body 去掉 script/style/nav/footer */
+export function extractMainText(html: string): { title: string; text: string } {
+  const $ = cheerio.load(html);
+  const pageTitle = ($('title').first().text() || '').trim() || '抓取内容';
+  // 噪音
+  $('script, style, noscript, nav, footer, header, aside, form, iframe, .ad, .ads').remove();
+
+  // 优先级：article > main > [role=main] > .content > #content > body
+  const candidates = ['article', 'main', '[role="main"]', '.content', '#content', '.post', '.article-content'];
+  let $root = $('body');
+  for (const sel of candidates) {
+    const $el = $(sel).first();
+    if ($el.length && $el.text().trim().length > 200) {
+      $root = $el;
+      break;
+    }
+  }
+
+  // 块级元素后塞换行，行内元素留空格
+  const blockTags = ['p', 'div', 'section', 'article', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'li', 'blockquote', 'pre', 'tr'];
+  blockTags.forEach((t) => $root.find(t).each((_, el) => $(el).append('\n')));
+
+  // 标题加 markdown 风格便于 splitToChapters 识别
+  $root.find('h1').each((_, el) => $(el).prepend('# '));
+  $root.find('h2').each((_, el) => $(el).prepend('## '));
+  $root.find('h3').each((_, el) => $(el).prepend('### '));
+
+  let text = $root.text();
+  // 归一空白
+  text = text.replace(/ /g, ' ').replace(/[ \t]+/g, ' ');
+  text = text.replace(/\n[ \t]+/g, '\n').replace(/[ \t]+\n/g, '\n');
+  text = text.replace(/\n{3,}/g, '\n\n').trim();
+
+  return { title: pageTitle, text };
+}
+
+export async function buildPreviewFromUrl(rawUrl: string): Promise<PreviewResult> {
+  const url = await assertSafeUrl(rawUrl);
+  const { html, finalUrl } = await fetchHtml(url);
+  const { title, text } = extractMainText(html);
+  if (!text || text.length < 50) {
+    throw BadRequest('抓到的正文太短（< 50 字），可能是 SPA 首屏 / 反爬页面');
+  }
+  if (text.length > MAX_TEXT_CHARS) {
+    throw BadRequest(`正文超过 ${MAX_TEXT_CHARS} 字上限（实际 ${text.length}）`);
+  }
+  const fallbackTitle = title || finalUrl;
+  const chapters = splitToChapters(text, fallbackTitle);
+  return {
+    source: 'text',
+    filename: title + ' (' + new URL(finalUrl).hostname + ')',
+    charCount: text.length,
+    chapters,
+  };
 }
