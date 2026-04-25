@@ -571,12 +571,32 @@
             <span class="hint"><span class="sc">提交导入时会写入 法本.作者 字段</span><span class="tc">提交導入時會寫入 法本.作者 欄位</span></span>
           </div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <button type="button" class="btn-apply" id="im-batch-start">
             <span class="sc">开始批量抓取</span><span class="tc">開始批量抓取</span>
           </button>
-          <span id="im-batch-progress" style="font:var(--text-caption);color:var(--ink-3);letter-spacing:.5px;"></span>
+          <button type="button" class="btn-ghost-s" id="im-batch-pause" style="display:none;">
+            <span class="sc">⏸ 暂停</span><span class="tc">⏸ 暫停</span>
+          </button>
+          <button type="button" class="btn-apply" id="im-batch-resume" style="display:none;">
+            <span class="sc">▶ 继续</span><span class="tc">▶ 繼續</span>
+          </button>
+          <button type="button" class="btn-danger" id="im-batch-cancel" style="display:none;">
+            <span class="sc">✕ 取消</span><span class="tc">✕ 取消</span>
+          </button>
         </div>
+        <!-- 实时进度条 + 计数 + 当前 URL · 抓取过程中 / 完成后都显示 -->
+        <div id="im-batch-progress-box" style="display:none;margin-top:var(--sp-3);padding:var(--sp-3);background:rgba(43,34,24,.03);border-radius:var(--r-sm);">
+          <div style="display:flex;justify-content:space-between;font:var(--text-caption);color:var(--ink-2);letter-spacing:.5px;margin-bottom:6px;">
+            <span id="im-batch-progress-text">—</span>
+            <span id="im-batch-progress-stats" style="font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:.6875rem;">—</span>
+          </div>
+          <div style="height:6px;background:rgba(43,34,24,.1);border-radius:var(--r-pill);overflow:hidden;">
+            <div id="im-batch-progress-bar" style="height:100%;background:linear-gradient(90deg,var(--saffron),var(--saffron-dark));width:0%;transition:width .2s var(--ease);"></div>
+          </div>
+          <div id="im-batch-progress-current" style="font:var(--text-caption);color:var(--ink-4);font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:.6875rem;margin-top:6px;word-break:break-all;">—</div>
+        </div>
+        <span id="im-batch-progress" style="display:none;"></span><!-- 旧元素保留兼容（旧代码引用），新版用 progress-box -->
         <div class="im-url-hint">
           <span class="sc">每条间隔 1.5 秒抓取（避免被源站封 IP）· 失败的会单独列出可重试</span>
           <span class="tc">每條間隔 1.5 秒抓取 · 失敗的會單獨列出可重試</span>
@@ -1378,16 +1398,18 @@ function imOpen() {
   state.importPreview = null;
   state.importBatchAuthor = null;
   state.importBatchFailed = [];
+  state.batchControl = { status: 'idle' };
   document.getElementById('im-err').classList.remove('show');
   document.getElementById('im-err').textContent = '';
   document.getElementById('im-file').value = '';
   var urlInput = document.getElementById('im-url');
   if (urlInput) urlInput.value = '';
   // 批量字段不重置 · admin 可能想连续多次用同一模板
-  var prog = document.getElementById('im-batch-progress');
-  if (prog) prog.textContent = '';
+  var progBox = document.getElementById('im-batch-progress-box');
+  if (progBox) progBox.style.display = 'none';
   var failedBox = document.getElementById('im-batch-failed');
   if (failedBox) failedBox.style.display = 'none';
+  imRenderBatchControlButtons();
   imShowStep('upload');
   document.getElementById('im-backdrop').classList.add('open');
 }
@@ -1453,53 +1475,78 @@ function imBatchFetch() {
   imBatchFetchUrls(urls, /* isRetry */ false);
 }
 
-// 核心循环：串行抓 urls 数组 · 失败的累积
+// 核心循环：串行抓 urls 数组 · 失败的累积 · 支持暂停/取消
 //   isRetry=true 时复用之前 state.importPreview.chapters · 累加新成功的章
 function imBatchFetchUrls(urls, isRetry) {
-  var btn = document.getElementById('im-batch-start');
-  var prog = document.getElementById('im-batch-progress');
-  btn.setAttribute('aria-busy', 'true');
   document.getElementById('im-err').classList.remove('show');
+  state.batchControl = { status: 'running' };
+  imRenderBatchControlButtons();
 
   var collected = isRetry && state.importPreview && state.importPreview.chapters
     ? state.importPreview.chapters.slice()
     : [];
-  var failed = [];
+  var failed = isRetry ? [] : []; // 重试模式下旧失败已被替换
+  state.importBatchFailed = failed;
+  imRenderBatchFailedBox();
+
   var i = 0;
   var total = urls.length;
+  var successCount = 0;
 
-  function step() {
-    if (i >= total) {
-      btn.removeAttribute('aria-busy');
-      // 暴露失败列表给重试按钮
-      state.importBatchFailed = failed;
-      imRenderBatchFailedBox();
+  // 显示进度框
+  document.getElementById('im-batch-progress-box').style.display = '';
 
-      if (collected.length === 0) {
-        prog.textContent = '';
-        imErr(sc('全部失败 · ' + failed.length + ' 条 · 见下方失败列表',
-                 '全部失敗 · ' + failed.length + ' 條'));
-        return;
-      }
+  function updateProgress(current) {
+    document.getElementById('im-batch-progress-text').textContent =
+      sc('抓取中', '抓取中') + ' ' + (i + (current === undefined ? 0 : 0)) + ' / ' + total;
+    document.getElementById('im-batch-progress-stats').textContent =
+      '✓ ' + successCount + ' · ✗ ' + failed.length;
+    var pct = Math.round((i / total) * 100);
+    document.getElementById('im-batch-progress-bar').style.width = pct + '%';
+    if (current) {
+      document.getElementById('im-batch-progress-current').textContent = current;
+    }
+  }
 
-      // 进入预览
-      var author = document.getElementById('im-batch-author').value.trim();
-      state.importPreview = {
-        source: 'text',
-        filename: '批量抓取 (' + collected.length + ' 课)',
-        charCount: collected.reduce(function (s, c) {
-          return s + c.lessons.reduce(function (s2, l) { return s2 + (l.referenceText || '').length; }, 0);
-        }, 0),
-        chapters: collected,
-      };
-      if (author) state.importBatchAuthor = author;
-      imRenderPreview();
-      imShowStep('preview');
-      // 失败列表保留显示在批量区，admin 切回上一步还能看到 + 重试
+  function finalize() {
+    state.batchControl = { status: 'idle' };
+    imRenderBatchControlButtons();
+    state.importBatchFailed = failed;
+    imRenderBatchFailedBox();
+    updateProgress();   // 把进度刷到最终
+    document.getElementById('im-batch-progress-text').textContent =
+      sc('完成', '完成') + ' · ' + i + ' / ' + total;
+
+    if (collected.length === 0) {
+      imErr(sc('未获得任何内容 · 失败 ' + failed.length + ' · 见下方失败列表',
+               '未獲得任何內容'));
       return;
     }
+    var author = document.getElementById('im-batch-author').value.trim();
+    state.importPreview = {
+      source: 'text',
+      filename: '批量抓取 (' + collected.length + ' 课)',
+      charCount: collected.reduce(function (s, c) {
+        return s + c.lessons.reduce(function (s2, l) { return s2 + (l.referenceText || '').length; }, 0);
+      }, 0),
+      chapters: collected,
+    };
+    if (author) state.importBatchAuthor = author;
+    imRenderPreview();
+    imShowStep('preview');
+  }
+
+  function step() {
+    // 取消 → 立即结束（已抓的进入预览）
+    if (state.batchControl.status === 'cancelled') { finalize(); return; }
+    // 暂停 → 250ms 后再检查
+    if (state.batchControl.status === 'paused') { setTimeout(step, 250); return; }
+    // 抓完所有
+    if (i >= total) { finalize(); return; }
+
     var url = urls[i];
-    prog.textContent = sc('抓取中 ' + (i + 1) + ' / ' + total + ' · ', '抓取中 ' + (i + 1) + ' / ' + total + ' · ') + url;
+    updateProgress(url);
+
     window.JX.api.post('/api/admin/courses/import-url/preview', { url: url })
       .then(function (data) {
         if (data && Array.isArray(data.chapters) && data.chapters.length) {
@@ -1515,19 +1562,58 @@ function imBatchFetchUrls(urls, isRetry) {
           } else {
             data.chapters.forEach(function (ch) { collected.push(ch); });
           }
+          successCount++;
         } else {
           failed.push({ url: url, err: '空内容' });
+          imRenderBatchFailedBox();   // 实时更新失败列表
         }
       })
       .catch(function (err) {
         failed.push({ url: url, err: (err && err.message) || String(err) });
+        imRenderBatchFailedBox();   // 实时更新
       })
       .finally(function () {
         i++;
+        updateProgress();
+        // 取消优先 · 否则间隔 1.5 秒
+        if (state.batchControl.status === 'cancelled') { finalize(); return; }
         setTimeout(step, 1500);
       });
   }
   step();
+}
+
+// 控制按钮显隐：根据 batchControl.status
+function imRenderBatchControlButtons() {
+  var s = (state.batchControl || { status: 'idle' }).status;
+  document.getElementById('im-batch-start').style.display  = s === 'idle' ? '' : 'none';
+  document.getElementById('im-batch-pause').style.display  = s === 'running' ? '' : 'none';
+  document.getElementById('im-batch-resume').style.display = s === 'paused' ? '' : 'none';
+  document.getElementById('im-batch-cancel').style.display = (s === 'running' || s === 'paused') ? '' : 'none';
+}
+
+function imBatchPause() {
+  if (state.batchControl && state.batchControl.status === 'running') {
+    state.batchControl.status = 'paused';
+    imRenderBatchControlButtons();
+  }
+}
+
+function imBatchResume() {
+  if (state.batchControl && state.batchControl.status === 'paused') {
+    state.batchControl.status = 'running';
+    imRenderBatchControlButtons();
+  }
+}
+
+function imBatchCancel() {
+  if (!state.batchControl || state.batchControl.status === 'idle') return;
+  if (!confirm(sc(
+    '确定取消批量抓取？\n已成功抓取的内容会保留进入预览。',
+    '確定取消批量抓取？\n已成功抓取的內容會保留進入預覽。'
+  ))) return;
+  state.batchControl.status = 'cancelled';
+  imRenderBatchControlButtons();
 }
 
 // 显示失败列表区 + 绑定按钮（仅一次）· retry/copy/clear 三按钮
@@ -1824,15 +1910,21 @@ function bindImportModal() {
     if (ev.key === 'Enter') { ev.preventDefault(); imFetchUrl(urlInput.value.trim()); }
   });
 
-  // F3 · 批量按模板抓取 · 主按钮 + 失败列表的 重试/复制/关闭
-  var batchStart = document.getElementById('im-batch-start');
-  if (batchStart) batchStart.addEventListener('click', imBatchFetch);
-  var batchRetry = document.getElementById('im-batch-retry');
-  if (batchRetry) batchRetry.addEventListener('click', imBatchRetryFailed);
-  var batchCopy  = document.getElementById('im-batch-copy-failed');
-  if (batchCopy)  batchCopy.addEventListener('click', imBatchCopyFailed);
-  var batchClear = document.getElementById('im-batch-clear-failed');
-  if (batchClear) batchClear.addEventListener('click', imBatchClearFailed);
+  // F3 · 批量按模板抓取 · 主按钮 + 暂停/继续/取消 + 失败列表 重试/复制/关闭
+  var batchStart  = document.getElementById('im-batch-start');
+  if (batchStart)  batchStart.addEventListener('click', imBatchFetch);
+  var batchPause  = document.getElementById('im-batch-pause');
+  if (batchPause)  batchPause.addEventListener('click', imBatchPause);
+  var batchResume = document.getElementById('im-batch-resume');
+  if (batchResume) batchResume.addEventListener('click', imBatchResume);
+  var batchCancel = document.getElementById('im-batch-cancel');
+  if (batchCancel) batchCancel.addEventListener('click', imBatchCancel);
+  var batchRetry  = document.getElementById('im-batch-retry');
+  if (batchRetry)  batchRetry.addEventListener('click', imBatchRetryFailed);
+  var batchCopy   = document.getElementById('im-batch-copy-failed');
+  if (batchCopy)   batchCopy.addEventListener('click', imBatchCopyFailed);
+  var batchClear  = document.getElementById('im-batch-clear-failed');
+  if (batchClear)  batchClear.addEventListener('click', imBatchClearFailed);
 
   // 拖拽
   ['dragover', 'dragenter'].forEach(function (e) {
