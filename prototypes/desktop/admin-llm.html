@@ -235,6 +235,10 @@ table.p-list { width: 100%; border-collapse: collapse; }
         <p class="page-sub"><span class="sc">供应商列表 · 启停 · 熔断重置 · 本月用量 · 调用日志</span><span class="tc">供應商列表 · 啟停 · 熔斷重置 · 本月用量 · 調用日誌</span></p>
       </div>
       <div class="top-actions">
+        <button class="btn-new" id="btn-new-provider" style="padding:7px 16px;border-radius:var(--r-pill);background:var(--saffron);color:#fff;border:0;font:var(--text-caption);font-weight:700;letter-spacing:1px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span><span class="sc">新建 Provider</span><span class="tc">新建 Provider</span></span>
+        </button>
         <button class="lang-btn" onclick="toggleLang()">繁</button>
       </div>
     </div>
@@ -542,6 +546,9 @@ function getVal(id) {
 
 function openEditProvider(p) {
   epTitle.textContent = sc('编辑 ', '編輯 ') + (p.displayName || p.name);
+  setVal('ep-name',          p.name || '');
+  setVal('ep-baseUrl',       p.baseUrl || '');
+  setVal('ep-apiKeyEnv',     p.apiKeyEnv || '');
   setVal('ep-displayName',   p.displayName || '');
   setVal('ep-defaultModel',  p.defaultModel || '');
   setVal('ep-role',          p.role || 'fallback');
@@ -562,6 +569,7 @@ function openEditProvider(p) {
 function closeEditProvider() { epBackdrop.classList.remove('open'); }
 
 // modal 元素查询 + 事件绑定延后到 DOMContentLoaded
+var npBackdrop, npForm, npErr, npSubmit;
 document.addEventListener('DOMContentLoaded', function () {
   epBackdrop = document.getElementById('ep-backdrop');
   epForm     = document.getElementById('ep-form');
@@ -576,9 +584,83 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   document.addEventListener('keydown', function (ev) {
     if (ev.key === 'Escape' && epBackdrop.classList.contains('open')) closeEditProvider();
+    if (ev.key === 'Escape' && npBackdrop && npBackdrop.classList.contains('open')) closeNewProvider();
   });
   epForm.addEventListener('submit', onEpSubmit);
+
+  // I-前端 · 新建 Provider 模态
+  npBackdrop = document.getElementById('np-backdrop');
+  npForm     = document.getElementById('np-form');
+  npErr      = document.getElementById('np-err');
+  npSubmit   = document.getElementById('np-submit');
+
+  document.getElementById('btn-new-provider').addEventListener('click', openNewProvider);
+  document.getElementById('np-cancel').addEventListener('click', closeNewProvider);
+  npBackdrop.addEventListener('click', function (ev) {
+    if (ev.target === npBackdrop) closeNewProvider();
+  });
+  npForm.addEventListener('submit', onNewProviderSubmit);
 });
+
+function openNewProvider() {
+  npForm.reset();
+  npErr.classList.remove('show');
+  npErr.textContent = '';
+  // 默认值
+  document.getElementById('np-role').value = 'fallback';
+  document.getElementById('np-priority').value = '50';
+  document.getElementById('np-inputCost').value = '0';
+  document.getElementById('np-outputCost').value = '0';
+  npBackdrop.classList.add('open');
+  setTimeout(function () { document.getElementById('np-name').focus(); }, 50);
+}
+function closeNewProvider() { npBackdrop.classList.remove('open'); }
+
+function onNewProviderSubmit(ev) {
+  ev.preventDefault();
+  function gv(id) { return (document.getElementById(id).value || '').trim(); }
+  var body = {
+    name:         gv('np-name'),
+    displayName:  gv('np-displayName'),
+    baseUrl:      gv('np-baseUrl'),
+    apiKeyEnv:    gv('np-apiKeyEnv'),
+    defaultModel: gv('np-defaultModel'),
+    role:         gv('np-role'),
+    priority:     parseInt(gv('np-priority') || '50', 10),
+    inputCostPer1k:  Number(gv('np-inputCost') || '0'),
+    outputCostPer1k: Number(gv('np-outputCost') || '0'),
+  };
+
+  if (!body.name || !body.displayName || !body.baseUrl || !body.apiKeyEnv || !body.defaultModel) {
+    npErr.textContent = sc('请填写所有必填字段', '請填寫所有必填字段');
+    npErr.classList.add('show');
+    return;
+  }
+  if (!/^[a-z0-9_-]+$/i.test(body.name)) {
+    npErr.textContent = sc('name 只能含字母 / 数字 / 下划线 / 连字符', 'name 只能含字母 / 數字 / 下劃線 / 連字符');
+    npErr.classList.add('show');
+    return;
+  }
+  if (!/^[A-Z][A-Z0-9_]*$/.test(body.apiKeyEnv)) {
+    npErr.textContent = sc('apiKeyEnv 只能含大写字母 / 数字 / 下划线 · 必须以字母开头', 'apiKeyEnv 只能含大寫字母 / 數字 / 下劃線 · 必須以字母開頭');
+    npErr.classList.add('show');
+    return;
+  }
+
+  npSubmit.setAttribute('aria-busy', 'true');
+  npErr.classList.remove('show');
+
+  window.JX.api.post('/api/admin/llm/providers', body)
+    .then(function () { closeNewProvider(); loadAll(); })
+    .catch(function (err) {
+      var code = err && err.code;
+      var msg = (err && err.message) || sc('创建失败', '創建失敗');
+      if (code === 'CONFLICT') msg = sc('name 已被占用', 'name 已被佔用');
+      npErr.textContent = msg;
+      npErr.classList.add('show');
+    })
+    .finally(function () { npSubmit.removeAttribute('aria-busy'); });
+}
 
 function onEpSubmit(ev) {
   ev.preventDefault();
@@ -593,6 +675,13 @@ function onEpSubmit(ev) {
   function nullableNum(v) { return v === '' ? null : Number(v); }
 
   var patch = {};
+  // I 阶段补 · 连接配置
+  var nm = getVal('ep-name').trim();
+  if (nm) patch.name = nm;
+  var bu = getVal('ep-baseUrl').trim();
+  if (bu) patch.baseUrl = bu;
+  var ak = getVal('ep-apiKeyEnv').trim();
+  if (ak) patch.apiKeyEnv = ak;
   var dn = getVal('ep-displayName').trim();
   if (dn) patch.displayName = dn;
   var dm = getVal('ep-defaultModel').trim();
@@ -638,11 +727,25 @@ if (window.JX && window.JX.user) boot();
       <div class="dr-err" id="ep-err"></div>
 
       <div class="mfsection">
-        <h4><span class="sc">基本</span><span class="tc">基本</span></h4>
+        <h4><span class="sc">连接配置</span><span class="tc">連接配置</span></h4>
         <div class="mfgrid">
+          <div class="mfield">
+            <label for="ep-name"><span class="sc">标识 name</span><span class="tc">標識 name</span></label>
+            <input id="ep-name" type="text" maxlength="64">
+            <span class="hint"><span class="sc">小写字母 / 数字 / -_ · 改了影响 seed 引用</span><span class="tc">小寫字母 / 數字 / -_ · 改了影響 seed 引用</span></span>
+          </div>
           <div class="mfield">
             <label for="ep-displayName"><span class="sc">显示名</span><span class="tc">顯示名</span></label>
             <input id="ep-displayName" type="text" maxlength="80">
+          </div>
+          <div class="mfield full">
+            <label for="ep-baseUrl">baseUrl</label>
+            <input id="ep-baseUrl" type="url" maxlength="500" placeholder="https://api.example.com/v1">
+          </div>
+          <div class="mfield">
+            <label for="ep-apiKeyEnv">apiKeyEnv</label>
+            <input id="ep-apiKeyEnv" type="text" maxlength="100" placeholder="MINIMAX_API_KEY">
+            <span class="hint"><span class="sc">环境变量名 · 实际 key 由服务器 env 读取</span><span class="tc">環境變量名 · 實際 key 由伺服器 env 讀取</span></span>
           </div>
           <div class="mfield">
             <label for="ep-defaultModel"><span class="sc">默认模型</span><span class="tc">默認模型</span></label>
@@ -715,6 +818,81 @@ if (window.JX && window.JX.user) boot();
     <div class="modal-foot">
       <button type="button" class="btn-ghost-s" id="ep-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
       <button type="submit" class="btn-apply" id="ep-submit"><span class="sc">保存</span><span class="tc">保存</span></button>
+    </div>
+  </form>
+</div>
+
+<!-- I-前端 · 新建 Provider 模态框 -->
+<div class="modal-backdrop" id="np-backdrop">
+  <form class="modal" id="np-form" novalidate>
+    <div class="modal-head">
+      <span class="modal-title"><span class="sc">新建 Provider</span><span class="tc">新建 Provider</span></span>
+    </div>
+    <div class="modal-body">
+      <div class="dr-err" id="np-err"></div>
+
+      <div class="mfsection">
+        <h4><span class="sc">连接配置</span><span class="tc">連接配置</span></h4>
+        <div class="mfgrid">
+          <div class="mfield">
+            <label for="np-name">name <span style="color:var(--crimson);">*</span></label>
+            <input id="np-name" type="text" maxlength="64" pattern="[a-z0-9_-]+" required placeholder="minimax">
+            <span class="hint"><span class="sc">小写字母 / 数字 / -_</span><span class="tc">小寫字母 / 數字 / -_</span></span>
+          </div>
+          <div class="mfield">
+            <label for="np-displayName"><span class="sc">显示名</span><span class="tc">顯示名</span> <span style="color:var(--crimson);">*</span></label>
+            <input id="np-displayName" type="text" maxlength="80" required placeholder="MiniMax">
+          </div>
+          <div class="mfield full">
+            <label for="np-baseUrl">baseUrl <span style="color:var(--crimson);">*</span></label>
+            <input id="np-baseUrl" type="url" maxlength="500" required placeholder="https://api.minimax.chat/v1">
+          </div>
+          <div class="mfield">
+            <label for="np-apiKeyEnv">apiKeyEnv <span style="color:var(--crimson);">*</span></label>
+            <input id="np-apiKeyEnv" type="text" maxlength="100" required placeholder="MINIMAX_API_KEY">
+            <span class="hint"><span class="sc">环境变量名 · 实际 key 由服务器 env 读取</span><span class="tc">環境變量名 · 實際 key 由伺服器 env 讀取</span></span>
+          </div>
+          <div class="mfield">
+            <label for="np-defaultModel"><span class="sc">默认模型</span><span class="tc">默認模型</span> <span style="color:var(--crimson);">*</span></label>
+            <input id="np-defaultModel" type="text" maxlength="120" required placeholder="abab6.5-chat">
+          </div>
+          <div class="mfield">
+            <label for="np-role"><span class="sc">角色</span><span class="tc">角色</span></label>
+            <select id="np-role">
+              <option value="primary">primary</option>
+              <option value="fallback" selected>fallback</option>
+              <option value="disabled">disabled</option>
+            </select>
+          </div>
+          <div class="mfield">
+            <label for="np-priority"><span class="sc">优先级</span><span class="tc">優先級</span></label>
+            <input id="np-priority" type="number" min="0" step="1" value="50">
+          </div>
+        </div>
+      </div>
+
+      <div class="mfsection">
+        <h4><span class="sc">成本（USD / 1000 tokens · 可选）</span><span class="tc">成本（USD / 1000 tokens · 可選）</span></h4>
+        <div class="mfgrid">
+          <div class="mfield">
+            <label for="np-inputCost">input</label>
+            <input id="np-inputCost" type="number" min="0" step="0.0001" value="0">
+          </div>
+          <div class="mfield">
+            <label for="np-outputCost">output</label>
+            <input id="np-outputCost" type="number" min="0" step="0.0001" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--saffron-pale);padding:10px 12px;border-radius:var(--r-sm);font:var(--text-caption);color:var(--ink-2);letter-spacing:.5px;line-height:1.6;">
+        <span class="sc">⚠️ 创建后默认 <b>未启用</b>。请先在服务器 .env 加 <code>{apiKeyEnv}=...</code> 并重启服务，再回此页点 启用 开关。</span>
+        <span class="tc">⚠️ 創建後默認 <b>未啟用</b>。請先在伺服器 .env 加 <code>{apiKeyEnv}=...</code> 並重啟服務，再回此頁點 啟用 開關。</span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost-s" id="np-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+      <button type="submit" class="btn-apply" id="np-submit"><span class="sc">创建</span><span class="tc">創建</span></button>
     </div>
   </form>
 </div>
