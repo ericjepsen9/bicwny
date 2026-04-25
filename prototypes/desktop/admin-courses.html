@@ -135,13 +135,63 @@
 .modal-body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
 .modal-foot { display: flex; justify-content: flex-end; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--border-light); background: rgba(43,34,24,.02); border-radius: 0 0 var(--r-lg) var(--r-lg); }
 
-/* ── 章节占位（F1.3 实现） ───────────────────── */
-.cs-chapters-placeholder {
-  padding: var(--sp-4) var(--sp-5); text-align: center;
+/* ── 章 / 节 列表 ─────────────────────────────── */
+.cs-empty-mini {
+  padding: var(--sp-3) var(--sp-4); text-align: center;
   color: var(--ink-4); font: var(--text-caption); letter-spacing: 1px;
   background: rgba(43,34,24,.03); border-radius: var(--r-sm);
-  border: 1px dashed var(--border);
 }
+.cs-section-head {
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: var(--sp-2); margin-bottom: var(--sp-3);
+}
+.cs-section-head h4 { margin: 0; border: 0; padding: 0; }
+
+.cs-chapters { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cs-chapter {
+  background: rgba(43,34,24,.02);
+  border: 1px solid var(--border-light); border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.cs-ch-head {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 10px var(--sp-3);
+  background: rgba(255,255,255,.6);
+}
+.cs-ch-order {
+  flex-shrink: 0; min-width: 28px;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: .75rem; font-weight: 700;
+  color: var(--saffron-dark); letter-spacing: 1px;
+  background: var(--saffron-pale); padding: 2px 6px;
+  border-radius: var(--r-sm); text-align: center;
+}
+.cs-ch-title {
+  font-family: var(--font-serif); font-weight: 700;
+  color: var(--ink); letter-spacing: 1px; flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cs-ch-title-tc { color: var(--ink-3); font: var(--text-caption); letter-spacing: .5px; margin-left: 6px; }
+.cs-ch-count { font: var(--text-caption); color: var(--ink-3); letter-spacing: .5px; flex-shrink: 0; }
+.cs-ch-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.cs-ch-lessons {
+  padding: var(--sp-3);
+  border-top: 1px dashed var(--border-light);
+  background: rgba(255,255,255,.3);
+}
+
+.p-action-btn {
+  padding: 4px 10px; border-radius: var(--r-pill);
+  background: transparent; border: 1px solid var(--border);
+  color: var(--ink-3); font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.p-action-btn:hover { border-color: var(--saffron); color: var(--saffron-dark); }
+.p-action-btn.danger:hover { border-color: var(--crimson); color: var(--crimson); }
+.p-action-btn[aria-busy="true"] { opacity: .5; pointer-events: none; }
+
+.cs-add-row { margin-top: var(--sp-2); display: flex; justify-content: center; }
 </style>
 <meta name="jx-require-role" content="admin">
 <script src="../shared/lang.js"></script>
@@ -274,6 +324,37 @@
   </form>
 </div>
 
+<!-- 章节 新建/编辑 模态框（mode=new|edit） -->
+<div class="modal-backdrop" id="ch-backdrop">
+  <form class="modal" id="ch-form" novalidate>
+    <div class="modal-head">
+      <span class="modal-title" id="ch-modal-title"><span class="sc">章节</span><span class="tc">章節</span></span>
+    </div>
+    <div class="modal-body">
+      <div class="dr-err" id="ch-err"></div>
+      <div class="cs-grid">
+        <div class="cs-field">
+          <label for="ch-order"><span class="sc">序号</span><span class="tc">序號</span></label>
+          <input id="ch-order" type="number" min="1">
+          <span class="hint"><span class="sc">留空 = 末尾追加</span><span class="tc">留空 = 末尾追加</span></span>
+        </div>
+        <div class="cs-field">
+          <label for="ch-title"><span class="sc">章名（简体）</span><span class="tc">章名（簡體）</span><span class="req">*</span></label>
+          <input id="ch-title" type="text" maxlength="200" required>
+        </div>
+        <div class="cs-field full">
+          <label for="ch-titleTC"><span class="sc">章名（繁体）</span><span class="tc">章名（繁體）</span></label>
+          <input id="ch-titleTC" type="text" maxlength="200">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost-s" id="ch-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+      <button type="submit" class="btn-apply" id="ch-submit"><span class="sc">保存</span><span class="tc">保存</span></button>
+    </div>
+  </form>
+</div>
+
 <script>
 // admin-courses · F1.2 阶段 · 法本列表 + 元数据 CRUD
 //   F1.3 接入 章节 CRUD（占位区已留）
@@ -353,6 +434,37 @@ function renderDetail(id) {
     });
 }
 
+// ── 章节列表渲染（F1.3）─────────────────────
+// 每章一个卡片：[order] [title] [课时数] [编辑] [删除]
+// 章下面留 cs-ch-lessons 容器，F1.4 接入课时 CRUD
+function renderChaptersHtml(c) {
+  var chapters = c.chapters || [];
+  if (!chapters.length) {
+    return '<div class="cs-empty-mini">' +
+      escapeHtml(sc('暂无章节，点 + 添加章节 开始', '暫無章節，點 + 添加章節 開始')) + '</div>';
+  }
+  return '<div class="cs-chapters">' + chapters.map(function (ch) {
+    var lessonCount = (ch.lessons || []).length;
+    return ''
+      + '<div class="cs-chapter" data-cid="' + escapeHtml(ch.id) + '">'
+      +   '<div class="cs-ch-head">'
+      +     '<span class="cs-ch-order">' + ch.order + '</span>'
+      +     '<span class="cs-ch-title">' + escapeHtml(ch.title) +
+              (ch.titleTraditional ? '<span class="cs-ch-title-tc">/ ' + escapeHtml(ch.titleTraditional) + '</span>' : '') +
+            '</span>'
+      +     '<span class="cs-ch-count">' + lessonCount + sc(' 节', ' 節') + '</span>'
+      +     '<div class="cs-ch-actions">'
+      +       '<button type="button" class="p-action-btn" data-edit-ch="' + escapeHtml(ch.id) + '">' + sc('编辑', '編輯') + '</button>'
+      +       '<button type="button" class="p-action-btn danger" data-del-ch="' + escapeHtml(ch.id) + '">' + sc('删除', '刪除') + '</button>'
+      +     '</div>'
+      +   '</div>'
+      +   '<div class="cs-ch-lessons" data-lessons-of="' + escapeHtml(ch.id) + '">'
+      +     '<div class="cs-empty-mini">' + sc('课时 CRUD 将在 F1.4 阶段接入', '課時 CRUD 將在 F1.4 階段接入') + '</div>'
+      +   '</div>'
+      + '</div>';
+  }).join('') + '</div>';
+}
+
 function buildDetailForm(c) {
   return ''
     + '<div class="dr-err" id="d-err"></div>'
@@ -387,8 +499,11 @@ function buildDetailForm(c) {
     + '</div>'
     + '</div>'
     + '<div class="cs-section">'
-    + '<h4>' + sc('章 / 节', '章 / 節') + '</h4>'
-    + '<div class="cs-chapters-placeholder">' + sc('章节 CRUD 将在 F1.3 阶段接入此处。', '章節 CRUD 將在 F1.3 階段接入此處。') + '</div>'
+    + '<div class="cs-section-head">'
+    +   '<h4>' + sc('章节', '章節') + '</h4>'
+    +   '<button type="button" class="btn-ghost-s" id="btn-add-chapter">+ ' + sc('添加章节', '添加章節') + '</button>'
+    + '</div>'
+    + renderChaptersHtml(c)
     + '</div>'
     + '<div class="cs-actions">'
     + '<div class="left">'
@@ -481,7 +596,73 @@ function bindDetailForm(c) {
       })
       .finally(function () { delBtn.removeAttribute('aria-busy'); });
   });
+
+  // ── 章节操作（F1.3）── 添加 / 编辑 / 删除
+  var addBtn = document.getElementById('btn-add-chapter');
+  if (addBtn) addBtn.addEventListener('click', function () { openChapterModal('new', c.id); });
+
+  document.querySelectorAll('[data-edit-ch]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var chid = btn.getAttribute('data-edit-ch');
+      var ch = (c.chapters || []).find(function (x) { return x.id === chid; });
+      if (ch) openChapterModal('edit', null, ch);
+    });
+  });
+
+  document.querySelectorAll('[data-del-ch]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var chid = btn.getAttribute('data-del-ch');
+      var ch = (c.chapters || []).find(function (x) { return x.id === chid; });
+      if (!ch) return;
+      var lessonCount = (ch.lessons || []).length;
+      var msgSC = '确定删除章「' + ch.title + '」？';
+      if (lessonCount > 0) {
+        msgSC += '\n该章下有 ' + lessonCount + ' 个课时，删除将级联删除所有课时。';
+      }
+      msgSC += '\n如该章关联了题目，会被后端拒绝。';
+      var msgTC = msgSC.replace(/章/g, '章').replace(/课时/g, '課時').replace(/级联/g, '級聯').replace(/关联/g, '關聯').replace(/拒绝/g, '拒絕');
+      if (!confirm(sc(msgSC, msgTC))) return;
+      btn.setAttribute('aria-busy', 'true');
+      flash();
+      window.JX.api.del('/api/admin/chapters/' + encodeURIComponent(chid))
+        .then(function () { renderDetail(c.id); fetchList(); })
+        .catch(function (err) {
+          flash('err', (err && err.message) || sc('删除失败', '刪除失敗'));
+        })
+        .finally(function () { btn.removeAttribute('aria-busy'); });
+    });
+  });
 }
+
+// ── 章节模态框（F1.3 · 共用 new/edit）──────────────
+var chBackdrop, chForm, chErr, chSubmit, chTitle;
+
+function openChapterModal(mode, courseId, chapter) {
+  if (!chBackdrop) return;
+  chForm.reset();
+  chErr.classList.remove('show');
+  chErr.textContent = '';
+  chForm.dataset.mode = mode;
+
+  if (mode === 'new') {
+    chForm.dataset.courseId = courseId;
+    chForm.dataset.chapterId = '';
+    chTitle.innerHTML = '<span class="sc">新建章节</span><span class="tc">新建章節</span>';
+    document.getElementById('ch-order').value = '';
+    document.getElementById('ch-title').value = '';
+    document.getElementById('ch-titleTC').value = '';
+  } else {
+    chForm.dataset.courseId = '';
+    chForm.dataset.chapterId = chapter.id;
+    chTitle.innerHTML = '<span class="sc">编辑章节</span><span class="tc">編輯章節</span>';
+    document.getElementById('ch-order').value = chapter.order || '';
+    document.getElementById('ch-title').value = chapter.title || '';
+    document.getElementById('ch-titleTC').value = chapter.titleTraditional || '';
+  }
+  chBackdrop.classList.add('open');
+  setTimeout(function () { document.getElementById('ch-title').focus(); }, 50);
+}
+function closeChapterModal() { chBackdrop.classList.remove('open'); }
 
 // ── 新建法本 模态框 ─────────────────────────────
 var newBackdrop, newForm, newErr, newSubmit;
@@ -504,6 +685,12 @@ document.addEventListener('DOMContentLoaded', function () {
   newErr      = document.getElementById('new-err');
   newSubmit   = document.getElementById('new-submit');
 
+  chBackdrop = document.getElementById('ch-backdrop');
+  chForm     = document.getElementById('ch-form');
+  chErr      = document.getElementById('ch-err');
+  chSubmit   = document.getElementById('ch-submit');
+  chTitle    = document.getElementById('ch-modal-title');
+
   document.getElementById('btn-new-course').addEventListener('click', openNew);
   document.getElementById('new-cancel').addEventListener('click', closeNew);
   newBackdrop.addEventListener('click', function (ev) {
@@ -511,6 +698,59 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   document.addEventListener('keydown', function (ev) {
     if (ev.key === 'Escape' && newBackdrop.classList.contains('open')) closeNew();
+    if (ev.key === 'Escape' && chBackdrop.classList.contains('open')) closeChapterModal();
+  });
+
+  // 章节模态框 关闭
+  document.getElementById('ch-cancel').addEventListener('click', closeChapterModal);
+  chBackdrop.addEventListener('click', function (ev) {
+    if (ev.target === chBackdrop) closeChapterModal();
+  });
+
+  // 章节模态框 提交（共用 new / edit）
+  chForm.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var mode      = chForm.dataset.mode;
+    var courseId  = chForm.dataset.courseId;
+    var chapterId = chForm.dataset.chapterId;
+    var orderRaw  = document.getElementById('ch-order').value;
+    var title     = document.getElementById('ch-title').value.trim();
+    var titleTC   = document.getElementById('ch-titleTC').value.trim();
+
+    if (!title) {
+      chErr.textContent = sc('请填写章名', '請填寫章名');
+      chErr.classList.add('show');
+      return;
+    }
+    var body = { title: title };
+    if (orderRaw) body.order = parseInt(orderRaw, 10);
+    if (mode === 'new') {
+      // create: titleTC 空就不传（service 会写 null）
+      if (titleTC) body.titleTraditional = titleTC;
+    } else {
+      // edit: titleTC 空 = 显式置 null
+      body.titleTraditional = titleTC || null;
+    }
+
+    chSubmit.setAttribute('aria-busy', 'true');
+    chErr.classList.remove('show');
+
+    var p = mode === 'new'
+      ? window.JX.api.post('/api/admin/courses/' + encodeURIComponent(courseId) + '/chapters', body)
+      : window.JX.api.patch('/api/admin/chapters/' + encodeURIComponent(chapterId), body);
+
+    p.then(function () {
+      closeChapterModal();
+      // 重新加载当前法本树（章节变了）
+      if (state.currentId) renderDetail(state.currentId);
+      // 列表里的章节计数也会变 → 刷新左栏
+      fetchList();
+    })
+    .catch(function (err) {
+      chErr.textContent = (err && err.message) || sc('保存失败', '保存失敗');
+      chErr.classList.add('show');
+    })
+    .finally(function () { chSubmit.removeAttribute('aria-busy'); });
   });
 
   newForm.addEventListener('submit', function (ev) {
