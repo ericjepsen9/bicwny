@@ -342,6 +342,29 @@
   display: inline-flex; align-items: center; justify-content: center;
 }
 .im-del-tiny:hover { background: var(--crimson-light); }
+
+/* F3.2 · URL 输入区 */
+.im-or {
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin: var(--sp-4) 0;
+  font: var(--text-caption); color: var(--ink-4); letter-spacing: 2px;
+}
+.im-or::before, .im-or::after {
+  content: ''; flex: 1; height: 1px; background: var(--border-light);
+}
+.im-url-row {
+  display: flex; gap: var(--sp-2); align-items: stretch;
+}
+.im-url-input {
+  flex: 1; padding: 8px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.im-url-input:focus { border-color: var(--saffron); }
+.im-url-hint {
+  font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px;
+  margin-top: 6px; text-align: center;
+}
 .cs-field.le-textarea textarea {
   min-height: 200px; max-height: 50vh;
   font-family: 'SF Mono', ui-monospace, Consolas, monospace;
@@ -505,6 +528,22 @@
             <span class="sc">支持 .pdf · .docx · 上限 20 MB · 扫描版 PDF 不支持 OCR</span>
             <span class="tc">支持 .pdf · .docx · 上限 20 MB · 掃描版 PDF 不支持 OCR</span>
           </div>
+        </div>
+
+        <div class="im-or"><span class="sc">或</span><span class="tc">或</span></div>
+
+        <div class="im-url-row">
+          <input type="url" class="im-url-input" id="im-url"
+            data-ph-sc="https://example.com/article 抓取网页正文"
+            data-ph-tc="https://example.com/article 抓取網頁正文"
+            placeholder="https://example.com/article 抓取网页正文">
+          <button type="button" class="btn-apply" id="im-fetch-url">
+            <span class="sc">抓取</span><span class="tc">抓取</span>
+          </button>
+        </div>
+        <div class="im-url-hint">
+          <span class="sc">仅 http/https · 8 MB / 12 秒上限 · 禁内网地址 · 不解析 SPA</span>
+          <span class="tc">僅 http/https · 8 MB / 12 秒上限 · 禁內網地址 · 不解析 SPA</span>
         </div>
       </div>
 
@@ -1285,6 +1324,8 @@ function imOpen() {
   document.getElementById('im-err').classList.remove('show');
   document.getElementById('im-err').textContent = '';
   document.getElementById('im-file').value = '';
+  var urlInput = document.getElementById('im-url');
+  if (urlInput) urlInput.value = '';
   imShowStep('upload');
   document.getElementById('im-backdrop').classList.add('open');
 }
@@ -1295,6 +1336,27 @@ function imErr(msg) {
   var el = document.getElementById('im-err');
   el.textContent = msg;
   el.classList.add('show');
+}
+
+// F3.2 · 抓取 URL · 走 api.post（JSON）
+function imFetchUrl(url) {
+  if (!url || !/^https?:\/\//i.test(url)) {
+    imErr(sc('请填写 http/https URL', '請填寫 http/https URL'));
+    return;
+  }
+  imShowStep('parsing');
+  document.getElementById('im-err').classList.remove('show');
+
+  window.JX.api.post('/api/admin/courses/import-url/preview', { url: url })
+    .then(function (data) {
+      state.importPreview = data;
+      imRenderPreview();
+      imShowStep('preview');
+    })
+    .catch(function (err) {
+      imShowStep('upload');
+      imErr((err && err.message) || sc('抓取失败', '抓取失敗'));
+    });
 }
 
 // 上传文件 · 走 raw fetch（api.js 是 JSON-only，不能传 multipart）
@@ -1529,6 +1591,15 @@ function bindImportModal() {
     }
   });
   fileInput.addEventListener('change', function () { imUpload(fileInput.files[0]); });
+
+  // F3.2 · URL 抓取
+  var urlInput = document.getElementById('im-url');
+  document.getElementById('im-fetch-url').addEventListener('click', function () {
+    imFetchUrl(urlInput.value.trim());
+  });
+  urlInput.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); imFetchUrl(urlInput.value.trim()); }
+  });
 
   // 拖拽
   ['dragover', 'dragenter'].forEach(function (e) {
