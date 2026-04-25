@@ -572,12 +572,12 @@
           </div>
           <div class="cs-field">
             <label for="im-batch-delay"><span class="sc">间隔秒数</span><span class="tc">間隔秒數</span></label>
-            <input class="im-url-input" id="im-batch-delay" type="number" min="0.5" max="30" step="0.5" value="2">
-            <span class="hint"><span class="sc">默认 2 秒 · 被限流可改 5-10 秒</span><span class="tc">默認 2 秒 · 被限流可改 5-10 秒</span></span>
+            <input class="im-url-input" id="im-batch-delay" type="number" min="5" max="60" step="1" value="6">
+            <span class="hint"><span class="sc">默认 6 秒 · 强制最小 5 秒 · 大批量建议 10-15 秒</span><span class="tc">默認 6 秒 · 強制最小 5 秒</span></span>
           </div>
           <div class="cs-field">
             <label for="im-batch-retry-delay"><span class="sc">重试时的间隔</span><span class="tc">重試時的間隔</span></label>
-            <input class="im-url-input" id="im-batch-retry-delay" type="number" min="1" max="60" step="0.5" value="5">
+            <input class="im-url-input" id="im-batch-retry-delay" type="number" min="5" max="60" step="1" value="10">
             <span class="hint"><span class="sc">点 重试失败的 时使用</span><span class="tc">點 重試失敗的 時使用</span></span>
           </div>
         </div>
@@ -608,8 +608,8 @@
         </div>
         <span id="im-batch-progress" style="display:none;"></span><!-- 旧元素保留兼容 -->
         <div class="im-url-hint">
-          <span class="sc">按上方"间隔秒数"串行抓取 · 失败的会单独列出可重试</span>
-          <span class="tc">按上方「間隔秒數」串行抓取 · 失敗的會單獨列出可重試</span>
+          <span class="sc">间隔强制 ≥ 5 秒（防被封 IP）· 启动会先预检 1 条 · 连续 5 条失败自动暂停</span>
+          <span class="tc">間隔強制 ≥ 5 秒（防被封 IP）· 啟動會先預檢 1 條 · 連續 5 條失敗自動暫停</span>
         </div>
 
         <!-- 失败列表 · 每次抓完显示 · admin 可重试或导出 -->
@@ -1482,15 +1482,38 @@ function imBatchFetch() {
     imErr(sc('单批最多 200 条 · 当前 ' + total, '單批最多 200 條'));
     return;
   }
+  // 计算预计时长（按用户选的间隔 + 强制最小 5s）
+  var sec = parseFloat(document.getElementById('im-batch-delay').value || '2');
+  if (!isFinite(sec) || sec < 5) sec = 5;   // 强制最小 5s · 防再被封
+  var estMin = Math.ceil(total * (sec + 1) / 60);
   if (!confirm(sc(
-    '将串行抓取 ' + total + ' 条 URL（每条间隔 1.5 秒，预计 ' + Math.ceil(total * 4 / 60) + ' 分钟）。\n开始？',
-    '將串行抓取 ' + total + ' 條 URL，預計 ' + Math.ceil(total * 4 / 60) + ' 分鐘'
+    '将串行抓取 ' + total + ' 条 URL（每条间隔 ≥ ' + sec + ' 秒，预计 ' + estMin + ' 分钟）。\n\n首先会预检 1 条确认源站可达。\n开始？',
+    '將串行抓取 ' + total + ' 條 URL，預計 ' + estMin + ' 分鐘'
   ))) return;
 
   // 生成 URL 列表
   var urls = [];
   for (var n = from; n <= to; n++) urls.push(pattern.replace(/\{n\}/g, String(n)));
-  imBatchFetchUrls(urls, /* isRetry */ false);
+
+  // ③ 健康预检 · 先抓第一条，失败就警告别浪费时间
+  document.getElementById('im-err').classList.remove('show');
+  document.getElementById('im-batch-progress-box').style.display = '';
+  document.getElementById('im-batch-progress-text').textContent = sc('预检中…', '預檢中…');
+  document.getElementById('im-batch-progress-current').textContent = urls[0];
+
+  window.JX.api.post('/api/admin/courses/import-url/preview', { url: urls[0] })
+    .then(function () {
+      // 预检通过 · 启动批量抓取（注意 urls[0] 第一条需要再抓一次因为这次没存）
+      imBatchFetchUrls(urls, /* isRetry */ false);
+    })
+    .catch(function (err) {
+      document.getElementById('im-batch-progress-box').style.display = 'none';
+      var msg = (err && err.message) || sc('未知错误', '未知錯誤');
+      imErr(sc(
+        '⚠ 预检失败 · 源站可能不可达或封禁了你的 IP\n\n错误：' + msg + '\n\n建议：\n  · 等 1-2 小时后再试\n  · 或换网络 / 等服务器 IP 解封\n  · 单 URL 输入框直接试 1 条看具体原因',
+        '⚠ 預檢失敗 · 源站可能不可達\n\n錯誤：' + msg
+      ));
+    });
 }
 
 // 核心循环：串行抓 urls 数组 · 失败的累积 · 支持暂停/取消
@@ -1498,7 +1521,15 @@ function imBatchFetch() {
 //   delayMs：每条间隔（毫秒）· 默认从 #im-batch-delay 读
 //   防并发：用 batchToken · 旧 closure 在每次 step 前检查自己的 token
 //          被新一轮覆盖时，旧 closure 立即退出，不再写 DOM
+//
+// 保护机制
+//   ① 强制最小间隔 5s（防再次触发反爬封 IP）
+//   ② 连续 5 条失败 → 自动暂停 + 提示用户（多半被限流/封禁）
+//   ③ 启动时健康预检 1 条试试 · 失败先警告
 state.batchToken = state.batchToken || 0;
+var BATCH_MIN_DELAY_MS = 5000;
+var BATCH_FAILURE_BREAK_AT = 5;
+
 function imBatchFetchUrls(urls, isRetry, delayMs) {
   document.getElementById('im-err').classList.remove('show');
   state.batchToken = (state.batchToken || 0) + 1;
@@ -1512,6 +1543,10 @@ function imBatchFetchUrls(urls, isRetry, delayMs) {
     if (!isFinite(sec) || sec < 0.5) sec = 2;
     delayMs = Math.round(sec * 1000);
   }
+  // ① 强制最小间隔 · 用户填得再短也至少 5s
+  if (delayMs < BATCH_MIN_DELAY_MS) {
+    delayMs = BATCH_MIN_DELAY_MS;
+  }
 
   var collected = isRetry && state.importPreview && state.importPreview.chapters
     ? state.importPreview.chapters.slice()
@@ -1523,6 +1558,7 @@ function imBatchFetchUrls(urls, isRetry, delayMs) {
   var i = 0;
   var total = urls.length;
   var successCount = 0;
+  var consecutiveFailures = 0;   // ② 熔断计数
 
   // 显示进度框
   document.getElementById('im-batch-progress-box').style.display = '';
@@ -1598,20 +1634,33 @@ function imBatchFetchUrls(urls, isRetry, delayMs) {
             data.chapters.forEach(function (ch) { collected.push(ch); });
           }
           successCount++;
+          consecutiveFailures = 0;   // 成功一条 · 重置熔断计数
         } else {
           failed.push({ url: url, err: '空内容' });
+          consecutiveFailures++;
           imRenderBatchFailedBox();   // 实时更新失败列表
         }
       })
       .catch(function (err) {
         if (state.batchToken !== myToken) return;
         failed.push({ url: url, err: (err && err.message) || String(err) });
+        consecutiveFailures++;
         imRenderBatchFailedBox();   // 实时更新
       })
       .finally(function () {
         if (state.batchToken !== myToken) return;
         i++;
         updateProgress();
+        // ② 连续失败熔断
+        if (consecutiveFailures >= BATCH_FAILURE_BREAK_AT && state.batchControl.status === 'running') {
+          state.batchControl.status = 'paused';
+          imRenderBatchControlButtons();
+          imErr(sc(
+            '已连续失败 ' + consecutiveFailures + ' 条 · 已自动暂停。\n\n可能原因：源站限流、IP 被封、网络抖动。\n建议：\n  · 增大「间隔秒数」到 10-15 秒\n  · 或停手 1-2 小时再来\n点 ▶ 继续 恢复 · 或 ✕ 取消 终止。',
+            '已連續失敗 ' + consecutiveFailures + ' 條 · 已自動暫停。'
+          ));
+          consecutiveFailures = 0;   // 重置 · 用户继续后再开始计
+        }
         // 取消优先 · 否则按可配置间隔
         if (state.batchControl.status === 'cancelled') { finalize(); return; }
         setTimeout(step, delayMs);

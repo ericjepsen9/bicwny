@@ -327,7 +327,10 @@ export async function commitImport(
 
 const FETCH_TIMEOUT_MS = 12_000;
 const MAX_HTML_BYTES = 8 * 1024 * 1024; // 8 MB
-const USER_AGENT = 'JuexueImporter/1.0 (admin upload tool)';
+// 之前用 'JuexueImporter/1.0' 容易被反爬识别 · 改成主流 Chrome UA 提高通过率
+// 不是为了规避合理的反爬，是为了让正常公开内容能抓到（admin 主动导入用途）
+const USER_AGENT =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 /** SSRF 防护：拒绝内网 / 链路本地 / loopback / 多播 IP */
 function isPrivateIp(ip: string): boolean {
