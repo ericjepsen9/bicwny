@@ -1,0 +1,576 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280,initial-scale=1">
+<title>觉学 · 法本管理 · 管理员</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/desktop.css">
+<style>
+.side-avatar { background: linear-gradient(135deg, var(--crimson-light), var(--crimson)); }
+
+/* ── 两栏布局 ─────────────────────────────────── */
+.cs-layout {
+  display: grid; grid-template-columns: 360px 1fr; gap: var(--sp-4);
+  align-items: start;
+}
+.cs-list-panel {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); overflow: hidden;
+  position: sticky; top: var(--sp-4); max-height: calc(100vh - 120px); overflow-y: auto;
+}
+.cs-list-head {
+  padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border-light);
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(43,34,24,.02);
+}
+.cs-list-head h3 { font-family: var(--font-serif); font-weight: 700; font-size: .9375rem; color: var(--ink); letter-spacing: 2px; margin: 0; }
+.cs-list-count { font: var(--text-caption); color: var(--ink-4); letter-spacing: 1px; }
+
+.cs-card {
+  display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border-light);
+  cursor: pointer; transition: background var(--dur) var(--ease);
+}
+.cs-card:hover { background: rgba(224,120,86,.04); }
+.cs-card.active { background: rgba(224,120,86,.10); border-left: 3px solid var(--saffron); padding-left: calc(var(--sp-4) - 3px); }
+.cs-card:last-child { border-bottom: 0; }
+.cs-emoji { font-size: 1.5rem; line-height: 1; flex-shrink: 0; }
+.cs-info { flex: 1; min-width: 0; }
+.cs-name { font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 1px; line-height: 1.4; word-break: break-word; }
+.cs-meta { font: var(--text-caption); color: var(--ink-3); letter-spacing: .5px; margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap; }
+.cs-pub-pill {
+  display: inline-block; padding: 1px 7px; border-radius: var(--r-pill);
+  font-size: .625rem; font-weight: 600; letter-spacing: 1px;
+}
+.cs-pub-pill.on { background: var(--sage-light); color: var(--sage-dark); }
+.cs-pub-pill.off { background: rgba(43,34,24,.08); color: var(--ink-3); }
+
+/* ── 详情面板 ─────────────────────────────────── */
+.cs-detail-panel {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); padding: var(--sp-5);
+  min-height: 400px;
+}
+.cs-detail-empty {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 360px; color: var(--ink-4); font: var(--text-body); letter-spacing: 1px;
+}
+
+.cs-section { margin-bottom: var(--sp-5); }
+.cs-section h4 {
+  font-family: var(--font-serif); font-weight: 700; letter-spacing: 2px;
+  color: var(--ink); margin: 0 0 var(--sp-3); font-size: .9375rem;
+  border-bottom: 1px solid var(--border-light); padding-bottom: var(--sp-2);
+}
+.cs-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);
+}
+.cs-field { display: flex; flex-direction: column; gap: 4px; }
+.cs-field.full { grid-column: 1 / -1; }
+.cs-field label { font: var(--text-caption); font-weight: 600; letter-spacing: 1px; color: var(--ink-2); }
+.cs-field label .req { color: var(--crimson); margin-left: 3px; }
+.cs-field input, .cs-field select, .cs-field textarea {
+  padding: 7px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.cs-field input:focus, .cs-field select:focus, .cs-field textarea:focus { border-color: var(--saffron); }
+.cs-field textarea { min-height: 64px; resize: vertical; }
+.cs-field .hint { font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px; font-size: .6875rem; }
+
+.cs-checkbox-row { display: flex; align-items: center; gap: 8px; }
+.cs-checkbox-row input { width: 16px; height: 16px; accent-color: var(--saffron); }
+
+.cs-actions {
+  display: flex; justify-content: space-between; gap: var(--sp-2);
+  margin-top: var(--sp-4); padding-top: var(--sp-4);
+  border-top: 1px solid var(--border-light);
+}
+.cs-actions .left, .cs-actions .right { display: flex; gap: var(--sp-2); }
+
+/* ── 按钮（沿用项目通用样式） ───────────────────── */
+.btn-new { padding: 7px 16px; border-radius: var(--r-pill); background: var(--saffron); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn-new:hover { background: var(--saffron-dark); }
+.btn-apply { padding: 7px 16px; border-radius: var(--r-sm); background: var(--saffron); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+.btn-apply[aria-busy="true"], .btn-new[aria-busy="true"] { opacity: .6; pointer-events: none; }
+.btn-ghost-s { padding: 7px 16px; border-radius: var(--r-sm); background: transparent; color: var(--ink-2); border: 1px solid var(--border); font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer; }
+.btn-danger { padding: 7px 16px; border-radius: var(--r-sm); background: transparent; color: var(--crimson); border: 1px solid var(--crimson-light); font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer; }
+.btn-danger:hover { background: var(--crimson-light); }
+
+.dr-err { color: var(--crimson); font: var(--text-caption); letter-spacing: 1px; padding: 8px 10px; border-radius: var(--r-sm); background: rgba(192,57,43,.06); margin-bottom: var(--sp-3); display: none; }
+.dr-err.show { display: block; }
+.dr-ok { color: var(--sage-dark); font: var(--text-caption); letter-spacing: 1px; padding: 8px 10px; border-radius: var(--r-sm); background: rgba(125,154,108,.12); margin-bottom: var(--sp-3); display: none; }
+.dr-ok.show { display: block; }
+
+/* ── 新建法本 模态框（与 admin-users 同款） ──────── */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 110; display: flex; align-items: center; justify-content: center; padding: var(--sp-6); }
+.modal-backdrop.open { opacity: 1; pointer-events: auto; }
+.modal {
+  width: 100%; max-width: 480px;
+  background: #fff; border-radius: var(--r-lg);
+  box-shadow: 0 24px 60px rgba(0,0,0,.18);
+  transform: scale(.96); transition: transform .2s var(--ease);
+  display: flex; flex-direction: column; max-height: 90vh;
+}
+.modal-backdrop.open .modal { transform: scale(1); }
+.modal-head { display: flex; align-items: center; padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-light); }
+.modal-title { flex: 1; font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.modal-body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
+.modal-foot { display: flex; justify-content: flex-end; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--border-light); background: rgba(43,34,24,.02); border-radius: 0 0 var(--r-lg) var(--r-lg); }
+
+/* ── 章节占位（F1.3 实现） ───────────────────── */
+.cs-chapters-placeholder {
+  padding: var(--sp-4) var(--sp-5); text-align: center;
+  color: var(--ink-4); font: var(--text-caption); letter-spacing: 1px;
+  background: rgba(43,34,24,.03); border-radius: var(--r-sm);
+  border: 1px dashed var(--border);
+}
+</style>
+<meta name="jx-require-role" content="admin">
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name"><span class="sc">觉学</span><span class="tc">覺學</span></div>
+        <div class="brand-sub"><span class="sc">管理员后台</span><span class="tc">管理員後台</span></div>
+      </div>
+    </div>
+
+    <div class="side-user">
+      <div class="side-avatar" data-jx-user="avatarInitial">—</div>
+      <div class="side-user-info">
+        <div class="side-user-name" data-jx-user="dharmaName">—</div>
+        <div class="side-user-role" data-jx-user="roleLabel">—</div>
+      </div>
+      <button type="button" id="btn-logout" title="退出登录" aria-label="退出登录"
+        style="margin-left:auto;background:none;border:0;color:var(--ink-3);cursor:pointer;padding:6px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-list" id="admin-nav"></nav>
+    <script src="../shared/admin-nav.js"></script>
+  </aside>
+
+  <main class="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="page-title"><span class="sc">法本管理</span><span class="tc">法本管理</span></h1>
+        <p class="page-sub"><span class="sc">论典 / 章 / 节 三级结构 · 含未发布</span><span class="tc">論典 / 章 / 節 三級結構 · 含未發佈</span></p>
+      </div>
+      <div class="top-actions">
+        <button class="btn-new" id="btn-new-course">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span><span class="sc">新建法本</span><span class="tc">新建法本</span></span>
+        </button>
+        <button class="lang-btn" onclick="toggleLang()">繁</button>
+      </div>
+    </div>
+
+    <div class="cs-layout">
+      <!-- 左：法本列表 -->
+      <div class="cs-list-panel">
+        <div class="cs-list-head">
+          <h3><span class="sc">法本列表</span><span class="tc">法本列表</span></h3>
+          <span class="cs-list-count" id="cs-count">—</span>
+        </div>
+        <div id="cs-list-body">
+          <div style="padding:var(--sp-5);text-align:center;color:var(--ink-3);font:var(--text-caption);">
+            <span class="sc">加载中…</span><span class="tc">加載中…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：详情 / 编辑 -->
+      <div class="cs-detail-panel" id="cs-detail">
+        <div class="cs-detail-empty">
+          <span class="sc">← 选择左侧法本查看详情，或点 + 新建</span>
+          <span class="tc">← 選擇左側法本查看詳情，或點 + 新建</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 新建法本 模态框 -->
+<div class="modal-backdrop" id="new-backdrop">
+  <form class="modal" id="new-form" novalidate>
+    <div class="modal-head">
+      <span class="modal-title"><span class="sc">新建法本</span><span class="tc">新建法本</span></span>
+    </div>
+    <div class="modal-body">
+      <div class="dr-err" id="new-err"></div>
+      <div class="cs-grid">
+        <div class="cs-field full">
+          <label for="new-title"><span class="sc">书名（简体）</span><span class="tc">書名（簡體）</span><span class="req">*</span></label>
+          <input id="new-title" type="text" maxlength="120" required>
+        </div>
+        <div class="cs-field full">
+          <label for="new-titleTC"><span class="sc">书名（繁体）</span><span class="tc">書名（繁體）</span></label>
+          <input id="new-titleTC" type="text" maxlength="120">
+        </div>
+        <div class="cs-field">
+          <label for="new-slug">slug<span class="req">*</span></label>
+          <input id="new-slug" type="text" maxlength="80" pattern="[a-z0-9-]+" required>
+          <span class="hint"><span class="sc">URL 用 · 字母/数字/连字符</span><span class="tc">URL 用 · 字母/數字/連字符</span></span>
+        </div>
+        <div class="cs-field">
+          <label for="new-emoji"><span class="sc">封面 emoji</span><span class="tc">封面 emoji</span></label>
+          <input id="new-emoji" type="text" maxlength="8" placeholder="🪷">
+        </div>
+        <div class="cs-field full">
+          <label for="new-author"><span class="sc">作者 / 译者</span><span class="tc">作者 / 譯者</span></label>
+          <input id="new-author" type="text" maxlength="120">
+        </div>
+        <div class="cs-field full">
+          <label for="new-description"><span class="sc">简介</span><span class="tc">簡介</span></label>
+          <textarea id="new-description" maxlength="2000"></textarea>
+        </div>
+        <div class="cs-field">
+          <label for="new-displayOrder"><span class="sc">显示顺序</span><span class="tc">顯示順序</span></label>
+          <input id="new-displayOrder" type="number" min="0" value="0">
+          <span class="hint"><span class="sc">数字越小越靠前</span><span class="tc">數字越小越靠前</span></span>
+        </div>
+        <div class="cs-field">
+          <label class="cs-checkbox-row">
+            <input id="new-isPublished" type="checkbox" checked>
+            <span><span class="sc">已发布（学员可见）</span><span class="tc">已發佈（學員可見）</span></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost-s" id="new-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+      <button type="submit" class="btn-apply" id="new-submit"><span class="sc">创建</span><span class="tc">創建</span></button>
+    </div>
+  </form>
+</div>
+
+<script>
+// admin-courses · F1.2 阶段 · 法本列表 + 元数据 CRUD
+//   F1.3 接入 章节 CRUD（占位区已留）
+//   F1.4 接入 课时 CRUD + referenceText / teachingSummary
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var state = {
+  list: [],          // 法本概览数组
+  currentId: null,   // 当前选中
+};
+
+// ── 列表渲染 ────────────────────────────────────────
+function renderList() {
+  var body = document.getElementById('cs-list-body');
+  document.getElementById('cs-count').textContent = state.list.length + sc(' 本', ' 本');
+  if (!state.list.length) {
+    body.innerHTML = '<div style="padding:var(--sp-5);text-align:center;color:var(--ink-4);font:var(--text-caption);">' +
+      escapeHtml(sc('暂无法本，点击右上 + 新建', '暫無法本，點擊右上 + 新建')) + '</div>';
+    return;
+  }
+  body.innerHTML = state.list.map(function (c) {
+    var isActive = c.id === state.currentId;
+    var pub = c.isPublished
+      ? '<span class="cs-pub-pill on">' + sc('已发布', '已發佈') + '</span>'
+      : '<span class="cs-pub-pill off">' + sc('未发布', '未發佈') + '</span>';
+    return '<div class="cs-card' + (isActive ? ' active' : '') + '" data-id="' + escapeHtml(c.id) + '">' +
+      '<div class="cs-emoji">' + escapeHtml(c.coverEmoji || '🪷') + '</div>' +
+      '<div class="cs-info">' +
+        '<div class="cs-name">' + escapeHtml(c.title || '—') + '</div>' +
+        '<div class="cs-meta">' +
+          pub +
+          '<span>' + (c.chapterCount || 0) + sc(' 章', ' 章') + '</span>' +
+          '<span>' + (c.lessonCount || 0) + sc(' 节', ' 節') + '</span>' +
+          '<span>' + (c.enrollmentCount || 0) + sc(' 报名', ' 報名') + '</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  body.querySelectorAll('[data-id]').forEach(function (el) {
+    el.addEventListener('click', function () { selectCourse(el.getAttribute('data-id')); });
+  });
+}
+
+function fetchList() {
+  return window.JX.api.get('/api/admin/courses').then(function (data) {
+    state.list = data || [];
+    renderList();
+  }).catch(function (err) {
+    document.getElementById('cs-list-body').innerHTML =
+      '<div style="padding:var(--sp-5);text-align:center;color:var(--crimson);font:var(--text-caption);">' +
+      escapeHtml(sc('加载失败：', '加載失敗：') + ((err && err.message) || err)) + '</div>';
+  });
+}
+
+// ── 详情 / 元数据编辑 ─────────────────────────────
+function selectCourse(id) {
+  state.currentId = id;
+  // 更新左侧高亮
+  document.querySelectorAll('.cs-card').forEach(function (el) {
+    el.classList.toggle('active', el.getAttribute('data-id') === id);
+  });
+  renderDetail(id);
+}
+
+function renderDetail(id) {
+  var detail = document.getElementById('cs-detail');
+  detail.innerHTML = '<div class="cs-detail-empty"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>';
+  window.JX.api.get('/api/admin/courses/' + encodeURIComponent(id))
+    .then(function (data) {
+      state.currentTree = data;   // F1.3 章节会从这里读
+      detail.innerHTML = buildDetailForm(data);
+      bindDetailForm(data);
+    })
+    .catch(function (err) {
+      detail.innerHTML = '<div class="cs-detail-empty" style="color:var(--crimson);">' +
+        escapeHtml(sc('加载失败：', '加載失敗：') + ((err && err.message) || err)) + '</div>';
+    });
+}
+
+function buildDetailForm(c) {
+  return ''
+    + '<div class="dr-err" id="d-err"></div>'
+    + '<div class="dr-ok" id="d-ok"></div>'
+    + '<form id="d-form">'
+    + '<div class="cs-section">'
+    + '<h4>' + sc('基本信息', '基本信息') + '</h4>'
+    + '<div class="cs-grid">'
+    +   '<div class="cs-field full"><label for="d-title">' + sc('书名（简体）', '書名（簡體）') + '<span class="req">*</span></label>'
+    +     '<input id="d-title" type="text" maxlength="120" value="' + escapeHtml(c.title || '') + '" required></div>'
+    +   '<div class="cs-field full"><label for="d-titleTC">' + sc('书名（繁体）', '書名（繁體）') + '</label>'
+    +     '<input id="d-titleTC" type="text" maxlength="120" value="' + escapeHtml(c.titleTraditional || '') + '"></div>'
+    +   '<div class="cs-field"><label for="d-slug">slug<span class="req">*</span></label>'
+    +     '<input id="d-slug" type="text" maxlength="80" pattern="[a-z0-9-]+" value="' + escapeHtml(c.slug || '') + '" required>'
+    +     '<span class="hint">' + sc('改 slug 会破坏外链', '改 slug 會破壞外鏈') + '</span></div>'
+    +   '<div class="cs-field"><label for="d-emoji">' + sc('封面 emoji', '封面 emoji') + '</label>'
+    +     '<input id="d-emoji" type="text" maxlength="8" value="' + escapeHtml(c.coverEmoji || '') + '"></div>'
+    +   '<div class="cs-field full"><label for="d-author">' + sc('作者 / 译者', '作者 / 譯者') + '</label>'
+    +     '<input id="d-author" type="text" maxlength="120" value="' + escapeHtml(c.author || '') + '"></div>'
+    +   '<div class="cs-field full"><label for="d-authorInfo">' + sc('作者介绍', '作者介紹') + '</label>'
+    +     '<textarea id="d-authorInfo" maxlength="2000">' + escapeHtml(c.authorInfo || '') + '</textarea></div>'
+    +   '<div class="cs-field full"><label for="d-description">' + sc('简介', '簡介') + '</label>'
+    +     '<textarea id="d-description" maxlength="2000">' + escapeHtml(c.description || '') + '</textarea></div>'
+    +   '<div class="cs-field full"><label for="d-licenseInfo">' + sc('版权信息', '版權信息') + '</label>'
+    +     '<input id="d-licenseInfo" type="text" maxlength="500" value="' + escapeHtml(c.licenseInfo || '') + '"></div>'
+    +   '<div class="cs-field"><label for="d-displayOrder">' + sc('显示顺序', '顯示順序') + '</label>'
+    +     '<input id="d-displayOrder" type="number" min="0" value="' + (c.displayOrder || 0) + '">'
+    +     '<span class="hint">' + sc('数字越小越靠前', '數字越小越靠前') + '</span></div>'
+    +   '<div class="cs-field"><label class="cs-checkbox-row">'
+    +     '<input id="d-isPublished" type="checkbox"' + (c.isPublished ? ' checked' : '') + '>'
+    +     '<span>' + sc('已发布（学员可见）', '已發佈（學員可見）') + '</span></label></div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="cs-section">'
+    + '<h4>' + sc('章 / 节', '章 / 節') + '</h4>'
+    + '<div class="cs-chapters-placeholder">' + sc('章节 CRUD 将在 F1.3 阶段接入此处。', '章節 CRUD 將在 F1.3 階段接入此處。') + '</div>'
+    + '</div>'
+    + '<div class="cs-actions">'
+    + '<div class="left">'
+    + '<button type="button" class="btn-danger" id="d-delete">' + sc('删除法本', '刪除法本') + '</button>'
+    + '</div>'
+    + '<div class="right">'
+    + '<button type="button" class="btn-ghost-s" id="d-reload">' + sc('重新加载', '重新加載') + '</button>'
+    + '<button type="submit" class="btn-apply" id="d-save">' + sc('保存元数据', '保存元數據') + '</button>'
+    + '</div>'
+    + '</div>'
+    + '</form>';
+}
+
+function flash(kind, msg) {
+  var ok = document.getElementById('d-ok');
+  var err = document.getElementById('d-err');
+  if (!ok || !err) return;
+  ok.classList.remove('show'); err.classList.remove('show');
+  if (!kind) return;
+  var el = kind === 'ok' ? ok : err;
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function bindDetailForm(c) {
+  var form = document.getElementById('d-form');
+  var saveBtn = document.getElementById('d-save');
+  var delBtn  = document.getElementById('d-delete');
+  var reload  = document.getElementById('d-reload');
+
+  reload.addEventListener('click', function () { renderDetail(c.id); });
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var patch = {};
+    function txt(id) { return (document.getElementById(id).value || '').trim(); }
+    function setIfChanged(field, newVal, oldVal, nullable) {
+      if (newVal === '' && nullable) { patch[field] = null; return; }
+      if (newVal === (oldVal || '')) return;
+      patch[field] = newVal;
+    }
+    setIfChanged('slug',             txt('d-slug'),         c.slug,             false);
+    setIfChanged('title',            txt('d-title'),        c.title,            false);
+    setIfChanged('titleTraditional', txt('d-titleTC'),      c.titleTraditional, true);
+    setIfChanged('coverEmoji',       txt('d-emoji') || '🪷', c.coverEmoji,       false);
+    setIfChanged('author',           txt('d-author'),       c.author,           true);
+    setIfChanged('authorInfo',       txt('d-authorInfo'),   c.authorInfo,       true);
+    setIfChanged('description',      txt('d-description'),  c.description,      true);
+    setIfChanged('licenseInfo',      txt('d-licenseInfo'),  c.licenseInfo,      true);
+    var order = parseInt(document.getElementById('d-displayOrder').value, 10);
+    if (!isNaN(order) && order !== c.displayOrder) patch.displayOrder = order;
+    var pub = document.getElementById('d-isPublished').checked;
+    if (pub !== c.isPublished) patch.isPublished = pub;
+
+    if (Object.keys(patch).length === 0) {
+      flash('ok', sc('未发现变更', '未發現變更'));
+      return;
+    }
+
+    saveBtn.setAttribute('aria-busy', 'true');
+    flash();
+    window.JX.api.patch('/api/admin/courses/' + encodeURIComponent(c.id), patch)
+      .then(function () {
+        return Promise.all([fetchList(), Promise.resolve()]).then(function () {
+          renderDetail(c.id);
+        });
+      })
+      .catch(function (err) {
+        flash('err', (err && err.message) || sc('保存失败', '保存失敗'));
+      })
+      .finally(function () { saveBtn.removeAttribute('aria-busy'); });
+  });
+
+  delBtn.addEventListener('click', function () {
+    if (!confirm(sc(
+      '确定删除「' + (c.title || c.slug) + '」？\n\n该操作仅在该法本无任何题目 / 班级 / 报名 / SM-2 卡引用时才能成功。\n如需下架，建议改用 已发布=否。',
+      '確定刪除「' + (c.title || c.slug) + '」？\n\n該操作僅在該法本無任何題目 / 班級 / 報名 / SM-2 卡引用時才能成功。\n如需下架，建議改用 已發佈=否。'
+    ))) return;
+    delBtn.setAttribute('aria-busy', 'true');
+    flash();
+    window.JX.api.del('/api/admin/courses/' + encodeURIComponent(c.id))
+      .then(function () {
+        state.currentId = null;
+        document.getElementById('cs-detail').innerHTML =
+          '<div class="cs-detail-empty"><span class="sc">已删除</span><span class="tc">已刪除</span></div>';
+        return fetchList();
+      })
+      .catch(function (err) {
+        flash('err', (err && err.message) || sc('删除失败', '刪除失敗'));
+      })
+      .finally(function () { delBtn.removeAttribute('aria-busy'); });
+  });
+}
+
+// ── 新建法本 模态框 ─────────────────────────────
+var newBackdrop, newForm, newErr, newSubmit;
+
+function openNew() {
+  if (!newBackdrop) return;
+  newForm.reset();
+  document.getElementById('new-isPublished').checked = true;
+  document.getElementById('new-emoji').value = '';
+  newErr.classList.remove('show');
+  newErr.textContent = '';
+  newBackdrop.classList.add('open');
+  setTimeout(function () { document.getElementById('new-title').focus(); }, 50);
+}
+function closeNew() { newBackdrop.classList.remove('open'); }
+
+document.addEventListener('DOMContentLoaded', function () {
+  newBackdrop = document.getElementById('new-backdrop');
+  newForm     = document.getElementById('new-form');
+  newErr      = document.getElementById('new-err');
+  newSubmit   = document.getElementById('new-submit');
+
+  document.getElementById('btn-new-course').addEventListener('click', openNew);
+  document.getElementById('new-cancel').addEventListener('click', closeNew);
+  newBackdrop.addEventListener('click', function (ev) {
+    if (ev.target === newBackdrop) closeNew();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && newBackdrop.classList.contains('open')) closeNew();
+  });
+
+  newForm.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var slug  = document.getElementById('new-slug').value.trim().toLowerCase();
+    var title = document.getElementById('new-title').value.trim();
+    if (!slug || !title) {
+      newErr.textContent = sc('请填写 slug 和书名', '請填寫 slug 和書名');
+      newErr.classList.add('show');
+      return;
+    }
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      newErr.textContent = sc('slug 只能含字母 / 数字 / 连字符', 'slug 只能含字母 / 數字 / 連字符');
+      newErr.classList.add('show');
+      return;
+    }
+    var body = {
+      slug: slug, title: title,
+      titleTraditional: document.getElementById('new-titleTC').value.trim() || undefined,
+      author:           document.getElementById('new-author').value.trim()  || undefined,
+      description:      document.getElementById('new-description').value.trim() || undefined,
+      coverEmoji:       document.getElementById('new-emoji').value.trim() || '🪷',
+      displayOrder:     parseInt(document.getElementById('new-displayOrder').value, 10) || 0,
+      isPublished:      document.getElementById('new-isPublished').checked,
+    };
+    Object.keys(body).forEach(function (k) { if (body[k] === undefined) delete body[k]; });
+
+    newSubmit.setAttribute('aria-busy', 'true');
+    newErr.classList.remove('show');
+    window.JX.api.post('/api/admin/courses', body)
+      .then(function (resp) {
+        closeNew();
+        return fetchList().then(function () {
+          if (resp && resp.id) selectCourse(resp.id);
+        });
+      })
+      .catch(function (err) {
+        var code = err && err.code;
+        var msg = (err && err.message) || sc('创建失败', '創建失敗');
+        if (code === 'CONFLICT') msg = sc('slug 已被占用', 'slug 已被佔用');
+        newErr.textContent = msg;
+        newErr.classList.add('show');
+      })
+      .finally(function () { newSubmit.removeAttribute('aria-busy'); });
+  });
+});
+
+// ── 退出登录 ─────────────────────────────────────
+document.getElementById('btn-logout').addEventListener('click', function () {
+  if (!confirm(sc('确定退出登录？', '確定退出登入？'))) return;
+  window.JX.api.logout().finally(function () { location.replace('auth.html'); });
+});
+
+// ── 初始加载 ────────────────────────────────────
+document.addEventListener('jx:user-ready', fetchList);
+document.addEventListener('langchange', function () {
+  renderList();
+  if (state.currentId) renderDetail(state.currentId);
+});
+if (window.JX && window.JX.user) fetchList();
+</script>
+</body>
+</html>
