@@ -225,9 +225,44 @@ function setMsg(id, kind, text) {
 }
 function clearMsg(id) { setMsg(id, '', ''); }
 
-// ── 已登录则直达首页（避免二次登录）─────────────
+// ── 登录/注册成功后的目标解析 ────────────────────
+// 1) ?next=<同源相对路径> 优先（被 require-auth.js 守卫从受限页带过来）
+// 2) 否则按 role 默认：admin → desktop/admin · coach → desktop/coach
+//    · student onboarded → home · student !onboarded → onboarding
+function parseNext() {
+  var m = location.search.match(/[?&]next=([^&]+)/);
+  if (!m) return null;
+  var n;
+  try { n = decodeURIComponent(m[1]); } catch (_) { return null; }
+  // 仅同源相对路径（/ 开头且非 //），防开放重定向
+  if (!n || n.charAt(0) !== '/' || n.charAt(1) === '/') return null;
+  return n;
+}
+function defaultTarget(user) {
+  if (user && user.role === 'admin') return '../desktop/admin.html';
+  if (user && user.role === 'coach') return '../desktop/coach.html';
+  if (user && user.role === 'student' && !user.hasOnboarded) return 'onboarding.html';
+  return 'home.html';
+}
+function postAuthRedirect(user) {
+  var next = parseNext();
+  // student 没完成 onboarding 强制走引导，next 后置（onboarding 完成后 require-auth 再放行）
+  if (user && user.role === 'student' && !user.hasOnboarded) {
+    location.replace('onboarding.html');
+    return;
+  }
+  if (next) { location.replace(next); return; }
+  location.replace(defaultTarget(user));
+}
+
+// ── 已登录则按 role 直达对应主页（避免二次登录）─────────────
+// 旧实现固定跳 home.html，admin/coach 会被错误送进学生端。
+// 这里调一次 /me 拿 role 后再决定跳哪儿；token 失效则留在登录页。
 if (window.JX && window.JX.api && window.JX.api.isAuthed()) {
-  location.replace('home.html');
+  window.JX.api.get('/api/auth/me').then(
+    function (u) { postAuthRedirect(u); },
+    function () { /* token expired · 留在登录页 */ },
+  );
 }
 
 // ── 登录 ────────────────────────────────────────
@@ -246,13 +281,7 @@ document.getElementById('screen-login').addEventListener('submit', function (ev)
   window.JX.api.post('/api/auth/login', { email: email, password: password }, { noAuth: true })
     .then(function (data) {
       window.JX.api.setTokens(data);
-      // 学员未完成首次引导 → onboarding.html · 已完成或非学员 → home.html
-      var u = data && data.user;
-      if (u && u.role === 'student' && !u.hasOnboarded) {
-        location.replace('onboarding.html');
-      } else {
-        location.replace('home.html');
-      }
+      postAuthRedirect(data && data.user);
     })
     .catch(function (err) {
       setMsg('login-msg', 'error', localizedError(err));
@@ -282,8 +311,8 @@ document.getElementById('screen-register').addEventListener('submit', function (
   window.JX.api.post('/api/auth/register', body, { noAuth: true })
     .then(function (data) {
       window.JX.api.setTokens(data);
-      // 新注册账号 hasOnboarded=false · 直接进引导页
-      location.replace('onboarding.html');
+      // 新账号默认 student + hasOnboarded=false · postAuthRedirect 会走引导
+      postAuthRedirect(data && data.user);
     })
     .catch(function (err) {
       setMsg('reg-msg', 'error', localizedError(err));

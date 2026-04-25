@@ -24,7 +24,13 @@
     var base = location.pathname.replace(/[^/]*$/, '');
     return base + target;
   }
-  function redirectToAuth()       { location.replace(pathRelative('auth.html')); }
+  // auth.html 只在 mobile 目录；desktop 页未登录时也得跳过去
+  // 把当前 URL 编码进 ?next=，登录页拿 token 后跳回，避免 admin/coach 直链 404
+  function redirectToAuth() {
+    var next = encodeURIComponent(location.pathname + location.search + location.hash);
+    if (/\/desktop\//.test(path)) location.replace('../mobile/auth.html?next=' + next);
+    else location.replace(pathRelative('auth.html') + '?next=' + next);
+  }
   function redirectToMobileHome() {
     // 桌面页跳到 ../mobile/home.html；移动页同目录
     if (/\/desktop\//.test(path)) location.replace('../mobile/home.html');
