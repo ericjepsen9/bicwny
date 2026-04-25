@@ -318,11 +318,14 @@ function fmtUSD(n) { return '$' + (Number(n || 0)).toFixed(2); }
 function fmtPct(n) { return (Number(n || 0) * 100).toFixed(2) + '%'; }
 
 function renderUsage(u) {
-  u = u || {};
-  document.getElementById('kpi-requests').textContent = fmtNum(u.totalRequests);
-  document.getElementById('kpi-tokens').textContent   = fmtNum((u.totalInputTokens || 0) + (u.totalOutputTokens || 0));
-  document.getElementById('kpi-cost').textContent     = fmtUSD(u.totalCost);
-  document.getElementById('kpi-errors').textContent   = fmtPct(u.errorRate);
+  // 后端返 { periodType, periodKey, byProvider, totals: { tokenCount, requestCount, errorCount, cost } }
+  var t = (u && u.totals) || {};
+  var requests = Number(t.requestCount || 0);
+  var errors = Number(t.errorCount || 0);
+  document.getElementById('kpi-requests').textContent = fmtNum(requests);
+  document.getElementById('kpi-tokens').textContent   = fmtNum(Number(t.tokenCount || 0));
+  document.getElementById('kpi-cost').textContent     = fmtUSD(Number(t.cost || 0));
+  document.getElementById('kpi-errors').textContent   = fmtPct(requests > 0 ? errors / requests : 0);
 }
 
 function renderProviders(list) {

@@ -5,6 +5,17 @@ import type { Class, ClassMember, ClassMemberRole } from '@prisma/client';
 import { Forbidden, Internal, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 
+// 班级列表 / 详情 / 写操作返回时统一带的 course 选段
+// admin 列表页 + 详情抽屉 + coach.html / class-detail.html 都依赖 c.course.{title|coverEmoji|...}
+const CLASS_COURSE_INCLUDE = {
+  course: {
+    select: {
+      id: true, slug: true, title: true, titleTraditional: true,
+      author: true, coverEmoji: true,
+    },
+  },
+} as const;
+
 // 去掉 O/0/I/1 等易混淆字符，32 种选择 → 32^6 ≈ 10^9 码空间
 const JOIN_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const JOIN_CODE_LEN = 6;
@@ -35,6 +46,7 @@ export async function createClass(input: CreateClassInput): Promise<Class> {
           courseId: input.courseId,
           joinCode,
         },
+        include: CLASS_COURSE_INCLUDE,
       });
     }
   }
@@ -134,6 +146,7 @@ export async function archiveClass(id: string): Promise<Class> {
   return prisma.class.update({
     where: { id },
     data: { isActive: false, archivedAt: new Date() },
+    include: CLASS_COURSE_INCLUDE,
   });
 }
 
