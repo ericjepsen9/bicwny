@@ -54,6 +54,41 @@ body { background: var(--bg-scene); min-height: 100vh; }
   background:rgba(43,34,24,.05); color:var(--ink-3);
 }
 .meta-pill.crimson { background:rgba(192,57,43,.08); color:var(--crimson); }
+
+/* 举报 模态框（与 quiz.html 同源 · 底部弹起） */
+.rpt-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 110; display: flex; align-items: flex-end; justify-content: center; }
+.rpt-backdrop.open { opacity: 1; pointer-events: auto; }
+.rpt-sheet {
+  width: 100%; max-width: 480px;
+  background: #fff; border-radius: var(--r-xl) var(--r-xl) 0 0;
+  transform: translateY(100%); transition: transform .25s var(--ease);
+  padding: var(--sp-5) var(--sp-5) var(--sp-6);
+  max-height: 80vh; overflow-y: auto;
+}
+.rpt-backdrop.open .rpt-sheet { transform: translateY(0); }
+.rpt-title { font-family: var(--font-serif); font-weight: 700; font-size: 1.0625rem; color: var(--ink); letter-spacing: 2px; margin-bottom: var(--sp-3); }
+.rpt-reasons { display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--sp-3); }
+.rpt-reason {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--r);
+  border: 1px solid var(--border-light); background: #fff;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+  font: var(--text-body); color: var(--ink); letter-spacing: 1px;
+}
+.rpt-reason:hover { border-color: var(--saffron-light); background: var(--saffron-pale); }
+.rpt-reason.checked { border-color: var(--saffron); background: var(--saffron-pale); color: var(--saffron-dark); font-weight: 600; }
+.rpt-reason input { width: 16px; height: 16px; accent-color: var(--saffron); }
+.rpt-details {
+  width: 100%; min-height: 80px; resize: vertical;
+  padding: 10px 12px; border-radius: var(--r);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-body); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.rpt-details:focus { border-color: var(--saffron); }
+.rpt-err { color: var(--crimson); font: var(--text-caption); letter-spacing: 1px; padding: 8px 10px; border-radius: var(--r); background: rgba(192,57,43,.06); margin-bottom: var(--sp-2); display: none; }
+.rpt-err.show { display: block; }
+.rpt-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
+.rpt-actions .btn { flex: 1; }
 </style>
 </head>
 <body class="scene">
@@ -65,6 +100,9 @@ body { background: var(--bg-scene); min-height: 100vh; }
   <div class="top-nav">
     <a class="nav-back" href="mistakes.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
     <span class="nav-title"><span class="sc">错题解析</span><span class="tc">錯題解析</span></span>
+    <button class="nav-action" id="btn-report" aria-label="举报此题" title="举报此题" style="margin-right:8px;">
+      <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+    </button>
     <button class="nav-action" id="btn-remove" aria-label="移除" title="从错题本移除">
       <svg width="18" height="18" fill="none" stroke="#A13C2E" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
     </button>
@@ -78,6 +116,144 @@ body { background: var(--bg-scene); min-height: 100vh; }
   </div>
   </div>
 
+  <!-- 举报 模态框 -->
+  <div class="rpt-backdrop" id="rpt-backdrop">
+    <form class="rpt-sheet" id="rpt-form" novalidate>
+      <div class="rpt-title"><span class="sc">举报此题</span><span class="tc">舉報此題</span></div>
+      <div class="rpt-err" id="rpt-err"></div>
+      <div class="rpt-reasons" id="rpt-reasons"></div>
+      <textarea class="rpt-details" id="rpt-details" maxlength="500"
+        data-ph-sc="可选 · 补充说明（最多 500 字）" data-ph-tc="可選 · 補充說明（最多 500 字）"
+        placeholder="可选 · 补充说明（最多 500 字）"></textarea>
+      <div class="rpt-actions">
+        <button type="button" class="btn btn-ghost btn-pill" id="rpt-cancel">
+          <span class="sc">取消</span><span class="tc">取消</span>
+        </button>
+        <button type="submit" class="btn btn-primary btn-pill" id="rpt-submit">
+          <span class="sc">提交举报</span><span class="tc">提交舉報</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+
+<script src="../shared/nav.js"></script>
+<script>
+// mistake-detail · GET /api/mistakes/:questionId（owner 可见完整答案）
+//
+// 注：本 <script> 区在提交 40b78a6 (refactor 信息架构调整) 中被误删了开
+//     标签 + ~90 行函数定义（formatUserAnswer / formatCorrectAnswer /
+//     typeBadge / render 主体），导致整页 JS 不执行 · 本次修复并恢复。
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml, relTime = window.JX.util.relativeTime;
+var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+// 把用户的 answer 按 type 渲染为可读文本
+function formatUserAnswer(q, a) {
+  if (!a) return sc('（未记录）', '（未記錄）');
+  var opts = (q.payload && q.payload.options) || [];
+  switch (q.type) {
+    case 'single':
+    case 'image':
+    case 'listen': {
+      var i = a.selectedIndex;
+      if (typeof i !== 'number' || !opts[i]) return sc('（未作答）', '（未作答）');
+      return LETTERS[i] + '. ' + opts[i].text;
+    }
+    case 'multi':
+    case 'scenario': {
+      var arr = (a.selectedIndexes || []).filter(function (x) { return typeof x === 'number' && opts[x]; });
+      if (!arr.length) return sc('（未作答）', '（未作答）');
+      return arr.map(function (x) { return LETTERS[x] + '. ' + opts[x].text; }).join('\n');
+    }
+    case 'fill': {
+      if (typeof a.value === 'string') return a.value;
+      if (typeof a.selectedOption === 'number') {
+        var fillOpts = (q.payload && q.payload.options) || [];
+        return fillOpts[a.selectedOption] || sc('（选项越界）', '（選項越界）');
+      }
+      return sc('（未作答）', '（未作答）');
+    }
+    case 'open': return a.text || sc('（未作答）', '（未作答）');
+    case 'sort': {
+      var items = (q.payload && q.payload.items) || [];
+      var order = a.order || [];
+      return order.map(function (i) { return (items[i] && items[i].text) || '?'; }).join(' → ');
+    }
+    case 'match': {
+      var pairs = a.pairs || {};
+      return Object.keys(pairs).map(function (lid) { return lid + ' → ' + pairs[lid]; }).join('\n');
+    }
+    default:
+      return JSON.stringify(a);
+  }
+}
+
+function formatCorrectAnswer(q) {
+  // 优先用 Question.correctText（管理员在造题时写的可读版本）
+  if (q.correctText) return q.correctText;
+  var opts = (q.payload && q.payload.options) || [];
+  switch (q.type) {
+    case 'single':
+    case 'image':
+    case 'listen': {
+      var idx = opts.findIndex(function (o) { return o && o.correct; });
+      return idx >= 0 ? LETTERS[idx] + '. ' + opts[idx].text : '—';
+    }
+    case 'multi':
+    case 'scenario':
+      return opts.filter(function (o) { return o && o.correct; })
+        .map(function (o) { return LETTERS[opts.indexOf(o)] + '. ' + o.text; })
+        .join('\n') || '—';
+    case 'fill': return (q.payload && q.payload.correctWord) || '—';
+    case 'open': return (q.payload && q.payload.referenceAnswer) || '—';
+    case 'sort': {
+      var items = (q.payload && q.payload.items) || [];
+      return items.slice().sort(function (a, b) { return a.order - b.order; })
+        .map(function (it) { return it.text; }).join(' → ') || '—';
+    }
+    case 'match': {
+      var right = (q.payload && q.payload.right) || [];
+      return right.map(function (r) { return r.match + ' → ' + r.id; }).join('\n') || '—';
+    }
+    default: return '—';
+  }
+}
+
+function typeBadge(t) {
+  var m = {
+    single: ['单选', '單選'], multi: ['多选', '多選'], fill: ['填空', '填空'],
+    open: ['问答', '問答'], sort: ['排序', '排序'], match: ['匹配', '匹配'],
+    image: ['图识', '圖識'], listen: ['听颂', '聽誦'], scenario: ['情境', '情境'],
+    flow: ['流程', '流程'], guided: ['引导', '引導'], flip: ['速记', '速記'],
+  };
+  return (m[t] || [t, t])[(window.JX && window.JX.lang && window.JX.lang() === 'tc') ? 1 : 0];
+}
+
+function render(d) {
+  var q = d.question;
+  var last = d.lastAnswer;
+  var userAnswerText = formatUserAnswer(q, last && last.answer);
+  var correctText = formatCorrectAnswer(q);
+
+  var body = document.getElementById('detail-body');
+  body.innerHTML =
+    '<div class="breadcrumb">' + escapeHtml(q.source || '—') + '</div>' +
+    '<div class="question-block glass-card-thick">' +
+      '<div class="meta-pill-row">' +
+        '<span class="meta-pill crimson">✗ ' + escapeHtml(sc('答错 ', '答錯 ')) + d.wrongCount + sc(' 次', ' 次') + '</span>' +
+        '<span class="meta-pill">' + escapeHtml(typeBadge(q.type)) + '</span>' +
+        '<span class="meta-pill">' + escapeHtml(sc('最近错答 · ', '最近錯答 · ') + relTime(d.lastWrongAt)) + '</span>' +
+      '</div>' +
+      '<p class="q-stem">' + escapeHtml(q.questionText) + '</p>' +
+      '<p class="answer-label wrong-lbl">' + escapeHtml(sc('我的答案', '我的答案')) + '</p>' +
+      '<div class="answer-text wrong">' + escapeHtml(userAnswerText) + '</div>' +
+      '<p class="answer-label correct-lbl">' + escapeHtml(sc('正确答案', '正確答案')) + '</p>' +
+      '<div class="answer-text correct">' + escapeHtml(correctText) + '</div>' +
+    '</div>' +
+    (q.wrongText
+      ? '<div class="explanation" style="margin:0;">' +
           '<div class="explanation-icon"><svg width="16" height="16" fill="none" stroke="#B88956" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div>' +
           '<div class="explanation-body">' +
             '<p class="explanation-title">' + escapeHtml(sc('释义', '釋義')) + '</p>' +
@@ -119,6 +295,92 @@ document.getElementById('btn-remove').addEventListener('click', function () {
     .then(function () { location.href = 'mistakes.html'; })
     .catch(function (err) { window.JX.toast.error(sc('移除失败：', '移除失敗：') + (err.message || err)); });
 });
+
+// ── 举报此题（D 阶段 · 与 quiz.html 同模式）─────────────
+(function () {
+  var REASONS = [
+    { value: 'wrong_answer',   sc: '答案有误',   tc: '答案有誤' },
+    { value: 'doctrine_error', sc: '义理错误',   tc: '義理錯誤' },
+    { value: 'typo',           sc: '错别字 / 排版问题', tc: '錯別字 / 排版問題' },
+    { value: 'sensitive',      sc: '涉及冒犯',   tc: '涉及冒犯' },
+    { value: 'other',          sc: '其他',       tc: '其他' },
+  ];
+
+  var backdrop = document.getElementById('rpt-backdrop');
+  var form     = document.getElementById('rpt-form');
+  var errBox   = document.getElementById('rpt-err');
+  var detailsI = document.getElementById('rpt-details');
+  var submitBt = document.getElementById('rpt-submit');
+  var reasonsC = document.getElementById('rpt-reasons');
+
+  function renderReasons() {
+    reasonsC.innerHTML = REASONS.map(function (r, i) {
+      var id = 'rpt-r-' + i;
+      return '<label class="rpt-reason" for="' + id + '">' +
+        '<input type="radio" name="reason" id="' + id + '" value="' + r.value + '">' +
+        '<span>' + escapeHtml(sc(r.sc, r.tc)) + '</span>' +
+        '</label>';
+    }).join('');
+  }
+  function open() {
+    if (!currentQid) {
+      window.JX.toast.error(sc('题目未加载', '題目未載入'));
+      return;
+    }
+    renderReasons();
+    form.reset();
+    errBox.classList.remove('show');
+    errBox.textContent = '';
+    backdrop.classList.add('open');
+  }
+  function close() { backdrop.classList.remove('open'); }
+
+  reasonsC.addEventListener('change', function () {
+    reasonsC.querySelectorAll('.rpt-reason').forEach(function (el) {
+      var input = el.querySelector('input');
+      el.classList.toggle('checked', input && input.checked);
+    });
+  });
+
+  document.getElementById('btn-report').addEventListener('click', open);
+  document.getElementById('rpt-cancel').addEventListener('click', close);
+  backdrop.addEventListener('click', function (ev) {
+    if (ev.target === backdrop) close();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && backdrop.classList.contains('open')) close();
+  });
+  document.addEventListener('langchange', function () {
+    if (backdrop.classList.contains('open')) renderReasons();
+  });
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var reason = form.querySelector('input[name="reason"]:checked');
+    if (!currentQid || !reason) {
+      errBox.textContent = sc('请选择举报原因', '請選擇舉報原因');
+      errBox.classList.add('show');
+      return;
+    }
+    var details = (detailsI.value || '').trim();
+    var body = { questionId: currentQid, reason: reason.value };
+    if (details) body.details = details;
+
+    submitBt.setAttribute('aria-busy', 'true');
+    errBox.classList.remove('show');
+
+    window.JX.api.post('/api/reports', body)
+      .then(function () {
+        close();
+        window.JX.toast.success(sc('举报已提交，感谢反馈', '舉報已提交，感謝反饋'));
+      })
+      .catch(function (err) {
+        errBox.textContent = (err && err.message) || sc('提交失败，请稍后重试', '提交失敗，請稍後重試');
+        errBox.classList.add('show');
+      })
+      .finally(function () { submitBt.removeAttribute('aria-busy'); });
+  });
+})();
 
 document.addEventListener('jx:user-ready', boot);
 document.addEventListener('langchange', boot);
