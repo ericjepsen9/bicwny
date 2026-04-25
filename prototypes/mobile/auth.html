@@ -257,6 +257,20 @@ function postAuthRedirect(user) {
   location.replace('home.html');
 }
 
+// ?reason=role 表示从守卫错位弹回（admin/coach 误闯学员页等罕见场景）
+// 显示错位提示 + 清 token，跳过自动重定向
+(function () {
+  var qs = location.search || '';
+  if (qs.indexOf('reason=role') < 0) return;
+  var actual = (qs.match(/[?&]actual=([^&]+)/) || [])[1] || '';
+  try { actual = decodeURIComponent(actual); } catch (_) {}
+  if (window.JX && window.JX.api) window.JX.api.clearTokens();
+  var roleLabel = { student: '学员', coach: '辅导员', admin: '管理员' }[actual] || actual || '当前';
+  setMsg('login-msg', 'error',
+    sc('您当前账号 (' + roleLabel + ') 不是学员。请使用学员账号登录，或前往 后台入口。',
+       '您當前帳號 (' + roleLabel + ') 不是學員。請使用學員帳號登入，或前往 後台入口。'));
+})();
+
 // 已登录拦截：按 role 路由；admin/coach 在此入口属错位 → 清 token
 if (window.JX && window.JX.api && window.JX.api.isAuthed()) {
   window.JX.api.get('/api/auth/me').then(

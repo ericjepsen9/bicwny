@@ -27,6 +27,14 @@
   // 桌面 / 移动各自有 auth.html · 守卫跳同目录即可，登录页内部按 role 路由
   // 学员端 mobile/auth.html 只接 student；后台 desktop/auth.html 只接 admin/coach
   function redirectToAuth()       { location.replace(pathRelative('auth.html')); }
+
+  // 完全分开：错位时也回自己 shell 的登录页，不跨界跳到对方首页
+  // ?reason=role&actual=<role> 让登录页显示具体错位原因
+  function redirectAuthOnRoleMismatch(actualRole) {
+    var qs = '?reason=role&actual=' + encodeURIComponent(actualRole || '');
+    location.replace(pathRelative('auth.html') + qs);
+  }
+
   function redirectToMobileHome() {
     // 桌面页跳到 ../mobile/home.html；移动页同目录
     if (/\/desktop\//.test(path)) location.replace('../mobile/home.html');
@@ -90,7 +98,8 @@
   api.get('/api/auth/me').then(
     function (user) {
       if (requiredRoles.length && requiredRoles.indexOf(user.role) < 0) {
-        redirectToMobileHome();
+        // 错位：不弹到对方首页 · 弹回自己 shell 的登录页让用户用对的账号登
+        redirectAuthOnRoleMismatch(user.role);
         return;
       }
       // 首次登录引导守卫：未完成 onboarding 强制跳引导页；已完成进引导页则回首页

@@ -225,7 +225,23 @@ function postAuthRedirect(user) {
        '此入口僅限輔導員 / 管理員；學員請前往 學員入口 登入'));
 }
 
+// ?reason=role 表示从守卫错位弹回 · 显示明确提示 + 清 token 让用户重登
+// (避免学员账号在浏览器还活着导致再次访问后台又被弹) · 跳过自动重定向
+(function () {
+  var qs = location.search || '';
+  if (qs.indexOf('reason=role') < 0) return;
+  var actual = (qs.match(/[?&]actual=([^&]+)/) || [])[1] || '';
+  try { actual = decodeURIComponent(actual); } catch (_) {}
+  // 清 token：学员账号即使有效也不该用桌面后台
+  if (window.JX && window.JX.api) window.JX.api.clearTokens();
+  var roleLabel = { student: '学员', coach: '辅导员', admin: '管理员' }[actual] || actual || '当前';
+  setMsg('login-msg', 'error',
+    sc('您当前账号 (' + roleLabel + ') 无后台权限。请使用 管理员 / 辅导员 账号登录。',
+       '您當前帳號 (' + roleLabel + ') 無後台權限。請使用 管理員 / 輔導員 帳號登入。'));
+})();
+
 // 已登录拦截：调一次 /me 拿 role 后再决定
+//   · 若 URL 带 reason=role 上面已清 token + 显错位提示，下面 isAuthed 会是 false 自然跳过
 if (window.JX && window.JX.api && window.JX.api.isAuthed()) {
   window.JX.api.get('/api/auth/me').then(
     function (u) { postAuthRedirect(u); },
