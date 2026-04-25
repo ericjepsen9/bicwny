@@ -1109,7 +1109,7 @@ document.getElementById('search-input').addEventListener('input', function (ev) 
 
 document.getElementById('btn-logout').addEventListener('click', function () {
   if (!confirm(sc('确定退出登录？', '確定退出登入？'))) return;
-  window.JX.api.logout().finally(function () { location.replace('../mobile/auth.html'); });
+  window.JX.api.logout().finally(function () { location.replace('auth.html'); });
 });
 
 document.addEventListener('jx:user-ready', boot);

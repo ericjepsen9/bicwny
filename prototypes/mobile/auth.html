@@ -26,25 +26,6 @@
 body { background: var(--bg-scene); min-height: 100vh; }
 .phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
 
-/* admin / coach 经 require-auth.js 守卫从 desktop/*.html 重定向过来时，
-   ?next= 含 /desktop/ → 切桌面登录卡片：更宽、居中、玻璃质感。
-   学生端 / 直接打开 mobile/auth.html 不受影响。 */
-html.jx-desktop-auth body { display: flex; align-items: center; justify-content: center; padding: var(--sp-6) var(--sp-4); }
-html.jx-desktop-auth .phone-wrap { width: 100%; min-height: auto; align-items: stretch; }
-html.jx-desktop-auth .phone {
-  max-width: 520px;
-  min-height: auto;
-  margin: 0 auto;
-  padding: var(--sp-6) var(--sp-2) var(--sp-8);
-  background: var(--glass-thick);
-  backdrop-filter: var(--blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--r-xl);
-  box-shadow: 0 24px 60px rgba(43,34,24,.12), 0 4px 16px rgba(43,34,24,.06);
-}
-html.jx-desktop-auth .status-bar { display: none !important; }
-html.jx-desktop-auth .logo-block { padding-top: var(--sp-4); padding-bottom: var(--sp-3); }
-
 /* ── Logo ─────────────────────────────────── */
 .logo-block { text-align: center; padding: var(--sp-8) var(--sp-5) var(--sp-6); }
 .logo-icon {
@@ -82,17 +63,6 @@ html.jx-desktop-auth .logo-block { padding-top: var(--sp-4); padding-bottom: var
 
 .btn[aria-busy="true"] { opacity: .6; pointer-events: none; }
 </style>
-<!-- ?next= 含 /desktop/ → 提前给 <html> 加 jx-desktop-auth 类，CSS 切桌面卡片
-     避免 FOUC：必须在样式 link 之后、布局开始之前同步打类 -->
-<script>
-  (function () {
-    var s = location.search || '';
-    if (/[?&]next=[^&]*%2[Ff]desktop%2[Ff]/i.test(s) ||
-        /[?&]next=[^&]*\/desktop\//i.test(s)) {
-      document.documentElement.classList.add('jx-desktop-auth');
-    }
-  })();
-</script>
 <!-- lang.js 必须在 <head> 最后，data-lang 在渲染前生效避免文字闪烁 -->
 <script src="../shared/lang.js"></script>
 <script src="../shared/font-size.js"></script>
@@ -219,6 +189,14 @@ html.jx-desktop-auth .logo-block { padding-top: var(--sp-4); padding-bottom: var
     </p>
   </form>
 
+  <!-- 后台入口提示 · 学员端入口足以学员使用，但偶有辅导员/管理员误入 -->
+  <p style="text-align:center;padding:var(--sp-3) var(--sp-5);font:var(--text-caption);color:var(--ink-3);letter-spacing:1px;">
+    <span class="sc">辅导员 / 管理员请前往 </span><span class="tc">輔導員 / 管理員請前往 </span>
+    <a href="../desktop/auth.html" style="color:var(--saffron-dark);font-weight:600;text-decoration:none;">
+      <span class="sc">后台入口</span><span class="tc">後台入口</span>
+    </a>
+  </p>
+
 </div><!-- /phone -->
 </div><!-- /phone-wrap -->
 
@@ -255,43 +233,35 @@ function setMsg(id, kind, text) {
 }
 function clearMsg(id) { setMsg(id, '', ''); }
 
-// ── 登录/注册成功后的目标解析 ────────────────────
-// 1) ?next=<同源相对路径> 优先（被 require-auth.js 守卫从受限页带过来）
-// 2) 否则按 role 默认：admin → desktop/admin · coach → desktop/coach
-//    · student onboarded → home · student !onboarded → onboarding
-function parseNext() {
-  var m = location.search.match(/[?&]next=([^&]+)/);
-  if (!m) return null;
-  var n;
-  try { n = decodeURIComponent(m[1]); } catch (_) { return null; }
-  // 仅同源相对路径（/ 开头且非 //），防开放重定向
-  if (!n || n.charAt(0) !== '/' || n.charAt(1) === '/') return null;
-  return n;
-}
-function defaultTarget(user) {
-  if (user && user.role === 'admin') return '../desktop/admin.html';
-  if (user && user.role === 'coach') return '../desktop/coach.html';
-  if (user && user.role === 'student' && !user.hasOnboarded) return 'onboarding.html';
-  return 'home.html';
-}
+// ── 学员入口 · 仅接受 student 角色 ────────────────────
+//   admin / coach 误入：清 token + 提示去 ../desktop/auth.html
+//   student onboarded → home.html · !onboarded → onboarding.html
 function postAuthRedirect(user) {
-  var next = parseNext();
-  // student 没完成 onboarding 强制走引导，next 后置（onboarding 完成后 require-auth 再放行）
-  if (user && user.role === 'student' && !user.hasOnboarded) {
+  if (!user) {
+    setMsg('login-msg', 'error', sc('登录响应异常', '登入響應異常'));
+    return;
+  }
+  if (user.role === 'admin' || user.role === 'coach') {
+    // 后台用户走错入口 · 清 token 留在本页提示
+    window.JX.api.clearTokens();
+    setMsg('login-msg', 'error',
+      sc('辅导员 / 管理员请前往 后台入口 登录',
+         '輔導員 / 管理員請前往 後台入口 登入'));
+    return;
+  }
+  // student
+  if (!user.hasOnboarded) {
     location.replace('onboarding.html');
     return;
   }
-  if (next) { location.replace(next); return; }
-  location.replace(defaultTarget(user));
+  location.replace('home.html');
 }
 
-// ── 已登录则按 role 直达对应主页（避免二次登录）─────────────
-// 旧实现固定跳 home.html，admin/coach 会被错误送进学生端。
-// 这里调一次 /me 拿 role 后再决定跳哪儿；token 失效则留在登录页。
+// 已登录拦截：按 role 路由；admin/coach 在此入口属错位 → 清 token
 if (window.JX && window.JX.api && window.JX.api.isAuthed()) {
   window.JX.api.get('/api/auth/me').then(
     function (u) { postAuthRedirect(u); },
-    function () { /* token expired · 留在登录页 */ },
+    function () { /* token 失效 · 留在登录页 */ },
   );
 }
 

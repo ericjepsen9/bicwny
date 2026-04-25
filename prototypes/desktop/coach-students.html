@@ -554,7 +554,7 @@ function renderStudentDetail(d) {
 
 // ═════════ 退出登录 ═════════
 $('btn-logout').addEventListener('click', function () {
-  window.JX.api.logout().finally(function () { location.replace('../mobile/auth.html'); });
+  window.JX.api.logout().finally(function () { location.replace('auth.html'); });
 });
 
 document.addEventListener('jx:user-ready', boot);
