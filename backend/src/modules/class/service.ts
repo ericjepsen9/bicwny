@@ -93,7 +93,18 @@ export async function addMember(
   classId: string,
   userId: string,
   role: ClassMemberRole,
-  opts: { preserveExistingRole?: boolean; actorAdminId?: string } = {},
+  opts: {
+    preserveExistingRole?: boolean;
+    actorAdminId?: string;
+    /**
+     * 学员 join 路径联动：在同一事务内 upsert 该课程 enrollment。
+     *  - 无 enrollment → create(source=class, viaClassId=classId)
+     *  - source=self  → 升级为 class（保留进度，失去退课权）
+     *  - source=class → 保留首班指针（不覆盖跨班统计）
+     * admin 强制加成员路径不传，避免影响 enrollment 来源。
+     */
+    linkEnrollment?: { courseId: string };
+  } = {},
 ): Promise<ClassMember> {
   return prisma.$transaction(async (tx) => {
     const before = await tx.classMember.findUnique({
@@ -106,6 +117,48 @@ export async function addMember(
         ? { removedAt: null } // 学员 join：不降级已有 coach/admin
         : { removedAt: null, role }, // 管理员添加：强制设 role
     });
+
+    if (opts.linkEnrollment) {
+      const courseId = opts.linkEnrollment.courseId;
+      // findUnique + create/update 模式 + P2002 兜底（并发同时 join 同 user 同 course）
+      const existingEnr = await tx.userCourseEnrollment.findUnique({
+        where: { userId_courseId: { userId, courseId } },
+      });
+      if (!existingEnr) {
+        try {
+          await tx.userCourseEnrollment.create({
+            data: { userId, courseId, source: 'class', enrolledViaClassId: classId },
+          });
+        } catch (e) {
+          if (
+            e instanceof Prisma.PrismaClientKnownRequestError &&
+            e.code === 'P2002'
+          ) {
+            // 并发竞争：另一笔事务同 (userId, courseId) 已抢先 create
+            // 退化为 update 路径 · 仅当原 source=self 时升级
+            const concurrent = await tx.userCourseEnrollment.findUnique({
+              where: { userId_courseId: { userId, courseId } },
+            });
+            if (concurrent && concurrent.source === 'self') {
+              await tx.userCourseEnrollment.update({
+                where: { id: concurrent.id },
+                data: { source: 'class', enrolledViaClassId: classId },
+              });
+            }
+            // concurrent 已是 'class' 源 → 保留不动
+          } else {
+            throw e;
+          }
+        }
+      } else if (existingEnr.source === 'self') {
+        await tx.userCourseEnrollment.update({
+          where: { id: existingEnr.id },
+          data: { source: 'class', enrolledViaClassId: classId },
+        });
+      }
+      // existingEnr.source === 'class' → 保留首班指针不动
+    }
+
     if (opts.actorAdminId) {
       await tx.auditLog.create({
         data: {

@@ -258,17 +258,16 @@ export async function commitImport(
     }
   } else {
     if (!input.courseId) throw BadRequest('mode=append 必须提供 courseId');
+    // append 模式只做幂等预检：基础序号读取移到事务内（与 SELECT FOR UPDATE 等价的行锁）
     const exist = await prisma.course.findUnique({
       where: { id: input.courseId },
-      include: { chapters: { orderBy: { order: 'desc' }, take: 1 } },
+      select: { id: true, lastImportClientToken: true, lastImportSummary: true },
     });
     if (!exist) throw NotFound('目标法本不存在');
-    // 幂等命中：append 模式重发 commit · token 与上次一致 → 回放上次结果，不再追加章节
     if (input.clientToken && exist.lastImportClientToken === input.clientToken) {
       return readIdempotentSummary(exist);
     }
     appendCourseId = exist.id;
-    baseChapterOrder = exist.chapters[0]?.order ?? 0;
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -290,6 +289,34 @@ export async function commitImport(
       cid = course.id;
     } else {
       cid = appendCourseId;
+      // append 模式：先 update 触发 PG 行锁 → 串行化并发 append 同 course 的两笔事务
+      // 锁释放在事务提交时；锁期间另一笔 append 的 update 阻塞 → 保证它读到的
+      // baseChapterOrder 是本次提交后的最新值，避免章节序号冲突
+      await tx.course.update({
+        where: { id: cid },
+        data: { updatedAt: new Date() },
+      });
+      // 锁内重读 baseChapterOrder + 二次幂等校验（双重 check：另一笔事务可能已用同 token 完成）
+      const locked = await tx.course.findUnique({
+        where: { id: cid },
+        select: { lastImportClientToken: true, lastImportSummary: true },
+      });
+      if (
+        input.clientToken &&
+        locked &&
+        locked.lastImportClientToken === input.clientToken
+      ) {
+        return readIdempotentSummary({
+          id: cid,
+          lastImportSummary: locked.lastImportSummary,
+        });
+      }
+      const lastChapter = await tx.chapter.findFirst({
+        where: { courseId: cid },
+        orderBy: { order: 'desc' },
+        select: { order: true },
+      });
+      baseChapterOrder = lastChapter?.order ?? 0;
     }
 
     // 批量插入 chapter / lesson 改 createMany 一次往返
