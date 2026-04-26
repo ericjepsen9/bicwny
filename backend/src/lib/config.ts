@@ -10,6 +10,12 @@ const PLACEHOLDER_JWT_SECRETS = new Set([
   'secret',
 ]);
 
+// 把 .env 里写了 KEY= 的空字符串预处理成 undefined，让 .optional() 真正生效
+// （否则 z.string().url() 收到 "" 会报「Invalid url」拒绝启动）
+for (const k of Object.keys(process.env)) {
+  if (process.env[k] === '') delete process.env[k];
+}
+
 const envSchema = z
   .object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
