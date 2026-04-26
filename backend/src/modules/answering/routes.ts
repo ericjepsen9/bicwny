@@ -17,7 +17,8 @@ const submitBody = z.object({
   classId: z.string().optional(),
   useLlm: z.boolean().optional(),
   removeFromMistakesOnCorrect: z.boolean().optional(),
-  requestId: z.string().optional(),
+  // 防恶意客户端用超长 requestId 让 unique 索引膨胀 · UUID 是 36 字节，留点余量
+  requestId: z.string().min(8).max(64).optional(),
 });
 
 const TAGS = ['Answering'];

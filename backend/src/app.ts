@@ -2,6 +2,7 @@
 // 组装 CORS / JWT / 全局错误处理 / 路由；
 // 测试用例也能通过 buildApp() 拉一个隔离实例。
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
@@ -40,7 +41,24 @@ import { sm2Routes } from './modules/sm2/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: { level: isDev ? 'info' : 'warn' },
+    logger: {
+      level: isDev ? 'info' : 'warn',
+      // 防敏感字段泄漏到日志：refreshToken / token / password / apiKey 一律打码
+      // Fastify 默认不记录 body，但启用 reqSerializer + body 日志的部署可能会 → 预防
+      redact: {
+        paths: [
+          'req.body.refreshToken',
+          'req.body.password',
+          'req.body.newPassword',
+          'req.body.currentPassword',
+          'req.body.token',
+          'req.headers.authorization',
+          'req.headers.cookie',
+        ],
+        censor: '***',
+        remove: false,
+      },
+    },
     // req.id 自动挂到每条 req.log 记录；x-request-id 入站则沿用
     genReqId,
     requestIdHeader: REQUEST_ID_HEADER,
@@ -66,6 +84,13 @@ export async function buildApp(): Promise<FastifyInstance> {
         ? corsWhitelist
         : false,
     credentials: true,
+  });
+
+  // 安全 headers：HSTS / X-Frame-Options / X-Content-Type-Options / 等
+  // contentSecurityPolicy 默认严格，但 Swagger UI 需要 inline script → dev 关掉，prod 走默认
+  await app.register(helmet, {
+    contentSecurityPolicy: isDev ? false : undefined,
+    crossOriginEmbedderPolicy: false, // 不阻挡跨域资源（前端可能用 CDN）
   });
 
   // 文件上传 · admin 法本导入用 (PDF / DOCX) · 单文件 20 MB

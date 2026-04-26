@@ -2,6 +2,11 @@
 // - scheduleReview：首次答题或每次自评都走此入口（upsert）· 可传 tx 与答题主流程同事务
 // - listDueCards：到期卡片（按 dueDate 升序），支持按课程过滤
 // - getCardStats：面板用状态分布 + 到期数 + 总数
+//
+// 并发幂等：scheduleReview 自身基于 (userId, questionId) unique 的 upsert 是原子的，
+// 但在答题主流程的 $transaction 内被并发同 requestId 调用时，外层已通过
+// answering/service.ts 的 cache-hit 短路避免重入；外层 P2002 兜底也会让重入路径
+// 不进入此函数。本函数只在"非幂等"或"首次 requestId"下被调用。
 import type { Prisma, PrismaClient, Sm2Card, Sm2Status } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {

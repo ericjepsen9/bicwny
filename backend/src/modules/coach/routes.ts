@@ -4,7 +4,7 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getUserRole, requireRole, requireUserId } from '../../lib/auth.js';
-import { BadRequest } from '../../lib/errors.js';
+import { BadRequest, Forbidden } from '../../lib/errors.js';
 import {
   assertIsCoachOfClass,
   assertMemberOfClass,
@@ -35,6 +35,18 @@ async function requireCoachOnClass(
   await assertIsCoachOfClass(requireUserId(req), classId);
 }
 
+/** coach 不能访问已归档班级（admin 仍可看历史）· 防归档后数据继续被 coach 拉取 */
+async function assertClassActiveForCoach(
+  req: FastifyRequest,
+  classId: string,
+): Promise<void> {
+  if (getUserRole(req) === 'admin') return;
+  const cls = await getClass(classId);
+  if (!cls.isActive) {
+    throw Forbidden('班级已归档，coach 仅 admin 可查看历史');
+  }
+}
+
 const TAGS = ['Coach'];
 const SEC = [{ bearerAuth: [] as string[] }];
 
@@ -51,6 +63,7 @@ export const coachStatsRoutes: FastifyPluginAsync = async (app) => {
       const pq = statsQuery.safeParse(req.query);
       if (!pq.success) throw BadRequest('查询参数不合法');
       await requireCoachOnClass(req, pp.data.id);
+      await assertClassActiveForCoach(req, pp.data.id);
       await getClass(pp.data.id);
       const stats = await classStats(pp.data.id, pq.data.windowDays);
       return { data: stats };
@@ -69,6 +82,7 @@ export const coachStatsRoutes: FastifyPluginAsync = async (app) => {
       const pq = studentQuery.safeParse(req.query);
       if (!pq.success) throw BadRequest('查询参数不合法');
       await requireCoachOnClass(req, pp.data.id);
+      await assertClassActiveForCoach(req, pp.data.id);
       // 二次校验：学员必须属于该班，避免 coach 跨班看人
       await assertMemberOfClass(pp.data.id, pp.data.uid);
       const detail = await studentDetail(pp.data.uid, {

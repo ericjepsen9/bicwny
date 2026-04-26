@@ -15,6 +15,8 @@ interface CacheEntry {
   stats: PlatformStats;
   cachedAt: number;
 }
+// 进程内 Map 缓存 · pm2 多实例下各实例独立维护 · admin 切实例可能看到 60s 内 drift
+// 如部署多实例且对 drift 敏感 → 调用方传 useCache=false 或迁 Redis
 const cache = new Map<number, CacheEntry>();
 
 type Timeoutable<T> = { ok: true; value: T } | { ok: false };

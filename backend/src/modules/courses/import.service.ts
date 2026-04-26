@@ -421,7 +421,7 @@ function readIdempotentSummary(course: {
 // ── F3.1 · URL 抓取 + HTML 转纯文本 ────────────────
 
 const FETCH_TIMEOUT_MS = 12_000;
-const MAX_HTML_BYTES = 8 * 1024 * 1024; // 8 MB
+const MAX_HTML_BYTES = 5 * 1024 * 1024; // 5 MB · 防恶意大页面让 cheerio 内存峰值
 // 之前用 'JuexueImporter/1.0' 容易被反爬识别 · 改成主流 Chrome UA 提高通过率
 // 不是为了规避合理的反爬，是为了让正常公开内容能抓到（admin 主动导入用途）
 const USER_AGENT =
@@ -472,7 +472,9 @@ async function assertSafeUrl(rawUrl: string): Promise<ResolvedTarget> {
   if (u.protocol !== 'http:' && u.protocol !== 'https:') {
     throw BadRequest('仅允许 http / https 协议');
   }
-  const host = u.hostname;
+  // hostname 归一化为小写：IDN / Unicode 域名大小写变体（EXAMPLE.com / Example.COM）
+  // 在 dns.lookup 时可能走不同代码路径或缓存，规范化避免变体绕过 SSRF 校验
+  const host = u.hostname.toLowerCase();
   // 字面 IP（含 [::1] 形式 IPv6）直接判
   if (/^[0-9.]+$/.test(host) || host.includes(':')) {
     if (isPrivateIp(host)) throw BadRequest('禁止抓取内网地址');

@@ -88,8 +88,12 @@ const logsQuery = z.object({
 });
 
 function serialize(p: LlmProviderConfig) {
+  // apiKeyEnv 脱敏：暴露环境变量名虽不等于密钥，但仍泄漏基础设施配置位置
+  // 只保留前 4 字符 + … · admin 仍能识别 "MINIMAX_…" 这种约定即可
+  const { apiKeyEnv, ...rest } = p;
   return {
-    ...p,
+    ...rest,
+    apiKeyEnvHint: apiKeyEnv ? `${apiKeyEnv.slice(0, 4)}…(${apiKeyEnv.length})` : null,
     yearlyTokenQuota: p.yearlyTokenQuota?.toString() ?? null,
     monthlyTokenQuota: p.monthlyTokenQuota?.toString() ?? null,
   };

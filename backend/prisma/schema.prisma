@@ -94,6 +94,8 @@ model ClassMember {
   @@unique([classId, userId])
   @@index([userId, role])
   @@index([classId, role])
+  // listMembers / removeMember 多按 (classId 或 userId, removedAt=null) 查活跃成员
+  @@index([userId, removedAt])
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -636,6 +638,9 @@ model AuditLog {
 
   @@index([timestamp])
   @@index([adminId, timestamp])
+  // admin 后台按 action 过滤百万行审计日志
+  @@index([action, timestamp])
+  @@index([targetType, targetId])
 }
 
 // ═══════════════════════════════════════════════════════════════
