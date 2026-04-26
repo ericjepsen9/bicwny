@@ -36,6 +36,7 @@ export async function resetDb(): Promise<void> {
     prisma.lesson.deleteMany(),
     prisma.chapter.deleteMany(),
     prisma.course.deleteMany(),
+    prisma.systemSetting.deleteMany(),
     prisma.user.deleteMany(),
   ]);
 }

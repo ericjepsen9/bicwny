@@ -670,3 +670,17 @@ model ErrorLog {
   @@index([userId, createdAt])
   @@index([createdAt])
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 系统设置（Sprint 4 · admin 可调全局开关）
+// 仅小颗粒、低频写、admin 可见的 KV，避免每个开关都建独立表
+// 当前键：
+//   scraper.fetchVia  → "local" | "asia"  · 法本 URL 抓取走哪个出口
+// ═══════════════════════════════════════════════════════════════
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}

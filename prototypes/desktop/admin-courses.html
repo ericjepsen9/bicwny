@@ -519,6 +519,22 @@
     <div class="modal-body">
       <div class="dr-err" id="im-err"></div>
 
+      <!-- 抓取出口节点切换（影响 import-url / 批量抓取；不影响 PDF/DOCX 上传）-->
+      <div class="im-via-row" id="im-via-row" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--border-light);border-radius:var(--r-sm);background:#fafaf7;margin-bottom:12px;">
+        <span style="font:var(--text-caption);color:var(--ink-3);letter-spacing:.5px;">
+          <span class="sc">抓取出口节点</span><span class="tc">抓取出口節點</span>
+        </span>
+        <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;">
+          <input type="radio" name="im-via" value="local" id="im-via-local" checked>
+          <span class="sc">本服务器</span><span class="tc">本伺服器</span>
+        </label>
+        <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;" id="im-via-asia-label">
+          <input type="radio" name="im-via" value="asia" id="im-via-asia">
+          <span class="sc">亚洲中转节点</span><span class="tc">亞洲中轉節點</span>
+        </label>
+        <span id="im-via-hint" style="font:var(--text-caption);color:var(--ink-4);letter-spacing:.5px;margin-left:auto;"></span>
+      </div>
+
       <!-- 步骤 1 · 上传 -->
       <div class="im-step active" id="im-step-upload">
         <div class="im-drop" id="im-drop">
@@ -1431,6 +1447,51 @@ function imOpen() {
   imRenderBatchControlButtons();
   imShowStep('upload');
   document.getElementById('im-backdrop').classList.add('open');
+  imLoadFetchVia();
+}
+
+// 抓取出口节点：拉当前设置 · 渲染 radio · 同步绑定 onchange 写回
+function imLoadFetchVia() {
+  var asiaRadio = document.getElementById('im-via-asia');
+  var asiaLabel = document.getElementById('im-via-asia-label');
+  var hint = document.getElementById('im-via-hint');
+  if (!asiaRadio) return;
+  hint.textContent = sc('加载中…', '載入中…');
+  window.JX.api.get('/api/admin/system/scraper-via')
+    .then(function (data) {
+      var v = (data && data.value) || 'local';
+      var configured = !!(data && data.relayConfigured);
+      document.getElementById('im-via-local').checked = (v === 'local');
+      asiaRadio.checked = (v === 'asia');
+      asiaRadio.disabled = !configured;
+      asiaLabel.style.opacity = configured ? '1' : '.5';
+      asiaLabel.title = configured ? '' : sc(
+        '亚洲中转节点未配置：服务端 .env 缺 ASIA_RELAY_URL / ASIA_RELAY_TOKEN',
+        '亞洲中轉節點未配置：服務端 .env 缺 ASIA_RELAY_URL / ASIA_RELAY_TOKEN'
+      );
+      hint.textContent = configured
+        ? sc('当前：' + (v === 'asia' ? '亚洲中转' : '本服务器'),
+             '當前：' + (v === 'asia' ? '亞洲中轉' : '本伺服器'))
+        : sc('亚洲节点未配置', '亞洲節點未配置');
+    })
+    .catch(function () {
+      hint.textContent = sc('读取失败', '讀取失敗');
+    });
+}
+
+function imSetFetchVia(value) {
+  var hint = document.getElementById('im-via-hint');
+  hint.textContent = sc('切换中…', '切換中…');
+  window.JX.api.put('/api/admin/system/scraper-via', { value: value })
+    .then(function () {
+      hint.textContent = sc('已切到：' + (value === 'asia' ? '亚洲中转' : '本服务器'),
+                            '已切到：' + (value === 'asia' ? '亞洲中轉' : '本伺服器'));
+    })
+    .catch(function (err) {
+      hint.textContent = (err && err.message) || sc('切换失败', '切換失敗');
+      // 失败回滚 radio
+      imLoadFetchVia();
+    });
 }
 function imClose() {
   document.getElementById('im-backdrop').classList.remove('open');
@@ -2005,6 +2066,14 @@ function bindImportModal() {
 
   document.getElementById('btn-import-file').addEventListener('click', imOpen);
   document.getElementById('im-cancel').addEventListener('click', imClose);
+
+  // 抓取出口节点切换 · radio change → PUT 设置
+  ['im-via-local', 'im-via-asia'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', function (ev) {
+      if (ev.target.checked) imSetFetchVia(ev.target.value);
+    });
+  });
   document.getElementById('im-back').addEventListener('click', function () {
     state.importPreview = null;
     imShowStep('upload');

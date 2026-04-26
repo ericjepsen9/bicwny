@@ -29,8 +29,10 @@ import mammoth from 'mammoth';
 import pdf from 'pdf-parse/lib/pdf-parse.js';
 import { Agent } from 'undici';
 
+import { config } from '../../lib/config.js';
 import { BadRequest, Conflict, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { getSetting } from '../admin/system-settings.service.js';
 
 export interface PreviewLesson {
   title: string;
@@ -516,7 +518,21 @@ function makeBoundAgent(ip: string, family: 4 | 6): Agent {
 
 const MAX_REDIRECTS = 5;
 
+/**
+ * 法本抓取分发：admin 后台 SystemSetting `scraper.fetchVia` 控制
+ *   local（默认） → 本服务器 fetch + IP 钉死防 SSRF（fetchHtmlLocal）
+ *   asia          → 经亚洲中转节点 fetch（fetchHtmlViaRelay），用于源站封 IP 时切换出口
+ * 解析（cheerio / splitToChapters）始终在本机跑，relay 只负责抓 HTML。
+ */
 async function fetchHtml(target: ResolvedTarget): Promise<{ html: string; finalUrl: string }> {
+  const via = await getSetting('scraper.fetchVia');
+  if (via === 'asia') {
+    return fetchHtmlViaRelay(target.url.toString());
+  }
+  return fetchHtmlLocal(target);
+}
+
+async function fetchHtmlLocal(target: ResolvedTarget): Promise<{ html: string; finalUrl: string }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -572,6 +588,71 @@ async function fetchHtml(target: ResolvedTarget): Promise<{ html: string; finalU
     if (err?.name === 'AbortError') throw BadRequest('抓取超时（>12 s）');
     if (err && err.code === 'BAD_REQUEST') throw err;
     throw BadRequest('网络异常：' + (err?.message || String(err)));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// 中转留 5s 余量给 relay → 源站这一段（本机 fetch 12s + 跨境 RTT）
+const RELAY_TIMEOUT_MS = FETCH_TIMEOUT_MS + 5_000;
+
+/**
+ * 经亚洲中转节点抓取：
+ *   - SSRF 由 relay 自身做（域名白名单 + 内网 IP 拒绝），本机已通过 assertSafeUrl 过协议白名单
+ *   - relay 处理重定向 / UA / 编码 → 返回 { status, finalUrl, html }
+ *   - 失败 / 配置缺失抛 BadRequest，交给上层统一展示
+ */
+async function fetchHtmlViaRelay(rawUrl: string): Promise<{ html: string; finalUrl: string }> {
+  if (!config.ASIA_RELAY_URL || !config.ASIA_RELAY_TOKEN) {
+    throw BadRequest('亚洲中转节点未配置：请在 .env 设置 ASIA_RELAY_URL / ASIA_RELAY_TOKEN');
+  }
+  const endpoint = config.ASIA_RELAY_URL.replace(/\/+$/, '') + '/fetch';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RELAY_TIMEOUT_MS);
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.ASIA_RELAY_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ url: rawUrl }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      // relay 自己的 4xx/5xx（鉴权 / 域名不在白名单 / 抓取失败）
+      const text = await res.text().catch(() => '');
+      throw BadRequest(`亚洲节点失败：HTTP ${res.status} ${text.slice(0, 200) || res.statusText}`);
+    }
+    const body = await res.json() as {
+      status?: number;
+      finalUrl?: string;
+      html?: string;
+      contentType?: string;
+      error?: string;
+    };
+    if (body.error) throw BadRequest(`亚洲节点错误：${body.error}`);
+    if (typeof body.status !== 'number' || typeof body.html !== 'string' || typeof body.finalUrl !== 'string') {
+      throw BadRequest('亚洲节点返回结构异常（缺 status/html/finalUrl）');
+    }
+    if (body.status >= 400) {
+      throw BadRequest(`目标返回 HTTP ${body.status}（经亚洲节点）`);
+    }
+    if (body.contentType && !/text\/html|application\/xhtml/i.test(body.contentType)) {
+      throw BadRequest(`目标不是 HTML（content-type: ${body.contentType}）`);
+    }
+    // 中转节点已限流过 / 我们再校一次，防 relay 被绕过
+    const byteLen = Buffer.byteLength(body.html, 'utf8');
+    if (byteLen > MAX_HTML_BYTES) {
+      throw BadRequest(`HTML 超过 ${MAX_HTML_BYTES / 1024 / 1024} MB 上限`);
+    }
+    return { html: body.html, finalUrl: body.finalUrl };
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw BadRequest(`亚洲节点抓取超时（>${RELAY_TIMEOUT_MS / 1000} s）`);
+    if (err && err.code === 'BAD_REQUEST') throw err;
+    throw BadRequest('亚洲节点网络异常：' + (err?.message || String(err)));
   } finally {
     clearTimeout(timer);
   }
