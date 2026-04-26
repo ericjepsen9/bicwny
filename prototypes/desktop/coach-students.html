@@ -1,0 +1,569 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 班级学员 · 辅导员</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/desktop.css">
+<style>
+.side-avatar { background: linear-gradient(135deg, var(--gold-light), var(--gold)); }
+
+/* 班级选择条 */
+.cls-bar {
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+  margin-bottom: var(--sp-4); padding: var(--sp-3) var(--sp-4);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+}
+.cls-chips { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.cls-chip {
+  padding: 6px 14px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent; color: var(--ink-3);
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.cls-chip.active { background: var(--gold-pale); border-color: var(--gold-light); color: var(--gold-dark); }
+.cls-count { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; margin-left: auto; }
+
+/* 学员表 */
+.list-panel {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+table.s-list { width: 100%; border-collapse: collapse; }
+.s-list th, .s-list td {
+  padding: 10px 14px; text-align: left;
+  font: var(--text-caption); letter-spacing: .5px;
+  border-bottom: 1px solid var(--border-light);
+}
+.s-list th { color: var(--ink-3); font-weight: 600; background: rgba(43,34,24,.03); }
+.s-list td { color: var(--ink-2); }
+.s-list tr:last-child td { border-bottom: 0; }
+.s-list tr[data-uid] { cursor: pointer; transition: background var(--dur) var(--ease); }
+.s-list tr[data-uid]:hover { background: rgba(212,165,116,.08); }
+
+.s-user { display: flex; align-items: center; gap: 10px; }
+.s-av {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 700; font-size: .8125rem;
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+}
+.s-av.coach { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); }
+.s-name { font-weight: 600; color: var(--ink); }
+.s-email { color: var(--ink-4); font-size: .75rem; margin-top: 2px; }
+.s-role {
+  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: .6875rem; letter-spacing: 1px; font-weight: 600;
+}
+.s-role.coach   { background: var(--gold-pale);      color: var(--gold-dark); }
+.s-role.student { background: rgba(43,34,24,.06);    color: var(--ink-3); }
+
+.empty-state { padding: var(--sp-8) var(--sp-5); text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px; }
+.err-state { color: var(--crimson); }
+
+/* Drawer（右侧抽屉）· 复用 admin-users.html 约定，样式就近内联 */
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 90; }
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 520px; max-width: 94vw;
+  background: #fff; box-shadow: -8px 0 24px rgba(0,0,0,.12);
+  transform: translateX(100%); transition: transform .25s var(--ease);
+  overflow: hidden; display: flex; flex-direction: column; z-index: 100;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-head {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-light);
+}
+.drawer-title { flex: 1; font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.drawer-close { width: 28px; height: 28px; border-radius: var(--r-sm); background: rgba(43,34,24,.04); border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.drawer-body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
+
+.dr-section { margin-bottom: var(--sp-5); }
+.dr-h3 { font: var(--text-caption); font-weight: 700; letter-spacing: 2px; color: var(--ink-3); margin-bottom: var(--sp-2); text-transform: uppercase; }
+
+.dr-hero {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-4); background: rgba(212,165,116,.08);
+  border: 1px solid var(--gold-light); border-radius: var(--r-lg);
+}
+.dr-hero .big-av {
+  width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+  color: #fff; font-family: var(--font-serif); font-weight: 700; font-size: 1.25rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.dr-hero .dn { font-family: var(--font-serif); font-weight: 700; font-size: 1rem; letter-spacing: 2px; color: var(--ink); }
+.dr-hero .em { font-size: .75rem; color: var(--ink-3); margin-top: 2px; }
+.dr-hero .st { font-size: .6875rem; letter-spacing: 1px; color: var(--ink-4); margin-top: 4px; }
+
+.sum-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2);
+}
+.sum-cell {
+  padding: var(--sp-3) var(--sp-2); border-radius: var(--r);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  text-align: center;
+}
+.sum-val { font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; color: var(--ink); line-height: 1; }
+.sum-lbl { font-size: .6875rem; color: var(--ink-3); letter-spacing: 1px; margin-top: 4px; }
+
+.list-item {
+  display: grid; grid-template-columns: 1fr auto;
+  gap: var(--sp-2); padding: 8px 10px;
+  border-bottom: 1px solid var(--border-light);
+  font: var(--text-caption); letter-spacing: .5px;
+}
+.list-item:last-child { border-bottom: 0; }
+.list-item .title { color: var(--ink-2); }
+.list-item .meta  { color: var(--ink-4); font-size: .6875rem; }
+.list-item .tag-ok  { color: var(--sage-dark); font-weight: 700; }
+.list-item .tag-bad { color: var(--crimson); font-weight: 700; }
+
+.sm2-bar {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; padding: 10px 0;
+}
+.sm2-cell { padding: 8px 4px; border-radius: var(--r-sm); text-align: center; background: rgba(43,34,24,.03); }
+.sm2-cell .v { font-family: var(--font-serif); font-weight: 700; font-size: 1rem; color: var(--ink); line-height: 1; }
+.sm2-cell .l { font-size: .625rem; color: var(--ink-3); letter-spacing: .5px; margin-top: 3px; }
+</style>
+<script src="../shared/desktop-mobile.js"></script>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<meta name="jx-require-role" content="coach,admin">
+<script src="../shared/require-auth.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name"><span class="sc">觉学</span><span class="tc">覺學</span></div>
+        <div class="brand-sub"><span class="sc">辅导员后台</span><span class="tc">輔導員後台</span></div>
+      </div>
+    </div>
+
+    <div class="side-user">
+      <div class="side-avatar" data-jx-user="avatarInitial">—</div>
+      <div class="side-user-info">
+        <div class="side-user-name" data-jx-user="dharmaName">—</div>
+        <div class="side-user-role" data-jx-user="roleLabel">—</div>
+      </div>
+      <button type="button" id="btn-logout" title="退出登录" aria-label="退出登录"
+        style="margin-left:auto;background:none;border:0;color:var(--ink-3);cursor:pointer;padding:6px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-list">
+      <div class="nav-section"><span class="sc">教学</span><span class="tc">教學</span></div>
+      <a class="nav-item" href="coach.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        <span><span class="sc">我的班级</span><span class="tc">我的班級</span></span>
+      </a>
+      <a class="nav-item active" href="coach-students.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span><span class="sc">班级学员</span><span class="tc">班級學員</span></span>
+      </a>
+      <a class="nav-item" href="coach-questions.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M9 12h6M9 16h6M9 8h6"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        <span><span class="sc">题库</span><span class="tc">題庫</span></span>
+      </a>
+      <a class="nav-item" href="coach-courses.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        <span><span class="sc">法本浏览</span><span class="tc">法本瀏覽</span></span>
+      </a>
+
+      <div class="nav-section"><span class="sc">系统</span><span class="tc">系統</span></div>
+      <a class="nav-item" href="../mobile/home.html">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+        <span><span class="sc">学生端预览</span><span class="tc">學生端預覽</span></span>
+      </a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="page-title" id="class-title">—</h1>
+        <p class="page-sub"><span class="sc">点击学员查看详情 · 学修轨迹 / 错题 / SM-2 进度</span><span class="tc">點擊學員查看詳情 · 學修軌跡 / 錯題 / SM-2 進度</span></p>
+      </div>
+      <div class="top-actions">
+        <button class="lang-btn" onclick="toggleLang()">繁</button>
+      </div>
+    </div>
+
+    <div class="cls-bar">
+      <span style="font:var(--text-caption);color:var(--ink-3);letter-spacing:1.5px;"><span class="sc">切换班级</span><span class="tc">切換班級</span>：</span>
+      <div class="cls-chips" id="cls-chips"></div>
+      <span class="cls-count" id="cls-count">—</span>
+    </div>
+
+    <div class="list-panel">
+      <div id="list-body">
+        <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Student detail drawer -->
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="drawer-title" id="dr-title"><span class="sc">学员详情</span><span class="tc">學員詳情</span></span>
+    <button class="drawer-close" id="dr-close" aria-label="关闭">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="dr-body">
+    <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+  </div>
+</aside>
+
+<script>
+// coach-students · 子步 1 · 骨架
+// 子步 2 / 3 加学员列表 + 详情抽屉
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var state = {
+  classes: [],     // /api/coach/classes 返回
+  currentCid: '',  // 当前选中班级 id
+};
+
+function $(id) { return document.getElementById(id); }
+
+function renderClassChips() {
+  var html = state.classes.map(function (m) {
+    var c = m.class || {};
+    var active = c.id === state.currentCid;
+    var courseHint = c.course
+      ? ' <span style="opacity:.6;font-size:.85em;">' + (c.course.coverEmoji || '') + ' ' + escapeHtml(sc(c.course.title, c.course.titleTraditional || c.course.title)) + '</span>'
+      : '';
+    return '<span class="cls-chip' + (active ? ' active' : '') + '" data-cid="' +
+      escapeHtml(c.id) + '" title="' + escapeHtml(sc('主修法本', '主修法本')) + '">'
+      + escapeHtml(c.name || '—')
+      + courseHint
+      + '</span>';
+  }).join('');
+  $('cls-chips').innerHTML = html || '<span style="font:var(--text-caption);color:var(--ink-4);">' + sc('您还没有带班', '您還沒有帶班') + '</span>';
+
+  $('cls-chips').querySelectorAll('[data-cid]').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var cid = chip.getAttribute('data-cid');
+      if (cid === state.currentCid) return;
+      state.currentCid = cid;
+      var url = new URL(location.href);
+      url.searchParams.set('classId', cid);
+      history.replaceState(null, '', url.toString());
+      renderClassChips();
+      updateTitle();
+      loadStudents();
+    });
+  });
+}
+
+function updateTitle() {
+  var m = state.classes.find(function (x) { return x.class && x.class.id === state.currentCid; });
+  var name = m && m.class && m.class.name ? m.class.name : sc('班级学员', '班級學員');
+  $('class-title').textContent = name;
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+}
+function relTime(iso) {
+  if (!iso) return sc('从未登录', '從未登入');
+  var diff = Date.now() - new Date(iso).getTime();
+  var d = Math.floor(diff / 86400000);
+  if (d < 1) {
+    var h = Math.floor(diff / 3600000);
+    if (h < 1) return sc('刚刚', '剛剛');
+    return h + sc(' 小时前', ' 小時前');
+  }
+  if (d < 30) return d + sc(' 天前', ' 天前');
+  return Math.floor(d / 30) + sc(' 个月前', ' 個月前');
+}
+
+function avatarInitial(u) {
+  var n = u.dharmaName || u.email || '?';
+  for (var i = 0; i < n.length; i++) {
+    var c = n.charAt(i);
+    if (/\S/.test(c)) return c;
+  }
+  return '·';
+}
+
+function renderStudents(members) {
+  if (!members || !members.length) {
+    $('list-body').innerHTML = '<div class="empty-state">' +
+      escapeHtml(sc('该班级暂无成员', '該班級暫無成員')) + '</div>';
+    $('cls-count').textContent = '0';
+    return;
+  }
+
+  // 先按 role 排（coach 在前）、再按 joinedAt 正序（后端已排好，保底）
+  var coaches = members.filter(function (m) { return m.role === 'coach'; });
+  var students = members.filter(function (m) { return m.role === 'student'; });
+  var sorted = coaches.concat(students);
+
+  var rows = sorted.map(function (m) {
+    var u = m.user || {};
+    var isCoach = m.role === 'coach';
+    var roleLabel = isCoach ? [sc('辅导员', '輔導員')] : [sc('学员', '學員')];
+    return ''
+      + '<tr data-uid="' + escapeHtml(u.id || '') + '" data-role="' + escapeHtml(m.role) + '">'
+      +   '<td>'
+      +     '<div class="s-user">'
+      +       '<div class="s-av' + (isCoach ? ' coach' : '') + '">' + escapeHtml(avatarInitial(u)) + '</div>'
+      +       '<div>'
+      +         '<div class="s-name">' + escapeHtml(u.dharmaName || u.email || '—') + '</div>'
+      +         (u.email ? '<div class="s-email">' + escapeHtml(u.email) + '</div>' : '')
+      +       '</div>'
+      +     '</div>'
+      +   '</td>'
+      +   '<td><span class="s-role ' + escapeHtml(m.role) + '">' + roleLabel[0] + '</span></td>'
+      +   '<td>' + fmtDate(m.joinedAt) + '</td>'
+      +   '<td style="color:var(--ink-3);">' + relTime(u.lastLoginAt) + '</td>'
+      +   '<td style="width:30px;text-align:right;color:var(--ink-4);">›</td>'
+      + '</tr>';
+  }).join('');
+
+  $('list-body').innerHTML =
+    '<table class="s-list"><thead><tr>' +
+      '<th><span class="sc">成员</span><span class="tc">成員</span></th>' +
+      '<th><span class="sc">角色</span><span class="tc">角色</span></th>' +
+      '<th><span class="sc">加入时间</span><span class="tc">加入時間</span></th>' +
+      '<th><span class="sc">最后登录</span><span class="tc">最後登入</span></th>' +
+      '<th></th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+
+  // 行点击占位（子步 3 打开抽屉）
+  $('list-body').querySelectorAll('tr[data-uid]').forEach(function (tr) {
+    tr.addEventListener('click', function () {
+      var uid = tr.getAttribute('data-uid');
+      var role = tr.getAttribute('data-role');
+      if (role === 'coach') return; // coach 自己不展开
+      if (typeof window.openStudentDrawer === 'function') {
+        window.openStudentDrawer(uid);
+      }
+    });
+  });
+
+  $('cls-count').textContent =
+    sorted.length + sc(' 成员 · ', ' 成員 · ') + students.length + sc(' 学员', ' 學員');
+}
+
+function loadStudents() {
+  if (!state.currentCid) return;
+  $('list-body').innerHTML = '<div class="empty-state">' +
+    sc('加载中…', '加載中…') + '</div>';
+  window.JX.api.get('/api/coach/classes/' + encodeURIComponent(state.currentCid) + '/members')
+    .then(renderStudents)
+    .catch(function (err) {
+      $('list-body').innerHTML = '<div class="empty-state err-state">' +
+        escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
+    });
+}
+
+function boot() {
+  window.JX.api.get('/api/coach/classes').then(function (list) {
+    state.classes = list || [];
+    if (!state.classes.length) {
+      $('class-title').textContent = sc('尚未带班', '尚未帶班');
+      $('cls-count').textContent = '';
+      $('list-body').innerHTML = '<div class="empty-state">' +
+        escapeHtml(sc('您还不是任何班级的辅导员。联系管理员分配班级后再来。', '您還不是任何班級的輔導員。聯繫管理員分配班級後再來。')) + '</div>';
+      return;
+    }
+    // 从 URL 取 classId，没有则用第一班
+    var qsCid = (location.search.match(/[?&]classId=([^&]+)/) || [])[1];
+    var found = qsCid && state.classes.find(function (m) { return m.class && m.class.id === decodeURIComponent(qsCid); });
+    state.currentCid = found ? found.class.id : state.classes[0].class.id;
+
+    renderClassChips();
+    updateTitle();
+    loadStudents();
+  }).catch(function (err) {
+    $('list-body').innerHTML = '<div class="empty-state err-state">' +
+      escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
+  });
+}
+
+// ═════════ 学员详情抽屉 ═════════
+
+function closeDrawer() {
+  $('drawer').classList.remove('open');
+  $('drawer').setAttribute('aria-hidden', 'true');
+  $('drawer-backdrop').classList.remove('open');
+}
+
+$('dr-close').addEventListener('click', closeDrawer);
+$('drawer-backdrop').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape') closeDrawer();
+});
+
+window.openStudentDrawer = function (uid) {
+  if (!uid || !state.currentCid) return;
+  $('drawer').classList.add('open');
+  $('drawer').setAttribute('aria-hidden', 'false');
+  $('drawer-backdrop').classList.add('open');
+  $('dr-body').innerHTML = '<div class="empty-state">' + sc('加载中…', '加載中…') + '</div>';
+
+  var url = '/api/coach/classes/' + encodeURIComponent(state.currentCid) +
+            '/students/' + encodeURIComponent(uid) + '?recentLimit=20';
+  window.JX.api.get(url)
+    .then(renderStudentDetail)
+    .catch(function (err) {
+      $('dr-body').innerHTML = '<div class="empty-state err-state">' +
+        escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
+    });
+};
+
+function renderStudentDetail(d) {
+  d = d || {};
+  var u = d.user || {};
+  var s = d.summary || {};
+  var sm = d.sm2Progress || {};
+  var recent = d.recentAnswers || [];
+  var mistakes = d.mistakes || [];
+  var enrollments = d.enrollments || [];
+
+  $('dr-title').textContent = u.dharmaName || u.email || sc('学员详情', '學員詳情');
+
+  // Hero
+  var initial = avatarInitial(u);
+  var heroHtml =
+    '<div class="dr-section">' +
+      '<div class="dr-hero">' +
+        '<div class="big-av">' + escapeHtml(initial) + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div class="dn">' + escapeHtml(u.dharmaName || u.email || '—') + '</div>' +
+          (u.email ? '<div class="em">' + escapeHtml(u.email) + '</div>' : '') +
+          '<div class="st">' +
+            (u.isActive ? sc('✓ 账号启用', '✓ 帳號啟用') : sc('⊘ 账号停用', '⊘ 帳號停用')) +
+            ' · ' + sc('最后登录 ', '最後登入 ') + relTime(u.lastLoginAt) +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  // Summary 4 cells
+  var sumHtml =
+    '<div class="dr-section">' +
+      '<h3 class="dr-h3">' + sc('总览', '總覽') + '</h3>' +
+      '<div class="sum-grid">' +
+        '<div class="sum-cell"><div class="sum-val">' + (s.totalAnswers || 0) + '</div><div class="sum-lbl">' + sc('累计答题', '累計答題') + '</div></div>' +
+        '<div class="sum-cell"><div class="sum-val">' + Math.round((s.correctRate || 0) * 100) + '%</div><div class="sum-lbl">' + sc('正确率', '正確率') + '</div></div>' +
+        '<div class="sum-cell"><div class="sum-val" style="font-size:.75rem;line-height:1.4;">' + (s.firstAnswerAt ? fmtDate(s.firstAnswerAt) : '—') + '</div><div class="sum-lbl">' + sc('首答日期', '首答日期') + '</div></div>' +
+        '<div class="sum-cell"><div class="sum-val" style="font-size:.75rem;line-height:1.4;">' + relTime(s.lastActiveAt) + '</div><div class="sum-lbl">' + sc('最近活跃', '最近活躍') + '</div></div>' +
+      '</div>' +
+    '</div>';
+
+  // SM-2
+  var sm2Html =
+    '<div class="dr-section">' +
+      '<h3 class="dr-h3">SM-2 ' + sc('进度', '進度') + '</h3>' +
+      '<div class="sm2-bar">' +
+        '<div class="sm2-cell"><div class="v">' + (sm['new'] || 0) + '</div><div class="l">' + sc('新', '新') + '</div></div>' +
+        '<div class="sm2-cell"><div class="v">' + (sm.learning || 0) + '</div><div class="l">' + sc('学习', '學習') + '</div></div>' +
+        '<div class="sm2-cell"><div class="v">' + (sm.review || 0) + '</div><div class="l">' + sc('复习', '複習') + '</div></div>' +
+        '<div class="sm2-cell"><div class="v" style="color:var(--sage-dark);">' + (sm.mastered || 0) + '</div><div class="l">' + sc('掌握', '掌握') + '</div></div>' +
+        '<div class="sm2-cell"><div class="v" style="color:var(--saffron-dark);">' + (sm.due || 0) + '</div><div class="l">' + sc('到期', '到期') + '</div></div>' +
+        '<div class="sm2-cell"><div class="v">' + (sm.total || 0) + '</div><div class="l">' + sc('总计', '總計') + '</div></div>' +
+      '</div>' +
+    '</div>';
+
+  // Recent answers
+  var recentHtml =
+    '<div class="dr-section">' +
+      '<h3 class="dr-h3">' + sc('近期答题 · ', '近期答題 · ') + recent.length + sc(' 条', ' 條') + '</h3>' +
+      (recent.length
+        ? recent.map(function (r) {
+            var mark = r.isCorrect === true ? '<span class="tag-ok">✓</span>' :
+                       r.isCorrect === false ? '<span class="tag-bad">✗</span>' :
+                       '<span style="color:var(--ink-4);">—</span>';
+            var scoreBit = r.score != null ? ' · ' + r.score : '';
+            return '<div class="list-item">' +
+              '<div class="title">' + escapeHtml(r.lessonTitle || '—') + '</div>' +
+              '<div class="meta">' + mark + scoreBit + ' · ' + relTime(r.answeredAt) + '</div>' +
+            '</div>';
+          }).join('')
+        : '<div class="empty-state">' + sc('暂无答题记录', '暫無答題記錄') + '</div>')
+    + '</div>';
+
+  // Mistakes
+  var mistakesHtml =
+    '<div class="dr-section">' +
+      '<h3 class="dr-h3">' + sc('错题本 · ', '錯題本 · ') + mistakes.length + sc(' 题', ' 題') + '</h3>' +
+      (mistakes.length
+        ? mistakes.map(function (m) {
+            return '<div class="list-item">' +
+              '<div class="title">' + escapeHtml((m.questionText || '').slice(0, 60)) + (m.questionText && m.questionText.length > 60 ? '…' : '') + '</div>' +
+              '<div class="meta"><span class="tag-bad">× ' + (m.wrongCount || 1) + '</span> · ' + relTime(m.lastWrongAt) + '</div>' +
+            '</div>';
+          }).join('')
+        : '<div class="empty-state">' + sc('暂无错题', '暫無錯題') + '</div>')
+    + '</div>';
+
+  // Enrollments
+  var enrHtml =
+    '<div class="dr-section">' +
+      '<h3 class="dr-h3">' + sc('已选法本 · ', '已選法本 · ') + enrollments.length + sc(' 部', ' 部') + '</h3>' +
+      (enrollments.length
+        ? enrollments.map(function (e) {
+            var status = e.completedAt
+              ? '<span class="tag-ok">' + sc('已完成', '已完成') + '</span>'
+              : e.lastStudiedAt
+                ? '<span style="color:var(--saffron-dark);">' + sc('学习中', '學習中') + '</span>'
+                : '<span style="color:var(--ink-4);">' + sc('未开始', '未開始') + '</span>';
+            return '<div class="list-item">' +
+              '<div class="title">' + escapeHtml(e.title || '—') + '</div>' +
+              '<div class="meta">' + status + (e.lastStudiedAt ? ' · ' + relTime(e.lastStudiedAt) : '') + '</div>' +
+            '</div>';
+          }).join('')
+        : '<div class="empty-state">' + sc('尚未选修任何法本', '尚未選修任何法本') + '</div>')
+    + '</div>';
+
+  $('dr-body').innerHTML = heroHtml + sumHtml + sm2Html + recentHtml + mistakesHtml + enrHtml;
+}
+
+// ═════════ 退出登录 ═════════
+$('btn-logout').addEventListener('click', function () {
+  window.JX.api.logout().finally(function () { location.replace('auth.html'); });
+});
+
+document.addEventListener('jx:user-ready', boot);
+if (window.JX && window.JX.user) boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,577 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 原型导航</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared/tokens.css">
+<link rel="stylesheet" href="shared/components.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font-sans); color: var(--ink);
+  background: var(--bg-scene); min-height: 100vh; -webkit-font-smoothing: antialiased;
+}
+
+.page { max-width: 1080px; margin: 0 auto; padding: var(--sp-10) var(--sp-6) var(--sp-12); }
+
+/* Top bar */
+.top-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: var(--sp-8);
+}
+.brand {
+  display: flex; align-items: center; gap: var(--sp-3);
+}
+.brand-icon {
+  width: 44px; height: 44px; border-radius: var(--r);
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 20px rgba(224,120,86,.3);
+}
+.brand-text {
+  font-family: var(--font-serif); font-weight: 700;
+  font-size: 1.125rem; letter-spacing: 4px; color: var(--ink);
+}
+.brand-text small {
+  display: block; font: var(--text-caption); letter-spacing: 2px;
+  color: var(--ink-3); margin-top: 2px; font-weight: 400;
+}
+.lang-btn {
+  height: 32px; padding: 0 16px; border-radius: var(--r-pill);
+  font-size: .8125rem; font-weight: 700; letter-spacing: 1px;
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  border: 1px solid var(--saffron-light); cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.lang-btn:hover { background: var(--saffron-light); }
+
+/* Hero */
+.hero {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
+  padding: var(--sp-8); margin-bottom: var(--sp-8);
+  box-shadow: var(--glass-shadow); text-align: center;
+  position: relative; overflow: hidden;
+}
+.hero::after {
+  content: '觉';
+  position: absolute; right: -40px; bottom: -60px;
+  font-family: var(--font-serif); font-size: 14rem; font-weight: 700;
+  color: rgba(224,120,86,.06); letter-spacing: 0; line-height: .8;
+  pointer-events: none;
+}
+.hero-title {
+  font-family: var(--font-serif); font-weight: 700;
+  font-size: 2.5rem; color: var(--ink); letter-spacing: 12px;
+  margin-bottom: var(--sp-3);
+}
+.hero-sub {
+  font-size: 1rem; color: var(--ink-2); letter-spacing: 4px;
+  margin-bottom: var(--sp-6);
+}
+.hero-stats {
+  display: flex; justify-content: center; gap: var(--sp-8);
+  position: relative; z-index: 1;
+}
+.hero-stat {
+  text-align: center;
+}
+.hero-stat-val {
+  font-family: var(--font-serif); font-weight: 700; font-size: 2rem;
+  color: var(--saffron); line-height: 1;
+}
+.hero-stat-lbl {
+  font: var(--text-caption); color: var(--ink-3);
+  letter-spacing: 2px; margin-top: 6px;
+}
+
+/* Section */
+.section { margin-bottom: var(--sp-8); }
+.section-header {
+  display: flex; align-items: baseline; gap: var(--sp-3);
+  margin-bottom: var(--sp-5); padding: 0 4px;
+}
+.section-title {
+  font-family: var(--font-serif); font-weight: 700;
+  font-size: 1.5rem; color: var(--ink); letter-spacing: 6px;
+}
+.section-count {
+  font: var(--text-caption); color: var(--ink-3);
+  letter-spacing: 2px;
+}
+
+/* Page grid */
+.page-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-4);
+}
+.page-grid.desktop { grid-template-columns: repeat(2, 1fr); }
+
+.page-card {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
+  padding: var(--sp-4); text-decoration: none;
+  transition: all var(--dur) var(--ease);
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  position: relative;
+}
+.page-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-3);
+  border-color: var(--saffron-light);
+}
+
+.page-icon {
+  width: 40px; height: 40px; border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--saffron-pale); color: var(--saffron-dark);
+}
+.page-icon.sage    { background: var(--sage-light);    color: var(--sage-dark); }
+.page-icon.crimson { background: var(--crimson-light); color: var(--crimson); }
+.page-icon.gold    { background: var(--gold-pale);     color: var(--gold-dark); }
+.page-icon.ink     { background: rgba(43,34,24,.08);   color: var(--ink-2); }
+
+.page-name {
+  font-family: var(--font-serif); font-weight: 700; font-size: .9375rem;
+  color: var(--ink); letter-spacing: 2px;
+}
+.page-desc {
+  font: var(--text-caption); color: var(--ink-3);
+  letter-spacing: .5px; line-height: 1.5;
+}
+.page-file {
+  font-size: .6875rem; color: var(--ink-4);
+  font-family: 'SF Mono', Consolas, monospace;
+  letter-spacing: .5px; margin-top: auto;
+}
+
+/* Desktop card is wider - overrides */
+.page-grid.desktop .page-card {
+  padding: var(--sp-5); gap: var(--sp-4);
+  flex-direction: row; align-items: center;
+}
+.page-grid.desktop .page-icon {
+  width: 56px; height: 56px; flex-shrink: 0;
+}
+.page-grid.desktop .page-info { flex: 1; }
+.page-grid.desktop .page-file { margin-top: 6px; }
+
+/* Footer */
+.footer {
+  text-align: center; padding: var(--sp-6) 0;
+  font: var(--text-caption); color: var(--ink-4);
+  letter-spacing: 2px;
+}
+
+/* Responsive */
+@media (max-width: 720px) {
+  .page-grid, .page-grid.desktop { grid-template-columns: 1fr 1fr; }
+  .hero-title { font-size: 1.75rem; letter-spacing: 8px; }
+  .hero-stats { gap: var(--sp-5); }
+}
+</style>
+<script src="shared/lang.js"></script>
+</head>
+<body>
+<div class="page">
+
+  <div class="top-bar">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="22" height="22" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="sc">觉学</span><span class="tc">覺學</span>
+        <small><span class="sc">原型导航</span><span class="tc">原型導航</span></small>
+      </div>
+    </div>
+    <button class="lang-btn" onclick="toggleLang()">繁</button>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1 class="hero-title"><span class="sc">觉学 · 闻思修</span><span class="tc">覺學 · 聞思修</span></h1>
+    <p class="hero-sub"><span class="sc">智慧学习 · 如是我闻 · 佛法修行伴侣</span><span class="tc">智慧學習 · 如是我聞 · 佛法修行伴侶</span></p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <p class="hero-stat-val">29</p>
+        <p class="hero-stat-lbl"><span class="sc">原型页面</span><span class="tc">原型頁面</span></p>
+      </div>
+      <div class="hero-stat">
+        <p class="hero-stat-val">2</p>
+        <p class="hero-stat-lbl"><span class="sc">终端</span><span class="tc">終端</span></p>
+      </div>
+      <div class="hero-stat">
+        <p class="hero-stat-val">简繁</p>
+        <p class="hero-stat-lbl"><span class="sc">双语支持</span><span class="tc">雙語支持</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile pages -->
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title"><span class="sc">学生端</span><span class="tc">學生端</span></h2>
+      <span class="section-count"><span class="sc">移动端 · 23 页</span><span class="tc">行動端 · 23 頁</span></span>
+    </div>
+    <div class="page-grid">
+
+      <a class="page-card" href="mobile/auth.html">
+        <div class="page-icon gold">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">登录 / 注册</span><span class="tc">登入 / 註冊</span></p>
+          <p class="page-desc"><span class="sc">三屏切换：登录 · 注册 · 找回</span><span class="tc">三屏切換：登入 · 註冊 · 找回</span></p>
+        </div>
+        <p class="page-file">mobile/auth.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/home.html">
+        <div class="page-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">首页</span><span class="tc">首頁</span></p>
+          <p class="page-desc"><span class="sc">班级卡 · 当前法本 · 错题提醒</span><span class="tc">班級卡 · 當前法本 · 錯題提醒</span></p>
+        </div>
+        <p class="page-file">mobile/home.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/class-detail.html">
+        <div class="page-icon sage">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">班级详情</span><span class="tc">班級詳情</span></p>
+          <p class="page-desc"><span class="sc">公告 · 法师 · 成员 · 共修日程</span><span class="tc">公告 · 法師 · 成員 · 共修日程</span></p>
+        </div>
+        <p class="page-file">mobile/class-detail.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/notification.html">
+        <div class="page-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <div>
+          <p class="page-name">通知</p>
+          <p class="page-desc"><span class="sc">5 类筛选 · 已读 / 未读分组</span><span class="tc">5 類篩選 · 已讀 / 未讀分組</span></p>
+        </div>
+        <p class="page-file">mobile/notification.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/scripture-detail.html">
+        <div class="page-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">法本详情</span><span class="tc">法本詳情</span></p>
+          <p class="page-desc"><span class="sc">心经 · 8 章节 · 进度锁定</span><span class="tc">心經 · 8 章節 · 進度鎖定</span></p>
+        </div>
+        <p class="page-file">mobile/scripture-detail.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/scripture-reading.html">
+        <div class="page-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">经文阅读</span><span class="tc">經文閱讀</span></p>
+          <p class="page-desc"><span class="sc">注释高亮 · 收藏 · 笔记</span><span class="tc">註釋高亮 · 收藏 · 筆記</span></p>
+        </div>
+        <p class="page-file">mobile/scripture-reading.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/quiz.html">
+        <div class="page-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">答题</span><span class="tc">答題</span></p>
+          <p class="page-desc"><span class="sc">状态机：答题 → 反馈 → 结算</span><span class="tc">狀態機：答題 → 反饋 → 結算</span></p>
+        </div>
+        <p class="page-file">mobile/quiz.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/mistakes.html">
+        <div class="page-icon crimson">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.57"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">错题本</span><span class="tc">錯題本</span></p>
+          <p class="page-desc"><span class="sc">列表 · 筛选 · 按 lesson 聚合</span><span class="tc">列表 · 篩選 · 按 lesson 聚合</span></p>
+        </div>
+        <p class="page-file">mobile/mistakes.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/sm2-review.html">
+        <div class="page-icon gold">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">间隔复习</span><span class="tc">間隔複習</span></p>
+          <p class="page-desc"><span class="sc">SM-2 到期队列 · 四档自评 · 键盘加速</span><span class="tc">SM-2 到期隊列 · 四檔自評 · 鍵盤加速</span></p>
+        </div>
+        <p class="page-file">mobile/sm2-review.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/favorites.html">
+        <div class="page-icon gold">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">收藏</span><span class="tc">收藏</span></p>
+          <p class="page-desc"><span class="sc">列表 · 题型徽标 · 相对时间 · 取消收藏</span><span class="tc">列表 · 題型徽標 · 相對時間 · 取消收藏</span></p>
+        </div>
+        <p class="page-file">mobile/favorites.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/mistake-detail.html">
+        <div class="page-icon crimson">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">错题解析</span><span class="tc">錯題解析</span></p>
+          <p class="page-desc"><span class="sc">对错对比 · 释义 · SM-2 下次复习</span><span class="tc">對錯對比 · 釋義 · SM-2 下次複習</span></p>
+        </div>
+        <p class="page-file">mobile/mistake-detail.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/achievement.html">
+        <div class="page-icon gold">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+        </div>
+        <div>
+          <p class="page-name">成就</p>
+          <p class="page-desc"><span class="sc">等级环 · 9 枚勋章墙</span><span class="tc">等級環 · 9 枚勳章牆</span></p>
+        </div>
+        <p class="page-file">mobile/achievement.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/profile.html">
+        <div class="page-icon ink">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div>
+          <p class="page-name">我的</p>
+          <p class="page-desc"><span class="sc">资料 · 打卡 · 菜单入口</span><span class="tc">資料 · 打卡 · 選單入口</span></p>
+        </div>
+        <p class="page-file">mobile/profile.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/profile-edit.html">
+        <div class="page-icon ink">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M14.7 6.3l3 3L7 20H4v-3z"/><path d="M13.3 7.7l3 3"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">编辑资料</span><span class="tc">編輯資料</span></p>
+          <p class="page-desc"><span class="sc">头像 · 姓名 · 学习偏好</span><span class="tc">頭像 · 姓名 · 學習偏好</span></p>
+        </div>
+        <p class="page-file">mobile/profile-edit.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/settings.html">
+        <div class="page-icon ink">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">设置</span><span class="tc">設定</span></p>
+          <p class="page-desc"><span class="sc">账号 · 语言 · 通知偏好</span><span class="tc">帳號 · 語言 · 通知偏好</span></p>
+        </div>
+        <p class="page-file">mobile/settings.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/change-password.html">
+        <div class="page-icon ink">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">修改密码</span><span class="tc">修改密碼</span></p>
+          <p class="page-desc"><span class="sc">原密码校验 · 新密码二次确认</span><span class="tc">原密碼校驗 · 新密碼二次確認</span></p>
+        </div>
+        <p class="page-file">mobile/change-password.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/delete-account.html">
+        <div class="page-icon crimson">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">注销账号</span><span class="tc">註銷帳號</span></p>
+          <p class="page-desc"><span class="sc">风险提示 · 密码确认 · 不可恢复</span><span class="tc">風險提示 · 密碼確認 · 不可恢復</span></p>
+        </div>
+        <p class="page-file">mobile/delete-account.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/join-class.html">
+        <div class="page-icon sage">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">加入班级</span><span class="tc">加入班級</span></p>
+          <p class="page-desc"><span class="sc">6-8 位邀请码 · 成功预览 · 进入班级</span><span class="tc">6-8 位邀請碼 · 成功預覽 · 進入班級</span></p>
+        </div>
+        <p class="page-file">mobile/join-class.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/reset-confirm.html?token=demo">
+        <div class="page-icon gold">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">重置密码</span><span class="tc">重設密碼</span></p>
+          <p class="page-desc"><span class="sc">邮件链接落地页 · token 校验 · 三态</span><span class="tc">郵件連結落地頁 · token 校驗 · 三態</span></p>
+        </div>
+        <p class="page-file">mobile/reset-confirm.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/about.html">
+        <div class="page-icon ink">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">关于觉学</span><span class="tc">關於覺學</span></p>
+          <p class="page-desc"><span class="sc">简介 · 功能 · 课程 · 联系方式</span><span class="tc">簡介 · 功能 · 課程 · 聯繫方式</span></p>
+        </div>
+        <p class="page-file">mobile/about.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/help.html">
+        <div class="page-icon sage">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">帮助与反馈</span><span class="tc">幫助與回饋</span></p>
+          <p class="page-desc"><span class="sc">FAQ · 邮件联系卡</span><span class="tc">FAQ · 郵件聯繫卡</span></p>
+        </div>
+        <p class="page-file">mobile/help.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/privacy.html">
+        <div class="page-icon ink">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 1l8 4v6c0 5-4 9-8 10-4-1-8-5-8-10V5z"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">隐私政策</span><span class="tc">隱私政策</span></p>
+          <p class="page-desc"><span class="sc">5 节模板 · 上线前律师替换</span><span class="tc">5 節模板 · 上線前律師替換</span></p>
+        </div>
+        <p class="page-file">mobile/privacy.html</p>
+      </a>
+
+      <a class="page-card" href="mobile/terms.html">
+        <div class="page-icon ink">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div>
+          <p class="page-name"><span class="sc">服务条款</span><span class="tc">服務條款</span></p>
+          <p class="page-desc"><span class="sc">6 节模板 · 同上</span><span class="tc">6 節模板 · 同上</span></p>
+        </div>
+        <p class="page-file">mobile/terms.html</p>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- Desktop pages -->
+  <div class="section">
+    <div class="section-header">
+      <h2 class="section-title">管理端</h2>
+      <span class="section-count"><span class="sc">桌面端 · 6 页</span><span class="tc">桌面端 · 6 頁</span></span>
+    </div>
+    <div class="page-grid desktop">
+
+      <a class="page-card" href="desktop/coach.html">
+        <div class="page-icon">
+          <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div class="page-info">
+          <p class="page-name"><span class="sc">辅导员后台 · 总览</span><span class="tc">輔導員後台 · 總覽</span></p>
+          <p class="page-desc"><span class="sc">班级列表 · KPI · 待处理事项</span><span class="tc">班級列表 · KPI · 待處理事項</span></p>
+          <p class="page-file">desktop/coach.html</p>
+        </div>
+      </a>
+
+      <a class="page-card" href="desktop/coach-questions.html">
+        <div class="page-icon sage">
+          <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+        </div>
+        <div class="page-info">
+          <p class="page-name"><span class="sc">辅导员 · 题库</span><span class="tc">輔導員 · 題庫</span></p>
+          <p class="page-desc"><span class="sc">列表 · 新建 / 编辑 · LLM 生成 · 批量导入</span><span class="tc">列表 · 新建 / 編輯 · LLM 生成 · 批量匯入</span></p>
+          <p class="page-file">desktop/coach-questions.html</p>
+        </div>
+      </a>
+
+      <a class="page-card" href="desktop/admin.html">
+        <div class="page-icon crimson">
+          <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 1l8 4v6c0 5-4 9-8 10-4-1-8-5-8-10V5z"/></svg>
+        </div>
+        <div class="page-info">
+          <p class="page-name"><span class="sc">管理员 · 大盘</span><span class="tc">管理員 · 大盤</span></p>
+          <p class="page-desc"><span class="sc">数据总览 · 用户表 · 内容热度</span><span class="tc">數據總覽 · 用戶表 · 內容熱度</span></p>
+          <p class="page-file">desktop/admin.html</p>
+        </div>
+      </a>
+
+      <a class="page-card" href="desktop/admin-users.html">
+        <div class="page-icon ink">
+          <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+        </div>
+        <div class="page-info">
+          <p class="page-name"><span class="sc">管理员 · 用户</span><span class="tc">管理員 · 用戶</span></p>
+          <p class="page-desc"><span class="sc">列表 · 筛选 · 角色 / 启用状态切换</span><span class="tc">列表 · 篩選 · 角色 / 啟用狀態切換</span></p>
+          <p class="page-file">desktop/admin-users.html</p>
+        </div>
+      </a>
+
+      <a class="page-card" href="desktop/admin-classes.html">
+        <div class="page-icon sage">
+          <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="14" r="3"/></svg>
+        </div>
+        <div class="page-info">
+          <p class="page-name"><span class="sc">管理员 · 班级</span><span class="tc">管理員 · 班級</span></p>
+          <p class="page-desc"><span class="sc">列表 · 新建 · 成员增删 · 归档</span><span class="tc">列表 · 新建 · 成員增刪 · 歸檔</span></p>
+          <p class="page-file">desktop/admin-classes.html</p>
+        </div>
+      </a>
+
+      <a class="page-card" href="desktop/admin-review.html">
+        <div class="page-icon gold">
+          <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <div class="page-info">
+          <p class="page-name"><span class="sc">管理员 · 审核</span><span class="tc">管理員 · 審核</span></p>
+          <p class="page-desc"><span class="sc">pending 题目队列 · 通过 / 驳回</span><span class="tc">pending 題目隊列 · 通過 / 駁回</span></p>
+          <p class="page-file">desktop/admin-review.html</p>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <p class="footer">
+    <span class="sc">觉学 · 愿以此功德，庄严佛净土</span><span class="tc">覺學 · 願以此功德，莊嚴佛淨土</span>
+  </p>
+
+</div>
+</body>
+</html>

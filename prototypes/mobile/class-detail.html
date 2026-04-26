@@ -1,0 +1,355 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 班级详情</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+
+/* Sections */
+.sections { display: flex; flex-direction: column; gap: var(--sp-4); padding: 0 var(--sp-5) var(--sp-10); }
+
+/* Class hero */
+.class-hero {
+  background: linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%);
+  border-radius: var(--r-xl); padding: var(--sp-5);
+  color: #fff; position: relative; overflow: hidden;
+  box-shadow: 0 8px 28px rgba(161,60,46,.22);
+}
+.class-hero::after {
+  content: '共修';
+  position: absolute; right: -8px; bottom: -24px;
+  font-family: var(--font-serif); font-size: 6rem; font-weight: 700;
+  color: rgba(255,255,255,.07); letter-spacing: 4px; line-height: .9;
+}
+.hero-tag {
+  display: inline-block; font: var(--text-caption); font-weight: 700; letter-spacing: 2px;
+  background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.3);
+  border-radius: var(--r-pill); padding: 2px 10px; margin-bottom: var(--sp-3);
+}
+.hero-name {
+  font-family: var(--font-serif); font-size: 1.375rem; font-weight: 700;
+  letter-spacing: 5px; margin-bottom: var(--sp-4); position: relative; z-index: 1;
+}
+.hero-stats { display: flex; gap: var(--sp-5); position: relative; z-index: 1; }
+.hero-stat-num { font-family: var(--font-serif); font-weight: 700; font-size: 1.25rem; line-height: 1; margin-bottom: 2px; }
+.hero-stat-lbl { font-size: .625rem; opacity: .8; letter-spacing: 1px; }
+
+/* Section head */
+.sec-head { display: flex; justify-content: space-between; align-items: center; padding: 0 2px; }
+.sec-title { font-family: var(--font-serif); font-weight: 700; color: var(--ink); font-size: 1rem; letter-spacing: 3px; }
+.sec-more { font: var(--text-caption); color: var(--saffron); letter-spacing: 1px; cursor: pointer; }
+
+/* Announcement card */
+.notice-card {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
+  border-left: 3px solid var(--saffron); padding: var(--sp-4);
+}
+.notice-meta { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.notice-pin {
+  width: 18px; height: 18px; border-radius: var(--r-sm);
+  background: var(--saffron-pale); display: flex; align-items: center; justify-content: center;
+}
+.notice-date { font: var(--text-caption); color: var(--ink-4); letter-spacing: 1px; }
+.notice-body { font: var(--text-body); color: var(--ink-2); line-height: 1.7; letter-spacing: .5px; }
+
+/* Teacher card */
+.teacher-card {
+  display: flex; align-items: center; gap: var(--sp-4);
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl); padding: var(--sp-4);
+}
+.teacher-avatar {
+  width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold));
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; color: #fff;
+  box-shadow: 0 4px 12px rgba(212,165,116,.35);
+}
+.teacher-info { flex: 1; min-width: 0; }
+.teacher-name { font-family: var(--font-serif); font-weight: 700; color: var(--ink); font-size: .9375rem; letter-spacing: 3px; margin-bottom: 3px; }
+.teacher-role { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; }
+.msg-btn {
+  padding: 6px 14px; border-radius: var(--r-pill);
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  border: 1px solid var(--saffron-light); font: var(--text-caption); font-weight: 700;
+  letter-spacing: 1px; cursor: pointer; flex-shrink: 0;
+  transition: background var(--dur) var(--ease);
+}
+.msg-btn:hover { background: var(--saffron-light); }
+
+/* Members grid */
+.members-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-3); }
+.member-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.member-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-weight: 700; font-size: .875rem; color: #fff;
+}
+.member-name { font: var(--text-caption); color: var(--ink-2); letter-spacing: .5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 44px; }
+.member-lv { font-size: .5625rem; color: var(--gold-dark); font-weight: 700; letter-spacing: .5px; }
+
+/* Activity list */
+.activity-item {
+  display: flex; align-items: center; gap: var(--sp-3);
+  background: var(--glass); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4);
+}
+.activity-date {
+  text-align: center; flex-shrink: 0; width: 36px;
+  background: var(--saffron-pale); border-radius: var(--r-sm); padding: 4px 0;
+}
+.activity-date .month { font-size: .5625rem; color: var(--saffron); font-weight: 700; letter-spacing: 1px; display: block; }
+.activity-date .day { font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; color: var(--ink); line-height: 1; display: block; }
+.activity-info { flex: 1; }
+.activity-title { font: var(--text-body); font-weight: 600; color: var(--ink); letter-spacing: 1px; margin-bottom: 2px; }
+.activity-meta { font: var(--text-caption); color: var(--ink-3); letter-spacing: .5px; }
+.activity-tag { flex-shrink: 0; }
+</style>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/toast.js"></script>
+<script src="../shared/require-auth.js"></script>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <div class="status-bar" data-auto></div>
+
+  <div class="top-nav">
+    <div style="width:34px;"></div>
+    <span class="nav-title"><span class="sc">班级详情</span><span class="tc">班級詳情</span></span>
+    <div style="width:34px;"></div>
+  </div>
+
+  <div class="sections">
+
+    <!-- ═══ 加载态 ═══ -->
+    <div id="loading-block" style="padding:var(--sp-8) var(--sp-5);text-align:center;color:var(--ink-3);font:var(--text-caption);">
+      <span class="sc">加载中…</span><span class="tc">加載中…</span>
+    </div>
+
+    <!-- ═══ 无班级态：自由学习 / 加入班级 二选一 ═══ -->
+    <div id="no-class-block" style="display:none;padding:var(--sp-4) 0;">
+      <div style="text-align:center;padding:var(--sp-6) var(--sp-4) var(--sp-4);">
+        <div style="width:88px;height:88px;border-radius:50%;background:var(--saffron-pale);color:var(--saffron-dark);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4);">
+          <svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <p style="font-family:var(--font-serif);font-weight:700;font-size:1.125rem;letter-spacing:4px;color:var(--ink);margin-bottom:var(--sp-2);">
+          <span class="sc">尚未加入班级</span><span class="tc">尚未加入班級</span>
+        </p>
+        <p style="font:var(--text-body);color:var(--ink-2);letter-spacing:1px;line-height:1.7;max-width:300px;margin:0 auto;">
+          <span class="sc">觉学支持两种学习模式：跟随班级共修，或独自自由学习。</span>
+          <span class="tc">覺學支持兩種學習模式：跟隨班級共修，或獨自自由學習。</span>
+        </p>
+      </div>
+
+      <!-- 模式 A：加入班级（主推） -->
+      <a href="join-class.html" class="notice-card" style="display:block;text-decoration:none;color:inherit;border-left-color:var(--saffron);margin-bottom:var(--sp-3);">
+        <div class="notice-meta">
+          <div class="notice-pin">
+            <svg width="12" height="12" fill="none" stroke="var(--saffron-dark)" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </div>
+          <span style="font:var(--text-caption);font-weight:700;color:var(--saffron-dark);letter-spacing:2px;"><span class="sc">共修模式</span><span class="tc">共修模式</span></span>
+        </div>
+        <p class="notice-body" style="font-weight:600;color:var(--ink);margin-bottom:4px;">
+          <span class="sc">加入班级</span><span class="tc">加入班級</span> →
+        </p>
+        <p class="notice-body" style="font-size:.8125rem;">
+          <span class="sc">凭辅导员邀请码加入班级 · 跟随班级进度 · 法师解答 · 班级排行榜</span>
+          <span class="tc">憑輔導員邀請碼加入班級 · 跟隨班級進度 · 法師解答 · 班級排行榜</span>
+        </p>
+      </a>
+
+      <!-- 模式 B：自由学习（次要） -->
+      <a href="scripture-detail.html" class="notice-card" style="display:block;text-decoration:none;color:inherit;border-left-color:var(--sage);">
+        <div class="notice-meta">
+          <div class="notice-pin" style="background:var(--sage-light);">
+            <svg width="12" height="12" fill="none" stroke="var(--sage-dark)" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          </div>
+          <span style="font:var(--text-caption);font-weight:700;color:var(--sage-dark);letter-spacing:2px;"><span class="sc">自由学习</span><span class="tc">自由學習</span></span>
+        </div>
+        <p class="notice-body" style="font-weight:600;color:var(--ink);margin-bottom:4px;">
+          <span class="sc">直接打开法本学习</span><span class="tc">直接打開法本學習</span> →
+        </p>
+        <p class="notice-body" style="font-size:.8125rem;">
+          <span class="sc">不加入班级也能答题 · 记录自己的错题本与 SM-2 间隔复习 · 随时可加入班级</span>
+          <span class="tc">不加入班級也能答題 · 記錄自己的錯題本與 SM-2 間隔複習 · 隨時可加入班級</span>
+        </p>
+      </a>
+    </div>
+
+    <!-- ═══ 有班级态（真数据填入） ═══ -->
+    <div id="has-class-block" style="display:none;">
+
+    <!-- Class hero -->
+    <div class="class-hero">
+      <span class="hero-tag"><span class="sc">共修班</span><span class="tc">共修班</span></span>
+      <p class="hero-name" id="cls-name">—</p>
+      <div class="hero-stats">
+        <div>
+          <p class="hero-stat-num" id="cls-member-count">—</p>
+          <p class="hero-stat-lbl"><span class="sc">成员</span><span class="tc">成員</span></p>
+        </div>
+        <div>
+          <p class="hero-stat-num" id="cls-joined-days">—</p>
+          <p class="hero-stat-lbl"><span class="sc">加入 / 天</span><span class="tc">加入 / 天</span></p>
+        </div>
+        <div>
+          <p class="hero-stat-num" id="cls-join-code" style="font-size:.9375rem;letter-spacing:2px;">—</p>
+          <p class="hero-stat-lbl"><span class="sc">邀请码</span><span class="tc">邀請碼</span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主修法本卡 · 加入班级即开始学的法本 -->
+    <a id="cls-course-card" href="#"
+       style="display:none;text-decoration:none;color:inherit;
+              padding:var(--sp-4);background:var(--glass-thick);backdrop-filter:var(--blur);
+              border:1px solid var(--glass-border);border-radius:var(--r-lg);
+              border-left:3px solid var(--gold-dark);
+              display:flex;align-items:center;gap:var(--sp-3);">
+      <div id="cls-course-emoji"
+           style="width:46px;height:46px;border-radius:var(--r-lg);flex-shrink:0;
+                  background:var(--gold-pale);display:flex;align-items:center;
+                  justify-content:center;font-size:1.5rem;">🪷</div>
+      <div style="flex:1;min-width:0;">
+        <p style="font:var(--text-caption);color:var(--gold-dark);letter-spacing:1.5px;margin-bottom:2px;">
+          📍 <span class="sc">主修法本</span><span class="tc">主修法本</span>
+        </p>
+        <p id="cls-course-title"
+           style="font-family:var(--font-serif);font-weight:700;color:var(--ink);
+                  font-size:1rem;letter-spacing:2px;">—</p>
+        <p id="cls-course-author"
+           style="font:var(--text-caption);color:var(--ink-3);letter-spacing:.5px;margin-top:2px;display:none;">—</p>
+      </div>
+      <svg width="16" height="16" fill="none" stroke="var(--ink-4)" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+
+    <!-- Announcement · 暂无后端支持，空态提示 -->
+    <div class="sec-head">
+      <span class="sec-title"><span class="sc">班级公告</span><span class="tc">班級公告</span></span>
+    </div>
+    <div class="notice-card" style="text-align:center;color:var(--ink-4);">
+      <p class="notice-body" style="font:var(--text-caption);letter-spacing:1.5px;">
+        <span class="sc">暂无公告 · 辅导员发布后将出现在此</span>
+        <span class="tc">暫無公告 · 輔導員發佈後將出現在此</span>
+      </p>
+    </div>
+
+    </div><!-- /#has-class-block -->
+
+  </div>
+
+  <div id="action-wrap" style="padding:var(--sp-4) var(--sp-5);display:none;">
+    <button type="button" id="btn-leave" class="btn btn-ghost btn-lg btn-full btn-pill" style="color:var(--crimson);border-color:rgba(192,57,43,.25);">
+      <span class="sc">退出班级</span><span class="tc">退出班級</span>
+    </button>
+  </div>
+
+  <div class="tab-bar">
+    <a href="home.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span><span class="sc">首页</span><span class="tc">首頁</span></span></a>
+    <a href="scripture-detail.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span><span class="sc">法本</span><span class="tc">法本</span></span></a>
+    <a href="class-detail.html" class="tab-item active"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg><span><span class="sc">班级</span><span class="tc">班級</span></span></a>
+    <a href="profile.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span><span class="sc">我的</span><span class="tc">我的</span></span></a>
+  </div>
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+<script src="../shared/nav.js"></script>
+<script>
+// class-detail · GET /api/my/classes
+// 两种模式分叉：
+//   无班级 → 显示 "加入班级 / 自由学习" 二选一引导
+//   有班级 → 渲染第一个 membership 的真实信息
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+function $(id) { return document.getElementById(id); }
+function showOnly(id) {
+  ['loading-block', 'no-class-block', 'has-class-block'].forEach(function (b) {
+    var el = $(b); if (el) el.style.display = (b === id) ? '' : 'none';
+  });
+}
+
+function renderClass(mem) {
+  var cls = mem.class || {};
+  $('cls-name').textContent = cls.name || sc('（未命名班级）', '（未命名班級）');
+  $('cls-join-code').textContent = cls.joinCode || '—';
+  // 成员数：暂无单独 count 端点，如 mem 带 memberCount 用之，否则占位 1+
+  $('cls-member-count').textContent = (cls.memberCount != null ? cls.memberCount : '—');
+  // 加入天数
+  if (mem.joinedAt) {
+    var days = Math.max(0, Math.floor((Date.now() - new Date(mem.joinedAt)) / 86400000));
+    $('cls-joined-days').textContent = days;
+  } else {
+    $('cls-joined-days').textContent = '—';
+  }
+  // 主修法本卡（来自 cls.course · 阶段 1 后端已返回）
+  if (cls.course) {
+    var card = $('cls-course-card');
+    var title = sc(cls.course.title, cls.course.titleTraditional || cls.course.title);
+    $('cls-course-emoji').textContent = cls.course.coverEmoji || '🪷';
+    $('cls-course-title').textContent = title;
+    if (cls.course.author) {
+      $('cls-course-author').textContent = cls.course.author;
+      $('cls-course-author').style.display = '';
+    }
+    card.href = 'scripture-detail.html?slug=' + encodeURIComponent(cls.course.slug || '');
+    card.style.display = 'flex';
+  }
+  showOnly('has-class-block');
+  $('action-wrap').style.display = '';
+  // 退出按钮
+  $('btn-leave').onclick = function () {
+    if (!confirm(sc('确定退出班级？退出后学习数据保留。', '確定退出班級？退出後學習資料保留。'))) return;
+    window.JX.api.post('/api/classes/' + encodeURIComponent(cls.id) + '/leave', {})
+      .then(function () { location.reload(); })
+      .catch(function (err) { window.JX.toast.error(sc('退出失败：', '退出失敗：') + (err.message || err)); });
+  };
+}
+
+window.JX.api.get('/api/my/classes').then(function (list) {
+  if (!list || !list.length) {
+    showOnly('no-class-block');
+    $('action-wrap').style.display = 'none';
+    return;
+  }
+  renderClass(list[0]);
+}).catch(function (err) {
+  // 拉取失败也当作无班级（避免卡死在 loading）
+  console.warn('[class-detail] /api/my/classes 拉取失败', err);
+  showOnly('no-class-block');
+  $('action-wrap').style.display = 'none';
+});
+</script>
+</body>
+</html>

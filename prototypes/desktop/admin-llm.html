@@ -1,0 +1,902 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · LLM 管理 · 管理员</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/desktop.css">
+<style>
+.side-avatar { background: linear-gradient(135deg, var(--crimson-light), var(--crimson)); }
+
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-4); margin-bottom: var(--sp-4);
+}
+.kpi-card {
+  padding: var(--sp-4); background: var(--glass-thick);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
+}
+.kpi-label { font: var(--text-caption); color: var(--ink-3); letter-spacing: 2px; margin-bottom: var(--sp-2); }
+.kpi-value { font-family: var(--font-serif); font-weight: 700; font-size: 1.875rem; color: var(--ink); line-height: 1; }
+.kpi-sub   { font: var(--text-caption); color: var(--ink-4); margin-top: 6px; letter-spacing: 1px; }
+
+.panel {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); overflow: hidden;
+  margin-bottom: var(--sp-4);
+}
+.panel-head {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border-light);
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(43,34,24,.02);
+}
+.panel-title { font-family: var(--font-serif); font-weight: 700; font-size: .9375rem; color: var(--ink); letter-spacing: 2px; }
+.panel-hint { font: var(--text-caption); color: var(--ink-4); letter-spacing: 1px; }
+
+table.p-list { width: 100%; border-collapse: collapse; }
+.p-list th, .p-list td {
+  padding: 10px 14px; text-align: left;
+  font: var(--text-caption); letter-spacing: .5px;
+  border-bottom: 1px solid var(--border-light);
+}
+.p-list th { color: var(--ink-3); font-weight: 600; background: rgba(43,34,24,.03); }
+.p-list td { color: var(--ink-2); }
+.p-list tr:last-child td { border-bottom: 0; }
+
+.p-name { display: flex; align-items: center; gap: 8px; }
+.p-logo {
+  width: 28px; height: 28px; border-radius: var(--r-sm); flex-shrink: 0;
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+  color: #fff; font-weight: 700; font-size: .75rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.p-logo.minimax { background: linear-gradient(135deg, #4A90E2, #2E5EAA); }
+.p-logo.claude  { background: linear-gradient(135deg, #D97757, #A13C2E); }
+.p-name .nm { font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 1px; }
+.p-name .mdl { font: var(--text-caption); color: var(--ink-4); font-family: 'SF Mono', Consolas, monospace; }
+
+.p-role {
+  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: .6875rem; letter-spacing: 1.5px; font-weight: 600;
+}
+.p-role.primary  { background: var(--sage-light);   color: var(--sage-dark); }
+.p-role.fallback { background: var(--gold-pale);    color: var(--gold-dark); }
+.p-role.disabled { background: rgba(43,34,24,.08);  color: var(--ink-3); }
+
+.p-health {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: .6875rem; letter-spacing: 1px; font-weight: 600;
+}
+.p-health .dot { width: 6px; height: 6px; border-radius: 50%; }
+.p-health.healthy   { background: var(--sage-light);    color: var(--sage-dark); }
+.p-health.healthy .dot { background: var(--sage-dark); }
+.p-health.degraded  { background: var(--gold-pale);     color: var(--gold-dark); }
+.p-health.degraded .dot { background: var(--gold-dark); }
+.p-health.down      { background: var(--crimson-light); color: var(--crimson); }
+.p-health.down .dot { background: var(--crimson); animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+
+.p-switch {
+  position: relative; width: 38px; height: 20px;
+  background: rgba(43,34,24,.15); border-radius: var(--r-pill);
+  cursor: pointer; transition: background var(--dur) var(--ease);
+  flex-shrink: 0;
+}
+.p-switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  transition: transform var(--dur) var(--ease);
+}
+.p-switch.on { background: var(--saffron); }
+.p-switch.on::after { transform: translateX(18px); }
+.p-switch[aria-busy="true"] { opacity: .6; pointer-events: none; }
+
+.p-action-btn {
+  padding: 4px 10px; border-radius: var(--r-pill);
+  background: transparent; border: 1px solid var(--border);
+  color: var(--ink-3); font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.p-action-btn:hover { border-color: var(--saffron); color: var(--saffron-dark); }
+.p-action-btn[aria-busy="true"] { opacity: .5; pointer-events: none; }
+.p-action-btn.danger:hover { border-color: var(--crimson); color: var(--crimson); }
+
+.empty-state { padding: var(--sp-8) var(--sp-5); text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px; }
+.err-state { color: var(--crimson); }
+
+.circuit-warn {
+  padding: 2px 8px; border-radius: var(--r-pill);
+  background: var(--crimson-light); color: var(--crimson);
+  font-size: .6875rem; font-weight: 600; letter-spacing: 1px;
+  display: inline-block; margin-left: 8px;
+}
+
+/* ── 调用日志表 ─────────────────────────────────── */
+.log-filter { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border-light); background: rgba(43,34,24,.02); }
+.log-filter .fchip {
+  padding: 5px 14px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent; color: var(--ink-3);
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.log-filter .fchip.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
+
+.log-tag {
+  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: .6875rem; font-weight: 600; letter-spacing: 1px;
+}
+.log-tag.ok   { background: var(--sage-light);    color: var(--sage-dark); }
+.log-tag.err  { background: var(--crimson-light); color: var(--crimson); }
+.log-tag.switched { background: var(--gold-pale); color: var(--gold-dark); margin-left: 6px; }
+
+.log-load-more {
+  width: 100%; padding: 12px; border: 0; border-top: 1px solid var(--border-light);
+  background: rgba(255,255,255,.5); color: var(--saffron-dark);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer;
+}
+.log-load-more:hover { background: var(--saffron-pale); }
+
+/* ── Provider 编辑模态框 ─────────────────────────── */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 110; display: flex; align-items: center; justify-content: center; padding: var(--sp-6); }
+.modal-backdrop.open { opacity: 1; pointer-events: auto; }
+.modal {
+  width: 100%; max-width: 640px;
+  background: #fff; border-radius: var(--r-lg);
+  box-shadow: 0 24px 60px rgba(0,0,0,.18);
+  transform: scale(.96); transition: transform .2s var(--ease);
+  display: flex; flex-direction: column; max-height: 90vh;
+}
+.modal-backdrop.open .modal { transform: scale(1); }
+.modal-head { display: flex; align-items: center; padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-light); }
+.modal-title { flex: 1; font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.modal-body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
+.modal-foot { display: flex; justify-content: flex-end; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--border-light); background: rgba(43,34,24,.02); border-radius: 0 0 var(--r-lg) var(--r-lg); }
+
+.mfsection { margin-bottom: var(--sp-4); }
+.mfsection h4 { font: var(--text-caption); font-weight: 700; letter-spacing: 2px; color: var(--ink-3); margin: 0 0 var(--sp-2); }
+.mfgrid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+.mfield { display: flex; flex-direction: column; gap: 4px; }
+.mfield.full { grid-column: 1 / -1; }
+.mfield label { font: var(--text-caption); font-weight: 600; letter-spacing: 1px; color: var(--ink-2); }
+.mfield input, .mfield select {
+  padding: 7px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.mfield input:focus, .mfield select:focus { border-color: var(--saffron); }
+.mfield .hint { font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px; font-size: .6875rem; }
+.dr-err { color: var(--crimson); font: var(--text-caption); letter-spacing: 1px; padding: 8px 10px; border-radius: var(--r-sm); background: rgba(192,57,43,.06); margin-bottom: var(--sp-3); display: none; }
+.dr-err.show { display: block; }
+.btn-apply { padding: 7px 16px; border-radius: var(--r-sm); background: var(--saffron); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+.btn-apply[aria-busy="true"] { opacity: .6; pointer-events: none; }
+.btn-ghost-s { padding: 7px 16px; border-radius: var(--r-sm); background: transparent; color: var(--ink-2); border: 1px solid var(--border); font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer; }
+</style>
+<script src="../shared/desktop-mobile.js"></script>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<meta name="jx-require-role" content="admin">
+<script src="../shared/require-auth.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name"><span class="sc">觉学</span><span class="tc">覺學</span></div>
+        <div class="brand-sub"><span class="sc">管理员后台</span><span class="tc">管理員後台</span></div>
+      </div>
+    </div>
+
+    <div class="side-user">
+      <div class="side-avatar" data-jx-user="avatarInitial">—</div>
+      <div class="side-user-info">
+        <div class="side-user-name" data-jx-user="dharmaName">—</div>
+        <div class="side-user-role" data-jx-user="roleLabel">—</div>
+      </div>
+      <button type="button" id="btn-logout" title="退出登录" aria-label="退出登录"
+        style="margin-left:auto;background:none;border:0;color:var(--ink-3);cursor:pointer;padding:6px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-list" id="admin-nav"></nav>
+    <script src="../shared/admin-nav.js"></script>
+  </aside>
+
+  <main class="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="page-title">LLM <span class="sc">管理</span><span class="tc">管理</span></h1>
+        <p class="page-sub"><span class="sc">供应商列表 · 启停 · 熔断重置 · 本月用量 · 调用日志</span><span class="tc">供應商列表 · 啟停 · 熔斷重置 · 本月用量 · 調用日誌</span></p>
+      </div>
+      <div class="top-actions">
+        <button class="btn-new" id="btn-new-provider" style="padding:7px 16px;border-radius:var(--r-pill);background:var(--saffron);color:#fff;border:0;font:var(--text-caption);font-weight:700;letter-spacing:1px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span><span class="sc">新建 Provider</span><span class="tc">新建 Provider</span></span>
+        </button>
+        <button class="lang-btn" onclick="toggleLang()">繁</button>
+      </div>
+    </div>
+
+    <!-- 平台用量 KPI -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">本月请求</span><span class="tc">本月請求</span></p>
+        <p class="kpi-value" id="kpi-requests">—</p>
+        <p class="kpi-sub" id="kpi-requests-sub">&nbsp;</p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">本月 Tokens</span><span class="tc">本月 Tokens</span></p>
+        <p class="kpi-value" id="kpi-tokens">—</p>
+        <p class="kpi-sub" id="kpi-tokens-sub">&nbsp;</p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">本月成本</span><span class="tc">本月成本</span></p>
+        <p class="kpi-value" id="kpi-cost">—</p>
+        <p class="kpi-sub" id="kpi-cost-sub">&nbsp;</p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">错误率</span><span class="tc">錯誤率</span></p>
+        <p class="kpi-value" id="kpi-errors">—</p>
+        <p class="kpi-sub" id="kpi-errors-sub">&nbsp;</p>
+      </div>
+    </div>
+
+    <!-- Providers 列表 -->
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title"><span class="sc">LLM 供应商</span><span class="tc">LLM 供應商</span></span>
+        <span class="panel-hint"><span class="sc">点开关启停 · 熔断时可手动重置</span><span class="tc">點開關啟停 · 熔斷時可手動重置</span></span>
+      </div>
+      <div id="providers-body">
+        <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+      </div>
+    </div>
+
+    <!-- 调用日志 · GET /api/admin/llm/logs -->
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title"><span class="sc">调用日志</span><span class="tc">調用日誌</span></span>
+        <span class="panel-hint"><span class="sc">最近 LLM 调用 · 倒序 · 游标分页</span><span class="tc">最近 LLM 調用 · 倒序 · 游標分頁</span></span>
+      </div>
+      <div class="log-filter">
+        <span class="fchip active" data-success=""><span class="sc">全部</span><span class="tc">全部</span></span>
+        <span class="fchip" data-success="true"><span class="sc">成功</span><span class="tc">成功</span></span>
+        <span class="fchip" data-success="false"><span class="sc">失败</span><span class="tc">失敗</span></span>
+      </div>
+      <div id="logs-body">
+        <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+      </div>
+      <button id="logs-load-more" class="log-load-more" style="display:none;">
+        <span class="sc">加载更多</span><span class="tc">加載更多</span>
+      </button>
+    </div>
+  </main>
+</div>
+
+<script>
+// admin-llm · 并发拉取 /api/admin/llm/providers + /api/admin/llm/usage
+// 不做 usage 历史曲线（后端支持 periodType，但此页先聚焦 providers 操作面板）
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+function fmtNum(n) {
+  n = Number(n || 0);
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(Math.round(n));
+}
+function fmtUSD(n) { return '$' + (Number(n || 0)).toFixed(2); }
+function fmtPct(n) { return (Number(n || 0) * 100).toFixed(2) + '%'; }
+
+function renderUsage(u) {
+  // 后端返 { periodType, periodKey, byProvider, totals: { tokenCount, requestCount, errorCount, cost } }
+  var t = (u && u.totals) || {};
+  var requests = Number(t.requestCount || 0);
+  var errors = Number(t.errorCount || 0);
+  document.getElementById('kpi-requests').textContent = fmtNum(requests);
+  document.getElementById('kpi-tokens').textContent   = fmtNum(Number(t.tokenCount || 0));
+  document.getElementById('kpi-cost').textContent     = fmtUSD(Number(t.cost || 0));
+  document.getElementById('kpi-errors').textContent   = fmtPct(requests > 0 ? errors / requests : 0);
+}
+
+function renderProviders(list) {
+  var body = document.getElementById('providers-body');
+  if (!list || !list.length) {
+    body.innerHTML = '<div class="empty-state">' +
+      escapeHtml(sc('暂无 LLM 供应商配置', '暫無 LLM 供應商配置')) + '</div>';
+    return;
+  }
+
+  var rows = list.map(function (p) {
+    var logoCls = /minimax/i.test(p.name) ? 'minimax' : /claude/i.test(p.name) ? 'claude' : '';
+    var initial = (p.displayName || p.name || '?').charAt(0).toUpperCase();
+    var circuitOpen = p.circuitOpenUntil && new Date(p.circuitOpenUntil).getTime() > Date.now();
+    return ''
+      + '<tr data-id="' + escapeHtml(p.id) + '">'
+      +   '<td>'
+      +     '<div class="p-name">'
+      +       '<div class="p-logo ' + logoCls + '">' + initial + '</div>'
+      +       '<div>'
+      +         '<div class="nm">' + escapeHtml(p.displayName || p.name) + '</div>'
+      +         '<div class="mdl">' + escapeHtml(p.defaultModel || '—') + '</div>'
+      +       '</div>'
+      +     '</div>'
+      +   '</td>'
+      +   '<td><span class="p-role ' + escapeHtml(p.role) + '">' + escapeHtml(p.role) + '</span></td>'
+      +   '<td>'
+      +     '<span class="p-health ' + escapeHtml(p.healthStatus || 'healthy') + '">'
+      +       '<span class="dot"></span>' + escapeHtml(p.healthStatus || 'healthy')
+      +     '</span>'
+      +     (circuitOpen ? '<span class="circuit-warn">' + sc('熔断中', '熔斷中') + '</span>' : '')
+      +   '</td>'
+      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;color:var(--ink-3);">'
+      +     '$' + Number(p.inputCostPer1k || 0).toFixed(4) + ' / 1k in'
+      +     '<br>$' + Number(p.outputCostPer1k || 0).toFixed(4) + ' / 1k out'
+      +   '</td>'
+      +   '<td>'
+      +     '<div style="display:flex;align-items:center;gap:var(--sp-3);">'
+      +       '<div class="p-switch' + (p.isEnabled ? ' on' : '') + '" data-toggle="' + escapeHtml(p.id) + '" title="' + (p.isEnabled ? sc('点击停用', '點擊停用') : sc('点击启用', '點擊啟用')) + '"></div>'
+      +       '<button class="p-action-btn" data-edit="' + escapeHtml(p.id) + '">' + sc('编辑', '編輯') + '</button>'
+      +       (circuitOpen
+        ? '<button class="p-action-btn danger" data-reset="' + escapeHtml(p.id) + '">' + sc('重置熔断', '重置熔斷') + '</button>'
+        : '')
+      +     '</div>'
+      +   '</td>'
+      + '</tr>';
+  });
+
+  body.innerHTML =
+    '<table class="p-list"><thead><tr>' +
+      '<th><span class="sc">供应商</span><span class="tc">供應商</span></th>' +
+      '<th><span class="sc">角色</span><span class="tc">角色</span></th>' +
+      '<th><span class="sc">健康</span><span class="tc">健康</span></th>' +
+      '<th><span class="sc">成本</span><span class="tc">成本</span></th>' +
+      '<th><span class="sc">操作</span><span class="tc">操作</span></th>' +
+    '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+
+  // 绑定开关
+  body.querySelectorAll('.p-switch[data-toggle]').forEach(function (sw) {
+    sw.addEventListener('click', function () {
+      if (sw.getAttribute('aria-busy') === 'true') return;
+      var id = sw.getAttribute('data-toggle');
+      var on = sw.classList.contains('on');
+      sw.setAttribute('aria-busy', 'true');
+      window.JX.api.post('/api/admin/llm/providers/' + encodeURIComponent(id) + '/toggle', { isEnabled: !on })
+        .then(function () { loadAll(); })
+        .catch(function (err) {
+          alert(sc('切换失败：', '切換失敗：') + ((err && err.message) || err));
+          sw.removeAttribute('aria-busy');
+        });
+    });
+  });
+
+  // 绑定重置熔断
+  body.querySelectorAll('[data-reset]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var id = btn.getAttribute('data-reset');
+      if (!confirm(sc('确认重置熔断器？这将清空错误计数并立即尝试恢复调用。', '確認重置熔斷器？這將清空錯誤計數並立即嘗試恢復調用。'))) return;
+      btn.setAttribute('aria-busy', 'true');
+      window.JX.api.post('/api/admin/llm/providers/' + encodeURIComponent(id) + '/reset-circuit', {})
+        .then(function () { loadAll(); })
+        .catch(function (err) {
+          alert(sc('重置失败：', '重置失敗：') + ((err && err.message) || err));
+          btn.removeAttribute('aria-busy');
+        });
+    });
+  });
+
+  // 绑定 编辑：找到当前 list 中的 provider 数据传给模态
+  body.querySelectorAll('[data-edit]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var id = btn.getAttribute('data-edit');
+      var p = list.find(function (x) { return x.id === id; });
+      if (!p) return;
+      openEditProvider(p);
+    });
+  });
+}
+
+function loadAll() {
+  Promise.all([
+    window.JX.api.get('/api/admin/llm/providers'),
+    window.JX.api.get('/api/admin/llm/usage').catch(function () { return {}; }),
+  ]).then(function (res) {
+    renderProviders(res[0] || []);
+    renderUsage(res[1] || {});
+  }).catch(function (err) {
+    document.getElementById('providers-body').innerHTML =
+      '<div class="empty-state err-state">' + escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
+  });
+}
+
+// ─── 调用日志 · /api/admin/llm/logs ────────────────────────────
+var logState = {
+  success: '', // '' | 'true' | 'false'
+  limit: 50,
+  cursor: null,
+  items: [],
+  hasMore: false,
+};
+
+function fmtLogTime(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+  return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
+    pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+function buildLogQS() {
+  var qs = ['limit=' + logState.limit];
+  if (logState.success) qs.push('success=' + logState.success);
+  if (logState.cursor)  qs.push('cursor=' + encodeURIComponent(logState.cursor));
+  return qs.join('&');
+}
+
+function renderLogs() {
+  var body = document.getElementById('logs-body');
+  var loadMore = document.getElementById('logs-load-more');
+  if (!logState.items.length) {
+    body.innerHTML = '<div class="empty-state">' +
+      escapeHtml(sc('暂无调用记录', '暫無調用記錄')) + '</div>';
+    loadMore.style.display = 'none';
+    return;
+  }
+  var rows = logState.items.map(function (l) {
+    var tokens = (l.inputTokens || 0) + (l.outputTokens || 0);
+    var cost = Number(l.cost || 0).toFixed(4);
+    var latency = l.latencyMs != null ? (l.latencyMs + ' ms') : '—';
+    return ''
+      + '<tr>'
+      +   '<td style="white-space:nowrap;color:var(--ink-3);">' + fmtLogTime(l.timestamp || l.createdAt) + '</td>'
+      +   '<td>'
+      +     '<span class="log-tag ' + (l.success ? 'ok' : 'err') + '">' + (l.success ? sc('成功', '成功') : sc('失败', '失敗')) + '</span>'
+      +     (l.switched ? '<span class="log-tag switched">' + sc('降级', '降級') + '</span>' : '')
+      +   '</td>'
+      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;color:var(--ink);">' + escapeHtml(l.scenario || '—') + '</td>'
+      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;color:var(--ink-3);">' + escapeHtml(l.providerUsed || '—') + '</td>'
+      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;color:var(--ink-3);">' + escapeHtml(l.model || '—') + '</td>'
+      +   '<td style="text-align:right;color:var(--ink-2);">' + fmtNum(tokens) + '</td>'
+      +   '<td style="text-align:right;color:var(--ink-2);font-family:\'SF Mono\',Consolas,monospace;">$' + cost + '</td>'
+      +   '<td style="text-align:right;color:var(--ink-3);">' + escapeHtml(latency) + '</td>'
+      + '</tr>';
+  });
+  body.innerHTML =
+    '<table class="p-list"><thead><tr>' +
+      '<th><span class="sc">时间</span><span class="tc">時間</span></th>' +
+      '<th><span class="sc">状态</span><span class="tc">狀態</span></th>' +
+      '<th><span class="sc">场景</span><span class="tc">場景</span></th>' +
+      '<th><span class="sc">供应商</span><span class="tc">供應商</span></th>' +
+      '<th><span class="sc">模型</span><span class="tc">模型</span></th>' +
+      '<th style="text-align:right;">Tokens</th>' +
+      '<th style="text-align:right;"><span class="sc">成本</span><span class="tc">成本</span></th>' +
+      '<th style="text-align:right;"><span class="sc">耗时</span><span class="tc">耗時</span></th>' +
+    '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  loadMore.style.display = logState.hasMore ? '' : 'none';
+}
+
+function fetchLogs(append) {
+  window.JX.api.get('/api/admin/llm/logs?' + buildLogQS()).then(function (data) {
+    var batch = data || [];
+    logState.items = append ? logState.items.concat(batch) : batch;
+    logState.hasMore = batch.length === logState.limit;
+    logState.cursor = logState.hasMore ? batch[batch.length - 1].id : null;
+    renderLogs();
+  }).catch(function (err) {
+    document.getElementById('logs-body').innerHTML =
+      '<div class="empty-state err-state">' + escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
+  });
+}
+
+document.querySelectorAll('.log-filter .fchip').forEach(function (chip) {
+  chip.addEventListener('click', function () {
+    document.querySelectorAll('.log-filter .fchip').forEach(function (c) { c.classList.remove('active'); });
+    chip.classList.add('active');
+    logState.success = chip.getAttribute('data-success') || '';
+    logState.cursor = null;
+    fetchLogs(false);
+  });
+});
+document.getElementById('logs-load-more').addEventListener('click', function () { fetchLogs(true); });
+
+// 退出登录
+document.getElementById('btn-logout').addEventListener('click', function () {
+  window.JX.api.logout().finally(function () { location.replace('auth.html'); });
+});
+
+// ── Provider 编辑模态框 ─────────────────────────
+// 该模态 HTML 位于本 <script> 之后，所以 DOM 元素查询要等 DOMContentLoaded
+// （此时 body 后续节点已就绪）；外层 openEditProvider 等函数仍在 hoist 范围内。
+var epBackdrop, epForm, epErr, epSubmit, epTitle;
+
+function setVal(id, v) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.value = (v === null || v === undefined) ? '' : v;
+}
+function getVal(id) {
+  var el = document.getElementById(id);
+  return el ? el.value : '';
+}
+
+function openEditProvider(p) {
+  epTitle.textContent = sc('编辑 ', '編輯 ') + (p.displayName || p.name);
+  setVal('ep-name',          p.name || '');
+  setVal('ep-baseUrl',       p.baseUrl || '');
+  setVal('ep-apiKeyEnv',     p.apiKeyEnv || '');
+  setVal('ep-displayName',   p.displayName || '');
+  setVal('ep-defaultModel',  p.defaultModel || '');
+  setVal('ep-role',          p.role || 'fallback');
+  setVal('ep-priority',      p.priority != null ? p.priority : 0);
+  setVal('ep-inputCost',     p.inputCostPer1k != null ? p.inputCostPer1k : 0);
+  setVal('ep-outputCost',    p.outputCostPer1k != null ? p.outputCostPer1k : 0);
+  // monthly quota 是 BigInt 序列化为 string 或 null
+  setVal('ep-monthlyTokens', p.monthlyTokenQuota || '');
+  setVal('ep-dailyReqs',     p.dailyRequestQuota != null ? p.dailyRequestQuota : '');
+  setVal('ep-rpm',           p.rpmLimit != null ? p.rpmLimit : '');
+  setVal('ep-concurrency',   p.concurrencyLimit != null ? p.concurrencyLimit : '');
+  setVal('ep-overage',       p.overagePolicy || 'fallback');
+  epForm.dataset.providerId = p.id;
+  epErr.classList.remove('show');
+  epErr.textContent = '';
+  epBackdrop.classList.add('open');
+}
+function closeEditProvider() { epBackdrop.classList.remove('open'); }
+
+// modal 元素查询 + 事件绑定延后到 DOMContentLoaded
+var npBackdrop, npForm, npErr, npSubmit;
+document.addEventListener('DOMContentLoaded', function () {
+  epBackdrop = document.getElementById('ep-backdrop');
+  epForm     = document.getElementById('ep-form');
+  epErr      = document.getElementById('ep-err');
+  epSubmit   = document.getElementById('ep-submit');
+  epTitle    = document.getElementById('ep-title');
+  if (!epBackdrop || !epForm) return;
+
+  document.getElementById('ep-cancel').addEventListener('click', closeEditProvider);
+  epBackdrop.addEventListener('click', function (ev) {
+    if (ev.target === epBackdrop) closeEditProvider();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && epBackdrop.classList.contains('open')) closeEditProvider();
+    if (ev.key === 'Escape' && npBackdrop && npBackdrop.classList.contains('open')) closeNewProvider();
+  });
+  epForm.addEventListener('submit', onEpSubmit);
+
+  // I-前端 · 新建 Provider 模态
+  npBackdrop = document.getElementById('np-backdrop');
+  npForm     = document.getElementById('np-form');
+  npErr      = document.getElementById('np-err');
+  npSubmit   = document.getElementById('np-submit');
+
+  document.getElementById('btn-new-provider').addEventListener('click', openNewProvider);
+  document.getElementById('np-cancel').addEventListener('click', closeNewProvider);
+  npBackdrop.addEventListener('click', function (ev) {
+    if (ev.target === npBackdrop) closeNewProvider();
+  });
+  npForm.addEventListener('submit', onNewProviderSubmit);
+});
+
+function openNewProvider() {
+  npForm.reset();
+  npErr.classList.remove('show');
+  npErr.textContent = '';
+  // 默认值
+  document.getElementById('np-role').value = 'fallback';
+  document.getElementById('np-priority').value = '50';
+  document.getElementById('np-inputCost').value = '0';
+  document.getElementById('np-outputCost').value = '0';
+  npBackdrop.classList.add('open');
+  setTimeout(function () { document.getElementById('np-name').focus(); }, 50);
+}
+function closeNewProvider() { npBackdrop.classList.remove('open'); }
+
+function onNewProviderSubmit(ev) {
+  ev.preventDefault();
+  function gv(id) { return (document.getElementById(id).value || '').trim(); }
+  var body = {
+    name:         gv('np-name'),
+    displayName:  gv('np-displayName'),
+    baseUrl:      gv('np-baseUrl'),
+    apiKeyEnv:    gv('np-apiKeyEnv'),
+    defaultModel: gv('np-defaultModel'),
+    role:         gv('np-role'),
+    priority:     parseInt(gv('np-priority') || '50', 10),
+    inputCostPer1k:  Number(gv('np-inputCost') || '0'),
+    outputCostPer1k: Number(gv('np-outputCost') || '0'),
+  };
+
+  if (!body.name || !body.displayName || !body.baseUrl || !body.apiKeyEnv || !body.defaultModel) {
+    npErr.textContent = sc('请填写所有必填字段', '請填寫所有必填字段');
+    npErr.classList.add('show');
+    return;
+  }
+  if (!/^[a-z0-9_-]+$/i.test(body.name)) {
+    npErr.textContent = sc('name 只能含字母 / 数字 / 下划线 / 连字符', 'name 只能含字母 / 數字 / 下劃線 / 連字符');
+    npErr.classList.add('show');
+    return;
+  }
+  if (!/^[A-Z][A-Z0-9_]*$/.test(body.apiKeyEnv)) {
+    npErr.textContent = sc('apiKeyEnv 只能含大写字母 / 数字 / 下划线 · 必须以字母开头', 'apiKeyEnv 只能含大寫字母 / 數字 / 下劃線 · 必須以字母開頭');
+    npErr.classList.add('show');
+    return;
+  }
+
+  npSubmit.setAttribute('aria-busy', 'true');
+  npErr.classList.remove('show');
+
+  window.JX.api.post('/api/admin/llm/providers', body)
+    .then(function () { closeNewProvider(); loadAll(); })
+    .catch(function (err) {
+      var code = err && err.code;
+      var msg = (err && err.message) || sc('创建失败', '創建失敗');
+      if (code === 'CONFLICT') msg = sc('name 已被占用', 'name 已被佔用');
+      npErr.textContent = msg;
+      npErr.classList.add('show');
+    })
+    .finally(function () { npSubmit.removeAttribute('aria-busy'); });
+}
+
+function onEpSubmit(ev) {
+  ev.preventDefault();
+  var id = epForm.dataset.providerId;
+  if (!id) return;
+
+  // 收集 patch
+  // - text / number 字段：空值不传 = 不改
+  // - role / overagePolicy：select 不会空，必传
+  // - quota / limit nullable 字段：空值传 null 表示清除限制
+  function num(v)         { return v === '' ? undefined : Number(v); }
+  function nullableNum(v) { return v === '' ? null : Number(v); }
+
+  var patch = {};
+  // I 阶段补 · 连接配置
+  var nm = getVal('ep-name').trim();
+  if (nm) patch.name = nm;
+  var bu = getVal('ep-baseUrl').trim();
+  if (bu) patch.baseUrl = bu;
+  var ak = getVal('ep-apiKeyEnv').trim();
+  if (ak) patch.apiKeyEnv = ak;
+  var dn = getVal('ep-displayName').trim();
+  if (dn) patch.displayName = dn;
+  var dm = getVal('ep-defaultModel').trim();
+  if (dm) patch.defaultModel = dm;
+  patch.role = getVal('ep-role');
+  var pri = num(getVal('ep-priority'));
+  if (pri !== undefined) patch.priority = pri;
+  var ic = num(getVal('ep-inputCost'));
+  if (ic !== undefined) patch.inputCostPer1k = ic;
+  var oc = num(getVal('ep-outputCost'));
+  if (oc !== undefined) patch.outputCostPer1k = oc;
+  patch.monthlyTokenQuota = nullableNum(getVal('ep-monthlyTokens'));
+  patch.dailyRequestQuota = nullableNum(getVal('ep-dailyReqs'));
+  patch.rpmLimit          = nullableNum(getVal('ep-rpm'));
+  patch.concurrencyLimit  = nullableNum(getVal('ep-concurrency'));
+  patch.overagePolicy     = getVal('ep-overage');
+
+  epSubmit.setAttribute('aria-busy', 'true');
+  epErr.classList.remove('show');
+
+  window.JX.api.patch('/api/admin/llm/providers/' + encodeURIComponent(id), patch)
+    .then(function () { closeEditProvider(); loadAll(); })
+    .catch(function (err) {
+      epErr.textContent = (err && err.message) || sc('保存失败', '保存失敗');
+      epErr.classList.add('show');
+    })
+    .finally(function () { epSubmit.removeAttribute('aria-busy'); });
+}
+
+// 初始加载
+function boot() { loadAll(); fetchLogs(false); }
+document.addEventListener('jx:user-ready', boot);
+if (window.JX && window.JX.user) boot();
+</script>
+
+<!-- Provider 编辑模态框 -->
+<div class="modal-backdrop" id="ep-backdrop">
+  <form class="modal" id="ep-form" novalidate>
+    <div class="modal-head">
+      <span class="modal-title" id="ep-title"><span class="sc">编辑供应商</span><span class="tc">編輯供應商</span></span>
+    </div>
+    <div class="modal-body">
+      <div class="dr-err" id="ep-err"></div>
+
+      <div class="mfsection">
+        <h4><span class="sc">连接配置</span><span class="tc">連接配置</span></h4>
+        <div class="mfgrid">
+          <div class="mfield">
+            <label for="ep-name"><span class="sc">标识 name</span><span class="tc">標識 name</span></label>
+            <input id="ep-name" type="text" maxlength="64">
+            <span class="hint"><span class="sc">小写字母 / 数字 / -_ · 改了影响 seed 引用</span><span class="tc">小寫字母 / 數字 / -_ · 改了影響 seed 引用</span></span>
+          </div>
+          <div class="mfield">
+            <label for="ep-displayName"><span class="sc">显示名</span><span class="tc">顯示名</span></label>
+            <input id="ep-displayName" type="text" maxlength="80">
+          </div>
+          <div class="mfield full">
+            <label for="ep-baseUrl">baseUrl</label>
+            <input id="ep-baseUrl" type="url" maxlength="500" placeholder="https://api.example.com/v1">
+          </div>
+          <div class="mfield">
+            <label for="ep-apiKeyEnv">apiKeyEnv</label>
+            <input id="ep-apiKeyEnv" type="text" maxlength="100" placeholder="MINIMAX_API_KEY">
+            <span class="hint"><span class="sc">环境变量名 · 实际 key 由服务器 env 读取</span><span class="tc">環境變量名 · 實際 key 由伺服器 env 讀取</span></span>
+          </div>
+          <div class="mfield">
+            <label for="ep-defaultModel"><span class="sc">默认模型</span><span class="tc">默認模型</span></label>
+            <input id="ep-defaultModel" type="text" maxlength="120">
+          </div>
+          <div class="mfield">
+            <label for="ep-role"><span class="sc">角色</span><span class="tc">角色</span></label>
+            <select id="ep-role">
+              <option value="primary">primary</option>
+              <option value="fallback">fallback</option>
+              <option value="disabled">disabled</option>
+            </select>
+          </div>
+          <div class="mfield">
+            <label for="ep-priority"><span class="sc">优先级</span><span class="tc">優先級</span></label>
+            <input id="ep-priority" type="number" min="0" step="1">
+            <span class="hint"><span class="sc">数字越小越优先</span><span class="tc">數字越小越優先</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mfsection">
+        <h4><span class="sc">成本（USD / 1000 tokens）</span><span class="tc">成本（USD / 1000 tokens）</span></h4>
+        <div class="mfgrid">
+          <div class="mfield">
+            <label for="ep-inputCost">input</label>
+            <input id="ep-inputCost" type="number" min="0" step="0.0001">
+          </div>
+          <div class="mfield">
+            <label for="ep-outputCost">output</label>
+            <input id="ep-outputCost" type="number" min="0" step="0.0001">
+          </div>
+        </div>
+      </div>
+
+      <div class="mfsection">
+        <h4><span class="sc">配额与限速（留空=不限制）</span><span class="tc">配額與限速（留空=不限制）</span></h4>
+        <div class="mfgrid">
+          <div class="mfield">
+            <label for="ep-monthlyTokens"><span class="sc">月 token 配额</span><span class="tc">月 token 配額</span></label>
+            <input id="ep-monthlyTokens" type="number" min="0" step="1">
+          </div>
+          <div class="mfield">
+            <label for="ep-dailyReqs"><span class="sc">日请求数配额</span><span class="tc">日請求數配額</span></label>
+            <input id="ep-dailyReqs" type="number" min="0" step="1">
+          </div>
+          <div class="mfield">
+            <label for="ep-rpm">RPM</label>
+            <input id="ep-rpm" type="number" min="0" step="1">
+            <span class="hint"><span class="sc">每分钟请求上限</span><span class="tc">每分鐘請求上限</span></span>
+          </div>
+          <div class="mfield">
+            <label for="ep-concurrency"><span class="sc">并发上限</span><span class="tc">並發上限</span></label>
+            <input id="ep-concurrency" type="number" min="0" step="1">
+          </div>
+        </div>
+      </div>
+
+      <div class="mfsection">
+        <h4><span class="sc">超出配额策略</span><span class="tc">超出配額策略</span></h4>
+        <div class="mfield full">
+          <select id="ep-overage">
+            <option value="stop"><span class="sc">stop · 停止调用</span></option>
+            <option value="pay_as_you_go">pay_as_you_go · 按量计费继续</option>
+            <option value="fallback">fallback · 切到备用 provider</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost-s" id="ep-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+      <button type="submit" class="btn-apply" id="ep-submit"><span class="sc">保存</span><span class="tc">保存</span></button>
+    </div>
+  </form>
+</div>
+
+<!-- I-前端 · 新建 Provider 模态框 -->
+<div class="modal-backdrop" id="np-backdrop">
+  <form class="modal" id="np-form" novalidate>
+    <div class="modal-head">
+      <span class="modal-title"><span class="sc">新建 Provider</span><span class="tc">新建 Provider</span></span>
+    </div>
+    <div class="modal-body">
+      <div class="dr-err" id="np-err"></div>
+
+      <div class="mfsection">
+        <h4><span class="sc">连接配置</span><span class="tc">連接配置</span></h4>
+        <div class="mfgrid">
+          <div class="mfield">
+            <label for="np-name">name <span style="color:var(--crimson);">*</span></label>
+            <input id="np-name" type="text" maxlength="64" pattern="[a-z0-9_-]+" required placeholder="minimax">
+            <span class="hint"><span class="sc">小写字母 / 数字 / -_</span><span class="tc">小寫字母 / 數字 / -_</span></span>
+          </div>
+          <div class="mfield">
+            <label for="np-displayName"><span class="sc">显示名</span><span class="tc">顯示名</span> <span style="color:var(--crimson);">*</span></label>
+            <input id="np-displayName" type="text" maxlength="80" required placeholder="MiniMax">
+          </div>
+          <div class="mfield full">
+            <label for="np-baseUrl">baseUrl <span style="color:var(--crimson);">*</span></label>
+            <input id="np-baseUrl" type="url" maxlength="500" required placeholder="https://api.minimax.chat/v1">
+          </div>
+          <div class="mfield">
+            <label for="np-apiKeyEnv">apiKeyEnv <span style="color:var(--crimson);">*</span></label>
+            <input id="np-apiKeyEnv" type="text" maxlength="100" required placeholder="MINIMAX_API_KEY">
+            <span class="hint"><span class="sc">环境变量名 · 实际 key 由服务器 env 读取</span><span class="tc">環境變量名 · 實際 key 由伺服器 env 讀取</span></span>
+          </div>
+          <div class="mfield">
+            <label for="np-defaultModel"><span class="sc">默认模型</span><span class="tc">默認模型</span> <span style="color:var(--crimson);">*</span></label>
+            <input id="np-defaultModel" type="text" maxlength="120" required placeholder="abab6.5-chat">
+          </div>
+          <div class="mfield">
+            <label for="np-role"><span class="sc">角色</span><span class="tc">角色</span></label>
+            <select id="np-role">
+              <option value="primary">primary</option>
+              <option value="fallback" selected>fallback</option>
+              <option value="disabled">disabled</option>
+            </select>
+          </div>
+          <div class="mfield">
+            <label for="np-priority"><span class="sc">优先级</span><span class="tc">優先級</span></label>
+            <input id="np-priority" type="number" min="0" step="1" value="50">
+          </div>
+        </div>
+      </div>
+
+      <div class="mfsection">
+        <h4><span class="sc">成本（USD / 1000 tokens · 可选）</span><span class="tc">成本（USD / 1000 tokens · 可選）</span></h4>
+        <div class="mfgrid">
+          <div class="mfield">
+            <label for="np-inputCost">input</label>
+            <input id="np-inputCost" type="number" min="0" step="0.0001" value="0">
+          </div>
+          <div class="mfield">
+            <label for="np-outputCost">output</label>
+            <input id="np-outputCost" type="number" min="0" step="0.0001" value="0">
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--saffron-pale);padding:10px 12px;border-radius:var(--r-sm);font:var(--text-caption);color:var(--ink-2);letter-spacing:.5px;line-height:1.6;">
+        <span class="sc">⚠️ 创建后默认 <b>未启用</b>。请先在服务器 .env 加 <code>{apiKeyEnv}=...</code> 并重启服务，再回此页点 启用 开关。</span>
+        <span class="tc">⚠️ 創建後默認 <b>未啟用</b>。請先在伺服器 .env 加 <code>{apiKeyEnv}=...</code> 並重啟服務，再回此頁點 啟用 開關。</span>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost-s" id="np-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+      <button type="submit" class="btn-apply" id="np-submit"><span class="sc">创建</span><span class="tc">創建</span></button>
+    </div>
+  </form>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,102 @@
+name: test
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: juexue
+          POSTGRES_PASSWORD: juexue_dev
+          POSTGRES_DB: juexue
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U juexue -d juexue"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://juexue:juexue_dev@localhost:5432/juexue?schema=public
+      JWT_SECRET: ci_only_secret_not_for_production
+      NODE_ENV: test
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        run: pnpm prisma generate
+
+      - name: Apply schema to test DB
+        run: pnpm prisma db push --skip-generate
+
+      - name: Seed
+        run: pnpm prisma:seed
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Integration tests
+        run: pnpm test:integration
+
+  frontend-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Syntax-check shared JS + inline scripts
+        run: |
+          set -e
+          # 1) shared 模块：直接 node --check
+          for f in prototypes/shared/*.js; do
+            echo "▸ $f"
+            node --check "$f"
+          done
+          # 2) 每个 mobile 页的内联 <script>：抽出来喂给 node --check
+          python3 - <<'PY'
+          import pathlib, re, subprocess, sys
+          fail = 0
+          for html in pathlib.Path('prototypes').rglob('*.html'):
+              src = html.read_text(encoding='utf-8')
+              for i, b in enumerate(re.findall(r'<script(?![^>]*\ssrc)[^>]*>(.*?)</script>', src, re.S)):
+                  r = subprocess.run(['node','--check','-'], input=b.encode(), capture_output=True)
+                  if r.returncode != 0:
+                      print(f'✗ {html} block {i}: {r.stderr.decode().splitlines()[0]}')
+                      fail += 1
+          if fail:
+              print(f'{fail} syntax error(s)'); sys.exit(1)
+          print('✓ inline scripts clean')
+          PY

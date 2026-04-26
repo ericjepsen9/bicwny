@@ -1,0 +1,377 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 登录</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+
+/* ── Logo ─────────────────────────────────── */
+.logo-block { text-align: center; padding: var(--sp-8) var(--sp-5) var(--sp-6); }
+.logo-icon {
+  width: 68px; height: 68px; border-radius: var(--r-xl);
+  margin: 0 auto var(--sp-4);
+  background: linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 10px 28px rgba(224,120,86,.35);
+}
+.logo-name { font-family: var(--font-serif); font-weight: 700; font-size: 1.5rem; color: var(--ink); letter-spacing: 8px; }
+.logo-tagline { font: var(--text-caption); color: var(--ink-3); letter-spacing: 2px; margin-top: 4px; }
+
+/* ── Screens ──────────────────────────────── */
+.auth-screen { display: none; flex-direction: column; padding: 0 var(--sp-5) var(--sp-8); gap: var(--sp-4); }
+.auth-screen.active { display: flex; animation: slideUp .2s var(--ease); }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.screen-title { font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; color: var(--ink); letter-spacing: 4px; }
+
+/* ── Auth links ───────────────────────────── */
+.auth-links { display: flex; justify-content: space-between; }
+.auth-link { font: var(--text-caption); color: var(--saffron); letter-spacing: 1px; cursor: pointer; }
+.auth-link.muted { color: var(--ink-3); }
+.auth-center { text-align: center; }
+
+/* ── Error / busy ─────────────────────────── */
+.form-msg {
+  font: var(--text-caption); letter-spacing: 1px;
+  padding: 10px 12px; border-radius: var(--r);
+  min-height: 1em;
+}
+.form-msg.error { color: #c0392b; background: rgba(192,57,43,.08); }
+.form-msg.info  { color: var(--ink-3); }
+.form-msg:empty { display: none; }
+
+.btn[aria-busy="true"] { opacity: .6; pointer-events: none; }
+</style>
+<!-- lang.js 必须在 <head> 最后，data-lang 在渲染前生效避免文字闪烁 -->
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <!-- Status Bar -->
+  <div class="status-bar" data-auto></div>
+
+  <!-- Logo（两屏共用）-->
+  <div class="logo-block">
+    <div class="logo-icon">
+      <svg width="30" height="30" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+    </div>
+    <p class="logo-name">
+      <span class="sc">觉　学</span><span class="tc">覺　學</span>
+    </p>
+    <p class="logo-tagline">
+      <span class="sc">智慧学习 · 如是我闻</span><span class="tc">智慧學習 · 如是我聞</span>
+    </p>
+  </div>
+
+  <!-- ══ 屏一：登录 ══ -->
+  <form class="auth-screen active" id="screen-login" novalidate>
+    <p class="screen-title"><span class="sc">欢迎回来</span><span class="tc">歡迎回來</span></p>
+
+    <div class="input-group">
+      <label class="input-label" for="login-email"><span class="sc">邮箱地址</span><span class="tc">電子郵箱</span></label>
+      <input class="input-field" id="login-email" name="email" type="email" autocomplete="email" required
+        data-ph-sc="请输入注册邮箱" data-ph-tc="請輸入註冊郵箱" placeholder="请输入注册邮箱">
+    </div>
+
+    <div class="input-group">
+      <label class="input-label" for="login-password"><span class="sc">登录密码</span><span class="tc">登錄密碼</span></label>
+      <input class="input-field" id="login-password" name="password" type="password" autocomplete="current-password" required
+        data-ph-sc="请输入密码" data-ph-tc="請輸入密碼" placeholder="请输入密码">
+    </div>
+
+    <div class="form-msg" id="login-msg" role="status"></div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-full btn-pill">
+      <span class="sc">登　录</span><span class="tc">登　錄</span>
+    </button>
+
+    <div class="auth-links">
+      <span class="auth-link muted" onclick="showScreen('screen-register')">
+        <span class="sc">没有账号？注册</span><span class="tc">沒有帳號？註冊</span>
+      </span>
+      <span class="auth-link" onclick="showScreen('screen-forgot')">
+        <span class="sc">忘记密码</span><span class="tc">忘記密碼</span>
+      </span>
+    </div>
+  </form>
+
+  <!-- ══ 屏二：注册 ══ -->
+  <form class="auth-screen" id="screen-register" novalidate>
+    <p class="screen-title"><span class="sc">创建账号</span><span class="tc">建立帳號</span></p>
+
+    <div class="input-group">
+      <label class="input-label" for="reg-dharma"><span class="sc">法名 / 姓名</span><span class="tc">法名 ／ 姓名</span></label>
+      <input class="input-field" id="reg-dharma" name="dharmaName" type="text" autocomplete="name"
+        data-ph-sc="请输入法名或姓名（可选）" data-ph-tc="請輸入法名或姓名（可選）" placeholder="请输入法名或姓名（可选）">
+    </div>
+
+    <div class="input-group">
+      <label class="input-label" for="reg-email"><span class="sc">邮箱地址</span><span class="tc">電子郵箱</span></label>
+      <input class="input-field" id="reg-email" name="email" type="email" autocomplete="email" required
+        data-ph-sc="用于登录的邮箱" data-ph-tc="用於登錄的郵箱" placeholder="用于登录的邮箱">
+    </div>
+
+    <div class="input-group">
+      <label class="input-label" for="reg-password"><span class="sc">设置密码</span><span class="tc">設定密碼</span></label>
+      <input class="input-field" id="reg-password" name="password" type="password" autocomplete="new-password" required minlength="6"
+        data-ph-sc="至少 6 位" data-ph-tc="至少 6 位" placeholder="至少 6 位">
+    </div>
+
+    <div class="form-msg" id="reg-msg" role="status"></div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-full btn-pill">
+      <span class="sc">注　册</span><span class="tc">註　冊</span>
+    </button>
+
+    <p class="auth-center">
+      <span class="auth-link muted" onclick="showScreen('screen-login')">
+        <span class="sc">已有账号？登录</span><span class="tc">已有帳號？登錄</span>
+      </span>
+    </p>
+  </form>
+
+  <!-- ══ 屏三：找回密码 · 输邮箱 ══ -->
+  <form class="auth-screen" id="screen-forgot" novalidate>
+    <p class="screen-title"><span class="sc">找回密码</span><span class="tc">找回密碼</span></p>
+
+    <div class="form-msg info" style="display:block;">
+      <span class="sc">输入您的注册邮箱，我们将发送重置链接。链接 30 分钟内有效。</span>
+      <span class="tc">輸入您的註冊郵箱，我們將發送重設連結。連結 30 分鐘內有效。</span>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label" for="forgot-email"><span class="sc">邮箱地址</span><span class="tc">電子郵箱</span></label>
+      <input class="input-field" id="forgot-email" name="email" type="email" autocomplete="email" required
+        data-ph-sc="请输入注册邮箱" data-ph-tc="請輸入註冊郵箱" placeholder="请输入注册邮箱">
+    </div>
+
+    <div class="form-msg" id="forgot-msg" role="status"></div>
+    <div id="forgot-dev-hint" style="display:none;" class="form-msg info"></div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-full btn-pill">
+      <span class="sc">发送重置链接</span><span class="tc">發送重設連結</span>
+    </button>
+
+    <p class="auth-center">
+      <span class="auth-link muted" onclick="showScreen('screen-login')">
+        <span class="sc">返回登录</span><span class="tc">返回登錄</span>
+      </span>
+    </p>
+  </form>
+
+  <!-- 后台入口提示 · 学员端入口足以学员使用，但偶有辅导员/管理员误入 -->
+  <p style="text-align:center;padding:var(--sp-3) var(--sp-5);font:var(--text-caption);color:var(--ink-3);letter-spacing:1px;">
+    <span class="sc">辅导员 / 管理员请前往 </span><span class="tc">輔導員 / 管理員請前往 </span>
+    <a href="../desktop/auth.html" style="color:var(--saffron-dark);font-weight:600;text-decoration:none;">
+      <span class="sc">后台入口</span><span class="tc">後台入口</span>
+    </a>
+  </p>
+
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+
+<script>
+// ── 三屏切换 ─────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.auth-screen').forEach(function (s) { s.classList.remove('active'); });
+  var el = document.getElementById(id);
+  if (el) el.classList.add('active');
+  clearMsg('login-msg');
+  clearMsg('reg-msg');
+  clearMsg('forgot-msg');
+  var hint = document.getElementById('forgot-dev-hint');
+  if (hint) { hint.style.display = 'none'; hint.textContent = ''; }
+}
+
+var sc = window.JX.sc;
+
+// ── 多语言错误信息归一 ──────────────────────────
+function localizedError(err) {
+  var code = (err && err.code) || '';
+  var msg = (err && err.message) || '请求失败';
+  if (err && err.status === 0)   return sc('网络异常，请检查连接', '網絡異常，請檢查連接');
+  if (code === 'UNAUTHORIZED')   return sc('邮箱或密码错误', '電子郵箱或密碼錯誤');
+  if (code === 'CONFLICT')       return sc('该邮箱已注册，请直接登录', '該郵箱已註冊，請直接登錄');
+  return msg;
+}
+
+function setMsg(id, kind, text) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'form-msg ' + kind;
+  el.textContent = text || '';
+}
+function clearMsg(id) { setMsg(id, '', ''); }
+
+// ── 学员入口 · 仅接受 student 角色 ────────────────────
+//   admin / coach 误入：清 token + 提示去 ../desktop/auth.html
+//   student onboarded → home.html · !onboarded → onboarding.html
+function postAuthRedirect(user) {
+  if (!user) {
+    setMsg('login-msg', 'error', sc('登录响应异常', '登入響應異常'));
+    return;
+  }
+  if (user.role === 'admin' || user.role === 'coach') {
+    // 后台用户走错入口 · 清 token 留在本页提示
+    window.JX.api.clearTokens();
+    setMsg('login-msg', 'error',
+      sc('辅导员 / 管理员请前往 后台入口 登录',
+         '輔導員 / 管理員請前往 後台入口 登入'));
+    return;
+  }
+  // student
+  if (!user.hasOnboarded) {
+    location.replace('onboarding.html');
+    return;
+  }
+  location.replace('home.html');
+}
+
+// ?reason=role 表示从守卫错位弹回（admin/coach 误闯学员页等罕见场景）
+// 显示错位提示 + 清 token，跳过自动重定向
+(function () {
+  var qs = location.search || '';
+  if (qs.indexOf('reason=role') < 0) return;
+  var actual = (qs.match(/[?&]actual=([^&]+)/) || [])[1] || '';
+  try { actual = decodeURIComponent(actual); } catch (_) {}
+  if (window.JX && window.JX.api) window.JX.api.clearTokens();
+  var roleLabel = { student: '学员', coach: '辅导员', admin: '管理员' }[actual] || actual || '当前';
+  setMsg('login-msg', 'error',
+    sc('您当前账号 (' + roleLabel + ') 不是学员。请使用学员账号登录，或前往 后台入口。',
+       '您當前帳號 (' + roleLabel + ') 不是學員。請使用學員帳號登入，或前往 後台入口。'));
+})();
+
+// 已登录拦截：按 role 路由；admin/coach 在此入口属错位 → 清 token
+if (window.JX && window.JX.api && window.JX.api.isAuthed()) {
+  window.JX.api.get('/api/auth/me').then(
+    function (u) { postAuthRedirect(u); },
+    function () { /* token 失效 · 留在登录页 */ },
+  );
+}
+
+// ── 登录 ────────────────────────────────────────
+document.getElementById('screen-login').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var email = document.getElementById('login-email').value.trim();
+  var password = document.getElementById('login-password').value;
+  if (!email || !password) {
+    setMsg('login-msg', 'error', sc('请输入邮箱和密码', '請輸入郵箱和密碼'));
+    return;
+  }
+  var btn = ev.target.querySelector('button[type="submit"]');
+  btn.setAttribute('aria-busy', 'true');
+  clearMsg('login-msg');
+
+  window.JX.api.post('/api/auth/login', { email: email, password: password }, { noAuth: true })
+    .then(function (data) {
+      window.JX.api.setTokens(data);
+      postAuthRedirect(data && data.user);
+    })
+    .catch(function (err) {
+      setMsg('login-msg', 'error', localizedError(err));
+    })
+    .finally(function () {
+      btn.removeAttribute('aria-busy');
+    });
+});
+
+// ── 注册 ────────────────────────────────────────
+document.getElementById('screen-register').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var email = document.getElementById('reg-email').value.trim();
+  var password = document.getElementById('reg-password').value;
+  var dharmaName = document.getElementById('reg-dharma').value.trim();
+  if (!email || !password || password.length < 6) {
+    setMsg('reg-msg', 'error', sc('请填写邮箱与至少 6 位密码', '請填寫郵箱與至少 6 位密碼'));
+    return;
+  }
+  var btn = ev.target.querySelector('button[type="submit"]');
+  btn.setAttribute('aria-busy', 'true');
+  clearMsg('reg-msg');
+
+  var body = { email: email, password: password };
+  if (dharmaName) body.dharmaName = dharmaName;
+
+  window.JX.api.post('/api/auth/register', body, { noAuth: true })
+    .then(function (data) {
+      window.JX.api.setTokens(data);
+      // 新账号默认 student + hasOnboarded=false · postAuthRedirect 会走引导
+      postAuthRedirect(data && data.user);
+    })
+    .catch(function (err) {
+      setMsg('reg-msg', 'error', localizedError(err));
+    })
+    .finally(function () {
+      btn.removeAttribute('aria-busy');
+    });
+});
+
+// ── 找回密码 · 请求重置链接 ───────────────────────
+document.getElementById('screen-forgot').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var email = document.getElementById('forgot-email').value.trim();
+  if (!email) {
+    setMsg('forgot-msg', 'error', sc('请输入邮箱', '請輸入郵箱'));
+    return;
+  }
+  var btn = ev.target.querySelector('button[type="submit"]');
+  btn.setAttribute('aria-busy', 'true');
+  clearMsg('forgot-msg');
+
+  window.JX.api.post('/api/auth/forgot', { email: email }, { noAuth: true })
+    .then(function (data) {
+      setMsg('forgot-msg', 'info',
+        sc('已发送重置链接，请查收邮件（含垃圾邮件夹）。链接 30 分钟内有效。',
+           '已發送重設連結，請查收郵件（含垃圾郵件匣）。連結 30 分鐘內有效。'));
+      // Dev 环境：后端会回传 devToken，把 reset-confirm 链接给开发者
+      if (data && data.devToken) {
+        var hint = document.getElementById('forgot-dev-hint');
+        var link = 'reset-confirm.html?token=' + encodeURIComponent(data.devToken);
+        hint.innerHTML = '<span style="opacity:.7">[dev] </span>'
+          + '<a href="' + link + '" style="color:var(--saffron-dark);text-decoration:underline;">'
+          + sc('直接进入重置页 →', '直接進入重設頁 →')
+          + '</a>';
+        hint.style.display = 'block';
+      }
+    })
+    .catch(function (err) {
+      // forgot 几乎不会报错（后端防枚举一律 200），这里兜网络错
+      setMsg('forgot-msg', 'error', localizedError(err));
+    })
+    .finally(function () {
+      btn.removeAttribute('aria-busy');
+    });
+});
+</script>
+</body>
+</html>

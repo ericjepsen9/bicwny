@@ -1,0 +1,338 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 心经</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+
+/* Sections */
+.sections { display: flex; flex-direction: column; gap: var(--sp-4); padding: 0 var(--sp-5) var(--sp-8); }
+
+/* Book hero */
+.book-hero {
+  padding: var(--sp-5);
+  background: linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%);
+  color: #FFF; border-radius: var(--r-lg); position: relative; overflow: hidden;
+  box-shadow: 0 10px 30px rgba(161,60,46,.25);
+}
+.book-hero::after {
+  content: '心経';
+  position: absolute; right: -10px; bottom: -30px;
+  font-family: var(--font-serif); font-size: 9rem; font-weight: 700;
+  color: rgba(255,255,255,.08); letter-spacing: 8px; line-height: .8;
+}
+.book-hero-label { font: var(--text-caption); letter-spacing: 3px; opacity: .8; margin-bottom: var(--sp-2); font-weight: 600; }
+.book-hero-title { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 700; letter-spacing: 5px; margin-bottom: var(--sp-2); }
+.book-hero-sub { font: var(--text-caption); letter-spacing: 2px; opacity: .85; margin-bottom: var(--sp-4); }
+.book-hero-stats { display: flex; gap: var(--sp-6); position: relative; z-index: 1; }
+.hero-stat-num { font-family: var(--font-serif); font-weight: 700; font-size: 1.25rem; line-height: 1; margin-bottom: 2px; }
+.hero-stat-lbl { font-size: .625rem; opacity: .75; letter-spacing: 1px; }
+
+/* Section header */
+.section-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 2px; }
+.section-head h3 { font-family: var(--font-serif); font-weight: 700; color: var(--ink); font-size: 1rem; letter-spacing: 3px; }
+.section-head span { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; }
+
+/* Chapter items */
+.chapter-item {
+  display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4);
+  background: var(--glass); backdrop-filter: var(--blur);
+  border-radius: var(--r-lg); border: 1px solid var(--glass-border);
+  text-decoration: none; transition: all var(--dur) var(--ease);
+}
+.chapter-item:hover:not(.locked) { background: var(--glass-thick); }
+.chapter-item.current { background: var(--saffron-pale); border: 1.5px solid var(--saffron); box-shadow: 0 4px 14px rgba(224,120,86,.18); }
+.chapter-item.locked { opacity: .5; pointer-events: none; }
+.chapter-num {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-weight: 700; font-size: .875rem; flex-shrink: 0;
+}
+.chapter-num.done    { background: var(--sage-dark);   color: #FFF; }
+.chapter-num.current { background: var(--saffron);     color: #FFF; box-shadow: 0 0 0 3px var(--saffron-light); }
+.chapter-num.locked  { background: rgba(43,34,24,.08); color: var(--ink-4); }
+.chapter-body { flex: 1; min-width: 0; }
+.chapter-title { font-family: var(--font-serif); font-weight: 600; color: var(--ink); font-size: .9375rem; letter-spacing: 2px; margin-bottom: 3px; }
+.chapter-meta { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; display: flex; gap: 8px; align-items: center; }
+.dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
+
+/* 论典切换 chip */
+.course-switch {
+  display: flex; gap: var(--sp-2); padding: 0 var(--sp-5) var(--sp-3);
+  overflow-x: auto; scrollbar-width: none;
+}
+.course-switch::-webkit-scrollbar { display: none; }
+.cs-chip {
+  flex-shrink: 0; padding: 5px 12px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent;
+  color: var(--ink-3); cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.cs-chip.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
+.cs-chip.more   { color: var(--saffron-dark); border: 1px dashed var(--saffron-light); background: transparent; }
+</style>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <div class="status-bar" data-auto></div>
+
+  <div class="top-nav">
+    <div style="width:34px;"></div>
+    <span class="nav-title"><span class="sc">法本详情</span><span class="tc">法本詳情</span></span>
+    <div style="width:34px;"></div>
+  </div>
+
+  <div class="course-switch" id="course-switch" style="display:none;"></div>
+
+  <div class="sections" id="sections">
+    <div class="book-hero" id="book-hero" style="display:none;">
+      <p class="book-hero-label" id="hero-label"></p>
+      <p class="book-hero-title" id="hero-title"></p>
+      <p class="book-hero-sub" id="hero-sub"></p>
+      <div class="book-hero-stats">
+        <div>
+          <p class="hero-stat-num" id="hero-chapters">—</p>
+          <p class="hero-stat-lbl"><span class="sc">章节</span><span class="tc">章節</span></p>
+        </div>
+        <div>
+          <p class="hero-stat-num" id="hero-lessons">—</p>
+          <p class="hero-stat-lbl"><span class="sc">课时</span><span class="tc">課時</span></p>
+        </div>
+        <div>
+          <p class="hero-stat-num" id="hero-progress">0%</p>
+          <p class="hero-stat-lbl"><span class="sc">已学</span><span class="tc">已學</span></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-head" id="section-head" style="display:none;">
+      <h3><span class="sc">章节目录</span><span class="tc">章節目錄</span></h3>
+      <span id="section-head-right">—</span>
+    </div>
+
+    <div id="chapters-list">
+      <div class="q-card" style="text-align:center;padding:var(--sp-6) var(--sp-5);background:rgba(255,255,255,.55);border-radius:var(--r-lg);">
+        <p style="font:var(--text-caption);color:var(--ink-3);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <a href="home.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span><span class="sc">首页</span><span class="tc">首頁</span></span></a>
+    <a href="scripture-detail.html" class="tab-item active"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span><span class="sc">法本</span><span class="tc">法本</span></span></a>
+    <a href="class-detail.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg><span><span class="sc">班级</span><span class="tc">班級</span></span></a>
+    <a href="profile.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span><span class="sc">我的</span><span class="tc">我的</span></span></a>
+  </div>
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+<script src="../shared/nav.js"></script>
+<script>
+// scripture-detail · /api/courses/:slug（含 overlay）
+//   ?slug= 指定；否则取第一个已报名课；否则取首个已发布课
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+function resolveSlug() {
+  var q = window.JX.util.queryParam('slug');
+  if (q) return Promise.resolve(q);
+  return window.JX.api.get('/api/my/enrollments').then(function (list) {
+    if (list && list.length && list[0].course && list[0].course.slug) return list[0].course.slug;
+    return window.JX.api.get('/api/courses').then(function (courses) {
+      if (!courses || !courses.length) throw new Error(sc('暂无已发布法本', '暫無已發佈法本'));
+      return courses[0].slug;
+    });
+  });
+}
+
+function renderHero(course, overlay) {
+  document.getElementById('book-hero').style.display = '';
+  document.getElementById('section-head').style.display = '';
+  document.getElementById('hero-label').textContent =
+    (course.author ? course.author + ' · ' : '') + sc('论典', '論典');
+  document.getElementById('hero-title').textContent = course.title;
+  document.getElementById('hero-sub').textContent = course.description || '';
+  var chapters = course.chapters || [];
+  var totalLessons = chapters.reduce(function (n, c) { return n + (c.lessons || []).length; }, 0);
+  document.getElementById('hero-chapters').textContent = chapters.length;
+  document.getElementById('hero-lessons').textContent = totalLessons;
+  var pct = (overlay && overlay.progressPercent) || 0;
+  document.getElementById('hero-progress').textContent = pct + '%';
+}
+
+function renderChapters(course, overlay) {
+  var done = new Set((overlay && overlay.completedLessonIds) || []);
+  var currentLessonId = overlay && overlay.currentLessonId;
+  var chapters = course.chapters || [];
+  var totalChapters = chapters.length;
+  var doneChapters = 0;
+
+  var list = document.getElementById('chapters-list');
+  list.innerHTML = '';
+
+  chapters.forEach(function (ch, idx) {
+    var lessons = ch.lessons || [];
+    var doneCount = lessons.filter(function (l) { return done.has(l.id); }).length;
+    var firstLesson = lessons[0];
+    var chapterDone = lessons.length > 0 && doneCount === lessons.length;
+    var chapterCurrent = lessons.some(function (l) { return l.id === currentLessonId; });
+    if (chapterDone) doneChapters++;
+    var state = chapterDone ? 'done' : (chapterCurrent ? 'current' : 'pending');
+
+    var badge;
+    if (state === 'done') {
+      badge = '<svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+    } else if (state === 'current') {
+      badge = String(idx + 1);
+    } else {
+      badge = String(idx + 1);
+    }
+    var pct = lessons.length ? Math.round(doneCount / lessons.length * 100) : 0;
+    var meta = lessons.length + sc(' 课 · ', ' 課 · ') +
+      (chapterCurrent ? (sc('阅读中', '閱讀中')) : (pct + '%'));
+
+    var href = firstLesson
+      ? 'scripture-reading.html?slug=' + encodeURIComponent(course.slug) + '&lessonId=' + encodeURIComponent(firstLesson.id)
+      : '#';
+    var el = document.createElement(firstLesson ? 'a' : 'div');
+    el.className = 'chapter-item' + (state === 'current' ? ' current' : '');
+    if (firstLesson) el.href = href;
+    el.innerHTML =
+      '<div class="chapter-num ' + state + '">' + badge + '</div>' +
+      '<div class="chapter-body">' +
+        '<p class="chapter-title">' + escapeHtml((idx + 1) + '. ' + (ch.title || '—')) + '</p>' +
+        '<div class="chapter-meta">' +
+          (chapterCurrent
+            ? '<span style="color:var(--saffron);font-weight:600;">' + escapeHtml(sc('阅读中', '閱讀中')) + '</span><span class="dot"></span><span>' + lessons.length + sc(' 课', ' 課') + '</span>'
+            : '<span>' + escapeHtml(meta) + '</span>') +
+        '</div>' +
+      '</div>' +
+      '<svg width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>';
+    list.appendChild(el);
+  });
+
+  document.getElementById('section-head-right').textContent =
+    doneChapters + ' / ' + totalChapters + sc(' 已完成', ' 已完成');
+}
+
+// 已报名论典切换 chip 行（>1 个时显示） · 末尾"更多"链 courses.html
+// source='class' 的法本前面加 📍 主修标，tooltip 解释
+function renderCourseSwitch(currentSlug) {
+  var box = document.getElementById('course-switch');
+  if (!box) return;
+  window.JX.api.get('/api/my/enrollments').then(function (list) {
+    var items = Array.isArray(list) ? list : [];
+    var chips = items.map(function (e) {
+      var c = e.course || {};
+      var title = sc(c.title, c.titleTraditional || c.title);
+      var active = c.slug === currentSlug;
+      var isClassMain = e.source === 'class';
+      var prefix = isClassMain
+        ? '<span title="' + sc('班级主修', '班級主修') + '" style="margin-right:2px;">📍</span>'
+        : (c.coverEmoji ? c.coverEmoji + ' ' : '');
+      return '<a class="cs-chip' + (active ? ' active' : '') + '" '
+        + (isClassMain ? 'data-class-main="1" ' : '')
+        + 'href="scripture-detail.html?slug=' + encodeURIComponent(c.slug || '') + '">'
+        + prefix
+        + escapeHtml(title)
+        + '</a>';
+    });
+    chips.push('<a class="cs-chip more" href="courses.html">+ '
+      + sc('全部论典', '全部論典') + '</a>');
+    box.innerHTML = chips.join('');
+    box.style.display = chips.length > 1 ? 'flex' : 'none';
+  }).catch(function () { /* 静默 */ });
+}
+
+function boot() {
+  resolveSlug()
+    .then(function (slug) { return window.JX.api.get('/api/courses/' + encodeURIComponent(slug)); })
+    .then(function (data) {
+      var course = data.course || data;
+      var overlay = data.overlay;
+      renderHero(course, overlay);
+      renderChapters(course, overlay);
+      renderCourseSwitch(course.slug);
+    })
+    .catch(function (err) {
+      var msg = (err && err.message) || '';
+      // 后端无课程 → 友好空态；其他错 → 错误 + 重试
+      var isEmpty = /暂无|暫無|no course|NOT_FOUND/i.test(msg) ||
+                    (err && err.status === 404);
+      var html;
+      if (isEmpty) {
+        html =
+          '<div style="text-align:center;padding:var(--sp-8) var(--sp-4);">' +
+            '<div style="width:88px;height:88px;border-radius:50%;background:var(--saffron-pale);color:var(--saffron-dark);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4);">' +
+              '<svg width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">' +
+                '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>' +
+                '<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>' +
+              '</svg>' +
+            '</div>' +
+            '<p style="font-family:var(--font-serif);font-weight:700;font-size:1.125rem;letter-spacing:4px;color:var(--ink);margin-bottom:var(--sp-2);">' +
+              '<span class="sc">暂未上架法本</span><span class="tc">暫未上架法本</span>' +
+            '</p>' +
+            '<p style="font:var(--text-body);color:var(--ink-2);letter-spacing:1px;line-height:1.7;max-width:280px;margin:0 auto var(--sp-5);">' +
+              '<span class="sc">管理员正在整理课程。您已加入的班级若有新法本，会在此显示。</span>' +
+              '<span class="tc">管理員正在整理課程。您已加入的班級若有新法本，會在此顯示。</span>' +
+            '</p>' +
+            '<a href="home.html" class="btn btn-primary btn-lg btn-pill" style="padding-left:36px;padding-right:36px;">' +
+              '<span class="sc">返回首页</span><span class="tc">返回首頁</span>' +
+            '</a>' +
+          '</div>';
+      } else {
+        html =
+          '<div style="text-align:center;padding:var(--sp-8) var(--sp-4);">' +
+            '<div style="width:72px;height:72px;border-radius:50%;background:rgba(192,57,43,.10);color:var(--crimson);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4);">' +
+              '<svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">' +
+                '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' +
+              '</svg>' +
+            '</div>' +
+            '<p style="font-family:var(--font-serif);font-weight:700;font-size:1rem;letter-spacing:3px;color:var(--ink);margin-bottom:var(--sp-2);">' +
+              '<span class="sc">加载失败</span><span class="tc">載入失敗</span>' +
+            '</p>' +
+            '<p style="font:var(--text-caption);color:var(--ink-3);letter-spacing:1px;margin-bottom:var(--sp-4);">' +
+              escapeHtml(msg || sc('网络异常', '網絡異常')) +
+            '</p>' +
+            '<button type="button" onclick="location.reload()" class="btn btn-ghost btn-lg btn-pill" style="padding-left:32px;padding-right:32px;">' +
+              '<span class="sc">重试</span><span class="tc">重試</span>' +
+            '</button>' +
+          '</div>';
+      }
+      document.getElementById('chapters-list').innerHTML = html;
+    });
+}
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', boot);
+if (window.JX && window.JX.user) boot();
+</script>
+</body>
+</html>

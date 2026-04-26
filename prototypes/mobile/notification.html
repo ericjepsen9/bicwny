@@ -1,0 +1,283 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 通知</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; }
+
+.read-all {
+  font: var(--text-caption); color: var(--saffron); letter-spacing: 1px;
+  cursor: pointer;
+  padding: 4px 10px; border-radius: var(--r-pill);
+}
+.read-all:hover { background: var(--saffron-pale); }
+.read-all[aria-busy="true"] { opacity: .5; pointer-events: none; }
+.read-all.disabled { color: var(--ink-4); cursor: default; }
+
+.filter-tabs {
+  display: flex; gap: var(--sp-2); padding: 0 var(--sp-5) var(--sp-3);
+  overflow-x: auto; scrollbar-width: none;
+}
+.filter-tabs::-webkit-scrollbar { display: none; }
+.ftab {
+  padding: 5px 14px; border-radius: var(--r-pill); flex-shrink: 0;
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent;
+  color: var(--ink-3); cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.ftab.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
+
+.notif-list { padding: 0 var(--sp-5) var(--sp-8); display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.notif-item {
+  display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); cursor: pointer;
+  transition: background var(--dur) var(--ease);
+  position: relative;
+}
+.notif-item:hover { background: rgba(255,255,255,.85); }
+.notif-item.unread { border-left: 3px solid var(--saffron); padding-left: calc(var(--sp-4) - 3px); }
+
+.notif-icon {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--saffron-pale);
+}
+.notif-icon.system { background: rgba(43,34,24,.06); }
+.notif-icon.class_announcement { background: var(--saffron-pale); }
+.notif-icon.achievement { background: var(--gold-pale); }
+.notif-icon.reminder { background: var(--sage-light); }
+
+.notif-body { flex: 1; min-width: 0; }
+.notif-title {
+  font: var(--text-body); font-weight: 600; color: var(--ink);
+  letter-spacing: .5px; margin-bottom: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.notif-preview {
+  font: var(--text-caption); color: var(--ink-3); letter-spacing: .5px;
+  line-height: 1.6; max-width: 100%;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.notif-time { font-size: .6875rem; color: var(--ink-4); letter-spacing: 1px; margin-top: 4px; }
+
+.notif-right { flex-shrink: 0; display: flex; align-items: center; padding-left: 8px; }
+.unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--saffron); }
+
+.empty-block {
+  padding: var(--sp-8) var(--sp-5); text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
+}
+.empty-icon {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  display: flex; align-items: center; justify-content: center;
+}
+.empty-title { font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; letter-spacing: 4px; color: var(--ink); }
+.empty-desc { font: var(--text-body); color: var(--ink-2); letter-spacing: 1px; line-height: 1.7; max-width: 280px; }
+.err-state { color: var(--crimson); }
+</style>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/toast.js"></script>
+<script src="../shared/require-auth.js"></script>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <div class="status-bar" data-auto></div>
+
+  <div class="top-nav">
+    <a class="nav-back" href="home.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
+    <span class="nav-title"><span class="sc">通知</span><span class="tc">通知</span></span>
+    <span class="read-all" id="btn-read-all"><span class="sc">全部已读</span><span class="tc">全部已讀</span></span>
+  </div>
+
+  <div class="filter-tabs" id="filter-tabs">
+    <span class="ftab active" data-filter=""><span class="sc">全部</span><span class="tc">全部</span></span>
+    <span class="ftab" data-filter="unread"><span class="sc">未读</span><span class="tc">未讀</span></span>
+    <span class="ftab" data-type="class_announcement"><span class="sc">班级</span><span class="tc">班級</span></span>
+    <span class="ftab" data-type="reminder"><span class="sc">学习</span><span class="tc">學習</span></span>
+    <span class="ftab" data-type="achievement"><span class="sc">成就</span><span class="tc">成就</span></span>
+    <span class="ftab" data-type="system"><span class="sc">系统</span><span class="tc">系統</span></span>
+  </div>
+
+  <div class="notif-list" id="notif-list">
+    <div class="empty-block">
+      <p class="empty-desc"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+    </div>
+  </div>
+
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+<script src="../shared/nav.js"></script>
+<script>
+// notification · 接 /api/notifications + /api/notifications/:id/read + /read-all
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var state = {
+  // filter: '' = 全部 | 'unread' = 只看未读 | 具体类型字符串 = 按 type 筛
+  filter: '',
+  items: [], // 后端返回的原始列表（最多 50 条，已按 createdAt desc）
+};
+
+var TYPE_LABEL = {
+  system: [sc('系统', '系統'), '系統'],
+  class_announcement: [sc('班级', '班級'), '班級'],
+  achievement: [sc('成就', '成就'), '成就'],
+  reminder: [sc('提醒', '提醒'), '提醒'],
+};
+var TYPE_ICON_PATHS = {
+  system:             '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  class_announcement: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+  achievement:        '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  reminder:           '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+};
+
+function relTime(iso) {
+  var diff = Date.now() - new Date(iso).getTime();
+  var m = Math.floor(diff / 60000);
+  if (m < 1)   return sc('刚刚', '剛剛');
+  if (m < 60)  return m + sc(' 分钟前', ' 分鐘前');
+  var h = Math.floor(m / 60);
+  if (h < 24)  return h + sc(' 小时前', ' 小時前');
+  var d = Math.floor(h / 24);
+  if (d < 30)  return d + sc(' 天前', ' 天前');
+  var mo = Math.floor(d / 30);
+  return mo + sc(' 个月前', ' 個月前');
+}
+
+function currentList() {
+  if (state.filter === '') return state.items;
+  if (state.filter === 'unread') return state.items.filter(function (n) { return !n.isRead; });
+  return state.items.filter(function (n) { return n.type === state.filter; });
+}
+
+function render() {
+  var list = currentList();
+  var container = document.getElementById('notif-list');
+
+  // "全部已读" 按钮：未读为 0 时禁用
+  var hasUnread = state.items.some(function (n) { return !n.isRead; });
+  var readAllBtn = document.getElementById('btn-read-all');
+  if (hasUnread) readAllBtn.classList.remove('disabled');
+  else readAllBtn.classList.add('disabled');
+
+  if (!list.length) {
+    var emptyMsg = state.filter === 'unread'
+      ? sc('没有未读通知', '沒有未讀通知')
+      : state.filter
+        ? sc('该类型暂无通知', '該類型暫無通知')
+        : sc('暂无通知', '暫無通知');
+    container.innerHTML =
+      '<div class="empty-block">' +
+        '<div class="empty-icon"><svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">' +
+          '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>' +
+        '</svg></div>' +
+        '<p class="empty-title">' + emptyMsg + '</p>' +
+        '<p class="empty-desc">' + sc('新的班级公告、学习提醒、成就解锁会出现在此', '新的班級公告、學習提醒、成就解鎖會出現在此') + '</p>' +
+      '</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(function (n) {
+    var type = n.type || 'system';
+    var iconSvg = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">' + (TYPE_ICON_PATHS[type] || '') + '</svg>';
+    return ''
+      + '<div class="notif-item ' + (n.isRead ? '' : 'unread ') + escapeHtml(type) + '" data-id="' + escapeHtml(n.id) + '" data-link="' + escapeHtml(n.link || '') + '">'
+      +   '<div class="notif-icon ' + escapeHtml(type) + '">' + iconSvg + '</div>'
+      +   '<div class="notif-body">'
+      +     '<p class="notif-title">' + escapeHtml(n.title || '—') + '</p>'
+      +     (n.body ? '<p class="notif-preview">' + escapeHtml(n.body) + '</p>' : '')
+      +     '<p class="notif-time">' + relTime(n.createdAt) + '</p>'
+      +   '</div>'
+      +   '<div class="notif-right">' + (n.isRead ? '' : '<div class="unread-dot"></div>') + '</div>'
+      + '</div>';
+  }).join('');
+
+  container.querySelectorAll('.notif-item').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var id = el.getAttribute('data-id');
+      var link = el.getAttribute('data-link');
+      var item = state.items.find(function (n) { return n.id === id; });
+      // 未读 → 本地置读 + 调 API
+      if (item && !item.isRead) {
+        item.isRead = true;
+        render();
+        window.JX.api.post('/api/notifications/' + encodeURIComponent(id) + '/read', {})
+          .catch(function () { /* 静默；下次进来会重拉 */ });
+      }
+      if (link) location.href = link;
+    });
+  });
+}
+
+function load() {
+  window.JX.api.get('/api/notifications?limit=50').then(function (data) {
+    state.items = data || [];
+    render();
+  }).catch(function (err) {
+    document.getElementById('notif-list').innerHTML =
+      '<div class="empty-block"><p class="empty-desc err-state">' +
+        escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) +
+      '</p></div>';
+  });
+}
+
+// 过滤 chip
+document.querySelectorAll('.ftab').forEach(function (chip) {
+  chip.addEventListener('click', function () {
+    document.querySelectorAll('.ftab').forEach(function (c) { c.classList.remove('active'); });
+    chip.classList.add('active');
+    state.filter = chip.getAttribute('data-type') || chip.getAttribute('data-filter') || '';
+    render();
+  });
+});
+
+// 全部已读
+document.getElementById('btn-read-all').addEventListener('click', function () {
+  if (this.classList.contains('disabled') || this.getAttribute('aria-busy') === 'true') return;
+  this.setAttribute('aria-busy', 'true');
+  window.JX.api.post('/api/notifications/read-all', {}).then(function () {
+    state.items.forEach(function (n) { n.isRead = true; });
+    render();
+    window.JX.toast && window.JX.toast.ok(sc('已标记全部为已读', '已標記全部為已讀'));
+  }).catch(function (err) {
+    window.JX.toast && window.JX.toast.error(sc('失败：', '失敗：') + ((err && err.message) || ''));
+  }).finally(function () {
+    document.getElementById('btn-read-all').removeAttribute('aria-busy');
+  });
+});
+
+document.addEventListener('jx:user-ready', load);
+if (window.JX && window.JX.user) load();
+</script>
+</body>
+</html>

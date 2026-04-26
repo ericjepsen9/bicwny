@@ -1,0 +1,374 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 我的</title>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:100vh; }
+.phone-wrap { display:flex; justify-content:center; }
+
+/* ── Profile Header ───────────────────────── */
+.profile-header {
+  padding:var(--sp-5) var(--sp-5) var(--sp-4);
+  display:flex; align-items:center; gap:var(--sp-4);
+}
+.avatar-lg {
+  width:64px; height:64px; border-radius:50%; flex-shrink:0;
+  background:linear-gradient(135deg,var(--saffron-light),var(--gold-light));
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-serif); font-weight:700; font-size:1.375rem;
+  color:var(--saffron-dark);
+  border:3px solid rgba(255,255,255,.85);
+  box-shadow:var(--shadow-2);
+}
+.profile-info { flex:1; }
+.profile-name  { font-family:var(--font-serif); font-weight:700; font-size:1.125rem; color:var(--ink); letter-spacing:3px; }
+.profile-level { font:var(--text-meta); color:var(--gold-dark); letter-spacing:2px; margin-top:3px; }
+.profile-edit  {
+  padding:6px 14px; border-radius:var(--r-pill);
+  font:var(--text-caption); font-weight:600; letter-spacing:1.5px;
+  background:var(--saffron-pale); border:1.5px solid var(--saffron-light); color:var(--saffron-dark);
+}
+
+/* ── Summary Stats ────────────────────────── */
+.summary-bar {
+  margin:0 var(--sp-5);
+  display:grid; grid-template-columns:1fr 1px 1fr 1px 1fr;
+  padding:var(--sp-4);
+  background:var(--glass-thick); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+  border:1px solid var(--glass-border); border-radius:var(--r-lg);
+  box-shadow:var(--shadow-1);
+}
+.sum-sep { width:1px; height:32px; background:var(--border-light); justify-self:center; }
+
+/* ── Sections ─────────────────────────────── */
+.sections { display:flex; flex-direction:column; gap:var(--sp-4); padding:var(--sp-4) var(--sp-5) 100px; }
+
+/* ── Plan Card (moved from home) ─────────── */
+.plan-card { padding:var(--sp-4) var(--sp-5); }
+.plan-stats { display:grid; grid-template-columns:1fr 1px 1fr 1px 1fr; align-items:center; margin-top:var(--sp-4); }
+.plan-sep { width:1px; height:32px; background:var(--border-light); justify-self:center; }
+
+/* ── Streak Row ───────────────────────────── */
+.streak-card { padding:var(--sp-4) var(--sp-5); }
+.streak-dots { display:flex; gap:var(--sp-2); margin-top:var(--sp-3); }
+.streak-day  { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; }
+.streak-dot  { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+.streak-dot.done    { background:var(--saffron); }
+.streak-dot.today   { background:var(--saffron-dark); box-shadow:0 0 0 3px var(--saffron-light); }
+.streak-dot.pending { background:rgba(43,34,24,.10); }
+.streak-lbl { font-size:.625rem; color:var(--ink-4); letter-spacing:.5px; }
+.streak-lbl.cur { color:var(--saffron); font-weight:700; }
+
+/* ── Menu List ────────────────────────────── */
+.menu-card { padding:var(--sp-2) 0; overflow:hidden; }
+.menu-item {
+  display:flex; align-items:center; gap:var(--sp-3);
+  padding:var(--sp-4) var(--sp-5);
+  transition:background var(--dur) var(--ease);
+}
+.menu-item:active { background:rgba(224,120,86,.06); }
+.menu-item + .menu-item { border-top:1px solid var(--border-light); }
+.menu-icon  { width:34px; height:34px; border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.menu-label { flex:1; font:var(--text-body); color:var(--ink); letter-spacing:1px; }
+.menu-arrow { color:var(--ink-4); }
+.menu-item.danger .menu-label { color:var(--crimson); }
+.menu-item.danger .menu-icon  { background:var(--crimson-light); }
+.menu-badge   { min-width:18px; height:18px; padding:0 6px; border-radius:9px; background:var(--crimson); color:#fff; font:600 11px/18px var(--font-sans); text-align:center; }
+</style>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <div class="status-bar" data-auto></div>
+
+  <div class="scroll-area" style="height:756px;">
+
+    <!-- Profile header -->
+    <div class="profile-header">
+      <div class="avatar-lg" data-jx-user="avatarInitial">明</div>
+      <div class="profile-info">
+        <p class="profile-name" data-jx-user="dharmaName"><span class="sc">明心同学</span><span class="tc">明心同學</span></p>
+        <p class="profile-level" id="profile-level">⬡ 般若行者 · Lv.1</p>
+      </div>
+      <a href="profile-edit.html" class="profile-edit" style="text-decoration:none;cursor:pointer;"><span class="sc">编辑</span><span class="tc">編輯</span></a>
+    </div>
+
+    <!-- Summary stats -->
+    <div class="summary-bar">
+      <div class="stat-pair">
+        <span class="stat-value" id="stat-days">—</span>
+        <span class="stat-label"><span class="sc">学习天数</span><span class="tc">學習天數</span></span>
+      </div>
+      <div class="sum-sep"></div>
+      <div class="stat-pair">
+        <span class="stat-value" id="stat-courses">—</span>
+        <span class="stat-label"><span class="sc">已学法本</span><span class="tc">已學法本</span></span>
+      </div>
+      <div class="sum-sep"></div>
+      <div class="stat-pair">
+        <span class="stat-value" id="stat-correct-rate">—</span>
+        <span class="stat-label"><span class="sc">正确率</span><span class="tc">正確率</span></span>
+      </div>
+    </div>
+
+    <div class="sections">
+
+      <!-- Today plan -->
+      <div class="plan-card glass-card">
+        <div class="section-header" style="margin-bottom:0;">
+          <span class="section-title"><span class="sc">今日计划</span><span class="tc">今日計劃</span></span>
+          <span class="pill pill-gold" id="streak-pill">🔥 <span class="sc">连续 0 天</span><span class="tc">連續 0 天</span></span>
+        </div>
+        <div class="plan-stats">
+          <div class="stat-pair">
+            <span class="stat-value" id="plan-new" style="color:var(--saffron);">—</span>
+            <span class="stat-label"><span class="sc">待学词</span><span class="tc">待學詞</span></span>
+          </div>
+          <div class="plan-sep"></div>
+          <div class="stat-pair">
+            <span class="stat-value" id="plan-due" style="color:var(--crimson);">—</span>
+            <span class="stat-label"><span class="sc">待复习</span><span class="tc">待複習</span></span>
+          </div>
+          <div class="plan-sep"></div>
+          <div class="stat-pair">
+            <span class="stat-value" id="plan-done" style="color:var(--sage-dark);">—</span>
+            <span class="stat-label"><span class="sc">已完成</span><span class="tc">已完成</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Streak -->
+      <div class="streak-card glass-card">
+        <div class="section-header" style="margin-bottom:0;">
+          <span class="section-title"><span class="sc">本周打卡</span><span class="tc">本週打卡</span></span>
+          <span class="t-caption t-ink-3" id="streak-caption" style="letter-spacing:1px;"><span class="sc">已连续 0 天</span><span class="tc">已連續 0 天</span></span>
+        </div>
+        <div class="streak-dots" id="streak-dots"></div>
+      </div>
+
+      <!-- Menu -->
+      <div class="menu-card glass-card-thick">
+        <a id="menu-backoffice" class="menu-item" href="#" style="display:none;">
+          <div class="menu-icon" style="background:var(--gold-pale);">
+            <svg width="18" height="18" fill="none" stroke="#B88956" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          </div>
+          <span class="menu-label" id="menu-backoffice-label"><span class="sc">进入后台</span><span class="tc">進入後台</span></span>
+          <svg class="menu-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        <a href="achievement.html" class="menu-item">
+          <div class="menu-icon" style="background:var(--gold-pale);">
+            <svg width="18" height="18" fill="none" stroke="#B88956" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg>
+          </div>
+          <span class="menu-label"><span class="sc">学习统计</span><span class="tc">學習統計</span></span>
+          <svg class="menu-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        <a href="notification.html" class="menu-item" id="profile-notif-link">
+          <div class="menu-icon" style="background:var(--sage-light);">
+            <svg width="18" height="18" fill="none" stroke="#7D9A6C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+          <span class="menu-label"><span class="sc">消息通知</span><span class="tc">消息通知</span></span>
+          <span id="profile-notif-count" class="menu-badge" style="display:none;"></span>
+          <svg class="menu-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        <a href="settings.html" class="menu-item">
+          <div class="menu-icon" style="background:rgba(43,34,24,.06);">
+            <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </div>
+          <span class="menu-label"><span class="sc">设置</span><span class="tc">設定</span></span>
+          <svg class="menu-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        <a href="change-password.html" class="menu-item">
+          <div class="menu-icon" style="background:rgba(43,34,24,.06);">
+            <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <span class="menu-label"><span class="sc">修改密码</span><span class="tc">修改密碼</span></span>
+          <svg class="menu-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        <a href="delete-account.html" class="menu-item danger">
+          <div class="menu-icon">
+            <svg width="18" height="18" fill="none" stroke="#A13C2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+          </div>
+          <span class="menu-label"><span class="sc">注销账号</span><span class="tc">註銷帳號</span></span>
+          <svg class="menu-arrow" width="16" height="16" fill="none" stroke="#A13C2E" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        <button type="button" id="profile-logout" class="menu-item danger" style="border:0;width:100%;background:transparent;text-align:left;font:inherit;cursor:pointer;">
+          <div class="menu-icon">
+            <svg width="18" height="18" fill="none" stroke="#A13C2E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </div>
+          <span class="menu-label"><span class="sc">退出登录</span><span class="tc">退出登入</span></span>
+          <svg class="menu-arrow" width="16" height="16" fill="none" stroke="#A13C2E" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <a href="home.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span><span class="sc">首页</span><span class="tc">首頁</span></span></a>
+    <a href="scripture-detail.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span>法本</span></a>
+    <a href="class-detail.html" class="tab-item"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg><span><span class="sc">班级</span><span class="tc">班級</span></span></a>
+    <a href="profile.html" class="tab-item active"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>我的</span></a>
+  </div>
+
+</div>
+</div>
+<script src="../shared/nav.js"></script>
+<script>
+// ── profile 数据 ──────────────────────────────────
+//   /api/my/progress → totalDays/byCourse/streak/sm2/todayAnswered/weekDays
+// ──────────────────────────────────────────────────
+var lang = window.JX.lang, sc = window.JX.sc;
+
+// 级别估算（内部）：每 50 次正确答题 = 1 级，最高 12
+// titleBand 根据总答题量给语义性称号；launch 期先轻量
+function deriveLevel(progress) {
+  var correct = Math.round((progress.correctRate || 0) * (progress.totalAnswers || 0));
+  var lv = Math.min(12, 1 + Math.floor(correct / 50));
+  var bandsSc = ['初学', '入门', '精进', '持戒', '正念', '正定', '慧观', '般若行者', '菩萨道'];
+  var bandsTc = ['初學', '入門', '精進', '持戒', '正念', '正定', '慧觀', '般若行者', '菩薩道'];
+  var idx = Math.min(bandsSc.length - 1, Math.floor((lv - 1) / 2));
+  return { lv: lv, title: sc(bandsSc[idx], bandsTc[idx]) };
+}
+
+function renderStreakDots(weekDays) {
+  var set = {};
+  (weekDays || []).forEach(function (d) { set[d] = true; });
+
+  var now = new Date();
+  // 计算本周周一 UTC
+  var dow = (now.getUTCDay() + 6) % 7; // 0=周一
+  var monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  monday.setUTCDate(monday.getUTCDate() - dow);
+  var today = now.toISOString().slice(0, 10);
+  var labels = ['一', '二', '三', '四', '五', '六', '日'];
+
+  var wrap = document.getElementById('streak-dots');
+  wrap.innerHTML = '';
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(monday);
+    d.setUTCDate(monday.getUTCDate() + i);
+    var key = d.toISOString().slice(0, 10);
+    var done = !!set[key];
+    var isToday = key === today;
+    var state = isToday ? (done ? 'today' : 'today') : (done ? 'done' : 'pending');
+
+    var inner = '';
+    if (state === 'done') {
+      inner = '<svg width="12" height="12" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+    } else if (state === 'today') {
+      inner = '<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="white"/></svg>';
+    }
+    var html = '<div class="streak-day">' +
+      '<div class="streak-dot ' + state + '">' + inner + '</div>' +
+      '<span class="streak-lbl' + (isToday ? ' cur' : '') + '">' + (isToday ? sc('今', '今') : labels[i]) + '</span>' +
+      '</div>';
+    wrap.insertAdjacentHTML('beforeend', html);
+  }
+}
+
+function renderProgress(p) {
+  // Summary bar
+  document.getElementById('stat-days').textContent = p.totalDays || 0;
+  document.getElementById('stat-courses').textContent = (p.byCourse || []).length;
+  document.getElementById('stat-correct-rate').textContent = Math.round((p.correctRate || 0) * 100) + '%';
+
+  // Level
+  var lv = deriveLevel(p);
+  document.getElementById('profile-level').textContent = '⬡ ' + lv.title + ' · Lv.' + lv.lv;
+
+  // Today plan
+  var sm2 = p.sm2 || {};
+  document.getElementById('plan-new').textContent = sm2['new'] || 0;
+  document.getElementById('plan-due').textContent = sm2.due || 0;
+  document.getElementById('plan-done').textContent = p.todayAnswered || 0;
+
+  // Streak pill + caption
+  var cur = (p.streak && p.streak.current) || 0;
+  document.getElementById('streak-pill').innerHTML = '🔥 ' +
+    '<span class="sc">连续 ' + cur + ' 天</span><span class="tc">連續 ' + cur + ' 天</span>';
+  document.getElementById('streak-caption').innerHTML =
+    '<span class="sc">已连续 ' + cur + ' 天</span><span class="tc">已連續 ' + cur + ' 天</span>';
+
+  // Week dots
+  renderStreakDots(p.weekDays || []);
+}
+
+function renderBackofficeLink(user) {
+  if (!user) return;
+  var a = document.getElementById('menu-backoffice');
+  var lbl = document.getElementById('menu-backoffice-label');
+  if (user.role === 'admin') {
+    a.href = '../desktop/admin.html';
+    lbl.innerHTML = '<span class="sc">进入管理员后台</span><span class="tc">進入管理員後台</span>';
+    a.style.display = '';
+  } else if (user.role === 'coach') {
+    a.href = '../desktop/coach.html';
+    lbl.innerHTML = '<span class="sc">进入辅导员后台</span><span class="tc">進入輔導員後台</span>';
+    a.style.display = '';
+  } else {
+    a.style.display = 'none';
+  }
+}
+
+function renderNotifBadge(n) {
+  var el = document.getElementById('profile-notif-count');
+  if (!el) return;
+  if (n > 0) {
+    el.textContent = n > 99 ? '99+' : String(n);
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function boot() {
+  renderBackofficeLink(window.JX && window.JX.user);
+  window.JX.api.get('/api/my/progress').then(renderProgress).catch(function (err) {
+    console.warn('[profile] /api/my/progress 失败：', err);
+    // 降级：至少渲染空骨架
+    renderProgress({ totalAnswers: 0, correctRate: 0, byCourse: [], streak: { current: 0 }, sm2: {}, totalDays: 0, todayAnswered: 0, weekDays: [] });
+  });
+  window.JX.api.get('/api/notifications/unread-count').then(function (r) {
+    renderNotifBadge((r && r.data && r.data.count) | 0);
+  }).catch(function () {});
+}
+
+// 退出登录 · 调后端吊销 refresh
+document.getElementById('profile-logout').addEventListener('click', function () {
+  if (!confirm(sc('确定退出登录？', '確定退出登入？'))) return;
+  window.JX.api.logout().finally(function () { location.replace('auth.html'); });
+});
+
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', boot);
+if (window.JX && window.JX.user) boot();
+</script>
+</body>
+</html>

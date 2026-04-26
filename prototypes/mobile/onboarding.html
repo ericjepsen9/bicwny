@@ -1,0 +1,287 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 引导</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/toast.js"></script>
+<script src="../shared/require-auth.js"></script>
+<style>
+body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; }
+.onb-wrap { padding: var(--sp-7) var(--sp-5) var(--sp-8); display: flex; flex-direction: column; gap: var(--sp-5); }
+
+.onb-hero { text-align: center; padding: var(--sp-5) 0; }
+.onb-icon {
+  width: 80px; height: 80px; border-radius: var(--r-xl);
+  margin: 0 auto var(--sp-5);
+  background: linear-gradient(135deg, var(--saffron), var(--saffron-dark));
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 10px 28px rgba(224,120,86,.35);
+}
+.onb-hero h1 {
+  font-family: var(--font-serif); font-weight: 700; font-size: 1.5rem;
+  letter-spacing: 4px; color: var(--ink); margin-bottom: var(--sp-3);
+}
+.onb-hero p {
+  font: var(--text-body); color: var(--ink-2);
+  letter-spacing: 1px; line-height: 1.7;
+}
+
+.opt-card {
+  padding: var(--sp-5);
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.opt-card:hover, .opt-card.active {
+  border-color: var(--saffron-light);
+  background: linear-gradient(135deg, var(--saffron-pale), var(--gold-pale));
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(224,120,86,.18);
+}
+.opt-head {
+  display: flex; align-items: center; gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+}
+.opt-ico {
+  width: 44px; height: 44px; border-radius: var(--r-lg); flex-shrink: 0;
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  display: flex; align-items: center; justify-content: center;
+}
+.opt-card.active .opt-ico { background: var(--saffron); color: #fff; }
+.opt-title {
+  font-family: var(--font-serif); font-weight: 700; font-size: 1.0625rem;
+  color: var(--ink); letter-spacing: 2px;
+}
+.opt-desc {
+  font: var(--text-caption); color: var(--ink-3);
+  letter-spacing: 1px; line-height: 1.6;
+}
+
+.code-section { display: none; padding-top: var(--sp-3); }
+.opt-card.active .code-section { display: block; }
+.code-input {
+  width: 100%; padding: 14px 18px;
+  border: 2px solid var(--border-light); border-radius: var(--r);
+  background: #fff; color: var(--ink);
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: 1.125rem; letter-spacing: 4px;
+  text-align: center; text-transform: uppercase;
+  outline: none;
+}
+.code-input:focus { border-color: var(--saffron); }
+.code-input.invalid { border-color: var(--crimson); }
+.code-hint {
+  font: var(--text-caption); color: var(--ink-3);
+  letter-spacing: 1px; line-height: 1.6; margin-top: var(--sp-2);
+}
+.form-msg { min-height: 18px; font: var(--text-caption); letter-spacing: 1px; margin-top: var(--sp-2); }
+.form-msg.error { color: var(--crimson); }
+.form-msg.ok { color: var(--sage-dark); }
+
+.btn-row {
+  margin-top: var(--sp-3);
+  display: flex; flex-direction: column; gap: var(--sp-3);
+}
+</style>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <div class="status-bar" data-auto></div>
+
+  <div class="onb-wrap">
+
+    <div class="onb-hero">
+      <div class="onb-icon">
+        <svg width="34" height="34" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+      </div>
+      <h1><span class="sc">欢迎进入觉学</span><span class="tc">歡迎進入覺學</span></h1>
+      <p data-jx-user="dharmaName" style="font-family:var(--font-serif);font-weight:700;color:var(--saffron-dark);margin-bottom:var(--sp-3);font-size:1rem;">—</p>
+      <p>
+        <span class="sc">请选择您的学习方式，开启闻思之旅</span>
+        <span class="tc">請選擇您的學習方式，開啟聞思之旅</span>
+      </p>
+    </div>
+
+    <!-- 选项 1 · 加入班级 -->
+    <div class="opt-card" id="opt-class" data-opt="class">
+      <div class="opt-head">
+        <div class="opt-ico">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div>
+          <div class="opt-title"><span class="sc">加入班级</span><span class="tc">加入班級</span></div>
+          <div class="opt-desc"><span class="sc">辅导员陪伴 · 共修共进</span><span class="tc">輔導員陪伴 · 共修共進</span></div>
+        </div>
+      </div>
+      <div class="code-section">
+        <input class="code-input" id="fld-code" type="text" autocomplete="off" autocapitalize="characters"
+          maxlength="8" minlength="6" placeholder="XXXXXX" inputmode="text" pattern="[A-Z0-9]{6,8}">
+        <p class="code-hint">
+          <span class="sc">向辅导员索取 6 位邀请码 · 字母与数字组合，不区分大小写</span>
+          <span class="tc">向輔導員索取 6 位邀請碼 · 字母與數字組合，不區分大小寫</span>
+        </p>
+        <div class="form-msg" id="join-msg" role="status"></div>
+        <button type="button" class="btn btn-primary btn-lg btn-full btn-pill" id="btn-join" style="margin-top:var(--sp-3);">
+          <span class="sc">确认加入</span><span class="tc">確認加入</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 选项 2 · 自由学习 -->
+    <div class="opt-card" id="opt-free" data-opt="free">
+      <div class="opt-head">
+        <div class="opt-ico">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="opt-title"><span class="sc">自由学习</span><span class="tc">自由學習</span></div>
+          <div class="opt-desc"><span class="sc">独立闻思 · 随心选课</span><span class="tc">獨立聞思 · 隨心選課</span></div>
+        </div>
+      </div>
+    </div>
+
+    <p style="text-align:center;font:var(--text-caption);color:var(--ink-4);letter-spacing:1px;margin-top:var(--sp-3);">
+      <span class="sc">日后可在"班级"页随时切换或加入班级</span>
+      <span class="tc">日後可在"班級"頁隨時切換或加入班級</span>
+    </p>
+
+  </div>
+
+</div>
+</div>
+
+<script>
+// onboarding · 首次登录引导
+//   1) 选"加入班级" → POST /api/classes/join → onboardingDone
+//   2) 选"自由学习" → onboardingDone
+// 完成后跳 home.html · onboardingDone 调 POST /api/auth/onboarding-done
+// require-auth.js 已守卫未登录跳 auth.html
+var sc = window.JX.sc;
+
+function setMsg(kind, text) {
+  var el = document.getElementById('join-msg');
+  el.className = 'form-msg ' + kind;
+  el.textContent = text || '';
+}
+
+function onboardingDone() {
+  return window.JX.api.post('/api/auth/onboarding-done', {});
+}
+
+function gotoHome() {
+  location.replace('home.html');
+}
+
+// 选项卡切换 · class 展开输入；free 直接走"确认自由学习"
+document.querySelectorAll('.opt-card').forEach(function (card) {
+  card.addEventListener('click', function (e) {
+    var opt = card.getAttribute('data-opt');
+    if (opt === 'class') {
+      // 展开输入区，已展开时不重置
+      if (card.classList.contains('active')) return;
+      document.querySelectorAll('.opt-card').forEach(function (c) { c.classList.remove('active'); });
+      card.classList.add('active');
+      setTimeout(function () { document.getElementById('fld-code').focus(); }, 100);
+      return;
+    }
+    if (opt === 'free') {
+      // 不让点击事件被嵌套元素吞，但只有点卡片本体才触发
+      if (e.target.closest('.opt-card[data-opt="class"]')) return;
+      if (!confirm(sc('选择自由学习后将不绑定班级，可随时在"班级"页加入。继续？',
+                     '選擇自由學習後將不綁定班級，可隨時在"班級"頁加入。繼續？'))) return;
+      window.JX.api.post('/api/auth/onboarding-done', {}).then(function () {
+        window.JX.toast && window.JX.toast.ok(sc('已开启自由学习', '已開啟自由學習'));
+        setTimeout(gotoHome, 600);
+      }).catch(function (err) {
+        window.JX.toast && window.JX.toast.error(sc('设置失败：', '設定失敗：') + ((err && err.message) || ''));
+      });
+    }
+  });
+});
+
+// 加入班级输入实时大写
+var input = document.getElementById('fld-code');
+input.addEventListener('input', function () {
+  var v = input.value.toUpperCase().replace(/\s+/g, '');
+  if (v !== input.value) input.value = v;
+  input.classList.remove('invalid');
+  setMsg('', '');
+});
+
+// 提交加入班级
+document.getElementById('btn-join').addEventListener('click', function () {
+  var code = input.value.toUpperCase().trim();
+  if (!/^[A-Z0-9]{6,8}$/.test(code)) {
+    input.classList.add('invalid');
+    return setMsg('error', sc('邀请码应为 6-8 位字母或数字', '邀請碼應為 6-8 位字母或數字'));
+  }
+  var btn = document.getElementById('btn-join');
+  btn.setAttribute('aria-busy', 'true');
+  setMsg('', '');
+  var joinedCourse = null;
+  window.JX.api.post('/api/classes/join', { joinCode: code })
+    .then(function (data) {
+      // 后端返回 { class: { ..., course }, member } · 拿主修法本名
+      joinedCourse = data && data.class && data.class.course;
+      // 加入成功后顺带标记 onboarding 完成
+      return onboardingDone();
+    })
+    .then(function () {
+      if (joinedCourse) {
+        var title = sc(joinedCourse.title, joinedCourse.titleTraditional || joinedCourse.title);
+        window.JX.toast && window.JX.toast.ok(
+          sc('已加入班级，开始学习《', '已加入班級，開始學習《') + title + '》'
+        );
+      } else {
+        window.JX.toast && window.JX.toast.ok(sc('加入成功，欢迎加入！', '加入成功，歡迎加入！'));
+      }
+      setTimeout(gotoHome, 900);
+    })
+    .catch(function (err) {
+      btn.removeAttribute('aria-busy');
+      var m = (err && err.message) || sc('加入失败', '加入失敗');
+      setMsg('error', m);
+      window.JX.toast && window.JX.toast.error(m);
+    });
+});
+</script>
+</body>
+</html>

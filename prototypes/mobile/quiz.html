@@ -1,0 +1,666 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 答题</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+
+/* Quiz header · 与 .top-nav 同尺度但中间放进度条而非标题 */
+.quiz-header { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-5); }
+.progress-wrap { flex: 1; }
+.progress-label { display: flex; justify-content: space-between; font: var(--text-caption); color: var(--ink-3); margin-bottom: 4px; }
+.progress-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--saffron); border-radius: 2px; transition: width .4s var(--ease); }
+.lives { font-size: .875rem; letter-spacing: 2px; flex-shrink: 0; }
+
+/* Question card */
+.quiz-body { padding: var(--sp-4) var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-4); }
+.q-card {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
+  padding: var(--sp-5); box-shadow: var(--glass-shadow);
+  position: relative;
+}
+.q-tag {
+  display: inline-block; font: var(--text-caption); font-weight: 700;
+  color: var(--saffron); background: var(--saffron-pale);
+  border: 1px solid var(--saffron-light); border-radius: var(--r-pill);
+  padding: 2px 10px; letter-spacing: 1px; margin-bottom: var(--sp-3);
+}
+.q-num { font: var(--text-caption); color: var(--ink-4); margin-bottom: var(--sp-2); }
+.q-text { font: var(--text-body-serif); color: var(--ink); line-height: 1.7; }
+
+/* Favorite button (top-right of q-card) */
+.q-fav {
+  position: absolute; top: var(--sp-4); right: var(--sp-4);
+  width: 32px; height: 32px; border-radius: 50%;
+  background: transparent; border: 1px solid var(--border-light);
+  color: var(--ink-4);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.q-fav:hover { border-color: var(--gold-dark); color: var(--gold-dark); }
+.q-fav[aria-busy="true"] { opacity: .5; pointer-events: none; }
+.q-fav.active {
+  background: var(--gold-pale);
+  border-color: var(--gold-dark);
+  color: var(--gold-dark);
+}
+.q-fav.active svg { fill: currentColor; }
+
+/* Report button (left of fav) */
+.q-report {
+  position: absolute; top: var(--sp-4); right: calc(var(--sp-4) + 40px);
+  width: 32px; height: 32px; border-radius: 50%;
+  background: transparent; border: 1px solid var(--border-light);
+  color: var(--ink-4);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.q-report:hover { border-color: var(--crimson); color: var(--crimson); }
+.q-report[aria-busy="true"] { opacity: .5; pointer-events: none; }
+
+/* Report 模态框 · 底部弹起式 */
+.rpt-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 110; display: flex; align-items: flex-end; justify-content: center; }
+.rpt-backdrop.open { opacity: 1; pointer-events: auto; }
+.rpt-sheet {
+  width: 100%; max-width: 480px;
+  background: #fff; border-radius: var(--r-xl) var(--r-xl) 0 0;
+  transform: translateY(100%); transition: transform .25s var(--ease);
+  padding: var(--sp-5) var(--sp-5) var(--sp-6);
+  max-height: 80vh; overflow-y: auto;
+}
+.rpt-backdrop.open .rpt-sheet { transform: translateY(0); }
+.rpt-title { font-family: var(--font-serif); font-weight: 700; font-size: 1.0625rem; color: var(--ink); letter-spacing: 2px; margin-bottom: var(--sp-3); }
+.rpt-reasons { display: flex; flex-direction: column; gap: 8px; margin-bottom: var(--sp-3); }
+.rpt-reason {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--r);
+  border: 1px solid var(--border-light); background: #fff;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+  font: var(--text-body); color: var(--ink); letter-spacing: 1px;
+}
+.rpt-reason:hover { border-color: var(--saffron-light); background: var(--saffron-pale); }
+.rpt-reason.checked { border-color: var(--saffron); background: var(--saffron-pale); color: var(--saffron-dark); font-weight: 600; }
+.rpt-reason input { width: 16px; height: 16px; accent-color: var(--saffron); }
+.rpt-details {
+  width: 100%; min-height: 80px; resize: vertical;
+  padding: 10px 12px; border-radius: var(--r);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-body); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.rpt-details:focus { border-color: var(--saffron); }
+.rpt-err { color: var(--crimson); font: var(--text-caption); letter-spacing: 1px; padding: 8px 10px; border-radius: var(--r); background: rgba(192,57,43,.06); margin-bottom: var(--sp-2); display: none; }
+.rpt-err.show { display: block; }
+.rpt-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
+.rpt-actions .btn { flex: 1; }
+
+/* Options */
+.options { display: flex; flex-direction: column; gap: var(--sp-3); }
+.opt {
+  display: flex; align-items: center; gap: var(--sp-3);
+  background: var(--glass); backdrop-filter: var(--blur);
+  border: 1.5px solid var(--glass-border); border-radius: var(--r-lg);
+  padding: var(--sp-3) var(--sp-4); cursor: pointer;
+  transition: all var(--dur) var(--ease);
+}
+.opt:hover:not(.disabled) { background: var(--glass-thick); border-color: var(--saffron-light); }
+.opt.selected { background: var(--saffron-pale); border-color: var(--saffron-light); }
+.opt.correct  { background: var(--sage-light);    border-color: var(--sage); }
+.opt.wrong    { background: var(--crimson-light);  border-color: var(--crimson); }
+.opt.disabled { cursor: default; }
+.opt-letter {
+  width: 28px; height: 28px; border-radius: var(--r); flex-shrink: 0;
+  background: rgba(43,34,24,.07); display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; font-weight: 700; color: var(--ink-3);
+}
+.opt.selected .opt-letter { background: var(--saffron-light); color: var(--saffron-dark); }
+.opt.correct .opt-letter  { background: var(--sage); color: #fff; }
+.opt.wrong .opt-letter    { background: var(--crimson); color: #fff; }
+.opt-text { font: var(--text-body); color: var(--ink); }
+
+/* Feedback */
+.feedback { display: none; border-radius: var(--r-xl); padding: var(--sp-4) var(--sp-5); font: var(--text-caption); line-height: 1.7; }
+.feedback.show { display: block; animation: slideUp .2s var(--ease); }
+.feedback.correct { background: var(--sage-light); border: 1px solid var(--sage); }
+.feedback.wrong   { background: var(--crimson-light); border: 1px solid var(--crimson-light); }
+.feedback-title { font-weight: 700; font-size: .75rem; letter-spacing: 1px; margin-bottom: var(--sp-2); }
+.feedback.correct .feedback-title { color: var(--sage-dark); }
+.feedback.wrong   .feedback-title { color: var(--crimson); }
+.feedback-body { color: var(--ink-2); }
+
+.quiz-action { padding: var(--sp-3) var(--sp-5) var(--sp-5); }
+@keyframes slideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+/* ── Guided（引导分步）────────────────────────────── */
+.guided-final {
+  background: var(--saffron-pale); border: 1px solid var(--saffron-light);
+  border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-2);
+}
+.guided-final-label {
+  font: var(--text-caption); font-weight: 700; letter-spacing: 2px;
+  color: var(--saffron-dark); text-transform: uppercase;
+}
+.guided-final-text {
+  margin-top: 4px;
+  font: var(--text-body-serif); font-size: .9375rem; line-height: 1.7;
+  letter-spacing: .5px; color: var(--ink);
+}
+.guided-step {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4);
+  display: flex; flex-direction: column; gap: var(--sp-2);
+}
+.guided-step.confirmed { border-color: var(--border); }
+.guided-step-head {
+  display: flex; align-items: center; gap: var(--sp-2);
+}
+.guided-step-num {
+  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+  background: var(--saffron); color: #fff;
+  font-size: .75rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.guided-step-prompt {
+  flex: 1; font: var(--text-body); color: var(--ink);
+  letter-spacing: .5px; line-height: 1.5; font-weight: 600;
+}
+.guided-step-hint {
+  font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px;
+  line-height: 1.6; padding-left: 32px;
+}
+.guided-step-input {
+  width: 100%; resize: vertical; min-height: 72px; font: var(--text-body);
+}
+.guided-step-input:disabled { opacity: .85; background: rgba(43,34,24,.03); }
+
+.guided-score {
+  min-width: 36px; height: 24px; padding: 0 8px;
+  border-radius: var(--r-pill);
+  font-size: .75rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.guided-score-ok  { background: var(--sage-dark); color: #fff; }
+.guided-score-mid { background: var(--gold-dark); color: #fff; }
+.guided-score-bad { background: var(--crimson); color: #fff; }
+
+.guided-kp {
+  font: var(--text-caption); letter-spacing: 1px;
+  line-height: 1.7; padding: 6px 10px; border-radius: var(--r);
+}
+.guided-hits   { color: var(--sage-dark);   background: rgba(125,154,108,.10); }
+.guided-missed { color: var(--crimson);     background: rgba(192,57,43,.08); }
+
+/* ── Flow（画布拖拽）───────────────────────────────── */
+.flow-canvas {
+  position: relative; width: 100%;
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  background-size: cover; background-position: center;
+  overflow: hidden;
+}
+.flow-slot {
+  position: absolute; transform: translate(-50%, -50%);
+  min-width: 58px; min-height: 34px; padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--glass-thick); border: 2px dashed var(--saffron-light);
+  color: var(--ink-3); font: var(--text-caption); font-weight: 600;
+  letter-spacing: 1px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--dur) var(--ease);
+}
+.flow-slot:hover { border-color: var(--saffron); background: var(--saffron-pale); color: var(--saffron-dark); }
+.flow-slot-hint { font-weight: 700; font-size: 1rem; opacity: .5; }
+.flow-slot.filled {
+  background: var(--saffron-pale); border-style: solid; border-color: var(--saffron);
+  color: var(--saffron-dark);
+}
+.flow-slot.slot-correct {
+  background: var(--sage-light); border-color: var(--sage); color: var(--sage-dark);
+}
+.flow-slot.slot-wrong {
+  background: var(--crimson-light); border-color: var(--crimson); color: var(--crimson);
+}
+
+.flow-pool {
+  display: flex; flex-wrap: wrap; gap: var(--sp-2);
+  padding: var(--sp-3); margin-top: var(--sp-2);
+  background: rgba(43,34,24,.04);
+  border-radius: var(--r-lg);
+}
+.flow-item {
+  position: relative;
+  padding: 8px 14px; border-radius: var(--r-pill);
+  background: var(--glass); border: 1.5px solid var(--glass-border);
+  font: var(--text-body); color: var(--ink); letter-spacing: .5px;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.flow-item:hover:not(.active) { background: var(--glass-thick); border-color: var(--saffron-light); }
+.flow-item.active {
+  background: var(--saffron-pale); border-color: var(--saffron);
+  box-shadow: 0 0 0 2px var(--saffron-light);
+  color: var(--saffron-dark); font-weight: 700;
+}
+.flow-item.used { opacity: .55; }
+.flow-item-badge {
+  margin-left: 6px; padding: 1px 6px; border-radius: var(--r-pill);
+  background: var(--saffron); color: #fff;
+  font-size: .625rem; font-weight: 700; letter-spacing: .5px;
+}
+
+/* ── Match（连线配对）──────────────────────────────── */
+.match-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);
+}
+.match-col { display: flex; flex-direction: column; gap: var(--sp-2); }
+.match-item {
+  display: flex; align-items: center; gap: var(--sp-2);
+  background: var(--glass); border: 1.5px solid var(--glass-border);
+  border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-3);
+  color: var(--ink); text-align: left; min-height: 48px;
+  font: var(--text-body); letter-spacing: .5px; line-height: 1.4;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.match-item:hover:not(.paired):not(:disabled) { background: var(--glass-thick); border-color: var(--saffron-light); }
+.match-item.active { background: var(--saffron-pale); border-color: var(--saffron); box-shadow: 0 0 0 2px var(--saffron-light); }
+.match-item .match-badge {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(43,34,24,.08); color: var(--ink-4);
+  font-size: .75rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.match-item .match-text { flex: 1; word-break: break-word; }
+
+/* 配对色组：用徽章 + 边框色区分同号 */
+.match-item.paired.pair-saffron { background: var(--saffron-pale); border-color: var(--saffron-light); }
+.match-item.paired.pair-saffron .match-badge { background: var(--saffron); color: #fff; }
+.match-item.paired.pair-sage    { background: var(--sage-light);    border-color: var(--sage); }
+.match-item.paired.pair-sage    .match-badge { background: var(--sage-dark); color: #fff; }
+.match-item.paired.pair-gold    { background: var(--gold-pale);     border-color: var(--gold-light); }
+.match-item.paired.pair-gold    .match-badge { background: var(--gold-dark); color: #fff; }
+.match-item.paired.pair-crimson { background: var(--crimson-light); border-color: var(--crimson); }
+.match-item.paired.pair-crimson .match-badge { background: var(--crimson); color: #fff; }
+.match-item.paired.pair-ink     { background: rgba(43,34,24,.06);   border-color: var(--ink-3); }
+.match-item.paired.pair-ink     .match-badge { background: var(--ink-2); color: #fff; }
+
+/* 提交后的对错覆盖 */
+.match-item.match-correct { background: var(--sage-light);    border-color: var(--sage); }
+.match-item.match-correct .match-badge { background: var(--sage); color: #fff; }
+.match-item.match-wrong   { background: var(--crimson-light); border-color: var(--crimson); }
+.match-item.match-wrong   .match-badge { background: var(--crimson); color: #fff; }
+
+/* ── Sort（排序题）─────────────────────────────────── */
+.sort-list {
+  display: flex; flex-direction: column; gap: var(--sp-2);
+}
+.sort-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-3) var(--sp-4);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.sort-row.sort-correct { background: var(--sage-light);    border-color: var(--sage); }
+.sort-row.sort-wrong   { background: var(--crimson-light); border-color: var(--crimson); }
+.sort-pos {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  font-size: .8125rem; font-weight: 700; letter-spacing: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.sort-row.sort-correct .sort-pos { background: var(--sage); color: #fff; }
+.sort-row.sort-wrong   .sort-pos { background: var(--crimson); color: #fff; }
+.sort-text {
+  flex: 1; font: var(--text-body); color: var(--ink);
+  letter-spacing: .5px; line-height: 1.5;
+}
+.sort-ctl { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+.sort-btn {
+  width: 28px; height: 22px; border-radius: var(--r-sm);
+  background: rgba(43,34,24,.05); border: 1px solid var(--border-light);
+  color: var(--ink-3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--dur) var(--ease);
+}
+.sort-btn:hover:not([disabled]) { background: var(--saffron-pale); color: var(--saffron-dark); border-color: var(--saffron-light); }
+.sort-btn:active:not([disabled]) { transform: scale(.92); }
+.sort-btn[disabled] { opacity: .3; cursor: default; }
+.sort-hint {
+  text-align: center; font: var(--text-caption); color: var(--ink-4);
+  letter-spacing: 1.5px; padding: var(--sp-2) 0;
+}
+
+/* ── Flip card（v2 题型：速记卡）─────────────────────── */
+.flip-card {
+  position: relative; min-height: 180px; perspective: 1200px;
+  cursor: pointer;
+}
+.flip-inner {
+  position: relative; width: 100%; min-height: 180px;
+  transform-style: preserve-3d;
+  transition: transform .55s cubic-bezier(.4,.0,.2,1);
+}
+.flip-card.flipped .flip-inner { transform: rotateY(180deg); }
+
+.flip-face {
+  position: absolute; inset: 0;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  border-radius: var(--r-lg); padding: var(--sp-5);
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  text-align: center; gap: var(--sp-3);
+  border: 1px solid var(--glass-border);
+}
+.flip-front {
+  background: var(--glass-thick);
+  color: var(--ink);
+}
+.flip-back {
+  background: var(--sage-light);
+  color: var(--ink);
+  transform: rotateY(180deg);
+}
+.flip-face .flip-text {
+  font: var(--text-body-serif); font-size: 1.0625rem; line-height: 1.7;
+  letter-spacing: 1px;
+}
+.flip-face .flip-sub, .flip-face .flip-example {
+  font: var(--text-caption); color: var(--ink-3); letter-spacing: 1.5px;
+  line-height: 1.6; max-width: 90%;
+}
+.flip-face .flip-example { color: var(--sage-dark); font-style: italic; }
+.flip-hint {
+  position: absolute; bottom: 10px; left: 0; right: 0;
+  text-align: center;
+  font: var(--text-caption); color: var(--ink-4); letter-spacing: 2px;
+}
+
+/* 评分按钮 */
+.flip-ratings {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-2); margin-top: var(--sp-3);
+}
+.flip-rating {
+  padding: 10px 4px; border-radius: var(--r);
+  border: 1px solid transparent;
+  font-weight: 700; letter-spacing: 1.5px; cursor: pointer;
+  transition: transform var(--dur) var(--ease);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.flip-rating:active { transform: scale(.96); }
+.flip-rating .label { font-size: .875rem; }
+.flip-rating .sub   { font-size: .625rem; opacity: .75; letter-spacing: 1px; }
+.flip-r-again { background: rgba(192,57,43,.10); color: var(--crimson);     border-color: rgba(192,57,43,.25); }
+.flip-r-hard  { background: var(--gold-pale);    color: var(--gold-dark);   border-color: var(--gold-light); }
+.flip-r-good  { background: var(--sage-light);   color: var(--sage-dark);   border-color: var(--sage-dark); }
+.flip-r-easy  { background: var(--saffron-pale); color: var(--saffron-dark);border-color: var(--saffron-light); }
+.flip-rating.selected { box-shadow: 0 0 0 2px currentColor; font-weight: 800; }
+.flip-rating.disabled { opacity: .5; pointer-events: none; }
+
+/* Result overlay */
+.result-overlay {
+  display: none; position: absolute; inset: 0;
+  background: var(--bg-card); border-radius: var(--r-xl);
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--sp-6); padding: var(--sp-8) var(--sp-5); z-index: 10;
+}
+.result-overlay.show { display: flex; animation: slideUp .3s var(--ease); }
+.result-ring { position: relative; width: 120px; height: 120px; }
+.ring-label {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.ring-pct { font-family: var(--font-serif); font-weight: 700; font-size: 1.5rem; color: var(--ink); }
+.ring-sub { font: var(--text-caption); color: var(--ink-3); margin-top: 2px; }
+.result-title { font: var(--text-h2); color: var(--ink); letter-spacing: 3px; }
+.result-stats { display: flex; gap: var(--sp-6); }
+.stat-item { text-align: center; }
+.stat-val { font-family: var(--font-serif); font-weight: 700; font-size: 1.25rem; color: var(--ink); display: block; }
+.stat-lbl { font: var(--text-caption); color: var(--ink-3); display: block; margin-top: 2px; }
+.result-btns { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; }
+</style>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/toast.js"></script>
+<script src="../shared/require-auth.js"></script>
+<script defer src="../shared/quiz.js"></script>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone" style="position:relative;overflow:hidden;">
+
+  <!-- Status bar -->
+  <div class="status-bar" data-auto></div>
+
+  <!-- Header: back + progress bar + lives -->
+  <div class="quiz-header">
+    <a class="nav-back" href="home.html" aria-label="返回">
+      <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span id="progress-text">1 / 3</span>
+        <span><span class="sc">佛法基础</span><span class="tc">佛法基礎</span></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:33%"></div></div>
+    </div>
+    <div class="lives" id="lives-display">❤❤❤</div>
+  </div>
+
+  <!-- Question + Options + Feedback -->
+  <div class="quiz-body">
+    <div class="q-card">
+      <span class="q-tag"><span class="sc">单选题</span><span class="tc">單選題</span></span>
+      <button type="button" class="q-report" id="q-report" title="举报此题" aria-label="举报此题">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+          <line x1="4" y1="22" x2="4" y2="15"/>
+        </svg>
+      </button>
+      <button type="button" class="q-fav" id="q-fav" title="收藏此题" aria-label="收藏此题">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+        </svg>
+      </button>
+      <div class="q-num" id="q-num">Q1</div>
+      <div class="q-text" id="q-text"></div>
+    </div>
+
+    <div class="options" id="options-list"></div>
+
+    <div class="feedback" id="feedback">
+      <div class="feedback-title" id="feedback-title"></div>
+      <div class="feedback-body" id="feedback-body"></div>
+    </div>
+  </div>
+
+  <div class="quiz-action">
+    <button class="btn btn-primary btn-lg btn-full btn-pill" id="action-btn" disabled>
+      <span class="sc">确认答案</span><span class="tc">確認答案</span>
+    </button>
+  </div>
+
+  <!-- Result overlay -->
+  <div class="result-overlay" id="result-overlay">
+    <div class="result-ring">
+      <canvas id="ring-canvas" width="120" height="120"></canvas>
+      <div class="ring-label">
+        <span class="ring-pct" id="ring-pct">0%</span>
+        <span class="ring-sub"><span class="sc">正确率</span><span class="tc">正確率</span></span>
+      </div>
+    </div>
+    <p class="result-title" id="result-title"></p>
+    <div class="result-stats">
+      <div class="stat-item">
+        <span class="stat-val" id="stat-correct">0</span>
+        <span class="stat-lbl"><span class="sc">答对</span><span class="tc">答對</span></span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-val" id="stat-wrong">0</span>
+        <span class="stat-lbl"><span class="sc">答错</span><span class="tc">答錯</span></span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-val" id="stat-time">0s</span>
+        <span class="stat-lbl"><span class="sc">用时</span><span class="tc">用時</span></span>
+      </div>
+    </div>
+    <div class="result-btns">
+      <a href="mistakes.html" class="btn btn-ghost btn-lg btn-full btn-pill">
+        <span class="sc">查看错题</span><span class="tc">查看錯題</span>
+      </a>
+      <a href="home.html" class="btn btn-primary btn-lg btn-full btn-pill">
+        <span class="sc">返回首页</span><span class="tc">返回首頁</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- 举报题目 模态框 -->
+  <div class="rpt-backdrop" id="rpt-backdrop">
+    <form class="rpt-sheet" id="rpt-form" novalidate>
+      <div class="rpt-title"><span class="sc">举报此题</span><span class="tc">舉報此題</span></div>
+      <div class="rpt-err" id="rpt-err"></div>
+      <div class="rpt-reasons" id="rpt-reasons"></div>
+      <textarea class="rpt-details" id="rpt-details" maxlength="500"
+        data-ph-sc="可选 · 补充说明（最多 500 字）" data-ph-tc="可選 · 補充說明（最多 500 字）"
+        placeholder="可选 · 补充说明（最多 500 字）"></textarea>
+      <div class="rpt-actions">
+        <button type="button" class="btn btn-ghost btn-pill" id="rpt-cancel">
+          <span class="sc">取消</span><span class="tc">取消</span>
+        </button>
+        <button type="submit" class="btn btn-primary btn-pill" id="rpt-submit">
+          <span class="sc">提交举报</span><span class="tc">提交舉報</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div><!-- /phone -->
+</div><!-- /phone-wrap -->
+
+<script>
+// ── 举报题目：quiz.js 在 render() 时给 #q-fav 写了 data-qid，这里复用同一来源 ──
+(function () {
+  var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+  var REASONS = [
+    { value: 'wrong_answer',   sc: '答案有误',   tc: '答案有誤' },
+    { value: 'doctrine_error', sc: '义理错误',   tc: '義理錯誤' },
+    { value: 'typo',           sc: '错别字 / 排版问题', tc: '錯別字 / 排版問題' },
+    { value: 'sensitive',      sc: '涉及冒犯',   tc: '涉及冒犯' },
+    { value: 'other',          sc: '其他',       tc: '其他' },
+  ];
+
+  var backdrop = document.getElementById('rpt-backdrop');
+  var form     = document.getElementById('rpt-form');
+  var errBox   = document.getElementById('rpt-err');
+  var detailsI = document.getElementById('rpt-details');
+  var submitBt = document.getElementById('rpt-submit');
+  var reasonsC = document.getElementById('rpt-reasons');
+  var reportBt = document.getElementById('q-report');
+
+  function renderReasons() {
+    reasonsC.innerHTML = REASONS.map(function (r, i) {
+      var id = 'rpt-r-' + i;
+      return '<label class="rpt-reason" for="' + id + '">' +
+        '<input type="radio" name="reason" id="' + id + '" value="' + r.value + '">' +
+        '<span>' + escapeHtml(sc(r.sc, r.tc)) + '</span>' +
+        '</label>';
+    }).join('');
+  }
+
+  function open() {
+    // 当前题目 id：quiz.js render() 写在 #q-fav[data-qid]
+    var fav = document.getElementById('q-fav');
+    var qid = fav && fav.getAttribute('data-qid');
+    if (!qid) {
+      window.JX.toast && window.JX.toast.error(sc('题目未加载', '題目未載入'));
+      return;
+    }
+    form.dataset.qid = qid;
+    renderReasons();
+    form.reset();
+    errBox.classList.remove('show');
+    errBox.textContent = '';
+    backdrop.classList.add('open');
+  }
+  function close() { backdrop.classList.remove('open'); }
+
+  // radio 选中时高亮外层 label
+  reasonsC.addEventListener('change', function () {
+    reasonsC.querySelectorAll('.rpt-reason').forEach(function (el) {
+      var input = el.querySelector('input');
+      el.classList.toggle('checked', input && input.checked);
+    });
+  });
+
+  if (reportBt) reportBt.addEventListener('click', open);
+  document.getElementById('rpt-cancel').addEventListener('click', close);
+  backdrop.addEventListener('click', function (ev) {
+    if (ev.target === backdrop) close();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && backdrop.classList.contains('open')) close();
+  });
+  document.addEventListener('langchange', function () {
+    if (backdrop.classList.contains('open')) renderReasons();
+  });
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var qid = form.dataset.qid;
+    var reason = form.querySelector('input[name="reason"]:checked');
+    if (!qid || !reason) {
+      errBox.textContent = sc('请选择举报原因', '請選擇舉報原因');
+      errBox.classList.add('show');
+      return;
+    }
+    var details = (detailsI.value || '').trim();
+    var body = { questionId: qid, reason: reason.value };
+    if (details) body.details = details;
+
+    submitBt.setAttribute('aria-busy', 'true');
+    errBox.classList.remove('show');
+
+    window.JX.api.post('/api/reports', body)
+      .then(function () {
+        close();
+        window.JX.toast && window.JX.toast.success(sc('举报已提交，感谢反馈', '舉報已提交，感謝反饋'));
+      })
+      .catch(function (err) {
+        errBox.textContent = (err && err.message) || sc('提交失败，请稍后重试', '提交失敗，請稍後重試');
+        errBox.classList.add('show');
+      })
+      .finally(function () { submitBt.removeAttribute('aria-busy'); });
+  });
+})();
+</script>
+
+</body>
+</html>

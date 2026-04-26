@@ -1,0 +1,370 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 运行日志 · 管理员</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/desktop.css">
+<style>
+.side-avatar { background: linear-gradient(135deg, var(--crimson-light), var(--crimson)); }
+
+.stats-strip {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+.stat-card {
+  padding: var(--sp-3) var(--sp-4); border-radius: var(--r-lg);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+}
+.stat-label { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1.5px; }
+.stat-value { font-family: var(--font-serif); font-size: 1.75rem; font-weight: 700; color: var(--ink); margin-top: 4px; }
+.stat-card.error    .stat-value { color: var(--crimson); }
+.stat-card.slow-req .stat-value { color: var(--saffron-dark); }
+.stat-card.slow-q   .stat-value { color: var(--gold-dark); }
+
+.filter-bar {
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+  margin-bottom: var(--sp-4); padding: var(--sp-3) var(--sp-4);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+}
+.fchips { display: flex; gap: var(--sp-2); }
+.fchip {
+  padding: 5px 14px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  background: rgba(43,34,24,.05); border: 1px solid transparent; color: var(--ink-3);
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.fchip.active { background: var(--saffron-pale); border-color: var(--saffron-light); color: var(--saffron-dark); }
+.fsearch {
+  flex: 1; min-width: 200px;
+  padding: 6px 12px; border-radius: var(--r-pill);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); outline: none;
+}
+.fcount { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; margin-left: auto; }
+
+.list-panel {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+table.a-list { width: 100%; border-collapse: collapse; }
+.a-list th, .a-list td {
+  padding: 10px 14px; text-align: left; vertical-align: top;
+  font: var(--text-caption); letter-spacing: .5px;
+  border-bottom: 1px solid var(--border-light);
+}
+.a-list th { color: var(--ink-3); font-weight: 600; background: rgba(43,34,24,.03); white-space: nowrap; }
+.a-list td { color: var(--ink-2); }
+.a-list tr:last-child td { border-bottom: 0; }
+.a-list tr.expanded { background: rgba(224,120,86,.04); }
+.a-list tr[data-row] { cursor: pointer; }
+.a-list tr[data-row]:hover { background: rgba(224,120,86,.04); }
+
+.kind-tag {
+  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+  font-size: .6875rem; font-weight: 600; letter-spacing: 1px;
+}
+.kind-tag.error        { background: var(--crimson-light); color: var(--crimson); }
+.kind-tag.slow_request { background: var(--saffron-pale);  color: var(--saffron-dark); }
+.kind-tag.slow_query   { background: var(--gold-pale);     color: var(--gold-dark); }
+
+.msg-cell {
+  max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: 'SF Mono', Consolas, monospace; font-size: .75rem;
+}
+
+.detail-row td {
+  padding: 0 14px 12px;
+  background: rgba(43,34,24,.03);
+}
+.detail-pane {
+  padding: var(--sp-3); border-radius: var(--r);
+  background: #fff; border: 1px solid var(--border-light);
+  font-family: 'SF Mono', Consolas, monospace; font-size: .75rem;
+  margin-top: var(--sp-2);
+}
+.detail-pane h5 {
+  font-family: var(--font-sans); font-weight: 700; font-size: .6875rem;
+  letter-spacing: 1.5px; color: var(--ink-3); margin-bottom: 6px;
+}
+.detail-pane pre {
+  white-space: pre-wrap; word-break: break-word;
+  color: var(--ink); font-size: .75rem; line-height: 1.5; max-height: 320px; overflow: auto;
+}
+.detail-pane.stack pre { color: var(--crimson); }
+
+.empty-state { padding: var(--sp-8) var(--sp-5); text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px; }
+.err-state { color: var(--crimson); }
+
+.load-more {
+  width: 100%; padding: 12px; border: 0; border-top: 1px solid var(--border-light);
+  background: rgba(255,255,255,.5); color: var(--saffron-dark);
+  font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer;
+}
+.load-more:hover { background: var(--saffron-pale); }
+.load-more[disabled] { opacity: .5; cursor: default; }
+</style>
+<script src="../shared/desktop-mobile.js"></script>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<meta name="jx-require-role" content="admin">
+<script src="../shared/require-auth.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name"><span class="sc">觉学</span><span class="tc">覺學</span></div>
+        <div class="brand-sub"><span class="sc">管理员后台</span><span class="tc">管理員後台</span></div>
+      </div>
+    </div>
+
+    <div class="side-user">
+      <div class="side-avatar" data-jx-user="avatarInitial">—</div>
+      <div class="side-user-info">
+        <div class="side-user-name" data-jx-user="dharmaName">—</div>
+        <div class="side-user-role" data-jx-user="roleLabel">—</div>
+      </div>
+      <button type="button" id="btn-logout" title="退出登录" aria-label="退出登录"
+        style="margin-left:auto;background:none;border:0;color:var(--ink-3);cursor:pointer;padding:6px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-list" id="admin-nav"></nav>
+    <script src="../shared/admin-nav.js"></script>
+  </aside>
+
+  <main class="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="page-title"><span class="sc">运行日志</span><span class="tc">運行日誌</span></h1>
+        <p class="page-sub"><span class="sc">近 24h 统计 · 游标分页 · 展开查看 stack / context</span><span class="tc">近 24h 統計 · 游標分頁 · 展開查看 stack / context</span></p>
+      </div>
+      <div class="top-actions">
+        <button class="lang-btn" onclick="toggleLang()">繁</button>
+      </div>
+    </div>
+
+    <div class="stats-strip">
+      <div class="stat-card error">
+        <div class="stat-label"><span class="sc">错误 (24h)</span><span class="tc">錯誤 (24h)</span></div>
+        <div class="stat-value" id="stat-error">—</div>
+      </div>
+      <div class="stat-card slow-req">
+        <div class="stat-label"><span class="sc">慢请求 (24h)</span><span class="tc">慢請求 (24h)</span></div>
+        <div class="stat-value" id="stat-slow-request">—</div>
+      </div>
+      <div class="stat-card slow-q">
+        <div class="stat-label"><span class="sc">慢查询 (24h)</span><span class="tc">慢查詢 (24h)</span></div>
+        <div class="stat-value" id="stat-slow-query">—</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <div class="fchips" id="kind-chips">
+        <span class="fchip active" data-kind=""><span class="sc">全部</span><span class="tc">全部</span></span>
+        <span class="fchip" data-kind="error"><span class="sc">错误</span><span class="tc">錯誤</span></span>
+        <span class="fchip" data-kind="slow_request"><span class="sc">慢请求</span><span class="tc">慢請求</span></span>
+        <span class="fchip" data-kind="slow_query"><span class="sc">慢查询</span><span class="tc">慢查詢</span></span>
+      </div>
+      <input class="fsearch" id="search-input" type="search"
+        data-ph-sc="按 userId / requestId 过滤" data-ph-tc="按 userId / requestId 過濾" placeholder="按 userId / requestId 过滤">
+      <span class="fcount" id="filter-count">—</span>
+    </div>
+
+    <div class="list-panel">
+      <div id="list-body">
+        <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+      </div>
+      <button id="load-more" class="load-more" style="display:none;">
+        <span class="sc">加载更多</span><span class="tc">加載更多</span>
+      </button>
+    </div>
+  </main>
+</div>
+
+<script>
+// admin-logs · GET /api/admin/logs (filter + cursor) + /api/admin/logs/stats (24h counts)
+// 展开行：显示 message / stack / context JSON
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var state = {
+  kind: '',
+  searchVal: '',
+  limit: 50,
+  cursor: null,
+  items: [],
+  hasMore: false,
+  expandedId: null,
+};
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+  return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
+    pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+
+function buildQS() {
+  var qs = ['limit=' + state.limit];
+  if (state.kind) qs.push('kind=' + encodeURIComponent(state.kind));
+  if (state.cursor) qs.push('cursor=' + encodeURIComponent(state.cursor));
+  if (state.searchVal) {
+    // cuid 通常 >= 20 字符；requestId 为 UUID/短串；简单启发式 ≥ 15 当 userId
+    if (state.searchVal.length >= 15) qs.push('userId=' + encodeURIComponent(state.searchVal));
+    else qs.push('requestId=' + encodeURIComponent(state.searchVal));
+  }
+  return qs.join('&');
+}
+
+function render() {
+  var body = document.getElementById('list-body');
+  var loadMore = document.getElementById('load-more');
+
+  if (!state.items.length) {
+    body.innerHTML = '<div class="empty-state">' +
+      escapeHtml(sc('暂无日志记录', '暫無日誌記錄')) + '</div>';
+    loadMore.style.display = 'none';
+    document.getElementById('filter-count').textContent = '0';
+    return;
+  }
+
+  var rows = state.items.map(function (it) {
+    var expanded = state.expandedId === it.id;
+    var detailRow = '';
+    if (expanded) {
+      var ctxStr = JSON.stringify(it.context || {}, null, 2);
+      var stackHtml = it.stack
+        ? '<div class="detail-pane stack"><h5>STACK</h5><pre>' + escapeHtml(it.stack) + '</pre></div>'
+        : '';
+      detailRow =
+        '<tr class="detail-row"><td colspan="6">' +
+          '<div class="detail-pane"><h5>MESSAGE</h5><pre>' + escapeHtml(it.message || '') + '</pre></div>' +
+          stackHtml +
+          '<div class="detail-pane"><h5>CONTEXT</h5><pre>' + escapeHtml(ctxStr) + '</pre></div>' +
+        '</td></tr>';
+    }
+    return ''
+      + '<tr data-row data-id="' + escapeHtml(it.id) + '"' + (expanded ? ' class="expanded"' : '') + '>'
+      +   '<td style="white-space:nowrap;color:var(--ink-3);">' + fmtTime(it.createdAt) + '</td>'
+      +   '<td><span class="kind-tag ' + escapeHtml(it.kind) + '">' + escapeHtml(it.kind) + '</span></td>'
+      +   '<td class="msg-cell" title="' + escapeHtml(it.message || '') + '">' + escapeHtml(it.message || '—') + '</td>'
+      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;color:var(--ink-3);">' + escapeHtml(it.userId || '—') + '</td>'
+      +   '<td style="font-family:\'SF Mono\',Consolas,monospace;font-size:.75rem;color:var(--ink-3);">' + escapeHtml(it.requestId || '—') + '</td>'
+      +   '<td style="width:30px;color:var(--ink-4);">' + (expanded ? '▾' : '▸') + '</td>'
+      + '</tr>'
+      + detailRow;
+  });
+
+  body.innerHTML =
+    '<table class="a-list"><thead><tr>' +
+      '<th><span class="sc">时间</span><span class="tc">時間</span></th>' +
+      '<th><span class="sc">类型</span><span class="tc">類型</span></th>' +
+      '<th><span class="sc">消息</span><span class="tc">消息</span></th>' +
+      '<th>User ID</th>' +
+      '<th>Request ID</th>' +
+      '<th></th>' +
+    '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+
+  body.querySelectorAll('tr[data-row]').forEach(function (tr) {
+    tr.addEventListener('click', function () {
+      var id = tr.getAttribute('data-id');
+      state.expandedId = (state.expandedId === id) ? null : id;
+      render();
+    });
+  });
+
+  document.getElementById('filter-count').textContent = state.items.length + (state.hasMore ? '+' : '');
+  loadMore.style.display = state.hasMore ? '' : 'none';
+}
+
+function fetchPage(append) {
+  window.JX.api.get('/api/admin/logs?' + buildQS()).then(function (data) {
+    var batch = data || [];
+    state.items = append ? state.items.concat(batch) : batch;
+    state.hasMore = batch.length === state.limit;
+    state.cursor = state.hasMore ? batch[batch.length - 1].id : null;
+    render();
+  }).catch(function (err) {
+    document.getElementById('list-body').innerHTML =
+      '<div class="empty-state err-state">' + escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) + '</div>';
+  });
+}
+
+function fetchStats() {
+  window.JX.api.get('/api/admin/logs/stats').then(function (data) {
+    var c = (data && data.counts) || {};
+    document.getElementById('stat-error').textContent = c.error || 0;
+    document.getElementById('stat-slow-request').textContent = c.slow_request || 0;
+    document.getElementById('stat-slow-query').textContent = c.slow_query || 0;
+  }).catch(function () {
+    document.getElementById('stat-error').textContent = '—';
+    document.getElementById('stat-slow-request').textContent = '—';
+    document.getElementById('stat-slow-query').textContent = '—';
+  });
+}
+
+// kind 筛选
+document.querySelectorAll('.fchip').forEach(function (chip) {
+  chip.addEventListener('click', function () {
+    document.querySelectorAll('.fchip').forEach(function (c) { c.classList.remove('active'); });
+    chip.classList.add('active');
+    state.kind = chip.getAttribute('data-kind') || '';
+    state.cursor = null;
+    fetchPage(false);
+  });
+});
+
+// 搜索 · 简单 debounce
+var searchTimer;
+document.getElementById('search-input').addEventListener('input', function (e) {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(function () {
+    state.searchVal = (e.target.value || '').trim();
+    state.cursor = null;
+    fetchPage(false);
+  }, 300);
+});
+
+// 加载更多
+document.getElementById('load-more').addEventListener('click', function () { fetchPage(true); });
+
+// 退出登录
+document.getElementById('btn-logout').addEventListener('click', function () {
+  window.JX.api.logout().finally(function () { location.replace('auth.html'); });
+});
+
+// 初始加载
+function boot() { fetchStats(); fetchPage(false); }
+document.addEventListener('jx:user-ready', boot);
+if (window.JX && window.JX.user) boot();
+</script>
+</body>
+</html>

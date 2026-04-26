@@ -1,0 +1,176 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 错题本</title>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/status-bar.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/toast.js"></script>
+<script src="../shared/require-auth.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body { background: var(--bg-scene); min-height: 100vh; }
+.phone-wrap { display:flex; justify-content:center; }
+
+.filter-tabs { display:flex; gap:var(--sp-2); padding:0 var(--sp-5) var(--sp-4); overflow-x:auto; scrollbar-width:none; }
+.filter-tabs::-webkit-scrollbar { display:none; }
+.ftab {
+  padding:6px 14px; border-radius:var(--r-pill); white-space:nowrap;
+  font:var(--text-caption); font-weight:600; letter-spacing:1.5px;
+  background:rgba(255,255,255,.55); border:1px solid var(--glass-border);
+  color:var(--ink-3); cursor:pointer;
+}
+.ftab.active { background:var(--saffron); color:#FFF; border-color:var(--saffron-dark); }
+
+.mistake-card {
+  display:block; padding:var(--sp-4);
+  background:rgba(255,255,255,.62);
+  backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+  border-radius:var(--r-lg); border:1px solid var(--glass-border);
+  border-left:3px solid var(--crimson);
+  box-shadow:var(--shadow-1);
+  text-decoration:none; color:inherit; cursor:pointer;
+  transition:transform var(--dur) var(--ease);
+}
+.mistake-card:hover { transform:translateY(-1px); box-shadow:var(--shadow-2); }
+.mistake-chapter { font:var(--text-caption); color:var(--ink-3); letter-spacing:1.5px; margin-bottom:var(--sp-2); }
+.mistake-stem { font:var(--text-body); color:var(--ink); letter-spacing:1px; line-height:1.5; margin-bottom:var(--sp-3); }
+.mistake-footer { display:flex; align-items:center; justify-content:space-between; }
+.mistake-time { font:var(--text-caption); color:var(--ink-4); letter-spacing:1px; }
+.review-countdown {
+  display:flex; align-items:center; gap:4px;
+  font:var(--text-caption); font-weight:600; color:var(--crimson); letter-spacing:1px;
+}
+
+.sections { display:flex; flex-direction:column; gap:var(--sp-3); padding:0 var(--sp-5) 100px; }
+</style>
+</head>
+<body class="scene">
+<div class="phone-wrap">
+<div class="phone">
+
+  <div class="status-bar" data-auto></div>
+
+  <div class="top-nav">
+    <a class="nav-back" href="home.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
+    <span class="nav-title"><span class="sc">错题本</span><span class="tc">錯題本</span></span>
+    <button class="nav-action" aria-label="搜索"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+  </div>
+
+  <div class="filter-tabs" id="filter-tabs">
+    <span class="ftab active" data-filter="all"><span class="sc">全部</span><span class="tc">全部</span> (<span data-count="all">0</span>)</span>
+    <span class="ftab" data-filter="today"><span class="sc">今日</span><span class="tc">今日</span> (<span data-count="today">0</span>)</span>
+  </div>
+
+  <div class="scroll-area" style="height:680px;">
+  <div class="sections" id="mistakes-list">
+    <div class="q-card" style="text-align:center;padding:var(--sp-6) var(--sp-5);background:rgba(255,255,255,.55);border:1px solid var(--glass-border);border-radius:var(--r-lg);">
+      <p style="font:var(--text-caption);color:var(--ink-3);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+    </div>
+  </div>
+  </div>
+
+    var q = m.question || {};
+    var stem = q.questionText || sc('（题目已失效）', '（題目已失效）');
+    var source = q.source || '';
+    var when = window.JX.util.relativeTime(m.lastWrongAt);
+    var card = document.createElement('div');
+    card.className = 'mistake-card';
+    card.style.position = 'relative';
+    card.innerHTML =
+      '<p class="mistake-chapter">' + escapeHtml(source) + '</p>' +
+      '<p class="mistake-stem">' + escapeHtml(stem) + '</p>' +
+      '<div class="mistake-footer">' +
+        '<span class="mistake-time">' + escapeHtml(when) + '</span>' +
+        '<span class="review-countdown">' +
+          '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>' +
+          '<span>' + m.wrongCount + sc(' 次错', ' 次錯') + '</span>' +
+        '</span>' +
+      '</div>' +
+      '<button class="mistake-remove" aria-label="' + sc('移除', '移除') + '" ' +
+        'style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;' +
+        'border:1px solid var(--glass-border);background:rgba(255,255,255,.7);' +
+        'color:var(--ink-3);cursor:pointer;font-size:14px;line-height:1;">✕</button>';
+
+    // 点击卡片主体 → 去错题解析页
+    card.addEventListener('click', function (ev) {
+      if (ev.target.closest('.mistake-remove')) return;
+      location.href = 'mistake-detail.html?questionId=' + encodeURIComponent(m.questionId);
+    });
+    // 移除按钮
+    card.querySelector('.mistake-remove').addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      if (!confirm(sc('确定从错题本移除？', '確定從錯題本移除？'))) return;
+      window.JX.api.del('/api/mistakes/' + encodeURIComponent(m.questionId)).then(function () {
+        allMistakes = allMistakes.filter(function (x) { return x.questionId !== m.questionId; });
+        updateCounts();
+        renderCards();
+      }).catch(function (err) {
+        window.JX.toast.error(sc('移除失败：', '移除失敗：') + (err.message || err));
+      });
+    });
+
+    list.appendChild(card);
+  });
+}
+
+function updateCounts() {
+  document.querySelector('[data-count="all"]').textContent = allMistakes.length;
+  document.querySelector('[data-count="today"]').textContent =
+    allMistakes.filter(function (m) { return isToday(m.lastWrongAt); }).length;
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.ftab').forEach(function (t) {
+    t.classList.toggle('active', t.getAttribute('data-filter') === f);
+  });
+  renderCards();
+}
+
+document.getElementById('filter-tabs').addEventListener('click', function (ev) {
+  var t = ev.target.closest('.ftab');
+  if (!t) return;
+  setFilter(t.getAttribute('data-filter'));
+});
+
+function boot() {
+  window.JX.api.get('/api/mistakes?limit=200').then(function (data) {
+    allMistakes = Array.isArray(data) ? data : [];
+    updateCounts();
+    renderCards();
+  }).catch(function (err) {
+    document.getElementById('mistakes-list').innerHTML =
+      '<div class="q-card" style="text-align:center;padding:var(--sp-6);"><p style="color:var(--crimson);">'
+      + escapeHtml(sc('加载失败：', '加載失敗：') + (err.message || err))
+      + '</p></div>';
+  });
+}
+
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', renderCards);
+if (window.JX && window.JX.user) boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,559 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 管理员后台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/desktop.css">
+<style>
+/* Admin-only: crimson avatar override (coach uses gold default) */
+.side-avatar { background: linear-gradient(135deg, var(--crimson-light), var(--crimson)); }
+
+/* KPI grid */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-6); }
+
+/* 快速操作 · G1 阶段 ─────────────────────────── */
+.qa-section {
+  margin-bottom: var(--sp-6);
+}
+.qa-title {
+  font-family: var(--font-serif); font-weight: 700; font-size: 1rem;
+  color: var(--ink); letter-spacing: 3px; margin-bottom: var(--sp-3);
+}
+.qa-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-3);
+}
+@media (max-width: 1023px) { .qa-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 767px)  { .qa-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 479px)  { .qa-grid { grid-template-columns: 1fr; } }
+
+.qa-card {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
+  text-decoration: none; color: inherit;
+  transition: all var(--dur) var(--ease);
+}
+.qa-card:hover {
+  border-color: var(--saffron-light);
+  background: var(--saffron-pale);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(224,120,86,.10);
+}
+.qa-icon {
+  width: 36px; height: 36px; border-radius: var(--r-sm);
+  background: rgba(224,120,86,.12); color: var(--saffron-dark);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.qa-card:hover .qa-icon {
+  background: var(--saffron); color: #fff;
+}
+.qa-name {
+  font-family: var(--font-serif); font-weight: 700; color: var(--ink);
+  letter-spacing: 1px; font-size: .9375rem;
+}
+.qa-sub {
+  font: var(--text-caption); color: var(--ink-3);
+  letter-spacing: .5px; margin-top: 2px;
+}
+.qa-card:hover .qa-sub { color: var(--saffron-dark); }
+.qa-info { flex: 1; min-width: 0; }
+.kpi-card {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
+  padding: var(--sp-5); box-shadow: var(--glass-shadow);
+}
+.kpi-label { font: var(--text-caption); color: var(--ink-3); letter-spacing: 2px; margin-bottom: var(--sp-2); }
+.kpi-value { font-family: var(--font-serif); font-weight: 700; font-size: 1.875rem; color: var(--ink); line-height: 1; }
+.kpi-trend     { font: var(--text-caption); color: var(--sage-dark); margin-top: 6px; letter-spacing: 1px; }
+.kpi-trend.neg { color: var(--crimson); }
+
+/* Two-column row */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); margin-bottom: var(--sp-6); }
+.panel {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
+  padding: var(--sp-5); box-shadow: var(--glass-shadow);
+}
+.panel-title { font-family: var(--font-serif); font-weight: 700; font-size: 1rem; color: var(--ink); letter-spacing: 3px; margin-bottom: var(--sp-4); }
+
+/* Bar chart (SVG) */
+.chart-bars { display: flex; align-items: flex-end; gap: 6px; height: 120px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.bar {
+  width: 100%; border-radius: 4px 4px 0 0;
+  background: linear-gradient(180deg, var(--saffron), var(--saffron-dark));
+  transition: opacity var(--dur);
+}
+.bar:hover { opacity: .75; }
+.bar.sage { background: linear-gradient(180deg, var(--sage), var(--sage-dark)); }
+.bar-lbl { font-size: .5625rem; color: var(--ink-4); letter-spacing: .5px; }
+
+/* Sparkline axis */
+.chart-axis { display: flex; justify-content: space-between; padding-top: 4px; border-top: 1px solid var(--border-light); }
+.axis-lbl { font-size: .5625rem; color: var(--ink-4); letter-spacing: .5px; }
+
+/* Book list */
+.book-rows { display: flex; flex-direction: column; gap: var(--sp-3); }
+.book-row { display: flex; align-items: center; gap: var(--sp-3); }
+.book-rank { font-family: var(--font-serif); font-weight: 700; color: var(--ink-4); width: 20px; text-align: center; flex-shrink: 0; }
+.book-rank.top { color: var(--saffron); }
+.book-name { flex: 1; font-size: .875rem; font-weight: 500; color: var(--ink); letter-spacing: 1px; }
+.book-bar-wrap { width: 120px; }
+.book-bar-track { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.book-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--saffron), var(--saffron-dark)); }
+.book-count { font: var(--text-caption); color: var(--ink-3); width: 50px; text-align: right; flex-shrink: 0; }
+
+/* Full-width section */
+.full-section { margin-bottom: var(--sp-6); }
+.section-head-d { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-4); }
+.section-title-d { font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; color: var(--ink); letter-spacing: 3px; }
+.section-action { font: var(--text-caption); color: var(--saffron); letter-spacing: 1px; cursor: pointer; }
+
+/* User table */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  text-align: left; font: var(--text-caption); font-weight: 700;
+  color: var(--ink-3); letter-spacing: 2px;
+  padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border-light);
+  font-size: .875rem; color: var(--ink-2);
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: rgba(255,255,255,.35); }
+.user-cell { display: flex; align-items: center; gap: var(--sp-3); }
+.user-av {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-serif); font-weight: 700; font-size: .875rem; color: #fff;
+}
+.table-panel {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
+  overflow: hidden; box-shadow: var(--glass-shadow);
+}
+.table-panel-head { padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center; }
+.table-action-btn {
+  padding: 6px 14px; border-radius: var(--r-pill);
+  font: var(--text-caption); font-weight: 700; letter-spacing: 1px;
+  background: var(--saffron-pale); color: var(--saffron-dark);
+  border: 1px solid var(--saffron-light); cursor: pointer;
+}
+.status-pill {
+  display: inline-block; padding: 2px 10px; border-radius: var(--r-pill);
+  font-size: .625rem; font-weight: 700; letter-spacing: 1px;
+}
+.status-active  { background: var(--sage-light);    color: var(--sage-dark); }
+.status-pending { background: var(--gold-pale);      color: var(--gold-dark); }
+.status-blocked { background: var(--crimson-light);  color: var(--crimson); }
+</style>
+<meta name="jx-require-role" content="admin">
+<script src="../shared/desktop-mobile.js"></script>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name"><span class="sc">觉学</span><span class="tc">覺學</span></div>
+        <div class="brand-sub"><span class="sc">管理员后台</span><span class="tc">管理員後台</span></div>
+      </div>
+    </div>
+
+    <div class="side-user">
+      <div class="side-avatar" data-jx-user="avatarInitial">—</div>
+      <div>
+        <div class="side-user-name" data-jx-user="dharmaName">—</div>
+        <div class="side-user-role" data-jx-user="roleLabel">—</div>
+      </div>
+      <button type="button" id="btn-logout" title="退出登录" aria-label="退出登录"
+        style="margin-left:auto;background:none;border:0;color:var(--ink-3);cursor:pointer;padding:6px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-list" id="admin-nav"></nav>
+    <script src="../shared/admin-nav.js"></script>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <div class="top-bar">
+      <div>
+        <h1 class="page-title"><span class="sc">数据总览</span><span class="tc">數據總覽</span></h1>
+        <p class="page-sub" id="page-sub">—</p>
+      </div>
+      <div class="top-actions">
+        <button class="lang-btn" onclick="toggleLang()">繁</button>
+        <button id="btn-refresh" class="btn btn-ghost btn-pill" style="padding:6px 16px;">
+          <span class="sc">↻ 刷新</span><span class="tc">↻ 重新整理</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">注册用户</span><span class="tc">註冊用戶</span></p>
+        <p class="kpi-value" id="kpi-users">—</p>
+        <p class="kpi-trend" id="kpi-users-sub">&nbsp;</p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">近 7 日活跃</span><span class="tc">近 7 日活躍</span></p>
+        <p class="kpi-value" id="kpi-active">—</p>
+        <p class="kpi-trend" id="kpi-active-sub">&nbsp;</p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">法本总数</span><span class="tc">法本總數</span></p>
+        <p class="kpi-value" id="kpi-courses">—</p>
+        <p class="kpi-trend" id="kpi-courses-sub">&nbsp;</p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">累计答题</span><span class="tc">累計答題</span></p>
+        <p class="kpi-value" id="kpi-answers">—</p>
+        <p class="kpi-trend" id="kpi-answers-sub">&nbsp;</p>
+      </div>
+    </div>
+
+    <!-- 快速操作 · G1 阶段 -->
+    <div class="qa-section">
+      <p class="qa-title"><span class="sc">快速操作</span><span class="tc">快速操作</span></p>
+      <div class="qa-grid">
+        <a class="qa-card" href="admin-users.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">用户管理</span><span class="tc">用戶管理</span></div>
+            <div class="qa-sub"><span class="sc">新建 / 启停 / 改角色</span><span class="tc">新建 / 啟停 / 改角色</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-classes.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">班级管理</span><span class="tc">班級管理</span></div>
+            <div class="qa-sub"><span class="sc">建班 / 添加成员 / 归档</span><span class="tc">建班 / 添加成員 / 歸檔</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-courses.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">法本管理</span><span class="tc">法本管理</span></div>
+            <div class="qa-sub"><span class="sc">手工 / 文件 / URL 导入</span><span class="tc">手工 / 文件 / URL 導入</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-llm.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2a9 9 0 1 0 9 9"/><path d="M12 2v9l7 5"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name">LLM <span class="sc">管理</span><span class="tc">管理</span></div>
+            <div class="qa-sub"><span class="sc">Provider 配置 / 用量 / 日志</span><span class="tc">Provider 配置 / 用量 / 日誌</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-review.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">题目审核</span><span class="tc">題目審核</span></div>
+            <div class="qa-sub"><span class="sc">辅导员投递的待审题</span><span class="tc">輔導員投遞的待審題</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-reports.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">举报处理</span><span class="tc">舉報處理</span></div>
+            <div class="qa-sub"><span class="sc">学员提交的题目举报</span><span class="tc">學員提交的題目舉報</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-audit.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">审计日志</span><span class="tc">審計日誌</span></div>
+            <div class="qa-sub"><span class="sc">所有 admin 操作可追溯</span><span class="tc">所有 admin 操作可追溯</span></div>
+          </div>
+        </a>
+        <a class="qa-card" href="admin-logs.html">
+          <div class="qa-icon">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="qa-info">
+            <div class="qa-name"><span class="sc">运行日志</span><span class="tc">運行日誌</span></div>
+            <div class="qa-sub"><span class="sc">错误 · 慢请求 · 慢查询</span><span class="tc">錯誤 · 慢請求 · 慢查詢</span></div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="two-col">
+
+      <!-- 用户 + 班级 分布 -->
+      <div class="panel">
+        <p class="panel-title"><span class="sc">平台结构</span><span class="tc">平台結構</span></p>
+        <div class="book-rows" id="panel-distribution">
+          <p style="color:var(--ink-3);font:var(--text-caption);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+        </div>
+      </div>
+
+      <!-- 题库 / LLM 面板 -->
+      <div class="panel">
+        <p class="panel-title"><span class="sc">题库 · LLM</span><span class="tc">題庫 · LLM</span></p>
+        <div class="book-rows" id="panel-questions">
+          <p style="color:var(--ink-3);font:var(--text-caption);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- User table -->
+    <div class="full-section">
+      <div class="section-head-d">
+        <h2 class="section-title-d"><span class="sc">最近注册用户</span><span class="tc">最近註冊用戶</span></h2>
+        <span class="section-action" id="users-count">—</span>
+      </div>
+      <div class="table-panel">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th><span class="sc">用户</span><span class="tc">用戶</span></th>
+              <th><span class="sc">邮箱</span><span class="tc">郵箱</span></th>
+              <th><span class="sc">角色</span><span class="tc">角色</span></th>
+              <th><span class="sc">注册时间</span><span class="tc">註冊時間</span></th>
+              <th><span class="sc">上次登录</span><span class="tc">上次登錄</span></th>
+              <th><span class="sc">状态</span><span class="tc">狀態</span></th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+<script>
+// admin dashboard 数据源
+//   GET /api/admin/platform-stats       users/classes/questions/answers/llm/sm2 聚合
+//   GET /api/courses                    法本总数
+//   GET /api/admin/users?limit=10       最近注册用户
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var ROLE_LABELS = {
+  student: ['学员', '學員'], coach: ['辅导员', '輔導員'], admin: ['管理员', '管理員'],
+};
+var TYPE_LABELS = {
+  single: ['单选', '單選'], multi: ['多选', '多選'], fill: ['填空', '填空'],
+  open: ['问答', '問答'], sort: ['排序', '排序'], match: ['匹配', '匹配'],
+  image: ['图识', '圖識'], listen: ['听颂', '聽誦'], scenario: ['情境', '情境'],
+  flow: ['流程', '流程'], guided: ['引导', '引導'], flip: ['速记卡', '速記卡'],
+};
+var STATUS_LABELS = {
+  pending: ['待审', '待審'], approved: ['已通过', '已通過'], rejected: ['已驳回', '已駁回'],
+};
+function localLabel(map, key) { var m = map[key] || [key, key]; return sc(m[0], m[1]); }
+
+function renderPageSub() {
+  var d = new Date();
+  var wk = ['日', '一', '二', '三', '四', '五', '六'];
+  var t = sc('周 ' + wk[d.getDay()] + ' · ', '週 ' + wk[d.getDay()] + ' · ') +
+    (d.getMonth() + 1) + sc(' 月 ', ' 月 ') + d.getDate() + sc(' 日 · 实时数据', ' 日 · 即時數據');
+  document.getElementById('page-sub').textContent = t;
+}
+function setSub(id, t) { document.getElementById(id).textContent = t; }
+function formatK(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e4) return (n / 1e3).toFixed(1) + 'k';
+  return String(n);
+}
+
+function renderKpis(stats, courses) {
+  document.getElementById('kpi-users').textContent = stats.users.total;
+  setSub('kpi-users-sub', sc('本周新增 ', '本週新增 ') + stats.users.newInWindow);
+  document.getElementById('kpi-active').textContent = stats.users.activeInWindow;
+  setSub('kpi-active-sub', sc('独立答题用户', '獨立答題用戶'));
+  document.getElementById('kpi-courses').textContent = (courses || []).length;
+  setSub('kpi-courses-sub', sc('已发布论典', '已發佈論典'));
+  document.getElementById('kpi-answers').textContent = formatK(stats.answers.total);
+  setSub('kpi-answers-sub',
+    sc('窗口内 ', '視窗內 ') + stats.answers.inWindow +
+    sc(' · 正确率 ', ' · 正確率 ') + Math.round(stats.answers.correctRate * 100) + '%');
+}
+
+function bookRow(rank, name, count, max, accent) {
+  var w = max > 0 ? Math.max(4, Math.round(count / max * 100)) : 0;
+  var rankClass = rank <= 3 ? 'book-rank top' : 'book-rank';
+  var fillStyle = accent ? 'background:' + accent + ';' : '';
+  return '<div class="book-row">' +
+    '<span class="' + rankClass + '">' + rank + '</span>' +
+    '<span class="book-name">' + escapeHtml(name) + '</span>' +
+    '<div class="book-bar-wrap"><div class="book-bar-track"><div class="book-bar-fill" style="width:' + w + '%;' + fillStyle + '"></div></div></div>' +
+    '<span class="book-count">' + formatK(count) + '</span>' +
+  '</div>';
+}
+
+function renderDistribution(stats) {
+  var byRole = stats.users.byRole || {};
+  var rolesOrder = ['student', 'coach', 'admin'];
+  var roleRows = rolesOrder.map(function (r) {
+    return { name: localLabel(ROLE_LABELS, r), count: byRole[r] || 0 };
+  }).filter(function (x) { return x.count > 0; });
+  var maxR = Math.max.apply(null, roleRows.map(function (r) { return r.count; }).concat(1));
+
+  var cls = stats.classes || {};
+  var classRows = [
+    { name: sc('班级 · 活跃', '班級 · 活躍'), count: cls.active || 0 },
+    { name: sc('班级 · 归档', '班級 · 歸檔'), count: cls.archived || 0 },
+  ].filter(function (r) { return r.count > 0; });
+  var maxC = Math.max.apply(null, classRows.map(function (r) { return r.count; }).concat(1));
+
+  var html = '<h3 style="font:var(--text-caption);color:var(--ink-3);letter-spacing:2px;margin:0 0 8px;">' +
+    escapeHtml(sc('用户 · 按角色', '用戶 · 按角色')) + '</h3>';
+  html += roleRows.length
+    ? roleRows.map(function (r, i) { return bookRow(i + 1, r.name, r.count, maxR); }).join('')
+    : '<p style="color:var(--ink-4);font:var(--text-caption);">' + escapeHtml(sc('无数据', '無數據')) + '</p>';
+  html += '<h3 style="font:var(--text-caption);color:var(--ink-3);letter-spacing:2px;margin:16px 0 8px;">' +
+    escapeHtml(sc('班级', '班級')) + '</h3>';
+  html += classRows.length
+    ? classRows.map(function (r, i) { return bookRow(i + 1, r.name, r.count, maxC, 'linear-gradient(90deg,var(--sage),var(--sage-dark))'); }).join('')
+    : '<p style="color:var(--ink-4);font:var(--text-caption);">' + escapeHtml(sc('暂无班级', '暫無班級')) + '</p>';
+  document.getElementById('panel-distribution').innerHTML = html;
+}
+
+function renderQuestionsAndLlm(stats) {
+  var byStatus = stats.questions.byStatus || {};
+  var statusRows = ['pending', 'approved', 'rejected'].map(function (s) {
+    return { name: localLabel(STATUS_LABELS, s), count: byStatus[s] || 0 };
+  }).filter(function (r) { return r.count > 0; });
+  var maxS = Math.max.apply(null, statusRows.map(function (r) { return r.count; }).concat(1));
+
+  var byType = stats.questions.byType || {};
+  var typeRows = Object.keys(byType).map(function (t) {
+    return { name: localLabel(TYPE_LABELS, t), count: byType[t] };
+  }).sort(function (a, b) { return b.count - a.count; });
+  var maxT = Math.max.apply(null, typeRows.map(function (r) { return r.count; }).concat(1));
+
+  var llm = stats.llm || {};
+  var html = '<h3 style="font:var(--text-caption);color:var(--ink-3);letter-spacing:2px;margin:0 0 8px;">' +
+    escapeHtml(sc('题库 · 按审核', '題庫 · 按審核')) + '</h3>';
+  html += statusRows.length
+    ? statusRows.map(function (r, i) { return bookRow(i + 1, r.name, r.count, maxS); }).join('')
+    : '<p style="color:var(--ink-4);font:var(--text-caption);">' + escapeHtml(sc('暂无题目', '暫無題目')) + '</p>';
+  html += '<h3 style="font:var(--text-caption);color:var(--ink-3);letter-spacing:2px;margin:16px 0 8px;">' +
+    escapeHtml(sc('题库 · 按题型', '題庫 · 按題型')) + '</h3>';
+  html += typeRows.length
+    ? typeRows.slice(0, 6).map(function (r, i) { return bookRow(i + 1, r.name, r.count, maxT, 'linear-gradient(90deg,var(--gold),var(--gold-dark))'); }).join('')
+    : '<p style="color:var(--ink-4);font:var(--text-caption);">—</p>';
+  html += '<h3 style="font:var(--text-caption);color:var(--ink-3);letter-spacing:2px;margin:16px 0 8px;">' +
+    escapeHtml(sc('LLM · 本月', 'LLM · 本月')) + '</h3>';
+  html += '<div style="font:var(--text-caption);color:var(--ink-2);letter-spacing:1px;line-height:1.9;">' +
+    escapeHtml(sc('请求 ', '請求 ')) + (llm.monthRequests || 0) +
+    escapeHtml(sc(' · Tokens ', ' · Tokens ')) + formatK(llm.monthTokens || 0) +
+    escapeHtml(sc(' · 错误率 ', ' · 錯誤率 ')) + Math.round((llm.errorRate || 0) * 100) + '%<br>' +
+    escapeHtml(sc('成本 $', '成本 $')) + (llm.monthCost || 0).toFixed(4) +
+  '</div>';
+  document.getElementById('panel-questions').innerHTML = html;
+}
+
+function renderUsersTable(users) {
+  var rows = (users || []).slice(0, 10).map(function (u) {
+    var nm = u.dharmaName || (u.email ? u.email.split('@')[0] : '—');
+    var initial = (nm.charAt(0) || '·').toUpperCase();
+    var roleLabel = localLabel(ROLE_LABELS, u.role);
+    var statusPill = u.isActive
+      ? '<span class="status-pill status-active">' + escapeHtml(sc('活跃', '活躍')) + '</span>'
+      : '<span class="status-pill status-blocked">' + escapeHtml(sc('已禁用', '已禁用')) + '</span>';
+    return '<tr>' +
+      '<td><div class="user-cell"><div class="user-av" style="background:linear-gradient(135deg,var(--saffron),var(--saffron-dark));">' +
+        escapeHtml(initial) + '</div><span>' + escapeHtml(nm) + '</span></div></td>' +
+      '<td><code style="font-size:.6875rem;color:var(--ink-3);">' + escapeHtml(u.email || '—') + '</code></td>' +
+      '<td>' + escapeHtml(roleLabel) + '</td>' +
+      '<td>' + escapeHtml(window.JX.util.relativeTime(u.createdAt)) + '</td>' +
+      '<td>' + escapeHtml(u.lastLoginAt ? window.JX.util.relativeTime(u.lastLoginAt) : sc('—', '—')) + '</td>' +
+      '<td>' + statusPill + '</td>' +
+    '</tr>';
+  }).join('');
+  document.getElementById('users-tbody').innerHTML = rows ||
+    '<tr><td colspan="6" style="padding:var(--sp-6);text-align:center;color:var(--ink-3);">' +
+      escapeHtml(sc('暂无用户数据', '暫無用戶數據')) + '</td></tr>';
+}
+
+function boot() {
+  renderPageSub();
+  Promise.all([
+    window.JX.api.get('/api/admin/platform-stats?windowDays=7'),
+    window.JX.api.get('/api/courses').catch(function () { return []; }),
+    window.JX.api.get('/api/admin/users?limit=10'),
+  ]).then(function (results) {
+    var stats = results[0];
+    var courses = results[1];
+    var users = results[2];
+    renderKpis(stats, courses);
+    renderDistribution(stats);
+    renderQuestionsAndLlm(stats);
+    var list = (users && users.items) ? users.items : (Array.isArray(users) ? users : []);
+    renderUsersTable(list);
+    var total = (users && users.total != null) ? users.total : list.length;
+    document.getElementById('users-count').textContent = sc('共 ', '共 ') + total + sc(' 名用户', ' 名用戶');
+  }).catch(function (err) {
+    document.getElementById('panel-distribution').innerHTML =
+      '<p style="color:var(--crimson);font:var(--text-caption);">' +
+      escapeHtml(sc('加载失败：', '加載失敗：') + (err.message || err)) + '</p>';
+  });
+}
+
+document.getElementById('btn-refresh').addEventListener('click', boot);
+document.getElementById('btn-logout').addEventListener('click', function () {
+  if (!confirm(sc('确定退出登录？', '確定退出登入？'))) return;
+  window.JX.api.logout().finally(function () { location.replace('auth.html'); });
+});
+
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', boot);
+if (window.JX && window.JX.user) boot();
+</script>
+</body>
+</html>

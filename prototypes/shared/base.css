@@ -1,0 +1,158 @@
+/* ===================================================
+   觉学 Base · Reset + Typography + Layout Utilities
+   =================================================== */
+
+/* ── Reset ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html {
+  -webkit-text-size-adjust: 100%;
+  /* 基础字号 17px（高于浏览器默认 16px · 适合年长用户）· 接 --font-scale 用户调节 */
+  font-size: calc(17px * var(--font-scale, 1));
+}
+body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+img, svg { display: block; max-width: 100%; }
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; border: none; background: none; font: inherit; }
+ul, ol { list-style: none; }
+input, textarea, select { font: inherit; }
+
+/* ── Scene Background ───────────────────────────── */
+.scene {
+  min-height: 100vh;
+  background: var(--bg-scene);
+  color: var(--ink);
+  font: var(--text-body);
+}
+
+/* ── Mobile App Layout ──────────────────────────
+   生产模式：内容铺满视口；桌面宽屏下居中成 480px 的"手机宽度"列。
+   假 iOS status-bar 在真实浏览器环境里多余（手机本身有状态栏），隐藏。
+   若要回到原型样机视觉，body 加 class="prototype-frame" 即可。
+   ============================================== */
+.phone-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  min-height: 100vh;
+  background: var(--bg-scene);
+}
+.phone {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100vh;
+  background: var(--bg-scene);
+  overflow: visible; /* 允许 position:fixed 的 tab-bar 正常展示在视口底部 */
+  position: relative;
+  /* iOS 刘海 / 安卓状态栏 · 顶部留出安全边距；无安全区时保底 16px 避免内容贴浏览器地址栏 */
+  padding-top: max(env(safe-area-inset-top), 16px);
+}
+/* 原型样机模式恢复无 safe-area padding（它是纸面样机，没有真 status bar）*/
+body.prototype-frame .phone { padding-top: 0; overflow: hidden; }
+.status-bar { display: none; }
+
+/* ── Prototype Frame（可选 · body.prototype-frame 激活） ── */
+body.prototype-frame .phone-wrap {
+  align-items: flex-start;
+  padding: var(--sp-8) var(--sp-4);
+}
+body.prototype-frame .phone {
+  width: 375px;
+  max-width: 375px;
+  min-height: 812px;
+  border-radius: 44px;
+  box-shadow: 0 24px 64px rgba(43,34,24,.18), 0 4px 12px rgba(43,34,24,.10);
+  border: 1px solid rgba(255,255,255,.7);
+}
+body.prototype-frame .status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--sp-3) var(--sp-5) var(--sp-2);
+  font: var(--text-caption);
+  color: var(--ink-2);
+  letter-spacing: .5px;
+}
+body.prototype-frame .status-bar .time { font-weight: 600; font-size: .75rem; }
+body.prototype-frame .status-icons { display: flex; gap: var(--sp-1); align-items: center; }
+
+/* ── Typography ─────────────────────────────────── */
+.t-display { font: var(--text-display); letter-spacing: 6px; }
+.t-h1      { font: var(--text-h1);      letter-spacing: 4px; }
+.t-h2      { font: var(--text-h2);      letter-spacing: 3px; }
+.t-h3      { font: var(--text-h3);      letter-spacing: 2px; }
+.t-serif   { font: var(--text-body-serif); letter-spacing: 1.5px; }
+.t-body    { font: var(--text-body);    letter-spacing: .5px; }
+.t-meta    { font: var(--text-meta);    letter-spacing: 1.5px; }
+.t-caption { font: var(--text-caption); letter-spacing: .5px; }
+
+.t-saffron { color: var(--saffron); }
+.t-ink-2   { color: var(--ink-2); }
+.t-ink-3   { color: var(--ink-3); }
+.t-ink-4   { color: var(--ink-4); }
+.t-sage    { color: var(--sage-dark); }
+.t-crimson { color: var(--crimson); }
+.t-gold    { color: var(--gold-dark); }
+
+/* ── Spacing Utilities ──────────────────────────── */
+.mt-1 { margin-top: var(--sp-1); }
+.mt-2 { margin-top: var(--sp-2); }
+.mt-3 { margin-top: var(--sp-3); }
+.mt-4 { margin-top: var(--sp-4); }
+.mt-6 { margin-top: var(--sp-6); }
+.mb-2 { margin-bottom: var(--sp-2); }
+.mb-3 { margin-bottom: var(--sp-3); }
+.mb-4 { margin-bottom: var(--sp-4); }
+.px-4 { padding-left: var(--sp-4); padding-right: var(--sp-4); }
+.px-5 { padding-left: var(--sp-5); padding-right: var(--sp-5); }
+.py-2 { padding-top: var(--sp-2);  padding-bottom: var(--sp-2); }
+.py-3 { padding-top: var(--sp-3);  padding-bottom: var(--sp-3); }
+
+/* ── Flex / Layout ──────────────────────────────── */
+.flex        { display: flex; }
+.flex-col    { display: flex; flex-direction: column; }
+.items-center { align-items: center; }
+.items-end   { align-items: flex-end; }
+.justify-between { justify-content: space-between; }
+.justify-center  { justify-content: center; }
+.gap-1 { gap: var(--sp-1); }
+.gap-2 { gap: var(--sp-2); }
+.gap-3 { gap: var(--sp-3); }
+.gap-4 { gap: var(--sp-4); }
+.flex-1 { flex: 1; }
+
+/* ── Scroll Container ───────────────────────────── */
+.scroll-area {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll-area::-webkit-scrollbar { display: none; }
+
+/* ── Section Padding ────────────────────────────── */
+.page-content {
+  padding: var(--sp-4) var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* ── Divider ────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: var(--border-light);
+  margin: var(--sp-2) 0;
+}
+
+/* ── Progress Bar ───────────────────────────────── */
+.progress-track {
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--saffron-light);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--saffron), var(--saffron-dark));
+  transition: width var(--dur) var(--ease);
+}

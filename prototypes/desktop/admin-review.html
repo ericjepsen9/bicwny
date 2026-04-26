@@ -1,0 +1,538 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 题目审核 · 管理员</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/desktop.css">
+<style>
+/* Admin-only: crimson avatar override */
+.side-avatar { background: linear-gradient(135deg, var(--crimson-light), var(--crimson)); }
+
+/* KPI card (reuse coach styles inline) */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-5); }
+.kpi-card {
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
+  padding: var(--sp-5); box-shadow: var(--glass-shadow);
+}
+.kpi-label { font: var(--text-caption); color: var(--ink-3); letter-spacing: 2px; margin-bottom: var(--sp-2); }
+.kpi-value { font-family: var(--font-serif); font-weight: 700; font-size: 1.875rem; color: var(--ink); line-height: 1; }
+.kpi-trend { font: var(--text-caption); color: var(--ink-3); margin-top: 6px; letter-spacing: 1px; }
+
+/* Filter */
+.filter-bar {
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
+  margin-bottom: var(--sp-4); padding: var(--sp-3) var(--sp-4);
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+}
+.fsel {
+  padding: 6px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: 1px; outline: none;
+}
+.fsearch {
+  flex: 1; min-width: 200px;
+  padding: 6px 12px; border-radius: var(--r-pill);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); outline: none;
+}
+.fcount { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; margin-left: auto; }
+
+/* List */
+.list-panel {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); overflow: hidden;
+}
+table.q-list { width: 100%; border-collapse: collapse; }
+.q-list th, .q-list td {
+  padding: 10px 14px; text-align: left;
+  font: var(--text-caption); letter-spacing: .5px;
+  border-bottom: 1px solid var(--border-light);
+}
+.q-list th { color: var(--ink-3); font-weight: 600; background: rgba(43,34,24,.03); }
+.q-list td { color: var(--ink-2); }
+.q-list tr:last-child td { border-bottom: 0; }
+.q-list tr[data-row]:hover { background: rgba(224,120,86,.04); cursor: pointer; }
+.q-stem-cell { color: var(--ink); font-weight: 500; max-width: 360px; }
+.q-type-badge {
+  display: inline-block; padding: 2px 8px; border-radius: var(--r-pill);
+  background: rgba(43,34,24,.06); font-size: .6875rem; letter-spacing: 1px;
+}
+.q-submitter { font-family: 'SF Mono', ui-monospace, monospace; font-size: .6875rem; color: var(--ink-4); }
+
+.empty-state { padding: var(--sp-8) var(--sp-5); text-align: center; color: var(--ink-3); font: var(--text-caption); letter-spacing: 1px; }
+.err-state { color: var(--crimson); }
+
+/* Drawer */
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 90; }
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 520px; max-width: 92vw;
+  background: #fff; box-shadow: -8px 0 24px rgba(0,0,0,.12);
+  transform: translateX(100%); transition: transform .25s var(--ease);
+  overflow: hidden; display: flex; flex-direction: column; z-index: 100;
+}
+.drawer.open { transform: translateX(0); }
+.drawer-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-light); }
+.drawer-title { flex: 1; font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.drawer-close { width: 28px; height: 28px; border-radius: var(--r-sm); background: rgba(43,34,24,.04); border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.drawer-body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
+.drawer-foot { padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--border-light); background: rgba(43,34,24,.02); }
+.drawer h3 { font: var(--text-caption); font-weight: 700; letter-spacing: 2px; color: var(--ink-3); margin: var(--sp-4) 0 var(--sp-2); }
+.drawer h3:first-child { margin-top: 0; }
+
+.dr-stem { font: var(--text-body-serif); color: var(--ink); line-height: 1.75; letter-spacing: 1px; }
+.dr-meta { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.dr-meta b { color: var(--ink-2); font-weight: 600; }
+.dr-opt { display: flex; gap: 10px; padding: 10px 14px; margin-bottom: 8px; background: rgba(43,34,24,.03); border-radius: var(--r-sm); font: var(--text-caption); color: var(--ink); letter-spacing: 1px; }
+.dr-opt.correct { background: var(--sage-light); border-left: 3px solid var(--sage-dark); }
+.dr-letter { font-weight: 700; width: 20px; flex-shrink: 0; }
+.dr-code { display: block; padding: var(--sp-3); background: rgba(43,34,24,.04); border-radius: var(--r-sm); font-family: 'SF Mono', ui-monospace, monospace; font-size: .75rem; color: var(--ink-2); white-space: pre-wrap; word-break: break-all; }
+
+.action-row { display: flex; gap: var(--sp-3); justify-content: flex-end; align-items: center; }
+.action-err { color: var(--crimson); font: var(--text-caption); flex: 1; }
+.btn-danger { padding: 7px 16px; border-radius: var(--r-sm); background: var(--crimson); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+.btn-danger[disabled], .btn-approve[disabled] { opacity: .5; cursor: not-allowed; }
+.btn-approve { padding: 7px 16px; border-radius: var(--r-sm); background: var(--sage-dark); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+.btn-ghost-s { padding: 7px 16px; border-radius: var(--r-sm); background: transparent; color: var(--ink-2); border: 1px solid var(--border); font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer; }
+
+.reject-area { display: flex; flex-direction: column; gap: 8px; }
+.reject-area textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--r-sm); font: var(--text-caption); letter-spacing: 1px; outline: none; font-family: inherit; resize: vertical; min-height: 60px; }
+.reject-area textarea:focus { border-color: var(--crimson); }
+</style>
+<meta name="jx-require-role" content="admin">
+<script src="../shared/desktop-mobile.js"></script>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name"><span class="sc">觉学</span><span class="tc">覺學</span></div>
+        <div class="brand-sub"><span class="sc">管理员后台</span><span class="tc">管理員後台</span></div>
+      </div>
+    </div>
+
+    <div class="side-user">
+      <div class="side-avatar" data-jx-user="avatarInitial">—</div>
+      <div class="side-user-info">
+        <div class="side-user-name" data-jx-user="dharmaName">—</div>
+        <div class="side-user-role" data-jx-user="roleLabel">—</div>
+      </div>
+      <button type="button" id="btn-logout" title="退出登录" aria-label="退出登录"
+        style="margin-left:auto;background:none;border:0;color:var(--ink-3);cursor:pointer;padding:6px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-list" id="admin-nav"></nav>
+    <script src="../shared/admin-nav.js"></script>
+  </aside>
+
+  <main class="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="page-title"><span class="sc">题目审核</span><span class="tc">題目審核</span></h1>
+        <p class="page-sub"><span class="sc">待审队列 · FIFO 顺序</span><span class="tc">待審隊列 · FIFO 順序</span></p>
+      </div>
+      <div class="top-actions">
+        <button class="lang-btn" onclick="toggleLang()">繁</button>
+        <button id="btn-refresh" class="btn btn-ghost btn-pill" style="padding:6px 16px;">
+          <span class="sc">↻ 刷新</span><span class="tc">↻ 重新整理</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">待审总数</span><span class="tc">待審總數</span></p>
+        <p class="kpi-value" id="kpi-pending">—</p>
+        <p class="kpi-trend" id="kpi-pending-sub">&nbsp;</p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">最早等待</span><span class="tc">最早等待</span></p>
+        <p class="kpi-value" id="kpi-oldest" style="font-size:1.25rem;">—</p>
+        <p class="kpi-trend">&nbsp;</p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">涉及论典</span><span class="tc">涉及論典</span></p>
+        <p class="kpi-value" id="kpi-courses">—</p>
+        <p class="kpi-trend">&nbsp;</p>
+      </div>
+      <div class="kpi-card">
+        <p class="kpi-label"><span class="sc">涉及辅导员</span><span class="tc">涉及輔導員</span></p>
+        <p class="kpi-value" id="kpi-coaches">—</p>
+        <p class="kpi-trend">&nbsp;</p>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filter-bar">
+      <select class="fsel" id="course-select">
+        <option value="">全部论典</option>
+      </select>
+      <input class="fsearch" id="search-input" type="search"
+        data-ph-sc="搜索题干文字" data-ph-tc="搜索題幹文字" placeholder="搜索题干文字">
+      <span class="fcount" id="filter-count">—</span>
+    </div>
+
+    <!-- List -->
+    <div class="list-panel">
+      <div id="list-body">
+        <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Review drawer -->
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="q-type-badge" id="dr-type">—</span>
+    <span class="drawer-title" id="dr-title"><span class="sc">审核题目</span><span class="tc">審核題目</span></span>
+    <button class="drawer-close" id="dr-close" aria-label="关闭">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="dr-body"></div>
+  <div class="drawer-foot" id="dr-foot">
+    <div id="action-default" class="action-row">
+      <span class="action-err" id="dr-err"></span>
+      <button class="btn-ghost-s" id="dr-cancel"><span class="sc">关闭</span><span class="tc">關閉</span></button>
+      <button class="btn-danger" id="dr-reject-open"><span class="sc">驳回</span><span class="tc">駁回</span></button>
+      <button class="btn-approve" id="dr-approve"><span class="sc">通过</span><span class="tc">通過</span></button>
+    </div>
+    <div id="action-reject" class="reject-area" style="display:none;">
+      <label style="font:var(--text-caption);color:var(--ink-3);letter-spacing:2px;font-weight:600;">
+        <span class="sc">驳回原因（必填，将记录到 AuditLog）</span><span class="tc">駁回原因（必填，將記錄到 AuditLog）</span>
+      </label>
+      <textarea id="reject-reason" maxlength="500" placeholder="例：选项不符合法本原意 / 题干有歧义"></textarea>
+      <div class="action-row">
+        <span class="action-err" id="dr-err2"></span>
+        <button class="btn-ghost-s" id="dr-reject-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+        <button class="btn-danger" id="dr-reject-confirm"><span class="sc">确认驳回</span><span class="tc">確認駁回</span></button>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<script>
+// admin-review · 4a 只读骨架：/api/admin/questions/pending
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var TYPE_LABELS = {
+  single: ['单选', '單選'], multi: ['多选', '多選'], fill: ['填空', '填空'],
+  open: ['问答', '問答'], sort: ['排序', '排序'], match: ['匹配', '匹配'],
+  image: ['图识', '圖識'], listen: ['听颂', '聽誦'], scenario: ['情境', '情境'],
+  flow: ['流程', '流程'], guided: ['引导', '引導'], flip: ['速记卡', '速記卡'],
+};
+function typeLabel(t) { var m = TYPE_LABELS[t] || [t, t]; return sc(m[0], m[1]); }
+function truncate(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n) + '…' : s; }
+
+var state = { all: [], courseFilter: '', search: '', currentQid: null };
+
+function filtered() {
+  var q = (state.search || '').trim();
+  return state.all.filter(function (r) {
+    if (state.courseFilter && r.courseId !== state.courseFilter) return false;
+    if (q && r.questionText.indexOf(q) < 0) return false;
+    return true;
+  });
+}
+
+function renderKpis() {
+  document.getElementById('kpi-pending').textContent = state.all.length;
+  var oldest = state.all[state.all.length - 1]; // FIFO asc
+  document.getElementById('kpi-oldest').textContent =
+    oldest ? window.JX.util.relativeTime(oldest.createdAt) : sc('—', '—');
+  var courseSet = {}, coachSet = {};
+  state.all.forEach(function (r) {
+    if (r.courseId) courseSet[r.courseId] = true;
+    if (r.createdByUserId) coachSet[r.createdByUserId] = true;
+  });
+  document.getElementById('kpi-courses').textContent = Object.keys(courseSet).length;
+  document.getElementById('kpi-coaches').textContent = Object.keys(coachSet).length;
+}
+
+function renderList() {
+  renderKpis();
+  var items = filtered();
+  document.getElementById('filter-count').textContent =
+    items.length + sc(' 条 · 总 ', ' 條 · 總 ') + state.all.length;
+
+  var body = document.getElementById('list-body');
+  if (!state.all.length) {
+    body.innerHTML = '<div class="empty-state">' +
+      escapeHtml(sc('无待审题目 · 全部审核完毕', '無待審題目 · 全部審核完畢')) + '</div>';
+    return;
+  }
+  if (!items.length) {
+    body.innerHTML = '<div class="empty-state">' +
+      escapeHtml(sc('当前筛选无结果', '當前篩選無結果')) + '</div>';
+    return;
+  }
+  var rows = items.map(function (r) {
+    return '<tr data-row data-qid="' + escapeHtml(r.id) + '">' +
+      '<td class="q-stem-cell">' + escapeHtml(truncate(r.questionText, 56)) + '</td>' +
+      '<td><span class="q-type-badge">' + escapeHtml(typeLabel(r.type)) + '</span></td>' +
+      '<td>' + escapeHtml(r.source || '—') + '</td>' +
+      '<td><span class="q-submitter">' + escapeHtml((r.createdByUserId || '').slice(-8) || '—') + '</span></td>' +
+      '<td>' + escapeHtml(window.JX.util.relativeTime(r.createdAt)) + '</td>' +
+    '</tr>';
+  }).join('');
+  body.innerHTML =
+    '<table class="q-list"><thead><tr>' +
+      '<th>' + escapeHtml(sc('题干', '題幹')) + '</th>' +
+      '<th>' + escapeHtml(sc('题型', '題型')) + '</th>' +
+      '<th>' + escapeHtml(sc('来源', '來源')) + '</th>' +
+      '<th>' + escapeHtml(sc('提交人', '提交人')) + '</th>' +
+      '<th>' + escapeHtml(sc('等待时长', '等待時長')) + '</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+function showErr(msg) {
+  document.getElementById('list-body').innerHTML =
+    '<div class="empty-state err-state">' + escapeHtml(msg) + '</div>';
+  document.getElementById('filter-count').textContent = '';
+}
+
+function populateCourseFilter(courses) {
+  var sel = document.getElementById('course-select');
+  var opts = ['<option value="">' + escapeHtml(sc('全部论典', '全部論典')) + '</option>'];
+  courses.forEach(function (c) {
+    opts.push('<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.title) + '</option>');
+  });
+  sel.innerHTML = opts.join('');
+}
+
+function boot() {
+  window.JX.api.get('/api/courses').then(populateCourseFilter).catch(function () {});
+
+  window.JX.api.get('/api/admin/questions/pending?limit=200')
+    .then(function (list) {
+      state.all = Array.isArray(list) ? list : [];
+      renderList();
+    })
+    .catch(function (err) {
+      showErr(sc('加载失败：', '加載失敗：') + (err.message || err));
+    });
+}
+
+// ── 详情抽屉 + 审核动作 (4b) ────────────────────
+var LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+function renderPayload(q) {
+  var p = q.payload || {};
+  var t = q.type;
+  if (t === 'single' || t === 'image' || t === 'listen') {
+    var opts = p.options || [];
+    return opts.map(function (o, i) {
+      return '<div class="dr-opt' + (o.correct ? ' correct' : '') + '">' +
+        '<span class="dr-letter">' + LETTERS[i] + '</span>' +
+        '<span>' + escapeHtml(o.text || '') + '</span>' +
+      '</div>';
+    }).join('');
+  }
+  if (t === 'multi' || t === 'scenario') {
+    var opts2 = p.options || [];
+    var head = (t === 'scenario' && p.scenario)
+      ? '<p class="dr-stem" style="margin-bottom:var(--sp-3);font-style:italic;">' + escapeHtml(p.scenario) + '</p>' : '';
+    return head + opts2.map(function (o, i) {
+      return '<div class="dr-opt' + (o.correct ? ' correct' : '') + '">' +
+        '<span class="dr-letter">' + LETTERS[i] + '</span>' +
+        '<span>' + escapeHtml(o.text || '') +
+          (o.reason ? '<br><small style="color:var(--ink-3);">' + escapeHtml(o.reason) + '</small>' : '') +
+        '</span>' +
+      '</div>';
+    }).join('');
+  }
+  if (t === 'fill') {
+    var lines = (p.verseLines || []).map(function (l) {
+      return escapeHtml(l).replace('____', '<b style="color:var(--saffron);">' + escapeHtml(p.correctWord || '____') + '</b>');
+    }).join('<br>');
+    var opts3 = (p.options || []).map(function (o, i) {
+      var ok = o === p.correctWord;
+      return '<div class="dr-opt' + (ok ? ' correct' : '') + '"><span class="dr-letter">' + LETTERS[i] + '</span>' + escapeHtml(o) + '</div>';
+    }).join('');
+    return '<div style="padding:var(--sp-3);background:var(--saffron-pale);border-radius:var(--r-sm);margin-bottom:var(--sp-3);font-family:var(--font-serif);line-height:2;">' +
+      lines + '</div>' + opts3;
+  }
+  if (t === 'open') {
+    var ref = p.referenceAnswer || '—';
+    var kps = (p.keyPoints || []).map(function (k) {
+      var point = (k && k.point) || k;
+      return '<li>' + escapeHtml(point) + '</li>';
+    }).join('');
+    return '<p class="dr-stem" style="margin-bottom:var(--sp-3);">' + escapeHtml(ref) + '</p>' +
+      (kps ? '<ul style="padding-left:20px;color:var(--ink-2);">' + kps + '</ul>' : '');
+  }
+  return '<pre class="dr-code">' + escapeHtml(JSON.stringify(p, null, 2)) + '</pre>';
+}
+
+function showDefaultActions() {
+  document.getElementById('action-default').style.display = '';
+  document.getElementById('action-reject').style.display = 'none';
+  document.getElementById('dr-err').textContent = '';
+  document.getElementById('dr-err2').textContent = '';
+  document.getElementById('reject-reason').value = '';
+}
+
+function openDrawer(qid) {
+  var q = state.all.find(function (r) { return r.id === qid; });
+  if (!q) return;
+  state.currentQid = qid;
+
+  document.getElementById('dr-type').textContent = typeLabel(q.type);
+  showDefaultActions();
+
+  var body = document.getElementById('dr-body');
+  body.innerHTML =
+    '<h3>' + escapeHtml(sc('题干', '題幹')) + '</h3>' +
+    '<p class="dr-stem">' + escapeHtml(q.questionText) + '</p>' +
+    '<h3>' + escapeHtml(sc('选项 / 答案', '選項 / 答案')) + '</h3>' +
+    renderPayload(q) +
+    (q.correctText ? '<h3>' + escapeHtml(sc('解析', '解析')) + '</h3>' +
+      '<p class="dr-stem">' + escapeHtml(q.correctText) + '</p>' : '') +
+    (q.wrongText ? '<h3>' + escapeHtml(sc('易错点', '易錯點')) + '</h3>' +
+      '<p class="dr-stem">' + escapeHtml(q.wrongText) + '</p>' : '') +
+    '<h3>' + escapeHtml(sc('元数据', '元數據')) + '</h3>' +
+    '<div class="dr-meta">' +
+      '<span><b>' + escapeHtml(sc('题型', '題型')) + ':</b> ' + escapeHtml(typeLabel(q.type)) + '</span>' +
+      '<span><b>' + escapeHtml(sc('难度', '難度')) + ':</b> ' + (q.difficulty || 0) + '</span>' +
+      '<span><b>' + escapeHtml(sc('来源', '來源')) + ':</b> ' + escapeHtml(q.source || '—') + '</span>' +
+      (q.tags && q.tags.length ? '<span><b>' + escapeHtml(sc('标签', '標籤')) + ':</b> ' + escapeHtml(q.tags.join(' · ')) + '</span>' : '') +
+      '<span><b>' + escapeHtml(sc('提交人', '提交人')) + ':</b> <code>' + escapeHtml(q.createdByUserId || '—') + '</code></span>' +
+      '<span><b>ID:</b> <code>' + escapeHtml(q.id) + '</code></span>' +
+    '</div>';
+
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawer-backdrop').classList.add('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'false');
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawer-backdrop').classList.remove('open');
+  document.getElementById('drawer').setAttribute('aria-hidden', 'true');
+  state.currentQid = null;
+  showDefaultActions();
+}
+
+function submitReview(decision, reason) {
+  var qid = state.currentQid;
+  if (!qid) return;
+  var errSlot = decision === 'reject'
+    ? document.getElementById('dr-err2')
+    : document.getElementById('dr-err');
+  errSlot.textContent = '';
+
+  var buttons = document.querySelectorAll('#dr-foot button');
+  buttons.forEach(function (b) { b.disabled = true; });
+
+  var body = { decision: decision };
+  if (reason) body.reason = reason;
+  window.JX.api.post('/api/admin/questions/' + encodeURIComponent(qid) + '/review', body)
+    .then(function () {
+      // 从队列中移除（已非 pending）
+      state.all = state.all.filter(function (r) { return r.id !== qid; });
+      renderList();
+      closeDrawer();
+    })
+    .catch(function (err) {
+      errSlot.textContent = sc('提交失败：', '提交失敗：') + (err && err.message || err);
+    })
+    .finally(function () {
+      buttons.forEach(function (b) { b.disabled = false; });
+    });
+}
+
+document.getElementById('list-body').addEventListener('click', function (ev) {
+  var tr = ev.target.closest('tr[data-row]');
+  if (!tr) return;
+  openDrawer(tr.getAttribute('data-qid'));
+});
+
+document.getElementById('dr-close').addEventListener('click', closeDrawer);
+document.getElementById('dr-cancel').addEventListener('click', closeDrawer);
+document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Escape') closeDrawer();
+});
+
+document.getElementById('dr-approve').addEventListener('click', function () {
+  if (!confirm(sc('确认通过此题？', '確認通過此題？'))) return;
+  submitReview('approve');
+});
+
+document.getElementById('dr-reject-open').addEventListener('click', function () {
+  document.getElementById('action-default').style.display = 'none';
+  document.getElementById('action-reject').style.display = '';
+  setTimeout(function () { document.getElementById('reject-reason').focus(); }, 0);
+});
+document.getElementById('dr-reject-cancel').addEventListener('click', showDefaultActions);
+document.getElementById('dr-reject-confirm').addEventListener('click', function () {
+  var reason = document.getElementById('reject-reason').value.trim();
+  if (!reason) {
+    document.getElementById('dr-err2').textContent = sc('请填写驳回原因', '請填寫駁回原因');
+    return;
+  }
+  submitReview('reject', reason);
+});
+
+// Filters
+document.getElementById('course-select').addEventListener('change', function (ev) {
+  state.courseFilter = ev.target.value;
+  renderList();
+});
+var searchDebounce;
+document.getElementById('search-input').addEventListener('input', function (ev) {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(function () {
+    state.search = ev.target.value;
+    renderList();
+  }, 120);
+});
+document.getElementById('btn-refresh').addEventListener('click', boot);
+
+document.getElementById('btn-logout').addEventListener('click', function () {
+  if (!confirm(sc('确定退出登录？', '確定退出登入？'))) return;
+  window.JX.api.logout().finally(function () { location.replace('auth.html'); });
+});
+
+document.addEventListener('jx:user-ready', boot);
+document.addEventListener('langchange', renderList);
+if (window.JX && window.JX.user) boot();
+</script>
+</body>
+</html>

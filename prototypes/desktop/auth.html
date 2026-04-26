@@ -1,0 +1,308 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 后台登录</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body.scene {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; padding: var(--sp-6);
+}
+.auth-card {
+  width: 100%; max-width: 460px;
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
+  box-shadow: 0 24px 60px rgba(43,34,24,.12), 0 4px 16px rgba(43,34,24,.06);
+  padding: var(--sp-8) var(--sp-6) var(--sp-6);
+}
+.brand { text-align: center; margin-bottom: var(--sp-5); }
+.brand-icon {
+  width: 56px; height: 56px; border-radius: var(--r-lg);
+  margin: 0 auto var(--sp-3);
+  background: linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 20px rgba(224,120,86,.3);
+}
+.brand-name {
+  font-family: var(--font-serif); font-weight: 700;
+  font-size: 1.375rem; color: var(--ink); letter-spacing: 6px;
+}
+.brand-sub {
+  font: var(--text-caption); color: var(--ink-3);
+  letter-spacing: 2px; margin-top: 4px;
+}
+
+.auth-screen { display: none; flex-direction: column; gap: var(--sp-3); }
+.auth-screen.active { display: flex; animation: slideUp .2s var(--ease); }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.screen-title {
+  font-family: var(--font-serif); font-weight: 700;
+  font-size: 1rem; color: var(--ink); letter-spacing: 3px;
+  margin-bottom: var(--sp-2);
+}
+
+.auth-links {
+  display: flex; justify-content: flex-end;
+  font: var(--text-caption); letter-spacing: 1px;
+}
+.auth-link { color: var(--saffron); cursor: pointer; }
+
+.form-msg {
+  font: var(--text-caption); letter-spacing: 1px;
+  padding: 10px 12px; border-radius: var(--r);
+  min-height: 1em;
+}
+.form-msg.error { color: #c0392b; background: rgba(192,57,43,.08); }
+.form-msg.info  { color: var(--ink-3); background: rgba(43,34,24,.04); }
+.form-msg:empty { display: none; }
+
+.btn[aria-busy="true"] { opacity: .6; pointer-events: none; }
+
+.alt-entry {
+  text-align: center; margin-top: var(--sp-5);
+  padding-top: var(--sp-4); border-top: 1px solid var(--border-light);
+  font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px;
+}
+.alt-entry a { color: var(--saffron-dark); text-decoration: none; font-weight: 600; }
+.alt-entry a:hover { text-decoration: underline; }
+
+.lang-toggle {
+  position: absolute; top: var(--sp-4); right: var(--sp-5);
+  font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px;
+  background: var(--glass); border: 1px solid var(--glass-border);
+  padding: 4px 12px; border-radius: var(--r-pill); cursor: pointer;
+}
+</style>
+<script src="../shared/desktop-mobile.js"></script>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+</head>
+<body class="scene">
+
+<button class="lang-toggle" onclick="toggleLang()">繁</button>
+
+<div class="auth-card">
+
+  <div class="brand">
+    <div class="brand-icon">
+      <svg width="26" height="26" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+    </div>
+    <div class="brand-name"><span class="sc">觉　学</span><span class="tc">覺　學</span></div>
+    <div class="brand-sub"><span class="sc">后台登录 · 辅导员 / 管理员</span><span class="tc">後台登入 · 輔導員 / 管理員</span></div>
+  </div>
+
+  <!-- 登录 -->
+  <form class="auth-screen active" id="screen-login" novalidate>
+    <p class="screen-title"><span class="sc">登录</span><span class="tc">登入</span></p>
+
+    <div class="input-group">
+      <label class="input-label" for="login-email"><span class="sc">邮箱地址</span><span class="tc">電子郵箱</span></label>
+      <input class="input-field" id="login-email" name="email" type="email" autocomplete="username" required
+        data-ph-sc="请输入注册邮箱" data-ph-tc="請輸入註冊郵箱" placeholder="请输入注册邮箱">
+    </div>
+
+    <div class="input-group">
+      <label class="input-label" for="login-password"><span class="sc">登录密码</span><span class="tc">登入密碼</span></label>
+      <input class="input-field" id="login-password" name="password" type="password" autocomplete="current-password" required
+        data-ph-sc="请输入密码" data-ph-tc="請輸入密碼" placeholder="请输入密码">
+    </div>
+
+    <div class="form-msg" id="login-msg" role="status"></div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-full btn-pill">
+      <span class="sc">登　录</span><span class="tc">登　入</span>
+    </button>
+
+    <div class="auth-links">
+      <span class="auth-link" onclick="showScreen('screen-forgot')">
+        <span class="sc">忘记密码</span><span class="tc">忘記密碼</span>
+      </span>
+    </div>
+  </form>
+
+  <!-- 找回密码 -->
+  <form class="auth-screen" id="screen-forgot" novalidate>
+    <p class="screen-title"><span class="sc">找回密码</span><span class="tc">找回密碼</span></p>
+
+    <div class="form-msg info" style="display:block;">
+      <span class="sc">输入您的注册邮箱，我们将发送重置链接。链接 30 分钟内有效。</span>
+      <span class="tc">輸入您的註冊郵箱，我們將發送重設連結。連結 30 分鐘內有效。</span>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label" for="forgot-email"><span class="sc">注册邮箱</span><span class="tc">註冊郵箱</span></label>
+      <input class="input-field" id="forgot-email" name="email" type="email" required
+        data-ph-sc="请输入注册邮箱" data-ph-tc="請輸入註冊郵箱" placeholder="请输入注册邮箱">
+    </div>
+
+    <div class="form-msg" id="forgot-msg" role="status"></div>
+    <div id="forgot-dev-hint" style="display:none;font:var(--text-caption);"></div>
+
+    <button type="submit" class="btn btn-primary btn-lg btn-full btn-pill">
+      <span class="sc">发送重置链接</span><span class="tc">發送重設連結</span>
+    </button>
+
+    <div class="auth-links">
+      <span class="auth-link" onclick="showScreen('screen-login')">
+        <span class="sc">← 返回登录</span><span class="tc">← 返回登入</span>
+      </span>
+    </div>
+  </form>
+
+  <p class="alt-entry">
+    <span class="sc">学员请前往 </span><span class="tc">學員請前往 </span>
+    <a href="../mobile/auth.html"><span class="sc">学员入口</span><span class="tc">學員入口</span></a>
+  </p>
+
+</div>
+
+<script>
+// 桌面后台登录页 · 仅接受 admin / coach 角色
+//   学员误入 → 清 token + 提示去 ../mobile/auth.html
+//   admin → admin.html · coach → coach.html
+var sc = window.JX.sc;
+
+function localizedError(err) {
+  var code = (err && err.code) || '';
+  var msg = (err && err.message) || '请求失败';
+  if (err && err.status === 0)   return sc('网络异常，请检查连接', '網絡異常，請檢查連接');
+  if (code === 'UNAUTHORIZED')   return sc('邮箱或密码错误', '電子郵箱或密碼錯誤');
+  return msg;
+}
+
+function setMsg(id, kind, text) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'form-msg ' + kind;
+  el.textContent = text || '';
+}
+function clearMsg(id) { setMsg(id, '', ''); }
+
+function showScreen(id) {
+  document.querySelectorAll('.auth-screen').forEach(function (s) { s.classList.remove('active'); });
+  var el = document.getElementById(id);
+  if (el) el.classList.add('active');
+  clearMsg('login-msg');
+  clearMsg('forgot-msg');
+  var hint = document.getElementById('forgot-dev-hint');
+  if (hint) { hint.style.display = 'none'; hint.textContent = ''; }
+}
+
+// 登录后角色路由：admin/coach → 自家主页；student → 拒绝并清 token
+function postAuthRedirect(user) {
+  if (!user) { setMsg('login-msg', 'error', sc('登录响应异常', '登入響應異常')); return; }
+  if (user.role === 'admin') { location.replace('admin.html'); return; }
+  if (user.role === 'coach') { location.replace('coach.html'); return; }
+  // student（或未知 role）误入：清 token，留在登录页提示
+  window.JX.api.clearTokens();
+  setMsg('login-msg', 'error',
+    sc('此入口仅限辅导员 / 管理员；学员请前往 学员入口 登录',
+       '此入口僅限輔導員 / 管理員；學員請前往 學員入口 登入'));
+}
+
+// ?reason=role 表示从守卫错位弹回 · 显示明确提示 + 清 token 让用户重登
+// (避免学员账号在浏览器还活着导致再次访问后台又被弹) · 跳过自动重定向
+(function () {
+  var qs = location.search || '';
+  if (qs.indexOf('reason=role') < 0) return;
+  var actual = (qs.match(/[?&]actual=([^&]+)/) || [])[1] || '';
+  try { actual = decodeURIComponent(actual); } catch (_) {}
+  // 清 token：学员账号即使有效也不该用桌面后台
+  if (window.JX && window.JX.api) window.JX.api.clearTokens();
+  var roleLabel = { student: '学员', coach: '辅导员', admin: '管理员' }[actual] || actual || '当前';
+  setMsg('login-msg', 'error',
+    sc('您当前账号 (' + roleLabel + ') 无后台权限。请使用 管理员 / 辅导员 账号登录。',
+       '您當前帳號 (' + roleLabel + ') 無後台權限。請使用 管理員 / 輔導員 帳號登入。'));
+})();
+
+// 已登录拦截：调一次 /me 拿 role 后再决定
+//   · 若 URL 带 reason=role 上面已清 token + 显错位提示，下面 isAuthed 会是 false 自然跳过
+if (window.JX && window.JX.api && window.JX.api.isAuthed()) {
+  window.JX.api.get('/api/auth/me').then(
+    function (u) { postAuthRedirect(u); },
+    function () { /* token 失效，留在登录页 */ },
+  );
+}
+
+// 登录提交
+document.getElementById('screen-login').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var email = document.getElementById('login-email').value.trim();
+  var password = document.getElementById('login-password').value;
+  if (!email || !password) {
+    setMsg('login-msg', 'error', sc('请输入邮箱和密码', '請輸入郵箱和密碼'));
+    return;
+  }
+  var btn = ev.target.querySelector('button[type="submit"]');
+  btn.setAttribute('aria-busy', 'true');
+  clearMsg('login-msg');
+
+  window.JX.api.post('/api/auth/login', { email: email, password: password }, { noAuth: true })
+    .then(function (data) {
+      // 先存 token，让后续可能的 /me 调用复用；postAuthRedirect 拒绝时会再清
+      window.JX.api.setTokens(data);
+      postAuthRedirect(data && data.user);
+    })
+    .catch(function (err) {
+      setMsg('login-msg', 'error', localizedError(err));
+    })
+    .finally(function () { btn.removeAttribute('aria-busy'); });
+});
+
+// 忘记密码
+document.getElementById('screen-forgot').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var email = document.getElementById('forgot-email').value.trim();
+  if (!email) {
+    setMsg('forgot-msg', 'error', sc('请输入邮箱', '請輸入郵箱'));
+    return;
+  }
+  var btn = ev.target.querySelector('button[type="submit"]');
+  btn.setAttribute('aria-busy', 'true');
+  clearMsg('forgot-msg');
+
+  window.JX.api.post('/api/auth/forgot', { email: email }, { noAuth: true })
+    .then(function (resp) {
+      setMsg('forgot-msg', 'info',
+        sc('已发送重置链接，请查收邮件', '已發送重設連結，請查收郵件'));
+      var hint = document.getElementById('forgot-dev-hint');
+      if (resp && resp.devToken && hint) {
+        hint.style.display = 'block';
+        hint.innerHTML = '<a href="../mobile/reset-confirm.html?token=' +
+          encodeURIComponent(resp.devToken) + '" style="color:var(--saffron-dark);">' +
+          sc('[dev] 直接进入重置页 →', '[dev] 直接進入重設頁 →') + '</a>';
+      }
+    })
+    .catch(function (err) {
+      setMsg('forgot-msg', 'error', localizedError(err));
+    })
+    .finally(function () { btn.removeAttribute('aria-busy'); });
+});
+</script>
+</body>
+</html>

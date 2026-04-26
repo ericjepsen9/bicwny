@@ -1,0 +1,2092 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 法本管理 · 管理员</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/components.css">
+<link rel="stylesheet" href="../shared/desktop.css">
+<style>
+.side-avatar { background: linear-gradient(135deg, var(--crimson-light), var(--crimson)); }
+
+/* ── 两栏布局 ─────────────────────────────────── */
+.cs-layout {
+  display: grid; grid-template-columns: 360px 1fr; gap: var(--sp-4);
+  align-items: start;
+}
+.cs-list-panel {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); overflow: hidden;
+  position: sticky; top: var(--sp-4); max-height: calc(100vh - 120px); overflow-y: auto;
+}
+.cs-list-head {
+  padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border-light);
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(43,34,24,.02);
+}
+.cs-list-head h3 { font-family: var(--font-serif); font-weight: 700; font-size: .9375rem; color: var(--ink); letter-spacing: 2px; margin: 0; }
+.cs-list-count { font: var(--text-caption); color: var(--ink-4); letter-spacing: 1px; }
+
+.cs-card {
+  display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border-light);
+  cursor: pointer; transition: background var(--dur) var(--ease);
+}
+.cs-card:hover { background: rgba(224,120,86,.04); }
+.cs-card.active { background: rgba(224,120,86,.10); border-left: 3px solid var(--saffron); padding-left: calc(var(--sp-4) - 3px); }
+.cs-card:last-child { border-bottom: 0; }
+.cs-emoji { font-size: 1.5rem; line-height: 1; flex-shrink: 0; }
+.cs-info { flex: 1; min-width: 0; }
+.cs-name { font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 1px; line-height: 1.4; word-break: break-word; }
+.cs-meta { font: var(--text-caption); color: var(--ink-3); letter-spacing: .5px; margin-top: 4px; display: flex; gap: 10px; flex-wrap: wrap; }
+.cs-pub-pill {
+  display: inline-block; padding: 1px 7px; border-radius: var(--r-pill);
+  font-size: .625rem; font-weight: 600; letter-spacing: 1px;
+}
+.cs-pub-pill.on { background: var(--sage-light); color: var(--sage-dark); }
+.cs-pub-pill.off { background: rgba(43,34,24,.08); color: var(--ink-3); }
+
+/* ── 详情面板 ─────────────────────────────────── */
+.cs-detail-panel {
+  background: var(--glass-thick); border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg); padding: var(--sp-5);
+  min-height: 400px;
+}
+.cs-detail-empty {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 360px; color: var(--ink-4); font: var(--text-body); letter-spacing: 1px;
+}
+
+.cs-section { margin-bottom: var(--sp-5); }
+.cs-section h4 {
+  font-family: var(--font-serif); font-weight: 700; letter-spacing: 2px;
+  color: var(--ink); margin: 0 0 var(--sp-3); font-size: .9375rem;
+  border-bottom: 1px solid var(--border-light); padding-bottom: var(--sp-2);
+}
+.cs-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);
+}
+.cs-field { display: flex; flex-direction: column; gap: 4px; }
+.cs-field.full { grid-column: 1 / -1; }
+.cs-field label { font: var(--text-caption); font-weight: 600; letter-spacing: 1px; color: var(--ink-2); }
+.cs-field label .req { color: var(--crimson); margin-left: 3px; }
+.cs-field input, .cs-field select, .cs-field textarea {
+  padding: 7px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.cs-field input:focus, .cs-field select:focus, .cs-field textarea:focus { border-color: var(--saffron); }
+.cs-field textarea { min-height: 64px; resize: vertical; }
+.cs-field .hint { font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px; font-size: .6875rem; }
+
+.cs-checkbox-row { display: flex; align-items: center; gap: 8px; }
+.cs-checkbox-row input { width: 16px; height: 16px; accent-color: var(--saffron); }
+
+.cs-actions {
+  display: flex; justify-content: space-between; gap: var(--sp-2);
+  margin-top: var(--sp-4); padding-top: var(--sp-4);
+  border-top: 1px solid var(--border-light);
+}
+.cs-actions .left, .cs-actions .right { display: flex; gap: var(--sp-2); }
+
+/* ── 按钮（沿用项目通用样式） ───────────────────── */
+.btn-new { padding: 7px 16px; border-radius: var(--r-pill); background: var(--saffron); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.btn-new:hover { background: var(--saffron-dark); }
+.btn-apply { padding: 7px 16px; border-radius: var(--r-sm); background: var(--saffron); color: #fff; border: 0; font: var(--text-caption); font-weight: 700; letter-spacing: 1px; cursor: pointer; }
+.btn-apply[aria-busy="true"], .btn-new[aria-busy="true"] { opacity: .6; pointer-events: none; }
+.btn-ghost-s { padding: 7px 16px; border-radius: var(--r-sm); background: transparent; color: var(--ink-2); border: 1px solid var(--border); font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer; }
+.btn-danger { padding: 7px 16px; border-radius: var(--r-sm); background: transparent; color: var(--crimson); border: 1px solid var(--crimson-light); font: var(--text-caption); font-weight: 600; letter-spacing: 1px; cursor: pointer; }
+.btn-danger:hover { background: var(--crimson-light); }
+
+.dr-err { color: var(--crimson); font: var(--text-caption); letter-spacing: 1px; padding: 8px 10px; border-radius: var(--r-sm); background: rgba(192,57,43,.06); margin-bottom: var(--sp-3); display: none; }
+.dr-err.show { display: block; }
+.dr-ok { color: var(--sage-dark); font: var(--text-caption); letter-spacing: 1px; padding: 8px 10px; border-radius: var(--r-sm); background: rgba(125,154,108,.12); margin-bottom: var(--sp-3); display: none; }
+.dr-ok.show { display: block; }
+
+/* ── 新建法本 模态框（与 admin-users 同款） ──────── */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 110; display: flex; align-items: center; justify-content: center; padding: var(--sp-6); }
+.modal-backdrop.open { opacity: 1; pointer-events: auto; }
+.modal {
+  width: 100%; max-width: 480px;
+  background: #fff; border-radius: var(--r-lg);
+  box-shadow: 0 24px 60px rgba(0,0,0,.18);
+  transform: scale(.96); transition: transform .2s var(--ease);
+  display: flex; flex-direction: column; max-height: 90vh;
+}
+.modal-backdrop.open .modal { transform: scale(1); }
+.modal-head { display: flex; align-items: center; padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--border-light); }
+.modal-title { flex: 1; font-family: var(--font-serif); font-weight: 700; color: var(--ink); letter-spacing: 2px; }
+.modal-body { flex: 1; overflow-y: auto; padding: var(--sp-5); }
+.modal-foot { display: flex; justify-content: flex-end; gap: var(--sp-2); padding: var(--sp-4) var(--sp-5); border-top: 1px solid var(--border-light); background: rgba(43,34,24,.02); border-radius: 0 0 var(--r-lg) var(--r-lg); }
+
+/* ── 章 / 节 列表 ─────────────────────────────── */
+.cs-empty-mini {
+  padding: var(--sp-3) var(--sp-4); text-align: center;
+  color: var(--ink-4); font: var(--text-caption); letter-spacing: 1px;
+  background: rgba(43,34,24,.03); border-radius: var(--r-sm);
+}
+.cs-section-head {
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: var(--sp-2); margin-bottom: var(--sp-3);
+}
+.cs-section-head h4 { margin: 0; border: 0; padding: 0; }
+
+.cs-chapters { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cs-chapter {
+  background: rgba(43,34,24,.02);
+  border: 1px solid var(--border-light); border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.cs-ch-head {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 10px var(--sp-3);
+  background: rgba(255,255,255,.6);
+}
+.cs-ch-order {
+  flex-shrink: 0; min-width: 28px;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: .75rem; font-weight: 700;
+  color: var(--saffron-dark); letter-spacing: 1px;
+  background: var(--saffron-pale); padding: 2px 6px;
+  border-radius: var(--r-sm); text-align: center;
+}
+.cs-ch-title {
+  font-family: var(--font-serif); font-weight: 700;
+  color: var(--ink); letter-spacing: 1px; flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cs-ch-title-tc { color: var(--ink-3); font: var(--text-caption); letter-spacing: .5px; margin-left: 6px; }
+.cs-ch-count { font: var(--text-caption); color: var(--ink-3); letter-spacing: .5px; flex-shrink: 0; }
+.cs-ch-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.cs-ch-lessons {
+  padding: var(--sp-3);
+  border-top: 1px dashed var(--border-light);
+  background: rgba(255,255,255,.3);
+}
+
+.p-action-btn {
+  padding: 4px 10px; border-radius: var(--r-pill);
+  background: transparent; border: 1px solid var(--border);
+  color: var(--ink-3); font: var(--text-caption); font-weight: 600; letter-spacing: 1px;
+  cursor: pointer; transition: all var(--dur) var(--ease);
+}
+.p-action-btn:hover { border-color: var(--saffron); color: var(--saffron-dark); }
+.p-action-btn.danger:hover { border-color: var(--crimson); color: var(--crimson); }
+.p-action-btn[aria-busy="true"] { opacity: .5; pointer-events: none; }
+
+.cs-add-row { margin-top: var(--sp-2); display: flex; justify-content: center; }
+
+/* ── 课时列表（章下方）─────────────────────── */
+.cs-lessons {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.cs-lesson {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 6px 10px;
+  background: #fff; border: 1px solid var(--border-light);
+  border-radius: var(--r-sm);
+}
+.cs-lesson:hover { border-color: var(--saffron-light); }
+.cs-le-order {
+  flex-shrink: 0; min-width: 24px;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: .6875rem; font-weight: 600;
+  color: var(--ink-3); letter-spacing: .5px;
+  text-align: center;
+}
+.cs-le-title {
+  font: var(--text-caption); font-weight: 600; color: var(--ink);
+  letter-spacing: .5px; flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cs-le-meta {
+  font: var(--text-caption); color: var(--ink-4);
+  letter-spacing: .5px; font-size: .6875rem; flex-shrink: 0;
+}
+.cs-le-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.cs-add-lesson-row { margin-top: 8px; display: flex; justify-content: center; }
+
+/* ── 课时模态框（更宽，因为有大段 textarea） ── */
+.modal.modal-wide { max-width: 820px; }
+.modal.modal-x-wide { max-width: 1080px; max-height: 92vh; }
+
+/* ── 导入文件 模态框（F2.3） ───────────────────── */
+.im-step { display: none; }
+.im-step.active { display: block; }
+
+.im-drop {
+  border: 2px dashed var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-8) var(--sp-5);
+  text-align: center;
+  background: rgba(43,34,24,.02);
+  transition: all var(--dur) var(--ease);
+}
+.im-drop.dragover { border-color: var(--saffron); background: var(--saffron-pale); }
+.im-drop-hint { font: var(--text-body); color: var(--ink-3); letter-spacing: 1px; margin-bottom: var(--sp-3); }
+.im-drop-sub { font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px; margin-top: var(--sp-2); }
+
+.im-loading {
+  text-align: center; padding: var(--sp-8); color: var(--ink-3);
+  font: var(--text-body); letter-spacing: 1px;
+}
+.im-spinner {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 3px solid var(--border-light); border-top-color: var(--saffron);
+  margin: 0 auto var(--sp-3); animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.im-file-meta {
+  padding: var(--sp-3) var(--sp-4);
+  background: rgba(43,34,24,.03); border-radius: var(--r-sm);
+  font: var(--text-caption); color: var(--ink-2); letter-spacing: 1px;
+  margin-bottom: var(--sp-4);
+}
+.im-file-meta b { color: var(--ink); font-family: var(--font-serif); }
+
+.im-target { margin-bottom: var(--sp-4); }
+.im-target-row { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
+.im-target-row label { font: var(--text-caption); color: var(--ink-2); letter-spacing: 1px; cursor: pointer; }
+.im-target-row input[type="radio"] { width: 16px; height: 16px; accent-color: var(--saffron); }
+
+.im-target-fields { padding-left: 24px; display: none; }
+.im-target-fields.active { display: block; }
+.im-target-fields .cs-grid { margin-top: 8px; }
+
+.im-tree {
+  border: 1px solid var(--border-light); border-radius: var(--r-sm);
+  background: rgba(255,255,255,.5);
+  max-height: 50vh; overflow-y: auto;
+  padding: var(--sp-3);
+}
+.im-chapter {
+  background: #fff; border: 1px solid var(--border-light);
+  border-radius: var(--r-sm); margin-bottom: var(--sp-2);
+  overflow: hidden;
+}
+.im-ch-head {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 8px 10px; background: rgba(43,34,24,.03);
+  cursor: pointer;
+}
+.im-ch-toggle { flex-shrink: 0; width: 16px; transition: transform var(--dur) var(--ease); color: var(--ink-3); }
+.im-chapter.expanded .im-ch-toggle { transform: rotate(90deg); }
+.im-ch-order {
+  flex-shrink: 0; min-width: 28px;
+  font-family: 'SF Mono', Consolas, monospace;
+  font-size: .6875rem; font-weight: 700;
+  color: var(--saffron-dark); background: var(--saffron-pale);
+  padding: 2px 6px; border-radius: var(--r-sm); text-align: center;
+}
+.im-ch-title-input {
+  flex: 1; min-width: 0;
+  padding: 5px 8px; border-radius: var(--r-sm);
+  border: 1px solid transparent; background: transparent;
+  font: var(--text-caption); font-weight: 700; color: var(--ink);
+  letter-spacing: 1px; outline: none; font-family: inherit;
+}
+.im-ch-title-input:focus, .im-ch-title-input:hover { border-color: var(--border); background: #fff; }
+.im-ch-meta { font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px; flex-shrink: 0; }
+
+.im-ch-body { display: none; padding: var(--sp-2) var(--sp-3); }
+.im-chapter.expanded .im-ch-body { display: block; }
+
+.im-lesson {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; margin-bottom: 6px;
+  background: rgba(43,34,24,.02); border-radius: var(--r-sm);
+}
+.im-le-head { display: flex; align-items: center; gap: var(--sp-2); }
+.im-le-order {
+  flex-shrink: 0; min-width: 24px; font-family: 'SF Mono', Consolas, monospace;
+  font-size: .6875rem; color: var(--ink-3); text-align: center;
+}
+.im-le-title-input {
+  flex: 1; padding: 4px 8px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.im-le-title-input:focus { border-color: var(--saffron); }
+.im-le-text-input {
+  width: 100%; min-height: 80px; max-height: 30vh;
+  padding: 6px 8px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: .75rem; color: var(--ink); line-height: 1.6;
+  outline: none; resize: vertical;
+}
+.im-le-text-input:focus { border-color: var(--saffron); }
+.im-le-len { font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px; font-size: .6875rem; }
+.im-del-tiny {
+  flex-shrink: 0; width: 22px; height: 22px;
+  border-radius: 50%; border: 0; background: rgba(192,57,43,.08);
+  color: var(--crimson); cursor: pointer; font-size: .8rem;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.im-del-tiny:hover { background: var(--crimson-light); }
+
+/* F3.2 · URL 输入区 */
+.im-or {
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin: var(--sp-4) 0;
+  font: var(--text-caption); color: var(--ink-4); letter-spacing: 2px;
+}
+.im-or::before, .im-or::after {
+  content: ''; flex: 1; height: 1px; background: var(--border-light);
+}
+.im-url-row {
+  display: flex; gap: var(--sp-2); align-items: stretch;
+}
+.im-url-input {
+  flex: 1; padding: 8px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: #fff;
+  font: var(--text-caption); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
+}
+.im-url-input:focus { border-color: var(--saffron); }
+.im-url-hint {
+  font: var(--text-caption); color: var(--ink-4); letter-spacing: .5px;
+  margin-top: 6px; text-align: center;
+}
+.cs-field.le-textarea textarea {
+  min-height: 200px; max-height: 50vh;
+  font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+  font-size: .8125rem; line-height: 1.6;
+}
+.cs-field.le-textarea-sm textarea {
+  min-height: 120px;
+}
+</style>
+<meta name="jx-require-role" content="admin">
+<script src="../shared/desktop-mobile.js"></script>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/require-auth.js"></script>
+</head>
+<body>
+<div class="shell">
+
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </div>
+      <div>
+        <div class="brand-name"><span class="sc">觉学</span><span class="tc">覺學</span></div>
+        <div class="brand-sub"><span class="sc">管理员后台</span><span class="tc">管理員後台</span></div>
+      </div>
+    </div>
+
+    <div class="side-user">
+      <div class="side-avatar" data-jx-user="avatarInitial">—</div>
+      <div class="side-user-info">
+        <div class="side-user-name" data-jx-user="dharmaName">—</div>
+        <div class="side-user-role" data-jx-user="roleLabel">—</div>
+      </div>
+      <button type="button" id="btn-logout" title="退出登录" aria-label="退出登录"
+        style="margin-left:auto;background:none;border:0;color:var(--ink-3);cursor:pointer;padding:6px;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <nav class="nav-list" id="admin-nav"></nav>
+    <script src="../shared/admin-nav.js"></script>
+  </aside>
+
+  <main class="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="page-title"><span class="sc">法本管理</span><span class="tc">法本管理</span></h1>
+        <p class="page-sub"><span class="sc">论典 / 章 / 节 三级结构 · 含未发布</span><span class="tc">論典 / 章 / 節 三級結構 · 含未發佈</span></p>
+      </div>
+      <div class="top-actions">
+        <button class="btn-ghost-s" id="btn-import-file" title="导入 PDF / DOCX">
+          <span style="font-size:.85rem;margin-right:4px;">📄</span>
+          <span><span class="sc">导入文件</span><span class="tc">導入文件</span></span>
+        </button>
+        <button class="btn-new" id="btn-new-course">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span><span class="sc">新建法本</span><span class="tc">新建法本</span></span>
+        </button>
+        <button class="lang-btn" onclick="toggleLang()">繁</button>
+      </div>
+    </div>
+
+    <div class="cs-layout">
+      <!-- 左：法本列表 -->
+      <div class="cs-list-panel">
+        <div class="cs-list-head">
+          <h3><span class="sc">法本列表</span><span class="tc">法本列表</span></h3>
+          <span class="cs-list-count" id="cs-count">—</span>
+        </div>
+        <div id="cs-list-body">
+          <div style="padding:var(--sp-5);text-align:center;color:var(--ink-3);font:var(--text-caption);">
+            <span class="sc">加载中…</span><span class="tc">加載中…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：详情 / 编辑 -->
+      <div class="cs-detail-panel" id="cs-detail">
+        <div class="cs-detail-empty">
+          <span class="sc">← 选择左侧法本查看详情，或点 + 新建</span>
+          <span class="tc">← 選擇左側法本查看詳情，或點 + 新建</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 新建法本 模态框 -->
+<div class="modal-backdrop" id="new-backdrop">
+  <form class="modal" id="new-form" novalidate>
+    <div class="modal-head">
+      <span class="modal-title"><span class="sc">新建法本</span><span class="tc">新建法本</span></span>
+    </div>
+    <div class="modal-body">
+      <div class="dr-err" id="new-err"></div>
+      <div class="cs-grid">
+        <div class="cs-field full">
+          <label for="new-title"><span class="sc">书名（简体）</span><span class="tc">書名（簡體）</span><span class="req">*</span></label>
+          <input id="new-title" type="text" maxlength="120" required>
+        </div>
+        <div class="cs-field full">
+          <label for="new-titleTC"><span class="sc">书名（繁体）</span><span class="tc">書名（繁體）</span></label>
+          <input id="new-titleTC" type="text" maxlength="120">
+        </div>
+        <div class="cs-field">
+          <label for="new-slug">slug<span class="req">*</span></label>
+          <input id="new-slug" type="text" maxlength="80" pattern="[a-z0-9-]+" required>
+          <span class="hint"><span class="sc">URL 用 · 字母/数字/连字符</span><span class="tc">URL 用 · 字母/數字/連字符</span></span>
+        </div>
+        <div class="cs-field">
+          <label for="new-emoji"><span class="sc">封面 emoji</span><span class="tc">封面 emoji</span></label>
+          <input id="new-emoji" type="text" maxlength="8" placeholder="🪷">
+        </div>
+        <div class="cs-field full">
+          <label for="new-author"><span class="sc">作者 / 译者</span><span class="tc">作者 / 譯者</span></label>
+          <input id="new-author" type="text" maxlength="120">
+        </div>
+        <div class="cs-field full">
+          <label for="new-description"><span class="sc">简介</span><span class="tc">簡介</span></label>
+          <textarea id="new-description" maxlength="2000"></textarea>
+        </div>
+        <div class="cs-field">
+          <label for="new-displayOrder"><span class="sc">显示顺序</span><span class="tc">顯示順序</span></label>
+          <input id="new-displayOrder" type="number" min="0" value="0">
+          <span class="hint"><span class="sc">数字越小越靠前</span><span class="tc">數字越小越靠前</span></span>
+        </div>
+        <div class="cs-field">
+          <label class="cs-checkbox-row">
+            <input id="new-isPublished" type="checkbox" checked>
+            <span><span class="sc">已发布（学员可见）</span><span class="tc">已發佈（學員可見）</span></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost-s" id="new-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+      <button type="submit" class="btn-apply" id="new-submit"><span class="sc">创建</span><span class="tc">創建</span></button>
+    </div>
+  </form>
+</div>
+
+<!-- 导入文件 模态框（F2.3 · 上传 PDF/DOCX → 预览 → 提交） -->
+<div class="modal-backdrop" id="im-backdrop">
+  <div class="modal modal-x-wide">
+    <div class="modal-head">
+      <span class="modal-title" id="im-title"><span class="sc">导入法本</span><span class="tc">導入法本</span></span>
+    </div>
+    <div class="modal-body">
+      <div class="dr-err" id="im-err"></div>
+
+      <!-- 步骤 1 · 上传 -->
+      <div class="im-step active" id="im-step-upload">
+        <div class="im-drop" id="im-drop">
+          <div class="im-drop-hint"><span class="sc">点击或拖拽文件到此</span><span class="tc">點擊或拖拽文件到此</span></div>
+          <button type="button" class="btn-apply" id="im-pick"><span class="sc">选择文件</span><span class="tc">選擇文件</span></button>
+          <input type="file" id="im-file" accept=".pdf,.docx" style="display:none;">
+          <div class="im-drop-sub">
+            <span class="sc">支持 .pdf · .docx · 上限 20 MB · 扫描版 PDF 不支持 OCR</span>
+            <span class="tc">支持 .pdf · .docx · 上限 20 MB · 掃描版 PDF 不支持 OCR</span>
+          </div>
+        </div>
+
+        <div class="im-or"><span class="sc">或</span><span class="tc">或</span></div>
+
+        <div class="im-url-row">
+          <input type="url" class="im-url-input" id="im-url"
+            data-ph-sc="https://example.com/article 抓取网页正文"
+            data-ph-tc="https://example.com/article 抓取網頁正文"
+            placeholder="https://example.com/article 抓取网页正文">
+          <button type="button" class="btn-apply" id="im-fetch-url">
+            <span class="sc">抓取</span><span class="tc">抓取</span>
+          </button>
+        </div>
+        <div class="im-url-hint">
+          <span class="sc">仅 http/https · 8 MB / 12 秒上限 · 禁内网地址 · 不解析 SPA</span>
+          <span class="tc">僅 http/https · 8 MB / 12 秒上限 · 禁內網地址 · 不解析 SPA</span>
+        </div>
+
+        <div class="im-or"><span class="sc">或批量抓取（按模板）</span><span class="tc">或批量抓取（按模板）</span></div>
+
+        <div class="cs-grid" style="margin-bottom:8px;">
+          <div class="cs-field full">
+            <label for="im-batch-pattern"><span class="sc">URL 模板 或 URL 列表</span><span class="tc">URL 模板 或 URL 列表</span></label>
+            <textarea class="im-url-input" id="im-batch-pattern" rows="4" style="font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:.8125rem;"
+              placeholder="模板模式（一行 · 含 {n}）：
+https://mingguang.im/r/da-yuan-man-qian-xing-jiang-jie-di-{n}-ke/
+
+或 URL 列表模式（多行 · 一行一个 URL · 不含 {n}）：
+https://www.buli.page/zh-hans/view/lesson/abc123/text/
+https://www.buli.page/zh-hans/view/lesson/def456/text/
+...."></textarea>
+            <span class="hint">
+              <span class="sc">含 {n} → 模板模式 · 用 from/to 替换。多行 URL → 列表模式 · 忽略 from/to。</span>
+              <span class="tc">含 {n} → 模板模式。多行 URL → 列表模式。</span>
+            </span>
+          </div>
+          <div class="cs-field">
+            <label for="im-batch-from"><span class="sc">从</span><span class="tc">從</span></label>
+            <input class="im-url-input" id="im-batch-from" type="number" min="1" value="1">
+          </div>
+          <div class="cs-field">
+            <label for="im-batch-to"><span class="sc">到</span><span class="tc">到</span></label>
+            <input class="im-url-input" id="im-batch-to" type="number" min="1" value="10">
+          </div>
+          <div class="cs-field full">
+            <label for="im-batch-author"><span class="sc">作者 / 译者署名（可选）</span><span class="tc">作者 / 譯者署名（可選）</span></label>
+            <input class="im-url-input" id="im-batch-author" type="text"
+              placeholder="例：华智仁波切·造论 · 索达吉堪布·译讲">
+            <span class="hint"><span class="sc">提交导入时会写入 法本.作者 字段</span><span class="tc">提交導入時會寫入 法本.作者 欄位</span></span>
+          </div>
+          <div class="cs-field">
+            <label for="im-batch-delay"><span class="sc">间隔秒数</span><span class="tc">間隔秒數</span></label>
+            <input class="im-url-input" id="im-batch-delay" type="number" min="5" max="60" step="1" value="6">
+            <span class="hint"><span class="sc">默认 6 秒 · 强制最小 5 秒 · 大批量建议 10-15 秒</span><span class="tc">默認 6 秒 · 強制最小 5 秒</span></span>
+          </div>
+          <div class="cs-field">
+            <label for="im-batch-retry-delay"><span class="sc">重试时的间隔</span><span class="tc">重試時的間隔</span></label>
+            <input class="im-url-input" id="im-batch-retry-delay" type="number" min="5" max="60" step="1" value="10">
+            <span class="hint"><span class="sc">点 重试失败的 时使用</span><span class="tc">點 重試失敗的 時使用</span></span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button type="button" class="btn-apply" id="im-batch-start">
+            <span class="sc">开始批量抓取</span><span class="tc">開始批量抓取</span>
+          </button>
+          <button type="button" class="btn-ghost-s" id="im-batch-pause" style="display:none;">
+            <span class="sc">⏸ 暂停</span><span class="tc">⏸ 暫停</span>
+          </button>
+          <button type="button" class="btn-apply" id="im-batch-resume" style="display:none;">
+            <span class="sc">▶ 继续</span><span class="tc">▶ 繼續</span>
+          </button>
+          <button type="button" class="btn-danger" id="im-batch-cancel" style="display:none;">
+            <span class="sc">✕ 取消</span><span class="tc">✕ 取消</span>
+          </button>
+        </div>
+        <!-- 实时进度条 + 计数 + 当前 URL · 抓取过程中 / 完成后都显示 -->
+        <div id="im-batch-progress-box" style="display:none;margin-top:var(--sp-3);padding:var(--sp-3);background:rgba(43,34,24,.03);border-radius:var(--r-sm);">
+          <div style="display:flex;justify-content:space-between;font:var(--text-caption);color:var(--ink-2);letter-spacing:.5px;margin-bottom:6px;">
+            <span id="im-batch-progress-text">—</span>
+            <span id="im-batch-progress-stats" style="font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:.6875rem;">—</span>
+          </div>
+          <div style="height:6px;background:rgba(43,34,24,.1);border-radius:var(--r-pill);overflow:hidden;">
+            <div id="im-batch-progress-bar" style="height:100%;background:linear-gradient(90deg,var(--saffron),var(--saffron-dark));width:0%;transition:width .2s var(--ease);"></div>
+          </div>
+          <div id="im-batch-progress-current" style="font:var(--text-caption);color:var(--ink-4);font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:.6875rem;margin-top:6px;word-break:break-all;">—</div>
+        </div>
+        <span id="im-batch-progress" style="display:none;"></span><!-- 旧元素保留兼容 -->
+        <div class="im-url-hint">
+          <span class="sc">间隔强制 ≥ 5 秒（防被封 IP）· 启动会先预检 1 条 · 连续 5 条失败自动暂停</span>
+          <span class="tc">間隔強制 ≥ 5 秒（防被封 IP）· 啟動會先預檢 1 條 · 連續 5 條失敗自動暫停</span>
+        </div>
+
+        <!-- 失败列表 · 每次抓完显示 · admin 可重试或导出 -->
+        <div id="im-batch-failed" style="display:none;margin-top:var(--sp-3);padding:var(--sp-3);border:1px solid var(--crimson-light);border-radius:var(--r-sm);background:rgba(192,57,43,.04);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <strong style="font:var(--text-caption);color:var(--crimson);letter-spacing:1px;" id="im-batch-failed-title"></strong>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="p-action-btn" id="im-batch-retry">
+                <span class="sc">重试失败的</span><span class="tc">重試失敗的</span>
+              </button>
+              <button type="button" class="p-action-btn" id="im-batch-copy-failed">
+                <span class="sc">复制失败 URL</span><span class="tc">複製失敗 URL</span>
+              </button>
+              <button type="button" class="p-action-btn" id="im-batch-clear-failed">
+                <span class="sc">关闭</span><span class="tc">關閉</span>
+              </button>
+            </div>
+          </div>
+          <pre id="im-batch-failed-list" style="margin:0;font:var(--text-caption);font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:.6875rem;color:var(--ink-2);white-space:pre-wrap;word-break:break-all;max-height:160px;overflow-y:auto;"></pre>
+        </div>
+      </div>
+
+      <!-- 步骤 2 · 解析中 -->
+      <div class="im-step" id="im-step-parsing">
+        <div class="im-loading">
+          <div class="im-spinner"></div>
+          <span class="sc">正在解析文件…</span><span class="tc">正在解析文件…</span>
+        </div>
+      </div>
+
+      <!-- 步骤 3 · 预览 + 编辑 + 选目标 -->
+      <div class="im-step" id="im-step-preview">
+        <div class="im-file-meta" id="im-file-meta"></div>
+
+        <div class="im-target">
+          <div class="im-target-row">
+            <input type="radio" name="im-mode" id="im-mode-new" value="new" checked>
+            <label for="im-mode-new"><span class="sc">新建法本</span><span class="tc">新建法本</span></label>
+          </div>
+          <div class="im-target-fields active" id="im-fields-new">
+            <div class="cs-grid">
+              <div class="cs-field">
+                <label for="im-new-slug">slug<span class="req">*</span></label>
+                <input id="im-new-slug" type="text" maxlength="80" pattern="[a-z0-9-]+">
+              </div>
+              <div class="cs-field">
+                <label for="im-new-title"><span class="sc">书名</span><span class="tc">書名</span><span class="req">*</span></label>
+                <input id="im-new-title" type="text" maxlength="120">
+              </div>
+              <div class="cs-field full">
+                <label class="cs-checkbox-row">
+                  <input id="im-new-pub" type="checkbox">
+                  <span><span class="sc">立即发布（默认未发布，导入后再校对）</span><span class="tc">立即發佈（默認未發佈，導入後再校對）</span></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="im-target-row">
+            <input type="radio" name="im-mode" id="im-mode-append" value="append">
+            <label for="im-mode-append"><span class="sc">追加到现有法本</span><span class="tc">追加到現有法本</span></label>
+          </div>
+          <div class="im-target-fields" id="im-fields-append">
+            <div class="cs-field">
+              <label for="im-append-target"><span class="sc">目标法本</span><span class="tc">目標法本</span></label>
+              <select id="im-append-target"></select>
+              <span class="hint"><span class="sc">章节追加在末尾</span><span class="tc">章節追加在末尾</span></span>
+            </div>
+          </div>
+        </div>
+
+        <h4 style="font-family:var(--font-serif);font-weight:700;letter-spacing:2px;color:var(--ink);margin:0 0 8px;font-size:.875rem;">
+          <span class="sc">章节预览（可编辑标题 / 正文 / 删除）</span><span class="tc">章節預覽（可編輯標題 / 正文 / 刪除）</span>
+        </h4>
+        <div class="im-tree" id="im-tree"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost-s" id="im-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+      <button type="button" class="btn-ghost-s" id="im-back" style="display:none;"><span class="sc">← 重新上传</span><span class="tc">← 重新上傳</span></button>
+      <button type="button" class="btn-apply" id="im-submit" style="display:none;"><span class="sc">确认导入</span><span class="tc">確認導入</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- 课时 新建/编辑 模态框（mode=new|edit · F1.4） -->
+<div class="modal-backdrop" id="le-backdrop">
+  <form class="modal modal-wide" id="le-form" novalidate>
+    <div class="modal-head">
+      <span class="modal-title" id="le-modal-title"><span class="sc">课时</span><span class="tc">課時</span></span>
+    </div>
+    <div class="modal-body">
+      <div class="dr-err" id="le-err"></div>
+      <div class="cs-grid">
+        <div class="cs-field">
+          <label for="le-order"><span class="sc">序号</span><span class="tc">序號</span></label>
+          <input id="le-order" type="number" min="1">
+          <span class="hint"><span class="sc">留空 = 末尾追加</span><span class="tc">留空 = 末尾追加</span></span>
+        </div>
+        <div class="cs-field">
+          <label for="le-title"><span class="sc">课时名（简体）</span><span class="tc">課時名（簡體）</span><span class="req">*</span></label>
+          <input id="le-title" type="text" maxlength="200" required>
+        </div>
+        <div class="cs-field full">
+          <label for="le-titleTC"><span class="sc">课时名（繁体）</span><span class="tc">課時名（繁體）</span></label>
+          <input id="le-titleTC" type="text" maxlength="200">
+        </div>
+        <div class="cs-field full le-textarea">
+          <label for="le-reference"><span class="sc">原文 referenceText</span><span class="tc">原文 referenceText</span></label>
+          <textarea id="le-reference" maxlength="200000"></textarea>
+          <span class="hint"><span class="sc">最多 20 万字 · 法本正文</span><span class="tc">最多 20 萬字 · 法本正文</span></span>
+        </div>
+        <div class="cs-field full le-textarea-sm">
+          <label for="le-summary"><span class="sc">讲记摘要 teachingSummary</span><span class="tc">講記摘要 teachingSummary</span></label>
+          <textarea id="le-summary" maxlength="50000"></textarea>
+          <span class="hint"><span class="sc">最多 5 万字 · 老师讲解笔记</span><span class="tc">最多 5 萬字 · 老師講解筆記</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost-s" id="le-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+      <button type="submit" class="btn-apply" id="le-submit"><span class="sc">保存</span><span class="tc">保存</span></button>
+    </div>
+  </form>
+</div>
+
+<!-- 章节 新建/编辑 模态框（mode=new|edit） -->
+<div class="modal-backdrop" id="ch-backdrop">
+  <form class="modal" id="ch-form" novalidate>
+    <div class="modal-head">
+      <span class="modal-title" id="ch-modal-title"><span class="sc">章节</span><span class="tc">章節</span></span>
+    </div>
+    <div class="modal-body">
+      <div class="dr-err" id="ch-err"></div>
+      <div class="cs-grid">
+        <div class="cs-field">
+          <label for="ch-order"><span class="sc">序号</span><span class="tc">序號</span></label>
+          <input id="ch-order" type="number" min="1">
+          <span class="hint"><span class="sc">留空 = 末尾追加</span><span class="tc">留空 = 末尾追加</span></span>
+        </div>
+        <div class="cs-field">
+          <label for="ch-title"><span class="sc">章名（简体）</span><span class="tc">章名（簡體）</span><span class="req">*</span></label>
+          <input id="ch-title" type="text" maxlength="200" required>
+        </div>
+        <div class="cs-field full">
+          <label for="ch-titleTC"><span class="sc">章名（繁体）</span><span class="tc">章名（繁體）</span></label>
+          <input id="ch-titleTC" type="text" maxlength="200">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn-ghost-s" id="ch-cancel"><span class="sc">取消</span><span class="tc">取消</span></button>
+      <button type="submit" class="btn-apply" id="ch-submit"><span class="sc">保存</span><span class="tc">保存</span></button>
+    </div>
+  </form>
+</div>
+
+<script>
+// admin-courses · F1.2 阶段 · 法本列表 + 元数据 CRUD
+//   F1.3 接入 章节 CRUD（占位区已留）
+//   F1.4 接入 课时 CRUD + referenceText / teachingSummary
+var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
+
+var state = {
+  list: [],          // 法本概览数组
+  currentId: null,   // 当前选中
+};
+
+// ── 列表渲染 ────────────────────────────────────────
+function renderList() {
+  var body = document.getElementById('cs-list-body');
+  document.getElementById('cs-count').textContent = state.list.length + sc(' 本', ' 本');
+  if (!state.list.length) {
+    body.innerHTML = '<div style="padding:var(--sp-5);text-align:center;color:var(--ink-4);font:var(--text-caption);">' +
+      escapeHtml(sc('暂无法本，点击右上 + 新建', '暫無法本，點擊右上 + 新建')) + '</div>';
+    return;
+  }
+  body.innerHTML = state.list.map(function (c) {
+    var isActive = c.id === state.currentId;
+    var pub = c.isPublished
+      ? '<span class="cs-pub-pill on">' + sc('已发布', '已發佈') + '</span>'
+      : '<span class="cs-pub-pill off">' + sc('未发布', '未發佈') + '</span>';
+    return '<div class="cs-card' + (isActive ? ' active' : '') + '" data-id="' + escapeHtml(c.id) + '">' +
+      '<div class="cs-emoji">' + escapeHtml(c.coverEmoji || '🪷') + '</div>' +
+      '<div class="cs-info">' +
+        '<div class="cs-name">' + escapeHtml(c.title || '—') + '</div>' +
+        '<div class="cs-meta">' +
+          pub +
+          '<span>' + (c.chapterCount || 0) + sc(' 章', ' 章') + '</span>' +
+          '<span>' + (c.lessonCount || 0) + sc(' 节', ' 節') + '</span>' +
+          '<span>' + (c.enrollmentCount || 0) + sc(' 报名', ' 報名') + '</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  body.querySelectorAll('[data-id]').forEach(function (el) {
+    el.addEventListener('click', function () { selectCourse(el.getAttribute('data-id')); });
+  });
+}
+
+function fetchList() {
+  return window.JX.api.get('/api/admin/courses').then(function (data) {
+    state.list = data || [];
+    renderList();
+  }).catch(function (err) {
+    document.getElementById('cs-list-body').innerHTML =
+      '<div style="padding:var(--sp-5);text-align:center;color:var(--crimson);font:var(--text-caption);">' +
+      escapeHtml(sc('加载失败：', '加載失敗：') + ((err && err.message) || err)) + '</div>';
+  });
+}
+
+// ── 详情 / 元数据编辑 ─────────────────────────────
+function selectCourse(id) {
+  state.currentId = id;
+  // 更新左侧高亮
+  document.querySelectorAll('.cs-card').forEach(function (el) {
+    el.classList.toggle('active', el.getAttribute('data-id') === id);
+  });
+  renderDetail(id);
+}
+
+function renderDetail(id) {
+  var detail = document.getElementById('cs-detail');
+  detail.innerHTML = '<div class="cs-detail-empty"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>';
+  window.JX.api.get('/api/admin/courses/' + encodeURIComponent(id))
+    .then(function (data) {
+      state.currentTree = data;   // F1.3 章节会从这里读
+      detail.innerHTML = buildDetailForm(data);
+      bindDetailForm(data);
+    })
+    .catch(function (err) {
+      detail.innerHTML = '<div class="cs-detail-empty" style="color:var(--crimson);">' +
+        escapeHtml(sc('加载失败：', '加載失敗：') + ((err && err.message) || err)) + '</div>';
+    });
+}
+
+// ── 课时列表渲染（F1.4）─────────────────────
+function renderLessonsHtml(chapter) {
+  var lessons = chapter.lessons || [];
+  var addBtn = '<div class="cs-add-lesson-row">' +
+    '<button type="button" class="btn-ghost-s" data-add-lesson="' + escapeHtml(chapter.id) + '">+ ' +
+      sc('添加课时', '添加課時') + '</button>' +
+    '</div>';
+  if (!lessons.length) {
+    return '<div class="cs-empty-mini" style="margin-bottom:8px;">' +
+      escapeHtml(sc('暂无课时', '暫無課時')) + '</div>' + addBtn;
+  }
+  var rows = lessons.map(function (le) {
+    var refLen = (le.referenceText || '').length;
+    var tsLen  = (le.teachingSummary || '').length;
+    var meta = '';
+    if (refLen) meta += refLen + sc(' 字原文', ' 字原文');
+    if (tsLen)  meta += (meta ? ' · ' : '') + tsLen + sc(' 字讲记', ' 字講記');
+    if (!meta)  meta = sc('（空）', '（空）');
+    return ''
+      + '<div class="cs-lesson" data-lid="' + escapeHtml(le.id) + '">'
+      +   '<span class="cs-le-order">' + le.order + '</span>'
+      +   '<span class="cs-le-title">' + escapeHtml(le.title) + '</span>'
+      +   '<span class="cs-le-meta">' + escapeHtml(meta) + '</span>'
+      +   '<div class="cs-le-actions">'
+      +     '<button type="button" class="p-action-btn" data-edit-le="' + escapeHtml(le.id) + '">' + sc('编辑', '編輯') + '</button>'
+      +     '<button type="button" class="p-action-btn danger" data-del-le="' + escapeHtml(le.id) + '">' + sc('删除', '刪除') + '</button>'
+      +   '</div>'
+      + '</div>';
+  }).join('');
+  return '<div class="cs-lessons">' + rows + '</div>' + addBtn;
+}
+
+// ── 章节列表渲染（F1.3）─────────────────────
+// 每章一个卡片：[order] [title] [课时数] [编辑] [删除]
+// 章下面留 cs-ch-lessons 容器，F1.4 接入课时 CRUD
+function renderChaptersHtml(c) {
+  var chapters = c.chapters || [];
+  if (!chapters.length) {
+    return '<div class="cs-empty-mini">' +
+      escapeHtml(sc('暂无章节，点 + 添加章节 开始', '暫無章節，點 + 添加章節 開始')) + '</div>';
+  }
+  return '<div class="cs-chapters">' + chapters.map(function (ch) {
+    var lessonCount = (ch.lessons || []).length;
+    return ''
+      + '<div class="cs-chapter" data-cid="' + escapeHtml(ch.id) + '">'
+      +   '<div class="cs-ch-head">'
+      +     '<span class="cs-ch-order">' + ch.order + '</span>'
+      +     '<span class="cs-ch-title">' + escapeHtml(ch.title) +
+              (ch.titleTraditional ? '<span class="cs-ch-title-tc">/ ' + escapeHtml(ch.titleTraditional) + '</span>' : '') +
+            '</span>'
+      +     '<span class="cs-ch-count">' + lessonCount + sc(' 节', ' 節') + '</span>'
+      +     '<div class="cs-ch-actions">'
+      +       '<button type="button" class="p-action-btn" data-edit-ch="' + escapeHtml(ch.id) + '">' + sc('编辑', '編輯') + '</button>'
+      +       '<button type="button" class="p-action-btn danger" data-del-ch="' + escapeHtml(ch.id) + '">' + sc('删除', '刪除') + '</button>'
+      +     '</div>'
+      +   '</div>'
+      +   '<div class="cs-ch-lessons" data-lessons-of="' + escapeHtml(ch.id) + '">'
+      +     renderLessonsHtml(ch)
+      +   '</div>'
+      + '</div>';
+  }).join('') + '</div>';
+}
+
+function buildDetailForm(c) {
+  return ''
+    + '<div class="dr-err" id="d-err"></div>'
+    + '<div class="dr-ok" id="d-ok"></div>'
+    + '<form id="d-form">'
+    + '<div class="cs-section">'
+    + '<h4>' + sc('基本信息', '基本信息') + '</h4>'
+    + '<div class="cs-grid">'
+    +   '<div class="cs-field full"><label for="d-title">' + sc('书名（简体）', '書名（簡體）') + '<span class="req">*</span></label>'
+    +     '<input id="d-title" type="text" maxlength="120" value="' + escapeHtml(c.title || '') + '" required></div>'
+    +   '<div class="cs-field full"><label for="d-titleTC">' + sc('书名（繁体）', '書名（繁體）') + '</label>'
+    +     '<input id="d-titleTC" type="text" maxlength="120" value="' + escapeHtml(c.titleTraditional || '') + '"></div>'
+    +   '<div class="cs-field"><label for="d-slug">slug<span class="req">*</span></label>'
+    +     '<input id="d-slug" type="text" maxlength="80" pattern="[a-z0-9-]+" value="' + escapeHtml(c.slug || '') + '" required>'
+    +     '<span class="hint">' + sc('改 slug 会破坏外链', '改 slug 會破壞外鏈') + '</span></div>'
+    +   '<div class="cs-field"><label for="d-emoji">' + sc('封面 emoji', '封面 emoji') + '</label>'
+    +     '<input id="d-emoji" type="text" maxlength="8" value="' + escapeHtml(c.coverEmoji || '') + '"></div>'
+    +   '<div class="cs-field full"><label for="d-author">' + sc('作者 / 译者', '作者 / 譯者') + '</label>'
+    +     '<input id="d-author" type="text" maxlength="120" value="' + escapeHtml(c.author || '') + '"></div>'
+    +   '<div class="cs-field full"><label for="d-authorInfo">' + sc('作者介绍', '作者介紹') + '</label>'
+    +     '<textarea id="d-authorInfo" maxlength="2000">' + escapeHtml(c.authorInfo || '') + '</textarea></div>'
+    +   '<div class="cs-field full"><label for="d-description">' + sc('简介', '簡介') + '</label>'
+    +     '<textarea id="d-description" maxlength="2000">' + escapeHtml(c.description || '') + '</textarea></div>'
+    +   '<div class="cs-field full"><label for="d-licenseInfo">' + sc('版权信息', '版權信息') + '</label>'
+    +     '<input id="d-licenseInfo" type="text" maxlength="500" value="' + escapeHtml(c.licenseInfo || '') + '"></div>'
+    +   '<div class="cs-field"><label for="d-displayOrder">' + sc('显示顺序', '顯示順序') + '</label>'
+    +     '<input id="d-displayOrder" type="number" min="0" value="' + (c.displayOrder || 0) + '">'
+    +     '<span class="hint">' + sc('数字越小越靠前', '數字越小越靠前') + '</span></div>'
+    +   '<div class="cs-field"><label class="cs-checkbox-row">'
+    +     '<input id="d-isPublished" type="checkbox"' + (c.isPublished ? ' checked' : '') + '>'
+    +     '<span>' + sc('已发布（学员可见）', '已發佈（學員可見）') + '</span></label></div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="cs-section">'
+    + '<div class="cs-section-head">'
+    +   '<h4>' + sc('章节', '章節') + '</h4>'
+    +   '<button type="button" class="btn-ghost-s" id="btn-add-chapter">+ ' + sc('添加章节', '添加章節') + '</button>'
+    + '</div>'
+    + renderChaptersHtml(c)
+    + '</div>'
+    + '<div class="cs-actions">'
+    + '<div class="left">'
+    + '<button type="button" class="btn-danger" id="d-delete">' + sc('删除法本', '刪除法本') + '</button>'
+    + '</div>'
+    + '<div class="right">'
+    + '<button type="button" class="btn-ghost-s" id="d-reload">' + sc('重新加载', '重新加載') + '</button>'
+    + '<button type="submit" class="btn-apply" id="d-save">' + sc('保存元数据', '保存元數據') + '</button>'
+    + '</div>'
+    + '</div>'
+    + '</form>';
+}
+
+function flash(kind, msg) {
+  var ok = document.getElementById('d-ok');
+  var err = document.getElementById('d-err');
+  if (!ok || !err) return;
+  ok.classList.remove('show'); err.classList.remove('show');
+  if (!kind) return;
+  var el = kind === 'ok' ? ok : err;
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function bindDetailForm(c) {
+  var form = document.getElementById('d-form');
+  var saveBtn = document.getElementById('d-save');
+  var delBtn  = document.getElementById('d-delete');
+  var reload  = document.getElementById('d-reload');
+
+  reload.addEventListener('click', function () { renderDetail(c.id); });
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var patch = {};
+    function txt(id) { return (document.getElementById(id).value || '').trim(); }
+    function setIfChanged(field, newVal, oldVal, nullable) {
+      if (newVal === '' && nullable) { patch[field] = null; return; }
+      if (newVal === (oldVal || '')) return;
+      patch[field] = newVal;
+    }
+    setIfChanged('slug',             txt('d-slug'),         c.slug,             false);
+    setIfChanged('title',            txt('d-title'),        c.title,            false);
+    setIfChanged('titleTraditional', txt('d-titleTC'),      c.titleTraditional, true);
+    setIfChanged('coverEmoji',       txt('d-emoji') || '🪷', c.coverEmoji,       false);
+    setIfChanged('author',           txt('d-author'),       c.author,           true);
+    setIfChanged('authorInfo',       txt('d-authorInfo'),   c.authorInfo,       true);
+    setIfChanged('description',      txt('d-description'),  c.description,      true);
+    setIfChanged('licenseInfo',      txt('d-licenseInfo'),  c.licenseInfo,      true);
+    var order = parseInt(document.getElementById('d-displayOrder').value, 10);
+    if (!isNaN(order) && order !== c.displayOrder) patch.displayOrder = order;
+    var pub = document.getElementById('d-isPublished').checked;
+    if (pub !== c.isPublished) patch.isPublished = pub;
+
+    if (Object.keys(patch).length === 0) {
+      flash('ok', sc('未发现变更', '未發現變更'));
+      return;
+    }
+
+    saveBtn.setAttribute('aria-busy', 'true');
+    flash();
+    window.JX.api.patch('/api/admin/courses/' + encodeURIComponent(c.id), patch)
+      .then(function () {
+        return Promise.all([fetchList(), Promise.resolve()]).then(function () {
+          renderDetail(c.id);
+        });
+      })
+      .catch(function (err) {
+        flash('err', (err && err.message) || sc('保存失败', '保存失敗'));
+      })
+      .finally(function () { saveBtn.removeAttribute('aria-busy'); });
+  });
+
+  delBtn.addEventListener('click', function () {
+    if (!confirm(sc(
+      '确定删除「' + (c.title || c.slug) + '」？\n\n该操作仅在该法本无任何题目 / 班级 / 报名 / SM-2 卡引用时才能成功。\n如需下架，建议改用 已发布=否。',
+      '確定刪除「' + (c.title || c.slug) + '」？\n\n該操作僅在該法本無任何題目 / 班級 / 報名 / SM-2 卡引用時才能成功。\n如需下架，建議改用 已發佈=否。'
+    ))) return;
+    delBtn.setAttribute('aria-busy', 'true');
+    flash();
+    window.JX.api.del('/api/admin/courses/' + encodeURIComponent(c.id))
+      .then(function () {
+        state.currentId = null;
+        document.getElementById('cs-detail').innerHTML =
+          '<div class="cs-detail-empty"><span class="sc">已删除</span><span class="tc">已刪除</span></div>';
+        return fetchList();
+      })
+      .catch(function (err) {
+        flash('err', (err && err.message) || sc('删除失败', '刪除失敗'));
+      })
+      .finally(function () { delBtn.removeAttribute('aria-busy'); });
+  });
+
+  // ── 章节操作（F1.3）── 添加 / 编辑 / 删除
+  var addBtn = document.getElementById('btn-add-chapter');
+  if (addBtn) addBtn.addEventListener('click', function () { openChapterModal('new', c.id); });
+
+  document.querySelectorAll('[data-edit-ch]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var chid = btn.getAttribute('data-edit-ch');
+      var ch = (c.chapters || []).find(function (x) { return x.id === chid; });
+      if (ch) openChapterModal('edit', null, ch);
+    });
+  });
+
+  // ── 课时操作（F1.4）── 添加 / 编辑 / 删除（绑定通过 bindLessonActions）
+  bindLessonActions(c);
+
+  document.querySelectorAll('[data-del-ch]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var chid = btn.getAttribute('data-del-ch');
+      var ch = (c.chapters || []).find(function (x) { return x.id === chid; });
+      if (!ch) return;
+      var lessonCount = (ch.lessons || []).length;
+      var msgSC = '确定删除章「' + ch.title + '」？';
+      if (lessonCount > 0) {
+        msgSC += '\n该章下有 ' + lessonCount + ' 个课时，删除将级联删除所有课时。';
+      }
+      msgSC += '\n如该章关联了题目，会被后端拒绝。';
+      var msgTC = msgSC.replace(/章/g, '章').replace(/课时/g, '課時').replace(/级联/g, '級聯').replace(/关联/g, '關聯').replace(/拒绝/g, '拒絕');
+      if (!confirm(sc(msgSC, msgTC))) return;
+      btn.setAttribute('aria-busy', 'true');
+      flash();
+      window.JX.api.del('/api/admin/chapters/' + encodeURIComponent(chid))
+        .then(function () { renderDetail(c.id); fetchList(); })
+        .catch(function (err) {
+          flash('err', (err && err.message) || sc('删除失败', '刪除失敗'));
+        })
+        .finally(function () { btn.removeAttribute('aria-busy'); });
+    });
+  });
+}
+
+// ── 课时操作绑定（F1.4 · 在 bindDetailForm 内调用） ─────
+function bindLessonActions(c) {
+  // 工具：从树里找课时
+  function findLesson(lid) {
+    var found = null;
+    (c.chapters || []).some(function (ch) {
+      var f = (ch.lessons || []).find(function (x) { return x.id === lid; });
+      if (f) { found = f; return true; }
+      return false;
+    });
+    return found;
+  }
+
+  document.querySelectorAll('[data-add-lesson]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var chid = btn.getAttribute('data-add-lesson');
+      openLessonModal('new', chid);
+    });
+  });
+
+  document.querySelectorAll('[data-edit-le]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var le = findLesson(btn.getAttribute('data-edit-le'));
+      if (le) openLessonModal('edit', null, le);
+    });
+  });
+
+  document.querySelectorAll('[data-del-le]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var le = findLesson(btn.getAttribute('data-del-le'));
+      if (!le) return;
+      if (!confirm(sc(
+        '确定删除课时「' + le.title + '」？\n\n关联题目时会被后端拒绝。',
+        '確定刪除課時「' + le.title + '」？\n\n關聯題目時會被後端拒絕。'
+      ))) return;
+      btn.setAttribute('aria-busy', 'true');
+      flash();
+      window.JX.api.del('/api/admin/lessons/' + encodeURIComponent(le.id))
+        .then(function () { renderDetail(c.id); fetchList(); })
+        .catch(function (err) {
+          flash('err', (err && err.message) || sc('删除失败', '刪除失敗'));
+        })
+        .finally(function () { btn.removeAttribute('aria-busy'); });
+    });
+  });
+}
+
+// ── 课时模态框（F1.4 · 共用 new/edit）─────────────
+var leBackdrop, leForm, leErr, leSubmit, leTitle;
+
+function openLessonModal(mode, chapterId, lesson) {
+  if (!leBackdrop) return;
+  leForm.reset();
+  leErr.classList.remove('show');
+  leErr.textContent = '';
+  leForm.dataset.mode = mode;
+
+  if (mode === 'new') {
+    leForm.dataset.chapterId = chapterId;
+    leForm.dataset.lessonId = '';
+    leTitle.innerHTML = '<span class="sc">新建课时</span><span class="tc">新建課時</span>';
+    document.getElementById('le-order').value = '';
+    document.getElementById('le-title').value = '';
+    document.getElementById('le-titleTC').value = '';
+    document.getElementById('le-reference').value = '';
+    document.getElementById('le-summary').value = '';
+  } else {
+    leForm.dataset.chapterId = '';
+    leForm.dataset.lessonId = lesson.id;
+    leTitle.innerHTML = '<span class="sc">编辑课时</span><span class="tc">編輯課時</span>';
+    document.getElementById('le-order').value = lesson.order || '';
+    document.getElementById('le-title').value = lesson.title || '';
+    document.getElementById('le-titleTC').value = lesson.titleTraditional || '';
+    document.getElementById('le-reference').value = lesson.referenceText || '';
+    document.getElementById('le-summary').value = lesson.teachingSummary || '';
+  }
+  leBackdrop.classList.add('open');
+  setTimeout(function () { document.getElementById('le-title').focus(); }, 50);
+}
+function closeLessonModal() { leBackdrop.classList.remove('open'); }
+
+// ── 章节模态框（F1.3 · 共用 new/edit）──────────────
+var chBackdrop, chForm, chErr, chSubmit, chTitle;
+
+function openChapterModal(mode, courseId, chapter) {
+  if (!chBackdrop) return;
+  chForm.reset();
+  chErr.classList.remove('show');
+  chErr.textContent = '';
+  chForm.dataset.mode = mode;
+
+  if (mode === 'new') {
+    chForm.dataset.courseId = courseId;
+    chForm.dataset.chapterId = '';
+    chTitle.innerHTML = '<span class="sc">新建章节</span><span class="tc">新建章節</span>';
+    document.getElementById('ch-order').value = '';
+    document.getElementById('ch-title').value = '';
+    document.getElementById('ch-titleTC').value = '';
+  } else {
+    chForm.dataset.courseId = '';
+    chForm.dataset.chapterId = chapter.id;
+    chTitle.innerHTML = '<span class="sc">编辑章节</span><span class="tc">編輯章節</span>';
+    document.getElementById('ch-order').value = chapter.order || '';
+    document.getElementById('ch-title').value = chapter.title || '';
+    document.getElementById('ch-titleTC').value = chapter.titleTraditional || '';
+  }
+  chBackdrop.classList.add('open');
+  setTimeout(function () { document.getElementById('ch-title').focus(); }, 50);
+}
+function closeChapterModal() { chBackdrop.classList.remove('open'); }
+
+// ── 新建法本 模态框 ─────────────────────────────
+var newBackdrop, newForm, newErr, newSubmit;
+
+function openNew() {
+  if (!newBackdrop) return;
+  newForm.reset();
+  document.getElementById('new-isPublished').checked = true;
+  document.getElementById('new-emoji').value = '';
+  newErr.classList.remove('show');
+  newErr.textContent = '';
+  newBackdrop.classList.add('open');
+  setTimeout(function () { document.getElementById('new-title').focus(); }, 50);
+}
+function closeNew() { newBackdrop.classList.remove('open'); }
+
+document.addEventListener('DOMContentLoaded', function () {
+  newBackdrop = document.getElementById('new-backdrop');
+  newForm     = document.getElementById('new-form');
+  newErr      = document.getElementById('new-err');
+  newSubmit   = document.getElementById('new-submit');
+
+  chBackdrop = document.getElementById('ch-backdrop');
+  chForm     = document.getElementById('ch-form');
+  chErr      = document.getElementById('ch-err');
+  chSubmit   = document.getElementById('ch-submit');
+  chTitle    = document.getElementById('ch-modal-title');
+
+  leBackdrop = document.getElementById('le-backdrop');
+  leForm     = document.getElementById('le-form');
+  leErr      = document.getElementById('le-err');
+  leSubmit   = document.getElementById('le-submit');
+  leTitle    = document.getElementById('le-modal-title');
+
+  document.getElementById('btn-new-course').addEventListener('click', openNew);
+  document.getElementById('new-cancel').addEventListener('click', closeNew);
+  newBackdrop.addEventListener('click', function (ev) {
+    if (ev.target === newBackdrop) closeNew();
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    if (newBackdrop.classList.contains('open')) closeNew();
+    if (chBackdrop.classList.contains('open'))  closeChapterModal();
+    if (leBackdrop.classList.contains('open'))  closeLessonModal();
+  });
+
+  // 章节模态框 关闭
+  document.getElementById('ch-cancel').addEventListener('click', closeChapterModal);
+  chBackdrop.addEventListener('click', function (ev) {
+    if (ev.target === chBackdrop) closeChapterModal();
+  });
+
+  // 章节模态框 提交（共用 new / edit）
+  chForm.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var mode      = chForm.dataset.mode;
+    var courseId  = chForm.dataset.courseId;
+    var chapterId = chForm.dataset.chapterId;
+    var orderRaw  = document.getElementById('ch-order').value;
+    var title     = document.getElementById('ch-title').value.trim();
+    var titleTC   = document.getElementById('ch-titleTC').value.trim();
+
+    if (!title) {
+      chErr.textContent = sc('请填写章名', '請填寫章名');
+      chErr.classList.add('show');
+      return;
+    }
+    var body = { title: title };
+    if (orderRaw) body.order = parseInt(orderRaw, 10);
+    if (mode === 'new') {
+      // create: titleTC 空就不传（service 会写 null）
+      if (titleTC) body.titleTraditional = titleTC;
+    } else {
+      // edit: titleTC 空 = 显式置 null
+      body.titleTraditional = titleTC || null;
+    }
+
+    chSubmit.setAttribute('aria-busy', 'true');
+    chErr.classList.remove('show');
+
+    var p = mode === 'new'
+      ? window.JX.api.post('/api/admin/courses/' + encodeURIComponent(courseId) + '/chapters', body)
+      : window.JX.api.patch('/api/admin/chapters/' + encodeURIComponent(chapterId), body);
+
+    p.then(function () {
+      closeChapterModal();
+      // 重新加载当前法本树（章节变了）
+      if (state.currentId) renderDetail(state.currentId);
+      // 列表里的章节计数也会变 → 刷新左栏
+      fetchList();
+    })
+    .catch(function (err) {
+      chErr.textContent = (err && err.message) || sc('保存失败', '保存失敗');
+      chErr.classList.add('show');
+    })
+    .finally(function () { chSubmit.removeAttribute('aria-busy'); });
+  });
+
+  // ── 课时模态框（F1.4）─────────────
+  document.getElementById('le-cancel').addEventListener('click', closeLessonModal);
+  leBackdrop.addEventListener('click', function (ev) {
+    if (ev.target === leBackdrop) closeLessonModal();
+  });
+
+  leForm.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var mode      = leForm.dataset.mode;
+    var chapterId = leForm.dataset.chapterId;
+    var lessonId  = leForm.dataset.lessonId;
+    var orderRaw  = document.getElementById('le-order').value;
+    var title     = document.getElementById('le-title').value.trim();
+    var titleTC   = document.getElementById('le-titleTC').value.trim();
+    var refText   = document.getElementById('le-reference').value;   // 不 trim · 保留学员看到的格式
+    var summary   = document.getElementById('le-summary').value;
+
+    if (!title) {
+      leErr.textContent = sc('请填写课时名', '請填寫課時名');
+      leErr.classList.add('show');
+      return;
+    }
+    var body = { title: title };
+    if (orderRaw) body.order = parseInt(orderRaw, 10);
+    if (mode === 'new') {
+      if (titleTC) body.titleTraditional = titleTC;
+      if (refText) body.referenceText = refText;
+      if (summary) body.teachingSummary = summary;
+    } else {
+      // edit: 空值 = 显式置 null（清空字段）
+      body.titleTraditional = titleTC || null;
+      body.referenceText    = refText || null;
+      body.teachingSummary  = summary || null;
+    }
+
+    leSubmit.setAttribute('aria-busy', 'true');
+    leErr.classList.remove('show');
+
+    var p = mode === 'new'
+      ? window.JX.api.post('/api/admin/chapters/' + encodeURIComponent(chapterId) + '/lessons', body)
+      : window.JX.api.patch('/api/admin/lessons/' + encodeURIComponent(lessonId), body);
+
+    p.then(function () {
+      closeLessonModal();
+      if (state.currentId) renderDetail(state.currentId);
+      fetchList();
+    })
+    .catch(function (err) {
+      leErr.textContent = (err && err.message) || sc('保存失败', '保存失敗');
+      leErr.classList.add('show');
+    })
+    .finally(function () { leSubmit.removeAttribute('aria-busy'); });
+  });
+
+  // ── 导入文件 模态框（F2.3）─────────────────
+  bindImportModal();
+
+  newForm.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var slug  = document.getElementById('new-slug').value.trim().toLowerCase();
+    var title = document.getElementById('new-title').value.trim();
+    if (!slug || !title) {
+      newErr.textContent = sc('请填写 slug 和书名', '請填寫 slug 和書名');
+      newErr.classList.add('show');
+      return;
+    }
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      newErr.textContent = sc('slug 只能含字母 / 数字 / 连字符', 'slug 只能含字母 / 數字 / 連字符');
+      newErr.classList.add('show');
+      return;
+    }
+    var body = {
+      slug: slug, title: title,
+      titleTraditional: document.getElementById('new-titleTC').value.trim() || undefined,
+      author:           document.getElementById('new-author').value.trim()  || undefined,
+      description:      document.getElementById('new-description').value.trim() || undefined,
+      coverEmoji:       document.getElementById('new-emoji').value.trim() || '🪷',
+      displayOrder:     parseInt(document.getElementById('new-displayOrder').value, 10) || 0,
+      isPublished:      document.getElementById('new-isPublished').checked,
+    };
+    Object.keys(body).forEach(function (k) { if (body[k] === undefined) delete body[k]; });
+
+    newSubmit.setAttribute('aria-busy', 'true');
+    newErr.classList.remove('show');
+    window.JX.api.post('/api/admin/courses', body)
+      .then(function (resp) {
+        closeNew();
+        return fetchList().then(function () {
+          if (resp && resp.id) selectCourse(resp.id);
+        });
+      })
+      .catch(function (err) {
+        var code = err && err.code;
+        var msg = (err && err.message) || sc('创建失败', '創建失敗');
+        if (code === 'CONFLICT') msg = sc('slug 已被占用', 'slug 已被佔用');
+        newErr.textContent = msg;
+        newErr.classList.add('show');
+      })
+      .finally(function () { newSubmit.removeAttribute('aria-busy'); });
+  });
+});
+
+// ── 导入文件 模态框（F2.3）──────────────────
+// 三步：upload → parsing → preview · admin 编辑预览 → commit
+state.importPreview = null;   // { source, filename, charCount, chapters }
+
+function imShowStep(step) {
+  ['upload', 'parsing', 'preview'].forEach(function (s) {
+    var el = document.getElementById('im-step-' + s);
+    if (el) el.classList.toggle('active', s === step);
+  });
+  document.getElementById('im-back').style.display   = step === 'preview' ? '' : 'none';
+  document.getElementById('im-submit').style.display = step === 'preview' ? '' : 'none';
+}
+
+function imOpen() {
+  state.importPreview = null;
+  state.importBatchAuthor = null;
+  state.importBatchFailed = [];
+  state.batchControl = { status: 'idle' };
+  document.getElementById('im-err').classList.remove('show');
+  document.getElementById('im-err').textContent = '';
+  document.getElementById('im-file').value = '';
+  var urlInput = document.getElementById('im-url');
+  if (urlInput) urlInput.value = '';
+  // 批量字段不重置 · admin 可能想连续多次用同一模板
+  var progBox = document.getElementById('im-batch-progress-box');
+  if (progBox) progBox.style.display = 'none';
+  var failedBox = document.getElementById('im-batch-failed');
+  if (failedBox) failedBox.style.display = 'none';
+  imRenderBatchControlButtons();
+  imShowStep('upload');
+  document.getElementById('im-backdrop').classList.add('open');
+}
+function imClose() {
+  document.getElementById('im-backdrop').classList.remove('open');
+}
+function imErr(msg) {
+  var el = document.getElementById('im-err');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+// F3.2 · 抓取 URL · 走 api.post（JSON）
+function imFetchUrl(url) {
+  if (!url || !/^https?:\/\//i.test(url)) {
+    imErr(sc('请填写 http/https URL', '請填寫 http/https URL'));
+    return;
+  }
+  imShowStep('parsing');
+  document.getElementById('im-err').classList.remove('show');
+
+  window.JX.api.post('/api/admin/courses/import-url/preview', { url: url })
+    .then(function (data) {
+      state.importPreview = data;
+      imRenderPreview();
+      imShowStep('preview');
+    })
+    .catch(function (err) {
+      imShowStep('upload');
+      imErr((err && err.message) || sc('抓取失败', '抓取失敗'));
+    });
+}
+
+// F3 · 批量按模板抓取 · 串行 · 每条间隔 1.5s · 全部走现有 /import-url/preview
+//   pattern 内的 {n} 替换为 from..to · 抓到的每篇正文 → 一个 Chapter
+//   失败的累积到 state.importBatchFailed · admin 可点 重试失败的 / 复制 URL
+function imBatchFetch() {
+  var raw = document.getElementById('im-batch-pattern').value.trim();
+  // 拆行 · 去空行
+  var lines = raw.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+  if (lines.length === 0) {
+    imErr(sc('URL 模板或 URL 列表必填', 'URL 模板或 URL 列表必填'));
+    return;
+  }
+
+  var urls = [];
+
+  // 自动模式识别：
+  //   一行且含 {n} → 模板模式 + from/to
+  //   多行 + 全是 http/https URL → 列表模式
+  //   一行不含 {n} → 报错（让用户填 {n} 或贴更多）
+  var hasTemplate = lines.some(function (l) { return l.indexOf('{n}') >= 0; });
+
+  if (hasTemplate) {
+    // 模板模式 · 只取第一行有 {n} 的（防止用户贴多行模板混淆）
+    var pattern = lines.find(function (l) { return l.indexOf('{n}') >= 0; });
+    var from = parseInt(document.getElementById('im-batch-from').value, 10);
+    var to   = parseInt(document.getElementById('im-batch-to').value, 10);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || from < 1 || to < from) {
+      imErr(sc('from / to 不合法 · 模板模式需填范围', 'from / to 不合法'));
+      return;
+    }
+    for (var n = from; n <= to; n++) urls.push(pattern.replace(/\{n\}/g, String(n)));
+  } else {
+    // 列表模式 · 验证每行都是合法 URL
+    var bad = lines.filter(function (l) { return !/^https?:\/\//i.test(l); });
+    if (bad.length) {
+      imErr(sc(
+        'URL 列表模式：每行必须是 http/https URL。\n问题行：\n' + bad.slice(0, 3).join('\n'),
+        'URL 列表模式：每行必須是 http/https URL'
+      ));
+      return;
+    }
+    urls = lines;
+  }
+
+  var total = urls.length;
+  if (total > 300) {
+    imErr(sc('单批最多 300 条 · 当前 ' + total + ' · 请分批跑',
+             '單批最多 300 條 · 當前 ' + total));
+    return;
+  }
+  // 计算预计时长（按用户选的间隔 + 强制最小 5s）
+  var sec = parseFloat(document.getElementById('im-batch-delay').value || '2');
+  if (!isFinite(sec) || sec < 5) sec = 5;   // 强制最小 5s · 防再被封
+  var estMin = Math.ceil(total * (sec + 1) / 60);
+  if (!confirm(sc(
+    '将串行抓取 ' + total + ' 条 URL（每条间隔 ≥ ' + sec + ' 秒，预计 ' + estMin + ' 分钟）。\n\n首先会预检 1 条确认源站可达。\n开始？',
+    '將串行抓取 ' + total + ' 條 URL，預計 ' + estMin + ' 分鐘'
+  ))) return;
+
+  // ③ 健康预检 · 先抓第一条，失败就警告别浪费时间
+  document.getElementById('im-err').classList.remove('show');
+  document.getElementById('im-batch-progress-box').style.display = '';
+  document.getElementById('im-batch-progress-text').textContent = sc('预检中…', '預檢中…');
+  document.getElementById('im-batch-progress-current').textContent = urls[0];
+
+  window.JX.api.post('/api/admin/courses/import-url/preview', { url: urls[0] })
+    .then(function () {
+      // 预检通过 · 启动批量抓取（注意 urls[0] 第一条需要再抓一次因为这次没存）
+      imBatchFetchUrls(urls, /* isRetry */ false);
+    })
+    .catch(function (err) {
+      document.getElementById('im-batch-progress-box').style.display = 'none';
+      var msg = (err && err.message) || sc('未知错误', '未知錯誤');
+      imErr(sc(
+        '⚠ 预检失败 · 源站可能不可达或封禁了你的 IP\n\n错误：' + msg + '\n\n建议：\n  · 等 1-2 小时后再试\n  · 或换网络 / 等服务器 IP 解封\n  · 单 URL 输入框直接试 1 条看具体原因',
+        '⚠ 預檢失敗 · 源站可能不可達\n\n錯誤：' + msg
+      ));
+    });
+}
+
+// 核心循环：串行抓 urls 数组 · 失败的累积 · 支持暂停/取消
+//   isRetry=true 时复用之前 state.importPreview.chapters · 累加新成功的章
+//   delayMs：每条间隔（毫秒）· 默认从 #im-batch-delay 读
+//   防并发：用 batchToken · 旧 closure 在每次 step 前检查自己的 token
+//          被新一轮覆盖时，旧 closure 立即退出，不再写 DOM
+//
+// 保护机制
+//   ① 强制最小间隔 5s（防再次触发反爬封 IP）
+//   ② 连续 5 条失败 → 自动暂停 + 提示用户（多半被限流/封禁）
+//   ③ 启动时健康预检 1 条试试 · 失败先警告
+state.batchToken = state.batchToken || 0;
+var BATCH_MIN_DELAY_MS = 5000;
+var BATCH_FAILURE_BREAK_AT = 5;
+
+function imBatchFetchUrls(urls, isRetry, delayMs) {
+  document.getElementById('im-err').classList.remove('show');
+  state.batchToken = (state.batchToken || 0) + 1;
+  var myToken = state.batchToken;
+  state.batchControl = { status: 'running' };
+  imRenderBatchControlButtons();
+
+  // 间隔默认从 UI 读
+  if (typeof delayMs !== 'number' || !isFinite(delayMs) || delayMs < 500) {
+    var sec = parseFloat(document.getElementById('im-batch-delay').value || '2');
+    if (!isFinite(sec) || sec < 0.5) sec = 2;
+    delayMs = Math.round(sec * 1000);
+  }
+  // ① 强制最小间隔 · 用户填得再短也至少 5s
+  if (delayMs < BATCH_MIN_DELAY_MS) {
+    delayMs = BATCH_MIN_DELAY_MS;
+  }
+
+  var collected = isRetry && state.importPreview && state.importPreview.chapters
+    ? state.importPreview.chapters.slice()
+    : [];
+  var failed = isRetry ? [] : []; // 重试模式下旧失败已被替换
+  state.importBatchFailed = failed;
+  imRenderBatchFailedBox();
+
+  var i = 0;
+  var total = urls.length;
+  var successCount = 0;
+  var consecutiveFailures = 0;   // ② 熔断计数
+
+  // 显示进度框
+  document.getElementById('im-batch-progress-box').style.display = '';
+
+  function updateProgress(current) {
+    document.getElementById('im-batch-progress-text').textContent =
+      sc('抓取中', '抓取中') + ' ' + (i + (current === undefined ? 0 : 0)) + ' / ' + total;
+    document.getElementById('im-batch-progress-stats').textContent =
+      '✓ ' + successCount + ' · ✗ ' + failed.length;
+    var pct = Math.round((i / total) * 100);
+    document.getElementById('im-batch-progress-bar').style.width = pct + '%';
+    if (current) {
+      document.getElementById('im-batch-progress-current').textContent = current;
+    }
+  }
+
+  function finalize() {
+    state.batchControl = { status: 'idle' };
+    imRenderBatchControlButtons();
+    state.importBatchFailed = failed;
+    imRenderBatchFailedBox();
+    updateProgress();   // 把进度刷到最终
+    document.getElementById('im-batch-progress-text').textContent =
+      sc('完成', '完成') + ' · ' + i + ' / ' + total;
+
+    if (collected.length === 0) {
+      imErr(sc('未获得任何内容 · 失败 ' + failed.length + ' · 见下方失败列表',
+               '未獲得任何內容'));
+      return;
+    }
+    var author = document.getElementById('im-batch-author').value.trim();
+    state.importPreview = {
+      source: 'text',
+      filename: '批量抓取 (' + collected.length + ' 课)',
+      charCount: collected.reduce(function (s, c) {
+        return s + c.lessons.reduce(function (s2, l) { return s2 + (l.referenceText || '').length; }, 0);
+      }, 0),
+      chapters: collected,
+    };
+    if (author) state.importBatchAuthor = author;
+    imRenderPreview();
+    imShowStep('preview');
+  }
+
+  function step() {
+    // 已被新一轮覆盖 · 旧 closure 自杀（不再写 DOM 不再调 fetch）
+    if (state.batchToken !== myToken) return;
+    // 取消 → 立即结束（已抓的进入预览）
+    if (state.batchControl.status === 'cancelled') { finalize(); return; }
+    // 暂停 → 250ms 后再检查
+    if (state.batchControl.status === 'paused') { setTimeout(step, 250); return; }
+    // 抓完所有
+    if (i >= total) { finalize(); return; }
+
+    var url = urls[i];
+    updateProgress(url);
+
+    window.JX.api.post('/api/admin/courses/import-url/preview', { url: url })
+      .then(function (data) {
+        // closure 已被覆盖 · 不写 closure 内变量
+        if (state.batchToken !== myToken) return;
+        if (data && Array.isArray(data.chapters) && data.chapters.length) {
+          var chTitle = data.filename || url;
+          if (data.chapters.length === 1 && data.chapters[0].lessons.length === 1) {
+            collected.push({
+              title: chTitle,
+              lessons: [{
+                title: chTitle,
+                referenceText: data.chapters[0].lessons[0].referenceText || '',
+              }],
+            });
+          } else {
+            data.chapters.forEach(function (ch) { collected.push(ch); });
+          }
+          successCount++;
+          consecutiveFailures = 0;   // 成功一条 · 重置熔断计数
+        } else {
+          failed.push({ url: url, err: '空内容' });
+          consecutiveFailures++;
+          imRenderBatchFailedBox();   // 实时更新失败列表
+        }
+      })
+      .catch(function (err) {
+        if (state.batchToken !== myToken) return;
+        failed.push({ url: url, err: (err && err.message) || String(err) });
+        consecutiveFailures++;
+        imRenderBatchFailedBox();   // 实时更新
+      })
+      .finally(function () {
+        if (state.batchToken !== myToken) return;
+        i++;
+        updateProgress();
+        // ② 连续失败熔断
+        if (consecutiveFailures >= BATCH_FAILURE_BREAK_AT && state.batchControl.status === 'running') {
+          state.batchControl.status = 'paused';
+          imRenderBatchControlButtons();
+          imErr(sc(
+            '已连续失败 ' + consecutiveFailures + ' 条 · 已自动暂停。\n\n可能原因：源站限流、IP 被封、网络抖动。\n建议：\n  · 增大「间隔秒数」到 10-15 秒\n  · 或停手 1-2 小时再来\n点 ▶ 继续 恢复 · 或 ✕ 取消 终止。',
+            '已連續失敗 ' + consecutiveFailures + ' 條 · 已自動暫停。'
+          ));
+          consecutiveFailures = 0;   // 重置 · 用户继续后再开始计
+        }
+        // 取消优先 · 否则按可配置间隔
+        if (state.batchControl.status === 'cancelled') { finalize(); return; }
+        setTimeout(step, delayMs);
+      });
+  }
+  step();
+}
+
+// 控制按钮显隐：根据 batchControl.status
+function imRenderBatchControlButtons() {
+  var s = (state.batchControl || { status: 'idle' }).status;
+  var startBtn = document.getElementById('im-batch-start');
+  // idle 时显示开始；running/paused 时彻底隐藏（防双击）
+  startBtn.style.display  = s === 'idle' ? '' : 'none';
+  startBtn.disabled = (s !== 'idle');
+  document.getElementById('im-batch-pause').style.display  = s === 'running' ? '' : 'none';
+  document.getElementById('im-batch-resume').style.display = s === 'paused' ? '' : 'none';
+  document.getElementById('im-batch-cancel').style.display = (s === 'running' || s === 'paused') ? '' : 'none';
+  // 重试按钮也禁用避免新建并发
+  var retryBtn = document.getElementById('im-batch-retry');
+  if (retryBtn) retryBtn.disabled = (s !== 'idle');
+}
+
+function imBatchPause() {
+  if (state.batchControl && state.batchControl.status === 'running') {
+    state.batchControl.status = 'paused';
+    imRenderBatchControlButtons();
+  }
+}
+
+function imBatchResume() {
+  if (state.batchControl && state.batchControl.status === 'paused') {
+    state.batchControl.status = 'running';
+    imRenderBatchControlButtons();
+  }
+}
+
+function imBatchCancel() {
+  if (!state.batchControl || state.batchControl.status === 'idle') return;
+  if (!confirm(sc(
+    '确定取消批量抓取？\n已成功抓取的内容会保留进入预览。',
+    '確定取消批量抓取？\n已成功抓取的內容會保留進入預覽。'
+  ))) return;
+  state.batchControl.status = 'cancelled';
+  imRenderBatchControlButtons();
+}
+
+// 显示失败列表区 + 绑定按钮（仅一次）· retry/copy/clear 三按钮
+function imRenderBatchFailedBox() {
+  var box   = document.getElementById('im-batch-failed');
+  var title = document.getElementById('im-batch-failed-title');
+  var list  = document.getElementById('im-batch-failed-list');
+  var failed = state.importBatchFailed || [];
+  if (!failed.length) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = '';
+  title.textContent = sc('失败 ' + failed.length + ' 条', '失敗 ' + failed.length + ' 條');
+  list.textContent = failed.map(function (f) {
+    return f.url + '\n  → ' + (f.err || '未知错误');
+  }).join('\n\n');
+}
+
+function imBatchRetryFailed() {
+  var failed = state.importBatchFailed || [];
+  if (!failed.length) return;
+  // 重试用更慢的间隔（默认 5s · 给被限流的源站缓口气）
+  var retrySec = parseFloat(document.getElementById('im-batch-retry-delay').value || '5');
+  if (!isFinite(retrySec) || retrySec < 1) retrySec = 5;
+  var retryMs = Math.round(retrySec * 1000);
+  if (!confirm(sc(
+    '将重试 ' + failed.length + ' 条失败 URL（每条间隔 ' + retrySec + ' 秒，约 ' +
+      Math.ceil(failed.length * retrySec / 60) + ' 分钟）。\n开始？',
+    '將重試 ' + failed.length + ' 條失敗 URL'
+  ))) return;
+  var urls = failed.map(function (f) { return f.url; });
+  state.importBatchFailed = [];
+  imBatchFetchUrls(urls, /* isRetry */ true, retryMs);
+}
+
+function imBatchCopyFailed() {
+  var failed = state.importBatchFailed || [];
+  if (!failed.length) return;
+  var text = failed.map(function (f) { return f.url; }).join('\n');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function () {
+      alert(sc('已复制 ' + failed.length + ' 条 URL 到剪贴板', '已複製 ' + failed.length + ' 條'));
+    }, function () {
+      // fallback：旧浏览器
+      window.prompt(sc('请手动复制：', '請手動複製：'), text);
+    });
+  } else {
+    window.prompt(sc('请手动复制：', '請手動複製：'), text);
+  }
+}
+
+function imBatchClearFailed() {
+  state.importBatchFailed = [];
+  imRenderBatchFailedBox();
+}
+
+// 上传文件 · 走 raw fetch（api.js 是 JSON-only，不能传 multipart）
+function imUpload(file) {
+  if (!file) return;
+  if (!/\.(pdf|docx)$/i.test(file.name)) {
+    imErr(sc('仅支持 .pdf / .docx', '僅支持 .pdf / .docx'));
+    return;
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    imErr(sc('文件超过 20 MB 上限', '文件超過 20 MB 上限'));
+    return;
+  }
+  imShowStep('parsing');
+  document.getElementById('im-err').classList.remove('show');
+
+  var fd = new FormData();
+  fd.append('file', file);
+  var base = (window.JX && window.JX.API_BASE) || '';
+  fetch(base + '/api/admin/courses/import-file/preview', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + window.JX.api.getAccessToken() },
+    body: fd,
+  }).then(function (res) {
+    return res.json().then(function (json) { return { res: res, json: json }; });
+  }).then(function (r) {
+    if (!r.res.ok) {
+      imShowStep('upload');
+      imErr((r.json && r.json.message) || sc('解析失败', '解析失敗'));
+      return;
+    }
+    state.importPreview = r.json.data;
+    imRenderPreview();
+    imShowStep('preview');
+  }).catch(function (err) {
+    imShowStep('upload');
+    imErr((err && err.message) || sc('上传失败', '上傳失敗'));
+  });
+}
+
+function imRenderPreview() {
+  var pv = state.importPreview;
+  if (!pv) return;
+
+  // 文件元信息
+  var totalLessons = pv.chapters.reduce(function (s, ch) { return s + (ch.lessons || []).length; }, 0);
+  document.getElementById('im-file-meta').innerHTML =
+    '<b>' + escapeHtml(pv.filename) + '</b> · ' + pv.source.toUpperCase() + ' · ' +
+    pv.charCount + sc(' 字 · ', ' 字 · ') + pv.chapters.length + sc(' 章 · ', ' 章 · ') +
+    totalLessons + sc(' 课时', ' 課時');
+
+  // 默认 slug：用文件名（去后缀）转拉丁
+  if (!document.getElementById('im-new-slug').value) {
+    var fallbackSlug = pv.filename.replace(/\.[^.]+$/, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+    if (fallbackSlug) document.getElementById('im-new-slug').value = fallbackSlug;
+  }
+  if (!document.getElementById('im-new-title').value) {
+    document.getElementById('im-new-title').value = pv.filename.replace(/\.[^.]+$/, '');
+  }
+
+  // append 目标下拉：state.list 已有
+  var sel = document.getElementById('im-append-target');
+  sel.innerHTML = state.list.map(function (c) {
+    return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.title) + (c.isPublished ? '' : sc(' (未发布)', ' (未發佈)')) + '</option>';
+  }).join('');
+
+  // 章节树
+  imRenderTree();
+}
+
+function imRenderTree() {
+  var pv = state.importPreview;
+  var tree = document.getElementById('im-tree');
+  if (!pv.chapters.length) {
+    tree.innerHTML = '<div class="cs-empty-mini">' + escapeHtml(sc('章节为空，请重新上传', '章節為空，請重新上傳')) + '</div>';
+    return;
+  }
+  tree.innerHTML = pv.chapters.map(function (ch, ci) {
+    return ''
+      + '<div class="im-chapter" data-ci="' + ci + '">'
+      +   '<div class="im-ch-head" data-toggle="' + ci + '">'
+      +     '<svg class="im-ch-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>'
+      +     '<span class="im-ch-order">' + (ci + 1) + '</span>'
+      +     '<input class="im-ch-title-input" type="text" data-ch-title="' + ci + '" value="' + escapeHtml(ch.title) + '">'
+      +     '<span class="im-ch-meta">' + (ch.lessons || []).length + sc(' 节', ' 節') + '</span>'
+      +     '<button type="button" class="im-del-tiny" data-del-ch="' + ci + '" title="删除整章">✕</button>'
+      +   '</div>'
+      +   '<div class="im-ch-body">'
+      +     (ch.lessons || []).map(function (le, li) {
+        var refLen = (le.referenceText || '').length;
+        return ''
+          + '<div class="im-lesson" data-ci="' + ci + '" data-li="' + li + '">'
+          +   '<div class="im-le-head">'
+          +     '<span class="im-le-order">' + (li + 1) + '</span>'
+          +     '<input class="im-le-title-input" type="text" data-le-title="' + ci + '_' + li + '" value="' + escapeHtml(le.title) + '">'
+          +     '<span class="im-le-len">' + refLen + sc(' 字', ' 字') + '</span>'
+          +     '<button type="button" class="im-del-tiny" data-del-le="' + ci + '_' + li + '" title="删除此节">✕</button>'
+          +   '</div>'
+          +   '<textarea class="im-le-text-input" data-le-text="' + ci + '_' + li + '">' + escapeHtml(le.referenceText || '') + '</textarea>'
+          + '</div>';
+      }).join('')
+      +   '</div>'
+      + '</div>';
+  }).join('');
+
+  // 绑定折叠 / 删除 / input
+  tree.querySelectorAll('[data-toggle]').forEach(function (h) {
+    h.addEventListener('click', function (ev) {
+      // 点击 input / 删除按钮 不触发折叠
+      if (ev.target.closest('.im-ch-title-input') || ev.target.closest('.im-del-tiny')) return;
+      h.parentElement.classList.toggle('expanded');
+    });
+  });
+  tree.querySelectorAll('[data-ch-title]').forEach(function (inp) {
+    inp.addEventListener('input', function () {
+      var ci = parseInt(inp.getAttribute('data-ch-title'), 10);
+      pv.chapters[ci].title = inp.value;
+    });
+  });
+  tree.querySelectorAll('[data-le-title]').forEach(function (inp) {
+    inp.addEventListener('input', function () {
+      var p = inp.getAttribute('data-le-title').split('_');
+      var ci = +p[0], li = +p[1];
+      pv.chapters[ci].lessons[li].title = inp.value;
+    });
+  });
+  tree.querySelectorAll('[data-le-text]').forEach(function (ta) {
+    ta.addEventListener('input', function () {
+      var p = ta.getAttribute('data-le-text').split('_');
+      var ci = +p[0], li = +p[1];
+      pv.chapters[ci].lessons[li].referenceText = ta.value;
+      // 更新字数显示
+      var lenEl = ta.parentElement.querySelector('.im-le-len');
+      if (lenEl) lenEl.textContent = ta.value.length + sc(' 字', ' 字');
+    });
+  });
+  tree.querySelectorAll('[data-del-ch]').forEach(function (btn) {
+    btn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var ci = +btn.getAttribute('data-del-ch');
+      if (!confirm(sc('确定删除整章「' + pv.chapters[ci].title + '」？', '確定刪除整章「' + pv.chapters[ci].title + '」？'))) return;
+      pv.chapters.splice(ci, 1);
+      imRenderPreview();
+    });
+  });
+  tree.querySelectorAll('[data-del-le]').forEach(function (btn) {
+    btn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var p = btn.getAttribute('data-del-le').split('_');
+      var ci = +p[0], li = +p[1];
+      var ch = pv.chapters[ci];
+      if (ch.lessons.length <= 1) {
+        if (!confirm(sc('章下仅剩此 1 节，删除将连同整章一起删除。', '章下僅剩此 1 節，刪除將連同整章一起刪除。'))) return;
+        pv.chapters.splice(ci, 1);
+      } else {
+        ch.lessons.splice(li, 1);
+      }
+      imRenderPreview();
+    });
+  });
+}
+
+function imSubmit() {
+  var pv = state.importPreview;
+  if (!pv) return;
+  var mode = document.querySelector('input[name="im-mode"]:checked').value;
+  var body = { mode: mode, chapters: pv.chapters };
+
+  if (mode === 'new') {
+    var slug  = document.getElementById('im-new-slug').value.trim().toLowerCase();
+    var title = document.getElementById('im-new-title').value.trim();
+    if (!slug || !title) {
+      imErr(sc('请填写 slug 和书名', '請填寫 slug 和書名'));
+      return;
+    }
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      imErr(sc('slug 只能含字母 / 数字 / 连字符', 'slug 只能含字母 / 數字 / 連字符'));
+      return;
+    }
+    body.newCourse = {
+      slug: slug, title: title,
+      isPublished: document.getElementById('im-new-pub').checked,
+    };
+    // F3 批量抓取 · 把署名带过来
+    if (state.importBatchAuthor) body.newCourse.author = state.importBatchAuthor;
+  } else {
+    var sel = document.getElementById('im-append-target');
+    if (!sel.value) {
+      imErr(sc('请选择目标法本', '請選擇目標法本'));
+      return;
+    }
+    body.courseId = sel.value;
+  }
+
+  var btn = document.getElementById('im-submit');
+  btn.setAttribute('aria-busy', 'true');
+  document.getElementById('im-err').classList.remove('show');
+
+  window.JX.api.post('/api/admin/courses/import-file/commit', body)
+    .then(function (resp) {
+      imClose();
+      return fetchList().then(function () {
+        if (resp && resp.courseId) selectCourse(resp.courseId);
+      });
+    })
+    .catch(function (err) {
+      imErr((err && err.message) || sc('导入失败', '導入失敗'));
+    })
+    .finally(function () { btn.removeAttribute('aria-busy'); });
+}
+
+function bindImportModal() {
+  var imBackdrop = document.getElementById('im-backdrop');
+  var fileInput  = document.getElementById('im-file');
+  var dropZone   = document.getElementById('im-drop');
+
+  document.getElementById('btn-import-file').addEventListener('click', imOpen);
+  document.getElementById('im-cancel').addEventListener('click', imClose);
+  document.getElementById('im-back').addEventListener('click', function () {
+    state.importPreview = null;
+    imShowStep('upload');
+  });
+  imBackdrop.addEventListener('click', function (ev) { if (ev.target === imBackdrop) imClose(); });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && imBackdrop.classList.contains('open')) imClose();
+  });
+
+  // 文件选择
+  document.getElementById('im-pick').addEventListener('click', function () { fileInput.click(); });
+  dropZone.addEventListener('click', function (ev) {
+    if (ev.target === dropZone || ev.target.classList.contains('im-drop-hint') || ev.target.classList.contains('im-drop-sub')) {
+      fileInput.click();
+    }
+  });
+  fileInput.addEventListener('change', function () { imUpload(fileInput.files[0]); });
+
+  // F3.2 · URL 抓取
+  var urlInput = document.getElementById('im-url');
+  document.getElementById('im-fetch-url').addEventListener('click', function () {
+    imFetchUrl(urlInput.value.trim());
+  });
+  urlInput.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); imFetchUrl(urlInput.value.trim()); }
+  });
+
+  // F3 · 批量按模板抓取 · 主按钮 + 暂停/继续/取消 + 失败列表 重试/复制/关闭
+  var batchStart  = document.getElementById('im-batch-start');
+  if (batchStart)  batchStart.addEventListener('click', imBatchFetch);
+  var batchPause  = document.getElementById('im-batch-pause');
+  if (batchPause)  batchPause.addEventListener('click', imBatchPause);
+  var batchResume = document.getElementById('im-batch-resume');
+  if (batchResume) batchResume.addEventListener('click', imBatchResume);
+  var batchCancel = document.getElementById('im-batch-cancel');
+  if (batchCancel) batchCancel.addEventListener('click', imBatchCancel);
+  var batchRetry  = document.getElementById('im-batch-retry');
+  if (batchRetry)  batchRetry.addEventListener('click', imBatchRetryFailed);
+  var batchCopy   = document.getElementById('im-batch-copy-failed');
+  if (batchCopy)   batchCopy.addEventListener('click', imBatchCopyFailed);
+  var batchClear  = document.getElementById('im-batch-clear-failed');
+  if (batchClear)  batchClear.addEventListener('click', imBatchClearFailed);
+
+  // 拖拽
+  ['dragover', 'dragenter'].forEach(function (e) {
+    dropZone.addEventListener(e, function (ev) { ev.preventDefault(); dropZone.classList.add('dragover'); });
+  });
+  ['dragleave', 'drop'].forEach(function (e) {
+    dropZone.addEventListener(e, function (ev) { ev.preventDefault(); dropZone.classList.remove('dragover'); });
+  });
+  dropZone.addEventListener('drop', function (ev) {
+    if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]) {
+      imUpload(ev.dataTransfer.files[0]);
+    }
+  });
+
+  // 模式切换
+  document.querySelectorAll('input[name="im-mode"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+      var mode = r.value;
+      document.getElementById('im-fields-new').classList.toggle('active', mode === 'new');
+      document.getElementById('im-fields-append').classList.toggle('active', mode === 'append');
+    });
+  });
+
+  // 提交
+  document.getElementById('im-submit').addEventListener('click', imSubmit);
+}
+
+// ── 退出登录 ─────────────────────────────────────
+document.getElementById('btn-logout').addEventListener('click', function () {
+  if (!confirm(sc('确定退出登录？', '確定退出登入？'))) return;
+  window.JX.api.logout().finally(function () { location.replace('auth.html'); });
+});
+
+// ── 初始加载 ────────────────────────────────────
+document.addEventListener('jx:user-ready', fetchList);
+document.addEventListener('langchange', function () {
+  renderList();
+  if (state.currentId) renderDetail(state.currentId);
+});
+if (window.JX && window.JX.user) fetchList();
+</script>
+</body>
+</html>
