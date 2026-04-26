@@ -363,6 +363,9 @@ model UserAnswer {
   @@index([userId, questionId])
   @@index([userId, answeredAt])
   @@index([classId, answeredAt])
+  // 平台大盘按时间窗口聚合（platform-stats.service.ts），不带 userId/classId 前缀
+  // → 单列 answeredAt 索引避免全表扫
+  @@index([answeredAt])
 }
 
 enum Sm2Status {

@@ -71,6 +71,13 @@ export function nextReview(
           ? 'review'
           : 'learning';
 
+  // dueDate 计算约定：interval × 24 h（UTC 时刻平移）
+  // 不引入用户时区，由前端按 user.timezone 渲染日期/时段
+  // 副作用：UTC+8 用户在本地 23:00 答题、interval=1 → 下次到期为本地次日 23:00，
+  //   学员在次日早晨打开 App 看不到该题（视为偏严格）。
+  // 若产品要求"次日任意时间皆到期" → 改为归一到下一个用户本地午夜，需要同时
+  //   在 listDueCards 的查询里也按用户 timezone 算 lte 边界，侵入较大；
+  //   现版本保持 UTC 平移，前端文案显示具体到期时段而非"明日"二字以避免误解。
   const dueDate = new Date(now);
   dueDate.setUTCDate(dueDate.getUTCDate() + interval);
 
