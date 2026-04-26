@@ -49,3 +49,24 @@ export async function verifyPassword(
     return false;
   }
 }
+
+// 抹平登录路径"邮箱不存在 vs 密码错"的时间侧信道
+// 模块首次需要时算一份 dummy hash · 之后所有路径走相同 scrypt 验证耗时
+let dummyHashPromise: Promise<string> | null = null;
+async function getDummyHash(): Promise<string> {
+  if (!dummyHashPromise) {
+    dummyHashPromise = (async () => {
+      const salt = randomBytes(SALT_BYTES);
+      const hash = await scryptP('__juexue_dummy_for_timing__', salt, KEY_BYTES);
+      return `${salt.toString('base64url')}:${hash.toString('base64url')}`;
+    })();
+  }
+  return dummyHashPromise;
+}
+
+/** 邮箱不存在时也跑一次 scrypt 验证 · 抹平响应时长差 · 防邮箱枚举侧信道 */
+export async function verifyPasswordTimingSafe(plain: string): Promise<boolean> {
+  const dummy = await getDummyHash();
+  await verifyPassword(plain || '__no_password__', dummy);
+  return false;
+}

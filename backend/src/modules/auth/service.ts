@@ -4,7 +4,7 @@ import type { UserRole } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { BadRequest, Conflict, Unauthorized } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
-import { hashPassword, verifyPassword } from './hash.js';
+import { hashPassword, verifyPassword, verifyPasswordTimingSafe } from './hash.js';
 import {
   issuePair,
   normalizeEmail,
@@ -59,8 +59,10 @@ export async function loginUser(
 ): Promise<AuthResult> {
   const email = normalizeEmail(input.email);
   const user = await prisma.user.findUnique({ where: { email } });
-  // 一律以 Unauthorized 响应，避免邮箱枚举
+  // 抹平时间侧信道：邮箱不存在/无密码/停用 也跑一次等价 scrypt 验证耗时
+  // 避免攻击者用响应时长差枚举平台邮箱库
   if (!user || !user.passwordHash || !user.isActive) {
+    await verifyPasswordTimingSafe(input.password);
     throw Unauthorized('邮箱或密码不正确');
   }
   if (!(await verifyPassword(input.password, user.passwordHash))) {

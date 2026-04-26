@@ -45,6 +45,10 @@ export async function forgotPassword(
   // 静默成功：无论邮箱是否存在、是否被停用、是否无 passwordHash，
   // 响应体都相同 —— 防邮箱枚举 & 防通过错误消息爆破账户状态
   if (!user || !user.isActive || !user.passwordHash) {
+    // 抹平 CPU 时差：仍跑一次 token 生成 + sha256，仅不写库
+    // DB 写时差残留 ~10-30ms 已知小窗口，由 rate-limit 兜底（III.3）
+    const dummy = generateToken();
+    sha256(dummy);
     return {};
   }
 
