@@ -62,6 +62,75 @@
 - **下一步**：让用户跑 `console.log(state.importPreview.chapters[6].lessons[0].referenceText.slice(0, 400))` 拿样本，再校准正则。
 - **不要**：合并进后端 import.service.ts 之前先验证脚本，避免一刀切毁数据。
 
+---
+
+## 🟢 两轮审计修复后的残留项（2026-04-26 整理）
+
+> 两轮审计共修了 52 个点（一轮 26 + 二轮 26）。下面这些是审计**没修彻底**或**超出审计范围但发版前必做**的事情。
+
+### 残留 R1 · 平台大盘缓存多实例不一致（部分修，需要 Redis 才彻底）
+
+- **位置**：`backend/src/modules/admin/platform-stats.service.ts`
+- **现状**：`?cache=true` 走进程内 `Map`，pm2 多实例下各实例独立维护 60s 缓存 → admin 切实例可能看到不同数字
+- **暂时绕开**：调用方传 `useCache=false` 或路由不带 `?cache=true`
+- **彻底修法**：上 Redis 共享缓存（业务量小可暂缓）
+- **关联 commit**：`43a523d`（一轮加缓存）、`de6fa8c`（二轮加注释）
+
+### 残留 R2 · 法本导入清洗脚本（同上 P1 区块·重复列在这里方便看）
+
+- 见上方 "法本导入清洗脚本：anchor 太窄"
+- 待用户拿到「前行广释 001」原文样本后再校准正则
+- 验证通过后可考虑合并进 `import.service.ts` 的 `extractMainText` 后处理
+
+### 残留 R3 · forgot 邮件链路时间侧信道（CPU 已抹平·DB 残差靠 rate-limit 兜底）
+
+- **位置**：`backend/src/modules/auth/password-reset.service.ts:48`
+- **现状**：邮箱不存在路径已模拟 token 生成 + sha256 抹平 CPU，但不写库 → 残留 ~10-30 ms 的 DB 写入时差
+- **彻底修法**：不存在路径也走一次 dummy 事务 + rollback（成本大）
+- **暂时方案**：依赖 #13 rate-limit 拦爆破探测（10 req/min/IP）
+- **关联 commit**：`ccbead2`（CPU 抹平）+ `3bddf59`（rate-limit）
+
+### 残留 R4 · SM-2 时区（产品决策待定）
+
+- **位置**：`backend/src/modules/sm2/algorithm.ts`
+- **现状**：dueDate 用 UTC `setUTCDate` 平移 N 天 · UTC+8 用户晚 23 点答题 next due 是次日 23 点
+- **下一步**：等用户反馈「为什么明天到期不是早上而是晚上」再决定改不改
+- **改的方案**：归一到用户 timezone 的本地午夜（前后端协同）
+- **关联 commit**：`814bb39`（一轮加注释钉住语义）
+
+### 残留 R5 · 整体「未做」生产部署项（来自 HANDOFF III.x · 不属审计范围）
+
+发版前**必做**：
+
+| # | 项 | 备注 |
+|---|---|---|
+| III.1 | `backend/Dockerfile` + `docker-compose.prod.yml` | 没容器化没法上 K8s/ECS |
+| III.2 | `CORS_ORIGINS` env 白名单（已在代码里读了，部署填值即可） | ✓ 已读取 · 配生产域名 |
+| III.3 | ~~`@fastify/rate-limit`（防注册轰炸 + LLM 刷量）~~ | ✅ 二轮 #13 已做 (`3bddf59`) |
+| III.4 | 邮件服务（注册验证 + 密码重置 · 需 SMTP/SendGrid） | forgot 当前只打 dev 日志 |
+| III.5 | 文件上传（头像 / 法本 PDF · 需对象存储） | 目前内存解析后丢弃，无持久化 |
+
+发版前**强烈建议**：
+
+| # | 项 | 备注 |
+|---|---|---|
+| OPS.1 | DATABASE_URL 加参数 `?connect_timeout=5&pool_timeout=10&statement_timeout=30000` | 已在 prisma.ts 注释里写了 |
+| OPS.2 | `JWT_SECRET` 必须 ≥ 32 字节随机（启动 schema 校验已强制） | `openssl rand -base64 48` |
+| OPS.3 | nginx HTTPS + HSTS + 反代（前端走 https）| 部署架构层 |
+| OPS.4 | Sentry / Grafana / Prometheus 接入 | HANDOFF VII.3 / VII.4 |
+| OPS.5 | 跨实例缓存（Redis）→ 修 R1 | 业务量起来再做 |
+
+### 残留 R6 · 测试库隔离（一轮已知，未修）
+
+- **位置**：`backend/tests/integration/helpers.ts`
+- **现状**：`resetDb()` 会清 `user` 表，导致 seed 的 demo 账号消失 → 跑完测试要重新 `npm run prisma:seed`
+- **修法**：用独立测试库（另一个 DATABASE_URL）或保留 demo 账号黑名单不删
+- **关联**：上面 P1 表 `#3`
+
+---
+
+## 🟠 P1 · 历史问题表（继续保留方便查阅）
+
 
 
 | # | 问题 | 现在绕开办法 | 未来修法 |
