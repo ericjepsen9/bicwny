@@ -154,29 +154,52 @@ export async function removeMember(
       data: { removedAt: new Date() },
     });
 
-    // 处理通过本班带来的 enrollment
+    // 处理通过本班带来的 enrollment（批量化避免 N+1）
+    //   1) 一次拿出本班关联的所有 orphan enrollment
+    //   2) 一次拿出该用户其他活跃班级（含 class.courseId）→ JS 端建 courseId→fallbackClassId map
+    //   3) 按 fallback 分桶 updateMany / deleteMany（每个桶一次往返）
     const orphans = await tx.userCourseEnrollment.findMany({
       where: { userId, enrolledViaClassId: classId },
       select: { id: true, courseId: true },
     });
-    for (const enr of orphans) {
-      // 看用户是否还在其他活跃班里上同一 courseId
-      const fallbackMember = await tx.classMember.findFirst({
+    if (orphans.length > 0) {
+      const otherClasses = await tx.classMember.findMany({
         where: {
           userId,
           removedAt: null,
           classId: { not: classId },
-          class: { isActive: true, courseId: enr.courseId },
+          class: { isActive: true },
         },
-        select: { classId: true },
+        select: { classId: true, class: { select: { courseId: true } } },
       });
-      if (fallbackMember) {
-        await tx.userCourseEnrollment.update({
-          where: { id: enr.id },
-          data: { enrolledViaClassId: fallbackMember.classId },
+      // 同一 courseId 可能在多个班 · 取第一个作为 fallback（顺序由 PG 决定，对结果语义无影响）
+      const fallbackByCourse = new Map<string, string>();
+      for (const m of otherClasses) {
+        const cid = m.class.courseId;
+        if (!fallbackByCourse.has(cid)) fallbackByCourse.set(cid, m.classId);
+      }
+
+      const updateBuckets = new Map<string, string[]>();
+      const deleteIds: string[] = [];
+      for (const enr of orphans) {
+        const fb = fallbackByCourse.get(enr.courseId);
+        if (fb) {
+          if (!updateBuckets.has(fb)) updateBuckets.set(fb, []);
+          updateBuckets.get(fb)!.push(enr.id);
+        } else {
+          deleteIds.push(enr.id);
+        }
+      }
+      for (const [fbClassId, ids] of updateBuckets) {
+        await tx.userCourseEnrollment.updateMany({
+          where: { id: { in: ids } },
+          data: { enrolledViaClassId: fbClassId },
         });
-      } else {
-        await tx.userCourseEnrollment.delete({ where: { id: enr.id } });
+      }
+      if (deleteIds.length > 0) {
+        await tx.userCourseEnrollment.deleteMany({
+          where: { id: { in: deleteIds } },
+        });
       }
     }
 
@@ -201,10 +224,13 @@ export async function removeMember(
   });
 }
 
-export async function listMembers(classId: string) {
+export async function listMembers(classId: string, opts: { limit?: number } = {}) {
+  // 默认 200 / 上限 500 · 防大班级（千人）一次拉爆
+  const take = Math.min(Math.max(opts.limit ?? 200, 1), 500);
   return prisma.classMember.findMany({
     where: { classId, removedAt: null },
     orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
+    take,
     include: {
       user: {
         select: {

@@ -191,6 +191,58 @@ describe('Admin class operations · AuditLog', () => {
     expect(enr!.source).toBe('class');
   });
 
+  it('removeMember 批量场景 · 多 course / 多 fallback / 多 delete 一次性处理', async () => {
+    const admin = await registerAs(app, 'admin');
+    const stu = await registerAs(app, 'student');
+    const c1 = (await seedCourseLesson()).courseId;
+    const c2 = (await seedCourseLesson()).courseId;
+    const c3 = (await seedCourseLesson()).courseId;
+    // tA(c1) tB(c2) tC(c3) 各覆盖一门法本 · fallbackC1 给 c1 留个备胎
+    const tA = await adminCreateClass(admin, c1, 'tA');
+    const tB = await adminCreateClass(admin, c2, 'tB');
+    const tC = await adminCreateClass(admin, c3, 'tC');
+    const fallbackC1 = await adminCreateClass(admin, c1, 'fallbackC1');
+
+    for (const cls of [tA, tB, tC, fallbackC1]) {
+      await app.inject({
+        method: 'POST',
+        url: '/api/classes/join',
+        headers: authHeader(stu),
+        payload: { joinCode: cls.joinCode },
+      });
+    }
+    // join 顺序：tA 抢到 c1 enrollment.viaClassId · 后续 fallbackC1 join 时保留指向 tA
+
+    // 删 tA 班：c1 应转向 fallbackC1
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/admin/classes/${tA.id}/members/${stu.userId}`,
+      headers: authHeader(admin),
+    });
+    const enr1 = await prisma.userCourseEnrollment.findUnique({
+      where: { userId_courseId: { userId: stu.userId, courseId: c1 } },
+    });
+    expect(enr1!.enrolledViaClassId).toBe(fallbackC1.id);
+
+    // 删 tB 班：c2 无 fallback → 删 enrollment
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/admin/classes/${tB.id}/members/${stu.userId}`,
+      headers: authHeader(admin),
+    });
+    const enr2 = await prisma.userCourseEnrollment.findUnique({
+      where: { userId_courseId: { userId: stu.userId, courseId: c2 } },
+    });
+    expect(enr2).toBeNull();
+
+    // tC 仍存在
+    const enr3 = await prisma.userCourseEnrollment.findUnique({
+      where: { userId_courseId: { userId: stu.userId, courseId: c3 } },
+    });
+    expect(enr3).not.toBeNull();
+    expect(enr3!.enrolledViaClassId).toBe(tC.id);
+  });
+
   it('removeMember · 用户唯一来源是当前班 → enrollment 删除', async () => {
     const admin = await registerAs(app, 'admin');
     const stu = await registerAs(app, 'student');
