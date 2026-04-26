@@ -53,7 +53,14 @@ describe('gradeObjective · multi', () => {
     expect(gradeObjective(q, { selectedIndexes: [0, 1] }).score).toBe(100);
     expect(gradeObjective(q, { selectedIndexes: [0] }).score).toBe(50);
     expect(gradeObjective(q, { selectedIndexes: [0, 2] }).score).toBe(0); // +1 -1 = 0
-    expect(gradeObjective(q, { selectedIndexes: [] }).score).toBe(0);
+  });
+
+  it('空选：抛 BadRequest（防误触 0 分提交）', () => {
+    const qStrict = makeQ('multi', { scoringMode: 'strict', options });
+    const qPartial = makeQ('multi', { scoringMode: 'partial', options });
+    expect(() => gradeObjective(qStrict, { selectedIndexes: [] })).toThrow();
+    expect(() => gradeObjective(qPartial, { selectedIndexes: [] })).toThrow();
+    expect(() => gradeObjective(qStrict, {})).toThrow();
   });
 });
 

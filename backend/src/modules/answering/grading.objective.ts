@@ -78,11 +78,13 @@ function gradeFill(p: P, a: unknown): GradeResult {
 function gradeMulti(p: P, a: unknown): GradeResult {
   const options = (p.options ?? []) as Option[];
   const mode = ((p.scoringMode as string) ?? 'strict') as 'strict' | 'partial';
-  const selected = new Set(
-    ((a as { selectedIndexes?: number[] })?.selectedIndexes ?? []).filter(
-      (i) => typeof i === 'number',
-    ),
-  );
+  const rawSelected = (a as { selectedIndexes?: number[] })?.selectedIndexes ?? [];
+  const filtered = rawSelected.filter((i) => typeof i === 'number');
+  // 至少选 1 项 · 防止误触提交 0 分（前端 disable 提交按钮也好 · 服务端再兜一道底）
+  if (filtered.length === 0) {
+    throw BadRequest('请至少选择一个选项再提交');
+  }
+  const selected = new Set(filtered);
   const correctSet = new Set(
     options.map((o, i) => (o.correct ? i : -1)).filter((i) => i >= 0),
   );
