@@ -133,6 +133,11 @@ server {
   root /opt/juexue/prototypes;
   index mobile/auth.html index.html;
 
+  # 文件上传上限：
+  #   后端 multipart 上限 20 MB（src/app.ts），nginx 留 5 MB 余量
+  #   不设这个 → 默认 1 MB，admin 上传法本 PDF/DOCX 立刻 413
+  client_max_body_size 25M;
+
   # 1. 静态资源
   location / {
     try_files $uri $uri/ =404;
@@ -149,7 +154,11 @@ server {
     proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header Authorization     $http_authorization;
-    proxy_read_timeout 60s;
+    # 大文件上传 + LLM 长任务 → 留足超时
+    proxy_read_timeout    120s;
+    proxy_send_timeout    120s;
+    proxy_connect_timeout  30s;
+    client_body_timeout   120s;
   }
 
   # 3. 健康检查
@@ -157,10 +166,24 @@ server {
 }
 ```
 
+> 完整模板见 `deploy/nginx/juexue.conf`。
+
 ```bash
-sudo ln -s /etc/nginx/sites-available/juexue /etc/nginx/sites-enabled/
+# 推荐：直接用仓库里的模板（含 client_max_body_size 等已校准的参数）
+sudo cp /opt/juexue/deploy/nginx/juexue.conf /etc/nginx/sites-available/juexue
+sudo sed -i 's/app.juexue.example/你的真实域名/g' /etc/nginx/sites-available/juexue
+sudo ln -sf /etc/nginx/sites-available/juexue /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
-sudo certbot --nginx -d app.juexue.example   # 自动签 HTTPS
+sudo certbot --nginx -d 你的真实域名   # 自动签 HTTPS
+```
+
+#### 已部署的服务器：单独追加 `client_max_body_size`（避免 413）
+
+如果你之前按旧版文档部署、没有 `client_max_body_size`，**热修复**一行：
+
+```bash
+sudo sed -i '/server_name/a \    client_max_body_size 25M;' /etc/nginx/sites-enabled/juexue
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ### 8. 防火墙
