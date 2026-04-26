@@ -344,12 +344,15 @@ model UserAnswer {
   aiGrade     Json?
   timeSpentMs Int?
   classId     String?
+  // 幂等键：前端生成的 Idempotency-Key（uuid）。NULL 不参与下方 unique（PG 默认行为）→ 老调用零迁移
+  requestId   String?
   answeredAt  DateTime @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   question Question @relation(fields: [questionId], references: [id])
   class    Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
 
+  @@unique([userId, questionId, requestId])
   @@index([userId, questionId])
   @@index([userId, answeredAt])
   @@index([classId, answeredAt])

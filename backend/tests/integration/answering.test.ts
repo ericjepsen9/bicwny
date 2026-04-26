@@ -100,6 +100,78 @@ describe('POST /api/answers (integration)', () => {
   });
 });
 
+describe('POST /api/answers · 幂等性（requestId）', () => {
+  it('同 requestId 重发：仅 1 条 UserAnswer · wrongCount 不累加', async () => {
+    const u = await registerAs(app, 'student');
+    const ids = await seedCourseLesson();
+    const qid = await seedQuestion(ids);
+    const reqId = 'idem-key-test-001';
+
+    const res1 = await app.inject({
+      method: 'POST',
+      url: '/api/answers',
+      headers: authHeader(u),
+      payload: { questionId: qid, answer: { selectedIndex: 1 }, requestId: reqId },
+    });
+    const d1 = expectOk<{ userAnswerId: string; grade: { isCorrect: boolean } }>(res1);
+    expect(d1.grade.isCorrect).toBe(false);
+
+    const res2 = await app.inject({
+      method: 'POST',
+      url: '/api/answers',
+      headers: authHeader(u),
+      payload: { questionId: qid, answer: { selectedIndex: 1 }, requestId: reqId },
+    });
+    const d2 = expectOk<{ userAnswerId: string; grade: { isCorrect: boolean } }>(res2);
+    expect(d2.userAnswerId).toBe(d1.userAnswerId);
+    expect(d2.grade.isCorrect).toBe(false);
+
+    // 错题本：重发不应累加 wrongCount
+    const list = await app.inject({
+      method: 'GET',
+      url: '/api/mistakes',
+      headers: authHeader(u),
+    });
+    const items = expectOk<Array<{ wrongCount: number }>>(list);
+    expect(items).toHaveLength(1);
+    expect(items[0].wrongCount).toBe(1);
+  });
+
+  it('不同 requestId：正常产生两条独立答题', async () => {
+    const u = await registerAs(app, 'student');
+    const ids = await seedCourseLesson();
+    const qid = await seedQuestion(ids);
+
+    const a = await app.inject({
+      method: 'POST',
+      url: '/api/answers',
+      headers: authHeader(u),
+      payload: { questionId: qid, answer: { selectedIndex: 1 }, requestId: 'k-a' },
+    });
+    const b = await app.inject({
+      method: 'POST',
+      url: '/api/answers',
+      headers: authHeader(u),
+      payload: { questionId: qid, answer: { selectedIndex: 1 }, requestId: 'k-b' },
+    });
+    const da = expectOk<{ userAnswerId: string }>(a);
+    const db = expectOk<{ userAnswerId: string }>(b);
+    expect(da.userAnswerId).not.toBe(db.userAnswerId);
+  });
+
+  it('缺 requestId：保持旧行为（多次提交各自落库 · 向前兼容）', async () => {
+    const u = await registerAs(app, 'student');
+    const ids = await seedCourseLesson();
+    const qid = await seedQuestion(ids);
+
+    const a = await submit(u, qid, 1);
+    const b = await submit(u, qid, 1);
+    const da = expectOk<{ userAnswerId: string }>(a);
+    const db = expectOk<{ userAnswerId: string }>(b);
+    expect(da.userAnswerId).not.toBe(db.userAnswerId);
+  });
+});
+
 describe('GET /api/mistakes (list) · 剥答案', () => {
   it('list 中 question.payload.options 不含 correct 字段', async () => {
     const u = await registerAs(app, 'student');
