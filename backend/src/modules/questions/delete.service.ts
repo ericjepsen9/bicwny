@@ -44,7 +44,9 @@ export async function deleteQuestion(
     prisma.question.delete({ where: { id: questionId } }),
     prisma.auditLog.create({
       data: {
-        adminId: role === 'admin' ? userId : null,
+        // adminId 列名沿用，但语义已是「执行者 userId」（admin / coach 自删均落实例 user id）
+        // 强约束 NOT NULL 保证审计可追溯（没有匿名删除路径）
+        adminId: userId,
         action: 'question.delete',
         targetType: 'question',
         targetId: questionId,
@@ -54,6 +56,7 @@ export async function deleteQuestion(
           reviewStatus: q.reviewStatus,
           questionText: q.questionText,
           createdByUserId: q.createdByUserId,
+          actorRole: role,
         } as Prisma.InputJsonValue,
         after: {} as Prisma.InputJsonValue,
       },

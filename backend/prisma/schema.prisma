@@ -612,7 +612,10 @@ model LlmCallLog {
 
 model AuditLog {
   id         String   @id @default(cuid())
-  adminId    String?
+  // 执行者 userId · NOT NULL 保证可追溯
+  // 列名沿用 adminId（历史），实际语义为「特权操作者」
+  // 含 admin 全部写操作 + coach 的题目自删（before.actorRole 区分角色）
+  adminId    String
   action     String
   targetType String?
   targetId   String?
