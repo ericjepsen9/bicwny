@@ -54,6 +54,16 @@
 
 ### 🟠 P1 · 已知工作流问题（下次修）
 
+#### 法本导入清洗脚本：anchor 太窄（待用户验证后确认）
+
+- **症状**：在 admin 课程导入预览态跑清洗脚本，正则 `第\s*[…\d]+\s*课` 仅 4/282 节命中。
+- **怀疑原因**：前行广释每节标题是「第 N **节** 课」（中间多一个"节"字），原正则不吃；上师瑜伽 / 前行之重要性 是特殊章节，可能根本无此 anchor。
+- **已给改良版脚本**：多 anchor（`第N(节)课` / `顶礼` / `上师瑜伽` / `前行之重要性`）+ 命中统计 + 长度报告。
+- **下一步**：让用户跑 `console.log(state.importPreview.chapters[6].lessons[0].referenceText.slice(0, 400))` 拿样本，再校准正则。
+- **不要**：合并进后端 import.service.ts 之前先验证脚本，避免一刀切毁数据。
+
+
+
 | # | 问题 | 现在绕开办法 | 未来修法 |
 |---|---|---|---|
 | 3 | `tests/integration/auth.test.ts` 的 `resetDb()` 会清 `user` 表，导致 seed 的 admin/coach/student 账号消失 | 跑完 `npm test` 重新 `npm run prisma:seed` | 改 helpers 用独立测试库（另一个 DATABASE_URL）或保留 demo 账号 |
