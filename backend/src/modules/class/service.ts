@@ -196,6 +196,11 @@ export async function removeMember(
   //      - 否 → 直接 delete enrollment（彻底失去课程访问权）
   //   原实现把 source 改回 'self' + 清 enrolledViaClassId，结果是「被踢出 A 班但
   //   仍可访问 A 班的法本」，违反"踢出即失访"语义。
+  //
+  // SERIALIZABLE 隔离：fallback 查询基于"用户其他活跃班"的快照
+  //   READ COMMITTED 下，另一笔事务可能并发把用户加进 C 班 / 移出 D 班
+  //   → 本事务读到 stale，错把 enrollment 删了或转向已不存在的班
+  //   SERIALIZABLE 下 PG 检测到读写依赖会让一方 abort 重试 → 不一致变可恢复错误
   await prisma.$transaction(async (tx) => {
     const before = await tx.classMember.findUnique({
       where: { classId_userId: { classId, userId } },
@@ -274,6 +279,8 @@ export async function removeMember(
         },
       });
     }
+  }, {
+    isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
   });
 }
 

@@ -244,6 +244,8 @@ model UserCourseEnrollment {
 
   @@unique([userId, courseId])
   @@index([enrolledViaClassId])
+  // removeMember 退班联动按 (userId, enrolledViaClassId) 查孤儿 enrollment
+  @@index([userId, enrolledViaClassId])
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -338,6 +340,9 @@ model Question {
   @@index([reviewStatus])
   @@index([ownerClassId])
   @@index([createdByUserId])
+  // listLessonQuestions / listCourseQuestions 复合过滤命中此索引
+  // 顺序：courseId（高基数）→ reviewStatus → visibility → lessonId（叶级二次过滤）
+  @@index([courseId, reviewStatus, visibility, lessonId])
 }
 
 // ═══════════════════════════════════════════════════════════════

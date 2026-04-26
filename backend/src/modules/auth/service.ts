@@ -2,7 +2,7 @@
 // 内部工具（issuePair / newSessionId / stripPassword / normalizeEmail）见 ./service.helpers.ts
 import type { UserRole } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
-import { BadRequest, Conflict, Unauthorized } from '../../lib/errors.js';
+import { BadRequest, Conflict, Forbidden, Unauthorized } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { hashPassword, verifyPassword, verifyPasswordTimingSafe } from './hash.js';
 import {
@@ -167,6 +167,16 @@ export async function deleteAccount(
   if (!user || !user.passwordHash || !user.isActive) throw Unauthorized('账户异常');
   if (!(await verifyPassword(currentPassword, user.passwordHash))) {
     throw Unauthorized('当前密码不正确');
+  }
+  // 防系统瘫痪：admin 角色自删前必须保证还有其他活跃 admin
+  // 唯一管理员自删 → 后续无人能审核题目 / 改 LLM 配置 / 封号 → 系统不可运维
+  if (user.role === 'admin') {
+    const otherActiveAdmins = await prisma.user.count({
+      where: { role: 'admin', isActive: true, id: { not: userId } },
+    });
+    if (otherActiveAdmins === 0) {
+      throw Forbidden('无法删除最后一个管理员账户');
+    }
   }
   // 软删除：保留 FK 关联的答题记录 / SM-2 卡 / 审核日志；
   // 置空 email 释放 unique 约束，允许同邮箱重新注册
