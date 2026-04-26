@@ -6,19 +6,26 @@ import { prisma } from '../../lib/prisma.js';
 export async function addFavorite(
   userId: string,
   questionId: string,
-): Promise<UserFavorite> {
-  return prisma.userFavorite.upsert({
+): Promise<{ favorite: UserFavorite; created: boolean }> {
+  const existing = await prisma.userFavorite.findUnique({
     where: { userId_questionId: { userId, questionId } },
-    create: { userId, questionId },
-    update: {},
   });
+  if (existing) return { favorite: existing, created: false };
+  const favorite = await prisma.userFavorite.create({
+    data: { userId, questionId },
+  });
+  return { favorite, created: true };
 }
 
+/** 返回是否真的删除了 · 让路由层据此决定 200 / 404 */
 export async function removeFavorite(
   userId: string,
   questionId: string,
-): Promise<void> {
-  await prisma.userFavorite.deleteMany({ where: { userId, questionId } });
+): Promise<{ removed: number }> {
+  const r = await prisma.userFavorite.deleteMany({
+    where: { userId, questionId },
+  });
+  return { removed: r.count };
 }
 
 export async function listFavorites(

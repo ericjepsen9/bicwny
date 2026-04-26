@@ -12,7 +12,7 @@
 //
 // 邮件发送留待真 SMTP 集成；当前 dev 通过日志透出链接，prod 接入前请先配邮件服务。
 import { createHash, randomBytes } from 'node:crypto';
-import { config, isDev } from '../../lib/config.js';
+import { config } from '../../lib/config.js';
 import { BadRequest, Unauthorized } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { hashPassword } from './hash.js';
@@ -70,15 +70,18 @@ export async function forgotPassword(
   ]);
 
   // Dev / test：把链接打到日志 + 通过响应回传，方便本地跑通流程
+  // 严格白名单：只在 NODE_ENV === 'development' || 'test' 时输出 raw token
+  // 配置畸形（NODE_ENV 未设、设成奇怪值）一律按生产处理 → 不泄漏 token
   const hint = `[password-reset] ${normalized} → token=${raw} (expires ${expiresAt.toISOString()})`;
-  // 不用 fastify logger（避免 service 层拿 app 引用），直接 console
-  if (!config.NODE_ENV || config.NODE_ENV !== 'production') {
+  const exposeToken =
+    config.NODE_ENV === 'development' || config.NODE_ENV === 'test';
+  if (exposeToken) {
     // eslint-disable-next-line no-console
     console.log(hint);
   }
   // TODO(prod)：接入 SMTP / SendGrid 等邮件服务，把 raw 拼成 reset-confirm 链接发给 user.email
 
-  return isDev ? { devToken: raw } : {};
+  return exposeToken ? { devToken: raw } : {};
 }
 
 export async function resetPassword(

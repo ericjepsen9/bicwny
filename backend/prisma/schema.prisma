@@ -155,11 +155,14 @@ model Notification {
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
   readAt    DateTime?
+  // 软删（21）：列表查询过滤 deletedAt IS NULL · 物理行保留供 cursor 锚定
+  deletedAt DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead, createdAt])
   @@index([userId, createdAt])
+  @@index([userId, deletedAt])
 }
 
 // ═══════════════════════════════════════════════════════════════

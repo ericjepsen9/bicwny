@@ -115,8 +115,9 @@ export async function chat(
     latencyMs: Date.now() - startedAt,
   });
 
+  // 用户/客户端可见的错误体不带 provider 名 / skipReasons —— 防泄漏基础设施配置
+  // 完整 tried+skipReasons 已写到 LlmCallLog (writeLog above)，admin 后台可查
   throw UpstreamError('所有 LLM provider 均不可用', {
-    tried,
-    reasons: skipReasons,
+    triedCount: tried.length,
   });
 }

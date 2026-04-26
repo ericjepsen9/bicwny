@@ -410,8 +410,19 @@ export async function updateLesson(
         action: 'lesson.update',
         targetType: 'lesson',
         targetId: id,
-        before: { order: before.order, title: before.title } as Prisma.InputJsonValue,
-        after: { order: u.order, title: u.title } as Prisma.InputJsonValue,
+        // 教学内容是高频改动 · 加进快照便于回溯 admin 改了什么
+        before: {
+          order: before.order,
+          title: before.title,
+          referenceText: before.referenceText,
+          teachingSummary: before.teachingSummary,
+        } as Prisma.InputJsonValue,
+        after: {
+          order: u.order,
+          title: u.title,
+          referenceText: u.referenceText,
+          teachingSummary: u.teachingSummary,
+        } as Prisma.InputJsonValue,
       },
     });
     return u;

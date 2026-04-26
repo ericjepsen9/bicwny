@@ -20,7 +20,8 @@ const idParam = z.object({ id: z.string().min(1) });
 
 const reviewBody = z.object({
   decision: z.enum(['approve', 'reject']),
-  reason: z.string().max(500).optional(),
+  // reason 提供时必须有内容（防纯空白）· trim 是避免" "通过 min(1)
+  reason: z.string().trim().min(1).max(500).optional(),
 });
 
 const TAGS = ['Admin'];

@@ -23,6 +23,22 @@ import {
 
 const adminGuard = requireRole('admin');
 
+/**
+ * 上传文件名清洗：取 basename + 去路径穿越前缀 / 控制字符 / shell 元字符；
+ * 中文等 Unicode 字母保留（用户友好）；限长 200。
+ * 预防未来代码把 filename 用作 fs path 时的目录穿越。
+ */
+function sanitizeFilename(name: string): string {
+  // basename：剥掉任何 ../ /tmp/xxx 前缀
+  const base = name.replace(/[\\/]/g, '/').split('/').pop() || 'upload';
+  // 去控制字符 (\x00-\x1f \x7f) + shell 元字符 (< > : " | ? *)
+  // eslint-disable-next-line no-control-regex
+  const cleaned = base.replace(/[\x00-\x1f\x7f<>:"|?*]/g, '_');
+  // 不允许以 . 开头（隐藏文件 / Windows reserved name 前缀）
+  const trimmed = cleaned.replace(/^\.+/, '').slice(0, 200);
+  return trimmed || 'upload';
+}
+
 const previewLessonSchema: z.ZodType<{ title: string; referenceText?: string; teachingSummary?: string }> = z.object({
   title: z.string().trim().min(1).max(200),
   referenceText: z.string().max(200000).optional(),
@@ -66,7 +82,10 @@ export const adminCoursesImportRoutes: FastifyPluginAsync = async (app) => {
     // require @fastify/multipart 已在 app.ts 注册
     const file = await req.file();
     if (!file) throw BadRequest('未收到文件');
-    const filename = file.filename || 'unknown';
+    // sanitize：路径分隔符 / 控制字符 / 目录穿越前缀 一律去掉
+    // 当前 buildPreviewFromBuffer 仅用 filename 做日志和返回值，但任何后续把
+    // 它落到 fs / 数据库 path 的代码都会受益于这层白名单
+    const filename = sanitizeFilename(file.filename || 'unknown');
     const lower = filename.toLowerCase();
     if (!lower.endsWith('.pdf') && !lower.endsWith('.docx')) {
       throw BadRequest('仅支持 .pdf / .docx');

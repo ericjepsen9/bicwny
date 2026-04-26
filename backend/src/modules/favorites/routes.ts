@@ -5,7 +5,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireUserId } from '../../lib/auth.js';
-import { BadRequest } from '../../lib/errors.js';
+import { BadRequest, NotFound } from '../../lib/errors.js';
 import { toPublicView } from '../answering/publicView.js';
 import { addFavorite, listFavorites, removeFavorite } from './service.js';
 
@@ -19,23 +19,24 @@ const SEC = [{ bearerAuth: [] as string[] }];
 
 export const favoritesRoutes: FastifyPluginAsync = async (app) => {
   app.post('/api/favorites/:questionId', {
-    schema: { tags: TAGS, summary: '添加收藏（幂等）', security: SEC },
+    schema: { tags: TAGS, summary: '添加收藏（幂等 · 新建 201 · 已存在 200）', security: SEC },
   }, async (req, reply) => {
     const userId = requireUserId(req);
     const parsed = qidParam.safeParse(req.params);
     if (!parsed.success) throw BadRequest('路径参数不合法');
-    const f = await addFavorite(userId, parsed.data.questionId);
-    reply.code(201);
-    return { data: f };
+    const { favorite, created } = await addFavorite(userId, parsed.data.questionId);
+    reply.code(created ? 201 : 200);
+    return { data: favorite };
   });
 
   app.delete('/api/favorites/:questionId', {
-    schema: { tags: TAGS, summary: '移除收藏', security: SEC },
+    schema: { tags: TAGS, summary: '移除收藏（不存在返 404）', security: SEC },
   }, async (req) => {
     const userId = requireUserId(req);
     const parsed = qidParam.safeParse(req.params);
     if (!parsed.success) throw BadRequest('路径参数不合法');
-    await removeFavorite(userId, parsed.data.questionId);
+    const { removed } = await removeFavorite(userId, parsed.data.questionId);
+    if (removed === 0) throw NotFound('收藏不存在');
     return { data: { ok: true } };
   });
 
