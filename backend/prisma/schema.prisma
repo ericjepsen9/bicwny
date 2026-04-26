@@ -178,6 +178,11 @@ model Course {
   displayOrder     Int      @default(0)
   isPublished      Boolean  @default(true)
   licenseInfo      String?
+  // 法本导入幂等键：前端打开预览模态时生成 uuid，commit 时透传
+  // 同 token 重复 commit 不再产生新 chapter/lesson · null = 该 course 还未通过导入端点写入过
+  lastImportClientToken String?
+  // 上一次导入的 chapterCount / lessonCount · 用于幂等命中时如实回放
+  lastImportSummary     Json?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

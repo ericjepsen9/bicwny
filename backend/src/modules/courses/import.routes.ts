@@ -46,6 +46,8 @@ const commitBody = z.object({
   courseId: z.string().min(1).optional(),
   newCourse: newCourseSchema.optional(),
   chapters: z.array(previewChapterSchema).min(1).max(200),
+  // 幂等键：前端开预览模态时生成 uuid · 重复 commit 直接返回上次结果
+  clientToken: z.string().min(8).max(64).optional(),
 });
 
 const urlPreviewBody = z.object({

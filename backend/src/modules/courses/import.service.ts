@@ -208,12 +208,16 @@ export interface CommitInput {
   /** mode=new 必填 */
   newCourse?: CommitNewCourse;
   chapters: PreviewChapter[];
+  /** 幂等键：前端开预览时生成 uuid，重复 commit 直接返回上次结果 */
+  clientToken?: string;
 }
 
 export interface CommitResult {
   courseId: string;
   chapterCount: number;
   lessonCount: number;
+  /** true = 本次请求被识别为重复提交，未实际写入 · 前端据此提示「已是上次提交的版本」 */
+  idempotent?: boolean;
 }
 
 /** 写入预览树到数据库，单事务保证原子性 */
@@ -243,7 +247,12 @@ export async function commitImport(
     if (!input.newCourse) throw BadRequest('mode=new 必须提供 newCourse');
     const nc = input.newCourse;
     if (!nc.slug || !nc.title) throw BadRequest('newCourse 缺 slug / title');
-    if (await prisma.course.findUnique({ where: { slug: nc.slug } })) {
+    const exist = await prisma.course.findUnique({ where: { slug: nc.slug } });
+    if (exist) {
+      // 幂等命中：同一前端会话因网络抖动重发 commit，slug 已被占用但 token 一致 → 回放上次结果
+      if (input.clientToken && exist.lastImportClientToken === input.clientToken) {
+        return readIdempotentSummary(exist);
+      }
       throw Conflict('slug 已被占用');
     }
   } else {
@@ -253,6 +262,10 @@ export async function commitImport(
       include: { chapters: { orderBy: { order: 'desc' }, take: 1 } },
     });
     if (!exist) throw NotFound('目标法本不存在');
+    // 幂等命中：append 模式重发 commit · token 与上次一致 → 回放上次结果，不再追加章节
+    if (input.clientToken && exist.lastImportClientToken === input.clientToken) {
+      return readIdempotentSummary(exist);
+    }
     appendCourseId = exist.id;
     baseChapterOrder = exist.chapters[0]?.order ?? 0;
   }
@@ -303,6 +316,20 @@ export async function commitImport(
       }
     }
 
+    // 把幂等键 + 摘要写入 course，下次同 token 重发即可回放
+    if (input.clientToken) {
+      await tx.course.update({
+        where: { id: cid },
+        data: {
+          lastImportClientToken: input.clientToken,
+          lastImportSummary: {
+            chapterCount: input.chapters.length,
+            lessonCount: totalLessons,
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+
     await tx.auditLog.create({
       data: {
         adminId,
@@ -313,6 +340,7 @@ export async function commitImport(
           mode: input.mode,
           chapterCount: input.chapters.length,
           lessonCount: totalLessons,
+          clientToken: input.clientToken ?? null,
         } as Prisma.InputJsonValue,
       },
     });
@@ -321,6 +349,20 @@ export async function commitImport(
   });
 
   return result;
+}
+
+// 幂等命中时回放上次的 chapterCount/lessonCount
+function readIdempotentSummary(course: {
+  id: string;
+  lastImportSummary: Prisma.JsonValue | null;
+}): CommitResult {
+  const s = (course.lastImportSummary ?? {}) as Record<string, unknown>;
+  return {
+    courseId: course.id,
+    chapterCount: typeof s.chapterCount === 'number' ? s.chapterCount : 0,
+    lessonCount: typeof s.lessonCount === 'number' ? s.lessonCount : 0,
+    idempotent: true,
+  };
 }
 
 // ── F3.1 · URL 抓取 + HTML 转纯文本 ────────────────
