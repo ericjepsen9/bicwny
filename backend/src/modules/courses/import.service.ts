@@ -27,6 +27,7 @@ import mammoth from 'mammoth';
 // pdf-parse@1.1.1 有顶层副作用（找测试 PDF）→ 走 lib 子路径绕开
 // @ts-expect-error pdf-parse 的 lib 子路径无 .d.ts 声明，但运行时 OK
 import pdf from 'pdf-parse/lib/pdf-parse.js';
+import { Agent } from 'undici';
 
 import { BadRequest, Conflict, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
@@ -399,62 +400,120 @@ function isPrivateIp(ip: string): boolean {
   return false;
 }
 
-async function assertSafeUrl(rawUrl: string): Promise<URL> {
+interface ResolvedTarget {
+  url: URL;
+  /** SSRF 检查通过的 IP（IPv4/IPv6 字面值）· null = 字面 IP URL，host 即 IP */
+  resolvedIp: string;
+  resolvedFamily: 4 | 6;
+}
+
+/**
+ * SSRF 防护：
+ *  1. 协议白名单 http/https
+ *  2. host 解析后所有 IP 必须非内网
+ *  3. 返回**已解析的 IP**，由调用方喂给 fetch 的 dispatcher，
+ *     避免 fetch 实际连接时再次 DNS 解析被切到内网（DNS rebinding TOCTOU）
+ */
+async function assertSafeUrl(rawUrl: string): Promise<ResolvedTarget> {
   let u: URL;
   try { u = new URL(rawUrl); } catch { throw BadRequest('URL 格式不合法'); }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') {
     throw BadRequest('仅允许 http / https 协议');
   }
-  // 解析 hostname → 确认非内网 IP
   const host = u.hostname;
-  // 字面 IP 直接判
+  // 字面 IP（含 [::1] 形式 IPv6）直接判
   if (/^[0-9.]+$/.test(host) || host.includes(':')) {
     if (isPrivateIp(host)) throw BadRequest('禁止抓取内网地址');
-    return u;
+    return { url: u, resolvedIp: host, resolvedFamily: host.includes(':') ? 6 : 4 };
   }
-  // 域名 → DNS 查 · 取所有结果都判
+  // 域名 → DNS 查 · 取所有结果都判 · 选第一条作为绑定 IP
+  let records: { address: string; family: number }[];
   try {
-    const records = await lookup(host, { all: true });
-    for (const r of records) {
-      if (isPrivateIp(r.address)) {
-        throw BadRequest('域名解析到内网地址，禁止抓取');
-      }
-    }
+    records = await lookup(host, { all: true });
   } catch (err: any) {
-    if (err && err.code === 'BAD_REQUEST') throw err;
     throw BadRequest('无法解析域名：' + (err?.message || host));
   }
-  return u;
+  if (records.length === 0) throw BadRequest('域名无 A/AAAA 记录：' + host);
+  for (const r of records) {
+    if (isPrivateIp(r.address)) {
+      throw BadRequest('域名解析到内网地址，禁止抓取');
+    }
+  }
+  const first = records[0];
+  return {
+    url: u,
+    resolvedIp: first.address,
+    resolvedFamily: first.family === 6 ? 6 : 4,
+  };
 }
 
-async function fetchHtml(url: URL): Promise<{ html: string; finalUrl: string }> {
+/** 把 connect 钉死到已 SSRF 校验的 IP · 防止底层重新 DNS 解析被切到内网 */
+function makeBoundAgent(ip: string, family: 4 | 6): Agent {
+  return new Agent({
+    connect: {
+      // undici 的 connect.lookup 与 net.LookupOneOptions 兼容
+      // 直接回调返回固定 IP，无视传入的 hostname，避免任何二次解析
+      lookup: (_host: string, _opts: unknown, cb: (err: NodeJS.ErrnoException | null, address: string, family: number) => void) => {
+        cb(null, ip, family);
+      },
+    },
+  });
+}
+
+const MAX_REDIRECTS = 5;
+
+async function fetchHtml(target: ResolvedTarget): Promise<{ html: string; finalUrl: string }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'User-Agent': USER_AGENT,
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-      },
-      redirect: 'follow',
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      throw BadRequest(`抓取失败：HTTP ${res.status} ${res.statusText}`);
+    let current = target;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      const agent = makeBoundAgent(current.resolvedIp, current.resolvedFamily);
+      const res = await fetch(current.url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': USER_AGENT,
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        },
+        redirect: 'manual', // 不让 fetch 自己跟随，每跳都重新 SSRF 校验
+        signal: controller.signal,
+        // dispatcher 是 undici 扩展字段，TS lib.dom 不认识 → cast
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        dispatcher: agent as any,
+      } as RequestInit);
+
+      // 重定向：3xx + Location 头
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location');
+        // 释放本跳的 agent（不阻塞）
+        agent.close().catch(() => undefined);
+        if (!loc) throw BadRequest(`重定向 ${res.status} 缺 Location 头`);
+        if (hop === MAX_REDIRECTS) throw BadRequest(`重定向超过 ${MAX_REDIRECTS} 跳`);
+        const nextRaw = new URL(loc, current.url).toString();
+        current = await assertSafeUrl(nextRaw);
+        continue;
+      }
+
+      try {
+        if (!res.ok) {
+          throw BadRequest(`抓取失败：HTTP ${res.status} ${res.statusText}`);
+        }
+        const ctype = res.headers.get('content-type') || '';
+        if (!/text\/html|application\/xhtml/i.test(ctype)) {
+          throw BadRequest(`目标不是 HTML（content-type: ${ctype || '未知'}）`);
+        }
+        const buf = await res.arrayBuffer();
+        if (buf.byteLength > MAX_HTML_BYTES) {
+          throw BadRequest(`HTML 超过 ${MAX_HTML_BYTES / 1024 / 1024} MB 上限`);
+        }
+        const text = new TextDecoder('utf-8', { fatal: false }).decode(buf);
+        return { html: text, finalUrl: current.url.toString() };
+      } finally {
+        agent.close().catch(() => undefined);
+      }
     }
-    const ctype = res.headers.get('content-type') || '';
-    if (!/text\/html|application\/xhtml/i.test(ctype)) {
-      throw BadRequest(`目标不是 HTML（content-type: ${ctype || '未知'}）`);
-    }
-    // 流式读取 + 尺寸限幅
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength > MAX_HTML_BYTES) {
-      throw BadRequest(`HTML 超过 ${MAX_HTML_BYTES / 1024 / 1024} MB 上限`);
-    }
-    const text = new TextDecoder('utf-8', { fatal: false }).decode(buf);
-    return { html: text, finalUrl: res.url };
+    throw BadRequest('重定向循环（不应到这里）');
   } catch (err: any) {
     if (err?.name === 'AbortError') throw BadRequest('抓取超时（>12 s）');
     if (err && err.code === 'BAD_REQUEST') throw err;
@@ -503,8 +562,8 @@ export function extractMainText(html: string): { title: string; text: string } {
 }
 
 export async function buildPreviewFromUrl(rawUrl: string): Promise<PreviewResult> {
-  const url = await assertSafeUrl(rawUrl);
-  const { html, finalUrl } = await fetchHtml(url);
+  const target = await assertSafeUrl(rawUrl);
+  const { html, finalUrl } = await fetchHtml(target);
   const { title, text } = extractMainText(html);
   if (!text || text.length < 50) {
     throw BadRequest('抓到的正文太短（< 50 字），可能是 SPA 首屏 / 反爬页面');
