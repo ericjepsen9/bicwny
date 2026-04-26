@@ -522,12 +522,52 @@
       <!-- 步骤 1 · 上传 -->
       <div class="im-step active" id="im-step-upload">
         <div class="im-drop" id="im-drop">
-          <div class="im-drop-hint"><span class="sc">点击或拖拽文件到此</span><span class="tc">點擊或拖拽文件到此</span></div>
+          <div class="im-drop-hint"><span class="sc">点击或拖拽文件（可多选）</span><span class="tc">點擊或拖拽文件（可多選）</span></div>
           <button type="button" class="btn-apply" id="im-pick"><span class="sc">选择文件</span><span class="tc">選擇文件</span></button>
-          <input type="file" id="im-file" accept=".pdf,.docx" style="display:none;">
+          <input type="file" id="im-file" accept=".pdf,.docx" multiple style="display:none;">
           <div class="im-drop-sub">
-            <span class="sc">支持 .pdf · .docx · 上限 20 MB · 扫描版 PDF 不支持 OCR</span>
-            <span class="tc">支持 .pdf · .docx · 上限 20 MB · 掃描版 PDF 不支持 OCR</span>
+            <span class="sc">支持 .pdf · .docx · 单文件 ≤ 20 MB · 扫描版 PDF 不支持 OCR · 批量 ≤ 30 个/分钟</span>
+            <span class="tc">支持 .pdf · .docx · 單文件 ≤ 20 MB · 掃描版 PDF 不支持 OCR · 批量 ≤ 30 個/分鐘</span>
+          </div>
+        </div>
+
+        <!-- 多文件模式切换 · 选 ≥ 2 个文件时才显示 -->
+        <div id="im-multi-mode" style="display:none;margin-top:var(--sp-3);padding:var(--sp-3);background:rgba(43,34,24,.03);border-radius:var(--r-sm);">
+          <div style="font:var(--text-caption);color:var(--ink-2);letter-spacing:.5px;margin-bottom:8px;">
+            <span class="sc">多文件模式</span><span class="tc">多文件模式</span>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;">
+            <input type="radio" name="im-multi-strategy" value="merge" checked>
+            <span class="sc"><b>合并</b> · 所有文件按上传顺序合成 1 个法本（每个文件作为独立章节组）</span>
+            <span class="tc"><b>合併</b> · 所有文件按上傳順序合成 1 個法本</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="radio" name="im-multi-strategy" value="split">
+            <span class="sc"><b>拆分</b> · 每个文件创建一个独立法本（slug 从文件名自动生成）</span>
+            <span class="tc"><b>拆分</b> · 每個文件創建一個獨立法本</span>
+          </label>
+        </div>
+
+        <!-- 文件队列 · 上传中 / 完成后都显示 -->
+        <div id="im-queue-box" style="display:none;margin-top:var(--sp-3);padding:var(--sp-3);background:rgba(43,34,24,.03);border-radius:var(--r-sm);">
+          <div style="display:flex;justify-content:space-between;align-items:center;font:var(--text-caption);color:var(--ink-2);letter-spacing:.5px;margin-bottom:8px;">
+            <span id="im-queue-progress-text">—</span>
+            <span id="im-queue-progress-stats" style="font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:.6875rem;">—</span>
+          </div>
+          <div style="height:6px;background:rgba(43,34,24,.1);border-radius:var(--r-pill);overflow:hidden;margin-bottom:10px;">
+            <div id="im-queue-progress-bar" style="height:100%;background:linear-gradient(90deg,var(--saffron),var(--saffron-dark));width:0%;transition:width .2s var(--ease);"></div>
+          </div>
+          <ul id="im-queue-list" style="list-style:none;padding:0;margin:0;max-height:240px;overflow-y:auto;font:var(--text-body);font-size:.8125rem;"></ul>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+            <button type="button" class="p-action-btn" id="im-queue-retry-failed" style="display:none;">
+              <span class="sc">重试全部失败</span><span class="tc">重試全部失敗</span>
+            </button>
+            <button type="button" class="p-action-btn" id="im-queue-clear-failed" style="display:none;">
+              <span class="sc">移除失败项</span><span class="tc">移除失敗項</span>
+            </button>
+            <button type="button" class="btn-apply" id="im-queue-continue" style="display:none;margin-left:auto;">
+              <span class="sc">继续 →</span><span class="tc">繼續 →</span>
+            </button>
           </div>
         </div>
 
@@ -638,6 +678,20 @@ https://www.buli.page/zh-hans/view/lesson/def456/text/
             </div>
           </div>
           <pre id="im-batch-failed-list" style="margin:0;font:var(--text-caption);font-family:'SF Mono',ui-monospace,Consolas,monospace;font-size:.6875rem;color:var(--ink-2);white-space:pre-wrap;word-break:break-all;max-height:160px;overflow-y:auto;"></pre>
+        </div>
+      </div>
+
+      <!-- 步骤 1.5 · 拆分模式：N 个独立法本草稿（每个文件 = 1 法本） -->
+      <div class="im-step" id="im-step-split-list">
+        <div style="font:var(--text-caption);color:var(--ink-2);letter-spacing:.5px;margin-bottom:10px;" id="im-split-summary">—</div>
+        <ul id="im-split-list" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px;"></ul>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button type="button" class="btn-apply" id="im-split-submit-all">
+            <span class="sc">全部提交</span><span class="tc">全部提交</span>
+          </button>
+          <button type="button" class="p-action-btn" id="im-split-back">
+            <span class="sc">← 返回上传</span><span class="tc">← 返回上傳</span>
+          </button>
         </div>
       </div>
 
@@ -1405,7 +1459,7 @@ document.addEventListener('DOMContentLoaded', function () {
 state.importPreview = null;   // { source, filename, charCount, chapters }
 
 function imShowStep(step) {
-  ['upload', 'parsing', 'preview'].forEach(function (s) {
+  ['upload', 'parsing', 'preview', 'split-list'].forEach(function (s) {
     var el = document.getElementById('im-step-' + s);
     if (el) el.classList.toggle('active', s === step);
   });
@@ -1418,6 +1472,9 @@ function imOpen() {
   state.importBatchAuthor = null;
   state.importBatchFailed = [];
   state.batchControl = { status: 'idle' };
+  state.fileQueue = [];                     // 多文件批量上传队列
+  state.fileQueueRunning = false;
+  state.fileSplitDrafts = [];               // 拆分模式 N 个法本草稿
   document.getElementById('im-err').classList.remove('show');
   document.getElementById('im-err').textContent = '';
   document.getElementById('im-file').value = '';
@@ -1428,6 +1485,10 @@ function imOpen() {
   if (progBox) progBox.style.display = 'none';
   var failedBox = document.getElementById('im-batch-failed');
   if (failedBox) failedBox.style.display = 'none';
+  var qBox = document.getElementById('im-queue-box');
+  if (qBox) qBox.style.display = 'none';
+  var mBox = document.getElementById('im-multi-mode');
+  if (mBox) mBox.style.display = 'none';
   imRenderBatchControlButtons();
   imShowStep('upload');
   document.getElementById('im-backdrop').classList.add('open');
@@ -1789,41 +1850,320 @@ function imBatchClearFailed() {
 }
 
 // 上传文件 · 走 raw fetch（api.js 是 JSON-only，不能传 multipart）
-function imUpload(file) {
-  if (!file) return;
-  if (!/\.(pdf|docx)$/i.test(file.name)) {
-    imErr(sc('仅支持 .pdf / .docx', '僅支持 .pdf / .docx'));
-    return;
-  }
-  if (file.size > 20 * 1024 * 1024) {
-    imErr(sc('文件超过 20 MB 上限', '文件超過 20 MB 上限'));
-    return;
-  }
-  imShowStep('parsing');
-  document.getElementById('im-err').classList.remove('show');
-
-  var fd = new FormData();
-  fd.append('file', file);
-  var base = (window.JX && window.JX.API_BASE) || '';
-  fetch(base + '/api/admin/courses/import-file/preview', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + window.JX.api.getAccessToken() },
-    body: fd,
-  }).then(function (res) {
-    return res.json().then(function (json) { return { res: res, json: json }; });
-  }).then(function (r) {
-    if (!r.res.ok) {
-      imShowStep('upload');
-      imErr((r.json && r.json.message) || sc('解析失败', '解析失敗'));
+// 单文件上传 + 解析 · 返回 Promise<preview>
+function imUploadOne(file) {
+  return new Promise(function (resolve, reject) {
+    if (!/\.(pdf|docx)$/i.test(file.name)) {
+      reject(new Error(sc('仅支持 .pdf / .docx', '僅支持 .pdf / .docx')));
       return;
     }
-    state.importPreview = r.json.data;
+    if (file.size > 20 * 1024 * 1024) {
+      reject(new Error(sc('超过 20 MB 上限', '超過 20 MB 上限')));
+      return;
+    }
+    var fd = new FormData();
+    fd.append('file', file);
+    var base = (window.JX && window.JX.API_BASE) || '';
+    fetch(base + '/api/admin/courses/import-file/preview', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + window.JX.api.getAccessToken() },
+      body: fd,
+    }).then(function (res) {
+      return res.json().then(function (json) { return { res: res, json: json }; });
+    }).then(function (r) {
+      if (!r.res.ok) {
+        var msg = (r.json && r.json.message) || sc('解析失败', '解析失敗');
+        if (r.res.status === 429) msg = sc('频率超限 · 请稍候再试', '頻率超限 · 請稍候再試');
+        reject(new Error(msg));
+        return;
+      }
+      resolve(r.json.data);
+    }).catch(function (err) {
+      reject(err instanceof Error ? err : new Error(String(err)));
+    });
+  });
+}
+
+// 入口：picker / drop 选了 N 个文件 → 走批量队列
+function imHandleFiles(filesList) {
+  var files = Array.prototype.slice.call(filesList || []);
+  if (files.length === 0) return;
+  document.getElementById('im-err').classList.remove('show');
+
+  // 显示模式切换（≥ 2 个文件才有意义）
+  var modeBox = document.getElementById('im-multi-mode');
+  modeBox.style.display = files.length >= 2 ? '' : 'none';
+
+  // 初始化队列状态
+  state.fileQueue = files.map(function (f) {
+    return { file: f, name: f.name, size: f.size, status: 'pending', error: null, preview: null };
+  });
+  imRenderQueue();
+  document.getElementById('im-queue-box').style.display = '';
+  imRunQueue();
+}
+
+// 串行跑队列 · 任一时刻同 status='uploading' 仅 1 项
+function imRunQueue() {
+  if (state.fileQueueRunning) return;
+  state.fileQueueRunning = true;
+
+  function next() {
+    var item = state.fileQueue.find(function (q) { return q.status === 'pending'; });
+    if (!item) {
+      state.fileQueueRunning = false;
+      imRenderQueue();
+      imOnQueueSettled();
+      return;
+    }
+    item.status = 'uploading';
+    imRenderQueue();
+    imUploadOne(item.file).then(function (preview) {
+      item.status = 'parsed';
+      item.preview = preview;
+      imRenderQueue();
+      next();
+    }).catch(function (err) {
+      item.status = 'failed';
+      item.error = (err && err.message) || sc('解析失败', '解析失敗');
+      imRenderQueue();
+      next();
+    });
+  }
+  next();
+}
+
+function imRenderQueue() {
+  var q = state.fileQueue || [];
+  var ul = document.getElementById('im-queue-list');
+  if (!ul) return;
+  var statIcon = { pending: '⌛', uploading: '⏳', parsed: '✓', failed: '✗' };
+  var statColor = { pending: 'var(--ink-3)', uploading: 'var(--saffron)', parsed: 'var(--vajra-green,#4caf50)', failed: 'var(--crimson)' };
+  ul.innerHTML = q.map(function (it, idx) {
+    var meta = it.status === 'parsed' && it.preview
+      ? (it.preview.chapters || []).length + sc(' 章 · ', ' 章 · ') +
+        (it.preview.chapters || []).reduce(function (s, c) { return s + (c.lessons || []).length; }, 0) + sc(' 课时', ' 課時')
+      : it.status === 'failed'
+        ? '<span style="color:var(--crimson);">' + escapeHtml(it.error || '') + '</span>'
+        : it.status === 'uploading'
+          ? sc('解析中…', '解析中…')
+          : sc('待上传', '待上傳');
+    var retryBtn = it.status === 'failed'
+      ? '<button class="p-action-btn" data-im-retry="' + idx + '" style="margin-left:8px;">' + sc('重试', '重試') + '</button>'
+      : '';
+    var rmBtn = (it.status === 'failed' || it.status === 'pending')
+      ? '<button class="p-action-btn" data-im-remove="' + idx + '" style="margin-left:6px;">' + sc('移除', '移除') + '</button>'
+      : '';
+    return '<li style="padding:6px 0;border-bottom:1px solid rgba(43,34,24,.06);display:flex;align-items:center;gap:8px;">' +
+      '<span style="color:' + statColor[it.status] + ';width:14px;text-align:center;">' + statIcon[it.status] + '</span>' +
+      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(it.name) + '">' + escapeHtml(it.name) + '</span>' +
+      '<span style="font-family:\'SF Mono\',ui-monospace,Consolas,monospace;font-size:.6875rem;color:var(--ink-3);">' + (it.size / 1024 / 1024).toFixed(1) + ' MB</span>' +
+      '<span style="font-size:.75rem;color:var(--ink-2);">' + meta + '</span>' +
+      retryBtn + rmBtn +
+      '</li>';
+  }).join('');
+
+  // 进度条 + 计数
+  var done = q.filter(function (i) { return i.status === 'parsed' || i.status === 'failed'; }).length;
+  var ok = q.filter(function (i) { return i.status === 'parsed'; }).length;
+  var fail = q.filter(function (i) { return i.status === 'failed'; }).length;
+  document.getElementById('im-queue-progress-text').textContent =
+    sc('解析中 ', '解析中 ') + done + ' / ' + q.length;
+  document.getElementById('im-queue-progress-stats').textContent = '✓ ' + ok + ' · ✗ ' + fail;
+  var pct = q.length > 0 ? Math.round((done / q.length) * 100) : 0;
+  document.getElementById('im-queue-progress-bar').style.width = pct + '%';
+
+  // 控制按钮可见性
+  var allSettled = q.length > 0 && q.every(function (i) { return i.status === 'parsed' || i.status === 'failed'; });
+  document.getElementById('im-queue-retry-failed').style.display = (allSettled && fail > 0) ? '' : 'none';
+  document.getElementById('im-queue-clear-failed').style.display = (allSettled && fail > 0) ? '' : 'none';
+  document.getElementById('im-queue-continue').style.display = (allSettled && ok > 0) ? '' : 'none';
+
+  // 委托 retry / remove 按钮
+  ul.querySelectorAll('[data-im-retry]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var i = parseInt(btn.getAttribute('data-im-retry'), 10);
+      if (state.fileQueue[i]) {
+        state.fileQueue[i].status = 'pending';
+        state.fileQueue[i].error = null;
+        imRenderQueue();
+        imRunQueue();
+      }
+    });
+  });
+  ul.querySelectorAll('[data-im-remove]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var i = parseInt(btn.getAttribute('data-im-remove'), 10);
+      state.fileQueue.splice(i, 1);
+      imRenderQueue();
+    });
+  });
+}
+
+function imOnQueueSettled() {
+  // 所有项已 settled · 控制按钮渲染由 imRenderQueue 兜底
+}
+
+function imQueueRetryAllFailed() {
+  (state.fileQueue || []).forEach(function (it) {
+    if (it.status === 'failed') { it.status = 'pending'; it.error = null; }
+  });
+  imRenderQueue();
+  imRunQueue();
+}
+
+function imQueueClearFailed() {
+  state.fileQueue = (state.fileQueue || []).filter(function (it) { return it.status !== 'failed'; });
+  imRenderQueue();
+}
+
+function imQueueContinue() {
+  var ok = (state.fileQueue || []).filter(function (i) { return i.status === 'parsed'; });
+  if (ok.length === 0) {
+    imErr(sc('没有解析成功的文件', '沒有解析成功的文件'));
+    return;
+  }
+  // 单文件 → 直接走原 preview 编辑
+  if (ok.length === 1) {
+    state.importPreview = ok[0].preview;
     imRenderPreview();
     imShowStep('preview');
-  }).catch(function (err) {
-    imShowStep('upload');
-    imErr((err && err.message) || sc('上传失败', '上傳失敗'));
+    return;
+  }
+  // 多文件 → 看模式
+  var mode = (document.querySelector('input[name="im-multi-strategy"]:checked') || {}).value || 'merge';
+  if (mode === 'merge') {
+    // 合并：每个文件作为"章节组"前置一个分隔章
+    var merged = [];
+    var totalChars = 0;
+    ok.forEach(function (item) {
+      var pv = item.preview;
+      totalChars += pv.charCount || 0;
+      // 文件名分隔章（admin 可在预览里编辑或删除）
+      merged.push({
+        title: '── ' + (pv.filename || item.name) + ' ──',
+        lessons: [{ title: sc('（来源标记 · 可删除）', '（來源標記 · 可刪除）'), referenceText: '' }],
+      });
+      (pv.chapters || []).forEach(function (ch) { merged.push(ch); });
+    });
+    state.importPreview = {
+      source: 'text',
+      filename: sc('批量上传 (' + ok.length + ' 文件)', '批量上傳 (' + ok.length + ' 文件)'),
+      charCount: totalChars,
+      chapters: merged,
+    };
+    imRenderPreview();
+    imShowStep('preview');
+  } else {
+    // 拆分：N 个独立法本草稿
+    state.fileSplitDrafts = ok.map(function (item) {
+      var base = (item.name || '').replace(/\.[^.]+$/, '');
+      return {
+        filename: item.name,
+        preview: item.preview,
+        slug: base.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || ('book-' + Date.now()),
+        title: base,
+        status: 'draft',  // draft | submitting | done | error
+        error: null,
+        clientToken: 'mu-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10),
+      };
+    });
+    imRenderSplitList();
+    imShowStep('split-list');
+  }
+}
+
+function imRenderSplitList() {
+  var drafts = state.fileSplitDrafts || [];
+  var statColor = { draft: 'var(--ink-3)', submitting: 'var(--saffron)', done: 'var(--vajra-green,#4caf50)', error: 'var(--crimson)' };
+  var statText = {
+    draft: sc('待提交', '待提交'),
+    submitting: sc('提交中…', '提交中…'),
+    done: sc('✓ 已创建', '✓ 已創建'),
+    error: sc('✗ 失败', '✗ 失敗'),
+  };
+  document.getElementById('im-split-summary').textContent =
+    sc(drafts.length + ' 个文件 · 各创建独立法本（编辑 slug / 标题后提交）',
+       drafts.length + ' 個文件 · 各創建獨立法本');
+  var ul = document.getElementById('im-split-list');
+  ul.innerHTML = drafts.map(function (d, i) {
+    var pv = d.preview;
+    var meta = (pv.chapters || []).length + sc(' 章 · ', ' 章 · ') +
+      (pv.chapters || []).reduce(function (s, c) { return s + (c.lessons || []).length; }, 0) + sc(' 课时 · ', ' 課時 · ') +
+      pv.charCount + sc(' 字', ' 字');
+    return '<li style="padding:10px;border:1px solid rgba(43,34,24,.1);border-radius:var(--r-sm);">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+        '<b style="font-family:var(--font-serif);">' + escapeHtml(d.filename) + '</b>' +
+        '<span style="color:' + statColor[d.status] + ';font:var(--text-caption);letter-spacing:1px;">' + statText[d.status] + '</span>' +
+      '</div>' +
+      '<div style="font:var(--text-caption);color:var(--ink-2);margin-bottom:8px;">' + meta + '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">' +
+        '<input type="text" data-im-split-slug="' + i + '" value="' + escapeHtml(d.slug) + '" maxlength="80" placeholder="slug" style="padding:6px;border:1px solid var(--ink-5);border-radius:var(--r-xs);font-family:\'SF Mono\',ui-monospace,Consolas,monospace;font-size:.8125rem;">' +
+        '<input type="text" data-im-split-title="' + i + '" value="' + escapeHtml(d.title) + '" maxlength="120" placeholder="' + sc('书名', '書名') + '" style="padding:6px;border:1px solid var(--ink-5);border-radius:var(--r-xs);">' +
+      '</div>' +
+      (d.status === 'error' ? '<div style="color:var(--crimson);font:var(--text-caption);margin-bottom:8px;">' + escapeHtml(d.error || '') + '</div>' : '') +
+      (d.status === 'done' ? '<a href="admin-courses.html" style="color:var(--vajra-green,#4caf50);font:var(--text-caption);">→ /' + escapeHtml(d.slug) + '</a>' :
+        '<button class="p-action-btn" data-im-split-submit="' + i + '" ' + (d.status === 'submitting' ? 'disabled' : '') + '>' + sc('提交此法本', '提交此法本') + '</button>') +
+    '</li>';
+  }).join('');
+
+  // 委托 events
+  ul.querySelectorAll('[data-im-split-slug]').forEach(function (inp) {
+    inp.addEventListener('input', function () {
+      var i = parseInt(inp.getAttribute('data-im-split-slug'), 10);
+      if (state.fileSplitDrafts[i]) state.fileSplitDrafts[i].slug = inp.value.trim();
+    });
   });
+  ul.querySelectorAll('[data-im-split-title]').forEach(function (inp) {
+    inp.addEventListener('input', function () {
+      var i = parseInt(inp.getAttribute('data-im-split-title'), 10);
+      if (state.fileSplitDrafts[i]) state.fileSplitDrafts[i].title = inp.value.trim();
+    });
+  });
+  ul.querySelectorAll('[data-im-split-submit]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var i = parseInt(btn.getAttribute('data-im-split-submit'), 10);
+      imSplitSubmitOne(i);
+    });
+  });
+}
+
+function imSplitSubmitOne(i) {
+  var d = state.fileSplitDrafts[i];
+  if (!d || d.status === 'submitting' || d.status === 'done') return;
+  if (!d.slug || !/^[a-z0-9-]+$/.test(d.slug)) {
+    d.status = 'error';
+    d.error = sc('slug 只能含字母 / 数字 / 连字符', 'slug 只能含字母 / 數字 / 連字符');
+    imRenderSplitList();
+    return;
+  }
+  if (!d.title) {
+    d.status = 'error';
+    d.error = sc('请填书名', '請填書名');
+    imRenderSplitList();
+    return;
+  }
+  d.status = 'submitting';
+  d.error = null;
+  imRenderSplitList();
+  window.JX.api.post('/api/admin/courses/import-file/commit', {
+    mode: 'new',
+    newCourse: { slug: d.slug, title: d.title, isPublished: false },
+    chapters: d.preview.chapters,
+    clientToken: d.clientToken,
+  }).then(function () {
+    d.status = 'done';
+    imRenderSplitList();
+  }).catch(function (err) {
+    d.status = 'error';
+    d.error = (err && err.message) || sc('提交失败', '提交失敗');
+    imRenderSplitList();
+  });
+}
+
+function imSplitSubmitAll() {
+  var drafts = state.fileSplitDrafts || [];
+  drafts.forEach(function (_, i) { imSplitSubmitOne(i); });
 }
 
 function imRenderPreview() {
@@ -2021,7 +2361,24 @@ function bindImportModal() {
       fileInput.click();
     }
   });
-  fileInput.addEventListener('change', function () { imUpload(fileInput.files[0]); });
+  fileInput.addEventListener('change', function () {
+    imHandleFiles(fileInput.files);
+    fileInput.value = ''; // 清空让重选同名文件也能触发 change
+  });
+
+  // 多文件队列：重试 / 清空失败 / 继续
+  var qRetry = document.getElementById('im-queue-retry-failed');
+  if (qRetry) qRetry.addEventListener('click', imQueueRetryAllFailed);
+  var qClear = document.getElementById('im-queue-clear-failed');
+  if (qClear) qClear.addEventListener('click', imQueueClearFailed);
+  var qContinue = document.getElementById('im-queue-continue');
+  if (qContinue) qContinue.addEventListener('click', imQueueContinue);
+
+  // 拆分模式：全部提交 / 返回
+  var sAll = document.getElementById('im-split-submit-all');
+  if (sAll) sAll.addEventListener('click', imSplitSubmitAll);
+  var sBack = document.getElementById('im-split-back');
+  if (sBack) sBack.addEventListener('click', function () { imShowStep('upload'); });
 
   // F3.2 · URL 抓取
   var urlInput = document.getElementById('im-url');
@@ -2056,8 +2413,8 @@ function bindImportModal() {
     dropZone.addEventListener(e, function (ev) { ev.preventDefault(); dropZone.classList.remove('dragover'); });
   });
   dropZone.addEventListener('drop', function (ev) {
-    if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]) {
-      imUpload(ev.dataTransfer.files[0]);
+    if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length > 0) {
+      imHandleFiles(ev.dataTransfer.files);
     }
   });
 
