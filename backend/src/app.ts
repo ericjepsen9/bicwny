@@ -21,6 +21,7 @@ import { authRoutes } from './modules/auth/routes.js';
 import { adminAuditRoutes } from './modules/admin/audit.routes.js';
 import { adminLogsRoutes } from './modules/admin/logs.routes.js';
 import { adminRoutes } from './modules/admin/routes.js';
+import { adminSystemSettingsRoutes } from './modules/admin/system-settings.routes.js';
 import { adminClassRoutes } from './modules/class/admin.routes.js';
 import { coachClassRoutes } from './modules/class/coach.routes.js';
 import { studentClassRoutes } from './modules/class/student.routes.js';
@@ -242,6 +243,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // 业务路由
   await app.register(authRoutes);
   await app.register(adminRoutes);
+  await app.register(adminSystemSettingsRoutes);
   await app.register(adminAuditRoutes);
   await app.register(adminLogsRoutes);
   await app.register(adminClassRoutes);

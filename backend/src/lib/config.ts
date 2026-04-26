@@ -37,6 +37,11 @@ const envSchema = z
   // 例：CORS_ORIGINS=https://app.example.com,https://admin.example.com
   CORS_ORIGINS: z.string().default(''),
 
+  // 法本抓取：亚洲中转节点（admin 后台可切换出口为 local / asia）
+  // 缺省 → 后台 settings 选 asia 时直接报错（避免静默走错路径）
+  ASIA_RELAY_URL: z.string().url().optional(),
+  ASIA_RELAY_TOKEN: z.string().min(16).optional(),
+
   // Dev 专用：Sprint 1 尚无真登录，直接注入 fake user id
   DEV_FAKE_USER_ID: z.string().default('dev_user_001'),
   })
