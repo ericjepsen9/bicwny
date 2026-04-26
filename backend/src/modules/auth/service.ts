@@ -95,10 +95,17 @@ export async function refreshSession(
     throw Unauthorized('refresh token 已失效');
   }
 
-  await prisma.authSession.update({
-    where: { id: session.id },
+  // 并发兜底：两个请求同时拿同一 refreshToken 通过上面的 findUnique 校验后，
+  // 旧实现都会 update 同一行 revokedAt 然后各自 issuePair → 双重签发。
+  // 改用 updateMany + revokedAt:null 条件 → 仅先到的一条命中 count=1 拿到下发权，
+  // 后到的 count=0 抛 401，避免双签。
+  const revoked = await prisma.authSession.updateMany({
+    where: { id: session.id, revokedAt: null },
     data: { revokedAt: new Date() },
   });
+  if (revoked.count === 0) {
+    throw Unauthorized('refresh token 已失效');
+  }
   return issuePair(app, session.user, ctx);
 }
 

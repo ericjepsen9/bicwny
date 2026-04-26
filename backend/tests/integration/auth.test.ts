@@ -82,4 +82,28 @@ describe('auth flow (integration)', () => {
     });
     expect(r2.statusCode).toBe(401);
   });
+
+  it('并发同 refreshToken 双发 → 仅一笔成功（防双重签发）', async () => {
+    const reg = await app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { email: EMAIL, password: PASS },
+    });
+    const { refreshToken: r0 } = expectOk<{ refreshToken: string }>(reg);
+
+    const [a, b] = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: r0 },
+      }),
+      app.inject({
+        method: 'POST',
+        url: '/api/auth/refresh',
+        payload: { refreshToken: r0 },
+      }),
+    ]);
+    const codes = [a.statusCode, b.statusCode].sort();
+    expect(codes).toEqual([200, 401]);
+  });
 });
