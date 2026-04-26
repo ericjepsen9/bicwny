@@ -78,6 +78,8 @@ export const adminCoursesImportRoutes: FastifyPluginAsync = async (app) => {
   app.post('/api/admin/courses/import-file/preview', {
     preHandler: adminGuard,
     schema: { tags: TAGS, summary: '导入法本 · 上传 PDF/DOCX → 预览章节树（不写库）', security: SEC, consumes: ['multipart/form-data'] },
+    // 防大文件刷量 5/min/userId
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
   }, async (req) => {
     // require @fastify/multipart 已在 app.ts 注册
     const file = await req.file();
@@ -105,6 +107,8 @@ export const adminCoursesImportRoutes: FastifyPluginAsync = async (app) => {
   app.post('/api/admin/courses/import-url/preview', {
     preHandler: adminGuard,
     schema: { tags: TAGS, summary: '导入法本 · 抓取 URL → 预览章节树（不写库）', security: SEC },
+    // 防 SSRF 探测 + 大量抓取下游站 5/min/userId
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
   }, async (req) => {
     const parsed = urlPreviewBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());

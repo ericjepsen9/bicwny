@@ -3,7 +3,15 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
-const envSchema = z.object({
+const PLACEHOLDER_JWT_SECRETS = new Set([
+  'dev_secret_replace_in_production',
+  'replace_me_in_production',
+  'change_me',
+  'secret',
+]);
+
+const envSchema = z
+  .object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   HOST: z.string().default('0.0.0.0'),
@@ -31,7 +39,21 @@ const envSchema = z.object({
 
   // Dev 专用：Sprint 1 尚无真登录，直接注入 fake user id
   DEV_FAKE_USER_ID: z.string().default('dev_user_001'),
-});
+  })
+  // 生产强制 JWT_SECRET ≥ 32 字节 + 不能是占位值 → 启动时拒绝弱密钥
+  .refine(
+    (env) => {
+      if (env.NODE_ENV !== 'production') return true;
+      if (env.JWT_SECRET.length < 32) return false;
+      if (PLACEHOLDER_JWT_SECRETS.has(env.JWT_SECRET)) return false;
+      return true;
+    },
+    {
+      message:
+        'JWT_SECRET 在生产环境必须 ≥ 32 字节随机字符串且不得为占位值（用 `openssl rand -base64 48` 生成）',
+      path: ['JWT_SECRET'],
+    },
+  );
 
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {

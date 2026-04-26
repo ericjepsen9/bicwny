@@ -35,6 +35,8 @@ export const answeringRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/api/answers', {
     schema: { tags: TAGS, summary: '提交答案 · 评分 · 持久化', security: SEC },
+    // 防 LLM 计费刷量：60 req/min/userId（已认证）
+    config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
   }, async (req) => {
     const userId = requireUserId(req);
     const parsed = submitBody.safeParse(req.body);

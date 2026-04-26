@@ -4,6 +4,7 @@
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -120,6 +121,22 @@ export async function buildApp(): Promise<FastifyInstance> {
   //      路由级用 requireRole / requireUserId 判断
   await app.register(jwt, { secret: config.JWT_SECRET });
   app.addHook('onRequest', jwtOptional);
+
+  // Rate-limit：默认全局基线 100 req/min/IP
+  // 重点端点（login / forgot / answers / import）在路由层用 config.rateLimit 加严
+  // 测试模式下完全禁用（避免集成测试撞限速）
+  if (config.NODE_ENV !== 'test') {
+    await app.register(rateLimit, {
+      global: true,
+      max: 100,
+      timeWindow: '1 minute',
+      // 已认证用户走 userId，未认证走 IP · NAT 共享 IP 误伤减小
+      keyGenerator: (req) => {
+        const uid = getUserId(req);
+        return uid ? `u:${uid}` : `ip:${req.ip}`;
+      },
+    });
+  }
 
   // jwtOptional 之后：把 userId 挂到 req.log 的 child 上
   app.addHook('onRequest', async (req) => {

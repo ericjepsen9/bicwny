@@ -77,6 +77,7 @@ const TAGS = ['Auth'];
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post('/api/auth/register', {
     schema: { tags: TAGS, summary: '注册账号', body: zBody(registerBody) },
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
   }, async (req, reply) => {
     const parsed = registerBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
@@ -91,6 +92,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/api/auth/login', {
     schema: { tags: TAGS, summary: '登录', body: zBody(loginBody) },
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
   }, async (req) => {
     const parsed = loginBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
@@ -118,6 +120,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   // Dev 环境响应带 devToken，便于本地不接 SMTP 走通流程。
   app.post('/api/auth/forgot', {
     schema: { tags: TAGS, summary: '忘记密码 · 发送重置链接', body: zBody(forgotBody) },
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
   }, async (req) => {
     const parsed = forgotBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());

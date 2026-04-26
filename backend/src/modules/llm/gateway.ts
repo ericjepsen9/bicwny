@@ -27,7 +27,11 @@ export interface ChatContext {
   requestId?: string;
   temperature?: number;
   maxTokens?: number;
+  /** 单次 provider 调用上限 ms · 默认 15s · 兜底防 LLM 卡死拖累并发答题 */
+  timeoutMs?: number;
 }
+
+const DEFAULT_LLM_TIMEOUT_MS = 15_000;
 
 export async function chat(
   scenario: string,
@@ -59,6 +63,7 @@ export async function chat(
         temperature: ctx.temperature ?? scenarioCfg.temperature,
         maxTokens: ctx.maxTokens ?? scenarioCfg.maxTokens,
         requestId,
+        timeoutMs: ctx.timeoutMs ?? DEFAULT_LLM_TIMEOUT_MS,
       });
       const cost = computeCost(cfg, resp);
       await Promise.all([
