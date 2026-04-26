@@ -149,3 +149,58 @@ describe('POST /api/admin/courses/import-file/commit · 幂等性', () => {
     expect(r2.statusCode).toBe(409);
   });
 });
+
+describe('DELETE /api/admin/courses/:id · 软删归档（不真删）', () => {
+  it('归档后 course 行仍在 · isPublished=false · archivedAt 落值 · AuditLog course.archive', async () => {
+    const admin = await registerAs(app, 'admin');
+    const slug = 'arch-test-a';
+    const r1 = await app.inject({
+      method: 'POST',
+      url: '/api/admin/courses/import-file/commit',
+      headers: authHeader(admin),
+      payload: samplePayload(slug),
+    });
+    const d1 = expectOk<{ courseId: string }>(r1);
+
+    const del = await app.inject({
+      method: 'DELETE',
+      url: `/api/admin/courses/${d1.courseId}`,
+      headers: authHeader(admin),
+    });
+    expect(del.statusCode).toBe(204);
+
+    const after = await prisma.course.findUnique({ where: { id: d1.courseId } });
+    expect(after).not.toBeNull();
+    expect(after!.isPublished).toBe(false);
+    expect(after!.archivedAt).not.toBeNull();
+
+    const logs = await prisma.auditLog.findMany({
+      where: { action: 'course.archive', targetId: d1.courseId },
+    });
+    expect(logs.length).toBe(1);
+  });
+
+  it('已归档的课再次 DELETE → 400', async () => {
+    const admin = await registerAs(app, 'admin');
+    const slug = 'arch-test-b';
+    const r1 = await app.inject({
+      method: 'POST',
+      url: '/api/admin/courses/import-file/commit',
+      headers: authHeader(admin),
+      payload: samplePayload(slug),
+    });
+    const d1 = expectOk<{ courseId: string }>(r1);
+
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/admin/courses/${d1.courseId}`,
+      headers: authHeader(admin),
+    });
+    const again = await app.inject({
+      method: 'DELETE',
+      url: `/api/admin/courses/${d1.courseId}`,
+      headers: authHeader(admin),
+    });
+    expect(again.statusCode).toBe(400);
+  });
+});

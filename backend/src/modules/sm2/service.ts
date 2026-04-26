@@ -1,8 +1,8 @@
 // SM-2 数据访问层：把纯算法接到 Prisma
-// - scheduleReview：首次答题或每次自评都走此入口（upsert）
+// - scheduleReview：首次答题或每次自评都走此入口（upsert）· 可传 tx 与答题主流程同事务
 // - listDueCards：到期卡片（按 dueDate 升序），支持按课程过滤
 // - getCardStats：面板用状态分布 + 到期数 + 总数
-import type { Sm2Card, Sm2Status } from '@prisma/client';
+import type { Prisma, PrismaClient, Sm2Card, Sm2Status } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
   INITIAL_STATE,
@@ -11,14 +11,17 @@ import {
   type Sm2State,
 } from './algorithm.js';
 
+type Db = PrismaClient | Prisma.TransactionClient;
+
 export async function scheduleReview(
   userId: string,
   courseId: string,
   questionId: string,
   rating: Sm2Rating,
   now: Date = new Date(),
+  db: Db = prisma,
 ): Promise<Sm2Card> {
-  const existing = await prisma.sm2Card.findUnique({
+  const existing = await db.sm2Card.findUnique({
     where: { userId_questionId: { userId, questionId } },
   });
   const prev: Sm2State = existing
@@ -32,7 +35,7 @@ export async function scheduleReview(
 
   const upd = nextReview(prev, rating, now);
 
-  return prisma.sm2Card.upsert({
+  return db.sm2Card.upsert({
     where: { userId_questionId: { userId, questionId } },
     create: {
       userId,

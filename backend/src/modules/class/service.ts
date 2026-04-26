@@ -136,19 +136,50 @@ export async function removeMember(
   userId: string,
   opts: { actorAdminId?: string } = {},
 ): Promise<void> {
-  // 退班联动：把通过该班级带来的 enrollment 转回 self（保留进度，但用户重获退课权）
+  // 退班联动 enrollment：
+  //   1) 找所有 enrolledViaClassId=classId 的 enrollment（每条对应一个 courseId）
+  //   2) 对每条 enrollment 看用户是否还在其他班里上同一 courseId
+  //      - 是 → 把 enrolledViaClassId 转向另一个班（保留 source='class'）
+  //      - 否 → 直接 delete enrollment（彻底失去课程访问权）
+  //   原实现把 source 改回 'self' + 清 enrolledViaClassId，结果是「被踢出 A 班但
+  //   仍可访问 A 班的法本」，违反"踢出即失访"语义。
   await prisma.$transaction(async (tx) => {
     const before = await tx.classMember.findUnique({
       where: { classId_userId: { classId, userId } },
     });
+
+    // 软删 ClassMember（保留 join 历史）
     await tx.classMember.updateMany({
       where: { classId, userId, removedAt: null },
       data: { removedAt: new Date() },
     });
-    await tx.userCourseEnrollment.updateMany({
+
+    // 处理通过本班带来的 enrollment
+    const orphans = await tx.userCourseEnrollment.findMany({
       where: { userId, enrolledViaClassId: classId },
-      data: { source: 'self', enrolledViaClassId: null },
+      select: { id: true, courseId: true },
     });
+    for (const enr of orphans) {
+      // 看用户是否还在其他活跃班里上同一 courseId
+      const fallbackMember = await tx.classMember.findFirst({
+        where: {
+          userId,
+          removedAt: null,
+          classId: { not: classId },
+          class: { isActive: true, courseId: enr.courseId },
+        },
+        select: { classId: true },
+      });
+      if (fallbackMember) {
+        await tx.userCourseEnrollment.update({
+          where: { id: enr.id },
+          data: { enrolledViaClassId: fallbackMember.classId },
+        });
+      } else {
+        await tx.userCourseEnrollment.delete({ where: { id: enr.id } });
+      }
+    }
+
     if (opts.actorAdminId) {
       await tx.auditLog.create({
         data: {

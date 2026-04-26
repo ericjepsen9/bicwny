@@ -4,17 +4,23 @@
 // - listActiveMistakes：未移除的记录，最近错误时间倒序
 // - listActiveMistakesWithQuestions：同上 + join 每条的 Question（剥答案）· 供 /api/mistakes 路由直接回包
 // - getMistakeDetail：单条错题详情（题目全量 + 最近一次作答），owner 访问
-import type { Question, UserAnswer, UserMistakeBook } from '@prisma/client';
+//
+// upsertMistake / removeMistake 接受可选 tx，便于答题主流程在单事务里联动；
+// 缺省时回退到全局 prisma 实例（路由层独立调用场景）。
+import type { Prisma, PrismaClient, Question, UserAnswer, UserMistakeBook } from '@prisma/client';
 import { NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { toPublicView, type PublicQuestion } from './publicView.js';
+
+type Db = PrismaClient | Prisma.TransactionClient;
 
 export async function upsertMistake(
   userId: string,
   questionId: string,
   at: Date = new Date(),
+  db: Db = prisma,
 ): Promise<void> {
-  await prisma.userMistakeBook.upsert({
+  await db.userMistakeBook.upsert({
     where: { userId_questionId: { userId, questionId } },
     create: { userId, questionId, lastWrongAt: at, wrongCount: 1 },
     update: {
@@ -28,8 +34,9 @@ export async function upsertMistake(
 export async function removeMistake(
   userId: string,
   questionId: string,
+  db: Db = prisma,
 ): Promise<void> {
-  await prisma.userMistakeBook.updateMany({
+  await db.userMistakeBook.updateMany({
     where: { userId, questionId, removedAt: null },
     data: { removedAt: new Date() },
   });

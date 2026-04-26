@@ -4,7 +4,7 @@
 //   GET    /api/admin/courses/:id                          法本详情（含章节 + 课时树）
 //   POST   /api/admin/courses                              创建法本
 //   PATCH  /api/admin/courses/:id                          编辑法本
-//   DELETE /api/admin/courses/:id                          删除法本（无 Question/Enrollment 引用时）
+//   DELETE /api/admin/courses/:id                          归档法本（软删 · isPublished=false + archivedAt）
 //
 //   POST   /api/admin/courses/:cid/chapters                在法本下加章
 //   PATCH  /api/admin/chapters/:id                         编辑章
@@ -136,7 +136,7 @@ export const adminCoursesRoutes: FastifyPluginAsync = async (app) => {
 
   app.delete('/api/admin/courses/:id', {
     preHandler: adminGuard,
-    schema: { tags: TAGS, summary: '删除法本（仅在无引用时）', security: SEC },
+    schema: { tags: TAGS, summary: '归档法本（软删 · 学员侧立即不可见）', security: SEC },
   }, async (req, reply) => {
     const pp = idParam.safeParse(req.params);
     if (!pp.success) throw BadRequest('路径参数不合法');

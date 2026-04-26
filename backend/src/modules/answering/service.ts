@@ -82,24 +82,47 @@ export async function submitAnswer(
         }
       : null;
 
+  // 单事务原子：UserAnswer + 错题本 + SM-2 排程
+  // 任一步失败 → 整体回滚 → 客户端重试
+  // SM-2 旧实现是 try/catch 静默吞，会留下"答题成功但永不到期"的不一致
   let ua;
   try {
-    ua = await prisma.userAnswer.create({
-      data: {
+    ua = await prisma.$transaction(async (tx) => {
+      const created = await tx.userAnswer.create({
+        data: {
+          userId,
+          questionId,
+          answer: answer as Prisma.InputJsonValue,
+          isCorrect: grade.isCorrect,
+          score: grade.score,
+          // nullable Json：用 Prisma.DbNull 显式表达 SQL NULL（Prisma 6 严格模式）
+          aiGrade: aiGrade === null ? Prisma.DbNull : (aiGrade as Prisma.InputJsonValue),
+          timeSpentMs: opts.timeSpentMs ?? null,
+          classId: opts.classId ?? null,
+          requestId: opts.requestId ?? null,
+        },
+      });
+
+      if (!grade.isCorrect) {
+        await upsertMistake(userId, questionId, new Date(), tx);
+      } else if (opts.removeFromMistakesOnCorrect) {
+        await removeMistake(userId, questionId, tx);
+      }
+
+      await scheduleReview(
         userId,
+        question.courseId,
         questionId,
-        answer: answer as Prisma.InputJsonValue,
-        isCorrect: grade.isCorrect,
-        score: grade.score,
-        // nullable Json：用 Prisma.DbNull 显式表达 SQL NULL（Prisma 6 严格模式）
-        aiGrade: aiGrade === null ? Prisma.DbNull : (aiGrade as Prisma.InputJsonValue),
-        timeSpentMs: opts.timeSpentMs ?? null,
-        classId: opts.classId ?? null,
-        requestId: opts.requestId ?? null,
-      },
+        gradeToRating(grade),
+        new Date(),
+        tx,
+      );
+
+      return created;
     });
   } catch (e) {
-    // 并发竞争：两个相同 requestId 同时进来，先到的赢，后到的拿回缓存
+    // 幂等键并发竞争：两个相同 requestId 同时进来，先到的赢，后到的拿回缓存
+    // 注意：P2002 在事务内部抛出 → 此处仍是 PrismaClientKnownRequestError
     if (
       opts.requestId &&
       e instanceof Prisma.PrismaClientKnownRequestError &&
@@ -123,28 +146,6 @@ export async function submitAnswer(
       }
     }
     throw e;
-  }
-
-  // 错题本
-  if (!grade.isCorrect) {
-    await upsertMistake(userId, questionId);
-  } else if (opts.removeFromMistakesOnCorrect) {
-    await removeMistake(userId, questionId);
-  }
-
-  // SM-2 排程：失败不阻塞主响应，仅 warn
-  try {
-    await scheduleReview(
-      userId,
-      question.courseId,
-      questionId,
-      gradeToRating(grade),
-    );
-  } catch (e) {
-    console.warn(
-      '[answering] SM-2 scheduleReview 失败（不影响答题）：',
-      e instanceof Error ? e.message : e,
-    );
   }
 
   return { userAnswerId: ua.id, question, grade };

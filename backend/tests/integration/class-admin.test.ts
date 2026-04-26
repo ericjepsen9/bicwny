@@ -124,6 +124,97 @@ describe('Admin class operations · AuditLog', () => {
     });
   });
 
+  it('学员先后 join 两个班级（同 course）→ enrollment 保留首班指针', async () => {
+    const admin = await registerAs(app, 'admin');
+    const stu = await registerAs(app, 'student');
+    const { courseId } = await seedCourseLesson();
+    const clsA = await adminCreateClass(admin, courseId, 'A 班');
+    const clsB = await adminCreateClass(admin, courseId, 'B 班');
+
+    // join A
+    await app.inject({
+      method: 'POST',
+      url: '/api/classes/join',
+      headers: authHeader(stu),
+      payload: { joinCode: clsA.joinCode },
+    });
+    // join B
+    await app.inject({
+      method: 'POST',
+      url: '/api/classes/join',
+      headers: authHeader(stu),
+      payload: { joinCode: clsB.joinCode },
+    });
+
+    const enr = await prisma.userCourseEnrollment.findUnique({
+      where: { userId_courseId: { userId: stu.userId, courseId } },
+    });
+    // 应保留 A 班指针，不被 B 班覆盖
+    expect(enr!.source).toBe('class');
+    expect(enr!.enrolledViaClassId).toBe(clsA.id);
+  });
+
+  it('removeMember · 用户在另一班还有同 course → enrollment 转向另一班', async () => {
+    const admin = await registerAs(app, 'admin');
+    const stu = await registerAs(app, 'student');
+    const { courseId } = await seedCourseLesson();
+    const clsA = await adminCreateClass(admin, courseId, 'A 班');
+    const clsB = await adminCreateClass(admin, courseId, 'B 班');
+
+    // 先 join A 再 join B
+    await app.inject({
+      method: 'POST',
+      url: '/api/classes/join',
+      headers: authHeader(stu),
+      payload: { joinCode: clsA.joinCode },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/classes/join',
+      headers: authHeader(stu),
+      payload: { joinCode: clsB.joinCode },
+    });
+
+    // admin 把学员从 A 班移除
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/admin/classes/${clsA.id}/members/${stu.userId}`,
+      headers: authHeader(admin),
+    });
+
+    const enr = await prisma.userCourseEnrollment.findUnique({
+      where: { userId_courseId: { userId: stu.userId, courseId } },
+    });
+    // enrollment 仍存在，指针转向 B 班
+    expect(enr).not.toBeNull();
+    expect(enr!.enrolledViaClassId).toBe(clsB.id);
+    expect(enr!.source).toBe('class');
+  });
+
+  it('removeMember · 用户唯一来源是当前班 → enrollment 删除', async () => {
+    const admin = await registerAs(app, 'admin');
+    const stu = await registerAs(app, 'student');
+    const { courseId } = await seedCourseLesson();
+    const cls = await adminCreateClass(admin, courseId);
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/classes/join',
+      headers: authHeader(stu),
+      payload: { joinCode: cls.joinCode },
+    });
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/admin/classes/${cls.id}/members/${stu.userId}`,
+      headers: authHeader(admin),
+    });
+
+    const enr = await prisma.userCourseEnrollment.findUnique({
+      where: { userId_courseId: { userId: stu.userId, courseId } },
+    });
+    expect(enr).toBeNull();
+  });
+
   it('学员自助 join（student 路由）→ 不写 AuditLog', async () => {
     const admin = await registerAs(app, 'admin');
     const stu = await registerAs(app, 'student');

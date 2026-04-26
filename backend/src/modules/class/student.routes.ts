@@ -36,21 +36,28 @@ export const studentClassRoutes: FastifyPluginAsync = async (app) => {
     const member = await addMember(cls.id, userId, 'student', {
       preserveExistingRole: true,
     });
-    // 自动报名班级主修法本（upsert 幂等）
-    // 已 self 报名 → 升级为 'class' 源（用户失去退课权但可保留进度）
-    // 已 class 源（来自其他班级）→ 不动 source · 仍指向最早绑定的班级
-    await prisma.userCourseEnrollment.upsert({
+    // 自动报名班级主修法本：
+    //   无 enrollment        → create（source='class', 指向当前班）
+    //   原 source='self'     → 升级为 class（保留进度，用户失去退课权）
+    //   原 source='class'    → 保留原 enrolledViaClassId（最早绑定的班 = 法本归属班）
+    //                          原 upsert 实现会无条件覆盖，跨班统计错乱 → 此处显式分支
+    const existing = await prisma.userCourseEnrollment.findUnique({
       where: { userId_courseId: { userId, courseId: cls.courseId } },
-      create: {
-        userId, courseId: cls.courseId,
-        source: 'class', enrolledViaClassId: cls.id,
-      },
-      update: {
-        // 仅在原 source=self 时升级为 class · 其他班级源保持不动
-        source: 'class',
-        enrolledViaClassId: cls.id,
-      },
     });
+    if (!existing) {
+      await prisma.userCourseEnrollment.create({
+        data: {
+          userId, courseId: cls.courseId,
+          source: 'class', enrolledViaClassId: cls.id,
+        },
+      });
+    } else if (existing.source === 'self') {
+      await prisma.userCourseEnrollment.update({
+        where: { id: existing.id },
+        data: { source: 'class', enrolledViaClassId: cls.id },
+      });
+    }
+    // else (source 已是 class)：不动，保留首次绑定的班级指针
     // 返回时附 course 让前端可立刻提示"已加入 XXX 法本"
     const course = await prisma.course.findUnique({
       where: { id: cls.courseId },

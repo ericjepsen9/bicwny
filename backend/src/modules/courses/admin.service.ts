@@ -168,33 +168,37 @@ export async function updateCourse(
   return updated;
 }
 
+/**
+ * "删除"法本：实际是软归档（isPublished=false + archivedAt=now）。
+ *
+ * 设计：永远不真删 Course 行（避免破坏 UserAnswer/Sm2Card/AuditLog 等历史数据），
+ * 学员侧已通过 isPublished=true 过滤，归档后即对学员不可见。
+ * 路由层仍是 DELETE 谓词，保持前端 API 不变；AuditLog action=course.archive。
+ */
 export async function deleteCourse(adminId: string, id: string) {
   const before = await prisma.course.findUnique({ where: { id } });
   if (!before) throw NotFound('法本不存在');
-
-  // 检查关联：Question / Enrollment / Class / Sm2Card 是否引用
-  const [qs, enrs, cls, sm2] = await Promise.all([
-    prisma.question.count({ where: { courseId: id } }),
-    prisma.userCourseEnrollment.count({ where: { courseId: id } }),
-    prisma.class.count({ where: { courseId: id } }),
-    prisma.sm2Card.count({ where: { courseId: id } }),
-  ]);
-  if (qs || enrs || cls || sm2) {
-    throw BadRequest(
-      `无法删除：尚有 ${qs} 道题、${enrs} 个报名、${cls} 个班级、${sm2} 张 SM-2 卡引用此法本；` +
-      `如需下架请改为 isPublished=false。`,
-    );
+  if (before.archivedAt) {
+    throw BadRequest('法本已归档；如需彻底清理请联系 DBA');
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.course.delete({ where: { id } }); // cascade chapters/lessons
+    await tx.course.update({
+      where: { id },
+      data: { isPublished: false, archivedAt: new Date() },
+    });
     await tx.auditLog.create({
       data: {
         adminId,
-        action: 'course.delete',
+        action: 'course.archive',
         targetType: 'course',
         targetId: id,
-        before: { slug: before.slug, title: before.title } as Prisma.InputJsonValue,
+        before: {
+          slug: before.slug,
+          title: before.title,
+          isPublished: before.isPublished,
+        } as Prisma.InputJsonValue,
+        after: { isPublished: false, archivedAt: new Date() } as Prisma.InputJsonValue,
       },
     });
   });

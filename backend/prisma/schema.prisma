@@ -183,6 +183,8 @@ model Course {
   lastImportClientToken String?
   // 上一次导入的 chapterCount / lessonCount · 用于幂等命中时如实回放
   lastImportSummary     Json?
+  // 软删归档：DELETE 端点不真删 · 学员侧已通过 isPublished=true 过滤
+  archivedAt       DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
