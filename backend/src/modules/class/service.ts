@@ -1,7 +1,10 @@
 // 班级 · 成员数据层（createClass / addMember / removeMember / list*
 //   / assertIsCoachOfClass / assertMemberOfClass / archiveClass）
+//
+// AuditLog 约定：actorAdminId 显式传入时（admin 路由）落审计记录，
+// 学员自助 join/leave（student 路由）不传 actorAdminId 则不污染 admin 审计。
 import { randomBytes } from 'node:crypto';
-import type { Class, ClassMember, ClassMemberRole } from '@prisma/client';
+import { type Class, type ClassMember, type ClassMemberRole, Prisma } from '@prisma/client';
 import { Forbidden, Internal, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 
@@ -28,7 +31,10 @@ export interface CreateClassInput {
   coverEmoji?: string;
 }
 
-export async function createClass(input: CreateClassInput): Promise<Class> {
+export async function createClass(
+  input: CreateClassInput,
+  opts: { actorAdminId?: string } = {},
+): Promise<Class> {
   // 校验 course 存在 + 已发布
   const course = await prisma.course.findUnique({ where: { id: input.courseId } });
   if (!course) throw NotFound('指定的法本不存在');
@@ -38,15 +44,33 @@ export async function createClass(input: CreateClassInput): Promise<Class> {
     const joinCode = generateJoinCode();
     const exists = await prisma.class.findUnique({ where: { joinCode } });
     if (!exists) {
-      return prisma.class.create({
-        data: {
-          name: input.name,
-          description: input.description,
-          coverEmoji: input.coverEmoji,
-          courseId: input.courseId,
-          joinCode,
-        },
-        include: CLASS_COURSE_INCLUDE,
+      return prisma.$transaction(async (tx) => {
+        const cls = await tx.class.create({
+          data: {
+            name: input.name,
+            description: input.description,
+            coverEmoji: input.coverEmoji,
+            courseId: input.courseId,
+            joinCode,
+          },
+          include: CLASS_COURSE_INCLUDE,
+        });
+        if (opts.actorAdminId) {
+          await tx.auditLog.create({
+            data: {
+              adminId: opts.actorAdminId,
+              action: 'class.create',
+              targetType: 'class',
+              targetId: cls.id,
+              after: {
+                name: cls.name,
+                courseId: cls.courseId,
+                joinCode: cls.joinCode,
+              } as Prisma.InputJsonValue,
+            },
+          });
+        }
+        return cls;
       });
     }
   }
@@ -69,32 +93,81 @@ export async function addMember(
   classId: string,
   userId: string,
   role: ClassMemberRole,
-  opts: { preserveExistingRole?: boolean } = {},
+  opts: { preserveExistingRole?: boolean; actorAdminId?: string } = {},
 ): Promise<ClassMember> {
-  return prisma.classMember.upsert({
-    where: { classId_userId: { classId, userId } },
-    create: { classId, userId, role },
-    update: opts.preserveExistingRole
-      ? { removedAt: null } // 学员 join：不降级已有 coach/admin
-      : { removedAt: null, role }, // 管理员添加：强制设 role
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.classMember.findUnique({
+      where: { classId_userId: { classId, userId } },
+    });
+    const member = await tx.classMember.upsert({
+      where: { classId_userId: { classId, userId } },
+      create: { classId, userId, role },
+      update: opts.preserveExistingRole
+        ? { removedAt: null } // 学员 join：不降级已有 coach/admin
+        : { removedAt: null, role }, // 管理员添加：强制设 role
+    });
+    if (opts.actorAdminId) {
+      await tx.auditLog.create({
+        data: {
+          adminId: opts.actorAdminId,
+          action: 'class.member.add',
+          targetType: 'classMember',
+          targetId: member.id,
+          before: before
+            ? ({
+                role: before.role,
+                removedAt: before.removedAt,
+              } as Prisma.InputJsonValue)
+            : Prisma.DbNull,
+          after: {
+            classId,
+            userId,
+            role: member.role,
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+    return member;
   });
 }
 
 export async function removeMember(
   classId: string,
   userId: string,
+  opts: { actorAdminId?: string } = {},
 ): Promise<void> {
   // 退班联动：把通过该班级带来的 enrollment 转回 self（保留进度，但用户重获退课权）
-  await prisma.$transaction([
-    prisma.classMember.updateMany({
+  await prisma.$transaction(async (tx) => {
+    const before = await tx.classMember.findUnique({
+      where: { classId_userId: { classId, userId } },
+    });
+    await tx.classMember.updateMany({
       where: { classId, userId, removedAt: null },
       data: { removedAt: new Date() },
-    }),
-    prisma.userCourseEnrollment.updateMany({
+    });
+    await tx.userCourseEnrollment.updateMany({
       where: { userId, enrolledViaClassId: classId },
       data: { source: 'self', enrolledViaClassId: null },
-    }),
-  ]);
+    });
+    if (opts.actorAdminId) {
+      await tx.auditLog.create({
+        data: {
+          adminId: opts.actorAdminId,
+          action: 'class.member.remove',
+          targetType: 'classMember',
+          targetId: before?.id ?? null,
+          before: before
+            ? ({
+                classId,
+                userId,
+                role: before.role,
+                wasActive: before.removedAt === null,
+              } as Prisma.InputJsonValue)
+            : Prisma.DbNull,
+        },
+      });
+    }
+  });
 }
 
 export async function listMembers(classId: string) {
@@ -142,11 +215,36 @@ export async function listUserClasses(
   });
 }
 
-export async function archiveClass(id: string): Promise<Class> {
-  return prisma.class.update({
-    where: { id },
-    data: { isActive: false, archivedAt: new Date() },
-    include: CLASS_COURSE_INCLUDE,
+export async function archiveClass(
+  id: string,
+  opts: { actorAdminId?: string } = {},
+): Promise<Class> {
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.class.findUnique({
+      where: { id },
+      select: { isActive: true, archivedAt: true, name: true },
+    });
+    const cls = await tx.class.update({
+      where: { id },
+      data: { isActive: false, archivedAt: new Date() },
+      include: CLASS_COURSE_INCLUDE,
+    });
+    if (opts.actorAdminId) {
+      await tx.auditLog.create({
+        data: {
+          adminId: opts.actorAdminId,
+          action: 'class.archive',
+          targetType: 'class',
+          targetId: id,
+          before: (before ?? Prisma.DbNull) as Prisma.InputJsonValue,
+          after: {
+            isActive: cls.isActive,
+            archivedAt: cls.archivedAt,
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+    return cls;
   });
 }
 

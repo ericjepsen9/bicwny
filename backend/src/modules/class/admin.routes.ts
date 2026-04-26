@@ -7,7 +7,7 @@
 //   DELETE /api/admin/classes/:id/members/:userId 移除成员
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requireRole } from '../../lib/auth.js';
+import { requireRole, requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import {
@@ -52,7 +52,8 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
     async (req, reply) => {
       const parsed = createBody.safeParse(req.body);
       if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
-      const cls = await createClass(parsed.data);
+      const adminId = requireUserId(req);
+      const cls = await createClass(parsed.data, { actorAdminId: adminId });
       reply.code(201);
       return { data: cls };
     },
@@ -86,7 +87,8 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
     async (req) => {
       const parsed = idParam.safeParse(req.params);
       if (!parsed.success) throw BadRequest('路径参数不合法');
-      const cls = await archiveClass(parsed.data.id);
+      const adminId = requireUserId(req);
+      const cls = await archiveClass(parsed.data.id, { actorAdminId: adminId });
       return { data: cls };
     },
   );
@@ -118,7 +120,10 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
       const pb = addMemberBody.safeParse(req.body);
       if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
       await getClass(pp.data.id);
-      const member = await addMember(pp.data.id, pb.data.userId, pb.data.role);
+      const adminId = requireUserId(req);
+      const member = await addMember(pp.data.id, pb.data.userId, pb.data.role, {
+        actorAdminId: adminId,
+      });
       reply.code(201);
       return { data: member };
     },
@@ -133,7 +138,8 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
     async (req) => {
       const parsed = memberParams.safeParse(req.params);
       if (!parsed.success) throw BadRequest('路径参数不合法');
-      await removeMember(parsed.data.id, parsed.data.userId);
+      const adminId = requireUserId(req);
+      await removeMember(parsed.data.id, parsed.data.userId, { actorAdminId: adminId });
       return { data: { ok: true } };
     },
   );
