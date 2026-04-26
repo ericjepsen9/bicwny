@@ -203,33 +203,54 @@ describe('POST /api/auth/reset (integration)', () => {
     expect(tkn!.usedAt).toBeNull();
   });
 
-  it('同一用户多次请求 forgot → reset 成功后所有 token 一并作废', async () => {
+  it('同一用户再次 forgot → 旧 token 立即作废（仅最新有效）', async () => {
     const u = await registerAs(app, 'student');
     const t1 = await requestToken(u.email);
     const t2 = await requestToken(u.email);
 
-    // 用 t1 成功重置
-    const ok = await app.inject({
-      method: 'POST',
-      url: '/api/auth/reset',
-      payload: { token: t1, newPassword: 'newpass456' },
-    });
-    expect(ok.statusCode).toBe(200);
-
-    // t2 应该也被标为 usedAt
+    // t1 应当已被 t2 的请求作废
     const tokens = await prisma.passwordResetToken.findMany({
       where: { userId: u.userId },
       orderBy: { requestedAt: 'asc' },
     });
     expect(tokens.length).toBe(2);
-    tokens.forEach((t) => expect(t.usedAt).not.toBeNull());
+    expect(tokens[0]!.usedAt).not.toBeNull(); // t1 被作废
+    expect(tokens[1]!.usedAt).toBeNull();      // t2 仍有效
 
-    // 直接尝试用 t2 → 401
+    // 用 t1 应该 401
     const bad = await app.inject({
       method: 'POST',
       url: '/api/auth/reset',
-      payload: { token: t2, newPassword: 'another789' },
+      payload: { token: t1, newPassword: 'newpass456' },
     });
     expect(bad.statusCode).toBe(401);
+
+    // 用 t2 应该 200
+    const ok = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset',
+      payload: { token: t2, newPassword: 'newpass456' },
+    });
+    expect(ok.statusCode).toBe(200);
+  });
+
+  it('reset 成功后剩余未用 token 也一并作废（resetPassword 的级联）', async () => {
+    const u = await registerAs(app, 'student');
+    // 通过两次 forgot 验证级联：第二次 forgot 后只有 t2 有效
+    await requestToken(u.email);
+    const t2 = await requestToken(u.email);
+
+    const ok = await app.inject({
+      method: 'POST',
+      url: '/api/auth/reset',
+      payload: { token: t2, newPassword: 'newpass456' },
+    });
+    expect(ok.statusCode).toBe(200);
+
+    const tokens = await prisma.passwordResetToken.findMany({
+      where: { userId: u.userId },
+    });
+    expect(tokens.length).toBe(2);
+    tokens.forEach((t) => expect(t.usedAt).not.toBeNull());
   });
 });

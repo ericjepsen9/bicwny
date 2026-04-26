@@ -52,14 +52,22 @@ export async function forgotPassword(
   const hash = sha256(raw);
   const expiresAt = new Date(Date.now() + TOKEN_TTL_MIN * 60_000);
 
-  await prisma.passwordResetToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: hash,
-      expiresAt,
-      requestIp: ip,
-    },
-  });
+  // 原子作废用户所有未消费旧 token + 创建新 token
+  // —— 防"重发邮件"产生多个并存有效 token 被历史邮件截获后改密
+  await prisma.$transaction([
+    prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    }),
+    prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hash,
+        expiresAt,
+        requestIp: ip,
+      },
+    }),
+  ]);
 
   // Dev / test：把链接打到日志 + 通过响应回传，方便本地跑通流程
   const hint = `[password-reset] ${normalized} → token=${raw} (expires ${expiresAt.toISOString()})`;
