@@ -1,6 +1,15 @@
 // 学员自己的学习进度聚合
-// 复用 SM-2 getCardStats；UserAnswer 一次 findMany + JS 聚合。
-// 连续答题天数以 UTC 日历计算：最后一个活跃日为 today/昨天时 current 才算延续。
+//
+// 实现策略（性能向）：用 PG 端聚合代替"全量 findMany + JS reduce"。
+// 旧实现把用户全部 UserAnswer 拉进内存做 reduce，活跃用户答题数 1k+ × 万人级
+// 会显著拖慢首屏 + 内存峰值。新实现 4 条小查询：
+//   1) groupBy isCorrect → totalAnswers / correctRate
+//   2) groupBy 按 (questionId)→course 聚合 byCourse · 走 raw SQL（Prisma groupBy
+//      不能跨关系 join）
+//   3) DISTINCT day（UTC）→ totalDays / streak / weekDays · raw SQL
+//   4) 今日 count（窄 where + index）→ todayAnswered
+// 都吃 @@index([userId, answeredAt])，每条命中索引扫描。
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { getCardStats } from '../sm2/service.js';
 
@@ -39,77 +48,91 @@ export interface MyProgress {
   weekDays: string[];
 }
 
+interface ByCourseRow {
+  courseId: string;
+  title: string;
+  answered: bigint;
+  correct: bigint;
+  lastAnsweredAt: Date | null;
+}
+
+interface DayRow {
+  day: string;
+}
+
 export async function myProgress(userId: string): Promise<MyProgress> {
-  const [answers, sm2] = await Promise.all([
-    prisma.userAnswer.findMany({
+  const now = new Date();
+  const today = utcDayKey(now);
+  const startOfTodayUtc = new Date(`${today}T00:00:00Z`);
+  const startOfTomorrowUtc = new Date(startOfTodayUtc);
+  startOfTomorrowUtc.setUTCDate(startOfTomorrowUtc.getUTCDate() + 1);
+
+  const [grouped, byCourseRows, dayRows, todayAnswered, sm2] = await Promise.all([
+    // 1) total + correct（一个 groupBy 直接拿两个值）
+    prisma.userAnswer.groupBy({
+      by: ['isCorrect'],
       where: { userId },
-      select: {
-        isCorrect: true,
-        answeredAt: true,
-        question: {
-          select: {
-            courseId: true,
-            course: { select: { title: true } },
-          },
-        },
+      _count: { _all: true },
+    }),
+    // 2) byCourse: SQL JOIN Question + Course，避免在 JS 里 reduce 万行
+    prisma.$queryRaw<ByCourseRow[]>(Prisma.sql`
+      SELECT q."courseId" AS "courseId",
+             c."title" AS "title",
+             COUNT(*)::bigint AS "answered",
+             SUM(CASE WHEN ua."isCorrect" THEN 1 ELSE 0 END)::bigint AS "correct",
+             MAX(ua."answeredAt") AS "lastAnsweredAt"
+      FROM "UserAnswer" ua
+      JOIN "Question" q ON q.id = ua."questionId"
+      JOIN "Course" c ON c.id = q."courseId"
+      WHERE ua."userId" = ${userId}
+      GROUP BY q."courseId", c."title"
+      ORDER BY "answered" DESC
+    `),
+    // 3) DISTINCT 日（UTC）→ 单查询拿 streak / totalDays / weekDays 全套
+    prisma.$queryRaw<DayRow[]>(Prisma.sql`
+      SELECT DISTINCT to_char("answeredAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
+      FROM "UserAnswer"
+      WHERE "userId" = ${userId}
+      ORDER BY day
+    `),
+    // 4) 今日 count
+    prisma.userAnswer.count({
+      where: {
+        userId,
+        answeredAt: { gte: startOfTodayUtc, lt: startOfTomorrowUtc },
       },
-      orderBy: { answeredAt: 'asc' },
     }),
     getCardStats(userId),
   ]);
 
-  const byCourseMap = new Map<
-    string,
-    { title: string; answered: number; correct: number; lastAnsweredAt: Date | null }
-  >();
-  const daysSet = new Set<string>();
+  let totalAnswers = 0;
   let correct = 0;
-
-  for (const a of answers) {
-    if (a.isCorrect) correct++;
-    const cid = a.question.courseId;
-    const entry = byCourseMap.get(cid) ?? {
-      title: a.question.course.title,
-      answered: 0,
-      correct: 0,
-      lastAnsweredAt: null,
-    };
-    entry.answered++;
-    if (a.isCorrect) entry.correct++;
-    if (!entry.lastAnsweredAt || a.answeredAt > entry.lastAnsweredAt) {
-      entry.lastAnsweredAt = a.answeredAt;
-    }
-    byCourseMap.set(cid, entry);
-    daysSet.add(utcDayKey(a.answeredAt));
+  for (const g of grouped) {
+    totalAnswers += g._count._all;
+    if (g.isCorrect === true) correct += g._count._all;
   }
 
-  const byCourse: CourseProgress[] = [...byCourseMap.entries()]
-    .map(([courseId, v]) => ({
-      courseId,
-      title: v.title,
-      answered: v.answered,
-      correctRate: v.answered > 0 ? v.correct / v.answered : 0,
-      lastAnsweredAt: v.lastAnsweredAt,
-    }))
-    .sort((a, b) => b.answered - a.answered);
+  const byCourse: CourseProgress[] = byCourseRows.map((r) => ({
+    courseId: r.courseId,
+    title: r.title,
+    answered: Number(r.answered),
+    correctRate: Number(r.answered) > 0 ? Number(r.correct) / Number(r.answered) : 0,
+    lastAnsweredAt: r.lastAnsweredAt,
+  }));
 
-  const now = new Date();
-  const streak = computeStreak([...daysSet].sort(), now);
-  const today = utcDayKey(now);
-  const todayAnswered = answers.reduce(
-    (n, a) => (utcDayKey(a.answeredAt) === today ? n + 1 : n),
-    0,
-  );
+  const sortedDays = dayRows.map((r) => r.day);
+  const streak = computeStreak(sortedDays, now);
   const weekWindow = utcWeekDays(now);
+  const daysSet = new Set(sortedDays);
   const weekDays = weekWindow.filter((d) => daysSet.has(d));
 
   return {
-    totalAnswers: answers.length,
-    correctRate: answers.length > 0 ? correct / answers.length : 0,
+    totalAnswers,
+    correctRate: totalAnswers > 0 ? correct / totalAnswers : 0,
     byCourse,
     streak,
     sm2,
-    totalDays: daysSet.size,
+    totalDays: sortedDays.length,
     todayAnswered,
     weekDays,
   };

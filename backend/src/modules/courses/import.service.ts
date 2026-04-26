@@ -292,30 +292,55 @@ export async function commitImport(
       cid = appendCourseId;
     }
 
-    let totalLessons = 0;
+    // 批量插入 chapter / lesson 改 createMany 一次往返
+    // 旧实现 N×M 次单条 insert（500 章 × 10 节 = 5000 次）→ PG 端事务时间显著拉长。
+    // 步骤：
+    //   1) chapter.createMany 一次写所有章 · 用 (courseId, order) 复合唯一键回查 ID
+    //   2) 把每个 lesson 映射到对应 chapter.id 后 lesson.createMany 一次写完
+    const chapterRows = input.chapters.map((ch, ci) => ({
+      courseId: cid,
+      order: baseChapterOrder + ci + 1,
+      title: ch.title.trim(),
+    }));
+    await tx.chapter.createMany({ data: chapterRows });
+
+    const insertedChapters = await tx.chapter.findMany({
+      where: {
+        courseId: cid,
+        order: {
+          gte: baseChapterOrder + 1,
+          lte: baseChapterOrder + input.chapters.length,
+        },
+      },
+      orderBy: { order: 'asc' },
+      select: { id: true, order: true },
+    });
+    // order → id 映射，从输入序号还原
+    const chapterIdByIdx = new Map<number, string>();
+    for (const c of insertedChapters) {
+      chapterIdByIdx.set(c.order - baseChapterOrder - 1, c.id);
+    }
+
+    const lessonRows: Prisma.LessonCreateManyInput[] = [];
     for (let ci = 0; ci < input.chapters.length; ci++) {
       const ch = input.chapters[ci];
-      const chapter = await tx.chapter.create({
-        data: {
-          courseId: cid,
-          order: baseChapterOrder + ci + 1,
-          title: ch.title.trim(),
-        },
-      });
+      const chapterId = chapterIdByIdx.get(ci);
+      if (!chapterId) throw BadRequest('章节写入异常（id 未回查到）');
       for (let li = 0; li < ch.lessons.length; li++) {
         const le = ch.lessons[li];
-        await tx.lesson.create({
-          data: {
-            chapterId: chapter.id,
-            order: li + 1,
-            title: le.title.trim(),
-            referenceText: le.referenceText?.trim() || null,
-            teachingSummary: le.teachingSummary?.trim() || null,
-          },
+        lessonRows.push({
+          chapterId,
+          order: li + 1,
+          title: le.title.trim(),
+          referenceText: le.referenceText?.trim() || null,
+          teachingSummary: le.teachingSummary?.trim() || null,
         });
-        totalLessons++;
       }
     }
+    if (lessonRows.length > 0) {
+      await tx.lesson.createMany({ data: lessonRows });
+    }
+    const totalLessons = lessonRows.length;
 
     // 把幂等键 + 摘要写入 course，下次同 token 重发即可回放
     if (input.clientToken) {

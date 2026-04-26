@@ -35,6 +35,8 @@ const activeBody = z.object({ isActive: z.boolean() });
 
 const statsQuery = z.object({
   windowDays: z.coerce.number().int().min(1).max(90).optional(),
+  // ?cache=true 启用 60s 内存缓存（按 windowDays 分桶）· admin 大盘频繁刷新场景省 DB
+  cache: z.coerce.boolean().optional(),
 });
 
 const TAGS = ['Admin'];
@@ -103,7 +105,11 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     async (req) => {
       const parsed = statsQuery.safeParse(req.query);
       if (!parsed.success) throw BadRequest('查询参数不合法');
-      return { data: await platformStats(parsed.data.windowDays) };
+      return {
+        data: await platformStats(parsed.data.windowDays, {
+          useCache: parsed.data.cache ?? false,
+        }),
+      };
     },
   );
 };
