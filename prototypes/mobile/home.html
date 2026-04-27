@@ -134,6 +134,55 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
 .icon-grid {
   display:grid; grid-template-columns:repeat(4,1fr); gap:var(--sp-3);
 }
+
+/* ── 学习中章节列表（复用 scripture-detail 的 chapter-item 风格） ─── */
+.study-chapters-head {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:var(--sp-3); padding:0 2px;
+}
+.study-chapters-head .label {
+  font:var(--text-caption); color:var(--ink-3); letter-spacing:2px;
+  display:flex; align-items:center; gap:6px;
+}
+.study-chapters-head .label::before {
+  content:''; width:4px; height:4px; border-radius:50%; background:var(--saffron);
+}
+.study-chapters-head .more {
+  font:var(--text-caption); color:var(--saffron-dark); letter-spacing:1px; text-decoration:none;
+}
+.h-chapter-item {
+  display:flex; align-items:center; gap:var(--sp-3); padding:var(--sp-4);
+  background:var(--glass); backdrop-filter:var(--blur);
+  border-radius:var(--r-lg); border:1px solid var(--glass-border);
+  text-decoration:none; transition:all var(--dur) var(--ease);
+  margin-bottom:8px;
+}
+.h-chapter-item:hover { background:var(--glass-thick); }
+.h-chapter-item.current {
+  background:var(--saffron-pale); border:1.5px solid var(--saffron);
+  box-shadow:0 4px 14px rgba(224,120,86,.18);
+}
+.h-chapter-num {
+  width:36px; height:36px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-serif); font-weight:700; font-size:.875rem; flex-shrink:0;
+}
+.h-chapter-num.done    { background:var(--sage-dark); color:#FFF; }
+.h-chapter-num.current { background:var(--saffron);   color:#FFF; box-shadow:0 0 0 3px var(--saffron-light); }
+.h-chapter-num.pending { background:rgba(43,34,24,.08); color:var(--ink-4); }
+.h-chapter-body { flex:1; min-width:0; }
+.h-chapter-title { font-family:var(--font-serif); font-weight:600; color:var(--ink); font-size:.9375rem; letter-spacing:2px; margin-bottom:3px; }
+.h-chapter-meta { font:var(--text-caption); color:var(--ink-3); letter-spacing:1px; }
+.h-chapter-meta .dot { display:inline-block; width:3px; height:3px; border-radius:50%; background:var(--ink-4); margin:0 6px; vertical-align:middle; }
+.study-empty {
+  text-align:center; padding:var(--sp-5); color:var(--ink-3);
+  font:var(--text-caption); letter-spacing:1px;
+}
+.study-empty .cta {
+  display:inline-block; margin-top:8px; padding:8px 16px;
+  background:var(--saffron); color:#FFF; border-radius:var(--r-pill);
+  text-decoration:none; font-weight:600; letter-spacing:1px;
+}
 </style>
 </head>
 <body class="scene">
@@ -305,6 +354,30 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
         </div>
       </div>
 
+      <!-- ── 学习中：当前法本的章节列表（深看一本）──
+           没报名 → 显示「去选修法本」CTA
+           报名 ≥ 1 → 取第一个 enrollment（按 lastStudiedAt 排），列章节
+           切换法本 → 法本 tab 或 我的 → 学习管理 -->
+      <div id="study-chapters-box" style="display:none;">
+        <div class="study-chapters-head">
+          <span class="label" id="study-chapters-title">学习中</span>
+          <a id="study-chapters-link" href="scripture-detail.html" class="more">
+            <span class="sc">查看详情 →</span><span class="tc">查看詳情 →</span>
+          </a>
+        </div>
+        <div id="study-chapters-list"></div>
+      </div>
+
+      <!-- 没报名任何法本时显示 -->
+      <div id="study-empty-box" class="glass-card" style="display:none;padding:var(--sp-4);">
+        <div class="study-empty">
+          <p><span class="sc">还没加入任何法本</span><span class="tc">還沒加入任何法本</span></p>
+          <a href="courses.html" class="cta">
+            <span class="sc">去选修法本 →</span><span class="tc">去選修法本 →</span>
+          </a>
+        </div>
+      </div>
+
     </div><!-- /sections -->
   </div><!-- /scroll-area -->
 
@@ -425,6 +498,76 @@ function renderCourseCard(enrollment, overlay) {
   }
 }
 
+// 渲染当前法本的章节列表（首页快捷入口下方）
+// 数据：course.chapters[].lessons[] · overlay.completedLessonIds / currentLessonId
+// 状态：done（全章 lessons 都完成） / current（章内含 currentLessonId） / pending
+function renderStudyChapters(course, overlay) {
+  var box = document.getElementById('study-chapters-box');
+  var titleEl = document.getElementById('study-chapters-title');
+  var linkEl = document.getElementById('study-chapters-link');
+  var listEl = document.getElementById('study-chapters-list');
+  if (!box || !course) return;
+
+  // 标题：「学习中：《大圆满前行》」
+  var courseTitle = sc(course.title, course.titleTraditional || course.title);
+  titleEl.textContent = sc('学习中：', '學習中：') + courseTitle;
+  linkEl.href = 'scripture-detail.html?slug=' + encodeURIComponent(course.slug);
+  box.style.display = '';
+
+  var done = new Set((overlay && overlay.completedLessonIds) || []);
+  var currentLessonId = overlay && overlay.currentLessonId;
+  var chapters = course.chapters || [];
+  if (!chapters.length) {
+    listEl.innerHTML = '<div class="study-empty">'
+      + escapeHtml(sc('暂无章节', '暫無章節'))
+      + '</div>';
+    return;
+  }
+
+  // 渲染每章一行（最多展示前 30 章 · 多了点「查看详情」去 scripture-detail）
+  var MAX = 30;
+  var slice = chapters.slice(0, MAX);
+  var html = slice.map(function (ch, idx) {
+    var lessons = ch.lessons || [];
+    var doneCount = lessons.filter(function (l) { return done.has(l.id); }).length;
+    var chapterDone = lessons.length > 0 && doneCount === lessons.length;
+    var chapterCurrent = lessons.some(function (l) { return l.id === currentLessonId; });
+    var state = chapterDone ? 'done' : (chapterCurrent ? 'current' : 'pending');
+    var firstLesson = lessons[0];
+
+    var badgeInner = (state === 'done')
+      ? '<svg width="14" height="14" fill="none" stroke="#FFF" stroke-width="2.8" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>'
+      : String(idx + 1);
+    var pct = lessons.length ? Math.round(doneCount / lessons.length * 100) : 0;
+    var meta = chapterCurrent
+      ? '<span style="color:var(--saffron);font-weight:600;">' + escapeHtml(sc('阅读中', '閱讀中')) + '</span>'
+        + '<span class="dot"></span><span>' + lessons.length + sc(' 课', ' 課') + '</span>'
+      : '<span>' + lessons.length + sc(' 课 · ', ' 課 · ') + pct + '%</span>';
+    var chTitle = sc(ch.title, ch.titleTraditional || ch.title);
+    var href = firstLesson
+      ? 'scripture-reading.html?slug=' + encodeURIComponent(course.slug) + '&lessonId=' + encodeURIComponent(firstLesson.id)
+      : 'scripture-detail.html?slug=' + encodeURIComponent(course.slug);
+    var tag = firstLesson ? 'a' : 'div';
+    return '<' + tag + ' class="h-chapter-item ' + (state === 'current' ? 'current' : '') + '" '
+      + (firstLesson ? 'href="' + href + '"' : '') + '>'
+      +   '<div class="h-chapter-num ' + state + '">' + badgeInner + '</div>'
+      +   '<div class="h-chapter-body">'
+      +     '<p class="h-chapter-title">' + escapeHtml((idx + 1) + '. ' + (chTitle || '—')) + '</p>'
+      +     '<div class="h-chapter-meta">' + meta + '</div>'
+      +   '</div>'
+      +   '<svg width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>'
+      + '</' + tag + '>';
+  }).join('');
+
+  if (chapters.length > MAX) {
+    html += '<a class="study-empty" style="display:block;text-align:center;color:var(--saffron-dark);text-decoration:none;font-weight:600;" '
+      + 'href="scripture-detail.html?slug=' + encodeURIComponent(course.slug) + '">'
+      + sc('查看全部 ' + chapters.length + ' 章 →', '查看全部 ' + chapters.length + ' 章 →')
+      + '</a>';
+  }
+  listEl.innerHTML = html;
+}
+
 function renderReviewBadge(mistakes) {
   var n = (mistakes || []).length;
   var card = document.getElementById('review-card');
@@ -458,11 +601,21 @@ function boot() {
   ]).then(function (r) {
     renderClassCard(r[0]);
     var list = r[1];
-    if (!list || !list.length) { renderCourseCard(null, null); return; }
+    if (!list || !list.length) {
+      renderCourseCard(null, null);
+      // 没报名 → 显示空状态 CTA
+      document.getElementById('study-chapters-box').style.display = 'none';
+      document.getElementById('study-empty-box').style.display = '';
+      return;
+    }
+    document.getElementById('study-empty-box').style.display = 'none';
     var first = list[0];
     if (!first.course || !first.course.slug) { renderCourseCard(first, null); return; }
     window.JX.api.get('/api/courses/' + encodeURIComponent(first.course.slug))
-      .then(function (d) { renderCourseCard(first, d.overlay); })
+      .then(function (d) {
+        renderCourseCard(first, d.overlay);
+        renderStudyChapters(d.course, d.overlay);
+      })
       .catch(function () { renderCourseCard(first, null); });
   });
 
