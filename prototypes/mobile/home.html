@@ -540,20 +540,29 @@ function renderStudyChapters(course, overlay) {
       : String(idx + 1);
     var pct = lessons.length ? Math.round(doneCount / lessons.length * 100) : 0;
     var meta = chapterCurrent
-      ? '<span style="color:var(--saffron);font-weight:600;">' + escapeHtml(sc('阅读中', '閱讀中')) + '</span>'
+      ? '<span style="color:var(--saffron);font-weight:600;">' + escapeHtml(sc('答题中', '答題中')) + '</span>'
         + '<span class="dot"></span><span>' + lessons.length + sc(' 课', ' 課') + '</span>'
       : '<span>' + lessons.length + sc(' 课 · ', ' 課 · ') + pct + '%</span>';
     var chTitle = sc(ch.title, ch.titleTraditional || ch.title);
-    var href = firstLesson
-      ? 'scripture-reading.html?slug=' + encodeURIComponent(course.slug) + '&lessonId=' + encodeURIComponent(firstLesson.id)
+    // 主：答题（quiz）· 次：查阅原文（reading）小字链
+    var quizHref = firstLesson
+      ? 'quiz.html?lessonId=' + encodeURIComponent(firstLesson.id)
       : 'scripture-detail.html?slug=' + encodeURIComponent(course.slug);
+    var readHref = firstLesson
+      ? 'scripture-reading.html?slug=' + encodeURIComponent(course.slug) + '&lessonId=' + encodeURIComponent(firstLesson.id)
+      : '';
     var tag = firstLesson ? 'a' : 'div';
+    var readLink = firstLesson
+      ? ' · <a href="' + readHref + '" data-stop="1" '
+        + 'style="color:var(--ink-3);text-decoration:underline;font-size:.6875rem;letter-spacing:.5px;">'
+        + sc('📖 查阅原文', '📖 查閱原文') + '</a>'
+      : '';
     return '<' + tag + ' class="h-chapter-item ' + (state === 'current' ? 'current' : '') + '" '
-      + (firstLesson ? 'href="' + href + '"' : '') + '>'
+      + (firstLesson ? 'href="' + quizHref + '"' : '') + '>'
       +   '<div class="h-chapter-num ' + state + '">' + badgeInner + '</div>'
       +   '<div class="h-chapter-body">'
       +     '<p class="h-chapter-title">' + escapeHtml((idx + 1) + '. ' + (chTitle || '—')) + '</p>'
-      +     '<div class="h-chapter-meta">' + meta + '</div>'
+      +     '<div class="h-chapter-meta">' + meta + readLink + '</div>'
       +   '</div>'
       +   '<svg width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>'
       + '</' + tag + '>';
@@ -566,6 +575,10 @@ function renderStudyChapters(course, overlay) {
       + '</a>';
   }
   listEl.innerHTML = html;
+  // 阻止「查阅原文」链触发外层卡片跳 quiz
+  listEl.querySelectorAll('[data-stop]').forEach(function (a) {
+    a.addEventListener('click', function (ev) { ev.stopPropagation(); });
+  });
 }
 
 function renderReviewBadge(mistakes) {

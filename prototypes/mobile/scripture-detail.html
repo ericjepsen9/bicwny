@@ -218,25 +218,40 @@ function renderChapters(course, overlay) {
     }
     var pct = lessons.length ? Math.round(doneCount / lessons.length * 100) : 0;
     var meta = lessons.length + sc(' 课 · ', ' 課 · ') +
-      (chapterCurrent ? (sc('阅读中', '閱讀中')) : (pct + '%'));
+      (chapterCurrent ? (sc('答题中', '答題中')) : (pct + '%'));
 
-    var href = firstLesson
+    // 主动作：答题（quiz.html?lessonId=<firstLesson>）
+    // 次动作：查阅原文（scripture-reading.html?...）· 行内小字链
+    var quizHref = firstLesson
+      ? 'quiz.html?lessonId=' + encodeURIComponent(firstLesson.id)
+      : '#';
+    var readHref = firstLesson
       ? 'scripture-reading.html?slug=' + encodeURIComponent(course.slug) + '&lessonId=' + encodeURIComponent(firstLesson.id)
       : '#';
+
     var el = document.createElement(firstLesson ? 'a' : 'div');
     el.className = 'chapter-item' + (state === 'current' ? ' current' : '');
-    if (firstLesson) el.href = href;
+    if (firstLesson) el.href = quizHref;
     el.innerHTML =
       '<div class="chapter-num ' + state + '">' + badge + '</div>' +
       '<div class="chapter-body">' +
         '<p class="chapter-title">' + escapeHtml((idx + 1) + '. ' + (ch.title || '—')) + '</p>' +
         '<div class="chapter-meta">' +
           (chapterCurrent
-            ? '<span style="color:var(--saffron);font-weight:600;">' + escapeHtml(sc('阅读中', '閱讀中')) + '</span><span class="dot"></span><span>' + lessons.length + sc(' 课', ' 課') + '</span>'
+            ? '<span style="color:var(--saffron);font-weight:600;">' + escapeHtml(sc('答题中', '答題中')) + '</span><span class="dot"></span><span>' + lessons.length + sc(' 课', ' 課') + '</span>'
             : '<span>' + escapeHtml(meta) + '</span>') +
+          (firstLesson
+            ? ' · <a href="' + readHref + '" data-stop="1" '
+              + 'style="color:var(--ink-3);text-decoration:underline;font-size:.6875rem;letter-spacing:.5px;">'
+              + sc('📖 查阅原文', '📖 查閱原文') + '</a>'
+            : '') +
         '</div>' +
       '</div>' +
       '<svg width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>';
+    // 阻止「查阅原文」链触发外层卡片跳转
+    el.querySelectorAll('[data-stop]').forEach(function (a) {
+      a.addEventListener('click', function (ev) { ev.stopPropagation(); });
+    });
     list.appendChild(el);
   });
 
