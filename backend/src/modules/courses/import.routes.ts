@@ -78,8 +78,9 @@ export const adminCoursesImportRoutes: FastifyPluginAsync = async (app) => {
   app.post('/api/admin/courses/import-file/preview', {
     preHandler: adminGuard,
     schema: { tags: TAGS, summary: '导入法本 · 上传 PDF/DOCX → 预览章节树（不写库）', security: SEC, consumes: ['multipart/form-data'] },
-    // 防大文件刷量 30/min/userId · 批量上传 ≤ 30 文件/分钟
-    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    // 防大文件刷量 120/min/userId · admin 批量补漏一次 50-100 篇是常态
+    // 上限定 120 = 平均 2/s · 单文件 ≤ 20 MB · 仍能拦下脚本刷量
+    config: { rateLimit: { max: 120, timeWindow: '1 minute' } },
   }, async (req) => {
     // require @fastify/multipart 已在 app.ts 注册
     const file = await req.file();
@@ -107,8 +108,9 @@ export const adminCoursesImportRoutes: FastifyPluginAsync = async (app) => {
   app.post('/api/admin/courses/import-url/preview', {
     preHandler: adminGuard,
     schema: { tags: TAGS, summary: '导入法本 · 抓取 URL → 预览章节树（不写库）', security: SEC },
-    // 防 SSRF 探测 + 大量抓取下游站 5/min/userId
-    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    // 防 SSRF 探测 + 大量抓取下游站 30/min/userId
+    // 批量抓取场景需要；亚洲中转 relay 自带 1/s 限流，叠加足以保护下游
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
   }, async (req) => {
     const parsed = urlPreviewBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
