@@ -151,13 +151,14 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(jwt, { secret: config.JWT_SECRET });
   app.addHook('onRequest', jwtOptional);
 
-  // Rate-limit：默认全局基线 100 req/min/IP
-  // 重点端点（login / forgot / answers / import）在路由层用 config.rateLimit 加严
+  // Rate-limit：默认全局基线 600 req/min/userId
+  // 之前 100/min 在 admin 批量导法本（145 篇 × 2 次请求）时不够
+  // 重点端点（login / forgot / answers / import）在路由层用 config.rateLimit 进一步加严或放宽
   // 测试模式下完全禁用（避免集成测试撞限速）
   if (config.NODE_ENV !== 'test') {
     await app.register(rateLimit, {
       global: true,
-      max: 100,
+      max: 600,
       timeWindow: '1 minute',
       // 已认证用户走 userId，未认证走 IP · NAT 共享 IP 误伤减小
       keyGenerator: (req) => {
