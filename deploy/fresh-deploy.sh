@@ -104,6 +104,8 @@ APP=$PROJECT_DIR/backend/src/app.ts
 IMP=$PROJECT_DIR/backend/src/modules/courses/import.routes.ts
 
 check "前端文件存在"          "test -f $ADM && echo OK"                                   "OK"
+# 抽出 inline JS 用 node --check · 报错则输出 SyntaxError，下面用否定匹配
+check "前端 inline JS 语法"   "python3 -c \"import re; print(''.join(re.findall(r'<script(?![^>]*\\bsrc=)[^>]*>(.*?)</script>', open('$ADM').read(), re.DOTALL)))\" > /tmp/_jx.js 2>/dev/null && (node --check /tmp/_jx.js 2>&1 | grep -q SyntaxError && echo SYNTAX_ERR || echo SYNTAX_OK); rm -f /tmp/_jx.js" "SYNTAX_OK"
 check "slug pattern 转义"     "grep -E 'pattern=\"\\[a-z0-9.\\-\\]\\+\"' $ADM | head -1"   "pattern"
 check "autoGenSlug 函数"      "grep -c 'function autoGenSlug' $ADM"                       "1"
 check "preview 限流 ≥ 120"    "grep -E 'max: (12|3)0[0-9]?,' $IMP | head -1"              "max:"
