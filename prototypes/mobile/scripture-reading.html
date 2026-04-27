@@ -252,7 +252,7 @@ function showIntro(course, flat, slug) {
   screen.classList.add('show');
 }
 
-function renderLesson(ctx, flat, slug) {
+function renderLesson(ctx, flat, slug, courseId, enrolled) {
   var l = ctx.lesson;
   var ch = ctx.chapter;
   document.getElementById('top-title').textContent = ch.title;
@@ -300,6 +300,15 @@ function renderLesson(ctx, flat, slug) {
   document.getElementById('toc-link').href = 'scripture-detail.html?slug=' + encodeURIComponent(slug);
   document.getElementById('back-link').href = 'courses.html';
   document.getElementById('goto-quiz').href = 'quiz.html?lessonId=' + encodeURIComponent(l.id);
+
+  // 后端推进进度：lastStudiedAt + currentLessonId · fire-and-forget
+  // 只有已报名才推（admin 预览未报名法本不应触发报名约束错）
+  if (enrolled && courseId) {
+    window.JX.api.patch(
+      '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
+      { currentLessonId: l.id }
+    ).catch(function () { /* 静默：后台问题不影响阅读 */ });
+  }
 }
 
 function showError(msg) {
@@ -345,17 +354,19 @@ function boot() {
 
       var enr = enrollments.find(function (e) { return e.course && e.course.slug === slug; });
       var neverOpened = !enr || !enr.lastStudiedAt;
+      var enrolled = !!enr;
+      var courseId = course.id;
 
       // URL lessonId > forceIntro > 首次打开 > currentLessonId 续读 > 第一课
       if (lessonId) {
         var ctx = flat.find(function (x) { return x.lesson.id === lessonId; }) || flat[0];
-        renderLesson(ctx, flat, slug);
+        renderLesson(ctx, flat, slug, courseId, enrolled);
       } else if (forceIntro || neverOpened) {
         showIntro(course, flat, slug);
       } else {
         var resumeId = overlay && overlay.currentLessonId;
         var ctx2 = resumeId ? flat.find(function (x) { return x.lesson.id === resumeId; }) : null;
-        renderLesson(ctx2 || flat[0], flat, slug);
+        renderLesson(ctx2 || flat[0], flat, slug, courseId, enrolled);
       }
     })
     .catch(function (err) { showError(sc('加载失败：', '加載失敗：') + (err.message || err)); });
