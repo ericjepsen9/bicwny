@@ -45,8 +45,10 @@ export interface UpdateCourseInput {
 }
 
 export async function listAllCoursesAdmin() {
-  // 含未发布；附章节计数 + 课时计数 便于列表展示
+  // 含未发布；过滤已归档（admin 用「删除」按钮触发的归档不应再显示在列表）
+  // 如需查归档，将来可加 ?includeArchived=1 query
   const courses = await prisma.course.findMany({
+    where: { archivedAt: null },
     orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
     include: { _count: { select: { chapters: true, enrollments: true } } },
   });
