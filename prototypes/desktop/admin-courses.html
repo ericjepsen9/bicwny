@@ -2110,17 +2110,13 @@ function imQueueContinue() {
   // 多文件 → 看模式
   var mode = (document.querySelector('input[name="im-multi-strategy"]:checked') || {}).value || 'merge';
   if (mode === 'merge') {
-    // 合并：每个文件作为"章节组"前置一个分隔章
+    // 合并：直接拼接每个文件的章节 · 不再插入分隔标记章（之前的 ── 文件名 ──
+    // 让章节数翻倍且 admin 还得手动删，反而干扰）
     var merged = [];
     var totalChars = 0;
     ok.forEach(function (item) {
       var pv = item.preview;
       totalChars += pv.charCount || 0;
-      // 文件名分隔章（admin 可在预览里编辑或删除）
-      merged.push({
-        title: '── ' + (pv.filename || item.name) + ' ──',
-        lessons: [{ title: sc('（来源标记 · 可删除）', '（來源標記 · 可刪除）'), referenceText: '' }],
-      });
       (pv.chapters || []).forEach(function (ch) { merged.push(ch); });
     });
     state.importPreview = {
