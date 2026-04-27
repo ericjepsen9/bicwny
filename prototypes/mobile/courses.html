@@ -123,15 +123,6 @@ body { background: var(--bg-scene); min-height: 100vh; }
     <span class="ftab" data-filter="available"><span class="sc">未加入</span><span class="tc">未加入</span></span>
   </div>
 
-  <!-- 搜索框：按标题 / 作者 / 简介 即时过滤（前端纯文本匹配，无需后端改动）-->
-  <div style="padding:0 var(--sp-5) var(--sp-3);">
-    <input type="search" id="course-search"
-      placeholder="搜索法本（按书名 / 作者 / 简介）"
-      data-ph-sc="搜索法本（按书名 / 作者 / 简介）"
-      data-ph-tc="搜索法本（按書名 / 作者 / 簡介）"
-      style="width:100%;padding:10px 14px;border-radius:var(--r-md);border:1px solid var(--ink-5);background:var(--glass-thick);font:var(--text-body);color:var(--ink);outline:none;">
-  </div>
-
   <div class="sections" id="course-list">
     <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
   </div>
@@ -158,7 +149,6 @@ var state = {
   courses: [],
   enrollments: [],
   filter: 'all', // all | enrolled | available
-  search: '',    // 文本搜索 · 按标题 / 作者 / 简介匹配
 };
 
 function isEnrolled(courseId) {
@@ -170,17 +160,9 @@ function getEnrollment(courseId) {
 
 function render() {
   var list = document.getElementById('course-list');
-  var q = (state.search || '').trim().toLowerCase();
   var visible = state.courses.filter(function (c) {
-    // 1. 类别过滤
-    if (state.filter === 'enrolled'  && !isEnrolled(c.id)) return false;
-    if (state.filter === 'available' &&  isEnrolled(c.id)) return false;
-    // 2. 文本搜索（标题 / 繁体标题 / 作者 / 简介 任一命中即可）
-    if (q) {
-      var hay = [c.title, c.titleTraditional, c.author, c.description]
-        .filter(Boolean).join(' ').toLowerCase();
-      if (hay.indexOf(q) === -1) return false;
-    }
+    if (state.filter === 'enrolled')  return isEnrolled(c.id);
+    if (state.filter === 'available') return !isEnrolled(c.id);
     return true;
   });
 
@@ -308,15 +290,6 @@ document.querySelectorAll('.ftab').forEach(function (tab) {
     render();
   });
 });
-
-// 搜索框 input 事件 · 即时过滤
-var searchInp = document.getElementById('course-search');
-if (searchInp) {
-  searchInp.addEventListener('input', function () {
-    state.search = searchInp.value || '';
-    render();
-  });
-}
 
 document.addEventListener('jx:user-ready', reload);
 document.addEventListener('langchange', render);
