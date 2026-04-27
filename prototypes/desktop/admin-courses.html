@@ -2133,14 +2133,17 @@ function imQueueContinue() {
     imShowStep('preview');
   } else {
     // 拆分：N 个独立法本草稿
-    state.fileSplitDrafts = ok.map(function (item) {
+    state.fileSplitDrafts = ok.map(function (item, idx) {
       var base = (item.name || '').replace(/\.[^.]+$/, '');
+      // 用 autoGenSlug 与单文件路径保持一致 · 中文文件名回落 'course-{时间戳}-{随机}'
+      // 同批多文件加 idx 防 timestamp 撞车
+      var s = autoGenSlug(item.name) + (idx > 0 ? '-' + idx : '');
       return {
         filename: item.name,
         preview: item.preview,
-        slug: base.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || ('book-' + Date.now()),
+        slug: s,
         title: base,
-        status: 'draft',  // draft | submitting | done | error
+        status: 'draft',
         error: null,
         clientToken: 'mu-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10),
       };
