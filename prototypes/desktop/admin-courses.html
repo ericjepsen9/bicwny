@@ -1028,8 +1028,8 @@ function buildDetailForm(c) {
     +   '<div class="cs-field full"><label>' + sc('封面图（可选）', '封面圖（可選）') + '</label>'
     +     '<div id="d-cover-block" style="display:flex;gap:12px;align-items:center;">'
     +       (c.coverImageUrl
-    +         ? '<img id="d-cover-preview" src="' + escapeHtml(c.coverImageUrl) + '" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--ink-5);">'
-    +         : '<div id="d-cover-preview" style="width:80px;height:80px;border-radius:8px;background:rgba(43,34,24,.05);display:flex;align-items:center;justify-content:center;font-size:1.5rem;border:1px dashed var(--ink-5);">' + escapeHtml(c.coverEmoji || '🪷') + '</div>')
+            ? '<img id="d-cover-preview" src="' + escapeHtml(c.coverImageUrl) + '" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--ink-5);">'
+            : '<div id="d-cover-preview" style="width:80px;height:80px;border-radius:8px;background:rgba(43,34,24,.05);display:flex;align-items:center;justify-content:center;font-size:1.5rem;border:1px dashed var(--ink-5);">' + escapeHtml(c.coverEmoji || '🪷') + '</div>')
     +       '<div style="display:flex;flex-direction:column;gap:6px;">'
     +         '<input type="file" id="d-cover-file" accept="image/jpeg,image/png,image/webp" style="font-size:.8125rem;">'
     +         '<div style="display:flex;gap:8px;">'
