@@ -180,6 +180,9 @@ model Course {
   authorInfo       String?
   description      String?
   coverEmoji       String   @default("🪷")
+  // 封面图（admin 上传）· 相对路径如 /uploads/courses/<uuid>.jpg · null 时回落 coverEmoji
+  // 文件本体存 uploads/courses/，nginx serve 静态
+  coverImageUrl    String?
   displayOrder     Int      @default(0)
   isPublished      Boolean  @default(true)
   licenseInfo      String?

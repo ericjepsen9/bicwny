@@ -38,6 +38,7 @@ export interface UpdateCourseInput {
   authorInfo?: string | null;
   description?: string | null;
   coverEmoji?: string;
+  coverImageUrl?: string | null;
   displayOrder?: number;
   isPublished?: boolean;
   licenseInfo?: string | null;
@@ -147,6 +148,7 @@ export async function updateCourse(
   if (patch.authorInfo !== undefined)       data.authorInfo       = patch.authorInfo;
   if (patch.description !== undefined)      data.description      = patch.description;
   if (patch.coverEmoji !== undefined)       data.coverEmoji       = patch.coverEmoji;
+  if (patch.coverImageUrl !== undefined)    data.coverImageUrl    = patch.coverImageUrl;
   if (patch.displayOrder !== undefined)     data.displayOrder     = patch.displayOrder;
   if (patch.isPublished !== undefined)      data.isPublished      = patch.isPublished;
   if (patch.licenseInfo !== undefined)      data.licenseInfo      = patch.licenseInfo;

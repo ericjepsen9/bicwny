@@ -887,8 +887,11 @@ function renderList() {
     var pub = c.isPublished
       ? '<span class="cs-pub-pill on">' + sc('已发布', '已發佈') + '</span>'
       : '<span class="cs-pub-pill off">' + sc('未发布', '未發佈') + '</span>';
+    var coverHtml = c.coverImageUrl
+      ? '<img class="cs-emoji" src="' + escapeHtml(c.coverImageUrl) + '" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:cover;">'
+      : '<div class="cs-emoji">' + escapeHtml(c.coverEmoji || '🪷') + '</div>';
     return '<div class="cs-card' + (isActive ? ' active' : '') + '" data-id="' + escapeHtml(c.id) + '">' +
-      '<div class="cs-emoji">' + escapeHtml(c.coverEmoji || '🪷') + '</div>' +
+      coverHtml +
       '<div class="cs-info">' +
         '<div class="cs-name">' + escapeHtml(c.title || '—') + '</div>' +
         '<div class="cs-meta">' +
@@ -1020,7 +1023,23 @@ function buildDetailForm(c) {
     +     '<input id="d-slug" type="text" maxlength="80" pattern="[a-z0-9\-]+" value="' + escapeHtml(c.slug || '') + '" required>'
     +     '<span class="hint">' + sc('改 slug 会破坏外链', '改 slug 會破壞外鏈') + '</span></div>'
     +   '<div class="cs-field"><label for="d-emoji">' + sc('封面 emoji', '封面 emoji') + '</label>'
-    +     '<input id="d-emoji" type="text" maxlength="8" value="' + escapeHtml(c.coverEmoji || '') + '"></div>'
+    +     '<input id="d-emoji" type="text" maxlength="8" value="' + escapeHtml(c.coverEmoji || '') + '">'
+    +     '<span class="hint">' + sc('未上传封面图时显示', '未上傳封面圖時顯示') + '</span></div>'
+    +   '<div class="cs-field full"><label>' + sc('封面图（可选）', '封面圖（可選）') + '</label>'
+    +     '<div id="d-cover-block" style="display:flex;gap:12px;align-items:center;">'
+    +       (c.coverImageUrl
+    +         ? '<img id="d-cover-preview" src="' + escapeHtml(c.coverImageUrl) + '" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:1px solid var(--ink-5);">'
+    +         : '<div id="d-cover-preview" style="width:80px;height:80px;border-radius:8px;background:rgba(43,34,24,.05);display:flex;align-items:center;justify-content:center;font-size:1.5rem;border:1px dashed var(--ink-5);">' + escapeHtml(c.coverEmoji || '🪷') + '</div>')
+    +       '<div style="display:flex;flex-direction:column;gap:6px;">'
+    +         '<input type="file" id="d-cover-file" accept="image/jpeg,image/png,image/webp" style="font-size:.8125rem;">'
+    +         '<div style="display:flex;gap:8px;">'
+    +           '<button type="button" class="p-action-btn" id="d-cover-upload">' + sc('上传', '上傳') + '</button>'
+    +           (c.coverImageUrl ? '<button type="button" class="btn-danger" id="d-cover-remove">' + sc('移除', '移除') + '</button>' : '')
+    +         '</div>'
+    +         '<span class="hint">' + sc('JPEG/PNG/WebP · ≤ 2 MB', 'JPEG/PNG/WebP · ≤ 2 MB') + '</span>'
+    +         '<span id="d-cover-msg" style="font:var(--text-caption);"></span>'
+    +       '</div>'
+    +     '</div></div>'
     +   '<div class="cs-field full"><label for="d-author">' + sc('作者 / 译者', '作者 / 譯者') + '</label>'
     +     '<input id="d-author" type="text" maxlength="120" value="' + escapeHtml(c.author || '') + '"></div>'
     +   '<div class="cs-field full"><label for="d-authorInfo">' + sc('作者介绍', '作者介紹') + '</label>'
@@ -1067,6 +1086,67 @@ function flash(kind, msg) {
   el.classList.add('show');
 }
 
+// 封面图上传 / 移除（绑在详情页 d-cover-* 元素）
+function bindCoverHandlers(c) {
+  var fileInp = document.getElementById('d-cover-file');
+  var upBtn   = document.getElementById('d-cover-upload');
+  var rmBtn   = document.getElementById('d-cover-remove');
+  var msg     = document.getElementById('d-cover-msg');
+  if (!upBtn) return;
+
+  function setMsg(text, color) {
+    if (msg) { msg.textContent = text; msg.style.color = color || 'var(--ink-3)'; }
+  }
+
+  upBtn.addEventListener('click', function () {
+    var f = fileInp && fileInp.files && fileInp.files[0];
+    if (!f) { setMsg(sc('请先选择图片', '請先選擇圖片'), 'var(--crimson)'); return; }
+    if (f.size > 2 * 1024 * 1024) {
+      setMsg(sc('图片过大（>2 MB）', '圖片過大（>2 MB）'), 'var(--crimson)'); return;
+    }
+    if (!/^image\/(jpeg|png|webp)$/.test(f.type)) {
+      setMsg(sc('仅支持 JPEG / PNG / WebP', '僅支持 JPEG / PNG / WebP'), 'var(--crimson)'); return;
+    }
+    setMsg(sc('上传中…', '上傳中…'));
+    upBtn.setAttribute('disabled', 'disabled');
+    var fd = new FormData();
+    fd.append('file', f);
+    // multipart 不能走 api.post（默认 JSON），直接 fetch + Bearer
+    var base = (window.JX && window.JX.API_BASE) || '';
+    var token = window.JX.api.getAccessToken();
+    fetch(base + '/api/admin/courses/' + encodeURIComponent(c.id) + '/cover', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+      body: fd,
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error((res.body && res.body.message) || ('HTTP ' + res.body));
+        setMsg(sc('上传成功', '上傳成功'), 'var(--vajra-green,#4caf50)');
+        renderDetail(c.id); // 重渲染拿新 coverImageUrl
+      })
+      .catch(function (err) {
+        setMsg((err && err.message) || sc('上传失败', '上傳失敗'), 'var(--crimson)');
+      })
+      .finally(function () { upBtn.removeAttribute('disabled'); });
+  });
+
+  if (rmBtn) {
+    rmBtn.addEventListener('click', function () {
+      if (!confirm(sc('确认移除封面图？', '確認移除封面圖？'))) return;
+      setMsg(sc('移除中…', '移除中…'));
+      window.JX.api.del('/api/admin/courses/' + encodeURIComponent(c.id) + '/cover')
+        .then(function () {
+          setMsg(sc('已移除', '已移除'), 'var(--vajra-green,#4caf50)');
+          renderDetail(c.id);
+        })
+        .catch(function (err) {
+          setMsg((err && err.message) || sc('移除失败', '移除失敗'), 'var(--crimson)');
+        });
+    });
+  }
+}
+
 function bindDetailForm(c) {
   var form = document.getElementById('d-form');
   var saveBtn = document.getElementById('d-save');
@@ -1074,6 +1154,9 @@ function bindDetailForm(c) {
   var reload  = document.getElementById('d-reload');
 
   reload.addEventListener('click', function () { renderDetail(c.id); });
+
+  // 封面图上传 / 移除
+  bindCoverHandlers(c);
 
   form.addEventListener('submit', function (ev) {
     ev.preventDefault();
