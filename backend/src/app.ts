@@ -42,6 +42,9 @@ import { sm2Routes } from './modules/sm2/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
+    // Fastify 默认 bodyLimit = 1 MB · admin 法本 commit 的 chapters JSON 可能 3-5 MB
+    // 设 25 MB 与 nginx client_max_body_size 一致 · 单文件上限仍由 @fastify/multipart 兜底 20 MB
+    bodyLimit: 25 * 1024 * 1024,
     logger: {
       level: isDev ? 'info' : 'warn',
       // 防敏感字段泄漏到日志：refreshToken / token / password / apiKey 一律打码
