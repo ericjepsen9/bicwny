@@ -214,11 +214,6 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
         <p id="course-class-line" style="display:none;font:var(--text-caption);color:var(--gold-dark);letter-spacing:1px;margin-bottom:var(--sp-3);">
           📍 <span id="course-class-name">—</span>
         </p>
-        <!-- 当前正在学的章节 + 课时（基于 overlay.currentLessonId 在 course.chapters 里查）-->
-        <p id="course-current-line" style="display:none;font:var(--text-caption);color:var(--ink-2);letter-spacing:.5px;margin-bottom:var(--sp-2);line-height:1.6;">
-          📖 <span class="sc">正在学：</span><span class="tc">正在學：</span>
-          <span id="course-current-text">—</span>
-        </p>
         <div class="course-meta" id="course-meta">
           <span class="tag tag-ink" id="course-chapter-tag">—</span>
           <span class="tag tag-sage" id="course-status-tag"><span class="sc">进行中</span><span class="tc">進行中</span></span>
@@ -234,6 +229,17 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span class="sc">继续学习</span><span class="tc">繼續學習</span>
         </a>
+      </div>
+
+      <!-- 学习中列表（所有报名法本 · 没报名时隐藏） -->
+      <div id="study-list-box" style="display:none;margin-top:var(--sp-4);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-3);padding:0 2px;">
+          <p class="course-label" style="margin-bottom:0;"><span class="sc">学习中</span><span class="tc">學習中</span></p>
+          <a href="courses.html" style="font:var(--text-caption);color:var(--saffron-dark);letter-spacing:1px;text-decoration:none;">
+            <span class="sc">查看全部</span><span class="tc">查看全部</span>
+          </a>
+        </div>
+        <div id="study-list"></div>
       </div>
 
       <!-- 错题提醒（真数据，0 时隐藏）-->
@@ -392,11 +398,9 @@ function renderClassCard(memberships) {
     : sc('已加入 ', '已加入 ') + joinedDays + sc(' 天', ' 天');
 }
 
-function renderCourseCard(enrollment, overlay, courseTree) {
+function renderCourseCard(enrollment, overlay) {
   var classLine = document.getElementById('course-class-line');
-  var currentLine = document.getElementById('course-current-line');
   if (classLine) classLine.style.display = 'none';
-  if (currentLine) currentLine.style.display = 'none';
   if (!enrollment) {
     document.getElementById('course-title').textContent = sc('尚未选修法本 · 点击下方去答题', '尚未選修法本 · 點擊下方去答題');
     document.getElementById('course-chapter-tag').textContent = sc('—', '—');
@@ -426,38 +430,63 @@ function renderCourseCard(enrollment, overlay, courseTree) {
   var total = overlayObj.totalLessons || 0;
   document.getElementById('course-chapter-tag').textContent =
     sc('已完成 ', '已完成 ') + done + ' / ' + total + sc(' 课', ' 課');
-
-  // 「正在学」一行：当前 lesson 所在的章 + 课时标题
-  // courseTree 是 GET /api/courses/:slug 返回的 course，含 chapters[].lessons[]
-  // overlay.currentLessonId 是 enrollment.currentLessonId
-  // 没数据 / 没开始学 → 隐藏整行
-  if (currentLine && courseTree && overlayObj.currentLessonId) {
-    var found = null;
-    var chapters = (courseTree.chapters || []);
-    for (var i = 0; i < chapters.length && !found; i++) {
-      var ch = chapters[i];
-      var lessons = ch.lessons || [];
-      for (var j = 0; j < lessons.length; j++) {
-        if (lessons[j].id === overlayObj.currentLessonId) {
-          found = { chapter: ch, lesson: lessons[j], chIdx: i + 1, leIdx: j + 1 };
-          break;
-        }
-      }
-    }
-    if (found) {
-      var chTitle = sc(found.chapter.title, found.chapter.titleTraditional || found.chapter.title);
-      var leTitle = sc(found.lesson.title, found.lesson.titleTraditional || found.lesson.title);
-      document.getElementById('course-current-text').textContent =
-        sc('第 ' + found.chIdx + ' 章「' + chTitle + '」· 第 ' + found.leIdx + ' 课「' + leTitle + '」',
-           '第 ' + found.chIdx + ' 章「' + chTitle + '」· 第 ' + found.leIdx + ' 課「' + leTitle + '」');
-      currentLine.style.display = '';
-    }
-  }
-
   // CTA 指向当前 lesson；若无则保持默认 quiz.html
   if (overlayObj.currentLessonId) {
     document.getElementById('course-cta').href = 'quiz.html?lessonId=' + encodeURIComponent(overlayObj.currentLessonId);
   }
+}
+
+// 学习中列表：报名 ≥ 1 时显示在首页下方
+// 数据来源：/api/my/enrollments 已经返回 enrollment 数组（含 course 基础字段）
+// 进度：仅展示 lessonsCompleted 数 / 总课时（来自 enrollment 自身字段）· 不并发拉每本详情避免请求风暴
+function renderEnrollmentList(enrollments) {
+  var box = document.getElementById('study-list-box');
+  if (!box) return;
+  var items = (enrollments || []).filter(function (e) { return e && e.course; });
+  if (!items.length) { box.style.display = 'none'; return; }
+  box.style.display = '';
+
+  var listHtml = items.map(function (e, idx) {
+    var c = e.course;
+    var title = sc(c.title, c.titleTraditional || c.title);
+    var emoji = c.coverEmoji || '🪷';
+    var coverHtml = c.coverImageUrl
+      ? '<img src="' + escapeHtml(c.coverImageUrl) + '" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;">'
+      : '<div style="width:44px;height:44px;border-radius:8px;background:rgba(214,148,53,.12);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">' + escapeHtml(emoji) + '</div>';
+    var classMark = (e.source === 'class')
+      ? '<span title="' + sc('班级主修', '班級主修') + '" style="margin-right:4px;">📍</span>'
+      : '';
+    // enrollment 自身只带 lessonsCompleted (string[]) · 总课时需要 course 详情
+    // 这里只展示「已学 N 课」 + 「打开 →」按钮 · 详细进度 % 在详情页看
+    var doneCount = (e.lessonsCompleted || []).length;
+    var lastStudied = e.lastStudiedAt
+      ? window.JX.util.relativeTime(new Date(e.lastStudiedAt))
+      : sc('未开始', '未開始');
+    var completed = e.completedAt;
+
+    return '<a class="study-item" href="scripture-detail.html?slug=' + encodeURIComponent(c.slug) + '" '
+      +    'style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--glass-thick);'
+      +    'backdrop-filter:var(--blur);border-radius:var(--r-md);margin-bottom:8px;text-decoration:none;color:var(--ink);'
+      +    'border:1px solid rgba(43,34,24,.06);">'
+      +    coverHtml
+      +    '<div style="flex:1;min-width:0;">'
+      +      '<div style="font:var(--text-body);font-weight:500;letter-spacing:.5px;'
+      +        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
+      +        classMark + escapeHtml(title)
+      +      '</div>'
+      +      '<div style="font:var(--text-caption);color:var(--ink-3);margin-top:2px;letter-spacing:.5px;">'
+      +        (completed
+              ? '<span style="color:var(--vajra-green,#4caf50);">✓ ' + sc('已学完', '已學完') + '</span>'
+              : sc('已学 ', '已學 ') + doneCount + sc(' 课 · ', ' 課 · ') + lastStudied)
+      +      '</div>'
+      +    '</div>'
+      +    '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" '
+      +      'stroke-linecap="round" viewBox="0 0 24 24" style="color:var(--ink-4);flex-shrink:0;">'
+      +      '<polyline points="9 18 15 12 9 6"/></svg>'
+      +  '</a>';
+  }).join('');
+
+  document.getElementById('study-list').innerHTML = listHtml;
 }
 
 function renderReviewBadge(mistakes) {
@@ -497,8 +526,10 @@ function boot() {
     var first = list[0];
     if (!first.course || !first.course.slug) { renderCourseCard(first, null); return; }
     window.JX.api.get('/api/courses/' + encodeURIComponent(first.course.slug))
-      .then(function (d) { renderCourseCard(first, d.overlay, d.course); })
-      .catch(function () { renderCourseCard(first, null, null); });
+      .then(function (d) { renderCourseCard(first, d.overlay); })
+      .catch(function () { renderCourseCard(first, null); });
+    // 全部报名法本的进度列表（下方）
+    renderEnrollmentList(list);
   });
 
   window.JX.api.get('/api/mistakes?limit=500').then(renderReviewBadge).catch(function () {});
