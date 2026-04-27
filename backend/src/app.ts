@@ -151,21 +151,24 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(jwt, { secret: config.JWT_SECRET });
   app.addHook('onRequest', jwtOptional);
 
-  // Rate-limit：默认全局基线 600 req/min/userId
-  // 之前 100/min 在 admin 批量导法本（145 篇 × 2 次请求）时不够
-  // 重点端点（login / forgot / answers / import）在路由层用 config.rateLimit 进一步加严或放宽
-  // 测试模式下完全禁用（避免集成测试撞限速）
-  if (config.NODE_ENV !== 'test') {
+  // Rate-limit：单租户私有部署（admin guard 已是入口屏障）默认关闭全局限流
+  // 公网多租户部署 → 设 GLOBAL_RATE_LIMIT_PER_MIN=600（或更高）启用
+  // 路由级限流（如 login / forgot 防暴力破解）仍照常生效（不依赖全局）
+  // 测试模式下永远禁用（避免集成测试撞限速）
+  const globalLimit = parseInt(process.env.GLOBAL_RATE_LIMIT_PER_MIN || '0', 10);
+  if (config.NODE_ENV !== 'test' && globalLimit > 0) {
     await app.register(rateLimit, {
       global: true,
-      max: 600,
+      max: globalLimit,
       timeWindow: '1 minute',
-      // 已认证用户走 userId，未认证走 IP · NAT 共享 IP 误伤减小
       keyGenerator: (req) => {
         const uid = getUserId(req);
         return uid ? `u:${uid}` : `ip:${req.ip}`;
       },
     });
+  } else {
+    // 必须 register 一次（哪怕 global:false），否则路由级 config.rateLimit 不生效
+    await app.register(rateLimit, { global: false, max: 1_000_000, timeWindow: '1 minute' });
   }
 
   // jwtOptional 之后：把 userId 挂到 req.log 的 child 上
