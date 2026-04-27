@@ -248,26 +248,43 @@ function renderChapters(course, overlay) {
     var meta = lessons.length + sc(' 课 · ', ' 課 · ') +
       (chapterCurrent ? (sc('答题中', '答題中')) : (pct + '%'));
 
-    // 章节项点击 → 答题（quiz.html?lessonId=<firstLesson>）
-    // '查阅原文'入口移到答题页内，详情页只放主路径
+    // 详情页（目录）作为电子书目录
+    //   主：点章节项 → 跳到该章首课的'阅读'（scripture-reading.html?lessonId=...）
+    //   次：右侧小图标按钮 → 该章首课的答题（quiz.html?lessonId=...）
+    var readHref = firstLesson
+      ? 'scripture-reading.html?slug=' + encodeURIComponent(course.slug) + '&lessonId=' + encodeURIComponent(firstLesson.id)
+      : '#';
     var quizHref = firstLesson
       ? 'quiz.html?lessonId=' + encodeURIComponent(firstLesson.id)
       : '#';
 
     var el = document.createElement(firstLesson ? 'a' : 'div');
     el.className = 'chapter-item' + (state === 'current' ? ' current' : '');
-    if (firstLesson) el.href = quizHref;
+    if (firstLesson) el.href = readHref;
     el.innerHTML =
       '<div class="chapter-num ' + state + '">' + badge + '</div>' +
       '<div class="chapter-body">' +
         '<p class="chapter-title">' + escapeHtml(ch.title || '—') + '</p>' +
         '<div class="chapter-meta">' +
           (chapterCurrent
-            ? '<span style="color:var(--saffron);font-weight:600;">' + escapeHtml(sc('答题中', '答題中')) + '</span><span class="dot"></span><span>' + lessons.length + sc(' 课', ' 課') + '</span>'
+            ? '<span style="color:var(--saffron);font-weight:600;">' + escapeHtml(sc('阅读中', '閱讀中')) + '</span><span class="dot"></span><span>' + lessons.length + sc(' 课', ' 課') + '</span>'
             : '<span>' + escapeHtml(meta) + '</span>') +
         '</div>' +
       '</div>' +
+      // 右侧次级动作：答题（小图标按钮）· data-stop 防冒泡到外层 a
+      (firstLesson
+        ? '<a href="' + quizHref + '" data-stop="1" title="' + sc('本章答题', '本章答題') + '" '
+          + 'style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:var(--r-pill);'
+          + 'background:rgba(43,34,24,.05);color:var(--ink-3);text-decoration:none;flex-shrink:0;">'
+          + '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24">'
+          + '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>'
+          + '</svg></a>'
+        : '') +
       '<svg width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>';
+    // 阻止小图标按钮冒泡跳阅读
+    el.querySelectorAll('[data-stop]').forEach(function (a) {
+      a.addEventListener('click', function (ev) { ev.stopPropagation(); });
+    });
     list.appendChild(el);
   });
 

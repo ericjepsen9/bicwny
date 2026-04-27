@@ -274,10 +274,16 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
         <div class="progress-track">
           <div class="progress-fill" id="course-progress-fill" style="width:0%;"></div>
         </div>
-        <a href="quiz.html" id="course-cta" class="btn btn-primary btn-lg btn-full btn-pill" style="margin-top:var(--sp-4);">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          <span class="sc">继续学习</span><span class="tc">繼續學習</span>
-        </a>
+        <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-4);">
+          <a href="scripture-reading.html" id="course-cta" class="btn btn-primary btn-pill" style="flex:1.6;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span class="sc">继续阅读</span><span class="tc">繼續閱讀</span>
+          </a>
+          <a href="scripture-detail.html" id="course-toc" class="btn btn-pill" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;background:transparent;color:var(--ink-2);border:1px solid var(--border);">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            <span class="sc">查看详情</span><span class="tc">查看詳情</span>
+          </a>
+        </div>
       </div>
 
       <!-- 错题提醒（真数据，0 时隐藏）-->
@@ -354,19 +360,8 @@ body { background: linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:1
         </div>
       </div>
 
-      <!-- ── 学习中：当前法本的章节列表（深看一本）──
-           没报名 → 显示「去选修法本」CTA
-           报名 ≥ 1 → 取第一个 enrollment（按 lastStudiedAt 排），列章节
-           切换法本 → 法本 tab 或 我的 → 学习管理 -->
-      <div id="study-chapters-box" style="display:none;">
-        <div class="study-chapters-head">
-          <span class="label" id="study-chapters-title">学习中</span>
-          <a id="study-chapters-link" href="scripture-detail.html" class="more">
-            <span class="sc">查看详情 →</span><span class="tc">查看詳情 →</span>
-          </a>
-        </div>
-        <div id="study-chapters-list"></div>
-      </div>
+      <!-- 「学习中」章节列表已移除：法本进入是电子书阅读模式，
+           想看目录从'查看详情'按钮（在当前法本卡里）或 toc 按钮跳转 -->
 
       <!-- 没报名任何法本时显示 -->
       <div id="study-empty-box" class="glass-card" style="display:none;padding:var(--sp-4);">
@@ -492,16 +487,25 @@ function renderCourseCard(enrollment, overlay) {
   var total = overlayObj.totalLessons || 0;
   document.getElementById('course-chapter-tag').textContent =
     sc('已完成 ', '已完成 ') + done + ' / ' + total + sc(' 课', ' 課');
-  // CTA 指向当前 lesson；若无则保持默认 quiz.html
+  // 「继续阅读」→ scripture-reading（auto-resume 到 currentLessonId）
+  // 「查看详情」→ scripture-detail（章节目录）
+  var ctaUrl = 'scripture-reading.html?slug=' + encodeURIComponent(c.slug);
+  var tocUrl = 'scripture-detail.html?slug=' + encodeURIComponent(c.slug);
+  document.getElementById('course-cta').href = ctaUrl;
+  document.getElementById('course-toc').href = tocUrl;
+  // 旧 quiz.html 直跳行为已移除：现在阅读页自带'本课答题'按钮
+  // 保留 currentLessonId 注释供未来直跳 quiz 用
   if (overlayObj.currentLessonId) {
-    document.getElementById('course-cta').href = 'quiz.html?lessonId=' + encodeURIComponent(overlayObj.currentLessonId);
+    // no-op（当前 ctaUrl 不带 lessonId · scripture-reading 内部会自动续读）
   }
 }
 
-// 渲染当前法本的章节列表（首页快捷入口下方）
-// 数据：course.chapters[].lessons[] · overlay.completedLessonIds / currentLessonId
-// 状态：done（全章 lessons 都完成） / current（章内含 currentLessonId） / pending
+// 已废弃：home 不再展示章节列表（电子书模式 · 直接进 reading）
+// 保留函数定义防外部调用 · 内部 early-return
 function renderStudyChapters(course, overlay) {
+  return; // no-op
+  // 历史代码保留作参考（dead code）
+  // eslint-disable-next-line no-unreachable
   var box = document.getElementById('study-chapters-box');
   var titleEl = document.getElementById('study-chapters-title');
   var linkEl = document.getElementById('study-chapters-link');
@@ -625,10 +629,7 @@ function boot() {
     var first = list[0];
     if (!first.course || !first.course.slug) { renderCourseCard(first, null); return; }
     window.JX.api.get('/api/courses/' + encodeURIComponent(first.course.slug))
-      .then(function (d) {
-        renderCourseCard(first, d.overlay);
-        renderStudyChapters(d.course, d.overlay);
-      })
+      .then(function (d) { renderCourseCard(first, d.overlay); })
       .catch(function () { renderCourseCard(first, null); });
   });
 

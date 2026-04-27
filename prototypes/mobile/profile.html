@@ -388,7 +388,7 @@ function renderEnrollments(list) {
       ? sc('已学完', '已學完')
       : sc('已学 ', '已學 ') + doneCount + sc(' 课', ' 課');
     var canDrop = (e.source !== 'class'); // 班级主修不能退（要先退班）
-    return '<a href="scripture-detail.html?slug=' + encodeURIComponent(c.slug) + '" class="menu-item" '
+    return '<a href="scripture-reading.html?slug=' + encodeURIComponent(c.slug) + '" class="menu-item" '
       + 'data-enrollment="' + escapeHtml(c.id) + '">'
       +   coverHtml
       +   '<div class="menu-label" style="display:flex;flex-direction:column;gap:2px;">'

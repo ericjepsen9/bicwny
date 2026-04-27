@@ -289,7 +289,8 @@ function render() {
       var c = state.courses.find(function (x) { return x.id === cid; });
       if (!c) return;
       if (isEnrolled(cid)) {
-        location.href = 'scripture-detail.html?slug=' + encodeURIComponent(c.slug);
+        // 已加入 → 直接进阅读（auto-resume 到上次位置 / 首次进显示介绍页）
+        location.href = 'scripture-reading.html?slug=' + encodeURIComponent(c.slug);
       } else {
         openSheet(c);
       }
@@ -329,9 +330,9 @@ function openSheet(c) {
     btn.setAttribute('aria-busy', 'true');
     window.JX.api.post('/api/enrollments', { courseId: cid })
       .then(function () {
-        // 加入成功 → 直接跳详情
+        // 加入成功 → 进阅读（首次会自动展示介绍页）· intro=1 强制确保
         var slug = c.slug;
-        location.href = 'scripture-detail.html?slug=' + encodeURIComponent(slug);
+        location.href = 'scripture-reading.html?slug=' + encodeURIComponent(slug) + '&intro=1';
       })
       .catch(function (err) {
         btn.removeAttribute('aria-busy');
