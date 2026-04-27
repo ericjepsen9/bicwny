@@ -32,11 +32,23 @@ body { background: var(--bg-scene); min-height: 100vh; }
 /* Book hero */
 .book-hero {
   padding: var(--sp-5);
+  /* 默认渐变（没图片时回落） · 有图时 inline style 会覆盖 */
   background: linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%);
   color: #FFF; border-radius: var(--r-lg); position: relative; overflow: hidden;
   box-shadow: 0 10px 30px rgba(161,60,46,.25);
 }
-.book-hero::after {
+/* 有封面图时：用图作为背景层 + 暗化遮罩保证文字可读 */
+.book-hero.has-cover {
+  background-size: cover; background-position: center;
+}
+.book-hero.has-cover::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,.35) 100%);
+  z-index: 0;
+}
+.book-hero.has-cover > * { position: relative; z-index: 1; }
+/* 装饰水印仅在无图时显示 */
+.book-hero:not(.has-cover)::after {
   content: '心経';
   position: absolute; right: -10px; bottom: -30px;
   font-family: var(--font-serif); font-size: 9rem; font-weight: 700;
@@ -175,7 +187,16 @@ function resolveSlug() {
 }
 
 function renderHero(course, overlay) {
-  document.getElementById('book-hero').style.display = '';
+  var hero = document.getElementById('book-hero');
+  hero.style.display = '';
+  // 有封面图 → 加 has-cover 类 + inline background-image · 没图回落原渐变
+  if (course.coverImageUrl) {
+    hero.classList.add('has-cover');
+    hero.style.backgroundImage = "url('" + course.coverImageUrl.replace(/'/g, "%27") + "')";
+  } else {
+    hero.classList.remove('has-cover');
+    hero.style.backgroundImage = '';
+  }
   document.getElementById('section-head').style.display = '';
   document.getElementById('hero-label').textContent =
     (course.author ? course.author + ' · ' : '') + sc('论典', '論典');
@@ -232,7 +253,7 @@ function renderChapters(course, overlay) {
     el.innerHTML =
       '<div class="chapter-num ' + state + '">' + badge + '</div>' +
       '<div class="chapter-body">' +
-        '<p class="chapter-title">' + escapeHtml((idx + 1) + '. ' + (ch.title || '—')) + '</p>' +
+        '<p class="chapter-title">' + escapeHtml(ch.title || '—') + '</p>' +
         '<div class="chapter-meta">' +
           (chapterCurrent
             ? '<span style="color:var(--saffron);font-weight:600;">' + escapeHtml(sc('答题中', '答題中')) + '</span><span class="dot"></span><span>' + lessons.length + sc(' 课', ' 課') + '</span>'

@@ -561,7 +561,7 @@ function renderStudyChapters(course, overlay) {
       + (firstLesson ? 'href="' + quizHref + '"' : '') + '>'
       +   '<div class="h-chapter-num ' + state + '">' + badgeInner + '</div>'
       +   '<div class="h-chapter-body">'
-      +     '<p class="h-chapter-title">' + escapeHtml((idx + 1) + '. ' + (chTitle || '—')) + '</p>'
+      +     '<p class="h-chapter-title">' + escapeHtml(chTitle || '—') + '</p>'
       +     '<div class="h-chapter-meta">' + meta + readLink + '</div>'
       +   '</div>'
       +   '<svg width="16" height="16" fill="none" stroke="#B5A99A" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>'
