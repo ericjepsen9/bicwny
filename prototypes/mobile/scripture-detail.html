@@ -47,12 +47,15 @@ body { background: var(--bg-scene); min-height: 100vh; }
   z-index: 0;
 }
 .book-hero.has-cover > * { position: relative; z-index: 1; }
-/* 装饰水印仅在无图时显示 */
+/* 装饰水印仅在无图时显示 · 内容来自 --hero-watermark CSS 变量（JS 设置为法本标题） */
 .book-hero:not(.has-cover)::after {
-  content: '心経';
+  content: var(--hero-watermark, '"法本"');
   position: absolute; right: -10px; bottom: -30px;
-  font-family: var(--font-serif); font-size: 9rem; font-weight: 700;
-  color: rgba(255,255,255,.08); letter-spacing: 8px; line-height: .8;
+  font-family: var(--font-serif); font-size: 6rem; font-weight: 700;
+  color: rgba(255,255,255,.10); letter-spacing: 4px; line-height: .8;
+  /* 标题可能很长 · 限制宽度并裁剪溢出 */
+  max-width: 80%; white-space: nowrap; overflow: hidden;
+  pointer-events: none;
 }
 .book-hero-label { font: var(--text-caption); letter-spacing: 3px; opacity: .8; margin-bottom: var(--sp-2); font-weight: 600; }
 .book-hero-title { font-family: var(--font-serif); font-size: 1.5rem; font-weight: 700; letter-spacing: 5px; margin-bottom: var(--sp-2); }
@@ -197,6 +200,10 @@ function renderHero(course, overlay) {
     hero.classList.remove('has-cover');
     hero.style.backgroundImage = '';
   }
+  // 水印用法本标题（CSS 变量 · 没图时通过 ::after content 显示）
+  // 标题里的 " 转义防 CSS 注入；备用用 "法本"
+  var watermarkRaw = course.title || '法本';
+  hero.style.setProperty('--hero-watermark', '"' + watermarkRaw.replace(/["\\]/g, '\\$&') + '"');
   document.getElementById('section-head').style.display = '';
   document.getElementById('hero-label').textContent =
     (course.author ? course.author + ' · ' : '') + sc('论典', '論典');
