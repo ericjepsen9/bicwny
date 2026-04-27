@@ -475,7 +475,7 @@
         </div>
         <div class="cs-field">
           <label for="new-slug">slug<span class="req">*</span></label>
-          <input id="new-slug" type="text" maxlength="80" pattern="[a-z0-9-]+" required>
+          <input id="new-slug" type="text" maxlength="80" pattern="[a-z0-9\-]+" required>
           <span class="hint"><span class="sc">URL 用 · 字母/数字/连字符</span><span class="tc">URL 用 · 字母/數字/連字符</span></span>
         </div>
         <div class="cs-field">
@@ -732,7 +732,7 @@ https://www.buli.page/zh-hans/view/lesson/def456/text/
             <div class="cs-grid">
               <div class="cs-field">
                 <label for="im-new-slug">slug<span class="req">*</span></label>
-                <input id="im-new-slug" type="text" maxlength="80" pattern="[a-z0-9-]+">
+                <input id="im-new-slug" type="text" maxlength="80" pattern="[a-z0-9\-]+">
               </div>
               <div class="cs-field">
                 <label for="im-new-title"><span class="sc">书名</span><span class="tc">書名</span><span class="req">*</span></label>
@@ -1001,7 +1001,7 @@ function buildDetailForm(c) {
     +   '<div class="cs-field full"><label for="d-titleTC">' + sc('书名（繁体）', '書名（繁體）') + '</label>'
     +     '<input id="d-titleTC" type="text" maxlength="120" value="' + escapeHtml(c.titleTraditional || '') + '"></div>'
     +   '<div class="cs-field"><label for="d-slug">slug<span class="req">*</span></label>'
-    +     '<input id="d-slug" type="text" maxlength="80" pattern="[a-z0-9-]+" value="' + escapeHtml(c.slug || '') + '" required>'
+    +     '<input id="d-slug" type="text" maxlength="80" pattern="[a-z0-9\-]+" value="' + escapeHtml(c.slug || '') + '" required>'
     +     '<span class="hint">' + sc('改 slug 会破坏外链', '改 slug 會破壞外鏈') + '</span></div>'
     +   '<div class="cs-field"><label for="d-emoji">' + sc('封面 emoji', '封面 emoji') + '</label>'
     +     '<input id="d-emoji" type="text" maxlength="8" value="' + escapeHtml(c.coverEmoji || '') + '"></div>'
