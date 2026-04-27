@@ -104,7 +104,7 @@ APP=$PROJECT_DIR/backend/src/app.ts
 IMP=$PROJECT_DIR/backend/src/modules/courses/import.routes.ts
 
 check "前端文件存在"          "test -f $ADM && echo OK"                                   "OK"
-check "slug pattern 转义"     "grep -c 'pattern=\"\\[a-z0-9\\\\\\\\-\\]+\"' $ADM || true" "[1-9]"
+check "slug pattern 转义"     "grep -E 'pattern=\"\\[a-z0-9.\\-\\]\\+\"' $ADM | head -1"   "pattern"
 check "autoGenSlug 函数"      "grep -c 'function autoGenSlug' $ADM"                       "1"
 check "preview 限流 ≥ 120"    "grep -E 'max: (12|3)0[0-9]?,' $IMP | head -1"              "max:"
 check "全局限流 ≥ 600"        "grep 'max: 600' $APP"                                       "max: 600"
