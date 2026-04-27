@@ -852,6 +852,22 @@ https://www.buli.page/zh-hans/view/lesson/def456/text/
 //   F1.4 接入 课时 CRUD + referenceText / teachingSummary
 var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
 
+// 自动生成合法 slug：纯小写 + 数字 + `-`，最多 60 字
+// 文件名是英文/数字 → 直接转拉丁
+// 文件名是中文 / 转完太短 → 回落 'course-{时间戳36}-{随机4}'，保证永远合法且不重复
+function autoGenSlug(filename) {
+  var base = String(filename || '')
+    .replace(/\.[^.]+$/, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+  if (base && base.length >= 3) return base;
+  var ts = Date.now().toString(36);
+  var rnd = Math.random().toString(36).slice(2, 6);
+  return 'course-' + ts + '-' + rnd;
+}
+
 var state = {
   list: [],          // 法本概览数组
   currentId: null,   // 当前选中
@@ -2238,11 +2254,10 @@ function imRenderPreview() {
     pv.charCount + sc(' 字 · ', ' 字 · ') + pv.chapters.length + sc(' 章 · ', ' 章 · ') +
     totalLessons + sc(' 课时', ' 課時');
 
-  // 默认 slug：用文件名（去后缀）转拉丁
+  // 默认 slug：用文件名（去后缀）转拉丁；纯中文/太短则回落到时间戳 + 随机
+  // 这样 admin 不需要手动想 slug，可以随后修改
   if (!document.getElementById('im-new-slug').value) {
-    var fallbackSlug = pv.filename.replace(/\.[^.]+$/, '')
-      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
-    if (fallbackSlug) document.getElementById('im-new-slug').value = fallbackSlug;
+    document.getElementById('im-new-slug').value = autoGenSlug(pv.filename);
   }
   if (!document.getElementById('im-new-title').value) {
     document.getElementById('im-new-title').value = pv.filename.replace(/\.[^.]+$/, '');
