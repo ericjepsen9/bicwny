@@ -46,7 +46,7 @@ const previewLessonSchema: z.ZodType<{ title: string; referenceText?: string; te
 });
 const previewChapterSchema = z.object({
   title: z.string().trim().min(1).max(200),
-  lessons: z.array(previewLessonSchema).min(1).max(500),
+  lessons: z.array(previewLessonSchema).min(1).max(2000),
 });
 const newCourseSchema = z.object({
   slug: z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/i),
@@ -61,7 +61,9 @@ const commitBody = z.object({
   mode: z.enum(['new', 'append']),
   courseId: z.string().min(1).optional(),
   newCourse: newCourseSchema.optional(),
-  chapters: z.array(previewChapterSchema).min(1).max(200),
+  // admin 合并模式批量导入时章节数容易突破单文件预设的 200
+  // 1 本完整论典极少超过 5000 章；上限放宽到 5000 既覆盖大法本也防失控
+  chapters: z.array(previewChapterSchema).min(1).max(5000),
   // 幂等键：前端开预览模态时生成 uuid · 重复 commit 直接返回上次结果
   clientToken: z.string().min(8).max(64).optional(),
 });
