@@ -400,6 +400,14 @@ function reload() {
   ]).then(function (r) {
     state.courses = Array.isArray(r[0]) ? r[0] : [];
     state.enrollments = Array.isArray(r[1]) ? r[1] : [];
+    // 智能默认 chip：首次进 + 有报名 → 默认「已加入」；否则 / 用户已切过 → 保持当前
+    if (!state._chipUserChanged && state.enrollments.length > 0) {
+      state.filter = 'enrolled';
+      // 同步 chip active 高亮
+      document.querySelectorAll('.ftab').forEach(function (t) {
+        t.classList.toggle('active', t.getAttribute('data-filter') === 'enrolled');
+      });
+    }
     render();
   }).catch(function (err) {
     document.getElementById('course-list').innerHTML =
@@ -414,6 +422,7 @@ document.querySelectorAll('.ftab').forEach(function (tab) {
     document.querySelectorAll('.ftab').forEach(function (t) { t.classList.remove('active'); });
     tab.classList.add('active');
     state.filter = tab.getAttribute('data-filter');
+    state._chipUserChanged = true;  // 用户主动切过 · reload 不再覆盖
     render();
   });
 });
