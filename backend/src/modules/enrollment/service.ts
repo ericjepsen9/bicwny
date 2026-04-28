@@ -97,35 +97,53 @@ export async function updateProgress(
   });
   if (!existing) throw NotFound('未报名此课程');
 
+  // M1 + A2: lesson belongs-to-course 校验 · 共享缓存避免重复查询
+  // （addCompletedLessonId 与 currentLessonId 常常同 lessonId）
+  const belongsCache = new Map<string, boolean>();
+  async function belongsToCourse(lessonId: string): Promise<boolean> {
+    const cached = belongsCache.get(lessonId);
+    if (cached !== undefined) return cached;
+    const lesson = await prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { chapter: { select: { courseId: true } } },
+    });
+    const ok = !!lesson && lesson.chapter.courseId === courseId;
+    belongsCache.set(lessonId, ok);
+    return ok;
+  }
+
   let lessonsCompleted = existing.lessonsCompleted;
   if (
     input.addCompletedLessonId &&
     !lessonsCompleted.includes(input.addCompletedLessonId)
   ) {
     // M1: 防伪造 · 验 lesson 属于本 course + 实算 80% 阈值（前端值不可信）
-    const lesson = await prisma.lesson.findUnique({
-      where: { id: input.addCompletedLessonId },
-      select: { chapter: { select: { courseId: true } } },
-    });
-    const belongsToCourse = !!lesson && lesson.chapter.courseId === courseId;
-    if (belongsToCourse) {
+    if (await belongsToCourse(input.addCompletedLessonId)) {
       const passed = await isLessonPassed(userId, input.addCompletedLessonId);
       if (passed) {
         lessonsCompleted = [...lessonsCompleted, input.addCompletedLessonId];
       }
-      // 不达 80% 或 lesson 不属于此 course → 静默忽略 addCompletedLessonId
-      // currentLessonId 仍正常推进（不影响"已读"语义）
+      // 不达 80% → 静默忽略 addCompletedLessonId
     }
+  }
+
+  // A2: currentLessonId 也校验 belongs-to-course · 与 addCompletedLessonId 对称
+  // null 仍允许（清空语义）· 不属于本 course 则保留 existing 不变
+  let nextCurrentLessonId: string | null = existing.currentLessonId;
+  if (input.currentLessonId === null) {
+    nextCurrentLessonId = null;
+  } else if (typeof input.currentLessonId === 'string') {
+    if (await belongsToCourse(input.currentLessonId)) {
+      nextCurrentLessonId = input.currentLessonId;
+    }
+    // 不属于本 course → 静默忽略 · 保留 existing.currentLessonId
   }
 
   return prisma.userCourseEnrollment.update({
     where: { userId_courseId: { userId, courseId } },
     data: {
       lastStudiedAt: new Date(),
-      currentLessonId:
-        input.currentLessonId !== undefined
-          ? input.currentLessonId
-          : existing.currentLessonId,
+      currentLessonId: nextCurrentLessonId,
       lessonsCompleted,
     },
   });
