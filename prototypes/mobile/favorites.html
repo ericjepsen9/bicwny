@@ -242,6 +242,26 @@ function render(items) {
     var sourceTag = q.source ? '<span class="fav-tag">' + escapeHtml(q.source) + '</span>' : '';
     var lessonId = q.lessonId || '';
     var courseId = q.courseId || '';
+    // H1: 必须同时有 lessonId + courseId 才能正常推进进度；缺一则禁用按钮 + tooltip 解释
+    var canRetry = !!(lessonId && courseId);
+    var retryBtn = canRetry
+      ? '<button type="button" class="fav-retry" data-lid="' + escapeHtml(lessonId)
+          + '" data-cid="' + escapeHtml(courseId) + '" data-qid="' + escapeHtml(qid) + '" '
+          + 'style="margin-left:auto;margin-right:8px;padding:5px 12px;border-radius:var(--r-pill);'
+          + 'border:1px solid var(--saffron);background:var(--saffron);color:#FFF;'
+          + 'font:var(--text-caption);font-weight:600;letter-spacing:1px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">'
+          + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+          + sc('练一练', '練一練')
+          + '</button>'
+      : (lessonId || courseId
+          ? '<button type="button" disabled '
+              + 'title="' + escapeHtml(sc('题目缺少法本归属信息，无法记录进度', '題目缺少法本歸屬信息，無法記錄進度')) + '" '
+              + 'style="margin-left:auto;margin-right:8px;padding:5px 12px;border-radius:var(--r-pill);'
+              + 'border:1px solid var(--ink-5);background:rgba(43,34,24,.06);color:var(--ink-4);'
+              + 'font:var(--text-caption);font-weight:600;letter-spacing:1px;cursor:not-allowed;display:inline-flex;align-items:center;gap:4px;">'
+              + sc('练一练', '練一練')
+              + '</button>'
+          : '');
     return ''
       + '<div class="fav-item" data-qid="' + escapeHtml(qid) + '">'
       +   '<div class="fav-top">'
@@ -253,16 +273,7 @@ function render(items) {
       +   '<p class="fav-text">' + escapeHtml(q.questionText || sc('（题目已下架）', '（題目已下架）')) + '</p>'
       +   '<div class="fav-actions">'
       +     '<span class="fav-time">' + sc('收藏于 ', '收藏於 ') + relTime(it.createdAt) + '</span>'
-      +     (lessonId
-        ? '<button type="button" class="fav-retry" data-lid="' + escapeHtml(lessonId)
-            + '" data-cid="' + escapeHtml(courseId) + '" data-qid="' + escapeHtml(qid) + '" '
-            + 'style="margin-left:auto;margin-right:8px;padding:5px 12px;border-radius:var(--r-pill);'
-            + 'border:1px solid var(--saffron);background:var(--saffron);color:#FFF;'
-            + 'font:var(--text-caption);font-weight:600;letter-spacing:1px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">'
-            + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
-            + sc('练一练', '練一練')
-            + '</button>'
-        : '')
+      +     retryBtn
       +     '<button type="button" class="fav-remove" data-qid="' + escapeHtml(qid) + '">'
       +       '<span class="sc">取消收藏</span><span class="tc">取消收藏</span>'
       +     '</button>'

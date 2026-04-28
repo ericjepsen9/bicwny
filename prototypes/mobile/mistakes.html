@@ -146,6 +146,23 @@ function renderCards() {
     var source = q.source || '';
     var when = window.JX.util.relativeTime(m.lastWrongAt);
     var lessonId = q.lessonId || '';
+    var courseId = q.courseId || '';
+    // H1: lessonId + courseId 缺一即禁用 · tooltip 解释
+    var canRetry = !!(lessonId && courseId);
+    var retryHtml = canRetry
+      ? '<button class="mistake-retry" ' +
+          'style="margin-left:auto;padding:5px 12px;border-radius:var(--r-pill);' +
+          'border:1px solid var(--saffron);background:var(--saffron);color:#FFF;' +
+          'font:var(--text-caption);font-weight:600;letter-spacing:1px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">' +
+          '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>' +
+          sc('再练', '再練') +
+        '</button>'
+      : '<button disabled title="' + escapeHtml(sc('题目缺少法本归属信息，无法记录进度', '題目缺少法本歸屬信息，無法記錄進度')) + '" ' +
+          'style="margin-left:auto;padding:5px 12px;border-radius:var(--r-pill);' +
+          'border:1px solid var(--ink-5);background:rgba(43,34,24,.06);color:var(--ink-4);' +
+          'font:var(--text-caption);font-weight:600;letter-spacing:1px;cursor:not-allowed;display:inline-flex;align-items:center;gap:4px;">' +
+          sc('再练', '再練') +
+        '</button>';
     var card = document.createElement('div');
     card.className = 'mistake-card';
     card.style.position = 'relative';
@@ -158,13 +175,7 @@ function renderCards() {
           '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>' +
           '<span>' + m.wrongCount + sc(' 次错', ' 次錯') + '</span>' +
         '</span>' +
-        '<button class="mistake-retry" ' +
-          'style="margin-left:auto;padding:5px 12px;border-radius:var(--r-pill);' +
-          'border:1px solid var(--saffron);background:var(--saffron);color:#FFF;' +
-          'font:var(--text-caption);font-weight:600;letter-spacing:1px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">' +
-          '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>' +
-          sc('再练', '再練') +
-        '</button>' +
+        retryHtml +
       '</div>' +
       '<button class="mistake-remove" aria-label="' + sc('移除', '移除') + '" ' +
         'style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;' +
@@ -178,17 +189,16 @@ function renderCards() {
       location.href = 'mistake-detail.html?questionId=' + encodeURIComponent(m.questionId);
     });
     // 「再练一次」直接跳 quiz · from=mistake & questionId 让 quiz 完成后跳回错题详情
-    card.querySelector('.mistake-retry').addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      if (!lessonId) {
-        window.JX.toast && window.JX.toast.error(sc('题目数据异常', '題目數據異常'));
-        return;
-      }
-      var courseId = q.courseId || '';
-      location.href = 'quiz.html?lessonId=' + encodeURIComponent(lessonId)
-        + '&from=mistake&questionId=' + encodeURIComponent(m.questionId)
-        + (courseId ? '&courseId=' + encodeURIComponent(courseId) : '');
-    });
+    // canRetry 已保证 lessonId + courseId 都齐全；disabled 按钮无此 class，querySelector 返回 null
+    var retryEl = card.querySelector('.mistake-retry');
+    if (retryEl) {
+      retryEl.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        location.href = 'quiz.html?lessonId=' + encodeURIComponent(lessonId)
+          + '&courseId=' + encodeURIComponent(courseId)
+          + '&from=mistake&questionId=' + encodeURIComponent(m.questionId);
+      });
+    }
     // 移除按钮
     card.querySelector('.mistake-remove').addEventListener('click', function (ev) {
       ev.stopPropagation();
