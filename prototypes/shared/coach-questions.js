@@ -300,6 +300,60 @@ function setSelectOptions(sel, items, valueKey, labelFn, placeholder) {
     }).join('');
 }
 
+// E1: 在 courseCache 中按 (slug, lessonId) 找 referenceText
+function findLessonRef(slug, lessonId) {
+  var c = courseCache[slug];
+  if (!c || !lessonId) return null;
+  for (var i = 0; i < (c.chapters || []).length; i++) {
+    var lessons = c.chapters[i].lessons || [];
+    for (var j = 0; j < lessons.length; j++) {
+      if (lessons[j].id === lessonId) return lessons[j];
+    }
+  }
+  return null;
+}
+
+// E1: 把指定 lesson 的 referenceText 渲染到 #f-ref-row（创建/编辑表单共用）
+function renderRefPreview(slug, lessonId) {
+  var row = document.getElementById('f-ref-row');
+  if (!row) return;
+  var l = findLessonRef(slug, lessonId);
+  var text = l && l.referenceText ? String(l.referenceText) : '';
+  if (!l) {
+    row.style.display = 'none';
+    return;
+  }
+  row.style.display = '';
+  var meta = document.getElementById('f-ref-meta');
+  var box = document.getElementById('f-ref-text');
+  if (text) {
+    if (meta) meta.textContent = text.length + sc(' 字', ' 字');
+    if (box) {
+      box.textContent = text;
+      box.style.color = 'var(--ink-2)';
+      box.style.fontStyle = 'normal';
+    }
+  } else {
+    if (meta) meta.textContent = sc('（无原文）', '（無原文）');
+    if (box) {
+      box.textContent = sc('该课时尚未录入 referenceText · 可在 admin-courses 编辑课时补录',
+                          '該課時尚未錄入 referenceText · 可在 admin-courses 編輯課時補錄');
+      box.style.color = 'var(--ink-4)';
+      box.style.fontStyle = 'italic';
+    }
+  }
+  // 默认展开 · 用户可点 toggle 收起
+  var toggle = document.getElementById('f-ref-toggle');
+  if (box && toggle && !toggle.dataset.bound) {
+    toggle.dataset.bound = '1';
+    toggle.addEventListener('click', function () {
+      var hidden = box.style.display === 'none';
+      box.style.display = hidden ? '' : 'none';
+      toggle.textContent = hidden ? sc('收起', '收起') : sc('展开', '展開');
+    });
+  }
+}
+
 function renderTypeEditor() {
   var host = document.getElementById('f-type-editor');
   var t = createForm.type;
@@ -402,6 +456,16 @@ function renderCreateForm() {
       '<div><label>' + escapeHtml(sc('章', '章')) + '</label><select class="f-sel" id="f-chapter" disabled></select></div>' +
       '<div><label>' + escapeHtml(sc('课时', '課時')) + '</label><select class="f-sel" id="f-lesson" disabled></select></div>' +
     '</div>' +
+    '<div class="f-row" id="f-ref-row" style="display:none;">' +
+      '<label style="display:flex;align-items:center;gap:8px;">' +
+        '<span>' + escapeHtml(sc('课时原文预览', '課時原文預覽')) + '</span>' +
+        '<span class="f-hint" id="f-ref-meta" style="margin:0;font-weight:400;letter-spacing:.5px;">—</span>' +
+        '<button type="button" id="f-ref-toggle" class="btn-ghost-s" style="margin-left:auto;font-size:.6875rem;padding:2px 8px;">' +
+          escapeHtml(sc('收起', '收起')) +
+        '</button>' +
+      '</label>' +
+      '<div id="f-ref-text" style="max-height:220px;overflow:auto;padding:10px 12px;background:rgba(43,34,24,.03);border:1px solid var(--border-light);border-radius:var(--r-sm);font-size:.8125rem;line-height:1.6;color:var(--ink-2);white-space:pre-wrap;"></div>' +
+    '</div>' +
     '<div class="f-row"><label>' + escapeHtml(sc('题干', '題幹')) + '</label>' +
       '<textarea class="f-area" id="f-stem" rows="2" required></textarea></div>' +
     '<div class="f-row"><label>' + escapeHtml(sc('答案选项 / 内容', '答案選項 / 內容')) + '</label>' +
@@ -463,6 +527,8 @@ function renderCreateForm() {
     chSel.disabled = leSel.disabled = true;
     chSel.innerHTML = '<option>' + escapeHtml(sc('加载中…', '加載中…')) + '</option>';
     leSel.innerHTML = '';
+    var refRow = document.getElementById('f-ref-row');
+    if (refRow) refRow.style.display = 'none';
     if (!slug) { chSel.innerHTML = ''; return; }
     loadCourseDetail(slug).then(function (c) {
       createForm.courseId = c.id;
@@ -479,9 +545,12 @@ function renderCreateForm() {
     var leSel = document.getElementById('f-lesson');
     setSelectOptions(leSel, (ch && ch.lessons) || [], 'id', function (l) { return l.title; }, sc('选择课时', '選擇課時'));
     leSel.disabled = false;
+    var refRow = document.getElementById('f-ref-row');
+    if (refRow) refRow.style.display = 'none';
   });
   document.getElementById('f-lesson').addEventListener('change', function () {
     createForm.lessonId = this.value;
+    renderRefPreview(createForm.courseSlug, this.value);
   });
 
   document.getElementById('f-type').value = createForm.type;
@@ -626,6 +695,7 @@ function prefillEditForm(q) {
         fLess.value = q.lessonId;
         createForm.lessonId = q.lessonId;
       }
+      renderRefPreview(course.slug, q.lessonId);
     });
   } else {
     // 找不到所属课程（可能已下架）→ 保留 id，禁用级联
@@ -746,7 +816,15 @@ function renderGenerateForm() {
     setSelectOptions(leSel, (ch && ch.lessons) || [], 'id', function (l) { return l.title; }, sc('选择课时', '選擇課時'));
     leSel.disabled = false;
   });
-  document.getElementById('g-lesson').addEventListener('change', function () { genForm.lessonId = this.value; });
+  document.getElementById('g-lesson').addEventListener('change', function () {
+    genForm.lessonId = this.value;
+    // E1: 自动把课时原文塞进 passage textarea（仅当 textarea 为空 · 不覆盖用户已编辑内容）
+    var l = findLessonRef(genForm.courseSlug, this.value);
+    var ta = document.getElementById('g-passage');
+    if (l && l.referenceText && ta && !ta.value.trim()) {
+      ta.value = l.referenceText;
+    }
+  });
   document.getElementById('g-type').addEventListener('change', function () { genForm.type = this.value; });
   document.getElementById('g-count').addEventListener('change', function () { genForm.count = Number(this.value); });
   document.getElementById('g-diff').addEventListener('change', function () { genForm.difficulty = Number(this.value); });
