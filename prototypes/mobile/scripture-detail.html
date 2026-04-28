@@ -197,6 +197,8 @@ var SD_MODE = (window.JX.util.queryParam('mode') === 'quiz') ? 'quiz' : 'read';
   var url = nav.fromDetailReturnUrl({ from: navFrom, slug: slug, lessonId: lessonId });
   backEl.href = url;
   backEl.setAttribute('data-fallback', url);
+  // A4: 优先 history.back · 多层 from 嵌套时不会反复横跳
+  nav.attachHistoryBackFallback(backEl);
 })();
 
 function resolveSlug() {

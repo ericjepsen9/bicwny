@@ -232,4 +232,21 @@
     merge: mergeOverlayCache,
     clear: clearOverlayCache,
   };
+
+  // ─── A4 · 返回按钮优先用浏览器历史栈 ──────────────────────
+  // 多层 from 嵌套（home → reading → detail → reading → detail）下，硬编码
+  // fromXxxReturnUrl 容易在两屏间反复横跳。浏览器历史栈天然记录完整链路，
+  // 优先 history.back()；只有深链入站（history.length === 1）才退回 href。
+  function attachHistoryBackFallback(el) {
+    if (!el) return;
+    el.addEventListener('click', function (ev) {
+      // history.length > 1 说明本 tab 内有上一页 · 同源默认假设（跨域跳进来的极少）
+      if (history.length > 1) {
+        ev.preventDefault();
+        history.back();
+      }
+      // 否则让 href 接管（深链 / 新 tab 打开）
+    });
+  }
+  window.JX.nav.attachHistoryBackFallback = attachHistoryBackFallback;
 })();

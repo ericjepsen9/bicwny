@@ -354,12 +354,12 @@ function renderLesson(ctx, flat, slug, courseId, enrolled, course, overlay) {
     slug: slug,
     from: window.JX.nav.FROM.READING,
   });
-  // H4: 顶部 ← 按 ?from= 动态决定回哪里
+  // H4: 顶部 ← 按 ?from= 动态决定回哪里（href 作为 history 不可用时的兜底）
   var navFrom = window.JX.util.queryParam('from') || '';
-  document.getElementById('back-link').href = window.JX.nav.fromReadingReturnUrl({
-    from: navFrom,
-    slug: slug,
-  });
+  var backEl = document.getElementById('back-link');
+  backEl.href = window.JX.nav.fromReadingReturnUrl({ from: navFrom, slug: slug });
+  // A4: 优先 history.back · 多层 from 嵌套时不会反复横跳
+  window.JX.nav.attachHistoryBackFallback(backEl);
 
   // ℹ️ 介绍按钮 → 弹出介绍页（手动重看模式）
   var introBtn = document.getElementById('intro-btn');
