@@ -203,12 +203,16 @@
     } catch (_) { /* 静默 */ }
   }
 
-  // 把 cache 合并进服务端 overlay · cache 优先（更新鲜）但只覆盖学习字段
+  // 把 cache 合并进服务端 overlay
+  // - completedLessonIds：union 永远安全（更多 = 更新鲜，跨 tab 不冲突）
+  // - currentLessonId：B4 不再用 cache 覆盖 · 跨 tab 时 cache 可能是别 tab 写的，
+  //   会把当前 tab 的阅读位置推走（user 在 tab1 读 lesson10，tab2 答完 lesson5，
+  //   tab1 cache 读到 lesson5 → 下次续读跳错）。改为始终以服务端 overlay 为准。
+  //   同 tab 内 PATCH 写完读 cache 没意义（reading boot 才读 · 这时已经 GET 拿到最新）
   function mergeOverlayCache(serverOverlay, cached) {
     if (!cached) return serverOverlay;
     if (!serverOverlay) return cached;
     var merged = Object.assign({}, serverOverlay);
-    // 已学课时 · union（cache 优先承认更多）
     var srvIds = serverOverlay.completedLessonIds || [];
     var cacheIds = cached.completedLessonIds || [];
     var seen = {};
@@ -217,9 +221,7 @@
       if (!seen[id]) { seen[id] = 1; union.push(id); }
     });
     merged.completedLessonIds = union;
-    // currentLessonId 用 cache（最近一次写入更新鲜）
-    if (cached.currentLessonId) merged.currentLessonId = cached.currentLessonId;
-    // 进度百分比重算
+    // 进度百分比按 union 重算
     if (typeof merged.totalLessons === 'number' && merged.totalLessons > 0) {
       merged.progressPercent = Math.round(union.length / merged.totalLessons * 100);
     }
