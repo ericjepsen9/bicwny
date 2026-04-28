@@ -12,6 +12,46 @@ export interface UpdateProgressInput {
   addCompletedLessonId?: string;
 }
 
+const COMPLETION_THRESHOLD = 0.8;
+
+// M1: 后端实算 80% 阈值
+// 每题取最近一次 UserAnswer.isCorrect; 跳过 null（待 AI 评分的开放题）;
+// 全部 null → 视为未通过; lesson 无题 → 直接通过（admin 还没出题不该卡用户）
+async function isLessonPassed(
+  userId: string,
+  lessonId: string,
+  threshold = COMPLETION_THRESHOLD,
+): Promise<boolean> {
+  const questions = await prisma.question.findMany({
+    where: { lessonId },
+    select: { id: true },
+  });
+  if (questions.length === 0) return true;
+
+  const answers = await prisma.userAnswer.findMany({
+    where: {
+      userId,
+      questionId: { in: questions.map((q) => q.id) },
+    },
+    orderBy: { answeredAt: 'desc' },
+    select: { questionId: true, isCorrect: true },
+  });
+
+  // 同 question 取最近一次（list 已按 answeredAt desc）
+  const seen = new Set<string>();
+  let graded = 0;
+  let correct = 0;
+  for (const a of answers) {
+    if (seen.has(a.questionId)) continue;
+    seen.add(a.questionId);
+    if (a.isCorrect === null) continue;
+    graded += 1;
+    if (a.isCorrect === true) correct += 1;
+  }
+  if (graded === 0) return false;
+  return correct / graded >= threshold;
+}
+
 export async function enroll(
   userId: string,
   courseId: string,
@@ -60,7 +100,20 @@ export async function updateProgress(
     input.addCompletedLessonId &&
     !lessonsCompleted.includes(input.addCompletedLessonId)
   ) {
-    lessonsCompleted = [...lessonsCompleted, input.addCompletedLessonId];
+    // M1: 防伪造 · 验 lesson 属于本 course + 实算 80% 阈值（前端值不可信）
+    const lesson = await prisma.lesson.findUnique({
+      where: { id: input.addCompletedLessonId },
+      select: { chapter: { select: { courseId: true } } },
+    });
+    const belongsToCourse = !!lesson && lesson.chapter.courseId === courseId;
+    if (belongsToCourse) {
+      const passed = await isLessonPassed(userId, input.addCompletedLessonId);
+      if (passed) {
+        lessonsCompleted = [...lessonsCompleted, input.addCompletedLessonId];
+      }
+      // 不达 80% 或 lesson 不属于此 course → 静默忽略 addCompletedLessonId
+      // currentLessonId 仍正常推进（不影响"已读"语义）
+    }
   }
 
   return prisma.userCourseEnrollment.update({
