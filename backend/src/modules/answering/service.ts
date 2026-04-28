@@ -11,7 +11,10 @@ import { removeMistake, upsertMistake } from './mistakes.js';
 export interface SubmitOptions {
   /** 开放题是否走 LLM 评分；默认 false（使用 mock） */
   useLlmForOpen?: boolean;
-  /** 答对时是否从错题本软删除；默认 false（由前端策略决定） */
+  /**
+   * @deprecated M8: 后端答对时无条件软删错题本，本字段不再生效。
+   * 保留接受参数避免老客户端 400，但不影响行为。
+   */
   removeFromMistakesOnCorrect?: boolean;
   /** 做题用时（毫秒） */
   timeSpentMs?: number;
@@ -118,7 +121,11 @@ export async function submitAnswer(
 
       if (!grade.isCorrect) {
         await upsertMistake(userId, questionId, new Date(), tx);
-      } else if (opts.removeFromMistakesOnCorrect) {
+      } else {
+        // M8: 答对后无条件软删错题本（updateMany where removedAt:null · 无活跃记录则 no-op）
+        // 此前依赖前端 removeFromMistakesOnCorrect flag · 仅 from=mistake 路径有效；
+        // 用户从 reading / quiz-center / detail 答对一道老错题时不会被清。
+        // 改为后端无条件处理 · removeFromMistakesOnCorrect flag 保留向后兼容但无实际作用。
         await removeMistake(userId, questionId, tx);
       }
 

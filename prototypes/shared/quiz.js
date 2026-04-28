@@ -789,15 +789,14 @@
     var btn = document.getElementById('action-btn');
     btn.disabled = true;
 
-    // C3：错题重练时（URL ?from=mistake）传 removeFromMistakesOnCorrect=true
-    // 让后端在答对时自动从错题本移除（软删 removedAt = now）
-    var fromQ = (window.JX.util.queryParam('from') || '');
+    // M8: 后端 submitAnswer 答对时无条件软删错题本，无需前端传 flag
+    // （C3 旧逻辑仅在 from=mistake 才传，导致从 reading / quiz-center 答对一道老错题
+    //  时错题本不会被清；现归后端处理）
     var body = {
       questionId: q.id,
       answer: state.answer,
       timeSpentMs: Date.now() - state.tQuestionStart,
     };
-    if (fromQ === 'mistake') body.removeFromMistakesOnCorrect = true;
     window.JX.api.post('/api/answers', body).then(function (data) {
       state.confirmed = true;
       state.lastGrade = data.grade;
