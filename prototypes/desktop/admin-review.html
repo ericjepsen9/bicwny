@@ -185,7 +185,7 @@ table.q-list { width: 100%; border-collapse: collapse; }
         <p class="kpi-trend">&nbsp;</p>
       </div>
       <div class="kpi-card">
-        <p class="kpi-label"><span class="sc">涉及论典</span><span class="tc">涉及論典</span></p>
+        <p class="kpi-label"><span class="sc">涉及法本</span><span class="tc">涉及法本</span></p>
         <p class="kpi-value" id="kpi-courses">—</p>
         <p class="kpi-trend">&nbsp;</p>
       </div>
@@ -199,7 +199,7 @@ table.q-list { width: 100%; border-collapse: collapse; }
     <!-- Filter bar -->
     <div class="filter-bar">
       <select class="fsel" id="course-select">
-        <option value="">全部论典</option>
+        <option value="">全部法本</option>
       </select>
       <input class="fsearch" id="search-input" type="search"
         data-ph-sc="搜索题干文字" data-ph-tc="搜索題幹文字" placeholder="搜索题干文字">
@@ -329,7 +329,7 @@ function showErr(msg) {
 
 function populateCourseFilter(courses) {
   var sel = document.getElementById('course-select');
-  var opts = ['<option value="">' + escapeHtml(sc('全部论典', '全部論典')) + '</option>'];
+  var opts = ['<option value="">' + escapeHtml(sc('全部法本', '全部法本')) + '</option>'];
   courses.forEach(function (c) {
     opts.push('<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.title) + '</option>');
   });

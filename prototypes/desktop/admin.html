@@ -416,7 +416,7 @@ function renderKpis(stats, courses) {
   document.getElementById('kpi-active').textContent = stats.users.activeInWindow;
   setSub('kpi-active-sub', sc('独立答题用户', '獨立答題用戶'));
   document.getElementById('kpi-courses').textContent = (courses || []).length;
-  setSub('kpi-courses-sub', sc('已发布论典', '已發佈論典'));
+  setSub('kpi-courses-sub', sc('已发布法本', '已發佈法本'));
   document.getElementById('kpi-answers').textContent = formatK(stats.answers.total);
   setSub('kpi-answers-sub',
     sc('窗口内 ', '視窗內 ') + stats.answers.inWindow +

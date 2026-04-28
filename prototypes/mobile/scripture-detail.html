@@ -92,7 +92,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .chapter-meta { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; display: flex; gap: 8px; align-items: center; }
 .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-4); }
 
-/* 论典切换 chip */
+/* 法本切换 chip */
 .course-switch {
   display: flex; gap: var(--sp-2); padding: 0 var(--sp-5) var(--sp-3);
   overflow-x: auto; scrollbar-width: none;
@@ -206,7 +206,7 @@ function renderHero(course, overlay) {
   hero.style.setProperty('--hero-watermark', '"' + watermarkRaw.replace(/["\\]/g, '\\$&') + '"');
   document.getElementById('section-head').style.display = '';
   document.getElementById('hero-label').textContent =
-    (course.author ? course.author + ' · ' : '') + sc('论典', '論典');
+    (course.author ? course.author + ' · ' : '') + sc('法本', '法本');
   document.getElementById('hero-title').textContent = course.title;
   document.getElementById('hero-sub').textContent = course.description || '';
   var chapters = course.chapters || [];
@@ -292,7 +292,7 @@ function renderChapters(course, overlay) {
     doneChapters + ' / ' + totalChapters + sc(' 已完成', ' 已完成');
 }
 
-// 已报名论典切换 chip 行（>1 个时显示） · 末尾"更多"链 courses.html
+// 已报名法本切换 chip 行（>1 个时显示） · 末尾"更多"链 courses.html
 // source='class' 的法本前面加 📍 主修标，tooltip 解释
 function renderCourseSwitch(currentSlug) {
   var box = document.getElementById('course-switch');
@@ -315,7 +315,7 @@ function renderCourseSwitch(currentSlug) {
         + '</a>';
     });
     chips.push('<a class="cs-chip more" href="courses.html">+ '
-      + sc('全部论典', '全部論典') + '</a>');
+      + sc('全部法本', '全部法本') + '</a>');
     box.innerHTML = chips.join('');
     box.style.display = chips.length > 1 ? 'flex' : 'none';
   }).catch(function () { /* 静默 */ });
@@ -329,7 +329,7 @@ function boot() {
       var overlay = data.overlay;
       renderHero(course, overlay);
       renderChapters(course, overlay);
-      // chip 切换 + 全部论典链已移除（这是二级页 · 用顶部返回按钮回 courses.html）
+      // chip 切换 + 全部法本链已移除（这是二级页 · 用顶部返回按钮回 courses.html）
     })
     .catch(function (err) {
       var msg = (err && err.message) || '';
