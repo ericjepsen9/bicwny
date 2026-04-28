@@ -146,6 +146,9 @@ body { background: var(--bg-scene); min-height: 100vh; }
       <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
     </a>
     <span class="nav-title" id="top-title">—</span>
+    <button class="nav-action" id="intro-btn" aria-label="法本介绍" title="法本介绍" type="button" style="margin-right:6px;">
+      <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    </button>
     <a class="nav-action" id="toc-link" aria-label="目录" href="#"
        title="目录">
       <svg width="20" height="20" fill="none" stroke="#55463A" stroke-width="1.8" stroke-linecap="round" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
@@ -154,6 +157,9 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
   <!-- 介绍页：首次打开法本时显示（基于 enrollment.lastStudiedAt）-->
   <div class="intro-screen" id="intro-screen">
+    <!-- 关闭按钮：仅在「手动重看」模式下生效（首次打开走 [开始阅读] 流） -->
+    <button id="intro-close" type="button" aria-label="关闭"
+      style="display:none;position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:50%;background:rgba(43,34,24,.08);border:0;font-size:1.1rem;color:var(--ink-3);cursor:pointer;line-height:1;">×</button>
     <div class="intro-cover" id="intro-cover">
       <span class="intro-cover-emoji" id="intro-emoji">🪷</span>
     </div>
@@ -227,7 +233,7 @@ function flattenLessons(course) {
   return out;
 }
 
-function showIntro(course, flat, slug) {
+function showIntro(course, flat, slug, manual) {
   var screen = document.getElementById('intro-screen');
   var coverEl = document.getElementById('intro-cover');
   if (course.coverImageUrl) {
@@ -243,16 +249,28 @@ function showIntro(course, flat, slug) {
   document.getElementById('intro-lessons').textContent = flat.length;
   document.getElementById('intro-desc').textContent = course.description || '';
 
-  document.getElementById('intro-start').onclick = function () {
-    if (!flat.length) return;
-    var first = flat[0];
-    location.href = 'scripture-reading.html?slug=' + encodeURIComponent(slug)
-      + '&lessonId=' + encodeURIComponent(first.lesson.id);
-  };
+  // 手动重看模式：显示 × 关闭按钮 + 「开始阅读」改成「关闭介绍」
+  var closeBtn = document.getElementById('intro-close');
+  var startBtn = document.getElementById('intro-start');
+  if (manual) {
+    closeBtn.style.display = '';
+    closeBtn.onclick = function () { screen.classList.remove('show'); };
+    startBtn.innerHTML = '<span class="sc">关闭介绍</span><span class="tc">關閉介紹</span>';
+    startBtn.onclick = function () { screen.classList.remove('show'); };
+  } else {
+    closeBtn.style.display = 'none';
+    startBtn.innerHTML = '<span class="sc">开始阅读</span><span class="tc">開始閱讀</span>';
+    startBtn.onclick = function () {
+      if (!flat.length) return;
+      var first = flat[0];
+      location.href = 'scripture-reading.html?slug=' + encodeURIComponent(slug)
+        + '&lessonId=' + encodeURIComponent(first.lesson.id);
+    };
+  }
   screen.classList.add('show');
 }
 
-function renderLesson(ctx, flat, slug, courseId, enrolled) {
+function renderLesson(ctx, flat, slug, courseId, enrolled, course) {
   var l = ctx.lesson;
   var ch = ctx.chapter;
   document.getElementById('top-title').textContent = ch.title;
@@ -299,6 +317,12 @@ function renderLesson(ctx, flat, slug, courseId, enrolled) {
   // 顶部目录 → scripture-detail · 顶部返回 → courses 列表
   document.getElementById('toc-link').href = 'scripture-detail.html?slug=' + encodeURIComponent(slug);
   document.getElementById('back-link').href = 'courses.html';
+
+  // ℹ️ 介绍按钮 → 弹出介绍页（手动重看模式）
+  var introBtn = document.getElementById('intro-btn');
+  if (introBtn && course) {
+    introBtn.onclick = function () { showIntro(course, flat, slug, true); };
+  }
   // from=reading + slug · 答题完成后能跳回这一课的阅读页
   document.getElementById('goto-quiz').href =
     'quiz.html?lessonId=' + encodeURIComponent(l.id)
@@ -363,13 +387,13 @@ function boot() {
       // URL lessonId > forceIntro > 首次打开 > currentLessonId 续读 > 第一课
       if (lessonId) {
         var ctx = flat.find(function (x) { return x.lesson.id === lessonId; }) || flat[0];
-        renderLesson(ctx, flat, slug, courseId, enrolled);
+        renderLesson(ctx, flat, slug, courseId, enrolled, course);
       } else if (forceIntro || neverOpened) {
-        showIntro(course, flat, slug);
+        showIntro(course, flat, slug, false);
       } else {
         var resumeId = overlay && overlay.currentLessonId;
         var ctx2 = resumeId ? flat.find(function (x) { return x.lesson.id === resumeId; }) : null;
-        renderLesson(ctx2 || flat[0], flat, slug, courseId, enrolled);
+        renderLesson(ctx2 || flat[0], flat, slug, courseId, enrolled, course);
       }
     })
     .catch(function (err) { showError(sc('加载失败：', '加載失敗：') + (err.message || err)); });
