@@ -180,17 +180,23 @@ var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
 //   quiz 模式：     章节点击 → quiz；   右侧小图标 → reading
 var SD_MODE = (window.JX.util.queryParam('mode') === 'quiz') ? 'quiz' : 'read';
 
-// 标题 + 返回按钮按模式调整
+// 标题 + 返回按钮按模式 / from= 调整（H4）
 (function () {
   var titleEl = document.getElementById('sd-title');
   var backEl = document.getElementById('sd-back');
+  var qp = window.JX.util.queryParam;
+  var nav = window.JX.nav;
   if (SD_MODE === 'quiz') {
     titleEl.innerHTML = '<span class="sc">选章答题</span><span class="tc">選章答題</span>';
-    if (backEl) {
-      backEl.href = 'quiz-center.html';
-      backEl.setAttribute('data-fallback', 'quiz-center.html');
-    }
   }
+  if (!backEl) return;
+  // 显式 from 优先 · 缺省时 mode=quiz 隐含 from=center · 其余回 courses
+  var navFrom = qp('from') || (SD_MODE === 'quiz' ? nav.FROM.CENTER : '');
+  var slug = qp('slug') || '';
+  var lessonId = qp('lessonId') || '';
+  var url = nav.fromDetailReturnUrl({ from: navFrom, slug: slug, lessonId: lessonId });
+  backEl.href = url;
+  backEl.setAttribute('data-fallback', url);
 })();
 
 function resolveSlug() {
@@ -267,7 +273,11 @@ function renderChapters(course, overlay) {
     //   阅读模式（默认）：主点击 → reading · 右侧小按钮 → quiz
     //   quiz 模式：       主点击 → quiz   · 右侧小按钮 → reading
     var readHref = firstLesson
-      ? window.JX.nav.toReading({ slug: course.slug, lessonId: firstLesson.id })
+      ? window.JX.nav.toReading({
+          slug: course.slug,
+          lessonId: firstLesson.id,
+          from: window.JX.nav.FROM.DETAIL,
+        })
       : '#';
     var quizHref = firstLesson
       ? window.JX.nav.toQuiz({

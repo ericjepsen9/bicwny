@@ -313,7 +313,7 @@ function render() {
       if (!c) return;
       if (isEnrolled(cid)) {
         // 已加入 → 直接进阅读（auto-resume 到上次位置 / 首次进显示介绍页）
-        location.href = window.JX.nav.toReading({ slug: c.slug });
+        location.href = window.JX.nav.toReading({ slug: c.slug, from: window.JX.nav.FROM.COURSES });
       } else {
         openSheet(c);
       }
@@ -381,7 +381,7 @@ function openSheet(c) {
       .then(function () {
         // 加入成功 → 进阅读（首次会自动展示介绍页）· intro=1 强制确保
         var slug = c.slug;
-        location.href = window.JX.nav.toReading({ slug: slug, intro: true });
+        location.href = window.JX.nav.toReading({ slug: slug, intro: true, from: window.JX.nav.FROM.COURSES });
       })
       .catch(function (err) {
         btn.removeAttribute('aria-busy');

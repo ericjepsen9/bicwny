@@ -333,8 +333,17 @@ function renderLesson(ctx, flat, slug, courseId, enrolled, course, overlay) {
   }
 
   // 顶部目录 → scripture-detail · 顶部返回 → courses 列表
-  document.getElementById('toc-link').href = window.JX.nav.toScriptureDetail({ slug: slug });
-  document.getElementById('back-link').href = 'courses.html';
+  // toc-link 跳 detail · 带 from=reading 让 detail 返回时能回到 reading
+  document.getElementById('toc-link').href = window.JX.nav.toScriptureDetail({
+    slug: slug,
+    from: window.JX.nav.FROM.READING,
+  });
+  // H4: 顶部 ← 按 ?from= 动态决定回哪里
+  var navFrom = window.JX.util.queryParam('from') || '';
+  document.getElementById('back-link').href = window.JX.nav.fromReadingReturnUrl({
+    from: navFrom,
+    slug: slug,
+  });
 
   // ℹ️ 介绍按钮 → 弹出介绍页（手动重看模式）
   var introBtn = document.getElementById('intro-btn');

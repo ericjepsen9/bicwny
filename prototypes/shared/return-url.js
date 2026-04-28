@@ -107,6 +107,36 @@
     return map[from] || sc('返回首页', '返回首頁');
   }
 
+  // ─── return-url for reading / detail nav-back ────────────────
+  // reading 顶部 ← 按 ?from= 决定回哪里
+  //   detail   → toScriptureDetail({ slug })
+  //   home     → home.html
+  //   courses  → courses.html (default)
+  //   center   → quiz-center.html
+  function fromReadingReturnUrl(params) {
+    var from = (params && params.from) || '';
+    var slug = (params && params.slug) || '';
+    if (from === FROM.DETAIL && slug) return toScriptureDetail({ slug: slug });
+    if (from === FROM.HOME)    return 'home.html';
+    if (from === FROM.CENTER)  return 'quiz-center.html';
+    return 'courses.html';
+  }
+
+  // detail 顶部 ← 按 ?from= 决定回哪里
+  //   reading  → toReading({ slug, lessonId })
+  //   home     → home.html
+  //   center   → quiz-center.html
+  //   courses  → courses.html (default)
+  function fromDetailReturnUrl(params) {
+    var from = (params && params.from) || '';
+    var slug = (params && params.slug) || '';
+    var lessonId = (params && params.lessonId) || '';
+    if (from === FROM.READING && slug) return toReading({ slug: slug, lessonId: lessonId });
+    if (from === FROM.HOME)    return 'home.html';
+    if (from === FROM.CENTER)  return 'quiz-center.html';
+    return 'courses.html';
+  }
+
   window.JX = window.JX || {};
   window.JX.nav = {
     FROM: FROM,
@@ -116,5 +146,7 @@
     toScriptureDetail: toScriptureDetail,
     fromQuizReturnUrl: fromQuizReturnUrl,
     fromQuizReturnLabel: fromQuizReturnLabel,
+    fromReadingReturnUrl: fromReadingReturnUrl,
+    fromDetailReturnUrl: fromDetailReturnUrl,
   };
 })();

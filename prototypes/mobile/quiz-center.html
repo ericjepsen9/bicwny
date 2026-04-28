@@ -225,7 +225,7 @@ function renderCourses(enrollments) {
       ? sc('✓ 已学完', '✓ 已學完')
       : (sc('已答 ', '已答 ') + done + sc(' 课', ' 課'));
     var classMark = (e.source === 'class') ? '📍 ' : '';
-    return '<a class="qc-course-card" href="' + window.JX.nav.toScriptureDetail({ slug: c.slug, mode: 'quiz' }) + '">'
+    return '<a class="qc-course-card" href="' + window.JX.nav.toScriptureDetail({ slug: c.slug, mode: 'quiz', from: window.JX.nav.FROM.CENTER }) + '">'
       +    '<div class="qc-cover">' + coverHtml + '</div>'
       +    '<div class="qc-info">'
       +      '<div class="qc-name">' + classMark + escapeHtml(title) + '</div>'
