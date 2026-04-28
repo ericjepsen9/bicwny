@@ -17,6 +17,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>觉学 · 错题本</title>
 <script src="../shared/lang.js"></script>
+<script src="../shared/return-url.js"></script>
 <script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
@@ -186,7 +187,7 @@ function renderCards() {
     card.addEventListener('click', function (ev) {
       if (ev.target.closest('.mistake-remove')) return;
       if (ev.target.closest('.mistake-retry')) return;
-      location.href = 'mistake-detail.html?questionId=' + encodeURIComponent(m.questionId);
+      location.href = window.JX.nav.toMistakeDetail({ questionId: m.questionId });
     });
     // 「再练一次」直接跳 quiz · from=mistake & questionId 让 quiz 完成后跳回错题详情
     // canRetry 已保证 lessonId + courseId 都齐全；disabled 按钮无此 class，querySelector 返回 null
@@ -194,9 +195,12 @@ function renderCards() {
     if (retryEl) {
       retryEl.addEventListener('click', function (ev) {
         ev.stopPropagation();
-        location.href = 'quiz.html?lessonId=' + encodeURIComponent(lessonId)
-          + '&courseId=' + encodeURIComponent(courseId)
-          + '&from=mistake&questionId=' + encodeURIComponent(m.questionId);
+        location.href = window.JX.nav.toQuiz({
+          lessonId: lessonId,
+          courseId: courseId,
+          from: window.JX.nav.FROM.MISTAKE,
+          questionId: m.questionId,
+        });
       });
     }
     // 移除按钮

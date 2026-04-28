@@ -445,6 +445,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .result-btns { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; }
 </style>
 <script src="../shared/lang.js"></script>
+<script src="../shared/return-url.js"></script>
 <script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
@@ -584,7 +585,8 @@ var __quizPending = { patch: null };
   var courseId = qp('courseId');
   var from = qp('from') || '';
   if (!lessonId || !courseId) return;
-  if (from === 'reading' || from === 'mistake' || from === 'favorites') return;
+  var FROM = window.JX.nav.FROM;
+  if (from === FROM.READING || from === FROM.MISTAKE || from === FROM.FAVORITES) return;
   // 等 user-ready 再发 · 避免 401
   function fire() {
     window.JX.api.patch(
@@ -649,40 +651,17 @@ var __quizPending = { patch: null };
 (function () {
   var sc = window.JX.sc;
   var qp = window.JX.util.queryParam;
+  var nav = window.JX.nav;
   var from = qp('from') || '';
   var slug = qp('slug') || '';
   var lessonId = qp('lessonId') || '';
   var questionId = qp('questionId') || '';
 
   function returnUrl() {
-    if (from === 'reading' && slug) {
-      var u = 'scripture-reading.html?slug=' + encodeURIComponent(slug);
-      if (lessonId) u += '&lessonId=' + encodeURIComponent(lessonId);
-      return u;
-    }
-    if (from === 'detail' && slug) {
-      return 'scripture-detail.html?slug=' + encodeURIComponent(slug);
-    }
-    if (from === 'mistake' && questionId) {
-      return 'mistake-detail.html?questionId=' + encodeURIComponent(questionId);
-    }
-    if (from === 'favorites') {
-      return 'favorites.html';
-    }
-    if (from === 'center') {
-      return 'quiz-center.html';
-    }
-    return 'home.html';
+    return nav.fromQuizReturnUrl({ from: from, slug: slug, lessonId: lessonId, questionId: questionId });
   }
-
   function returnLabel() {
-    return ({
-      reading:   sc('继续阅读', '繼續閱讀'),
-      detail:    sc('回到目录', '回到目錄'),
-      mistake:   sc('回到错题', '回到錯題'),
-      favorites: sc('回到收藏', '回到收藏'),
-      center:    sc('回到答题', '回到答題'),
-    })[from] || sc('返回首页', '返回首頁');
+    return nav.fromQuizReturnLabel({ from: from }, sc);
   }
 
   // 顶部 ← 返回按钮
@@ -700,9 +679,8 @@ var __quizPending = { patch: null };
   // 「下一课」按钮（仅 from=reading 且 URL 有 nextLessonId 时显示）
   var nextLessonId = qp('nextLessonId');
   var nextBtn = document.getElementById('quiz-next-lesson');
-  if (nextBtn && nextLessonId && slug && from === 'reading') {
-    nextBtn.href = 'scripture-reading.html?slug=' + encodeURIComponent(slug)
-      + '&lessonId=' + encodeURIComponent(nextLessonId);
+  if (nextBtn && nextLessonId && slug && from === nav.FROM.READING) {
+    nextBtn.href = nav.toReading({ slug: slug, lessonId: nextLessonId });
     nextBtn.style.display = '';
     // 有「下一课」时主按钮降级（不那么强调）
     if (resultBack) {

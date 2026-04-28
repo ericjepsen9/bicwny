@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="../shared/base.css">
 <link rel="stylesheet" href="../shared/components.css">
 <script src="../shared/lang.js"></script>
+<script src="../shared/return-url.js"></script>
 <script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
@@ -291,9 +292,11 @@ function render(items) {
         window.JX.toast && window.JX.toast.error(sc('题目数据异常', '題目數據異常'));
         return;
       }
-      location.href = 'quiz.html?lessonId=' + encodeURIComponent(lid)
-        + '&from=favorites'
-        + (cid ? '&courseId=' + encodeURIComponent(cid) : '');
+      location.href = window.JX.nav.toQuiz({
+        lessonId: lid,
+        courseId: cid,
+        from: window.JX.nav.FROM.FAVORITES,
+      });
     });
   });
 

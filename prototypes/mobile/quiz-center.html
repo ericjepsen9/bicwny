@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="../shared/base.css">
 <link rel="stylesheet" href="../shared/components.css">
 <script src="../shared/lang.js"></script>
+<script src="../shared/return-url.js"></script>
 <script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
@@ -224,7 +225,7 @@ function renderCourses(enrollments) {
       ? sc('✓ 已学完', '✓ 已學完')
       : (sc('已答 ', '已答 ') + done + sc(' 课', ' 課'));
     var classMark = (e.source === 'class') ? '📍 ' : '';
-    return '<a class="qc-course-card" href="scripture-detail.html?slug=' + encodeURIComponent(c.slug) + '&mode=quiz">'
+    return '<a class="qc-course-card" href="' + window.JX.nav.toScriptureDetail({ slug: c.slug, mode: 'quiz' }) + '">'
       +    '<div class="qc-cover">' + coverHtml + '</div>'
       +    '<div class="qc-info">'
       +      '<div class="qc-name">' + classMark + escapeHtml(title) + '</div>'

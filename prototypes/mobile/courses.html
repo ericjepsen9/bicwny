@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="../shared/base.css">
 <link rel="stylesheet" href="../shared/components.css">
 <script src="../shared/lang.js"></script>
+<script src="../shared/return-url.js"></script>
 <script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
@@ -312,7 +313,7 @@ function render() {
       if (!c) return;
       if (isEnrolled(cid)) {
         // 已加入 → 直接进阅读（auto-resume 到上次位置 / 首次进显示介绍页）
-        location.href = 'scripture-reading.html?slug=' + encodeURIComponent(c.slug);
+        location.href = window.JX.nav.toReading({ slug: c.slug });
       } else {
         openSheet(c);
       }
@@ -380,7 +381,7 @@ function openSheet(c) {
       .then(function () {
         // 加入成功 → 进阅读（首次会自动展示介绍页）· intro=1 强制确保
         var slug = c.slug;
-        location.href = 'scripture-reading.html?slug=' + encodeURIComponent(slug) + '&intro=1';
+        location.href = window.JX.nav.toReading({ slug: slug, intro: true });
       })
       .catch(function (err) {
         btn.removeAttribute('aria-busy');

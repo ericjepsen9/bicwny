@@ -109,6 +109,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .cs-chip.more   { color: var(--saffron-dark); border: 1px dashed var(--saffron-light); background: transparent; }
 </style>
 <script src="../shared/lang.js"></script>
+<script src="../shared/return-url.js"></script>
 <script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
@@ -266,12 +267,15 @@ function renderChapters(course, overlay) {
     //   阅读模式（默认）：主点击 → reading · 右侧小按钮 → quiz
     //   quiz 模式：       主点击 → quiz   · 右侧小按钮 → reading
     var readHref = firstLesson
-      ? 'scripture-reading.html?slug=' + encodeURIComponent(course.slug) + '&lessonId=' + encodeURIComponent(firstLesson.id)
+      ? window.JX.nav.toReading({ slug: course.slug, lessonId: firstLesson.id })
       : '#';
     var quizHref = firstLesson
-      ? 'quiz.html?lessonId=' + encodeURIComponent(firstLesson.id)
-        + '&from=detail&slug=' + encodeURIComponent(course.slug)
-        + '&courseId=' + encodeURIComponent(course.id)
+      ? window.JX.nav.toQuiz({
+          lessonId: firstLesson.id,
+          courseId: course.id,
+          from: window.JX.nav.FROM.DETAIL,
+          slug: course.slug,
+        })
       : '#';
 
     var primaryHref = (SD_MODE === 'quiz') ? quizHref : readHref;
@@ -334,7 +338,7 @@ function renderCourseSwitch(currentSlug) {
         : (c.coverEmoji ? c.coverEmoji + ' ' : '');
       return '<a class="cs-chip' + (active ? ' active' : '') + '" '
         + (isClassMain ? 'data-class-main="1" ' : '')
-        + 'href="scripture-detail.html?slug=' + encodeURIComponent(c.slug || '') + '">'
+        + 'href="' + window.JX.nav.toScriptureDetail({ slug: c.slug || '' }) + '">'
         + prefix
         + escapeHtml(title)
         + '</a>';

@@ -17,6 +17,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>觉学 · 首页</title>
 <script src="../shared/lang.js"></script>
+<script src="../shared/return-url.js"></script>
 <script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
@@ -448,8 +449,8 @@ function renderCourseCard(enrollment, overlay) {
     sc('已完成 ', '已完成 ') + done + ' / ' + total + sc(' 课', ' 課');
   // 「继续阅读」→ scripture-reading（auto-resume 到 currentLessonId）
   // 「查看详情」→ scripture-detail（章节目录）
-  var ctaUrl = 'scripture-reading.html?slug=' + encodeURIComponent(c.slug);
-  var tocUrl = 'scripture-detail.html?slug=' + encodeURIComponent(c.slug);
+  var ctaUrl = window.JX.nav.toReading({ slug: c.slug });
+  var tocUrl = window.JX.nav.toScriptureDetail({ slug: c.slug });
   document.getElementById('course-cta').href = ctaUrl;
   document.getElementById('course-toc').href = tocUrl;
   // 旧 quiz.html 直跳行为已移除：现在阅读页自带'本课答题'按钮
