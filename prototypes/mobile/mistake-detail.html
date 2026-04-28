@@ -99,8 +99,8 @@ body { background: var(--bg-scene); min-height: 100vh; }
   <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
-    <a class="nav-back" href="mistakes.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
-    <span class="nav-title"><span class="sc">错题解析</span><span class="tc">錯題解析</span></span>
+    <a class="nav-back" id="md-back" href="mistakes.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
+    <span class="nav-title" id="md-title"><span class="sc">错题解析</span><span class="tc">錯題解析</span></span>
     <button class="nav-action" id="btn-report" aria-label="举报此题" title="举报此题" style="margin-right:8px;">
       <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
     </button>
@@ -265,7 +265,10 @@ function render(d) {
     '<a href="' + window.JX.nav.toQuiz({
         lessonId: q.lessonId,
         courseId: q.courseId,
-        from: window.JX.nav.FROM.MISTAKE,
+        // M7: 从 favorites 进来时保持 from=favorites · 答完跳回 favorites 而非 mistake-detail
+        from: (window.JX.util.queryParam('from') === window.JX.nav.FROM.FAVORITES)
+              ? window.JX.nav.FROM.FAVORITES
+              : window.JX.nav.FROM.MISTAKE,
         questionId: q.id || q.questionId || '',
       }) + '" class="btn btn-primary btn-lg btn-full btn-pill">' +
       '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>' +
@@ -282,11 +285,31 @@ function showError(msg) {
 }
 
 var currentQid = null;
+// M7: 本页可从 favorites 进 · 标题 / 返回按钮 / 移除按钮按 ?from= 调整
+(function () {
+  var navFrom = window.JX.util.queryParam('from') || '';
+  var FROM = window.JX.nav.FROM;
+  if (navFrom === FROM.FAVORITES) {
+    var titleEl = document.getElementById('md-title');
+    if (titleEl) titleEl.innerHTML = '<span class="sc">题目详解</span><span class="tc">題目詳解</span>';
+    var backEl = document.getElementById('md-back');
+    if (backEl) backEl.href = 'favorites.html';
+    // 「移除错题本」按钮在 favorites 入口下无意义 → 隐藏
+    var removeBtn = document.getElementById('btn-remove');
+    if (removeBtn) removeBtn.style.display = 'none';
+  }
+})();
+
 function boot() {
   var qid = window.JX.util.queryParam('questionId');
   if (!qid) return showError(sc('缺少 questionId 参数', '缺少 questionId 參數'));
   currentQid = qid;
-  window.JX.api.get('/api/mistakes/' + encodeURIComponent(qid))
+  // M7: from=favorites 时走 owner-detail 端点（不要求错题本记录）
+  var navFrom = window.JX.util.queryParam('from') || '';
+  var endpoint = navFrom === window.JX.nav.FROM.FAVORITES
+    ? '/api/my/questions/' + encodeURIComponent(qid)
+    : '/api/mistakes/' + encodeURIComponent(qid);
+  window.JX.api.get(endpoint)
     .then(render)
     .catch(function (err) {
       showError(sc('加载失败：', '加載失敗：') + (err.message || err));

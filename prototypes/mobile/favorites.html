@@ -274,6 +274,12 @@ function render(items) {
       +   '<p class="fav-text">' + escapeHtml(q.questionText || sc('（题目已下架）', '（題目已下架）')) + '</p>'
       +   '<div class="fav-actions">'
       +     '<span class="fav-time">' + sc('收藏于 ', '收藏於 ') + relTime(it.createdAt) + '</span>'
+      +     '<button type="button" class="fav-explain" data-qid="' + escapeHtml(qid) + '" '
+      +       'style="margin-left:auto;margin-right:8px;padding:5px 12px;border-radius:var(--r-pill);'
+      +       'border:1px solid var(--gold-dark);background:var(--gold-pale);color:var(--gold-dark);'
+      +       'font:var(--text-caption);font-weight:600;letter-spacing:1px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">'
+      +       sc('看题解', '看題解')
+      +     '</button>'
       +     retryBtn
       +     '<button type="button" class="fav-remove" data-qid="' + escapeHtml(qid) + '">'
       +       '<span class="sc">取消收藏</span><span class="tc">取消收藏</span>'
@@ -281,6 +287,19 @@ function render(items) {
       +   '</div>'
       + '</div>';
   }).join('');
+
+  // M7: 「看题解」按钮 → mistake-detail · from=favorites
+  block.querySelectorAll('.fav-explain').forEach(function (btn) {
+    btn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var qid = btn.getAttribute('data-qid');
+      if (!qid) return;
+      location.href = window.JX.nav.toMistakeDetail({
+        questionId: qid,
+        from: window.JX.nav.FROM.FAVORITES,
+      });
+    });
+  });
 
   // 「练一练」按钮：跳 quiz · from=favorites · 完成后回 favorites
   block.querySelectorAll('.fav-retry').forEach(function (btn) {

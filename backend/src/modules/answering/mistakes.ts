@@ -124,3 +124,55 @@ export async function getMistakeDetail(
     lastAnswer,
   };
 }
+
+// M7: 题目详解（owner-only）· 允许收藏 / 错题本 / 已答 任一引子访问
+// 用于'我从收藏点看题解'的场景 · 与 getMistakeDetail 同 shape
+// wrongCount / lastWrongAt 在无错题记录时为 0 / null
+export interface OwnerQuestionDetail {
+  questionId: string;
+  wrongCount: number;
+  lastWrongAt: Date | null;
+  question: Question;
+  lastAnswer: Pick<UserAnswer, 'answer' | 'isCorrect' | 'score' | 'answeredAt'> | null;
+}
+
+export async function getQuestionDetailForOwner(
+  userId: string,
+  questionId: string,
+): Promise<OwnerQuestionDetail> {
+  // 必须有任一'引子'：UserFavorite / UserMistakeBook / UserAnswer · 防裸访问
+  const [book, fav, anyAnswer] = await Promise.all([
+    prisma.userMistakeBook.findUnique({
+      where: { userId_questionId: { userId, questionId } },
+    }),
+    prisma.userFavorite.findUnique({
+      where: { userId_questionId: { userId, questionId } },
+    }),
+    prisma.userAnswer.findFirst({
+      where: { userId, questionId },
+      select: { id: true },
+    }),
+  ]);
+  const hasMistake = !!book && !book.removedAt;
+  if (!hasMistake && !fav && !anyAnswer) {
+    throw NotFound('题目未关联（请先收藏 / 答题 / 进错题本）');
+  }
+
+  const [question, lastAnswer] = await Promise.all([
+    prisma.question.findUnique({ where: { id: questionId } }),
+    prisma.userAnswer.findFirst({
+      where: { userId, questionId },
+      orderBy: { answeredAt: 'desc' },
+      select: { answer: true, isCorrect: true, score: true, answeredAt: true },
+    }),
+  ]);
+  if (!question) throw NotFound('题目已被删除');
+
+  return {
+    questionId,
+    wrongCount: hasMistake ? book.wrongCount : 0,
+    lastWrongAt: hasMistake ? book.lastWrongAt : null,
+    question,
+    lastAnswer,
+  };
+}
