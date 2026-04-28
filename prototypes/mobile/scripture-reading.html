@@ -286,9 +286,20 @@ function renderLesson(ctx, flat, slug, courseId, enrolled, course, overlay) {
   document.getElementById('reading-progress').textContent =
     sc('第 ', '第 ') + (idxInFlat + 1) + ' / ' + flat.length + sc(' 课', ' 課');
 
+  // M6: referenceText 为空时给更明确的友好提示
+  // - 文案区分'admin 还没录入原文' vs 引导用户去看讲解 + 答题
+  // - hasSummary 时强调'内容已在课时要点 / 答题中'，否则显示纯空状态
+  var hasSummary = !!l.teachingSummary;
+  var emptyHint = hasSummary
+    ? sc('本课无原文摘录 · 内容以下方「课时要点」与答题为准',
+         '本課無原文摘錄 · 內容以下方「課時要點」與答題為準')
+    : sc('本课暂无原文摘录', '本課暫無原文摘錄');
   var refHtml = l.referenceText
     ? '<p class="scripture-text">' + escapeHtml(l.referenceText).replace(/\n/g, '<br>') + '</p>'
-    : '<p class="scripture-text" style="color:var(--ink-4);">' + escapeHtml(sc('（本课暂无原文摘录）', '（本課暫無原文摘錄）')) + '</p>';
+    : '<div class="scripture-text" style="color:var(--ink-4);text-align:center;padding:var(--sp-4);background:rgba(43,34,24,.04);border-radius:var(--r);border:1px dashed var(--ink-5);font-size:.875rem;">' +
+        '<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" viewBox="0 0 24 24" style="display:block;margin:0 auto 6px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+        escapeHtml(emptyHint) +
+      '</div>';
   document.getElementById('lesson-reference').innerHTML = refHtml;
 
   var sumHtml = l.teachingSummary
