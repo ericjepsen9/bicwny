@@ -87,6 +87,20 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .book-pill.class-main { background: var(--gold-dark); }
 .book-pill svg { width: 10px; height: 10px; stroke-width: 3; }
 
+/* 卡片右上角 ⋮ 菜单（仅 enrolled 且非班级主修；点击打开退出确认）*/
+.book-menu {
+  position: absolute;
+  top: 4px; right: 4px;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.35);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+.book-menu:hover { background: rgba(0,0,0,.55); }
+
 .book-title {
   font-family: var(--font-serif); font-weight: 600;
   font-size: .8125rem; color: var(--ink); letter-spacing: 1.5px;
@@ -246,8 +260,16 @@ function renderCard(c) {
       + sc('已加入', '已加入') + '</span>';
   }
 
+  // ⋮ 菜单：仅 enrolled 且非班级主修可显示（班级主修退出要先退班）
+  var menuBtn = (enrolled && !isClassMain)
+    ? '<button class="book-menu" data-menu="' + escapeHtml(c.id) + '" aria-label="' + sc('更多', '更多') + '">'
+      + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">'
+      + '<circle cx="12" cy="6" r=".7" fill="currentColor"/><circle cx="12" cy="12" r=".7" fill="currentColor"/><circle cx="12" cy="18" r=".7" fill="currentColor"/>'
+      + '</svg></button>'
+    : '';
+
   return '<div class="book-card" data-cid="' + escapeHtml(c.id) + '">'
-    +   '<div class="book-cover">' + coverInner + pill + '</div>'
+    +   '<div class="book-cover">' + coverInner + pill + menuBtn + '</div>'
     +   '<div class="book-title">' + escapeHtml(title) + '</div>'
     +   (author ? '<div class="book-author">' + escapeHtml(author) + '</div>' : '<div class="book-author">&nbsp;</div>')
     + '</div>';
@@ -282,7 +304,7 @@ function render() {
 
   listEl.innerHTML = visible.map(renderCard).join('');
 
-  // 卡片点击 → 已加入直进详情；未加入打开底部弹层
+  // 卡片点击 → 已加入直进阅读；未加入打开底部介绍弹层
   listEl.querySelectorAll('.book-card').forEach(function (card) {
     card.addEventListener('click', function () {
       var cid = card.getAttribute('data-cid');
@@ -294,6 +316,32 @@ function render() {
       } else {
         openSheet(c);
       }
+    });
+  });
+
+  // ⋮ 按钮 → 退出确认（阻止冒泡到卡片）
+  listEl.querySelectorAll('[data-menu]').forEach(function (btn) {
+    btn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      ev.preventDefault();
+      var cid = btn.getAttribute('data-menu');
+      var c = state.courses.find(function (x) { return x.id === cid; });
+      if (!c) return;
+      var title = sc(c.title, c.titleTraditional || c.title);
+      if (!confirm(sc(
+        '退出《' + title + '》？\n阅读进度会保留，可随时重新加入。',
+        '退出《' + title + '》？\n閱讀進度會保留，可隨時重新加入。'
+      ))) return;
+      btn.disabled = true;
+      window.JX.api.del('/api/enrollments/' + encodeURIComponent(cid))
+        .then(function () { return reload(); })
+        .then(function () {
+          window.JX.toast && window.JX.toast.ok && window.JX.toast.ok(sc('已退出', '已退出'));
+        })
+        .catch(function (err) {
+          btn.disabled = false;
+          alert((err && err.message) || sc('退出失败', '退出失敗'));
+        });
     });
   });
 }

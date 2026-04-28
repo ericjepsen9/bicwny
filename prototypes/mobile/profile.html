@@ -173,18 +173,7 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
         <div class="streak-dots" id="streak-dots"></div>
       </div>
 
-      <!-- 学习管理：列出报名法本，可切换/退出 -->
-      <div class="section-header" style="margin-top:var(--sp-2);">
-        <span class="section-title"><span class="sc">我的法本</span><span class="tc">我的法本</span></span>
-        <a href="courses.html" class="t-caption" style="color:var(--saffron-dark);letter-spacing:1px;text-decoration:none;">
-          <span class="sc">+ 加入新的</span><span class="tc">+ 加入新的</span>
-        </a>
-      </div>
-      <div class="menu-card glass-card-thick" id="my-enrollments">
-        <div class="menu-item" style="justify-content:center;color:var(--ink-3);font:var(--text-caption);letter-spacing:1px;">
-          <span class="sc">加载中…</span><span class="tc">加載中…</span>
-        </div>
-      </div>
+      <!-- 「我的法本」整块已迁移至 courses.html · 用户管理报名 / 退出统一在那 -->
 
       <!-- Menu -->
       <div class="menu-card glass-card-thick">
@@ -361,73 +350,7 @@ function renderNotifBadge(n) {
   }
 }
 
-// 渲染「我的法本」列表 · 报名 / 退出
-function renderEnrollments(list) {
-  var box = document.getElementById('my-enrollments');
-  if (!box) return;
-  var items = (list || []).filter(function (e) { return e && e.course; });
-  if (!items.length) {
-    box.innerHTML =
-      '<div class="menu-item" style="display:block;padding:var(--sp-4);text-align:center;color:var(--ink-3);font:var(--text-caption);letter-spacing:1px;">'
-      + '<p style="margin-bottom:8px;"><span class="sc">还没加入任何法本</span><span class="tc">還沒加入任何法本</span></p>'
-      + '<a href="courses.html" style="color:var(--saffron-dark);font-weight:600;text-decoration:none;letter-spacing:1px;">'
-      +   '<span class="sc">去选修法本 →</span><span class="tc">去選修法本 →</span>'
-      + '</a></div>';
-    return;
-  }
-  box.innerHTML = items.map(function (e) {
-    var c = e.course;
-    var title = sc(c.title, c.titleTraditional || c.title);
-    var emoji = c.coverEmoji || '🪷';
-    var coverHtml = c.coverImageUrl
-      ? '<img src="' + escapeHtml(c.coverImageUrl) + '" alt="" style="width:34px;height:34px;border-radius:var(--r-sm);object-fit:cover;">'
-      : '<div class="menu-icon" style="background:var(--saffron-pale);font-size:1.1rem;">' + escapeHtml(emoji) + '</div>';
-    var doneCount = (e.lessonsCompleted || []).length;
-    var classMark = (e.source === 'class') ? '📍 ' : '';
-    var sub = e.completedAt
-      ? sc('已学完', '已學完')
-      : sc('已学 ', '已學 ') + doneCount + sc(' 课', ' 課');
-    var canDrop = (e.source !== 'class'); // 班级主修不能退（要先退班）
-    return '<a href="scripture-reading.html?slug=' + encodeURIComponent(c.slug) + '" class="menu-item" '
-      + 'data-enrollment="' + escapeHtml(c.id) + '">'
-      +   coverHtml
-      +   '<div class="menu-label" style="display:flex;flex-direction:column;gap:2px;">'
-      +     '<span style="font-weight:500;">' + classMark + escapeHtml(title) + '</span>'
-      +     '<span class="t-caption t-ink-3" style="letter-spacing:.5px;">' + escapeHtml(sub) + '</span>'
-      +   '</div>'
-      +   (canDrop
-        ? '<button data-drop="' + escapeHtml(c.id) + '" data-title="' + escapeHtml(title) + '" '
-          + 'style="padding:4px 10px;border-radius:var(--r-pill);border:1px solid var(--border);background:transparent;color:var(--ink-3);font:var(--text-caption);letter-spacing:1px;cursor:pointer;">'
-          + sc('退出', '退出') + '</button>'
-        : '<span class="t-caption" style="color:var(--gold-dark);letter-spacing:1px;">'
-          + sc('班级主修', '班級主修') + '</span>')
-      +   '<svg class="menu-arrow" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>'
-      + '</a>';
-  }).join('');
-
-  // 退出按钮：阻止 a 标签跳转，调 DELETE
-  box.querySelectorAll('[data-drop]').forEach(function (btn) {
-    btn.addEventListener('click', function (ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      var courseId = btn.getAttribute('data-drop');
-      var title = btn.getAttribute('data-title') || '';
-      if (!confirm(sc('确定退出《' + title + '》？\n学习进度会保留，可随时重新加入。',
-                      '確定退出《' + title + '》？\n學習進度會保留，可隨時重新加入。'))) return;
-      btn.disabled = true; btn.textContent = sc('处理中…', '處理中…');
-      window.JX.api.del('/api/enrollments/' + encodeURIComponent(courseId))
-        .then(function () {
-          // 重新加载
-          window.JX.api.get('/api/my/enrollments').then(renderEnrollments);
-        })
-        .catch(function (err) {
-          alert((err && err.message) || sc('退出失败', '退出失敗'));
-          btn.disabled = false;
-          btn.textContent = sc('退出', '退出');
-        });
-    });
-  });
-}
+// 「我的法本」管理已迁移至 courses.html · 此处不再渲染列表
 
 function boot() {
   renderBackofficeLink(window.JX && window.JX.user);
@@ -435,9 +358,6 @@ function boot() {
     console.warn('[profile] /api/my/progress 失败：', err);
     renderProgress({ totalAnswers: 0, correctRate: 0, byCourse: [], streak: { current: 0 }, sm2: {}, totalDays: 0, todayAnswered: 0, weekDays: [] });
   });
-  window.JX.api.get('/api/my/enrollments')
-    .then(renderEnrollments)
-    .catch(function () { renderEnrollments([]); });
   window.JX.api.get('/api/notifications/unread-count').then(function (r) {
     renderNotifBadge((r && r.data && r.data.count) | 0);
   }).catch(function () {});
