@@ -95,6 +95,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
     var stem = q.questionText || sc('（题目已失效）', '（題目已失效）');
     var source = q.source || '';
     var when = window.JX.util.relativeTime(m.lastWrongAt);
+    var lessonId = q.lessonId || '';
     var card = document.createElement('div');
     card.className = 'mistake-card';
     card.style.position = 'relative';
@@ -107,6 +108,13 @@ body { background: var(--bg-scene); min-height: 100vh; }
           '<svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>' +
           '<span>' + m.wrongCount + sc(' 次错', ' 次錯') + '</span>' +
         '</span>' +
+        '<button class="mistake-retry" ' +
+          'style="margin-left:auto;padding:5px 12px;border-radius:var(--r-pill);' +
+          'border:1px solid var(--saffron);background:var(--saffron);color:#FFF;' +
+          'font:var(--text-caption);font-weight:600;letter-spacing:1px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">' +
+          '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>' +
+          sc('再练', '再練') +
+        '</button>' +
       '</div>' +
       '<button class="mistake-remove" aria-label="' + sc('移除', '移除') + '" ' +
         'style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;' +
@@ -116,7 +124,18 @@ body { background: var(--bg-scene); min-height: 100vh; }
     // 点击卡片主体 → 去错题解析页
     card.addEventListener('click', function (ev) {
       if (ev.target.closest('.mistake-remove')) return;
+      if (ev.target.closest('.mistake-retry')) return;
       location.href = 'mistake-detail.html?questionId=' + encodeURIComponent(m.questionId);
+    });
+    // 「再练一次」直接跳 quiz · from=mistake & questionId 让 quiz 完成后跳回错题详情
+    card.querySelector('.mistake-retry').addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      if (!lessonId) {
+        window.JX.toast && window.JX.toast.error(sc('题目数据异常', '題目數據異常'));
+        return;
+      }
+      location.href = 'quiz.html?lessonId=' + encodeURIComponent(lessonId)
+        + '&from=mistake&questionId=' + encodeURIComponent(m.questionId);
     });
     // 移除按钮
     card.querySelector('.mistake-remove').addEventListener('click', function (ev) {
