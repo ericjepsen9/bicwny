@@ -113,7 +113,10 @@ export const learningRoutes: FastifyPluginAsync = async (app) => {
     const pb = progressBody.safeParse(req.body);
     if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
     const updated = await updateProgress(userId, pp.data.courseId, pb.data);
-    return { data: updated };
+    // M2: 同时返回最新 overlay · 客户端可缓存 · 下一页 reading boot 时优先读
+    // 避免 PATCH → GET 的复制延迟造成 stale completedLessonIds
+    const overlay = await getCourseEnrollmentOverlay(userId, pp.data.courseId);
+    return { data: { enrollment: updated, overlay } };
   });
 
   app.get('/api/my/progress', {

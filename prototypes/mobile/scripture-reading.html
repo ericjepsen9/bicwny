@@ -316,7 +316,12 @@ function renderLesson(ctx, flat, slug, courseId, enrolled, course, overlay) {
       window.JX.api.patch(
         '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
         { currentLessonId: l.id }
-      ).catch(function () { /* 静默 */ });
+      ).then(function (res) {
+        // M2: 同步写 cache · 切到 quiz/下一课时不丢"刚读到的位置"
+        if (res && res.overlay && window.JX.overlayCache) {
+          window.JX.overlayCache.save(courseId, res.overlay);
+        }
+      }).catch(function () { /* 静默 */ });
     }
     location.href = targetUrl;
   }
@@ -418,7 +423,12 @@ function renderLesson(ctx, flat, slug, courseId, enrolled, course, overlay) {
     window.JX.api.patch(
       '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
       { currentLessonId: l.id }
-    ).catch(function () { /* 静默 */ });
+    ).then(function (res) {
+      // M2: 写 cache 让同 session 内其他 tab/页 也能优先看到最新 currentLessonId
+      if (res && res.overlay && window.JX.overlayCache) {
+        window.JX.overlayCache.save(courseId, res.overlay);
+      }
+    }).catch(function () { /* 静默 */ });
   }
 }
 
@@ -467,6 +477,13 @@ function boot() {
       var neverOpened = !enr || !enr.lastStudiedAt;
       var enrolled = !!enr;
       var courseId = course.id;
+
+      // M2: 读 quiz 刚写的 overlay cache · 5min 内有效 · 与服务端 overlay 合并（cache 优先）
+      // 解决 PATCH→GET 复制延迟造成 reading boot 拿到 stale completedLessonIds 的问题
+      if (window.JX.overlayCache) {
+        var cached = window.JX.overlayCache.read(courseId);
+        if (cached) overlay = window.JX.overlayCache.merge(overlay, cached);
+      }
 
       // URL lessonId > forceIntro > 首次打开 > currentLessonId 续读 > 第一课
       if (lessonId) {

@@ -149,4 +149,64 @@
     fromReadingReturnUrl: fromReadingReturnUrl,
     fromDetailReturnUrl: fromDetailReturnUrl,
   };
+
+  // ─── M2 · overlay 客户端缓存 ──────────────────────────────────
+  // PATCH /api/enrollments/:courseId/progress 响应里附带最新 overlay。
+  // 调用方写到 sessionStorage 后，下一页 reading/detail boot 时优先读。
+  // 5 分钟 TTL · 防 PATCH→GET 数据库复制延迟造成的 stale 渲染。
+  var OVERLAY_TTL_MS = 5 * 60 * 1000;
+  var OVERLAY_KEY = function (courseId) { return 'jx-overlay:' + courseId; };
+
+  function saveOverlayCache(courseId, overlay) {
+    if (!courseId || !overlay) return;
+    try {
+      sessionStorage.setItem(OVERLAY_KEY(courseId), JSON.stringify({
+        patchedAt: Date.now(),
+        overlay: overlay,
+      }));
+    } catch (_) { /* 隐私模式静默失败 */ }
+  }
+
+  function readOverlayCache(courseId) {
+    if (!courseId) return null;
+    try {
+      var raw = sessionStorage.getItem(OVERLAY_KEY(courseId));
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || (Date.now() - (parsed.patchedAt || 0)) > OVERLAY_TTL_MS) {
+        sessionStorage.removeItem(OVERLAY_KEY(courseId));
+        return null;
+      }
+      return parsed.overlay;
+    } catch (_) { return null; }
+  }
+
+  // 把 cache 合并进服务端 overlay · cache 优先（更新鲜）但只覆盖学习字段
+  function mergeOverlayCache(serverOverlay, cached) {
+    if (!cached) return serverOverlay;
+    if (!serverOverlay) return cached;
+    var merged = Object.assign({}, serverOverlay);
+    // 已学课时 · union（cache 优先承认更多）
+    var srvIds = serverOverlay.completedLessonIds || [];
+    var cacheIds = cached.completedLessonIds || [];
+    var seen = {};
+    var union = [];
+    srvIds.concat(cacheIds).forEach(function (id) {
+      if (!seen[id]) { seen[id] = 1; union.push(id); }
+    });
+    merged.completedLessonIds = union;
+    // currentLessonId 用 cache（最近一次写入更新鲜）
+    if (cached.currentLessonId) merged.currentLessonId = cached.currentLessonId;
+    // 进度百分比重算
+    if (typeof merged.totalLessons === 'number' && merged.totalLessons > 0) {
+      merged.progressPercent = Math.round(union.length / merged.totalLessons * 100);
+    }
+    return merged;
+  }
+
+  window.JX.overlayCache = {
+    save: saveOverlayCache,
+    read: readOverlayCache,
+    merge: mergeOverlayCache,
+  };
 })();

@@ -592,7 +592,12 @@ var __quizPending = { patch: null };
     window.JX.api.patch(
       '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
       { currentLessonId: lessonId }
-    ).catch(function () { /* 静默 · 不阻塞答题 */ });
+    ).then(function (res) {
+      // M2: 写 overlay cache 让下一页 reading 优先读
+      if (res && res.overlay && window.JX.overlayCache) {
+        window.JX.overlayCache.save(courseId, res.overlay);
+      }
+    }).catch(function () { /* 静默 · 不阻塞答题 */ });
   }
   if (window.JX && window.JX.user) fire();
   else document.addEventListener('jx:user-ready', fire, { once: true });
@@ -625,7 +630,12 @@ var __quizPending = { patch: null };
         __quizPending.patch = window.JX.api.patch(
           '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
           { addCompletedLessonId: lessonId, currentLessonId: lessonId }
-        ).catch(function () { /* 静默 */ });
+        ).then(function (res) {
+          // M2: 写 overlay cache 让下一页 reading 立即看到「✓ 本课已学」
+          if (res && res.overlay && window.JX.overlayCache) {
+            window.JX.overlayCache.save(courseId, res.overlay);
+          }
+        }).catch(function () { /* 静默 */ });
       }
 
       if (!window.JX.toast) return;
