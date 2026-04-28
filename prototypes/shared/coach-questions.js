@@ -755,19 +755,33 @@ function openEditDrawer() {
 document.getElementById('dr-edit').addEventListener('click', openEditDrawer);
 
 // ── LLM 生成向导 (3e) ────────────────────────────
-var genForm = { courseSlug: '', courseId: '', chapterId: '', lessonId: '', type: 'single', count: 5, difficulty: 2 };
+var genForm = { scope: 'lesson', courseSlug: '', courseId: '', chapterId: '', lessonId: '', type: 'single', count: 5, difficulty: 2 };
 
 function renderGenerateForm() {
   var body = document.getElementById('dr-body');
   body.innerHTML =
+    '<div class="f-row">' +
+      '<label>' + escapeHtml(sc('范围', '範圍')) + '</label>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<button type="button" class="fchip g-scope ' + (genForm.scope === 'lesson' ? 'active' : '') + '" data-scope="lesson">' +
+          escapeHtml(sc('单课时', '單課時')) +
+        '</button>' +
+        '<button type="button" class="fchip g-scope ' + (genForm.scope === 'chapter' ? 'active' : '') + '" data-scope="chapter">' +
+          escapeHtml(sc('整章批量', '整章批量')) +
+        '</button>' +
+      '</div>' +
+      '<p class="f-hint">' + escapeHtml(sc('整章批量：自动取章下每课时 referenceText 串行生成（≥ 20 字才生成；空原文跳过）', '整章批量：自動取章下每課時 referenceText 串行生成（≥ 20 字才生成；空原文跳過）')) + '</p>' +
+    '</div>' +
     '<div class="f-row-split">' +
       '<div><label>' + escapeHtml(sc('法本', '法本')) + '</label>' +
         '<select class="f-sel" id="g-course"></select></div>' +
       '<div><label>' + escapeHtml(sc('章', '章')) + '</label>' +
         '<select class="f-sel" id="g-chapter" disabled></select></div>' +
-      '<div><label>' + escapeHtml(sc('课时', '課時')) + '</label>' +
+      '<div id="g-lesson-cell"' + (genForm.scope === 'chapter' ? ' style="display:none;"' : '') + '>' +
+        '<label>' + escapeHtml(sc('课时', '課時')) + '</label>' +
         '<select class="f-sel" id="g-lesson" disabled></select></div>' +
     '</div>' +
+    '<div class="f-row" id="g-chapter-summary" style="display:none;padding:10px 12px;background:rgba(43,34,24,.03);border:1px solid var(--border-light);border-radius:var(--r-sm);font-size:.8125rem;color:var(--ink-3);">—</div>' +
     '<div class="f-row-split">' +
       '<div><label>' + escapeHtml(sc('题型', '題型')) + '</label>' +
         '<select class="f-sel" id="g-type">' +
@@ -776,7 +790,7 @@ function renderGenerateForm() {
           '<option value="fill">' + escapeHtml(sc('填空', '填空')) + '</option>' +
           '<option value="open">' + escapeHtml(sc('问答', '問答')) + '</option>' +
         '</select></div>' +
-      '<div><label>' + escapeHtml(sc('数量', '數量')) + '</label>' +
+      '<div><label>' + escapeHtml(sc('每课题数', '每課題數')) + '</label>' +
         '<select class="f-sel" id="g-count">' +
           '<option value="3">3</option><option value="5" selected>5</option>' +
           '<option value="8">8</option><option value="12">12</option>' +
@@ -784,12 +798,27 @@ function renderGenerateForm() {
       '<div><label>' + escapeHtml(sc('难度', '難度')) + '</label>' +
         '<select class="f-sel" id="g-diff"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select></div>' +
     '</div>' +
-    '<div class="f-row"><label>' + escapeHtml(sc('法本原文（≥ 20 字；越充分生成越好）', '法本原文（≥ 20 字；越充分生成越好）')) + '</label>' +
+    '<div class="f-row" id="g-passage-row"><label>' + escapeHtml(sc('法本原文（≥ 20 字；越充分生成越好）', '法本原文（≥ 20 字；越充分生成越好）')) + '</label>' +
       '<textarea class="f-area" id="g-passage" rows="10" placeholder="' +
         escapeHtml(sc('粘贴想要让 LLM 参考的法本原文段落，可包含偈颂 + 注释。', '貼上想要讓 LLM 參考的法本原文段落，可包含偈頌 + 註釋。')) +
       '"></textarea>' +
       '<p class="f-hint">' + escapeHtml(sc('生成耗时约 10-30 秒 · 生成后所有题目进入待审状态', '生成耗時約 10-30 秒 · 生成後所有題目進入待審狀態')) + '</p>' +
     '</div>';
+
+  // E2: scope chip
+  Array.prototype.forEach.call(document.querySelectorAll('.g-scope'), function (chip) {
+    chip.addEventListener('click', function () {
+      var s = this.getAttribute('data-scope');
+      genForm.scope = s;
+      Array.prototype.forEach.call(document.querySelectorAll('.g-scope'), function (c) {
+        c.classList.toggle('active', c.getAttribute('data-scope') === s);
+      });
+      document.getElementById('g-lesson-cell').style.display = (s === 'chapter') ? 'none' : '';
+      document.getElementById('g-passage-row').style.display = (s === 'chapter') ? 'none' : '';
+      document.getElementById('g-chapter-summary').style.display = (s === 'chapter' && genForm.chapterId) ? '' : 'none';
+      if (s === 'chapter' && genForm.chapterId) renderChapterSummary();
+    });
+  });
 
   setSelectOptions(document.getElementById('g-course'), courseList, 'slug', function (c) { return c.title; }, sc('选择法本', '選擇法本'));
 
@@ -815,6 +844,10 @@ function renderGenerateForm() {
     var leSel = document.getElementById('g-lesson');
     setSelectOptions(leSel, (ch && ch.lessons) || [], 'id', function (l) { return l.title; }, sc('选择课时', '選擇課時'));
     leSel.disabled = false;
+    if (genForm.scope === 'chapter') {
+      document.getElementById('g-chapter-summary').style.display = '';
+      renderChapterSummary();
+    }
   });
   document.getElementById('g-lesson').addEventListener('change', function () {
     genForm.lessonId = this.value;
@@ -826,8 +859,36 @@ function renderGenerateForm() {
     }
   });
   document.getElementById('g-type').addEventListener('change', function () { genForm.type = this.value; });
-  document.getElementById('g-count').addEventListener('change', function () { genForm.count = Number(this.value); });
+  document.getElementById('g-count').addEventListener('change', function () {
+    genForm.count = Number(this.value);
+    if (genForm.scope === 'chapter' && genForm.chapterId) renderChapterSummary();
+  });
   document.getElementById('g-diff').addEventListener('change', function () { genForm.difficulty = Number(this.value); });
+}
+
+// E2: 根据当前 chapter 算出'有效课时数 / 跳过数 / 总字数'
+function renderChapterSummary() {
+  var box = document.getElementById('g-chapter-summary');
+  if (!box) return;
+  var c = courseCache[genForm.courseSlug];
+  var ch = c && (c.chapters || []).find(function (x) { return x.id === genForm.chapterId; });
+  if (!ch) { box.textContent = '—'; return; }
+  var total = (ch.lessons || []).length;
+  var valid = 0, skipped = 0, chars = 0;
+  (ch.lessons || []).forEach(function (l) {
+    var n = (l.referenceText || '').trim().length;
+    if (n >= 20) { valid++; chars += n; } else { skipped++; }
+  });
+  var perCount = genForm.count || 5;
+  box.innerHTML =
+    '<b>' + escapeHtml(sc('章：', '章：')) + escapeHtml(ch.title) + '</b><br>' +
+    escapeHtml(sc('课时 ', '課時 ')) + total +
+    escapeHtml(sc(' · 可生成 ', ' · 可生成 ')) + valid +
+    escapeHtml(sc(' · 跳过（原文 < 20 字）', ' · 跳過（原文 < 20 字）')) + ' ' + skipped +
+    '<br>' + escapeHtml(sc('原文累计 ', '原文累計 ')) + chars +
+    escapeHtml(sc(' 字 · 预计生成 ', ' 字 · 預計生成 ')) + (valid * perCount) +
+    escapeHtml(sc(' 道题 · 预计耗时 ', ' 道題 · 預計耗時 ')) + Math.ceil(valid * 20 / 60) +
+    escapeHtml(sc('-', '-')) + Math.ceil(valid * 30 / 60) + escapeHtml(sc(' 分钟', ' 分鐘'));
 }
 
 function openGenerateDrawer() {
@@ -837,7 +898,7 @@ function openGenerateDrawer() {
   }
   state.drawerMode = 'generate';
   state.currentQid = null;
-  genForm = { courseSlug: '', courseId: '', chapterId: '', lessonId: '', type: 'single', count: 5, difficulty: 2 };
+  genForm = { scope: 'lesson', courseSlug: '', courseId: '', chapterId: '', lessonId: '', type: 'single', count: 5, difficulty: 2 };
 
   document.getElementById('dr-type').textContent = '⚡ LLM';
   var statusEl = document.getElementById('dr-status');
@@ -894,6 +955,7 @@ function renderGenerateResult(data) {
 }
 
 function runGenerate() {
+  if (genForm.scope === 'chapter') return runGenerateChapter();
   if (!genForm.courseId || !genForm.chapterId || !genForm.lessonId) {
     document.getElementById('dr-err').textContent = sc('请选择 法本 / 章 / 课时', '請選擇 法本 / 章 / 課時');
     return;
@@ -938,6 +1000,127 @@ function runGenerate() {
     renderGenerateForm();
     document.getElementById('dr-err').textContent = msg;
   });
+}
+
+// E2: 整章批量 · 串行调用单课时 generate · 实时进度 · 失败不中断
+function runGenerateChapter() {
+  if (!genForm.courseId || !genForm.chapterId) {
+    document.getElementById('dr-err').textContent = sc('请选择 法本 / 章', '請選擇 法本 / 章');
+    return;
+  }
+  var c = courseCache[genForm.courseSlug];
+  var ch = c && (c.chapters || []).find(function (x) { return x.id === genForm.chapterId; });
+  if (!ch) {
+    document.getElementById('dr-err').textContent = sc('未找到章节', '未找到章節');
+    return;
+  }
+  var queue = (ch.lessons || []).filter(function (l) {
+    return (l.referenceText || '').trim().length >= 20;
+  });
+  if (!queue.length) {
+    document.getElementById('dr-err').textContent = sc('章下无可生成的课时（原文均 < 20 字）', '章下無可生成的課時（原文均 < 20 字）');
+    return;
+  }
+
+  var total = queue.length, done = 0, okCount = 0, failCount = 0, totalQ = 0;
+  var perLessonResults = [];
+  var btn = document.getElementById('dr-save');
+  btn.disabled = true;
+  document.getElementById('dr-err').textContent = '';
+
+  var body = document.getElementById('dr-body');
+  body.innerHTML =
+    '<div style="margin-bottom:var(--sp-3);">' +
+      '<b>' + escapeHtml(sc('整章批量生成中…', '整章批量生成中…')) + '</b><br>' +
+      '<span class="f-hint">' + escapeHtml(ch.title) + escapeHtml(sc(' · ', ' · ')) + total + escapeHtml(sc(' 课时', ' 課時')) + '</span>' +
+    '</div>' +
+    '<div id="g-progress" style="background:rgba(43,34,24,.04);border-radius:var(--r-sm);height:10px;overflow:hidden;margin-bottom:8px;">' +
+      '<div id="g-progress-bar" style="height:100%;width:0;background:var(--saffron);transition:width .3s;"></div>' +
+    '</div>' +
+    '<div id="g-progress-text" class="f-hint">0 / ' + total + '</div>' +
+    '<div id="g-progress-list" style="margin-top:var(--sp-3);max-height:300px;overflow:auto;font-size:.8125rem;"></div>';
+
+  var listEl = document.getElementById('g-progress-list');
+  var barEl = document.getElementById('g-progress-bar');
+  var txtEl = document.getElementById('g-progress-text');
+
+  function updateBar() {
+    barEl.style.width = (done / total * 100) + '%';
+    txtEl.textContent = done + ' / ' + total +
+      sc(' · ✓ ', ' · ✓ ') + okCount +
+      sc(' · ✗ ', ' · ✗ ') + failCount +
+      sc(' · 共 ', ' · 共 ') + totalQ + sc(' 题', ' 題');
+  }
+
+  function next(i) {
+    if (i >= queue.length) {
+      done = total;
+      updateBar();
+      renderChapterBatchResult(ch, perLessonResults, okCount, failCount, totalQ);
+      btn.disabled = false;
+      return;
+    }
+    var l = queue[i];
+    var line = document.createElement('div');
+    line.style.padding = '4px 0';
+    line.innerHTML = '<span style="color:var(--ink-3);">…</span> ' + escapeHtml(l.title);
+    listEl.appendChild(line);
+
+    window.JX.api.post('/api/coach/questions/generate', {
+      courseId: genForm.courseId,
+      chapterId: genForm.chapterId,
+      lessonId: l.id,
+      passage: l.referenceText,
+      type: genForm.type,
+      count: genForm.count,
+      difficulty: genForm.difficulty,
+      visibility: 'public',
+    }).then(function (result) {
+      okCount++;
+      var got = (result.succeeded || (result.questions || []).length) || 0;
+      totalQ += got;
+      (result.questions || []).forEach(function (q) { state.all.unshift(q); });
+      perLessonResults.push({ lesson: l, ok: true, got: got, result: result });
+      line.innerHTML = '<span style="color:var(--sage-dark);">✓</span> ' +
+        escapeHtml(l.title) + ' · ' + got + sc(' 题', ' 題');
+    }).catch(function (err) {
+      failCount++;
+      var msg = (err && err.message) || String(err);
+      perLessonResults.push({ lesson: l, ok: false, error: msg });
+      line.innerHTML = '<span style="color:var(--crimson);">✗</span> ' +
+        escapeHtml(l.title) + ' · ' + escapeHtml(msg.slice(0, 60));
+    }).then(function () {
+      done++;
+      updateBar();
+      // 串行 · 间隔 800ms 防 LLM rate-limit
+      setTimeout(function () { next(i + 1); }, 800);
+    });
+  }
+  updateBar();
+  next(0);
+}
+
+function renderChapterBatchResult(ch, results, okCount, failCount, totalQ) {
+  state.drawerMode = 'generate-done';
+  renderList();
+  var summary =
+    '<div class="gen-summary' + (failCount > 0 ? ' has-err' : '') + '">' +
+      '<p style="font-weight:700;margin-bottom:6px;">' +
+        escapeHtml(sc('整章批量完成 · ', '整章批量完成 · ')) +
+        escapeHtml(ch.title) +
+      '</p>' +
+      '<p>' + escapeHtml(sc('成功 ', '成功 ')) + okCount +
+        escapeHtml(sc(' / 失败 ', ' / 失敗 ')) + failCount +
+        escapeHtml(sc(' · 落库 ', ' · 落庫 ')) + totalQ + escapeHtml(sc(' 道题', ' 道題')) + '</p>' +
+      '<p style="color:var(--ink-3);">' +
+        escapeHtml(sc('新题均为「待审」状态，可在列表筛选查看', '新題均為「待審」狀態，可在列表篩選查看')) +
+      '</p>' +
+    '</div>';
+  // 保留进度列表 (上面已经渲染好了)，只追加 summary
+  var body = document.getElementById('dr-body');
+  body.insertAdjacentHTML('afterbegin', summary);
+  document.getElementById('dr-save').innerHTML = '<span class="sc">完成</span><span class="tc">完成</span>';
+  document.getElementById('dr-save').setAttribute('data-result', '1');
 }
 
 document.getElementById('btn-generate').addEventListener('click', openGenerateDrawer);
