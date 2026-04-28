@@ -263,6 +263,7 @@ function render(d) {
       : '') +
     '<a href="quiz.html?lessonId=' + encodeURIComponent(q.lessonId)
         + '&from=mistake&questionId=' + encodeURIComponent(q.id || q.questionId || '')
+        + (q.courseId ? '&courseId=' + encodeURIComponent(q.courseId) : '')
         + '" class="btn btn-primary btn-lg btn-full btn-pill">' +
       '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>' +
       '<span class="sc">再练一次</span><span class="tc">再練一次</span>' +

@@ -304,16 +304,16 @@ function renderLesson(ctx, flat, slug, courseId, enrolled, course, overlay) {
     return 'scripture-reading.html?slug=' + encodeURIComponent(slug) + '&lessonId=' + encodeURIComponent(id);
   }
 
-  // 「标记当前课已学」+ 跳转 · 用户点 [上/下一课] 或 [本课答题] 都视为已读
-  // 后端 addCompletedLessonId 数组去重，重复点击不影响
+  // 「记录已读」+ 跳转 · 用户点 [上/下一课] 或 [本课答题] 都视为'读过'
+  // 注意：仅更新 currentLessonId（已读状态）· 不再 addCompletedLessonId
+  // '已学'状态升级为：答题正确率 ≥ 80% 时由 quiz.html 标记
   function markAndGo(targetUrl) {
     if (enrolled && courseId) {
       window.JX.api.patch(
         '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
-        { addCompletedLessonId: l.id, currentLessonId: l.id }
+        { currentLessonId: l.id }
       ).catch(function () { /* 静默 */ });
     }
-    // 不等 PATCH 完成 · fire-and-forget，立即跳转
     location.href = targetUrl;
   }
 
@@ -338,11 +338,13 @@ function renderLesson(ctx, flat, slug, courseId, enrolled, course, overlay) {
     introBtn.onclick = function () { showIntro(course, flat, slug, true); };
   }
 
-  // [本课答题] 按钮：先 mark 已学再跳 quiz · from=reading 配合返回
+  // [本课答题] 按钮：先 mark 已读再跳 quiz · from=reading 配合返回
+  // courseId 透传给 quiz · 完成时由 quiz 决定是否标记 addCompletedLessonId
   var quizBtn = document.getElementById('goto-quiz');
   if (quizBtn) {
     var quizUrl = 'quiz.html?lessonId=' + encodeURIComponent(l.id)
-      + '&from=reading&slug=' + encodeURIComponent(slug);
+      + '&from=reading&slug=' + encodeURIComponent(slug)
+      + (courseId ? '&courseId=' + encodeURIComponent(courseId) : '');
     quizBtn.href = quizUrl;
     quizBtn.addEventListener('click', function (ev) {
       ev.preventDefault();

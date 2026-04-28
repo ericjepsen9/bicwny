@@ -566,24 +566,45 @@ body { background: var(--bg-scene); min-height: 100vh; }
 </div><!-- /phone-wrap -->
 
 <script>
-// ── 答题完成后给一条 toast «本课已学完» ──
-// 监听 #result-overlay 出现 .show 类（quiz.js showResult 时加的）
+// ── 答题完成后判定「学完」+ 反馈 ──
+// 阈值：正确率 ≥ 80% 标记 lessonsCompleted；< 80% 提示再练
+// 数据：URL ?lessonId=&courseId= + window.JX.Quiz.state.{correctCount, questions}
 (function () {
   var sc = window.JX.sc;
+  var qp = window.JX.util.queryParam;
+  var COMPLETION_THRESHOLD = 0.8; // 80%
   var overlay = document.getElementById('result-overlay');
   if (!overlay || !window.MutationObserver) return;
   var seen = false;
   var ob = new MutationObserver(function () {
-    if (seen) return;
-    if (overlay.classList.contains('show')) {
-      seen = true;
-      // toast 在结果浮层之上略晚出现，不打断动画
-      setTimeout(function () {
-        if (window.JX.toast && window.JX.toast.ok) {
-          window.JX.toast.ok(sc('本课已学完 ✓', '本課已學完 ✓'));
-        }
-      }, 600);
-    }
+    if (seen || !overlay.classList.contains('show')) return;
+    seen = true;
+    setTimeout(function () {
+      var lessonId = qp('lessonId');
+      var courseId = qp('courseId');
+      var q = window.JX.Quiz && window.JX.Quiz.state;
+      var total = (q && q.questions && q.questions.length) || 0;
+      var correct = (q && q.correctCount) || 0;
+      var pct = total > 0 ? correct / total : 0;
+      var passed = pct >= COMPLETION_THRESHOLD;
+
+      if (passed && lessonId && courseId) {
+        // 达标 → PATCH addCompletedLessonId · fire-and-forget
+        window.JX.api.patch(
+          '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
+          { addCompletedLessonId: lessonId, currentLessonId: lessonId }
+        ).catch(function () { /* 静默 */ });
+      }
+
+      if (!window.JX.toast) return;
+      if (passed) {
+        window.JX.toast.ok(sc('✓ 本课已学完（正确率 ' + Math.round(pct*100) + '%）',
+                              '✓ 本課已學完（正確率 ' + Math.round(pct*100) + '%）'));
+      } else if (total > 0) {
+        window.JX.toast.info(sc('正确率 ' + Math.round(pct*100) + '% · 再练习达 80% 标记完成',
+                                '正確率 ' + Math.round(pct*100) + '% · 再練習達 80% 標記完成'));
+      }
+    }, 600);
   });
   ob.observe(overlay, { attributes: true, attributeFilter: ['class'] });
 })();

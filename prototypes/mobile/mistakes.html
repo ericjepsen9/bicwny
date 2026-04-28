@@ -134,8 +134,10 @@ body { background: var(--bg-scene); min-height: 100vh; }
         window.JX.toast && window.JX.toast.error(sc('题目数据异常', '題目數據異常'));
         return;
       }
+      var courseId = q.courseId || '';
       location.href = 'quiz.html?lessonId=' + encodeURIComponent(lessonId)
-        + '&from=mistake&questionId=' + encodeURIComponent(m.questionId);
+        + '&from=mistake&questionId=' + encodeURIComponent(m.questionId)
+        + (courseId ? '&courseId=' + encodeURIComponent(courseId) : '');
     });
     // 移除按钮
     card.querySelector('.mistake-remove').addEventListener('click', function (ev) {
