@@ -1,7 +1,7 @@
 // 答题主服务
 // 流程：取题 → 评分 → 写 UserAnswer → 错题本联动 → SM-2 排程
 import { Prisma, type Question } from '@prisma/client';
-import { Forbidden, NotFound } from '../../lib/errors.js';
+import { Conflict, Forbidden, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import type { Sm2Rating } from '../sm2/algorithm.js';
 import { scheduleReview } from '../sm2/service.js';
@@ -35,6 +35,19 @@ export async function submitAnswer(
 ): Promise<SubmitResult> {
   const question = await prisma.question.findUnique({ where: { id: questionId } });
   if (!question) throw NotFound(`题目不存在: ${questionId}`);
+
+  // M4: 题目被驳回 → 拒绝新答题（错题本里的旧记录已在 review 时清理，不该有用户来到这里）
+  if (question.reviewStatus === 'rejected') {
+    throw Conflict('题目已被驳回，无法作答');
+  }
+  // M4: 法本归档 → 只读模式 · 拒绝新答题（已答的进度数据保留）
+  const course = await prisma.course.findUnique({
+    where: { id: question.courseId },
+    select: { archivedAt: true },
+  });
+  if (course?.archivedAt) {
+    throw Conflict('该法本已下线，无法新答题');
+  }
 
   // 幂等短路：同 (userId, questionId, requestId) 已写入过则直接返回上次结果
   // —— 不再写错题本、不再排 SM-2，避免双击/重试副作用倍增

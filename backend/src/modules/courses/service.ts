@@ -5,8 +5,9 @@ import { NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 
 export async function listPublishedCourses(): Promise<Course[]> {
+  // M4: archived 法本不在网格出现（学员侧不导流到已下线内容）
   return prisma.course.findMany({
-    where: { isPublished: true },
+    where: { isPublished: true, archivedAt: null },
     orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
   });
 }

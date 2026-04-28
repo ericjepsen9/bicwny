@@ -478,6 +478,14 @@ function boot() {
       var enrolled = !!enr;
       var courseId = course.id;
 
+      // M4: archived 法本进入只读模式 · banner 提示 · 答题入口由后端拦
+      if (course.archivedAt && window.JX.toast) {
+        window.JX.toast.info(sc(
+          '该法本已下线 · 仅可复习已学内容（无法新答题）',
+          '該法本已下線 · 僅可複習已學內容（無法新答題）'
+        ));
+      }
+
       // M2: 读 quiz 刚写的 overlay cache · 5min 内有效 · 与服务端 overlay 合并（cache 优先）
       // 解决 PATCH→GET 复制延迟造成 reading boot 拿到 stale completedLessonIds 的问题
       if (window.JX.overlayCache) {

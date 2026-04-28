@@ -49,7 +49,23 @@ export async function reviewQuestion(
     ...(reason ? { reason } : {}),
   };
 
-  const [updated] = await prisma.$transaction([
+  // M4: reject 时联动清用户侧 · 不让低质题继续困扰用户
+  // - mistakes 软删（保留 removedAt 痕迹便于审计 / 用户提问时能回溯）
+  // - favorites 硬删（用户主动收藏的，反正已经看不到了）
+  // - sm2 cards 硬删（避免每日复习推送）
+  const cascadeOps =
+    decision === 'reject'
+      ? [
+          prisma.userMistakeBook.updateMany({
+            where: { questionId, removedAt: null },
+            data: { removedAt: new Date() },
+          }),
+          prisma.userFavorite.deleteMany({ where: { questionId } }),
+          prisma.sm2Card.deleteMany({ where: { questionId } }),
+        ]
+      : [];
+
+  const txResults = await prisma.$transaction([
     prisma.question.update({
       where: { id: questionId },
       data: { reviewStatus: newStatus, reviewed: true },
@@ -64,7 +80,8 @@ export async function reviewQuestion(
         after: after as Prisma.InputJsonValue,
       },
     }),
+    ...cascadeOps,
   ]);
 
-  return updated;
+  return txResults[0] as Question;
 }

@@ -58,10 +58,12 @@ export async function enroll(
 ): Promise<UserCourseEnrollment> {
   const course = await prisma.course.findUnique({
     where: { id: courseId },
-    select: { id: true, isPublished: true },
+    select: { id: true, isPublished: true, archivedAt: true },
   });
   if (!course) throw NotFound('课程不存在');
   if (!course.isPublished) throw Conflict('课程尚未发布');
+  // M4: archived 法本不接受新报名（已报名的保留 enrollment 进只读模式）
+  if (course.archivedAt) throw Conflict('该法本已下线，无法新报名');
 
   // upsert 防止并发重复；已有记录保留已学进度
   return prisma.userCourseEnrollment.upsert({
