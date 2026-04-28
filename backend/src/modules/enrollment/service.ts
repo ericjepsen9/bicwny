@@ -146,7 +146,7 @@ export async function markCompleted(
 export async function listMyEnrollments(userId: string) {
   // source / enrolledViaClassId 是 model 标量字段会默认返回，
   // 但显式 select 主要数据 + 关联班级名（避免前端多次请求拼）
-  return prisma.userCourseEnrollment.findMany({
+  const rows = await prisma.userCourseEnrollment.findMany({
     where: { userId },
     orderBy: { enrolledAt: 'desc' },
     include: {
@@ -158,9 +158,24 @@ export async function listMyEnrollments(userId: string) {
           titleTraditional: true,
           author: true,
           coverEmoji: true,
+          coverImageUrl: true,
           isPublished: true,
+          // M3: 同步返回总课时数 · 让 quiz-center 能显示 N / M
+          chapters: {
+            select: { _count: { select: { lessons: true } } },
+          },
         },
       },
     },
+  });
+  // 把 chapters → totalLessons 摊平 · 去掉中间 chapters payload 减体积
+  return rows.map((r) => {
+    const chapters = r.course.chapters;
+    const totalLessons = chapters.reduce(
+      (sum: number, ch: { _count: { lessons: number } }) => sum + ch._count.lessons,
+      0,
+    );
+    const { chapters: _omit, ...course } = r.course;
+    return { ...r, course: { ...course, totalLessons } };
   });
 }

@@ -219,11 +219,13 @@ function renderCourses(enrollments) {
       ? '<img src="' + escapeHtml(c.coverImageUrl) + '" alt="">'
       : '<span class="qc-cover-emoji">' + escapeHtml(emoji) + '</span>';
     var done = (e.lessonsCompleted || []).length;
-    // enrollment 自身没有 totalLessons 字段（要 GET /api/courses/:slug 才有）·
-    // 这里只显示 已学 N 课 · 进度 0% 不渲染（保持卡片轻），点进 detail 再看完整进度
+    // M3: 后端已返回 course.totalLessons · 显示「已答 N / M 课」
+    var total = c.totalLessons || 0;
     var sub = e.completedAt
       ? sc('✓ 已学完', '✓ 已學完')
-      : (sc('已答 ', '已答 ') + done + sc(' 课', ' 課'));
+      : (total > 0
+          ? sc('已答 ', '已答 ') + done + ' / ' + total + sc(' 课', ' 課')
+          : sc('已答 ', '已答 ') + done + sc(' 课', ' 課'));
     var classMark = (e.source === 'class') ? '📍 ' : '';
     return '<a class="qc-course-card" href="' + window.JX.nav.toScriptureDetail({ slug: c.slug, mode: 'quiz', from: window.JX.nav.FROM.CENTER }) + '">'
       +    '<div class="qc-cover">' + coverHtml + '</div>'
