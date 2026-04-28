@@ -340,11 +340,13 @@ function renderLesson(ctx, flat, slug, courseId, enrolled, course, overlay) {
 
   // [本课答题] 按钮：先 mark 已读再跳 quiz · from=reading 配合返回
   // courseId 透传给 quiz · 完成时由 quiz 决定是否标记 addCompletedLessonId
+  // nextLessonId 透传 · quiz 完成页可显示「下一课」直接跳转下一课的阅读
   var quizBtn = document.getElementById('goto-quiz');
   if (quizBtn) {
     var quizUrl = 'quiz.html?lessonId=' + encodeURIComponent(l.id)
       + '&from=reading&slug=' + encodeURIComponent(slug)
-      + (courseId ? '&courseId=' + encodeURIComponent(courseId) : '');
+      + (courseId ? '&courseId=' + encodeURIComponent(courseId) : '')
+      + (next ? '&nextLessonId=' + encodeURIComponent(next.lesson.id) : '');
     quizBtn.href = quizUrl;
     quizBtn.addEventListener('click', function (ev) {
       ev.preventDefault();

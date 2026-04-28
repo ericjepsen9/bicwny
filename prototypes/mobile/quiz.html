@@ -533,6 +533,10 @@ body { background: var(--bg-scene); min-height: 100vh; }
       </div>
     </div>
     <div class="result-btns">
+      <!-- 「下一课」：仅当 URL 有 nextLessonId 时显示 · JS 动态填 href -->
+      <a id="quiz-next-lesson" href="#" class="btn btn-primary btn-lg btn-full btn-pill" style="display:none;">
+        <span class="sc">下一课 →</span><span class="tc">下一課 →</span>
+      </a>
       <a href="mistakes.html" class="btn btn-ghost btn-lg btn-full btn-pill">
         <span class="sc">查看错题</span><span class="tc">查看錯題</span>
       </a>
@@ -665,6 +669,20 @@ body { background: var(--bg-scene); min-height: 100vh; }
     resultBack.href = returnUrl();
     var label = returnLabel();
     resultBack.innerHTML = '<span class="sc">' + label + '</span><span class="tc">' + label + '</span>';
+  }
+
+  // 「下一课」按钮（仅 from=reading 且 URL 有 nextLessonId 时显示）
+  var nextLessonId = qp('nextLessonId');
+  var nextBtn = document.getElementById('quiz-next-lesson');
+  if (nextBtn && nextLessonId && slug && from === 'reading') {
+    nextBtn.href = 'scripture-reading.html?slug=' + encodeURIComponent(slug)
+      + '&lessonId=' + encodeURIComponent(nextLessonId);
+    nextBtn.style.display = '';
+    // 有「下一课」时主按钮降级（不那么强调）
+    if (resultBack) {
+      resultBack.classList.remove('btn-primary');
+      resultBack.classList.add('btn-ghost');
+    }
   }
 })();
 
