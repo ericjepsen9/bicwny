@@ -198,6 +198,8 @@ function render(items) {
     var type = q.type || 'single';
     var typeT = (typeLabel[type] || [type, type])[0];
     var sourceTag = q.source ? '<span class="fav-tag">' + escapeHtml(q.source) + '</span>' : '';
+    var lessonId = q.lessonId || '';
+    var courseId = q.courseId || '';
     return ''
       + '<div class="fav-item" data-qid="' + escapeHtml(qid) + '">'
       +   '<div class="fav-top">'
@@ -209,12 +211,38 @@ function render(items) {
       +   '<p class="fav-text">' + escapeHtml(q.questionText || sc('（题目已下架）', '（題目已下架）')) + '</p>'
       +   '<div class="fav-actions">'
       +     '<span class="fav-time">' + sc('收藏于 ', '收藏於 ') + relTime(it.createdAt) + '</span>'
+      +     (lessonId
+        ? '<button type="button" class="fav-retry" data-lid="' + escapeHtml(lessonId)
+            + '" data-cid="' + escapeHtml(courseId) + '" data-qid="' + escapeHtml(qid) + '" '
+            + 'style="margin-left:auto;margin-right:8px;padding:5px 12px;border-radius:var(--r-pill);'
+            + 'border:1px solid var(--saffron);background:var(--saffron);color:#FFF;'
+            + 'font:var(--text-caption);font-weight:600;letter-spacing:1px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">'
+            + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>'
+            + sc('练一练', '練一練')
+            + '</button>'
+        : '')
       +     '<button type="button" class="fav-remove" data-qid="' + escapeHtml(qid) + '">'
       +       '<span class="sc">取消收藏</span><span class="tc">取消收藏</span>'
       +     '</button>'
       +   '</div>'
       + '</div>';
   }).join('');
+
+  // 「练一练」按钮：跳 quiz · from=favorites · 完成后回 favorites
+  block.querySelectorAll('.fav-retry').forEach(function (btn) {
+    btn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var lid = btn.getAttribute('data-lid');
+      var cid = btn.getAttribute('data-cid');
+      if (!lid) {
+        window.JX.toast && window.JX.toast.error(sc('题目数据异常', '題目數據異常'));
+        return;
+      }
+      location.href = 'quiz.html?lessonId=' + encodeURIComponent(lid)
+        + '&from=favorites'
+        + (cid ? '&courseId=' + encodeURIComponent(cid) : '');
+    });
+  });
 
   // 绑定删除按钮
   block.querySelectorAll('.fav-remove').forEach(function (btn) {

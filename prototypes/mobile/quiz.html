@@ -636,6 +636,9 @@ body { background: var(--bg-scene); min-height: 100vh; }
     if (from === 'mistake' && questionId) {
       return 'mistake-detail.html?questionId=' + encodeURIComponent(questionId);
     }
+    if (from === 'favorites') {
+      return 'favorites.html';
+    }
     if (from === 'center') {
       return 'quiz-center.html';
     }
@@ -644,10 +647,11 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
   function returnLabel() {
     return ({
-      reading: sc('继续阅读', '繼續閱讀'),
-      detail:  sc('回到目录', '回到目錄'),
-      mistake: sc('回到错题', '回到錯題'),
-      center:  sc('回到答题', '回到答題'),
+      reading:   sc('继续阅读', '繼續閱讀'),
+      detail:    sc('回到目录', '回到目錄'),
+      mistake:   sc('回到错题', '回到錯題'),
+      favorites: sc('回到收藏', '回到收藏'),
+      center:    sc('回到答题', '回到答題'),
     })[from] || sc('返回首页', '返回首頁');
   }
 
