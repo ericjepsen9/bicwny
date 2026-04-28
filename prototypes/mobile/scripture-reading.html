@@ -315,6 +315,7 @@ function renderLesson(ctx, flat, slug, courseId, enrolled, course) {
   }
 
   // 顶部目录 → scripture-detail · 顶部返回 → courses 列表
+  // 从 reading 进 detail 是阅读模式（默认 mode=read）· 章节项点击仍回 reading
   document.getElementById('toc-link').href = 'scripture-detail.html?slug=' + encodeURIComponent(slug);
   document.getElementById('back-link').href = 'courses.html';
 
