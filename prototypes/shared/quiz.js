@@ -789,11 +789,15 @@
     var btn = document.getElementById('action-btn');
     btn.disabled = true;
 
+    // C3：错题重练时（URL ?from=mistake）传 removeFromMistakesOnCorrect=true
+    // 让后端在答对时自动从错题本移除（软删 removedAt = now）
+    var fromQ = (window.JX.util.queryParam('from') || '');
     var body = {
       questionId: q.id,
       answer: state.answer,
       timeSpentMs: Date.now() - state.tQuestionStart,
     };
+    if (fromQ === 'mistake') body.removeFromMistakesOnCorrect = true;
     window.JX.api.post('/api/answers', body).then(function (data) {
       state.confirmed = true;
       state.lastGrade = data.grade;
