@@ -41,6 +41,10 @@
     var s = storage(); if (!s) return;
     s.removeItem(KEY_A);
     s.removeItem(KEY_R);
+    // A3: 清 overlay cache 防止 user1 退出后 user2 登录读到残留
+    if (window.JX && window.JX.overlayCache && window.JX.overlayCache.clear) {
+      window.JX.overlayCache.clear();
+    }
   }
   function isAuthed() { return !!getAccessToken(); }
 

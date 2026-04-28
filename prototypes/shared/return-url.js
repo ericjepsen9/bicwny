@@ -155,12 +155,21 @@
   // 调用方写到 sessionStorage 后，下一页 reading/detail boot 时优先读。
   // 5 分钟 TTL · 防 PATCH→GET 数据库复制延迟造成的 stale 渲染。
   var OVERLAY_TTL_MS = 5 * 60 * 1000;
-  var OVERLAY_KEY = function (courseId) { return 'jx-overlay:' + courseId; };
+  var OVERLAY_PREFIX = 'jx-overlay:';
+  // A3: 跨账户隔离 · key 含 userId 防 user1 写、user2 读到的情况
+  // 未登录场景（require-auth.js 还没填 JX.user）→ 直接 no-op，等登录后再 cache
+  function currentUserId() {
+    return (window.JX && window.JX.user && window.JX.user.id) || '';
+  }
+  var OVERLAY_KEY = function (userId, courseId) {
+    return OVERLAY_PREFIX + userId + ':' + courseId;
+  };
 
   function saveOverlayCache(courseId, overlay) {
-    if (!courseId || !overlay) return;
+    var uid = currentUserId();
+    if (!uid || !courseId || !overlay) return;
     try {
-      sessionStorage.setItem(OVERLAY_KEY(courseId), JSON.stringify({
+      sessionStorage.setItem(OVERLAY_KEY(uid, courseId), JSON.stringify({
         patchedAt: Date.now(),
         overlay: overlay,
       }));
@@ -168,17 +177,30 @@
   }
 
   function readOverlayCache(courseId) {
-    if (!courseId) return null;
+    var uid = currentUserId();
+    if (!uid || !courseId) return null;
     try {
-      var raw = sessionStorage.getItem(OVERLAY_KEY(courseId));
+      var key = OVERLAY_KEY(uid, courseId);
+      var raw = sessionStorage.getItem(key);
       if (!raw) return null;
       var parsed = JSON.parse(raw);
       if (!parsed || (Date.now() - (parsed.patchedAt || 0)) > OVERLAY_TTL_MS) {
-        sessionStorage.removeItem(OVERLAY_KEY(courseId));
+        sessionStorage.removeItem(key);
         return null;
       }
       return parsed.overlay;
     } catch (_) { return null; }
+  }
+
+  // A3: logout / 切账户时调 · 清掉所有 jx-overlay:* 残留
+  function clearOverlayCache() {
+    try {
+      var i = sessionStorage.length;
+      while (i-- > 0) {
+        var k = sessionStorage.key(i);
+        if (k && k.indexOf(OVERLAY_PREFIX) === 0) sessionStorage.removeItem(k);
+      }
+    } catch (_) { /* 静默 */ }
   }
 
   // 把 cache 合并进服务端 overlay · cache 优先（更新鲜）但只覆盖学习字段
@@ -208,5 +230,6 @@
     save: saveOverlayCache,
     read: readOverlayCache,
     merge: mergeOverlayCache,
+    clear: clearOverlayCache,
   };
 })();
