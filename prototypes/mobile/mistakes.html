@@ -83,6 +83,15 @@ body { background: var(--bg-scene); min-height: 100vh; }
     <span class="ftab" data-filter="today"><span class="sc">今日</span><span class="tc">今日</span> (<span data-count="today">0</span>)</span>
   </div>
 
+  <div style="padding:0 var(--sp-5) var(--sp-3);">
+    <select id="course-filter" class="course-filter"
+      style="width:100%;padding:8px 12px;border-radius:var(--r-pill);
+             border:1px solid var(--glass-border);background:rgba(255,255,255,.6);
+             font:var(--text-caption);color:var(--ink);letter-spacing:1.5px;outline:none;">
+      <option value=""><span class="sc">全部法本</span></option>
+    </select>
+  </div>
+
   <div class="scroll-area" style="height:680px;">
   <div class="sections" id="mistakes-list">
     <div class="q-card" style="text-align:center;padding:var(--sp-6) var(--sp-5);background:rgba(255,255,255,.55);border:1px solid var(--glass-border);border-radius:var(--r-lg);">
@@ -91,6 +100,47 @@ body { background: var(--bg-scene); min-height: 100vh; }
   </div>
   </div>
 
+<script>
+var sc = window.JX.sc;
+var escapeHtml = window.JX.util.escapeHtml;
+var allMistakes = [];
+var currentFilter = 'all';
+var currentCourseId = '';
+var courseTitleById = {};
+
+function isToday(iso) {
+  if (!iso) return false;
+  var d = new Date(iso);
+  var now = new Date();
+  return d.getFullYear() === now.getFullYear() &&
+         d.getMonth() === now.getMonth() &&
+         d.getDate() === now.getDate();
+}
+
+function filterMistakes() {
+  return allMistakes.filter(function (m) {
+    if (currentFilter === 'today' && !isToday(m.lastWrongAt)) return false;
+    if (currentCourseId) {
+      var cid = (m.question && m.question.courseId) || '';
+      if (cid !== currentCourseId) return false;
+    }
+    return true;
+  });
+}
+
+function renderCards() {
+  var list = document.getElementById('mistakes-list');
+  list.innerHTML = '';
+  var data = filterMistakes();
+  if (!data.length) {
+    list.innerHTML =
+      '<div class="q-card" style="text-align:center;padding:var(--sp-6);background:rgba(255,255,255,.55);border:1px solid var(--glass-border);border-radius:var(--r-lg);">' +
+        '<p style="font:var(--text-caption);color:var(--ink-3);">' +
+          escapeHtml(sc('暂无错题', '暫無錯題')) +
+        '</p></div>';
+    return;
+  }
+  data.forEach(function (m) {
     var q = m.question || {};
     var stem = q.questionText || sc('（题目已失效）', '（題目已失效）');
     var source = q.source || '';
@@ -146,6 +196,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
       window.JX.api.del('/api/mistakes/' + encodeURIComponent(m.questionId)).then(function () {
         allMistakes = allMistakes.filter(function (x) { return x.questionId !== m.questionId; });
         updateCounts();
+        populateCourseFilter();
         renderCards();
       }).catch(function (err) {
         window.JX.toast.error(sc('移除失败：', '移除失敗：') + (err.message || err));
@@ -176,10 +227,44 @@ document.getElementById('filter-tabs').addEventListener('click', function (ev) {
   setFilter(t.getAttribute('data-filter'));
 });
 
+// D6: 法本筛选 dropdown
+document.getElementById('course-filter').addEventListener('change', function () {
+  currentCourseId = this.value || '';
+  renderCards();
+});
+
+// 从 allMistakes 推导 course list（去重 · 按 title 排序）· 题目自身没有 courseTitle 时用 courseTitleById 兜底
+function populateCourseFilter() {
+  var sel = document.getElementById('course-filter');
+  if (!sel) return;
+  var seen = {};
+  var items = [];
+  allMistakes.forEach(function (m) {
+    var q = m.question || {};
+    var cid = q.courseId;
+    if (!cid || seen[cid]) return;
+    seen[cid] = 1;
+    items.push({ id: cid, title: q.courseTitle || courseTitleById[cid] || cid });
+  });
+  items.sort(function (a, b) { return (a.title > b.title) ? 1 : -1; });
+  var keep = sel.value;
+  sel.innerHTML = '<option value="">' + escapeHtml(sc('全部法本', '全部法本')) + '</option>' +
+    items.map(function (c) {
+      return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.title) + '</option>';
+    }).join('');
+  if (keep && seen[keep]) sel.value = keep;
+}
+
 function boot() {
+  // 先拉一份 courses 列表用于 ID→title 映射兜底
+  window.JX.api.get('/api/courses').then(function (cs) {
+    (Array.isArray(cs) ? cs : []).forEach(function (c) { courseTitleById[c.id] = c.title; });
+  }).catch(function () { /* 静默 */ });
+
   window.JX.api.get('/api/mistakes?limit=200').then(function (data) {
     allMistakes = Array.isArray(data) ? data : [];
     updateCounts();
+    populateCourseFilter();
     renderCards();
   }).catch(function (err) {
     document.getElementById('mistakes-list').innerHTML =

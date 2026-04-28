@@ -109,6 +109,14 @@ body { background: var(--bg-scene); min-height: 100vh; }
     <div class="fav-summary">
       <span id="count-label"><span class="sc">加载中…</span><span class="tc">加載中…</span></span>
     </div>
+    <div style="margin-bottom:var(--sp-3);">
+      <select id="course-filter"
+        style="width:100%;padding:8px 12px;border-radius:var(--r-pill);
+               border:1px solid var(--glass-border);background:rgba(255,255,255,.6);
+               font:var(--text-caption);color:var(--ink);letter-spacing:1.5px;outline:none;">
+        <option value="">全部法本</option>
+      </select>
+    </div>
     <div id="items"></div>
   </div>
 
@@ -170,6 +178,40 @@ function escapeHtml(s) {
   if (!s) return '';
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// D6: 法本筛选 · 保存全量列表用于切换 dropdown 时本地过滤
+var allFavorites = [];
+var currentCourseId = '';
+var courseTitleById = {};
+
+function populateCourseFilter() {
+  var sel = document.getElementById('course-filter');
+  if (!sel) return;
+  var seen = {};
+  var items = [];
+  allFavorites.forEach(function (it) {
+    var q = it.question || {};
+    var cid = q.courseId;
+    if (!cid || seen[cid]) return;
+    seen[cid] = 1;
+    items.push({ id: cid, title: q.courseTitle || courseTitleById[cid] || cid });
+  });
+  items.sort(function (a, b) { return (a.title > b.title) ? 1 : -1; });
+  var keep = sel.value;
+  sel.innerHTML = '<option value="">' + escapeHtml(sc('全部法本', '全部法本')) + '</option>' +
+    items.map(function (c) {
+      return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(c.title) + '</option>';
+    }).join('');
+  if (keep && seen[keep]) sel.value = keep;
+}
+
+function applyFilter() {
+  if (!currentCourseId) return render(allFavorites);
+  var filtered = allFavorites.filter(function (it) {
+    return ((it.question && it.question.courseId) || '') === currentCourseId;
+  });
+  render(filtered);
 }
 
 function render(items) {
@@ -253,6 +295,10 @@ function render(items) {
       btn.setAttribute('aria-busy', 'true');
       window.JX.api.del('/api/favorites/' + encodeURIComponent(qid))
         .then(function () {
+          allFavorites = allFavorites.filter(function (x) {
+            return (x.questionId || (x.question && x.question.id)) !== qid;
+          });
+          populateCourseFilter();
           var item = btn.closest('.fav-item');
           if (item) item.remove();
           // 更新计数 / 重新判空
@@ -273,8 +319,26 @@ function render(items) {
   });
 }
 
-window.JX.api.get('/api/favorites?limit=200').then(render).catch(function (err) {
+// D6: dropdown 切换 → 本地过滤
+document.getElementById('course-filter').addEventListener('change', function () {
+  currentCourseId = this.value || '';
+  applyFilter();
+});
+
+// 兜底：拉一份 courses 列表用于 ID→title 映射
+window.JX.api.get('/api/courses').then(function (cs) {
+  (Array.isArray(cs) ? cs : []).forEach(function (c) { courseTitleById[c.id] = c.title; });
+  // 拿到 title 后刷新 dropdown 文本
+  populateCourseFilter();
+}).catch(function () { /* 静默 */ });
+
+window.JX.api.get('/api/favorites?limit=200').then(function (data) {
+  allFavorites = Array.isArray(data) ? data : [];
+  populateCourseFilter();
+  applyFilter();
+}).catch(function (err) {
   console.error('[favorites] 拉取失败', err);
+  allFavorites = [];
   render([]);
 });
 </script>
