@@ -256,6 +256,7 @@ function renderChapters(course, overlay) {
       : '#';
     var quizHref = firstLesson
       ? 'quiz.html?lessonId=' + encodeURIComponent(firstLesson.id)
+        + '&from=detail&slug=' + encodeURIComponent(course.slug)
       : '#';
 
     var el = document.createElement(firstLesson ? 'a' : 'div');

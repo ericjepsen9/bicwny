@@ -462,7 +462,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
   <!-- Header: back + progress bar + lives -->
   <div class="quiz-header">
-    <a class="nav-back" href="home.html" aria-label="返回">
+    <a class="nav-back" id="quiz-back" href="home.html" aria-label="返回">
       <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
     </a>
     <div class="progress-wrap">
@@ -536,7 +536,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
       <a href="mistakes.html" class="btn btn-ghost btn-lg btn-full btn-pill">
         <span class="sc">查看错题</span><span class="tc">查看錯題</span>
       </a>
-      <a href="home.html" class="btn btn-primary btn-lg btn-full btn-pill">
+      <a id="quiz-result-back" href="home.html" class="btn btn-primary btn-lg btn-full btn-pill">
         <span class="sc">返回首页</span><span class="tc">返回首頁</span>
       </a>
     </div>
@@ -566,6 +566,61 @@ body { background: var(--bg-scene); min-height: 100vh; }
 </div><!-- /phone-wrap -->
 
 <script>
+// ── 答题完成后的返回地址 · 按 ?from= 参数解析 ──
+// 入口约定：
+//   reading   → quiz.html?lessonId=X&from=reading&slug=Y
+//   detail    → quiz.html?lessonId=X&from=detail&slug=Y
+//   mistake   → quiz.html?lessonId=X&from=mistake&questionId=Z
+//   center    → quiz.html?lessonId=X&from=center&slug=Y
+//   default   → home.html
+(function () {
+  var sc = window.JX.sc;
+  var qp = window.JX.util.queryParam;
+  var from = qp('from') || '';
+  var slug = qp('slug') || '';
+  var lessonId = qp('lessonId') || '';
+  var questionId = qp('questionId') || '';
+
+  function returnUrl() {
+    if (from === 'reading' && slug) {
+      var u = 'scripture-reading.html?slug=' + encodeURIComponent(slug);
+      if (lessonId) u += '&lessonId=' + encodeURIComponent(lessonId);
+      return u;
+    }
+    if (from === 'detail' && slug) {
+      return 'scripture-detail.html?slug=' + encodeURIComponent(slug);
+    }
+    if (from === 'mistake' && questionId) {
+      return 'mistake-detail.html?questionId=' + encodeURIComponent(questionId);
+    }
+    if (from === 'center') {
+      return 'quiz-center.html';
+    }
+    return 'home.html';
+  }
+
+  function returnLabel() {
+    return ({
+      reading: sc('继续阅读', '繼續閱讀'),
+      detail:  sc('回到目录', '回到目錄'),
+      mistake: sc('回到错题', '回到錯題'),
+      center:  sc('回到答题', '回到答題'),
+    })[from] || sc('返回首页', '返回首頁');
+  }
+
+  // 顶部 ← 返回按钮
+  var backLink = document.getElementById('quiz-back');
+  if (backLink) backLink.href = returnUrl();
+
+  // 完成页主按钮
+  var resultBack = document.getElementById('quiz-result-back');
+  if (resultBack) {
+    resultBack.href = returnUrl();
+    var label = returnLabel();
+    resultBack.innerHTML = '<span class="sc">' + label + '</span><span class="tc">' + label + '</span>';
+  }
+})();
+
 // ── 举报题目：quiz.js 在 render() 时给 #q-fav 写了 data-qid，这里复用同一来源 ──
 (function () {
   var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
