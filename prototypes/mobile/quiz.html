@@ -706,17 +706,28 @@ var __quizPending = { patch: null };
     }
   }
 
-  // C1: 跳转前 await 完成页 PATCH，避免下一页拿到 stale 数据
+  // C1 + B1: 跳转前 await 完成页 PATCH (避免 stale)；之后优先 history.back（多层 from 嵌套不横跳）
   function awaitNavigate(el) {
     if (!el) return;
     el.addEventListener('click', function (ev) {
       var p = __quizPending.patch;
-      if (!p) return;
       var href = el.getAttribute('href');
+      var go = function () {
+        // B1: history.length > 1 优先回退（保留完整链路）；否则 href 兜底
+        if (history.length > 1) history.back();
+        else if (href && href !== '#') location.href = href;
+      };
+      if (!p) {
+        // 无 pending PATCH · 仍要走 history.back 优先
+        if (history.length > 1) {
+          ev.preventDefault();
+          history.back();
+        }
+        return;
+      }
       if (!href || href === '#') return;
       ev.preventDefault();
-      p.then(function () { location.href = href; },
-             function () { location.href = href; });
+      p.then(go, go);
     });
   }
   awaitNavigate(resultBack);
