@@ -603,13 +603,16 @@ var __quizPending = { patch: null };
   else document.addEventListener('jx:user-ready', fire, { once: true });
 })();
 
-// ── 答题完成后判定「学完」+ 反馈 ──
-// 阈值：正确率 ≥ 80% 标记 lessonsCompleted；< 80% 提示再练
+// ── 答题完成后判定「学完」+ 反馈 · A1 后端为唯一裁决方 ──
+// 之前：前端 correct/total ≥ 80% 本地预判 → toast"已学完" + PATCH addCompletedLessonId
+// 问题：开放题未评分时分母口径与后端不一致（前端含 null，后端 graded 排 null）
+//      用户看"已学完"但下次进 reading 徽章未亮 → 体验割裂
+// 现在：完成时无条件 PATCH addCompletedLessonId · 由后端 isLessonPassed 实算
+//      前端只看响应里 overlay.completedLessonIds 是否含本课时来决定 toast 文案
 // 数据：URL ?lessonId=&courseId= + window.JX.Quiz.state.{correctCount, questions}
 (function () {
   var sc = window.JX.sc;
   var qp = window.JX.util.queryParam;
-  var COMPLETION_THRESHOLD = 0.8; // 80%
   var overlay = document.getElementById('result-overlay');
   if (!overlay || !window.MutationObserver) return;
   var seen = false;
@@ -622,11 +625,10 @@ var __quizPending = { patch: null };
       var q = window.JX.Quiz && window.JX.Quiz.state;
       var total = (q && q.questions && q.questions.length) || 0;
       var correct = (q && q.correctCount) || 0;
-      var pct = total > 0 ? correct / total : 0;
-      var passed = pct >= COMPLETION_THRESHOLD;
+      var pct = total > 0 ? Math.round(correct / total * 100) : 0;
 
-      if (passed && lessonId && courseId) {
-        // 达标 → PATCH addCompletedLessonId · 保存 promise 共享给 nav 按钮 click 拦截
+      if (lessonId && courseId) {
+        // 无条件 PATCH · 后端裁决是否进 lessonsCompleted（M1 实算 ≥ 80%）
         __quizPending.patch = window.JX.api.patch(
           '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
           { addCompletedLessonId: lessonId, currentLessonId: lessonId }
@@ -635,16 +637,21 @@ var __quizPending = { patch: null };
           if (res && res.overlay && window.JX.overlayCache) {
             window.JX.overlayCache.save(courseId, res.overlay);
           }
-        }).catch(function () { /* 静默 */ });
-      }
-
-      if (!window.JX.toast) return;
-      if (passed) {
-        window.JX.toast.ok(sc('✓ 本课已学完（正确率 ' + Math.round(pct*100) + '%）',
-                              '✓ 本課已學完（正確率 ' + Math.round(pct*100) + '%）'));
-      } else if (total > 0) {
-        window.JX.toast.info(sc('正确率 ' + Math.round(pct*100) + '% · 再练习达 80% 标记完成',
-                                '正確率 ' + Math.round(pct*100) + '% · 再練習達 80% 標記完成'));
+          if (!window.JX.toast) return;
+          // 后端真相：overlay.completedLessonIds 包含本 lessonId 即'已学完'
+          var completed = res && res.overlay && (res.overlay.completedLessonIds || []);
+          var serverPassed = completed && completed.indexOf(lessonId) >= 0;
+          if (serverPassed) {
+            window.JX.toast.ok(sc('✓ 本课已学完（正确率 ' + pct + '%）',
+                                  '✓ 本課已學完（正確率 ' + pct + '%）'));
+          } else if (total > 0) {
+            window.JX.toast.info(sc('正确率 ' + pct + '% · 再练习达标后自动标记',
+                                    '正確率 ' + pct + '% · 再練習達標後自動標記'));
+          }
+        }).catch(function () { /* 静默 · 失败时不显示 toast */ });
+      } else if (window.JX.toast && total > 0) {
+        // 无 courseId 场景（mistake / favorites 临时复习）· 仅反馈正确率
+        window.JX.toast.info(sc('正确率 ' + pct + '%', '正確率 ' + pct + '%'));
       }
     }, 600);
   });
