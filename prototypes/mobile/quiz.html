@@ -566,6 +566,28 @@ body { background: var(--bg-scene); min-height: 100vh; }
 </div><!-- /phone-wrap -->
 
 <script>
+// ── 答题完成后给一条 toast «本课已学完» ──
+// 监听 #result-overlay 出现 .show 类（quiz.js showResult 时加的）
+(function () {
+  var sc = window.JX.sc;
+  var overlay = document.getElementById('result-overlay');
+  if (!overlay || !window.MutationObserver) return;
+  var seen = false;
+  var ob = new MutationObserver(function () {
+    if (seen) return;
+    if (overlay.classList.contains('show')) {
+      seen = true;
+      // toast 在结果浮层之上略晚出现，不打断动画
+      setTimeout(function () {
+        if (window.JX.toast && window.JX.toast.ok) {
+          window.JX.toast.ok(sc('本课已学完 ✓', '本課已學完 ✓'));
+        }
+      }, 600);
+    }
+  });
+  ob.observe(overlay, { attributes: true, attributeFilter: ['class'] });
+})();
+
 // ── 答题完成后的返回地址 · 按 ?from= 参数解析 ──
 // 入口约定：
 //   reading   → quiz.html?lessonId=X&from=reading&slug=Y
