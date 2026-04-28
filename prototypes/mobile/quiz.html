@@ -570,6 +570,9 @@ body { background: var(--bg-scene); min-height: 100vh; }
 </div><!-- /phone-wrap -->
 
 <script>
+// 跨 IIFE 共享 · 完成页 PATCH promise · nav click 时 await 防止 reading 拿到 stale overlay (C1)
+var __quizPending = { patch: null };
+
 // ── 答题完成后判定「学完」+ 反馈 ──
 // 阈值：正确率 ≥ 80% 标记 lessonsCompleted；< 80% 提示再练
 // 数据：URL ?lessonId=&courseId= + window.JX.Quiz.state.{correctCount, questions}
@@ -593,8 +596,8 @@ body { background: var(--bg-scene); min-height: 100vh; }
       var passed = pct >= COMPLETION_THRESHOLD;
 
       if (passed && lessonId && courseId) {
-        // 达标 → PATCH addCompletedLessonId · fire-and-forget
-        window.JX.api.patch(
+        // 达标 → PATCH addCompletedLessonId · 保存 promise 共享给 nav 按钮 click 拦截
+        __quizPending.patch = window.JX.api.patch(
           '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
           { addCompletedLessonId: lessonId, currentLessonId: lessonId }
         ).catch(function () { /* 静默 */ });
@@ -684,6 +687,23 @@ body { background: var(--bg-scene); min-height: 100vh; }
       resultBack.classList.add('btn-ghost');
     }
   }
+
+  // C1: 跳转前 await 完成页 PATCH，避免下一页拿到 stale 数据
+  function awaitNavigate(el) {
+    if (!el) return;
+    el.addEventListener('click', function (ev) {
+      var p = __quizPending.patch;
+      if (!p) return;
+      var href = el.getAttribute('href');
+      if (!href || href === '#') return;
+      ev.preventDefault();
+      p.then(function () { location.href = href; },
+             function () { location.href = href; });
+    });
+  }
+  awaitNavigate(resultBack);
+  awaitNavigate(nextBtn);
+  awaitNavigate(backLink);
 })();
 
 // ── 举报题目：quiz.js 在 render() 时给 #q-fav 写了 data-qid，这里复用同一来源 ──
