@@ -116,6 +116,11 @@ body.scene {
     <div class="brand-sub"><span class="sc">后台登录 · 辅导员 / 管理员</span><span class="tc">後台登入 · 輔導員 / 管理員</span></div>
   </div>
 
+  <!-- AU11: role 错位提示 banner · 由底部 JS 按 ?reason=role 填充 -->
+  <div id="role-mismatch-banner" style="display:none;padding:12px 16px;margin:0 0 16px;
+       border-radius:8px;background:#FBE7E5;border:1px solid #C03;
+       color:#C03;font-size:.875rem;letter-spacing:1px;line-height:1.6;"></div>
+
   <!-- 登录 -->
   <form class="auth-screen active" id="screen-login" novalidate>
     <p class="screen-title"><span class="sc">登录</span><span class="tc">登入</span></p>
@@ -186,6 +191,26 @@ body.scene {
 //   学员误入 → 清 token + 提示去 ../mobile/auth.html
 //   admin → admin.html · coach → coach.html
 var sc = window.JX.sc;
+
+// AU11: 检测 ?reason=role 显示错位 banner
+// require-auth.js 把 student 误进 desktop 入口的用户清 token 后跳到这里
+(function () {
+  var qp = (window.JX && window.JX.util && window.JX.util.queryParam) || function () { return ''; };
+  if (qp('reason') !== 'role') return;
+  var actual = qp('actual') || '';
+  var banner = document.getElementById('role-mismatch-banner');
+  if (!banner) return;
+  if (actual === 'student') {
+    banner.innerHTML =
+      sc('您的账号是「学员」，请使用学员入口登录。',
+         '您的帳號是「學員」，請使用學員入口登錄。') +
+      '<br><a href="../mobile/auth.html" style="color:#C03;font-weight:700;text-decoration:underline;">' +
+      sc('前往学员入口 →', '前往學員入口 →') + '</a>';
+  } else {
+    banner.textContent = sc('登录态已失效，请重新登录', '登錄態已失效，請重新登錄');
+  }
+  banner.style.display = '';
+})();
 
 function localizedError(err) {
   var code = (err && err.code) || '';
