@@ -101,8 +101,15 @@ export async function updateUserRole(
   if (!before) throw NotFound('用户不存在');
   if (before.role === role) return stripPassword(before);
 
+  // AU1: 改角色时立即吊销该用户所有 session · 强制重登
+  // 否则旧 access token 还能在 TTL 内（默认 15min）携带旧 role 滥用权限
+  // 与 changePassword 同等对待 · 走单事务原子保证
   const [updated] = await prisma.$transaction([
     prisma.user.update({ where: { id: userId }, data: { role } }),
+    prisma.authSession.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
     prisma.auditLog.create({
       data: {
         adminId,
