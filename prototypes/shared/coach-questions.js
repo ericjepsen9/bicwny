@@ -1002,8 +1002,35 @@ function runGenerate() {
     if (s === 502 || s === 503) msg = sc('LLM 服务暂不可用（可能 API key 未配置或额度耗尽）', 'LLM 服務暫不可用（可能 API key 未配置或額度耗盡）');
     else msg = sc('生成失败：', '生成失敗：') + (err && err.message || err);
     renderGenerateForm();
-    document.getElementById('dr-err').textContent = msg;
+    var errEl = document.getElementById('dr-err');
+    errEl.textContent = msg;
+    // CO8: 失败时附最近一次 LLM 调用的 requestId / errorMessage 供 coach 自助调试
+    showLlmDebugHint(errEl);
   });
+}
+
+// CO8: 拉 /api/coach/llm-calls 最近 1 条 · 把 requestId / latency / 真实错误追加到 dr-err
+// 静默失败（接口不通时不影响主流程）· 首条不一定是本次失败但通常是
+function showLlmDebugHint(errEl) {
+  if (!errEl || !window.JX || !window.JX.api) return;
+  window.JX.api.get('/api/coach/llm-calls?limit=1').then(function (rows) {
+    var last = (rows || [])[0];
+    if (!last) return;
+    var t = new Date(last.timestamp);
+    var hint = document.createElement('div');
+    hint.style.marginTop = '6px';
+    hint.style.fontSize = '.75rem';
+    hint.style.color = 'var(--ink-4)';
+    hint.style.letterSpacing = '.5px';
+    hint.textContent = sc(
+      '调试 · ', '調試 · '
+    ) + 'reqId=' + last.requestId.slice(0, 8) +
+      ' · ' + last.providerUsed + (last.success ? ' ok' : ' fail') +
+      ' · ' + last.latencyMs + 'ms' +
+      (last.errorMessage ? ' · ' + last.errorMessage : '') +
+      ' · ' + t.toLocaleTimeString();
+    errEl.appendChild(hint);
+  }).catch(function () { /* 静默 */ });
 }
 
 // E2: 整章批量 · 串行调用单课时 generate · 实时进度 · 失败不中断

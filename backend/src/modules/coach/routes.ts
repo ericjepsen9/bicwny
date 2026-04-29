@@ -1,6 +1,7 @@
 // 辅导员端学员统计路由
 //   GET /api/coach/classes/:id/stats           班级聚合面板
 //   GET /api/coach/classes/:id/students/:uid   单学员学修详情
+//   GET /api/coach/llm-calls                   自己最近的 LLM 调用日志（CO8）
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getUserRole, requireRole, requireUserId } from '../../lib/auth.js';
@@ -10,6 +11,7 @@ import {
   assertMemberOfClass,
   getClass,
 } from '../class/service.js';
+import { prisma } from '../../lib/prisma.js';
 import { classStats } from './stats.service.js';
 import { studentDetail } from './student.service.js';
 
@@ -89,6 +91,48 @@ export const coachStatsRoutes: FastifyPluginAsync = async (app) => {
         recentLimit: pq.data.recentLimit,
       });
       return { data: detail };
+    },
+  );
+
+  // CO8: coach 自助 LLM 调用日志
+  //   只返回 coachId === requireUserId(req) 的记录 · 任何 coach / admin 角色都可访问
+  //   admin 可看自己作为 coach 创建的题（不能跨用户）· 跨用户审计走 admin-llm 后台
+  //   字段：基础诊断信息（不含原文），含 promptHash 用于追溯
+  app.get(
+    '/api/coach/llm-calls',
+    {
+      preHandler: coachGuard,
+      schema: { tags: ['Coach'], summary: '自己最近的 LLM 调用日志', security: [{ bearerAuth: [] as string[] }] },
+    },
+    async (req) => {
+      const userId = requireUserId(req);
+      const q = z
+        .object({ limit: z.coerce.number().int().min(1).max(200).optional() })
+        .safeParse(req.query);
+      if (!q.success) throw BadRequest('查询参数不合法');
+      const items = await prisma.llmCallLog.findMany({
+        where: { coachId: userId },
+        orderBy: { timestamp: 'desc' },
+        take: q.data.limit ?? 50,
+        select: {
+          requestId: true,
+          scenario: true,
+          providerUsed: true,
+          providerTried: true,
+          switched: true,
+          switchReason: true,
+          model: true,
+          inputTokens: true,
+          outputTokens: true,
+          cost: true,
+          latencyMs: true,
+          success: true,
+          errorMessage: true,
+          promptHash: true,
+          timestamp: true,
+        },
+      });
+      return { data: items };
     },
   );
 };
