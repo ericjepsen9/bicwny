@@ -575,8 +575,19 @@ function setupUnverifiedBanner() {
           window.JX.toast.ok(window.JX.sc('已发送 · 请查收邮箱（含注册邮箱垃圾箱）',
                                           '已發送 · 請查收郵箱（含註冊郵箱垃圾箱）'));
         }
-        btn.textContent = window.JX.sc('已发送', '已發送');
-        // 不恢复按钮 · 用户应去查邮箱 · 想再发可刷新页面（速率限制由后端守 1h ≤ 3 次）
+        // HM1: 60s cooldown · 倒计时显示 · 自动恢复可点击 · 防永久禁用且仍受后端 1h ≤ 3 限速
+        var remaining = 60;
+        var tick = function () {
+          if (remaining <= 0) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="sc">重发邮件</span><span class="tc">重發郵件</span>';
+            return;
+          }
+          btn.textContent = window.JX.sc('已发送 (' + remaining + 's)', '已發送 (' + remaining + 's)');
+          remaining -= 1;
+          setTimeout(tick, 1000);
+        };
+        tick();
       })
       .catch(function (err) {
         btn.disabled = false;
