@@ -31,6 +31,9 @@ export interface AuthResult extends TokenPair {
   user: PublicUser;
 }
 
+// AU7: 注销账户后邮箱冷却 · 30 天内不可重注
+const DELETED_EMAIL_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+
 export async function registerUser(
   app: FastifyInstance,
   input: RegisterInput,
@@ -38,6 +41,11 @@ export async function registerUser(
   const email = normalizeEmail(input.email);
   if (await prisma.user.findUnique({ where: { email } })) {
     throw Conflict('邮箱已被占用');
+  }
+  // AU7: 邮箱冷却检查 · 注销 30 天内的邮箱拒绝重注（防冒名）
+  const deleted = await prisma.deletedEmail.findUnique({ where: { email } });
+  if (deleted && Date.now() - deleted.deletedAt.getTime() < DELETED_EMAIL_COOLDOWN_MS) {
+    throw Conflict('该邮箱刚注销不久，请 30 天后重试或使用其他邮箱');
   }
   const passwordHash = await hashPassword(input.password);
   const user = await prisma.user.create({
@@ -179,7 +187,10 @@ export async function deleteAccount(
     }
   }
   // 软删除：保留 FK 关联的答题记录 / SM-2 卡 / 审核日志；
-  // 置空 email 释放 unique 约束，允许同邮箱重新注册
+  // 置空 email 释放 unique 约束，允许同邮箱在 30 天后重新注册
+  // AU7: 邮箱进 DeletedEmail 表 · 注册时检查 · 30 天冷却防冒名
+  // AU7: ClassMember 同步软删 · 不让幽灵用户残留在班级
+  const deletedEmail = user.email;
   await prisma.$transaction([
     prisma.user.update({
       where: { id: userId },
@@ -195,6 +206,19 @@ export async function deleteAccount(
       where: { userId, revokedAt: null },
       data: { revokedAt: new Date() },
     }),
+    prisma.classMember.updateMany({
+      where: { userId, removedAt: null },
+      data: { removedAt: new Date() },
+    }),
+    ...(deletedEmail
+      ? [
+          prisma.deletedEmail.upsert({
+            where: { email: deletedEmail },
+            create: { email: deletedEmail },
+            update: { deletedAt: new Date() },
+          }),
+        ]
+      : []),
   ]);
 }
 

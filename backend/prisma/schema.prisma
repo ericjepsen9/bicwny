@@ -121,6 +121,16 @@ model AuthSession {
 // - expiresAt：通常 30 分钟
 // - usedAt：单次消费；重置成功后同一用户其它未用 token 一并标记，防并发滥用
 // - requestIp：用于审计和简易限流判断
+// AU7: 注销后邮箱冷却 · 30 天内同邮箱无法重注
+//   - deleteAccount 时插入此行 · 注册时 service 层检查
+//   - 不做后台定时清理：cooldownDays 一过自动放行 · 行可留作审计
+model DeletedEmail {
+  email     String   @id
+  deletedAt DateTime @default(now())
+
+  @@index([deletedAt])
+}
+
 model PasswordResetToken {
   id          String    @id @default(cuid())
   userId      String
