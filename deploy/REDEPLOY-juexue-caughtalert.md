@@ -41,6 +41,21 @@ pm2 logs juexue-api --lines 10 --nostream
 
 成功标志：日志最后看到 `Server listening at http://127.0.0.1:3001`。
 
+### ⚠ 一次性迁移：AU3 后兼容老用户（首次跑过本次升级才需要）
+
+R1 修复后 `forgotPassword` 拒绝 `emailVerifiedAt = null` 的邮箱。AU3 之前注册的
+老用户该字段全部为 null · 升级后他们将无法用"忘记密码"重置密码。
+
+升级后跑一次 SQL 把所有现有用户标记为已验证（grandfather）：
+
+```bash
+PGPASSWORD=juexue_dev psql -h localhost -p 5433 -U juexue -d juexue \
+  -c 'UPDATE "User" SET "emailVerifiedAt" = "createdAt" WHERE "emailVerifiedAt" IS NULL;'
+```
+
+输出 `UPDATE N` · N 即升级前的活跃账号数。该 SQL 幂等（再跑无副作用，
+只影响 NULL 的行）· 新注册用户不受影响（需走正常 verify 邮件流程）。
+
 ### 场景 B：项目目录被破坏 / 全新 clone
 
 ```bash
