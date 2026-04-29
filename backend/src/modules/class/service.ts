@@ -317,9 +317,14 @@ async function _removeMemberInTx(
 
 export async function listMembers(classId: string, opts: { limit?: number } = {}) {
   // 默认 200 / 上限 500 · 防大班级（千人）一次拉爆
+  // C8: User.isActive=false（admin 禁用账户）的成员视为不在班级 · 过滤掉
   const take = Math.min(Math.max(opts.limit ?? 200, 1), 500);
   return prisma.classMember.findMany({
-    where: { classId, removedAt: null },
+    where: {
+      classId,
+      removedAt: null,
+      user: { isActive: true },
+    },
     orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
     take,
     include: {
@@ -380,9 +385,10 @@ export async function getClassForMember(classId: string, userId: string) {
   if (!member || member.removedAt !== null) {
     throw Forbidden('您不在该班级中');
   }
-  // 成员数（活跃）· 单独 count 避免 listMembers 加载全量
+  // 成员数（活跃 + 用户未禁用）· 单独 count 避免 listMembers 加载全量
+  // C8: 与 listMembers 口径一致 · 排除已禁用账户
   const memberCount = await prisma.classMember.count({
-    where: { classId, removedAt: null },
+    where: { classId, removedAt: null, user: { isActive: true } },
   });
   return {
     ...cls,
