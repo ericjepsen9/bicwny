@@ -76,12 +76,16 @@ export async function listDueCards(
   // C2: 过滤跨班泄漏 · 学员退班后不应继续看到该班私题
   // - 私题 visibility=class_private 必须 ownerClassId ∈ 用户当前活跃班
   // - rejected 题被 M4 cascade 删 sm2Card · 此处 reviewStatus=approved 是双保险
+  // SM1: 已 mastered 的卡片不再进 due 队列 · 队列噪音过滤
+  // - mastered 仍写 dueDate（未来 6 个月）· 但 listDueCards 不显示
+  // - 答错降级会重新设 status=learning · 自动回归队列
   const classIds = await getUserActiveClassIds(userId);
   return prisma.sm2Card.findMany({
     where: {
       userId,
       ...(courseId ? { courseId } : {}),
       dueDate: { lte: now },
+      status: { not: 'mastered' },
       question: {
         reviewStatus: 'approved',
         OR: [
@@ -114,14 +118,19 @@ export async function getCardStats(
 ): Promise<CardStats> {
   const where = { userId, ...(courseId ? { courseId } : {}) };
 
-  const [byStatus, due, total] = await Promise.all([
+  // SM2: 把 3 个查询合并成 2 个
+  // - groupBy status 一并算出 byStatus + total（求和即 total · 省一次 count）
+  // - due 仍单独 count · 因 Prisma groupBy 不易表达"dueDate ≤ now AND status != mastered"组合
+  // SM1 一致性：due 排除 mastered（与 listDueCards 同口径）
+  const [byStatus, due] = await Promise.all([
     prisma.sm2Card.groupBy({
       by: ['status'],
       where,
       _count: { _all: true },
     }),
-    prisma.sm2Card.count({ where: { ...where, dueDate: { lte: now } } }),
-    prisma.sm2Card.count({ where }),
+    prisma.sm2Card.count({
+      where: { ...where, dueDate: { lte: now }, status: { not: 'mastered' } },
+    }),
   ]);
 
   const counts: Record<Sm2Status, number> = {
@@ -130,7 +139,11 @@ export async function getCardStats(
     review: 0,
     mastered: 0,
   };
-  for (const g of byStatus) counts[g.status] = g._count._all;
+  let total = 0;
+  for (const g of byStatus) {
+    counts[g.status] = g._count._all;
+    total += g._count._all;
+  }
 
   return { total, due, ...counts };
 }
