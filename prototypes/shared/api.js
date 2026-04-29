@@ -141,15 +141,19 @@
   }
 
   function logout() {
-    // 先清本地 token：即使网络失败，本端也已登出
     var rt = getRefreshToken();
-    clearTokens();
-    if (!rt) return Promise.resolve();
+    if (!rt) { clearTokens(); return Promise.resolve(); }
+    // AU10: 先调后端吊销 refresh，成功 / 失败都通过 finally 清本地
+    //   - 之前先清本地再发请求 · 网络失败时 backend session 仍 active 直到 TTL
+    //   - keepalive=true：用户立刻关 tab 时浏览器仍会把请求发出去
+    //   - .catch 静默吞错 · .finally 兜底清 token 防用户卡在'未登出'状态
     return fetch(buildUrl('/api/auth/logout'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: rt }),
-    }).catch(function () { /* 幂等，忽略 */ });
+      keepalive: true,
+    }).catch(function () { /* 网络失败 · backend 等 TTL 自然过期 */ })
+      .finally(clearTokens);
   }
 
   // ── 辅助 util ────────────────────────────────
