@@ -463,14 +463,26 @@ function renderCourseCard(enrollment, overlay) {
       classLine.style.display = '';
     }
   }
-  var overlayObj = overlay || { progressPercent: 0, completedLessonIds: [], totalLessons: 0 };
-  var pct = overlayObj.progressPercent || 0;
-  document.getElementById('course-percent').textContent = pct + '%';
-  document.getElementById('course-progress-fill').style.width = pct + '%';
-  var done = (overlayObj.completedLessonIds || []).length;
-  var total = overlayObj.totalLessons || 0;
-  document.getElementById('course-chapter-tag').textContent =
-    sc('已完成 ', '已完成 ') + done + ' / ' + total + sc(' 课', ' 課');
+  // HM3: overlay 为 null 时（API 失败）不显示误导性 "0/0 · 0%"
+  // M2 fallback：尝试从 overlayCache 读最近的成功响应
+  var cached = (overlay == null && c.id && window.JX.overlayCache)
+    ? window.JX.overlayCache.read(c.id)
+    : null;
+  var effectiveOverlay = overlay || cached;
+  if (!effectiveOverlay) {
+    // 显示降级文案 + 进度条 0% · CTA 仍可点（reading 页内部会再 GET 重试）
+    document.getElementById('course-chapter-tag').textContent = sc('进度数据暂不可用', '進度數據暫不可用');
+    document.getElementById('course-percent').textContent = '—';
+    document.getElementById('course-progress-fill').style.width = '0%';
+  } else {
+    var pct = effectiveOverlay.progressPercent || 0;
+    document.getElementById('course-percent').textContent = pct + '%';
+    document.getElementById('course-progress-fill').style.width = pct + '%';
+    var done = (effectiveOverlay.completedLessonIds || []).length;
+    var total = effectiveOverlay.totalLessons || 0;
+    document.getElementById('course-chapter-tag').textContent =
+      sc('已完成 ', '已完成 ') + done + ' / ' + total + sc(' 课', ' 課');
+  }
   // 「继续阅读」→ scripture-reading（auto-resume 到 currentLessonId）
   // 「查看详情」→ scripture-detail（章节目录）
   var ctaUrl = window.JX.nav.toReading({ slug: c.slug, from: window.JX.nav.FROM.HOME });
