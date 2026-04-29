@@ -9,6 +9,7 @@
 // 不进入此函数。本函数只在"非幂等"或"首次 requestId"下被调用。
 import type { Prisma, PrismaClient, Sm2Card, Sm2Status } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
+import { getUserActiveClassIds } from '../questions/list.service.js';
 import {
   INITIAL_STATE,
   nextReview,
@@ -72,11 +73,24 @@ export async function listDueCards(
   limit = 20,
   now: Date = new Date(),
 ) {
+  // C2: 过滤跨班泄漏 · 学员退班后不应继续看到该班私题
+  // - 私题 visibility=class_private 必须 ownerClassId ∈ 用户当前活跃班
+  // - rejected 题被 M4 cascade 删 sm2Card · 此处 reviewStatus=approved 是双保险
+  const classIds = await getUserActiveClassIds(userId);
   return prisma.sm2Card.findMany({
     where: {
       userId,
       ...(courseId ? { courseId } : {}),
       dueDate: { lte: now },
+      question: {
+        reviewStatus: 'approved',
+        OR: [
+          { visibility: 'public' },
+          ...(classIds.length > 0
+            ? [{ visibility: 'class_private' as const, ownerClassId: { in: classIds } }]
+            : []),
+        ],
+      },
     },
     orderBy: { dueDate: 'asc' },
     take: limit,

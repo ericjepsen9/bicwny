@@ -168,6 +168,16 @@ export async function getQuestionDetailForOwner(
   ]);
   if (!question) throw NotFound('题目已被删除');
 
+  // C2: 班级私题 · 退班后即便有 answer/favorite 旧引子也不再可见
+  // 防止学员退班后通过 /api/my/questions/:id 仍能看到完整题面 + 答案
+  if (question.visibility === 'class_private' && question.ownerClassId) {
+    const member = await prisma.classMember.findUnique({
+      where: { classId_userId: { classId: question.ownerClassId, userId } },
+    });
+    const inClass = !!member && member.removedAt === null;
+    if (!inClass) throw NotFound('题目未关联（请先收藏 / 答题 / 进错题本）');
+  }
+
   return {
     questionId,
     wrongCount: hasMistake ? book.wrongCount : 0,

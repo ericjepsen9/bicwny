@@ -43,6 +43,14 @@ export async function submitAnswer(
   if (question.reviewStatus === 'rejected') {
     throw Conflict('题目已被驳回，无法作答');
   }
+  // C2: 班级私题 · 必须当前在班才能答（否则退班后仍能答 → 跨班泄漏）
+  if (question.visibility === 'class_private' && question.ownerClassId) {
+    const member = await prisma.classMember.findUnique({
+      where: { classId_userId: { classId: question.ownerClassId, userId } },
+    });
+    const inClass = !!member && member.removedAt === null;
+    if (!inClass) throw Forbidden('该题为班级私题，您不在班级中');
+  }
   // M4: 法本归档 → 只读模式 · 拒绝新答题（已答的进度数据保留）
   const course = await prisma.course.findUnique({
     where: { id: question.courseId },
