@@ -426,6 +426,15 @@ export async function archiveClass(
       });
     }
 
+    // CO1: 私题软退役 · class_private + ownerClassId=本班 → visibility='draft'
+    //   学员侧：listLessonQuestions / listDueCards / submitAnswer 都会过滤 draft
+    //   coach 侧：createdByUserId 仍能列出（标"草稿"提示题目已无效）· UserAnswer 历史保留
+    //   可逆：admin 后台若要恢复班级，draft 题可再改回 class_private
+    const draftedCount = await tx.question.updateMany({
+      where: { ownerClassId: id, visibility: 'class_private' },
+      data: { visibility: 'draft' },
+    });
+
     const cls = await tx.class.update({
       where: { id },
       data: { isActive: false, archivedAt: new Date() },
@@ -443,6 +452,7 @@ export async function archiveClass(
             isActive: cls.isActive,
             archivedAt: cls.archivedAt,
             cascadedMembers: activeMembers.length,
+            draftedQuestions: draftedCount.count,
           } as Prisma.InputJsonValue,
         },
       });
