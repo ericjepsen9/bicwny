@@ -85,7 +85,7 @@ export const coachStatsRoutes: FastifyPluginAsync = async (app) => {
       await assertClassActiveForCoach(req, pp.data.id);
       // 二次校验：学员必须属于该班，避免 coach 跨班看人
       await assertMemberOfClass(pp.data.id, pp.data.uid);
-      const detail = await studentDetail(pp.data.uid, {
+      const detail = await studentDetail(pp.data.uid, pp.data.id, {
         recentLimit: pq.data.recentLimit,
       });
       return { data: detail };
