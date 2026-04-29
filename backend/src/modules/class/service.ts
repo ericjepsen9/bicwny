@@ -363,6 +363,35 @@ export async function listUserClasses(
   });
 }
 
+// C4: 任意已登录用户调 GET /api/classes/:id 时的 service
+// 班级不存在 → NotFound (404)
+// 用户非当前活跃成员 → Forbidden (403) · 保留含义清晰
+// 成员可见：基本信息 + 主修法本 + 我的角色 + 成员数（不含成员列表）
+export async function getClassForMember(classId: string, userId: string) {
+  const cls = await prisma.class.findUnique({
+    where: { id: classId },
+    include: CLASS_COURSE_INCLUDE,
+  });
+  if (!cls) throw NotFound('班级不存在');
+  const member = await prisma.classMember.findUnique({
+    where: { classId_userId: { classId, userId } },
+    select: { role: true, removedAt: true, joinedAt: true },
+  });
+  if (!member || member.removedAt !== null) {
+    throw Forbidden('您不在该班级中');
+  }
+  // 成员数（活跃）· 单独 count 避免 listMembers 加载全量
+  const memberCount = await prisma.classMember.count({
+    where: { classId, removedAt: null },
+  });
+  return {
+    ...cls,
+    myRole: member.role,
+    myJoinedAt: member.joinedAt,
+    memberCount,
+  };
+}
+
 export async function archiveClass(
   id: string,
   opts: { actorAdminId?: string } = {},

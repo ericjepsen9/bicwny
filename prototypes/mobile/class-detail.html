@@ -337,18 +337,42 @@ function renderClass(mem) {
   };
 }
 
-window.JX.api.get('/api/my/classes').then(function (list) {
-  if (!list || !list.length) {
+// C4: URL 带 ?classId=X 时优先走 GET /api/classes/:id（含 memberCount + myJoinedAt）
+// 缺省 / 失败时回落到 /api/my/classes 取首条
+var qpClassId = window.JX.util.queryParam('classId') || '';
+function bootByClassId(classId) {
+  return window.JX.api.get('/api/classes/' + encodeURIComponent(classId))
+    .then(function (cls) {
+      // 形状对齐 mem · 把 cls 包成 { class, joinedAt, role }
+      renderClass({
+        class: cls,
+        joinedAt: cls.myJoinedAt,
+        role: cls.myRole,
+      });
+    });
+}
+function bootByList() {
+  return window.JX.api.get('/api/my/classes').then(function (list) {
+    if (!list || !list.length) {
+      showOnly('no-class-block');
+      $('action-wrap').style.display = 'none';
+      return;
+    }
+    renderClass(list[0]);
+  });
+}
+(qpClassId ? bootByClassId(qpClassId) : bootByList()).catch(function (err) {
+  console.warn('[class-detail] 加载失败', err);
+  // 失败回落：classId 路径若 403/404，再尝试 list
+  if (qpClassId) {
+    bootByList().catch(function () {
+      showOnly('no-class-block');
+      $('action-wrap').style.display = 'none';
+    });
+  } else {
     showOnly('no-class-block');
     $('action-wrap').style.display = 'none';
-    return;
   }
-  renderClass(list[0]);
-}).catch(function (err) {
-  // 拉取失败也当作无班级（避免卡死在 loading）
-  console.warn('[class-detail] /api/my/classes 拉取失败', err);
-  showOnly('no-class-block');
-  $('action-wrap').style.display = 'none';
 });
 </script>
 </body>

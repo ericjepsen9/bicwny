@@ -1,6 +1,7 @@
 // 学员加入 / 退出班级路由（任意已登录用户均可调用）
 //   POST /api/classes/join       { joinCode }  加入班级（默认 role=student）
 //   POST /api/classes/:id/leave                退出（软删 removedAt）
+//   GET  /api/classes/:id                       班级详情（仅成员可见 · C4）
 //   GET  /api/my/classes                        我加入的班级列表
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -10,6 +11,7 @@ import { prisma } from '../../lib/prisma.js';
 import {
   addMember,
   findClassByCode,
+  getClassForMember,
   listUserClasses,
   removeMember,
 } from './service.js';
@@ -64,5 +66,15 @@ export const studentClassRoutes: FastifyPluginAsync = async (app) => {
     const userId = requireUserId(req);
     const items = await listUserClasses(userId);
     return { data: items };
+  });
+
+  // C4: 班级详情（仅成员）· 班级不存在 → 404；非成员 → 403
+  app.get('/api/classes/:id', {
+    schema: { tags: TAGS, summary: '班级详情（仅当前活跃成员可见）', security: SEC },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const parsed = idParam.safeParse(req.params);
+    if (!parsed.success) throw BadRequest('路径参数不合法');
+    return { data: await getClassForMember(parsed.data.id, userId) };
   });
 };
