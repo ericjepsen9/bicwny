@@ -175,6 +175,28 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
 
       <!-- 「我的法本」整块已迁移至 courses.html · 用户管理报名 / 退出统一在那 -->
 
+      <!-- AU3: 邮箱未验证 banner · user-ready 后由 JS 显示 -->
+      <div id="unverified-email-banner" class="glass-card" style="display:none;
+           padding:12px 16px;background:var(--gold-pale);border:1px solid var(--gold-light);
+           border-radius:var(--r-lg);">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <svg width="20" height="20" fill="none" stroke="var(--gold-dark)" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="flex-shrink:0;">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+          <div style="flex:1;font:var(--text-caption);color:var(--ink-2);letter-spacing:1px;line-height:1.5;">
+            <span class="sc">邮箱未验证</span><span class="tc">郵箱未驗證</span>
+          </div>
+          <button type="button" id="resend-verify-btn"
+                  style="padding:6px 14px;border-radius:var(--r-pill);border:1px solid var(--gold-dark);
+                         background:var(--gold-dark);color:#FFF;font:var(--text-caption);
+                         font-weight:600;letter-spacing:1px;cursor:pointer;flex-shrink:0;">
+            <span class="sc">重发邮件</span><span class="tc">重發郵件</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Menu -->
       <div class="menu-card glass-card-thick">
         <a href="class-detail.html" class="menu-item" id="menu-class">
@@ -376,9 +398,46 @@ document.getElementById('profile-logout').addEventListener('click', function () 
   window.JX.api.logout().finally(function () { location.replace('auth.html'); });
 });
 
+// AU3: 邮箱未验证 banner · 与 home.html 同口径
+function setupUnverifiedBanner() {
+  var u = window.JX && window.JX.user;
+  if (!u || !u.email) return;
+  var banner = document.getElementById('unverified-email-banner');
+  var btn = document.getElementById('resend-verify-btn');
+  if (!banner || !btn) return;
+  if (u.emailVerifiedAt) {
+    banner.style.display = 'none';
+    return;
+  }
+  banner.style.display = '';
+  if (btn.dataset.bound) return;
+  btn.dataset.bound = '1';
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    btn.textContent = window.JX.sc('发送中…', '發送中…');
+    window.JX.api.post('/api/auth/resend-verify', {})
+      .then(function () {
+        if (window.JX.toast) {
+          window.JX.toast.ok(window.JX.sc('已发送 · 请查收邮箱（含垃圾箱）',
+                                          '已發送 · 請查收郵箱（含垃圾箱）'));
+        }
+        btn.textContent = window.JX.sc('已发送', '已發送');
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="sc">重发邮件</span><span class="tc">重發郵件</span>';
+        var msg = (err && err.message) || '';
+        if (window.JX.toast) {
+          window.JX.toast.error(window.JX.sc('发送失败：', '發送失敗：') + msg);
+        }
+      });
+  });
+}
+
 document.addEventListener('jx:user-ready', boot);
+document.addEventListener('jx:user-ready', setupUnverifiedBanner);
 document.addEventListener('langchange', boot);
-if (window.JX && window.JX.user) boot();
+if (window.JX && window.JX.user) { boot(); setupUnverifiedBanner(); }
 </script>
 </body>
 </html>
