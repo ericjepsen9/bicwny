@@ -42,6 +42,13 @@ export async function chat(
   const scenarioCfg = await loadScenario(scenario);
   const candidates = await loadCandidates(scenarioCfg);
 
+  // CO3: prompt SHA-256 前 16 hex · 审计追溯（不存原文）
+  const promptHash = crypto
+    .createHash('sha256')
+    .update(messages.map((m) => `${m.role}:${m.content}`).join('\n'))
+    .digest('hex')
+    .slice(0, 16);
+
   const tried: string[] = [];
   const skipReasons: string[] = [];
   let lastError: Error | null = null;
@@ -85,6 +92,7 @@ export async function chat(
           switched: tried.length > 1,
           switchReason: joinOrNull(skipReasons),
           success: true,
+          promptHash,
         }),
       ]);
       return resp;
@@ -118,6 +126,7 @@ export async function chat(
     success: false,
     errorMessage: lastError?.message ?? '所有 provider 都不可用',
     latencyMs: Date.now() - startedAt,
+    promptHash,
   });
 
   // 用户/客户端可见的错误体不带 provider 名 / skipReasons —— 防泄漏基础设施配置

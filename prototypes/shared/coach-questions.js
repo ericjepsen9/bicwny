@@ -802,6 +802,10 @@ function renderGenerateForm() {
       '<textarea class="f-area" id="g-passage" rows="10" placeholder="' +
         escapeHtml(sc('粘贴想要让 LLM 参考的法本原文段落，可包含偈颂 + 注释。', '貼上想要讓 LLM 參考的法本原文段落，可包含偈頌 + 註釋。')) +
       '"></textarea>' +
+      '<p class="f-hint" style="color:var(--crimson);">' +
+        escapeHtml(sc('⚠ 内容会发送给 LLM · 请勿粘贴学员姓名、邮箱、手机号等敏感信息',
+                      '⚠ 內容會發送給 LLM · 請勿貼上學員姓名、郵箱、手機號等敏感信息')) +
+      '</p>' +
       '<p class="f-hint">' + escapeHtml(sc('生成耗时约 10-30 秒 · 生成后所有题目进入待审状态', '生成耗時約 10-30 秒 · 生成後所有題目進入待審狀態')) + '</p>' +
     '</div>';
 

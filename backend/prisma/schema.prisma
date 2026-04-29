@@ -613,6 +613,9 @@ model LlmCallLog {
   success      Boolean
   errorCode    String?
   errorMessage String?
+  // CO3: prompt 内容 SHA-256 前 16 hex（约 64 bit 熵）· 不存原文防泄漏，
+  //      但可事后比对'用户报告 X 题质量差，对应哪次生成'
+  promptHash   String?
 
   timestamp DateTime @default(now())
 
@@ -620,6 +623,7 @@ model LlmCallLog {
   @@index([userId, timestamp])
   @@index([providerUsed, timestamp])
   @@index([scenario, timestamp])
+  @@index([promptHash])
 }
 
 // ═══════════════════════════════════════════════════════════════

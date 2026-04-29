@@ -70,6 +70,8 @@ export interface LogArgs {
   success: boolean;
   errorMessage?: string;
   latencyMs?: number;
+  /** CO3: prompt SHA-256 前 16 hex · 审计追溯用 · 不存原文 */
+  promptHash?: string | null;
 }
 
 export async function writeLog(a: LogArgs): Promise<void> {
@@ -90,6 +92,7 @@ export async function writeLog(a: LogArgs): Promise<void> {
       latencyMs: a.resp?.latencyMs ?? a.latencyMs ?? 0,
       success: a.success,
       errorMessage: a.errorMessage ?? null,
+      promptHash: a.promptHash ?? null,
     },
   });
 }
