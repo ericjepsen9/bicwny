@@ -4,7 +4,7 @@
 //   strict（默认）· 先全量校验，再原子事务插入；任一失败整批回滚
 //   partial       · 逐条独立 try/catch，汇总失败原因，成功的照常落库
 import type { Prisma, Question } from '@prisma/client';
-import { BadRequest } from '../../lib/errors.js';
+import { BadRequest, Conflict } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertIsCoachOfClass } from '../class/service.js';
 import { createQuestion, type CreateQuestionInput } from './create.service.js';
@@ -81,6 +81,16 @@ export async function batchCreateQuestions(
     );
     for (const classId of classIds) {
       await assertIsCoachOfClass(createdByUserId, classId);
+    }
+    // C6: 不允许批量给已归档班创建私题
+    if (classIds.size > 0) {
+      const inactiveClasses = await prisma.class.findMany({
+        where: { id: { in: Array.from(classIds) }, isActive: false },
+        select: { id: true },
+      });
+      if (inactiveClasses.length > 0) {
+        throw Conflict('班级已归档，无法创建私题：' + inactiveClasses.map((c) => c.id).join(','));
+      }
     }
   }
 

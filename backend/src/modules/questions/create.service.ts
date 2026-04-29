@@ -4,7 +4,7 @@
 //   public        → 提交平台题库，reviewStatus=pending，等 admin 审核
 // draft 留给 Admin 内部直接管理，不暴露外部入口。
 import type { Prisma, Question, QuestionType, Visibility } from '@prisma/client';
-import { BadRequest } from '../../lib/errors.js';
+import { BadRequest, Conflict } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertIsCoachOfClass } from '../class/service.js';
 
@@ -41,6 +41,14 @@ export async function createQuestion(
     }
     if (createdByRole !== 'admin') {
       await assertIsCoachOfClass(createdByUserId, input.ownerClassId);
+    }
+    // C6: 不允许给已归档 / inactive 班级创建私题（学员侧 C2 检查也会拒答 → 题成孤儿）
+    const cls = await prisma.class.findUnique({
+      where: { id: input.ownerClassId },
+      select: { isActive: true },
+    });
+    if (!cls || !cls.isActive) {
+      throw Conflict('班级已归档，无法创建私题');
     }
   }
 

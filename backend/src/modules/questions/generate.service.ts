@@ -8,7 +8,7 @@
 //   5. 批量落库为 pending public 或 class_private
 // 失败策略：LLM 返回异常 / JSON 解析失败 → 抛 BadRequest 并带 raw 片段，方便调试
 import type { Prisma, Question, QuestionType } from '@prisma/client';
-import { BadRequest, NotFound } from '../../lib/errors.js';
+import { BadRequest, Conflict, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { assertIsCoachOfClass } from '../class/service.js';
 import { chat, type ChatContext } from '../llm/gateway.js';
@@ -63,6 +63,14 @@ export async function generateQuestions(
     if (!input.ownerClassId) throw BadRequest('class_private 必须指定 ownerClassId');
     if (createdByRole !== 'admin') {
       await assertIsCoachOfClass(createdByUserId, input.ownerClassId);
+    }
+    // C6: 不允许给已归档班级 LLM 生成私题
+    const cls = await prisma.class.findUnique({
+      where: { id: input.ownerClassId },
+      select: { isActive: true },
+    });
+    if (!cls || !cls.isActive) {
+      throw Conflict('班级已归档，无法 LLM 生成私题');
     }
   } else if (input.ownerClassId) {
     throw BadRequest('public 题不能带 ownerClassId');
