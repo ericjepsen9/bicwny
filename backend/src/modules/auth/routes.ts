@@ -1,9 +1,13 @@
 // 认证 HTTP 路由
-//   POST /api/auth/register  → 201 { user, accessToken, refreshToken }
-//   POST /api/auth/login     → 200 { user, accessToken, refreshToken }
-//   POST /api/auth/refresh   → 200 { accessToken, refreshToken }
-//   POST /api/auth/logout    → 200 { ok: true }（幂等）
-//   GET  /api/auth/me        → 200 { ...user, 不含 passwordHash }
+//   POST /api/auth/register        → 201 { user, accessToken, refreshToken }
+//   POST /api/auth/login           → 200 { user, accessToken, refreshToken }
+//   POST /api/auth/refresh         → 200 { accessToken, refreshToken }
+//   POST /api/auth/logout          → 200 { ok: true }（幂等）
+//   POST /api/auth/forgot          → 200 · 找回密码（邮件 token）
+//   POST /api/auth/reset           → 200 · 用 forgot token 重置密码
+//   POST /api/auth/verify-email    → 200 · 验证邮箱（AU3 · 公开）
+//   POST /api/auth/resend-verify   → 200 · 重发邮箱验证（AU3 · 需登录 · 速率限制）
+//   GET  /api/auth/me              → 200 { ...user, 不含 passwordHash }
 //
 // /me 依赖 requireUserId：Sprint 1 阶段走 dev fake user；B.5 后走 JWT preHandler。
 import type { FastifyPluginAsync } from 'fastify';
@@ -12,6 +16,7 @@ import { requireUserId } from '../../lib/auth.js';
 import { BadRequest, NotFound } from '../../lib/errors.js';
 import { zBody } from '../../lib/openapi.js';
 import { prisma } from '../../lib/prisma.js';
+import { resendVerification, verifyEmail } from './email-verify.service.js';
 import { forgotPassword, resetPassword } from './password-reset.service.js';
 import {
   changePassword,
@@ -59,6 +64,11 @@ const forgotBody = z.object({
 const resetBody = z.object({
   token: z.string().min(20).max(128),
   newPassword: z.string().min(6).max(128),
+});
+
+// AU3: 邮箱验证 token 校验
+const verifyEmailBody = z.object({
+  token: z.string().min(20).max(128),
 });
 
 const updateMeBody = z
@@ -138,6 +148,30 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     return { data: { ok: true } };
   });
 
+  // AU3: 邮箱验证 · 公开端点 · 凭注册 / resend 下发的 token
+  app.post('/api/auth/verify-email', {
+    schema: { tags: TAGS, summary: '验证邮箱', body: zBody(verifyEmailBody) },
+  }, async (req) => {
+    const parsed = verifyEmailBody.safeParse(req.body);
+    if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
+    await verifyEmail(parsed.data.token);
+    return { data: { ok: true } };
+  });
+
+  // AU3: 重发邮箱验证 · 需登录 · 单用户 1h ≤ 3 次
+  //   响应包含 devToken（仅 dev/test 环境）· prod 永远 undefined
+  app.post('/api/auth/resend-verify', {
+    schema: {
+      tags: TAGS,
+      summary: '重发邮箱验证邮件',
+      security: [{ bearerAuth: [] }],
+    },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const result = await resendVerification(userId);
+    return { data: result };
+  });
+
   app.post('/api/auth/logout', {
     schema: { tags: TAGS, summary: '登出（吊销 refresh）', body: zBody(refreshBody) },
   }, async (req) => {
@@ -159,6 +193,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       select: {
         id: true,
         email: true,
+        emailVerifiedAt: true,
         role: true,
         dharmaName: true,
         avatar: true,
