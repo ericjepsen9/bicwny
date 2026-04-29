@@ -32,8 +32,8 @@ cd /home/ubuntu/projects/juexue
 git pull origin claude/general-session-RTDyG
 cd backend
 pnpm install                           # 有新依赖才装
-pnpm prisma generate
-pnpm prisma db push                    # 有 schema 改动才同步
+pnpm prisma generate                   # schema 有改动必跑
+pnpm prisma db push                    # schema 有改动必跑
 pnpm build
 pm2 restart juexue-api --update-env
 pm2 logs juexue-api --lines 10 --nostream
@@ -41,20 +41,30 @@ pm2 logs juexue-api --lines 10 --nostream
 
 成功标志：日志最后看到 `Server listening at http://127.0.0.1:3001`。
 
-### ⚠ 一次性迁移：AU3 后兼容老用户（首次跑过本次升级才需要）
+### 🔴 如果本次升级横跨 AU3（邮箱验证）· 必跑一次性 SQL
 
-R1 修复后 `forgotPassword` 拒绝 `emailVerifiedAt = null` 的邮箱。AU3 之前注册的
-老用户该字段全部为 null · 升级后他们将无法用"忘记密码"重置密码。
-
-升级后跑一次 SQL 把所有现有用户标记为已验证（grandfather）：
+判断方法：`grep -q emailVerifiedAt backend/prisma/schema.prisma && echo "需要"`
 
 ```bash
 PGPASSWORD=juexue_dev psql -h localhost -p 5433 -U juexue -d juexue \
   -c 'UPDATE "User" SET "emailVerifiedAt" = "createdAt" WHERE "emailVerifiedAt" IS NULL;'
 ```
 
-输出 `UPDATE N` · N 即升级前的活跃账号数。该 SQL 幂等（再跑无副作用，
-只影响 NULL 的行）· 新注册用户不受影响（需走正常 verify 邮件流程）。
+理由：R1 修复后 `forgotPassword` 拒绝 `emailVerifiedAt=null` 的邮箱。
+AU3 之前注册的老用户全部为 null · 不跑该 SQL → 老用户无法'忘记密码'。
+SQL 幂等可重跑 · 仅影响 NULL 行 · 新注册用户走正常 verify 流程不受影响。
+
+### 🟡 如果本次升级横跨 AD5（封面上传）· 确保 uploads 目录存在
+
+```bash
+sudo mkdir -p /home/ubuntu/projects/juexue/uploads/courses
+sudo chown -R ubuntu:ubuntu /home/ubuntu/projects/juexue/uploads
+sudo chmod -R 755 /home/ubuntu/projects/juexue/uploads
+```
+
+cover.service 默认写入 `{项目根}/uploads/courses/<courseId>-<random>.<ext>`。
+nginx 已配置 `/uploads/` location 反代静态文件 · 7 天 cache · 见下方'nginx
+配置基线'章节。需自定义路径时设 `UPLOAD_DIR=/绝对路径` 到 backend/.env。
 
 ### 场景 B：项目目录被破坏 / 全新 clone
 
@@ -103,6 +113,11 @@ ANTHROPIC_API_KEY=
 # 亚洲中转（选填，需要时再填）
 ASIA_RELAY_URL=
 ASIA_RELAY_TOKEN=
+
+# 上传目录（选填，默认 {项目根}/uploads ⇒ /home/ubuntu/projects/juexue/uploads）
+# 仅在需要把 admin 法本封面图存到别的盘位时填绝对路径
+# nginx 已配置 /uploads/ 反代到此目录 · 改路径需同步 nginx root
+UPLOAD_DIR=
 ```
 
 > ⚠️ **`JWT_SECRET` 必须 ≥ 32 字符**，否则 production 模式启动失败。
