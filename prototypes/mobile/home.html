@@ -427,8 +427,9 @@ function renderCourseCard(enrollment, overlay) {
   }
   var c = enrollment.course || {};
   document.getElementById('course-title').textContent = c.title || '—';
-  // 若来自班级 · 把对应班级名显示在标题下方
-  if (enrollment.source === 'class' && enrollment.enrolledViaClassId) {
+  // 若当前被班级关联 · 把对应班级名显示在标题下方
+  // C3: 改为只看 enrolledViaClassId · source 现在表示'本源关系'不再是当前链接标记
+  if (enrollment.enrolledViaClassId) {
     var membersCache = window.__jxMyClasses || [];
     var match = membersCache.find(function (m) {
       return m.class && m.class.id === enrollment.enrolledViaClassId;

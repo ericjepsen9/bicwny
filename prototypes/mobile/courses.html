@@ -241,7 +241,8 @@ function getEnrollment(courseId) {
 function renderCard(c) {
   var enr = getEnrollment(c.id);
   var enrolled = !!enr;
-  var isClassMain = enr && enr.source === 'class';
+  // C3: '班级主修'徽章看是否仍被班级关联（enrolledViaClassId）· source 不再是当前链接标记
+  var isClassMain = enr && !!enr.enrolledViaClassId;
   var title = sc(c.title, c.titleTraditional || c.title);
   var author = sc(c.author || '', c.author || '');
   var emoji = c.coverEmoji || '🪷';

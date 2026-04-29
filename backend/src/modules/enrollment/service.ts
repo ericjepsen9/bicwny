@@ -74,12 +74,14 @@ export async function enroll(
 }
 
 export async function drop(userId: string, courseId: string): Promise<void> {
-  // 班级主修法本不能直接退课，需先退班 · 给清晰错误提示
+  // C3: 用 enrolledViaClassId 判断是否被班级关联
+  // 之前用 source==='class' 阻断 · 但 C3 改为 source 永远是本源关系（self 不会被升级）·
+  // 当前是否被班级关联看 enrolledViaClassId · 非 null 即仍受班级 sticky 链接保护
   const existing = await prisma.userCourseEnrollment.findUnique({
     where: { userId_courseId: { userId, courseId } },
   });
   if (!existing) return; // 没报名直接 no-op，幂等
-  if (existing.source === 'class') {
+  if (existing.enrolledViaClassId) {
     throw Conflict('该法本由班级带来，请先退出班级再退课');
   }
   await prisma.userCourseEnrollment.delete({

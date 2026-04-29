@@ -120,7 +120,12 @@ export async function addMember(
 
     if (opts.linkEnrollment) {
       const courseId = opts.linkEnrollment.courseId;
-      // findUnique + create/update 模式 + P2002 兜底（并发同时 join 同 user 同 course）
+      // C3: 新语义
+      //   source: 用户与法本的'本源关系' · 一旦写入永不变（self / class）
+      //   enrolledViaClassId: 当前是否被某班关联（动态指针）
+      // 自学过的 → 加班只挂 enrolledViaClassId · 不破坏 source='self'
+      // 之前实现把 source 升级为 'class' · 退班无 fallback 时会 delete 整条 enrollment，
+      // 用户失去自学进度访问权 → 违反"自学先于加班"的预期
       const existingEnr = await tx.userCourseEnrollment.findUnique({
         where: { userId_courseId: { userId, courseId } },
       });
@@ -135,28 +140,29 @@ export async function addMember(
             e.code === 'P2002'
           ) {
             // 并发竞争：另一笔事务同 (userId, courseId) 已抢先 create
-            // 退化为 update 路径 · 仅当原 source=self 时升级
+            // 退化为 update 路径 · 只挂 enrolledViaClassId · 保留 source 不变
             const concurrent = await tx.userCourseEnrollment.findUnique({
               where: { userId_courseId: { userId, courseId } },
             });
-            if (concurrent && concurrent.source === 'self') {
+            if (concurrent && !concurrent.enrolledViaClassId) {
               await tx.userCourseEnrollment.update({
                 where: { id: concurrent.id },
-                data: { source: 'class', enrolledViaClassId: classId },
+                data: { enrolledViaClassId: classId },
               });
             }
-            // concurrent 已是 'class' 源 → 保留不动
+            // concurrent 已挂某班 → 保留首班指针不动
           } else {
             throw e;
           }
         }
-      } else if (existingEnr.source === 'self') {
+      } else if (!existingEnr.enrolledViaClassId) {
+        // 自学（或之前已退过班，enrolledViaClassId=null）→ 挂上本班
         await tx.userCourseEnrollment.update({
           where: { id: existingEnr.id },
-          data: { source: 'class', enrolledViaClassId: classId },
+          data: { enrolledViaClassId: classId },
         });
       }
-      // existingEnr.source === 'class' → 保留首班指针不动
+      // existingEnr.enrolledViaClassId 已存在 → 保留首班指针不动
     }
 
     if (opts.actorAdminId) {
@@ -227,12 +233,18 @@ async function _removeMemberInTx(
   });
 
   // 处理通过本班带来的 enrollment（批量化避免 N+1）
-  //   1) 一次拿出本班关联的所有 orphan enrollment
-  //   2) 一次拿出该用户其他活跃班级（含 class.courseId）→ JS 端建 courseId→fallbackClassId map
-  //   3) 按 fallback 分桶 updateMany / deleteMany（每个桶一次往返）
+  //   C3 语义：source 是'本源关系'，永不退化
+  //   1) 一次拿出本班关联的所有 orphan enrollment（含 source 字段判断）
+  //   2) 一次拿出该用户其他活跃班级 → JS 端建 courseId→fallbackClassId map
+  //   3) 按 fallback 分桶 updateMany / 清空 enrolledViaClassId / deleteMany
+  //
+  //   分桶规则：
+  //     有 fallback → 把 enrolledViaClassId 转向另一个班（保留 source 不变）
+  //     无 fallback + source='self' → 仅清空 enrolledViaClassId（保留自学进度，C3 修复）
+  //     无 fallback + source='class' → 删除（本就是班级带来的，无班即清理）
   const orphans = await tx.userCourseEnrollment.findMany({
     where: { userId, enrolledViaClassId: classId },
-    select: { id: true, courseId: true },
+    select: { id: true, courseId: true, source: true },
   });
   if (orphans.length > 0) {
     const otherClasses = await tx.classMember.findMany({
@@ -244,7 +256,6 @@ async function _removeMemberInTx(
       },
       select: { classId: true, class: { select: { courseId: true } } },
     });
-    // 同一 courseId 可能在多个班 · 取第一个作为 fallback（顺序由 PG 决定，对结果语义无影响）
     const fallbackByCourse = new Map<string, string>();
     for (const m of otherClasses) {
       const cid = m.class.courseId;
@@ -252,12 +263,15 @@ async function _removeMemberInTx(
     }
 
     const updateBuckets = new Map<string, string[]>();
-    const deleteIds: string[] = [];
+    const detachIds: string[] = []; // source='self' · 仅清 enrolledViaClassId
+    const deleteIds: string[] = [];  // source='class' · 删除整条
     for (const enr of orphans) {
       const fb = fallbackByCourse.get(enr.courseId);
       if (fb) {
         if (!updateBuckets.has(fb)) updateBuckets.set(fb, []);
         updateBuckets.get(fb)!.push(enr.id);
+      } else if (enr.source === 'self') {
+        detachIds.push(enr.id);
       } else {
         deleteIds.push(enr.id);
       }
@@ -266,6 +280,12 @@ async function _removeMemberInTx(
       await tx.userCourseEnrollment.updateMany({
         where: { id: { in: ids } },
         data: { enrolledViaClassId: fbClassId },
+      });
+    }
+    if (detachIds.length > 0) {
+      await tx.userCourseEnrollment.updateMany({
+        where: { id: { in: detachIds } },
+        data: { enrolledViaClassId: null },
       });
     }
     if (deleteIds.length > 0) {
