@@ -22,31 +22,33 @@ enum UserRole {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String?   @unique
-  passwordHash String? // 未设密码的旧用户允许 null
-  role         UserRole  @default(student)
-  isActive     Boolean   @default(true)
-  lastLoginAt  DateTime?
-  dharmaName   String?
-  avatar       String?
-  timezone     String    @default("Asia/Taipei")
-  locale       String    @default("zh-Hans")
-  hasOnboarded Boolean   @default(false) // 首次登录引导是否完成（加入班级 / 选自由学习）
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  email           String?   @unique
+  emailVerifiedAt DateTime? // AU3: null = 未验证 · 验证成功后 set
+  passwordHash    String? // 未设密码的旧用户允许 null
+  role            UserRole  @default(student)
+  isActive        Boolean   @default(true)
+  lastLoginAt     DateTime?
+  dharmaName      String?
+  avatar          String?
+  timezone        String    @default("Asia/Taipei")
+  locale          String    @default("zh-Hans")
+  hasOnboarded    Boolean   @default(false) // 首次登录引导是否完成（加入班级 / 选自由学习）
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  answers          UserAnswer[]
-  sm2Cards         Sm2Card[]
-  favorites        UserFavorite[]
-  mistakes         UserMistakeBook[]
-  reports          QuestionReport[]
-  enrollments      UserCourseEnrollment[]
-  memberships      ClassMember[]
-  sessions         AuthSession[]
-  createdQuestions Question[]             @relation("CreatedQuestions")
-  resetTokens      PasswordResetToken[]
-  notifications    Notification[]
+  answers           UserAnswer[]
+  sm2Cards          Sm2Card[]
+  favorites         UserFavorite[]
+  mistakes          UserMistakeBook[]
+  reports           QuestionReport[]
+  enrollments       UserCourseEnrollment[]
+  memberships       ClassMember[]
+  sessions          AuthSession[]
+  createdQuestions  Question[]                @relation("CreatedQuestions")
+  resetTokens       PasswordResetToken[]
+  emailVerifyTokens EmailVerificationToken[]
+  notifications     Notification[]
 
   @@index([role])
 }
@@ -139,6 +141,24 @@ model PasswordResetToken {
   usedAt      DateTime?
   requestedAt DateTime  @default(now())
   requestIp   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@index([expiresAt])
+}
+
+// AU3: 邮箱验证 token
+// - 注册成功后 + 用户主动重发时生成 · dev 环境 console 输出原文
+// - 校验：未消费 · 未过期 · 用户仍 isActive=true
+// - 验证成功 → User.emailVerifiedAt = now · 同一用户其它未用 token 一并 usedAt
+model EmailVerificationToken {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  requestedAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
