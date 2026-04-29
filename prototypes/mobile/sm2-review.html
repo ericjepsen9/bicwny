@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="../shared/base.css">
 <link rel="stylesheet" href="../shared/components.css">
 <script src="../shared/lang.js"></script>
+<script src="../shared/return-url.js"></script>
 <script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
@@ -145,7 +146,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
   <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
-    <a class="nav-back" href="home.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
+    <a class="nav-back" id="nav-back" href="home.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
     <span class="nav-title"><span class="sc">间隔复习</span><span class="tc">間隔複習</span></span>
     <span id="progress-text" class="nav-title" style="font-size:.75rem;color:var(--ink-3);font-weight:400;width:auto;">—</span>
   </div>
@@ -432,5 +433,6 @@ document.addEventListener('keydown', function (ev) {
   if (map.hasOwnProperty(ev.key)) submitRating(map[ev.key]);
 });
 </script>
+<script>(function(){var b=document.getElementById("nav-back");if(b&&window.JX&&window.JX.nav&&window.JX.nav.attachHistoryBackFallback)window.JX.nav.attachHistoryBackFallback(b);})();</script>
 </body>
 </html>
