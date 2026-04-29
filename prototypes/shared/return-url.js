@@ -241,6 +241,9 @@
   // 优先 history.back()；只有深链入站（history.length === 1）才退回 href。
   function attachHistoryBackFallback(el) {
     if (!el) return;
+    // R9: dataset 防双重绑定 · auto-attach 与显式调用都安全
+    if (el.dataset.histBackBound === '1') return;
+    el.dataset.histBackBound = '1';
     el.addEventListener('click', function (ev) {
       // history.length > 1 说明本 tab 内有上一页 · 同源默认假设（跨域跳进来的极少）
       if (history.length > 1) {
@@ -251,4 +254,17 @@
     });
   }
   window.JX.nav.attachHistoryBackFallback = attachHistoryBackFallback;
+
+  // R9: 自动给所有 a.nav-back 挂 history.back fallback · 二级页统一行为
+  //   - 与显式 attachHistoryBackFallback 调用兼容（dataset 防双绑）
+  //   - 只覆盖 anchor 元素 · 自定义 button / 非 .nav-back 不动
+  function autoAttachAll() {
+    var els = document.querySelectorAll('a.nav-back');
+    for (var i = 0; i < els.length; i++) attachHistoryBackFallback(els[i]);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoAttachAll);
+  } else {
+    autoAttachAll();
+  }
 })();

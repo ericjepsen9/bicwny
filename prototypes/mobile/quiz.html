@@ -709,6 +709,8 @@ var __quizPending = { patch: null };
   // C1 + B1: 跳转前 await 完成页 PATCH (避免 stale)；之后优先 history.back（多层 from 嵌套不横跳）
   function awaitNavigate(el) {
     if (!el) return;
+    // R9: 标记本元素已自带 history.back 逻辑 · 防 return-url.js auto-attach 重复绑定
+    if (el.dataset) el.dataset.histBackBound = '1';
     el.addEventListener('click', function (ev) {
       var p = __quizPending.patch;
       var href = el.getAttribute('href');
