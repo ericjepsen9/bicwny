@@ -1,0 +1,152 @@
+<!--
+  顶礼本师释迦牟尼佛！
+
+  顶礼文殊智慧勇识！
+
+  顶礼传承大恩上师！
+
+  无上甚深微妙法 百千万劫难遭遇
+  我今见闻得受持 愿解如来真实义
+
+  为度化一切众生，请大家发无上殊胜的菩提心！
+-->
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="sc">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>觉学 · 验证邮箱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/tokens.css">
+<link rel="stylesheet" href="../shared/base.css">
+<link rel="stylesheet" href="../shared/components.css">
+<style>
+body.scene { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: var(--sp-6); }
+.auth-card {
+  width: 100%; max-width: 460px;
+  background: var(--glass-thick); backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
+  box-shadow: 0 24px 60px rgba(43,34,24,.12), 0 4px 16px rgba(43,34,24,.06);
+  padding: var(--sp-8) var(--sp-6) var(--sp-6);
+  text-align: center;
+}
+.brand-icon {
+  width: 56px; height: 56px; border-radius: var(--r-lg);
+  margin: 0 auto var(--sp-3);
+  background: linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 20px rgba(224,120,86,.3);
+}
+.brand-name { font-family: var(--font-serif); font-weight: 700; font-size: 1.375rem; color: var(--ink); letter-spacing: 6px; }
+.state-icon {
+  width: 72px; height: 72px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: var(--sp-5) auto var(--sp-3);
+}
+.state-icon.ok    { background: var(--sage-light);    color: var(--sage-dark); }
+.state-icon.err   { background: rgba(192,57,43,.10);  color: var(--crimson); }
+.state-icon.busy  { background: rgba(43,34,24,.05);   color: var(--ink-3); }
+.state-title { font-family: var(--font-serif); font-weight: 700; font-size: 1.125rem; letter-spacing: 4px; color: var(--ink); margin-bottom: var(--sp-2); }
+.state-desc { font: var(--text-body); color: var(--ink-2); letter-spacing: 1px; line-height: 1.7; max-width: 320px; margin: 0 auto var(--sp-4); }
+.spin { width: 28px; height: 28px; border: 3px solid var(--saffron-light); border-top-color: var(--saffron); border-radius: 50%; animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+<script src="../shared/desktop-mobile.js"></script>
+<script src="../shared/lang.js"></script>
+<script src="../shared/font-size.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/api.js"></script>
+<!-- 不挂 require-auth：验证邮件链接打开时用户可能未登录 -->
+</head>
+<body class="scene">
+
+<button class="lang-toggle" onclick="toggleLang()">繁</button>
+
+<div class="auth-card">
+  <div class="brand-icon">
+    <svg width="26" height="26" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+    </svg>
+  </div>
+  <div class="brand-name"><span class="sc">觉　学</span><span class="tc">覺　學</span></div>
+
+  <!-- 加载态 -->
+  <div id="block-loading">
+    <div class="state-icon busy"><div class="spin"></div></div>
+    <p class="state-title"><span class="sc">正在验证…</span><span class="tc">正在驗證…</span></p>
+  </div>
+
+  <!-- 成功态 -->
+  <div id="block-ok" style="display:none;">
+    <div class="state-icon ok">
+      <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+    <p class="state-title"><span class="sc">邮箱已验证</span><span class="tc">郵箱已驗證</span></p>
+    <p class="state-desc">
+      <span class="sc">感谢确认。您可以继续使用觉学全部功能。</span>
+      <span class="tc">感謝確認。您可以繼續使用覺學全部功能。</span>
+    </p>
+    <a id="ok-cta" href="auth.html" class="btn btn-primary btn-pill" style="padding:8px 28px;">
+      <span class="sc">前往后台</span><span class="tc">前往後台</span>
+    </a>
+  </div>
+
+  <!-- 错误态 -->
+  <div id="block-err" style="display:none;">
+    <div class="state-icon err">
+      <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </div>
+    <p class="state-title"><span class="sc">链接已失效</span><span class="tc">連結已失效</span></p>
+    <p class="state-desc">
+      <span class="sc">验证链接无效或已过期。登录后可在我的页重新发送验证邮件。</span>
+      <span class="tc">驗證連結無效或已過期。登錄後可在我的頁重新發送驗證郵件。</span>
+    </p>
+    <a href="auth.html" class="btn btn-primary btn-pill" style="padding:8px 28px;">
+      <span class="sc">去登录</span><span class="tc">去登入</span>
+    </a>
+  </div>
+</div>
+
+<script>
+var sc = window.JX.sc;
+
+function show(id) {
+  ['block-loading', 'block-ok', 'block-err'].forEach(function (b) {
+    var el = document.getElementById(b);
+    if (el) el.style.display = (b === id) ? '' : 'none';
+  });
+}
+
+function getToken() {
+  var m = location.search.match(/[?&]token=([^&]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+var token = getToken();
+if (!token || token.length < 20) {
+  show('block-err');
+} else {
+  window.JX.api.post('/api/auth/verify-email', { token: token }, { noAuth: true })
+    .then(function () { show('block-ok'); })
+    .catch(function () { show('block-err'); });
+}
+
+// 已登录 admin/coach → 跳对应主页 · 未登录 → auth.html
+(function () {
+  var cta = document.getElementById('ok-cta');
+  if (!cta || !window.JX.api.isAuthed()) return;
+  // 简单地跳 auth.html · auth.html 内自检 role 后路由到 admin / coach
+  cta.setAttribute('href', 'auth.html');
+})();
+</script>
+</body>
+</html>
