@@ -779,6 +779,12 @@ https://www.buli.page/zh-hans/view/lesson/def456/text/
   <form class="modal modal-wide" id="le-form" novalidate>
     <div class="modal-head">
       <span class="modal-title" id="le-modal-title"><span class="sc">课时</span><span class="tc">課時</span></span>
+      <a id="le-add-question" href="#" target="_blank" rel="noopener"
+         style="display:none;margin-left:auto;padding:6px 14px;border-radius:var(--r-pill);
+                background:var(--saffron);color:#FFF;font:var(--text-caption);
+                font-weight:600;letter-spacing:1.5px;text-decoration:none;font-size:.75rem;">
+        + <span class="sc">添加新题</span><span class="tc">添加新題</span>
+      </a>
     </div>
     <div class="modal-body">
       <div class="dr-err" id="le-err"></div>
@@ -1316,6 +1322,9 @@ function openLessonModal(mode, chapterId, lesson) {
   leErr.textContent = '';
   leForm.dataset.mode = mode;
 
+  // '+ 添加新题'按钮 · 仅 edit 模式（已有 lessonId）显示
+  var addQ = document.getElementById('le-add-question');
+
   if (mode === 'new') {
     leForm.dataset.chapterId = chapterId;
     leForm.dataset.lessonId = '';
@@ -1325,6 +1334,7 @@ function openLessonModal(mode, chapterId, lesson) {
     document.getElementById('le-titleTC').value = '';
     document.getElementById('le-reference').value = '';
     document.getElementById('le-summary').value = '';
+    if (addQ) addQ.style.display = 'none';
   } else {
     leForm.dataset.chapterId = '';
     leForm.dataset.lessonId = lesson.id;
@@ -1334,6 +1344,23 @@ function openLessonModal(mode, chapterId, lesson) {
     document.getElementById('le-titleTC').value = lesson.titleTraditional || '';
     document.getElementById('le-reference').value = lesson.referenceText || '';
     document.getElementById('le-summary').value = lesson.teachingSummary || '';
+    // 反查 lesson 所在 chapter（state.currentTree.chapters[].lessons[]）
+    var chId = '';
+    if (state.currentTree && state.currentTree.chapters) {
+      for (var i = 0; i < state.currentTree.chapters.length; i++) {
+        var ch = state.currentTree.chapters[i];
+        if ((ch.lessons || []).some(function (l) { return l.id === lesson.id; })) { chId = ch.id; break; }
+      }
+    }
+    if (addQ && state.currentId && chId) {
+      addQ.href = 'coach-questions.html?autoNew=1' +
+        '&courseId=' + encodeURIComponent(state.currentId) +
+        '&chapterId=' + encodeURIComponent(chId) +
+        '&lessonId=' + encodeURIComponent(lesson.id);
+      addQ.style.display = '';
+    } else if (addQ) {
+      addQ.style.display = 'none';
+    }
   }
   leBackdrop.classList.add('open');
   setTimeout(function () { document.getElementById('le-title').focus(); }, 50);

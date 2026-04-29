@@ -341,7 +341,31 @@ function renderLesson(le) {
   if (!sec) return;
   var ref = le.referenceText || '';
   var ts  = le.teachingSummary || '';
-  var html = '<h4>' + escapeHtml(le.title) + '</h4>';
+
+  // 找该 lesson 归属的 chapter（state.currentTree 里查）· 用于"+ 加题"快捷链接
+  var courseId = state.currentTree && state.currentTree.id;
+  var chapter = null;
+  if (state.currentTree && state.currentTree.chapters) {
+    for (var i = 0; i < state.currentTree.chapters.length; i++) {
+      var ch = state.currentTree.chapters[i];
+      if ((ch.lessons || []).some(function (l) { return l.id === le.id; })) { chapter = ch; break; }
+    }
+  }
+  var addQHref = (courseId && chapter)
+    ? 'coach-questions.html?autoNew=1&courseId=' + encodeURIComponent(courseId) +
+      '&chapterId=' + encodeURIComponent(chapter.id) +
+      '&lessonId=' + encodeURIComponent(le.id)
+    : '';
+
+  var html =
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);margin-bottom:var(--sp-3);">' +
+      '<h4 style="margin:0;">' + escapeHtml(le.title) + '</h4>' +
+      (addQHref
+        ? '<a href="' + addQHref + '" class="btn btn-primary btn-pill" ' +
+          'style="padding:6px 14px;font-size:.75rem;letter-spacing:1.5px;text-decoration:none;flex-shrink:0;">' +
+          '+ <span class="sc">添加新题</span><span class="tc">添加新題</span></a>'
+        : '') +
+    '</div>';
   if (ref) {
     html += '<div style="font:var(--text-caption);color:var(--ink-3);letter-spacing:1.5px;margin-bottom:6px;">' +
       sc('原文', '原文') + '</div>' +

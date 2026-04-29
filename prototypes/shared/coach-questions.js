@@ -106,7 +106,10 @@ function showErr(msg) {
 function boot() {
   // 课程列表（供新建表单复用）
   window.JX.api.get('/api/courses')
-    .then(function (list) { courseList = Array.isArray(list) ? list : []; })
+    .then(function (list) {
+      courseList = Array.isArray(list) ? list : [];
+      autoPrefillFromUrl(); // URL 带 ?autoNew=1&courseId=&chapterId=&lessonId= 时自动开抽屉预填
+    })
     .catch(function () { courseList = []; });
 
   // 我的班级（供 class_private 选项预拉，可能 admin 没班级则空）
@@ -122,6 +125,45 @@ function boot() {
     .catch(function (err) {
       showErr(sc('加载失败：', '加載失敗：') + (err.message || err));
     });
+}
+
+// 从 URL 参数自动开"新建题目"抽屉并预填法本/章/课时
+//   入口约定：?autoNew=1&courseId=X&chapterId=Y&lessonId=Z
+//   用于 coach-courses 等页面"+ 添加新题"快捷按钮
+function autoPrefillFromUrl() {
+  var qp = window.JX.util.queryParam;
+  if (qp('autoNew') !== '1') return;
+  var courseId = qp('courseId');
+  var chapterId = qp('chapterId');
+  var lessonId = qp('lessonId');
+  if (!courseId || !chapterId || !lessonId) return;
+  var c = courseList.find(function (x) { return x.id === courseId; });
+  if (!c) return; // courseId 不存在 / 不在 published list
+
+  openCreateDrawer();
+  // 等 renderCreateForm DOM 就位后填充级联下拉
+  setTimeout(function () {
+    var fCourse = document.getElementById('f-course');
+    var fChap = document.getElementById('f-chapter');
+    var fLess = document.getElementById('f-lesson');
+    if (!fCourse) return;
+    fCourse.value = c.slug;
+    createForm.courseSlug = c.slug;
+    loadCourseDetail(c.slug).then(function (d) {
+      createForm.courseId = d.id;
+      setSelectOptions(fChap, d.chapters || [], 'id', function (ch) { return ch.title; }, sc('选择章', '選擇章'));
+      fChap.disabled = false;
+      fChap.value = chapterId;
+      createForm.chapterId = chapterId;
+      var ch = (d.chapters || []).find(function (x) { return x.id === chapterId; });
+      if (!ch) return;
+      setSelectOptions(fLess, ch.lessons || [], 'id', function (l) { return l.title; }, sc('选择课时', '選擇課時'));
+      fLess.disabled = false;
+      fLess.value = lessonId;
+      createForm.lessonId = lessonId;
+      renderRefPreview(c.slug, lessonId); // E1: 显示原文预览
+    });
+  }, 0);
 }
 
 // ── 详情抽屉 (3b) ────────────────────────────────
