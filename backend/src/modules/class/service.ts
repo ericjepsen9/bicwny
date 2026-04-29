@@ -202,86 +202,97 @@ export async function removeMember(
   //   → 本事务读到 stale，错把 enrollment 删了或转向已不存在的班
   //   SERIALIZABLE 下 PG 检测到读写依赖会让一方 abort 重试 → 不一致变可恢复错误
   await prisma.$transaction(async (tx) => {
-    const before = await tx.classMember.findUnique({
-      where: { classId_userId: { classId, userId } },
-    });
-
-    // 软删 ClassMember（保留 join 历史）
-    await tx.classMember.updateMany({
-      where: { classId, userId, removedAt: null },
-      data: { removedAt: new Date() },
-    });
-
-    // 处理通过本班带来的 enrollment（批量化避免 N+1）
-    //   1) 一次拿出本班关联的所有 orphan enrollment
-    //   2) 一次拿出该用户其他活跃班级（含 class.courseId）→ JS 端建 courseId→fallbackClassId map
-    //   3) 按 fallback 分桶 updateMany / deleteMany（每个桶一次往返）
-    const orphans = await tx.userCourseEnrollment.findMany({
-      where: { userId, enrolledViaClassId: classId },
-      select: { id: true, courseId: true },
-    });
-    if (orphans.length > 0) {
-      const otherClasses = await tx.classMember.findMany({
-        where: {
-          userId,
-          removedAt: null,
-          classId: { not: classId },
-          class: { isActive: true },
-        },
-        select: { classId: true, class: { select: { courseId: true } } },
-      });
-      // 同一 courseId 可能在多个班 · 取第一个作为 fallback（顺序由 PG 决定，对结果语义无影响）
-      const fallbackByCourse = new Map<string, string>();
-      for (const m of otherClasses) {
-        const cid = m.class.courseId;
-        if (!fallbackByCourse.has(cid)) fallbackByCourse.set(cid, m.classId);
-      }
-
-      const updateBuckets = new Map<string, string[]>();
-      const deleteIds: string[] = [];
-      for (const enr of orphans) {
-        const fb = fallbackByCourse.get(enr.courseId);
-        if (fb) {
-          if (!updateBuckets.has(fb)) updateBuckets.set(fb, []);
-          updateBuckets.get(fb)!.push(enr.id);
-        } else {
-          deleteIds.push(enr.id);
-        }
-      }
-      for (const [fbClassId, ids] of updateBuckets) {
-        await tx.userCourseEnrollment.updateMany({
-          where: { id: { in: ids } },
-          data: { enrolledViaClassId: fbClassId },
-        });
-      }
-      if (deleteIds.length > 0) {
-        await tx.userCourseEnrollment.deleteMany({
-          where: { id: { in: deleteIds } },
-        });
-      }
-    }
-
-    if (opts.actorAdminId) {
-      await tx.auditLog.create({
-        data: {
-          adminId: opts.actorAdminId,
-          action: 'class.member.remove',
-          targetType: 'classMember',
-          targetId: before?.id ?? null,
-          before: before
-            ? ({
-                classId,
-                userId,
-                role: before.role,
-                wasActive: before.removedAt === null,
-              } as Prisma.InputJsonValue)
-            : Prisma.DbNull,
-        },
-      });
-    }
+    await _removeMemberInTx(tx, classId, userId, opts);
   }, {
     isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
   });
+}
+
+// C1: tx-aware 核心 · removeMember / archiveClass 共用
+// archiveClass 走批量级联时传 skipAudit=true 避免每个成员都写 audit（已有 class.archive 总账）
+async function _removeMemberInTx(
+  tx: Prisma.TransactionClient,
+  classId: string,
+  userId: string,
+  opts: { actorAdminId?: string; skipAudit?: boolean } = {},
+): Promise<void> {
+  const before = await tx.classMember.findUnique({
+    where: { classId_userId: { classId, userId } },
+  });
+
+  // 软删 ClassMember（保留 join 历史）
+  await tx.classMember.updateMany({
+    where: { classId, userId, removedAt: null },
+    data: { removedAt: new Date() },
+  });
+
+  // 处理通过本班带来的 enrollment（批量化避免 N+1）
+  //   1) 一次拿出本班关联的所有 orphan enrollment
+  //   2) 一次拿出该用户其他活跃班级（含 class.courseId）→ JS 端建 courseId→fallbackClassId map
+  //   3) 按 fallback 分桶 updateMany / deleteMany（每个桶一次往返）
+  const orphans = await tx.userCourseEnrollment.findMany({
+    where: { userId, enrolledViaClassId: classId },
+    select: { id: true, courseId: true },
+  });
+  if (orphans.length > 0) {
+    const otherClasses = await tx.classMember.findMany({
+      where: {
+        userId,
+        removedAt: null,
+        classId: { not: classId },
+        class: { isActive: true },
+      },
+      select: { classId: true, class: { select: { courseId: true } } },
+    });
+    // 同一 courseId 可能在多个班 · 取第一个作为 fallback（顺序由 PG 决定，对结果语义无影响）
+    const fallbackByCourse = new Map<string, string>();
+    for (const m of otherClasses) {
+      const cid = m.class.courseId;
+      if (!fallbackByCourse.has(cid)) fallbackByCourse.set(cid, m.classId);
+    }
+
+    const updateBuckets = new Map<string, string[]>();
+    const deleteIds: string[] = [];
+    for (const enr of orphans) {
+      const fb = fallbackByCourse.get(enr.courseId);
+      if (fb) {
+        if (!updateBuckets.has(fb)) updateBuckets.set(fb, []);
+        updateBuckets.get(fb)!.push(enr.id);
+      } else {
+        deleteIds.push(enr.id);
+      }
+    }
+    for (const [fbClassId, ids] of updateBuckets) {
+      await tx.userCourseEnrollment.updateMany({
+        where: { id: { in: ids } },
+        data: { enrolledViaClassId: fbClassId },
+      });
+    }
+    if (deleteIds.length > 0) {
+      await tx.userCourseEnrollment.deleteMany({
+        where: { id: { in: deleteIds } },
+      });
+    }
+  }
+
+  if (opts.actorAdminId && !opts.skipAudit) {
+    await tx.auditLog.create({
+      data: {
+        adminId: opts.actorAdminId,
+        action: 'class.member.remove',
+        targetType: 'classMember',
+        targetId: before?.id ?? null,
+        before: before
+          ? ({
+              classId,
+              userId,
+              role: before.role,
+              wasActive: before.removedAt === null,
+            } as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+      },
+    });
+  }
 }
 
 export async function listMembers(classId: string, opts: { limit?: number } = {}) {
@@ -336,11 +347,30 @@ export async function archiveClass(
   id: string,
   opts: { actorAdminId?: string } = {},
 ): Promise<Class> {
+  // C1: 班级解散需级联清理成员的 source='class' enrollment
+  //   - 否则学员退出后 enrollment 仍指向已归档班 · listMyEnrollments 显示孤立项
+  //   - 解决：复用 removeMember 的 fallback / delete 语义，对所有 active 成员逐个处理
+  //   - 单次 tx + SERIALIZABLE：与 removeMember 一致的并发保证
+  //   - skipAudit=true：避免每成员一条 audit · 已有 class.archive 总账记录解散事件
   return prisma.$transaction(async (tx) => {
     const before = await tx.class.findUnique({
       where: { id },
       select: { isActive: true, archivedAt: true, name: true },
     });
+
+    // 先级联处理所有 active 成员（fallback 查询要求本班 isActive=true 不影响：
+    // _removeMemberInTx 排除当前 classId，本班是否 active 与 fallback 无关）
+    const activeMembers = await tx.classMember.findMany({
+      where: { classId: id, removedAt: null },
+      select: { userId: true },
+    });
+    for (const m of activeMembers) {
+      await _removeMemberInTx(tx, id, m.userId, {
+        actorAdminId: opts.actorAdminId,
+        skipAudit: true,
+      });
+    }
+
     const cls = await tx.class.update({
       where: { id },
       data: { isActive: false, archivedAt: new Date() },
@@ -357,11 +387,14 @@ export async function archiveClass(
           after: {
             isActive: cls.isActive,
             archivedAt: cls.archivedAt,
+            cascadedMembers: activeMembers.length,
           } as Prisma.InputJsonValue,
         },
       });
     }
     return cls;
+  }, {
+    isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
   });
 }
 

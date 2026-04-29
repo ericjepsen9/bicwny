@@ -186,6 +186,18 @@ export async function deleteCourse(adminId: string, id: string) {
     throw BadRequest('法本已归档；如需彻底清理请联系 DBA');
   }
 
+  // C1: 不允许在仍有 active 班级以本法本为主修时归档
+  //   否则班级里学员的 enrollment 仍指向已归档 course → 学员侧 reading 也会卡
+  //   admin 应先解散这些班级（archiveClass 已联动清 enrollment）再归档法本
+  const activeClassCount = await prisma.class.count({
+    where: { courseId: id, isActive: true },
+  });
+  if (activeClassCount > 0) {
+    throw Conflict(
+      `仍有 ${activeClassCount} 个活跃班级以本法本为主修，请先解散这些班级再归档`,
+    );
+  }
+
   await prisma.$transaction(async (tx) => {
     await tx.course.update({
       where: { id },
