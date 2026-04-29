@@ -4,6 +4,7 @@ import type { UserRole } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { BadRequest, Conflict, Forbidden, Unauthorized } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { createVerificationToken } from './email-verify.service.js';
 import { hashPassword, verifyPassword, verifyPasswordTimingSafe } from './hash.js';
 import {
   issuePair,
@@ -57,6 +58,8 @@ export async function registerUser(
       lastLoginAt: new Date(),
     },
   });
+  // AU3: 注册成功后异步生成邮箱验证 token · dev console 输出 · 失败不阻塞注册
+  createVerificationToken(user.id).catch(function () { /* 静默 */ });
   const pair = await issuePair(app, user, input);
   return { user: stripPassword(user), ...pair };
 }
