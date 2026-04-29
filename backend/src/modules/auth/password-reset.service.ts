@@ -20,6 +20,10 @@ import { normalizeEmail } from './service.helpers.js';
 
 const TOKEN_TTL_MIN = 30;
 const TOKEN_BYTES = 32; // 256 位熵
+// AU6: 单用户 1 小时内最多生成 3 条 reset token · 防 DOS 受害邮箱
+//   全局速率限制（10/min）已在 routes 层 · 此处补单 user 维度
+const PER_USER_WINDOW_MS = 60 * 60 * 1000;
+const PER_USER_LIMIT = 3;
 
 function sha256(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
@@ -47,6 +51,20 @@ export async function forgotPassword(
   if (!user || !user.isActive || !user.passwordHash) {
     // 抹平 CPU 时差：仍跑一次 token 生成 + sha256，仅不写库
     // DB 写时差残留 ~10-30ms 已知小窗口，由 rate-limit 兜底（III.3）
+    const dummy = generateToken();
+    sha256(dummy);
+    return {};
+  }
+
+  // AU6: 单用户最近 1 小时已发 ≥3 条 → 静默成功不再发
+  //   同样抹平 CPU 时差 · 攻击者从响应时延察觉不到差异
+  const recentCount = await prisma.passwordResetToken.count({
+    where: {
+      userId: user.id,
+      requestedAt: { gt: new Date(Date.now() - PER_USER_WINDOW_MS) },
+    },
+  });
+  if (recentCount >= PER_USER_LIMIT) {
     const dummy = generateToken();
     sha256(dummy);
     return {};
