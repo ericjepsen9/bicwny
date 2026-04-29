@@ -28,6 +28,7 @@ const TOKEN = process.env.RELAY_TOKEN;
 const ALLOWED_HOSTS = (process.env.ALLOWED_HOSTS || '')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 const RATE_PER_SEC = parseFloat(process.env.RATE_LIMIT_PER_SECOND || '1');
+const BURST_SIZE = parseInt(process.env.RATE_LIMIT_BURST || '3', 10);
 const FETCH_TIMEOUT_MS = parseInt(process.env.FETCH_TIMEOUT_MS || '15000', 10);
 const MAX_HTML_BYTES = parseInt(process.env.MAX_HTML_BYTES || String(5 * 1024 * 1024), 10);
 const MAX_REDIRECTS = 5;
@@ -43,13 +44,19 @@ if (ALLOWED_HOSTS.length === 0) {
   process.exit(1);
 }
 
-// ── 全局速率限制（token bucket，简化版）──
-let bucket = 1;
-const refillIntervalMs = 1000 / RATE_PER_SEC;
-setInterval(() => { if (bucket < 1) bucket = 1; }, refillIntervalMs).unref();
-
+// ── 全局速率限制（token bucket · 真实时基算法）── AD6
+// 之前简化版：bucket cap=1 + setInterval 重置 · 突发流量必被一一卡住
+// 现在：tokens 上限 BURST_SIZE · 按时间 elapsed 自然填充 · 闲置时积累、忙时消耗
+//   - RATE_PER_SEC=1, BURST_SIZE=3 默认配置：稳态 1 req/s · 突发可吃 3
+//   - admin 手点重试 1 次零成本 · 但持续刷 limit 仍生效
+let tokens = BURST_SIZE;
+let lastRefillAt = Date.now();
 function takeToken() {
-  if (bucket >= 1) { bucket -= 1; return true; }
+  const now = Date.now();
+  const elapsedSec = (now - lastRefillAt) / 1000;
+  tokens = Math.min(BURST_SIZE, tokens + elapsedSec * RATE_PER_SEC);
+  lastRefillAt = now;
+  if (tokens >= 1) { tokens -= 1; return true; }
   return false;
 }
 
@@ -71,6 +78,9 @@ function isPrivateIp(ip) {
   return false;
 }
 
+// 白名单语义：'mingguang.im' 命中精确域名 + 任意子域 (cdn.mingguang.im 等)
+// 攻击场景如 'mingguang.im.attacker.com' 不命中（因 endsWith 检查带前导点 '.mingguang.im'）
+// 若需精确匹配（不允许子域），改 ALLOWED_HOSTS 加 '!' 前缀或单写域名 + 调整此处逻辑
 function isHostAllowed(host) {
   const h = host.toLowerCase();
   return ALLOWED_HOSTS.some(d => h === d || h.endsWith('.' + d));
@@ -206,7 +216,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`asia-relay listening on ${HOST}:${PORT} · allowed=${ALLOWED_HOSTS.join(',')} · rate=${RATE_PER_SEC}/s`);
+  console.log(`asia-relay listening on ${HOST}:${PORT} · allowed=${ALLOWED_HOSTS.join(',')} · rate=${RATE_PER_SEC}/s · burst=${BURST_SIZE}`);
 });
 
 // 优雅退出
