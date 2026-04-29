@@ -46,9 +46,16 @@ export async function forgotPassword(
   const normalized = normalizeEmail(email);
   const user = await prisma.user.findUnique({ where: { email: normalized } });
 
-  // 静默成功：无论邮箱是否存在、是否被停用、是否无 passwordHash，
+  // 静默成功：无论邮箱是否存在、是否被停用、是否无 passwordHash、是否未验证，
   // 响应体都相同 —— 防邮箱枚举 & 防通过错误消息爆破账户状态
-  if (!user || !user.isActive || !user.passwordHash) {
+  // R1: 未验证邮箱不能用于密码重置 · 验证邮箱是该邮箱真实可达的证明
+  // 否则注册邮箱拼错的攻击者可以用 forgot 邮件被代收 · 实质拿到他人账户
+  if (
+    !user ||
+    !user.isActive ||
+    !user.passwordHash ||
+    !user.emailVerifiedAt
+  ) {
     // 抹平 CPU 时差：仍跑一次 token 生成 + sha256，仅不写库
     // DB 写时差残留 ~10-30ms 已知小窗口，由 rate-limit 兜底（III.3）
     const dummy = generateToken();
