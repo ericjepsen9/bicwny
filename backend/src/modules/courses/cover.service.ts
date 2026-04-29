@@ -81,12 +81,17 @@ export async function uploadCourseCover(
 
   const url = `/uploads/courses/${fname}`;
 
-  // 删旧文件（best-effort · 不阻塞主流程）
-  if (course.coverImageUrl) {
-    deleteCoverFile(course.coverImageUrl).catch(() => undefined);
-  }
-
+  // AD5: 用 tx + 行锁原子读 → update · 拿事务内的 coverImageUrl 作为'要删的旧文件'
+  // 之前 race：admin1 / admin2 并发 upload，各自先读 (line 69) 拿到同一份 OLD 值，
+  // 然后各自 update。最后一笔 update 赢，但前一笔 update 写的文件 Y 没人删，落盘留孤儿。
+  // 修复：tx 内 SELECT FOR UPDATE 读最新 coverImageUrl，然后 update。
+  // 拿到的 prev 是真正被本次替换的文件 · 只删它 · 杜绝跨事务误删 / 漏删。
+  let prevCoverUrl: string | null = null;
   await prisma.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<{ coverImageUrl: string | null }[]>`
+      SELECT "coverImageUrl" FROM "Course" WHERE id = ${courseId} FOR UPDATE
+    `;
+    prevCoverUrl = locked[0]?.coverImageUrl ?? null;
     await tx.course.update({
       where: { id: courseId },
       data: { coverImageUrl: url },
@@ -97,11 +102,16 @@ export async function uploadCourseCover(
         action: 'course.cover.upload',
         targetType: 'course',
         targetId: courseId,
-        before: { coverImageUrl: course.coverImageUrl } as Prisma.InputJsonValue,
+        before: { coverImageUrl: prevCoverUrl } as Prisma.InputJsonValue,
         after: { coverImageUrl: url } as Prisma.InputJsonValue,
       },
     });
   });
+
+  // 删旧文件（best-effort · DB 已成功就行 · prev 是事务内拿的真正被替换的值）
+  if (prevCoverUrl) {
+    deleteCoverFile(prevCoverUrl).catch(() => undefined);
+  }
 
   return { coverImageUrl: url };
 }
