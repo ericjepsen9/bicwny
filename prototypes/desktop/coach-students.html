@@ -404,10 +404,24 @@ function boot() {
         escapeHtml(sc('您还不是任何班级的辅导员。联系管理员分配班级后再来。', '您還不是任何班級的輔導員。聯繫管理員分配班級後再來。')) + '</div>';
       return;
     }
-    // 从 URL 取 classId，没有则用第一班
+    // CO7: 从 URL 取 classId · 必须命中 coach 的班级列表才用
+    //   - URL classId 命中：直接用
+    //   - URL classId 不存在 / 不属于本 coach：toast 提示 + 回落第一班
+    //   - 无 classId：默认第一班，写回 URL 让用户能复制 / 收藏链接
     var qsCid = (location.search.match(/[?&]classId=([^&]+)/) || [])[1];
-    var found = qsCid && state.classes.find(function (m) { return m.class && m.class.id === decodeURIComponent(qsCid); });
+    if (qsCid) qsCid = decodeURIComponent(qsCid);
+    var found = qsCid && state.classes.find(function (m) { return m.class && m.class.id === qsCid; });
+    if (qsCid && !found && window.JX.toast) {
+      window.JX.toast.warn(sc('指定班级不存在或您无权访问，已切到第一班',
+                              '指定班級不存在或您無權訪問，已切到第一班'));
+    }
     state.currentCid = found ? found.class.id : state.classes[0].class.id;
+    // 同步 URL classId · 多班 coach 切换 chip 时 history.replaceState 会再次更新
+    if (!qsCid || !found) {
+      var url = new URL(location.href);
+      url.searchParams.set('classId', state.currentCid);
+      history.replaceState(null, '', url.toString());
+    }
 
     renderClassChips();
     updateTitle();
