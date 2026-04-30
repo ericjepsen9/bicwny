@@ -745,7 +745,80 @@ JX.a11y.trapFocus(el);                            // 返回 untrap()
 - contrast 实测（`@media (prefers-contrast: more)` 增强方案）
 - axe-core / pa11y CI 集成（playwright + @axe-core/playwright）
 
-## 十五、还没上线的功能（v1.0 范围外）
+## 十五、CSP / SRI / 安全响应头
+
+P2 #28 · 防 XSS / clickjacking / MIME sniffing / 数据外泄。
+
+### 双层部署
+
+1. **前端 HTML `<meta>`**（防御纵深）· 28 页 head 内
+   - `Content-Security-Policy` · 限制资源加载来源
+   - `referrer` · `strict-origin-when-cross-origin`
+2. **nginx HTTP 响应头**（canonical · 真正强制）
+   - `deploy/nginx/security-headers.conf`
+   - juexue.conf / staging.conf 都 include
+
+### CSP 白名单
+
+| Directive | 允许 | 说明 |
+|---|---|---|
+| `script-src` | `'self' 'unsafe-inline'` + sentry/cloudflare/google/hcaptcha | 内联仍允许 · 见妥协说明 |
+| `style-src` | `'self' 'unsafe-inline'` + fonts.googleapis.com | 大量内联 style |
+| `font-src` | `'self'` + fonts.gstatic.com | Google Fonts woff2 |
+| `img-src` | `'self' data: blob: https:` | admin 上传 / canvas / 任意 https 封面 |
+| `connect-src` | `'self'` + sentry.io | API + 错误上报 |
+| `frame-src` | `'self'` + 三家 CAPTCHA | iframe 嵌入 |
+| `worker-src` | `'self' blob:` | service-worker + 离线队列可能 blob |
+| `object-src` | `'none'` | 全面禁 plugins |
+| `base-uri` | `'self'` | 防 `<base>` 注入 |
+| `form-action` | `'self'` | 表单只能提交回自家 |
+| `frame-ancestors` | `'none'` | 禁被 iframe（仅 nginx · meta 不支持） |
+| `upgrade-insecure-requests` | — | 自动 http → https |
+
+### 关于 `'unsafe-inline'`
+
+当前 28 页大量内联 `<script>` 和内联 `style="…"`，全部允许是妥协。
+后续收紧路径：
+
+1. **第一步**：把所有 `<script>...</script>` 块抽到外部 .js（已有 25+ shared/ 文件，剩余按页面拆出来）
+2. **第二步**：把内联 `style="…"` 移到 .css class
+3. **第三步**：CSP 改 `script-src 'self' 'nonce-{随机}' 'strict-dynamic'` · 用 nginx `sub_filter` 注入 nonce
+4. **第四步**：开 `Trusted Types` · 强制所有 innerHTML 走 sanitizer
+
+### 关于 SRI
+
+SRI 主要保护跨域 CDN 资源被篡改。当前情况：
+
+- **`shared/*.js` / `shared/*.css`**：同源 nginx · 与攻击者改 HTML 同等门槛 · SRI 无意义
+- **Google Fonts CSS** (`fonts.googleapis.com/css2?...`)：响应按 User-Agent 不同 ·
+  hash 每次都不一样 · **不能加 integrity 属性**（会拒绝加载）
+  - 升级路径 A：换 [fonts.bunny.net](https://fonts.bunny.net) · 静态 CSS · 一行 sed 替换
+  - 升级路径 B：把字体 download 后 self-host · 自定义 `@font-face` 在 base.css
+- **Sentry SDK** (`browser.sentry-cdn.com/8.41.0/bundle.tracing.min.js`)：
+  动态 script 加载 · 可在 `shared/sentry.js` 加 `s.integrity = 'sha384-...'`
+  · 升级版本时手工更新 hash · 当前未加（推全可补）
+- **CAPTCHA SDK** (Turnstile / hCaptcha / reCAPTCHA)：版本号自动更新 · SRI 不适用
+
+### 部署步骤
+
+```bash
+# 在 VPS 上：
+sudo cp /opt/juexue/deploy/nginx/security-headers.conf \
+        /etc/nginx/conf.d/juexue-security-headers.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 验证
+
+```bash
+# 检查响应头
+curl -I https://your-domain.example | grep -iE "content-security|x-frame|referrer|permissions"
+
+# CSP 违规会浏览器控制台报红 · 可加 report-to 上报 Sentry
+# 测试工具：securityheaders.com / observatory.mozilla.org
+```
+
+## 十六、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI
 2. Coach 后台 UI（造题表单、批量导入、LLM 造题向导）
