@@ -13,6 +13,18 @@ export const healthRoutes: FastifyPluginAsync = async (app) => {
     schema: { tags: TAGS, summary: '简易健康检查（公开）' },
   }, async () => ({ ok: true, env: config.NODE_ENV }));
 
+  // 公开配置 · 前端 boot 时拉一次 · 用来配 Sentry / 其他客户端监控
+  // 不暴露任何 secret · DSN 暴露给前端是 Sentry 设计支持的（throttle 在服务端做）
+  app.get('/api/config/public', {
+    schema: { tags: TAGS, summary: '前端公开配置（Sentry DSN 等）' },
+  }, async () => ({
+    data: {
+      sentryDsn: config.SENTRY_DSN_FRONTEND || null,
+      sentryEnv: config.NODE_ENV,
+      sentryRelease: config.SENTRY_RELEASE,
+    },
+  }));
+
   app.get('/health/detailed', {
     schema: { tags: TAGS, summary: '详细健康检查：DB ping + LLM providers + 内存 + uptime' },
   }, async () => {

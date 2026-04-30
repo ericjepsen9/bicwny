@@ -58,6 +58,14 @@ const envSchema = z
   VAPID_PUBLIC_KEY: z.string().optional(),
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().default('mailto:admin@juexue.local'),
+
+  // Sentry 错误监控 · 缺失则 SDK 直接 no-op · 不影响其他功能
+  // SENTRY_DSN_BACKEND 后端用 · 私密但 Sentry DSN 公开也无大风险（仅能向该项目写）
+  // SENTRY_DSN_FRONTEND 通过 /api/config/public 暴露给前端 · 前端 SDK 用
+  // SENTRY_RELEASE 推荐设 git commit hash · 让 Sentry 按版本聚合 · 缺省 'dev'
+  SENTRY_DSN_BACKEND: z.string().optional(),
+  SENTRY_DSN_FRONTEND: z.string().optional(),
+  SENTRY_RELEASE: z.string().default('dev'),
   })
   // 生产强制 JWT_SECRET ≥ 32 字节 + 不能是占位值 → 启动时拒绝弱密钥
   .refine(

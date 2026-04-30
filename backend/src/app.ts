@@ -12,6 +12,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { getUserId, jwtOptional } from './lib/auth.js';
 import { config, isDev } from './lib/config.js';
 import { writeErrorLog } from './lib/error-log.js';
+import { attachSentryToFastify, captureError, initSentry } from './lib/sentry.js';
 import { isAppError } from './lib/errors.js';
 import { genReqId, REQUEST_ID_HEADER } from './lib/request-id.js';
 import { registerTimingHooks } from './lib/timing.js';
@@ -43,6 +44,9 @@ import { reportsRoutes } from './modules/reports/routes.js';
 import { sm2Routes } from './modules/sm2/routes.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
+  // 在创建 fastify 实例之前初始化 Sentry · 让所有后续 throw 都被捕获
+  initSentry();
+
   const app = Fastify({
     // Fastify 默认 bodyLimit = 1 MB · admin 法本 commit 的 chapters JSON 可能 3-5 MB
     // 设 25 MB 与 nginx client_max_body_size 一致 · 单文件上限仍由 @fastify/multipart 兜底 20 MB
@@ -228,6 +232,10 @@ export async function buildApp(): Promise<FastifyInstance> {
           userId,
           requestId,
         });
+        // 仅 5xx AppError 上报 Sentry · 4xx 业务错不上报
+        captureError(err, req, {
+          code: err.code, statusCode: err.statusCode, details: err.details,
+        });
       }
       return reply.code(err.statusCode).send(err.toJSON());
     }
@@ -259,6 +267,8 @@ export async function buildApp(): Promise<FastifyInstance> {
       userId,
       requestId,
     });
+    // Sentry 捕获 5xx + 未知异常（DSN 没配则 no-op）
+    captureError(e, req, { ...baseContext, statusCode: 500 });
     return reply
       .code(500)
       .send({ error: 'INTERNAL', message: '服务内部错误' });
@@ -299,6 +309,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(notificationsRoutes);
   await app.register(achievementsRoutes);
   await app.register(pushRoutes);
+
+  // shutdown 时把 Sentry buffer flush 出去 · 防止 5xx 没报上去就退出
+  attachSentryToFastify(app);
 
   return app;
 }
