@@ -241,7 +241,9 @@ document.getElementById('btn-save').addEventListener('click', function () {
     return;
   }
   var btn = this;
+  var origLabel = btn.innerHTML;
   btn.setAttribute('aria-busy', 'true');
+  btn.innerHTML = '<span class="sc">保存中…</span><span class="tc">保存中…</span>';
   window.JX.api.patch('/api/auth/me', patch).then(function (updated) {
     setMsg('ok', sc('已保存', '已保存'));
     original = updated;
@@ -256,6 +258,7 @@ document.getElementById('btn-save').addEventListener('click', function () {
     setTimeout(function () { location.href = 'profile.html'; }, 500);
   }).catch(function (err) {
     setMsg('error', sc('保存失败：', '保存失敗：') + (err.message || err));
+    btn.innerHTML = origLabel;
   }).finally(function () {
     btn.removeAttribute('aria-busy');
   });

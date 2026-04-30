@@ -239,12 +239,23 @@ function renderCourses(enrollments) {
 }
 
 function boot() {
+  // 5s failsafe · 防 API 慢 / 异常时'加载中'卡死
+  var loadingTimer = setTimeout(function () {
+    var box = document.getElementById('qc-courses');
+    if (box && box.innerHTML.indexOf('加载中') >= 0) {
+      box.innerHTML = '<div class="qc-empty">' +
+        '<span class="sc">网络慢，加载中… <a href="javascript:location.reload()" style="color:var(--saffron-dark);text-decoration:underline;">刷新</a></span>' +
+        '<span class="tc">網絡慢，載入中… <a href="javascript:location.reload()" style="color:var(--saffron-dark);text-decoration:underline;">刷新</a></span>' +
+        '</div>';
+    }
+  }, 5000);
   Promise.all([
     window.JX.api.get('/api/sm2/stats').catch(function () { return { due: 0 }; }),
     window.JX.api.get('/api/mistakes?limit=500').catch(function () { return []; }),
     window.JX.api.get('/api/favorites').catch(function () { return []; }),
     window.JX.api.get('/api/my/enrollments').catch(function () { return []; }),
   ]).then(function (rs) {
+    clearTimeout(loadingTimer);
     renderReviewRow(rs[0], rs[1], rs[2]);
     renderCourses(rs[3]);
   });

@@ -275,16 +275,32 @@ function boot() {
     (Array.isArray(cs) ? cs : []).forEach(function (c) { courseTitleById[c.id] = c.title; });
   }).catch(function () { /* 静默 */ });
 
+  // 5s failsafe · 慢网络给用户'刷新'路径
+  var loadingTimer = setTimeout(function () {
+    var list = document.getElementById('mistakes-list');
+    if (list && list.innerHTML.indexOf('加载中') >= 0) {
+      list.innerHTML = '<div class="q-card" style="text-align:center;padding:var(--sp-6);"><p>'
+        + escapeHtml(sc('网络慢 · ', '網絡慢 · '))
+        + '<a href="javascript:location.reload()" style="color:var(--saffron-dark);text-decoration:underline;">'
+        + escapeHtml(sc('刷新重试', '刷新重試')) + '</a></p></div>';
+    }
+  }, 5000);
+
   window.JX.api.get('/api/mistakes?limit=200').then(function (data) {
+    clearTimeout(loadingTimer);
     allMistakes = Array.isArray(data) ? data : [];
     updateCounts();
     populateCourseFilter();
     renderCards();
   }).catch(function (err) {
+    clearTimeout(loadingTimer);
     document.getElementById('mistakes-list').innerHTML =
       '<div class="q-card" style="text-align:center;padding:var(--sp-6);"><p style="color:var(--crimson);">'
       + escapeHtml(sc('加载失败：', '加載失敗：') + (err.message || err))
-      + '</p></div>';
+      + '</p>'
+      + '<a href="javascript:location.reload()" class="btn btn-ghost btn-pill" style="margin-top:12px;display:inline-block;padding:6px 18px;">'
+      + escapeHtml(sc('重试', '重試')) + '</a>'
+      + '</div>';
   });
 }
 

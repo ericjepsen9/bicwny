@@ -316,10 +316,30 @@
     if (navigator.onLine === false) show(false);
   }
 
+  // Capacitor / 原生 WebView 系统返回按钮拦截
+  //   - Android 物理 / 手势返回触发 backButton 事件
+  //   - 优先 history.back() · 历史栈空则退出 app
+  //   - 现在 web 环境 window.Capacitor 不存在 = no-op
+  //   - 未来 npm install @capacitor/app 后自动生效 · 无需改业务代码
+  function setupCapacitorBackButton() {
+    var cap = window.Capacitor;
+    if (!cap || !cap.Plugins || !cap.Plugins.App) return;
+    var App = cap.Plugins.App;
+    if (typeof App.addListener !== 'function') return;
+    App.addListener('backButton', function () {
+      if (history.length > 1) {
+        history.back();
+      } else if (typeof App.exitApp === 'function') {
+        App.exitApp();
+      }
+    });
+  }
+
   function runAutoAttach() {
     autoAttachAll();
     autoScrollOnFocus();
     setupOfflineBanner();
+    setupCapacitorBackButton();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', runAutoAttach);
