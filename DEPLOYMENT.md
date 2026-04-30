@@ -225,7 +225,83 @@ pm2 reload juexue-api        # 零停机重启
 
 前端是纯静态，`git pull` 就生效。
 
-## 六、常见排错
+## 六、数据库备份与恢复验证
+
+**必装** · 任何上线项目都要有自动备份 + 定期"演练"恢复 · 否则真出事时
+才发现备份坏掉就是灾难。
+
+### 一键安装
+
+```bash
+cd /home/ubuntu/projects/juexue
+sudo bash deploy/setup-backup-cron.sh
+```
+
+脚本做了：
+- 从 `backend/.env` 读 `DATABASE_URL` · 解析出连接信息写到 `/etc/juexue/backup-env.sh`（权限 600）
+- 写 cron 文件 `/etc/cron.d/juexue-backup`：
+  - **每日 03:00** 执行 `db-backup.sh`：`pg_dump | gzip` → `/var/backups/juexue/` · 保留 30 天
+  - **每周日 04:00** 执行 `db-restore-verify.sh`：把最新备份恢复到临时库 `juexue_verify` · 检查 User/Course/Question/AuditLog 表能 SELECT · 跑完 drop 临时库
+- 失败时 cron 通过 `MAILTO=root` 邮件告警（前提：服务器装了 sendmail/postfix）
+
+### 立即测试
+
+```bash
+source /etc/juexue/backup-env.sh && bash deploy/db-backup.sh
+ls -lh /var/backups/juexue/                       # 应看到 juexue-YYYYMMDD-HHMMSS.sql.gz
+source /etc/juexue/backup-env.sh && bash deploy/db-restore-verify.sh
+tail /var/log/juexue-backup.log                   # 应看到 verify PASS
+```
+
+### 手动恢复（真出事故时）
+
+```bash
+# 1) 停后端避免有写入
+pm2 stop juexue-api
+
+# 2) drop + recreate 主库（会清空所有数据 · 确认你真的要这么做）
+sudo -u postgres psql -c "DROP DATABASE juexue;"
+sudo -u postgres psql -c "CREATE DATABASE juexue OWNER juexue;"
+
+# 3) 解压并恢复
+zcat /var/backups/juexue/juexue-YYYYMMDD-HHMMSS.sql.gz | \
+  PGPASSWORD=<你的密码> psql -U juexue -h localhost -d juexue
+
+# 4) Prisma client 不需要重新 generate（schema 没变）· 直接重启
+pm2 restart juexue-api
+```
+
+### 异地备份（强烈建议）
+
+单机备份还在同一台机器 · 机器爆了就一起没。配置 `REMOTE_DEST` 推送到另一台 / 对象存储：
+
+```bash
+# /etc/juexue/backup-env.sh 末尾加
+export REMOTE_DEST="user@backup-host:/srv/juexue-backups/"
+# 或用 rclone 推 S3 / B2 / 阿里云 OSS：
+# 先 rclone config 配 remote · 再 export REMOTE_DEST="rclone:juexue-backup:/"
+# 改 db-backup.sh 调 rclone copy 替代 rsync（如需）
+```
+
+### 配置项
+
+环境变量（覆盖默认）：
+
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `DB_NAME` | `juexue` | 数据库名 |
+| `DB_USER` | `juexue` | Postgres 角色 |
+| `DB_HOST` | `localhost` | 主机 |
+| `DB_PORT` | `5432` | 端口 |
+| `PGPASSWORD` | （空） | 密码 · 也可写 `~/.pgpass` |
+| `BACKUP_DIR` | `/var/backups/juexue` | 备份目录 |
+| `KEEP_DAYS` | `30` | 本地保留天数 |
+| `REMOTE_DEST` | （空） | rsync 目的地 · 设了就推一份到远端 |
+| `VERIFY_DB` | `juexue_verify` | 验证用临时库名 |
+| `MIN_USER_COUNT` | `1` | User 表至少行数 · 低于报错 |
+| `LOG_FILE` | `/var/log/juexue-backup.log` | 日志路径 |
+
+## 七、常见排错
 
 | 症状 | 排查 |
 | ---- | ---- |
@@ -236,7 +312,7 @@ pm2 reload juexue-api        # 零停机重启
 | Prisma `P1001` | DATABASE_URL 对吗、Postgres 起来了吗 |
 | LLM 造题 503 | `.env` 里的 API key 为空或错误；或 MiniMax 配额耗尽 |
 
-## 七、还没上线的功能（v1.0 范围外）
+## 八、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI
 2. Coach 后台 UI（造题表单、批量导入、LLM 造题向导）
