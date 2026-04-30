@@ -97,62 +97,100 @@
     return refreshing;
   }
 
+  // 5xx / 网络抖动指数退避重试
+  //   - GET 默认重试 2 次（间隔 300ms · 800ms）· 写操作不重试（防重复 enroll/quiz 提交）
+  //   - 仅 5xx + AbortError(timeout) + TypeError(fetch network err) 触发重试
+  //   - 4xx（401/403/404/422 等）业务错误直接 throw · 重试也无意义
+  //   - 调用方 opts.retry=0 显式关闭 · opts.retry=N 自定义次数
+  function shouldRetry(method, errOrStatus, attempt, max) {
+    if (attempt >= max) return false;
+    // 写操作（非幂等）默认不重试 · 防止双扣 / 重复评分等副作用
+    if (method !== 'GET' && method !== 'HEAD') return false;
+    // 5xx HTTP 错
+    if (typeof errOrStatus === 'number') return errOrStatus >= 500 && errOrStatus < 600;
+    // network err / abort
+    var err = errOrStatus;
+    if (err && err.name === 'AbortError') return true;
+    if (err && err.name === 'TypeError') return true; // fetch failed
+    return false;
+  }
+
+  function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
   function request(method, path, body, opts) {
     opts = opts || {};
-    var headers = Object.assign(
-      { 'Accept': 'application/json' },
-      body !== undefined ? { 'Content-Type': 'application/json' } : {},
-      opts.headers || {},
-    );
-    var token = getAccessToken();
-    if (token && !opts.noAuth) headers['Authorization'] = 'Bearer ' + token;
+    var maxRetry = opts.retry == null
+      ? (method === 'GET' || method === 'HEAD' ? 2 : 0)
+      : opts.retry;
+    var attempt = 0;
 
-    // 超时兜底 · 默认 15s · 防止后端无响应让前端永远 'loading…'
-    // opts.timeoutMs=0 显式禁用 · 大文件上传等长请求需主动覆盖
-    var timeoutMs = opts.timeoutMs == null ? 15000 : opts.timeoutMs;
-    var ctrl = (timeoutMs && typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs) : null;
+    function exec() {
+      var headers = Object.assign(
+        { 'Accept': 'application/json' },
+        body !== undefined ? { 'Content-Type': 'application/json' } : {},
+        opts.headers || {},
+      );
+      var token = getAccessToken();
+      if (token && !opts.noAuth) headers['Authorization'] = 'Bearer ' + token;
 
-    var init = {
-      method: method,
-      headers: headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: ctrl ? ctrl.signal : undefined,
-    };
+      // 超时兜底 · 默认 15s · 防止后端无响应让前端永远 'loading…'
+      // opts.timeoutMs=0 显式禁用 · 大文件上传等长请求需主动覆盖
+      var timeoutMs = opts.timeoutMs == null ? 15000 : opts.timeoutMs;
+      var ctrl = (timeoutMs && typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs) : null;
 
-    return fetch(buildUrl(path), init).then(function (res) {
-      if (timer) clearTimeout(timer);
-      if (res.status === 401 && !opts.noAuth && !opts._retried && getRefreshToken()) {
-        return refreshOnce().then(
-          function () {
-            return request(method, path, body, Object.assign({}, opts, { _retried: true }));
-          },
-          function (e) { throw e; },
-        );
-      }
-      var ct = res.headers.get('content-type') || '';
-      var asJson = ct.indexOf('application/json') >= 0;
-      return (asJson ? res.json() : res.text()).then(function (payload) {
-        if (!res.ok) {
-          var err = typeof payload === 'object' && payload
-            ? ApiError(res.status, payload.error, payload.message, payload.details)
-            : ApiError(res.status, 'HTTP_' + res.status, String(payload).slice(0, 200));
-          throw err;
+      var init = {
+        method: method,
+        headers: headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: ctrl ? ctrl.signal : undefined,
+      };
+
+      return fetch(buildUrl(path), init).then(function (res) {
+        if (timer) clearTimeout(timer);
+        if (res.status === 401 && !opts.noAuth && !opts._retried && getRefreshToken()) {
+          return refreshOnce().then(
+            function () {
+              return request(method, path, body, Object.assign({}, opts, { _retried: true }));
+            },
+            function (e) { throw e; },
+          );
         }
-        // 后端统一返回 { data: ... }；原样返回 data，若无 data 字段返回整个 body
-        if (asJson && payload && Object.prototype.hasOwnProperty.call(payload, 'data')) {
-          return payload.data;
+        var ct = res.headers.get('content-type') || '';
+        var asJson = ct.indexOf('application/json') >= 0;
+        return (asJson ? res.json() : res.text()).then(function (payload) {
+          if (!res.ok) {
+            // 5xx 触发重试 · 4xx 直接 throw
+            if (shouldRetry(method, res.status, attempt, maxRetry)) {
+              attempt++;
+              return delay(200 * Math.pow(2, attempt)).then(exec); // 400ms · 800ms · 1600ms
+            }
+            var err = typeof payload === 'object' && payload
+              ? ApiError(res.status, payload.error, payload.message, payload.details)
+              : ApiError(res.status, 'HTTP_' + res.status, String(payload).slice(0, 200));
+            throw err;
+          }
+          // 后端统一返回 { data: ... }；原样返回 data，若无 data 字段返回整个 body
+          if (asJson && payload && Object.prototype.hasOwnProperty.call(payload, 'data')) {
+            return payload.data;
+          }
+          return payload;
+        });
+      }, function (err) {
+        if (timer) clearTimeout(timer);
+        // AbortError → 可能是 timeout · 也可能是真挂了 · GET 重试一次
+        if (shouldRetry(method, err, attempt, maxRetry)) {
+          attempt++;
+          return delay(200 * Math.pow(2, attempt)).then(exec);
         }
-        return payload;
+        if (err && err.name === 'AbortError') {
+          throw ApiError(0, 'TIMEOUT', '请求超时（' + Math.round(timeoutMs / 1000) + 's），请检查网络');
+        }
+        throw err;
       });
-    }, function (err) {
-      if (timer) clearTimeout(timer);
-      // AbortError → 用户友好的超时错误
-      if (err && err.name === 'AbortError') {
-        throw ApiError(0, 'TIMEOUT', '请求超时（' + Math.round(timeoutMs / 1000) + 's），请检查网络');
-      }
-      throw err;
-    });
+    }
+
+    return exec();
   }
 
   function logout() {
