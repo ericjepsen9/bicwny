@@ -105,6 +105,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 <script src="../shared/sentry.js"></script>
 <script src="../shared/analytics.js"></script>
 <script src="../shared/lang.js"></script>
+<script src="../shared/i18n.js"></script>
 <script src="../shared/return-url.js"></script>
 <script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
@@ -127,17 +128,17 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
   <div class="top-nav">
     <a class="nav-back" href="home.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
-    <span class="nav-title"><span class="sc">通知</span><span class="tc">通知</span></span>
-    <span class="read-all" id="btn-read-all"><span class="sc">全部已读</span><span class="tc">全部已讀</span></span>
+    <span class="nav-title"><span class="sc">通知</span><span class="tc">通知</span><span class="en">Notifications</span></span>
+    <span class="read-all" id="btn-read-all"><span class="sc">全部已读</span><span class="tc">全部已讀</span><span class="en">Mark All Read</span></span>
   </div>
 
   <div class="filter-tabs" id="filter-tabs">
-    <span class="ftab active" data-filter=""><span class="sc">全部</span><span class="tc">全部</span></span>
-    <span class="ftab" data-filter="unread"><span class="sc">未读</span><span class="tc">未讀</span></span>
-    <span class="ftab" data-type="class_announcement"><span class="sc">班级</span><span class="tc">班級</span></span>
-    <span class="ftab" data-type="reminder"><span class="sc">学习</span><span class="tc">學習</span></span>
-    <span class="ftab" data-type="achievement"><span class="sc">成就</span><span class="tc">成就</span></span>
-    <span class="ftab" data-type="system"><span class="sc">系统</span><span class="tc">系統</span></span>
+    <span class="ftab active" data-filter=""><span class="sc">全部</span><span class="tc">全部</span><span class="en">All</span></span>
+    <span class="ftab" data-filter="unread"><span class="sc">未读</span><span class="tc">未讀</span><span class="en">Unread</span></span>
+    <span class="ftab" data-type="class_announcement"><span class="sc">班级</span><span class="tc">班級</span><span class="en">Class</span></span>
+    <span class="ftab" data-type="reminder"><span class="sc">学习</span><span class="tc">學習</span><span class="en">Learning</span></span>
+    <span class="ftab" data-type="achievement"><span class="sc">成就</span><span class="tc">成就</span><span class="en">Achievements</span></span>
+    <span class="ftab" data-type="system"><span class="sc">系统</span><span class="tc">系統</span><span class="en">System</span></span>
   </div>
 
   <div class="notif-list" id="notif-list" data-skeleton="1" aria-hidden="true">

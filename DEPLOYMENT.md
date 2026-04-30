@@ -438,6 +438,65 @@ npx cap sync
 - 全站 nav-back（tap）+ tab-bar 切换（selection）
 - 任何带 `data-haptic="tap|selection|success|warning|error|light|medium|heavy"` 的元素
 
+## 十、i18n（多语言）
+
+支持简体中文（sc）/ 繁体中文（tc）/ English（en）三语言。
+
+### 用户切换
+
+设置 → 语言 → 三档 chip 选择（简体 / 繁體 / English）· 持久化到
+localStorage `jx-lang` · 跨标签页同步。
+
+### HTML 内联（推荐 · 同步）
+
+```html
+<span class="sc">中文</span><span class="tc">中文</span><span class="en">English</span>
+```
+
+CSS 选择器（tokens.css）按 `[data-lang]` 切换显隐。新写代码请直接给三个 span。
+仅有 `.sc` 没有 `.en` 时 · `[data-lang="en"]` 默认隐藏 · 需要 EN 兜底回落 SC 时
+给 `.sc` 加 `.en-fallback` 类。
+
+### JS 拼接（动态内容）
+
+```js
+JX.sc(scStr, tcStr);            // 历史 · 兼容 · en 自动回落 sc
+JX.sc(scStr, tcStr, enStr);     // 三参数 · 显式给 EN
+JX.t('common.confirm');         // 词典 · shared/i18n.js
+JX.t('quiz.scoreSummary', n);   // 占位 {0} {1} 替换
+```
+
+### 词典扩展
+
+shared/i18n.js · 加 key 三语都要填 · 缺 EN 自动 fallback SC：
+
+```js
+JX.i18n.register({
+  'mymodule.someKey': ['中文', '中文', 'English'],
+});
+```
+
+### 占位符（input / textarea）
+
+```html
+<input data-ph-sc="搜索" data-ph-tc="搜尋" data-ph-en="Search">
+```
+
+`lang.js` 在 langchange 时自动应用。
+
+### 当前覆盖范围
+
+- 全部页面顶部 nav 标题 + tab-bar
+- 设置页所有 section title 与 row label
+- 语言 picker / 主题 picker / 字号 picker
+- toast 颜色（不依赖文本）
+- 词典覆盖：common / tab / settings / quiz / course / mistakes / fav / sm2
+
+未覆盖（仍只 sc/tc）· EN 模式回落到 SC：
+- 法本经文正文（专业术语 · 翻译需要法师审校）
+- 班级公告 / 通知具体内容（用户/管理员产出）
+- LLM 答题反馈（按用户语言生成 · 见 backend prompt）
+
 ## 十一、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI

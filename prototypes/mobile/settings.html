@@ -88,6 +88,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 <script src="../shared/sentry.js"></script>
 <script src="../shared/analytics.js"></script>
 <script src="../shared/lang.js"></script>
+<script src="../shared/i18n.js"></script>
 <script src="../shared/return-url.js"></script>
 <script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
@@ -113,26 +114,26 @@ body { background: var(--bg-scene); min-height: 100vh; }
     <a class="nav-back" href="profile.html">
       <svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
     </a>
-    <span class="nav-title"><span class="sc">设置</span><span class="tc">設定</span></span>
+    <span class="nav-title"><span class="sc">设置</span><span class="tc">設定</span><span class="en">Settings</span></span>
     <div style="width:34px;"></div>
   </div>
 
   <div class="content">
 
     <!-- Account -->
-    <p class="section-title"><span class="sc">账号与安全</span><span class="tc">帳號與安全</span></p>
+    <p class="section-title"><span class="sc">账号与安全</span><span class="tc">帳號與安全</span><span class="en">Account & Security</span></p>
     <div class="group">
       <div class="row">
-        <span class="row-label"><span class="sc">手机号</span><span class="tc">手機號</span></span>
+        <span class="row-label"><span class="sc">手机号</span><span class="tc">手機號</span><span class="en">Phone</span></span>
         <span class="row-value">138 **** 6688</span>
         <svg class="row-arrow" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
       <div class="row">
-        <span class="row-label"><span class="sc">修改密码</span><span class="tc">修改密碼</span></span>
+        <span class="row-label"><span class="sc">修改密码</span><span class="tc">修改密碼</span><span class="en">Change Password</span></span>
         <svg class="row-arrow" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
       <a class="row" href="devices.html" style="text-decoration:none;color:inherit;">
-        <span class="row-label"><span class="sc">登录设备</span><span class="tc">登入裝置</span></span>
+        <span class="row-label"><span class="sc">登录设备</span><span class="tc">登入裝置</span><span class="en">Devices</span></span>
         <span class="row-value" id="devices-count" style="color:var(--ink-3);"></span>
         <svg class="row-arrow" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
       </a>
@@ -144,27 +145,26 @@ body { background: var(--bg-scene); min-height: 100vh; }
     </div>
 
     <!-- Language -->
-    <p class="section-title"><span class="sc">语言</span><span class="tc">語言</span></p>
+    <p class="section-title"><span class="sc">语言</span><span class="tc">語言</span><span class="en">Language</span></p>
     <div class="group">
       <div class="row" style="cursor:default;">
-        <span class="row-label"><span class="sc">显示语言</span><span class="tc">顯示語言</span></span>
+        <span class="row-label">
+          <span class="sc">显示语言</span><span class="tc">顯示語言</span><span class="en">Display Language</span>
+        </span>
         <div class="lang-picker">
-          <span class="lang-pick-chip" id="sc-chip" onclick="setSiteLang('sc')">
-            <span class="sc">简体中文</span><span class="tc">簡體中文</span>
-          </span>
-          <span class="lang-pick-chip" id="tc-chip" onclick="setSiteLang('tc')">
-            繁體中文
-          </span>
+          <span class="lang-pick-chip" id="sc-chip" onclick="setSiteLang('sc')">简体</span>
+          <span class="lang-pick-chip" id="tc-chip" onclick="setSiteLang('tc')">繁體</span>
+          <span class="lang-pick-chip" id="en-chip" onclick="setSiteLang('en')">English</span>
         </div>
       </div>
     </div>
 
     <!-- Theme -->
-    <p class="section-title"><span class="sc">外观</span><span class="tc">外觀</span></p>
+    <p class="section-title"><span class="sc">外观</span><span class="tc">外觀</span><span class="en">Appearance</span></p>
     <div class="group">
       <div class="row" style="cursor:default;flex-direction:column;align-items:stretch;gap:var(--sp-3);padding:var(--sp-4);">
         <div style="display:flex;align-items:center;gap:var(--sp-3);">
-          <span class="row-label"><span class="sc">主题</span><span class="tc">主題</span></span>
+          <span class="row-label"><span class="sc">主题</span><span class="tc">主題</span><span class="en">Theme</span></span>
           <span class="row-value" id="theme-cur">—</span>
         </div>
         <div class="lang-picker" id="theme-picker" style="flex-wrap:wrap;"></div>
@@ -176,7 +176,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
     </div>
 
     <!-- Font size -->
-    <p class="section-title"><span class="sc">字体大小</span><span class="tc">字體大小</span></p>
+    <p class="section-title"><span class="sc">字体大小</span><span class="tc">字體大小</span><span class="en">Font Size</span></p>
     <div class="group">
       <div class="row" style="cursor:default;flex-direction:column;align-items:stretch;gap:var(--sp-3);padding:var(--sp-4);">
         <div style="display:flex;align-items:center;gap:var(--sp-3);">
@@ -192,12 +192,12 @@ body { background: var(--bg-scene); min-height: 100vh; }
     </div>
 
     <!-- Notifications -->
-    <p class="section-title"><span class="sc">通知偏好</span><span class="tc">通知偏好</span></p>
+    <p class="section-title"><span class="sc">通知偏好</span><span class="tc">通知偏好</span><span class="en">Notifications</span></p>
     <div class="group">
       <!-- 推送通知主开关 · 真接 Web Push API · 控制是否推到设备 -->
       <div class="row" id="push-row" style="cursor:pointer;">
         <div>
-          <span class="row-label"><span class="sc">推送通知</span><span class="tc">推送通知</span></span>
+          <span class="row-label"><span class="sc">推送通知</span><span class="tc">推送通知</span><span class="en">Push Notifications</span></span>
           <div id="push-hint" style="font-size:.6875rem;color:var(--ink-4);letter-spacing:.5px;margin-top:2px;"></div>
         </div>
         <div class="toggle" id="push-toggle"></div>
@@ -221,11 +221,11 @@ body { background: var(--bg-scene); min-height: 100vh; }
     </div>
 
     <!-- Feedback / 触觉反馈 -->
-    <p class="section-title"><span class="sc">交互反馈</span><span class="tc">交互回饋</span></p>
+    <p class="section-title"><span class="sc">交互反馈</span><span class="tc">交互回饋</span><span class="en">Haptics</span></p>
     <div class="group">
       <div class="row" id="haptics-row" style="cursor:pointer;">
         <div>
-          <span class="row-label"><span class="sc">触觉反馈</span><span class="tc">觸覺回饋</span></span>
+          <span class="row-label"><span class="sc">触觉反馈</span><span class="tc">觸覺回饋</span><span class="en">Haptic Feedback</span></span>
           <div style="font-size:.6875rem;color:var(--ink-4);letter-spacing:.5px;margin-top:2px;">
             <span class="sc">按钮 / 答题 / 提醒触发轻震</span>
             <span class="tc">按鈕 / 答題 / 提醒觸發輕震</span>
@@ -236,7 +236,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
     </div>
 
     <!-- Privacy -->
-    <p class="section-title"><span class="sc">隐私</span><span class="tc">隱私</span></p>
+    <p class="section-title"><span class="sc">隐私</span><span class="tc">隱私</span><span class="en">Privacy</span></p>
     <div class="group">
       <div class="row" onclick="toggleRow(this)">
         <span class="row-label"><span class="sc">展示学习时长</span><span class="tc">顯示學習時長</span></span>
@@ -253,7 +253,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
     </div>
 
     <!-- Cache / data -->
-    <p class="section-title"><span class="sc">存储</span><span class="tc">儲存</span></p>
+    <p class="section-title"><span class="sc">存储</span><span class="tc">儲存</span><span class="en">Storage</span></p>
     <div class="group">
       <div class="row">
         <span class="row-label"><span class="sc">清除缓存</span><span class="tc">清除快取</span></span>
@@ -296,7 +296,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
   <div class="logout-wrap">
     <button type="button" id="btn-logout" class="btn btn-ghost btn-lg btn-full btn-pill" style="color:var(--crimson);border-color:var(--crimson-light);">
-      <span class="sc">退出登录</span><span class="tc">退出登入</span>
+      <span class="sc">退出登录</span><span class="tc">退出登入</span><span class="en">Sign Out</span>
     </button>
   </div>
 
@@ -306,16 +306,17 @@ body { background: var(--bg-scene); min-height: 100vh; }
   if (t) t.classList.toggle('on');
 }
 
-// Language picker wired to toggleLang()
+// Language picker · sc / tc / en 三档
 function setSiteLang(target) {
-  var cur = document.documentElement.getAttribute('data-lang') || 'sc';
-  if (cur !== target) toggleLang();
+  if (window.JX && window.JX.setLang) window.JX.setLang(target);
   syncLangChips();
 }
 function syncLangChips() {
   var cur = document.documentElement.getAttribute('data-lang') || 'sc';
-  document.getElementById('sc-chip').classList.toggle('active', cur === 'sc');
-  document.getElementById('tc-chip').classList.toggle('active', cur === 'tc');
+  ['sc', 'tc', 'en'].forEach(function (l) {
+    var el = document.getElementById(l + '-chip');
+    if (el) el.classList.toggle('active', cur === l);
+  });
 }
 document.addEventListener('DOMContentLoaded', syncLangChips);
 document.addEventListener('langchange', syncLangChips);

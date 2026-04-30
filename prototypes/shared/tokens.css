@@ -200,7 +200,11 @@
   }
 }
 
-/* ── 简繁切换 ────────────────────────────────── */
-.tc { display: none; }
+/* ── 简繁英切换 ────────────────────────────────── */
+.tc, .en { display: none; }
 [data-lang="tc"] .sc { display: none; }
 [data-lang="tc"] .tc { display: inline; }
+[data-lang="en"] .sc { display: none; }
+[data-lang="en"] .en { display: inline; }
+/* en 模式下 · 没提供 .en 翻译时回落 sc */
+[data-lang="en"] .sc.en-fallback { display: inline; }
