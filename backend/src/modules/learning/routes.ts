@@ -27,6 +27,10 @@ import {
 import { listLessonQuestions } from '../questions/list.service.js';
 
 const slugParam = z.object({ slug: z.string().min(1) });
+const slugQuery = z.object({
+  // lite=1 · 跳过 referenceText / teachingSummary · 适用于 TOC 等不需要原文的场景
+  lite: z.coerce.boolean().optional(),
+});
 const lessonIdParam = z.object({ id: z.string().min(1) });
 const courseIdParam = z.object({ courseId: z.string().min(1) });
 const lessonQuery = z.object({
@@ -50,11 +54,13 @@ export const learningRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/api/courses/:slug', {
-    schema: { tags: TAGS, summary: '论典详情 + 本人进度叠加（可选登录）' },
+    schema: { tags: TAGS, summary: '论典详情 + 本人进度叠加（可选登录）· ?lite=1 省原文' },
   }, async (req) => {
     const parsed = slugParam.safeParse(req.params);
     if (!parsed.success) throw BadRequest('路径参数不合法');
-    const course = await getCourseBySlug(parsed.data.slug);
+    const pq = slugQuery.safeParse(req.query);
+    if (!pq.success) throw BadRequest('查询参数不合法');
+    const course = await getCourseBySlug(parsed.data.slug, { lite: pq.data.lite });
     const userId = getUserId(req);
     const overlay = userId
       ? await getCourseEnrollmentOverlay(userId, course.id)

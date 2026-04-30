@@ -486,7 +486,8 @@ function renderCourseCard(enrollment, overlay) {
       retryLink.addEventListener('click', function (ev) {
         ev.preventDefault();
         retryLink.textContent = sc('重试中…', '重試中…');
-        window.JX.api.get('/api/courses/' + encodeURIComponent(c.slug))
+        // ?lite=1 · 重试只为拿 overlay · 不需要原文树
+        window.JX.api.get('/api/courses/' + encodeURIComponent(c.slug) + '?lite=1')
           .then(function (d) { renderCourseCard(enrollment, d.overlay); })
           .catch(function () { renderCourseCard(enrollment, null); });
       });

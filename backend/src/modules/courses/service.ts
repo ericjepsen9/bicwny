@@ -12,7 +12,24 @@ export async function listPublishedCourses(): Promise<Course[]> {
   });
 }
 
-export async function getCourseBySlug(slug: string) {
+export async function getCourseBySlug(slug: string, opts?: { lite?: boolean }) {
+  // lite=true · 仅返回章节 + lesson id/title/order · 省掉 referenceText / teachingSummary
+  // referenceText 单课可达 100KB+ · 全树可达数 MB · TOC / 进度叠加场景不需要
+  const lessonSelect = opts?.lite
+    ? {
+        id: true,
+        order: true,
+        title: true,
+        titleTraditional: true,
+      }
+    : {
+        id: true,
+        order: true,
+        title: true,
+        titleTraditional: true,
+        referenceText: true,
+        teachingSummary: true,
+      };
   const course = await prisma.course.findUnique({
     where: { slug },
     include: {
@@ -21,14 +38,7 @@ export async function getCourseBySlug(slug: string) {
         include: {
           lessons: {
             orderBy: { order: 'asc' },
-            select: {
-              id: true,
-              order: true,
-              title: true,
-              titleTraditional: true,
-              referenceText: true,
-              teachingSummary: true,
-            },
+            select: lessonSelect,
           },
         },
       },
