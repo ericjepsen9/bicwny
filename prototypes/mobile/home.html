@@ -27,6 +27,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../shared/tokens.css">
+<link rel="prefetch" href="courses.html">
+<link rel="prefetch" href="quiz-center.html">
+<link rel="prefetch" href="profile.html">
 <link rel="stylesheet" href="../shared/base.css">
 <link rel="stylesheet" href="../shared/components.css">
 <style>
@@ -560,10 +563,21 @@ function boot() {
     }
     document.getElementById('study-empty-box').style.display = 'none';
     var first = list[0];
-    if (!first.course || !first.course.slug) { renderCourseCard(first, null); return; }
-    window.JX.api.get('/api/courses/' + encodeURIComponent(first.course.slug))
-      .then(function (d) { renderCourseCard(first, d.overlay); })
-      .catch(function () { renderCourseCard(first, null); });
+    if (!first.course) { renderCourseCard(first, null); return; }
+    // 优化：listMyEnrollments 已含 completedLessonIds + course.totalLessons +
+    //   currentLessonId · 直接本地算 overlay · 不再额外 GET /api/courses/:slug
+    //   （后者返回完整法本树 + 所有 lesson referenceText · 几百 KB - 几 MB · 浪费）
+    var done = (first.lessonsCompleted || []).length;
+    var total = first.course.totalLessons || 0;
+    var localOverlay = {
+      currentLessonId: first.currentLessonId,
+      completedLessonIds: first.lessonsCompleted || [],
+      totalLessons: total,
+      progressPercent: total > 0 ? Math.round(done / total * 100) : 0,
+      lastStudiedAt: first.lastStudiedAt,
+      completedAt: first.completedAt,
+    };
+    renderCourseCard(first, localOverlay);
   });
 
   window.JX.api.get('/api/mistakes?limit=500').then(renderReviewBadge).catch(function () {});
