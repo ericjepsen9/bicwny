@@ -353,9 +353,16 @@ function render(items) {
 }
 
 // D6: dropdown 切换 → 本地过滤
+//   切换后若过滤可见为 0 且后端还有数据 · 自动续拉直到看见或拉完
 document.getElementById('course-filter').addEventListener('change', function () {
   currentCourseId = this.value || '';
   applyFilter();
+  if (hasMore && currentCourseId) {
+    var filteredCount = allFavorites.filter(function (it) {
+      return ((it.question && it.question.courseId) || '') === currentCourseId;
+    }).length;
+    if (filteredCount === 0) loadPage();
+  }
 });
 
 // 兜底：拉一份 courses 列表用于 ID→title 映射
@@ -390,6 +397,14 @@ function loadPage() {
     populateCourseFilter();
     applyFilter();
     loading = false;
+    // filter 边界 · 过滤后可见为 0 但还有更多数据 · 自动续拉
+    //   上限 5 页（150 条）防死循环
+    if (hasMore && currentCourseId && allFavorites.length < PAGE_SIZE * 5) {
+      var filteredCount = allFavorites.filter(function (it) {
+        return ((it.question && it.question.courseId) || '') === currentCourseId;
+      }).length;
+      if (filteredCount === 0) return loadPage();
+    }
   }).catch(function (err) {
     loading = false;
     if (allFavorites.length === 0) {

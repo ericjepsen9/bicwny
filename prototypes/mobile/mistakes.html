@@ -239,12 +239,15 @@ document.getElementById('filter-tabs').addEventListener('click', function (ev) {
   var t = ev.target.closest('.ftab');
   if (!t) return;
   setFilter(t.getAttribute('data-filter'));
+  // 切 today / all 时若可见为 0 且后端还有数据 · 自动续拉
+  if (hasMore && filterMistakes().length === 0) loadPage();
 });
 
 // D6: 法本筛选 dropdown
 document.getElementById('course-filter').addEventListener('change', function () {
   currentCourseId = this.value || '';
   renderCards();
+  if (hasMore && filterMistakes().length === 0) loadPage();
 });
 
 // 从 allMistakes 推导 course list（去重 · 按 title 排序）· 题目自身没有 courseTitle 时用 courseTitleById 兜底
@@ -296,6 +299,12 @@ function loadPage() {
     populateCourseFilter();
     renderCards();
     loading = false;
+    // filter 边界 · 过滤后可见为 0 但还有更多数据 · 自动续拉
+    //   场景：用户筛某法本 · 当前页 30 条全是别的法本 · 不主动拉用户看不到自己的错题
+    //   上限 5 次（150 条）防死循环 · 5 页都筛空就让用户改条件
+    if (hasMore && filterMistakes().length === 0 && allMistakes.length < PAGE_SIZE * 5) {
+      return loadPage();
+    }
   }).catch(function (err) {
     loading = false;
     if (allMistakes.length === 0) {
