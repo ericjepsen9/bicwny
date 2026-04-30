@@ -19,6 +19,10 @@ import {
 const qidParam = z.object({ questionId: z.string().min(1) });
 const listQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
+  // cursor pagination · 客户端传上一页最后一条的 lastWrongAt + id
+  // 用 ISO 字符串避免 query 参数类型问题
+  cursorAt: z.string().datetime().optional(),
+  cursorId: z.string().min(1).optional(),
 });
 
 const TAGS = ['Answering'];
@@ -26,12 +30,15 @@ const SEC = [{ bearerAuth: [] as string[] }];
 
 export const mistakesRoutes: FastifyPluginAsync = async (app) => {
   app.get('/api/mistakes', {
-    schema: { tags: TAGS, summary: '错题本列表（含剥答案视图）', security: SEC },
+    schema: { tags: TAGS, summary: '错题本列表（含剥答案视图）· cursor pagination', security: SEC },
   }, async (req) => {
     const userId = requireUserId(req);
     const parsed = listQuery.safeParse(req.query);
     if (!parsed.success) throw BadRequest('查询参数不合法');
-    return { data: await listActiveMistakesWithQuestions(userId, parsed.data.limit) };
+    const cursor = parsed.data.cursorAt && parsed.data.cursorId
+      ? { lastWrongAt: new Date(parsed.data.cursorAt), id: parsed.data.cursorId }
+      : undefined;
+    return { data: await listActiveMistakesWithQuestions(userId, parsed.data.limit, cursor) };
   });
 
   // 仅返回未移除错题数量 · 复合索引下 O(log N) · payload 几十字节

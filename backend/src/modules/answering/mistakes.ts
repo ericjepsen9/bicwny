@@ -45,10 +45,21 @@ export async function removeMistake(
 export async function listActiveMistakes(
   userId: string,
   limit = 50,
+  cursor?: { lastWrongAt: Date; id: string },
 ): Promise<UserMistakeBook[]> {
+  // cursor pagination · seek 模式（不用 OFFSET · 大表 OFFSET 性能退化）
+  // 排序 lastWrongAt desc · 同时间用 id 兜底唯一序列
+  // 客户端发回上一页最后一条的 (lastWrongAt, id) · 服务端取严格小于的下一页
+  const where: Prisma.UserMistakeBookWhereInput = { userId, removedAt: null };
+  if (cursor) {
+    where.OR = [
+      { lastWrongAt: { lt: cursor.lastWrongAt } },
+      { lastWrongAt: cursor.lastWrongAt, id: { lt: cursor.id } },
+    ];
+  }
   return prisma.userMistakeBook.findMany({
-    where: { userId, removedAt: null },
-    orderBy: { lastWrongAt: 'desc' },
+    where,
+    orderBy: [{ lastWrongAt: 'desc' }, { id: 'desc' }],
     take: limit,
   });
 }
@@ -64,12 +75,14 @@ export interface MistakeListItem {
 /**
  * 列表页用：一次查本 + 批量 join Question 并剥答案。
  * UserMistakeBook 与 Question 没有 Prisma 关系，所以 N+1 规避靠 IN 查询。
+ * cursor=undefined → 首页；传上一页最后一条的 (lastWrongAt, id) → 续页
  */
 export async function listActiveMistakesWithQuestions(
   userId: string,
   limit = 50,
+  cursor?: { lastWrongAt: Date; id: string },
 ): Promise<MistakeListItem[]> {
-  const items = await listActiveMistakes(userId, limit);
+  const items = await listActiveMistakes(userId, limit, cursor);
   if (items.length === 0) return [];
   const questions = await prisma.question.findMany({
     where: { id: { in: items.map((m) => m.questionId) } },

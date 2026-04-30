@@ -269,39 +269,80 @@ function populateCourseFilter() {
   if (keep && seen[keep]) sel.value = keep;
 }
 
+// cursor pagination · 30 条每页 · 触底 IntersectionObserver 自动加载下一页
+var PAGE_SIZE = 30;
+var nextCursor = null; // { lastWrongAt, id } | null
+var hasMore = true;
+var loading = false;
+
+function loadPage() {
+  if (loading || !hasMore) return Promise.resolve();
+  loading = true;
+  var url = '/api/mistakes?limit=' + PAGE_SIZE;
+  if (nextCursor) {
+    url += '&cursorAt=' + encodeURIComponent(nextCursor.lastWrongAt) +
+           '&cursorId=' + encodeURIComponent(nextCursor.id);
+  }
+  return window.JX.api.get(url).then(function (data) {
+    var batch = Array.isArray(data) ? data : [];
+    allMistakes = allMistakes.concat(batch);
+    if (batch.length < PAGE_SIZE) {
+      hasMore = false;
+    } else {
+      var last = batch[batch.length - 1];
+      nextCursor = { lastWrongAt: last.lastWrongAt, id: last.id };
+    }
+    updateCounts();
+    populateCourseFilter();
+    renderCards();
+    loading = false;
+  }).catch(function (err) {
+    loading = false;
+    if (allMistakes.length === 0) {
+      document.getElementById('mistakes-list').innerHTML =
+        '<div class="q-card" style="text-align:center;padding:var(--sp-6);"><p style="color:var(--crimson);">'
+        + escapeHtml(sc('加载失败：', '加載失敗：') + (err.message || err))
+        + '</p>'
+        + '<a href="javascript:location.reload()" class="btn btn-ghost btn-pill" style="margin-top:12px;display:inline-block;padding:6px 18px;">'
+        + escapeHtml(sc('重试', '重試')) + '</a>'
+        + '</div>';
+    }
+    // 续页失败静默 · 用户可下拉刷新或滚回顶部触发
+  });
+}
+
+function setupInfiniteScroll() {
+  // 在列表底部插入哨兵 · 进入视口就拉下一页
+  var sentinel = document.createElement('div');
+  sentinel.id = 'mistakes-sentinel';
+  sentinel.style.cssText = 'height:48px;display:flex;align-items:center;justify-content:center;font:var(--text-caption);color:var(--ink-4);';
+  document.getElementById('mistakes-list').after(sentinel);
+  if (typeof IntersectionObserver === 'undefined') return; // 老浏览器不退化 · 用户手动刷新
+  var io = new IntersectionObserver(function (entries) {
+    if (!entries[0].isIntersecting) return;
+    if (!hasMore) {
+      sentinel.textContent = sc('— 已显示全部 —', '— 已顯示全部 —');
+      return;
+    }
+    sentinel.textContent = sc('加载中…', '載入中…');
+    loadPage().then(function () {
+      sentinel.textContent = hasMore ? '' : sc('— 已显示全部 —', '— 已顯示全部 —');
+    });
+  }, { rootMargin: '200px' });
+  io.observe(sentinel);
+}
+
 function boot() {
   // 先拉一份 courses 列表用于 ID→title 映射兜底
   window.JX.api.get('/api/courses').then(function (cs) {
     (Array.isArray(cs) ? cs : []).forEach(function (c) { courseTitleById[c.id] = c.title; });
   }).catch(function () { /* 静默 */ });
 
-  // 5s failsafe · 慢网络给用户'刷新'路径
-  var loadingTimer = setTimeout(function () {
-    var list = document.getElementById('mistakes-list');
-    if (list && list.innerHTML.indexOf('加载中') >= 0) {
-      list.innerHTML = '<div class="q-card" style="text-align:center;padding:var(--sp-6);"><p>'
-        + escapeHtml(sc('网络慢 · ', '網絡慢 · '))
-        + '<a href="javascript:location.reload()" style="color:var(--saffron-dark);text-decoration:underline;">'
-        + escapeHtml(sc('刷新重试', '刷新重試')) + '</a></p></div>';
-    }
-  }, 5000);
-
-  window.JX.api.get('/api/mistakes?limit=200').then(function (data) {
-    clearTimeout(loadingTimer);
-    allMistakes = Array.isArray(data) ? data : [];
-    updateCounts();
-    populateCourseFilter();
-    renderCards();
-  }).catch(function (err) {
-    clearTimeout(loadingTimer);
-    document.getElementById('mistakes-list').innerHTML =
-      '<div class="q-card" style="text-align:center;padding:var(--sp-6);"><p style="color:var(--crimson);">'
-      + escapeHtml(sc('加载失败：', '加載失敗：') + (err.message || err))
-      + '</p>'
-      + '<a href="javascript:location.reload()" class="btn btn-ghost btn-pill" style="margin-top:12px;display:inline-block;padding:6px 18px;">'
-      + escapeHtml(sc('重试', '重試')) + '</a>'
-      + '</div>';
-  });
+  window.JX.util.bootGuard(
+    document.getElementById('mistakes-list'),
+    loadPage().then(function () { setupInfiniteScroll(); }),
+    { timeoutMs: 8000 }
+  );
 }
 
 document.addEventListener('jx:user-ready', boot);
