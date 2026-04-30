@@ -92,6 +92,114 @@
   --dur:  180ms;
 }
 
+/* ===================================================
+   Dark Theme · [data-theme="dark"] 显式 / [data-theme="auto"] 跟系统
+   保留 saffron / sage / gold / crimson 品牌色相 · 仅反转 ink 与底层背景
+   =================================================== */
+:root[data-theme="dark"],
+:root[data-theme="auto"]:where([data-theme-system="dark"]) {
+  /* 品牌色 · 暗背景下提亮（避免主色被吞）*/
+  --saffron:        #F09472;
+  --saffron-dark:   #E07856;
+  --saffron-light:  rgba(224,120,86,.22);
+  --saffron-pale:   rgba(224,120,86,.10);
+
+  --sage:           #B8CCAA;
+  --sage-dark:      #93B07F;
+  --sage-light:     rgba(168,188,154,.18);
+
+  --crimson:        #E07566;
+  --crimson-dark:   #C25647;
+  --crimson-light:  rgba(225,90,76,.20);
+
+  --gold:           #E0BD92;
+  --gold-dark:      #C49E70;
+  --gold-light:     rgba(212,165,116,.22);
+  --gold-pale:      rgba(212,165,116,.10);
+
+  /* Ink · 反转层级 · 底色暖墨 → 亮米 */
+  --ink:            #F2EAE0;  /* 主文 */
+  --ink-2:          #D9CCBC;  /* 次文 */
+  --ink-3:          #A89888;  /* 辅助 */
+  --ink-4:          #786C5E;  /* 提示 */
+  --ink-5:          #463C32;  /* 分隔/disabled */
+
+  /* 背景 · 暖墨色阶 */
+  --bg-scene: linear-gradient(135deg,
+              #1A1410 0%, #221A12 40%,
+              #2A1F15 75%, #1F1810 100%);
+  --bg-card:  #2A2118;
+  --bg-input: rgba(255,255,255,.05);
+
+  /* Glass · 暗色半透明 */
+  --glass:        rgba(60,46,32,.50);
+  --glass-thick:  rgba(60,46,32,.78);
+  --glass-border: rgba(255,255,255,.08);
+  --glass-shadow: 0 6px 22px rgba(0,0,0,.35);
+  --blur:         blur(20px) saturate(120%);
+
+  /* Shadow */
+  --shadow-1: 0 1px 2px  rgba(0,0,0,.30);
+  --shadow-2: 0 4px 14px rgba(0,0,0,.35);
+  --shadow-3: 0 8px 28px rgba(0,0,0,.42);
+
+  /* Border */
+  --border:       rgba(255,255,255,.10);
+  --border-light: rgba(255,255,255,.06);
+
+  color-scheme: dark;
+}
+
+/* auto 模式：跟随系统 prefers-color-scheme */
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+    --saffron:        #F09472;
+    --saffron-dark:   #E07856;
+    --saffron-light:  rgba(224,120,86,.22);
+    --saffron-pale:   rgba(224,120,86,.10);
+
+    --sage:           #B8CCAA;
+    --sage-dark:      #93B07F;
+    --sage-light:     rgba(168,188,154,.18);
+
+    --crimson:        #E07566;
+    --crimson-dark:   #C25647;
+    --crimson-light:  rgba(225,90,76,.20);
+
+    --gold:           #E0BD92;
+    --gold-dark:      #C49E70;
+    --gold-light:     rgba(212,165,116,.22);
+    --gold-pale:      rgba(212,165,116,.10);
+
+    --ink:            #F2EAE0;
+    --ink-2:          #D9CCBC;
+    --ink-3:          #A89888;
+    --ink-4:          #786C5E;
+    --ink-5:          #463C32;
+
+    --bg-scene: linear-gradient(135deg,
+                #1A1410 0%, #221A12 40%,
+                #2A1F15 75%, #1F1810 100%);
+    --bg-card:  #2A2118;
+    --bg-input: rgba(255,255,255,.05);
+
+    --glass:        rgba(60,46,32,.50);
+    --glass-thick:  rgba(60,46,32,.78);
+    --glass-border: rgba(255,255,255,.08);
+    --glass-shadow: 0 6px 22px rgba(0,0,0,.35);
+    --blur:         blur(20px) saturate(120%);
+
+    --shadow-1: 0 1px 2px  rgba(0,0,0,.30);
+    --shadow-2: 0 4px 14px rgba(0,0,0,.35);
+    --shadow-3: 0 8px 28px rgba(0,0,0,.42);
+
+    --border:       rgba(255,255,255,.10);
+    --border-light: rgba(255,255,255,.06);
+
+    color-scheme: dark;
+  }
+}
+
 /* ── 简繁切换 ────────────────────────────────── */
 .tc { display: none; }
 [data-lang="tc"] .sc { display: none; }

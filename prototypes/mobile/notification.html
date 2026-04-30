@@ -58,7 +58,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
   transition: background var(--dur) var(--ease);
   position: relative;
 }
-.notif-item:hover { background: rgba(255,255,255,.85); }
+.notif-item:hover { background: var(--glass-thick); filter: brightness(1.05); }
 .notif-item.unread { border-left: 3px solid var(--saffron); padding-left: calc(var(--sp-4) - 3px); }
 
 .notif-icon {
@@ -101,6 +101,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .empty-desc { font: var(--text-body); color: var(--ink-2); letter-spacing: 1px; line-height: 1.7; max-width: 280px; }
 .err-state { color: var(--crimson); }
 </style>
+<script src="../shared/theme.js"></script>
 <script src="../shared/sentry.js"></script>
 <script src="../shared/analytics.js"></script>
 <script src="../shared/lang.js"></script>

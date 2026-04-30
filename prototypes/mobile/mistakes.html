@@ -17,6 +17,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="view-transition" content="same-origin">
 <title>觉学 · 错题本</title>
+<script src="../shared/theme.js"></script>
 <script src="../shared/sentry.js"></script>
 <script src="../shared/analytics.js"></script>
 <script src="../shared/lang.js"></script>
@@ -48,14 +49,14 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .ftab {
   padding:6px 14px; border-radius:var(--r-pill); white-space:nowrap;
   font:var(--text-caption); font-weight:600; letter-spacing:1.5px;
-  background:rgba(255,255,255,.55); border:1px solid var(--glass-border);
+  background:var(--glass); border:1px solid var(--glass-border);
   color:var(--ink-3); cursor:pointer;
 }
 .ftab.active { background:var(--saffron); color:#FFF; border-color:var(--saffron-dark); }
 
 .mistake-card {
   display:block; padding:var(--sp-4);
-  background:rgba(255,255,255,.62);
+  background:var(--glass-thick);
   backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
   border-radius:var(--r-lg); border:1px solid var(--glass-border);
   border-left:3px solid var(--crimson);
@@ -96,7 +97,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
   <div style="padding:0 var(--sp-5) var(--sp-3);">
     <select id="course-filter" class="course-filter"
       style="width:100%;padding:8px 12px;border-radius:var(--r-pill);
-             border:1px solid var(--glass-border);background:rgba(255,255,255,.6);
+             border:1px solid var(--glass-border);background:var(--bg-input);
              font:var(--text-caption);color:var(--ink);letter-spacing:1.5px;outline:none;">
       <option value=""><span class="sc">全部法本</span></option>
     </select>
@@ -147,7 +148,7 @@ function renderCards() {
   var data = filterMistakes();
   if (!data.length) {
     list.innerHTML =
-      '<div class="q-card" style="text-align:center;padding:var(--sp-6);background:rgba(255,255,255,.55);border:1px solid var(--glass-border);border-radius:var(--r-lg);">' +
+      '<div class="q-card" style="text-align:center;padding:var(--sp-6);background:var(--glass);border:1px solid var(--glass-border);border-radius:var(--r-lg);">' +
         '<p style="font:var(--text-caption);color:var(--ink-3);">' +
           escapeHtml(sc('暂无错题', '暫無錯題')) +
         '</p></div>';
@@ -192,7 +193,7 @@ function renderCards() {
       '</div>' +
       '<button class="mistake-remove" aria-label="' + sc('移除', '移除') + '" ' +
         'style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;' +
-        'border:1px solid var(--glass-border);background:rgba(255,255,255,.7);' +
+        'border:1px solid var(--glass-border);background:var(--glass-thick);' +
         'color:var(--ink-3);cursor:pointer;font-size:14px;line-height:1;">✕</button>';
 
     // 点击卡片主体 → 去错题解析页

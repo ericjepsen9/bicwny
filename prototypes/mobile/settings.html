@@ -47,7 +47,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
   transition: background var(--dur) var(--ease);
 }
 .row + .row { border-top: 1px solid var(--border-light); }
-.row:hover { background: rgba(255,255,255,.4); }
+.row:hover { background: var(--glass); }
 .row-label { flex: 1; font: var(--text-body); color: var(--ink); letter-spacing: 1px; }
 .row-value { font: var(--text-caption); color: var(--ink-3); letter-spacing: 1px; }
 .row-arrow { color: var(--ink-4); flex-shrink: 0; }
@@ -84,6 +84,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 /* Footer info */
 .footer-info { text-align: center; font: var(--text-caption); color: var(--ink-4); letter-spacing: 1px; padding: var(--sp-2) 0 var(--sp-4); }
 </style>
+<script src="../shared/theme.js"></script>
 <script src="../shared/sentry.js"></script>
 <script src="../shared/analytics.js"></script>
 <script src="../shared/lang.js"></script>
@@ -155,6 +156,22 @@ body { background: var(--bg-scene); min-height: 100vh; }
             繁體中文
           </span>
         </div>
+      </div>
+    </div>
+
+    <!-- Theme -->
+    <p class="section-title"><span class="sc">外观</span><span class="tc">外觀</span></p>
+    <div class="group">
+      <div class="row" style="cursor:default;flex-direction:column;align-items:stretch;gap:var(--sp-3);padding:var(--sp-4);">
+        <div style="display:flex;align-items:center;gap:var(--sp-3);">
+          <span class="row-label"><span class="sc">主题</span><span class="tc">主題</span></span>
+          <span class="row-value" id="theme-cur">—</span>
+        </div>
+        <div class="lang-picker" id="theme-picker" style="flex-wrap:wrap;"></div>
+        <p style="font:var(--text-caption);color:var(--ink-3);letter-spacing:1px;line-height:1.6;margin-top:4px;">
+          <span class="sc">「跟随系统」会按设备深色模式自动切换</span>
+          <span class="tc">「跟隨系統」會按裝置深色模式自動切換</span>
+        </p>
       </div>
     </div>
 
@@ -339,6 +356,51 @@ document.getElementById('font-size-picker').addEventListener('click', function (
   if (window.JX && window.JX.fontSize) window.JX.fontSize.set(v);
   renderFontSizePicker();
 });
+
+// 主题选择器
+function renderThemePicker() {
+  if (!window.JX || !window.JX.theme) return;
+  var box = document.getElementById('theme-picker');
+  var cell = document.getElementById('theme-cur');
+  if (!box || !cell) return;
+  var modes = [
+    { v: 'auto',  sc: '跟随系统', tc: '跟隨系統' },
+    { v: 'light', sc: '浅色',     tc: '淺色' },
+    { v: 'dark',  sc: '深色',     tc: '深色' },
+  ];
+  var cur = window.JX.theme.get();
+  box.innerHTML = modes.map(function (m) {
+    var active = m.v === cur;
+    return '<span class="lang-pick-chip' + (active ? ' active' : '') + '" data-theme="' + m.v + '">'
+      + '<span class="sc">' + m.sc + '</span><span class="tc">' + m.tc + '</span>'
+      + '</span>';
+  }).join('');
+  var curObj = modes.find(function (m) { return m.v === cur; });
+  if (curObj) {
+    var suffix = (cur === 'auto')
+      ? '（' + (window.JX.theme.effective() === 'dark' ? (window.JX.lang && window.JX.lang() === 'tc' ? '深色' : '深色') : (window.JX.lang && window.JX.lang() === 'tc' ? '淺色' : '浅色')) + '）'
+      : '';
+    cell.innerHTML =
+      '<span class="sc">' + curObj.sc + suffix + '</span>' +
+      '<span class="tc">' + curObj.tc + suffix + '</span>';
+  }
+}
+document.addEventListener('DOMContentLoaded', renderThemePicker);
+document.addEventListener('langchange', renderThemePicker);
+(function () {
+  var box = document.getElementById('theme-picker');
+  if (!box) return;
+  box.addEventListener('click', function (e) {
+    var chip = e.target.closest('[data-theme]');
+    if (!chip || !window.JX || !window.JX.theme) return;
+    window.JX.theme.set(chip.getAttribute('data-theme'));
+    renderThemePicker();
+  });
+  // 系统切换时（auto 模式）刷新当前态显示
+  if (window.JX && window.JX.theme && window.JX.theme.onChange) {
+    window.JX.theme.onChange(renderThemePicker);
+  }
+})();
 
 // ─── 推送通知主开关 ──────────────────────────
 // 读取当前状态 → 设 toggle / hint · 用户点击 → subscribe / unsubscribe

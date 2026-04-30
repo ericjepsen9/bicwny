@@ -89,7 +89,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .rpt-backdrop.open { opacity: 1; pointer-events: auto; }
 .rpt-sheet {
   width: 100%; max-width: 480px;
-  background: #fff; border-radius: var(--r-xl) var(--r-xl) 0 0;
+  background: var(--bg-card); border-radius: var(--r-xl) var(--r-xl) 0 0;
   transform: translateY(100%); transition: transform .25s var(--ease);
   padding: var(--sp-5) var(--sp-5) var(--sp-6);
   max-height: 80vh; overflow-y: auto;
@@ -100,7 +100,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .rpt-reason {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px; border-radius: var(--r);
-  border: 1px solid var(--border-light); background: #fff;
+  border: 1px solid var(--border-light); background: var(--bg-card);
   cursor: pointer; transition: all var(--dur) var(--ease);
   font: var(--text-body); color: var(--ink); letter-spacing: 1px;
 }
@@ -110,7 +110,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .rpt-details {
   width: 100%; min-height: 80px; resize: vertical;
   padding: 10px 12px; border-radius: var(--r);
-  border: 1px solid var(--border); background: #fff;
+  border: 1px solid var(--border); background: var(--bg-input);
   font: var(--text-body); color: var(--ink); letter-spacing: .5px; outline: none; font-family: inherit;
 }
 .rpt-details:focus { border-color: var(--saffron); }
@@ -445,6 +445,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 .stat-lbl { font: var(--text-caption); color: var(--ink-3); display: block; margin-top: 2px; }
 .result-btns { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; }
 </style>
+<script src="../shared/theme.js"></script>
 <script src="../shared/sentry.js"></script>
 <script src="../shared/analytics.js"></script>
 <script src="../shared/lang.js"></script>
