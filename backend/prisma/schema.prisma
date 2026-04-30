@@ -34,6 +34,9 @@ model User {
   timezone        String    @default("Asia/Taipei")
   locale          String    @default("zh-Hans")
   hasOnboarded    Boolean   @default(false) // 首次登录引导是否完成（加入班级 / 选自由学习）
+  // 内容分组（A/B 实验）· null = 走主线题库（cohort==null 的题目）
+  // 'A' / 'B' / 任意自定义字符串 · 指派后看到对应 cohort 的题目并集主线
+  contentCohort   String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -45,7 +48,7 @@ model User {
   enrollments       UserCourseEnrollment[]
   memberships       ClassMember[]
   sessions          AuthSession[]
-  createdQuestions  Question[]                @relation("CreatedQuestions")
+  createdQuestions  Question[]               @relation("CreatedQuestions")
   resetTokens       PasswordResetToken[]
   emailVerifyTokens EmailVerificationToken[]
   notifications     Notification[]
@@ -172,10 +175,10 @@ model EmailVerificationToken {
 // - link 是点击跳转的前端相对路径（可选，如 "class-detail.html"）
 // - isRead 读后不重置；前端 header 未读计数 = count(isRead=false)
 enum NotificationType {
-  system       // 系统通知（版本更新 / 维护预告）
+  system // 系统通知（版本更新 / 维护预告）
   class_announcement // 班级公告（辅导员发给班级成员）
-  achievement  // 成就解锁
-  reminder     // 学习提醒（今日到期 / 错题堆积）
+  achievement // 成就解锁
+  reminder // 学习提醒（今日到期 / 错题堆积）
 }
 
 model Notification {
@@ -205,11 +208,11 @@ model Notification {
 //   - Admin 后续可查 DAU/funnel/retention · 或者随时迁到 PostHog/ClickHouse
 model AnalyticsEvent {
   id         String   @id @default(cuid())
-  userId     String?  // null = pre-login 匿名
+  userId     String? // null = pre-login 匿名
   sessionId  String
-  event      String   // 'page_view' | 'click' | 'enroll' | 'quiz_submit' | 自定义
+  event      String // 'page_view' | 'click' | 'enroll' | 'quiz_submit' | 自定义
   properties Json     @default("{}")
-  page       String?  // 'home.html' · 仅 page_view 必填
+  page       String? // 'home.html' · 仅 page_view 必填
   referrer   String?
   userAgent  String?
   createdAt  DateTime @default(now())
@@ -225,14 +228,14 @@ model AnalyticsEvent {
 //   Capacitor 包后可在 platform='ios'/'android' 字段区分 native token vs web push
 //   过期 / 被浏览器吊销的 endpoint · 服务端发送时返 410 → 物理删除
 model PushSubscription {
-  id        String   @id @default(cuid())
-  userId    String
-  endpoint  String   @unique // FCM / Mozilla Autopush / Apple WebPush 端点
-  p256dh    String   // 加密公钥（Web Push 协议）
-  auth      String   // 鉴权密钥（Web Push 协议）
-  platform  String   @default("web") // 'web' | 'ios' | 'android' | 'capacitor-ios' | 'capacitor-android'
-  userAgent String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  endpoint   String   @unique // FCM / Mozilla Autopush / Apple WebPush 端点
+  p256dh     String // 加密公钥（Web Push 协议）
+  auth       String // 鉴权密钥（Web Push 协议）
+  platform   String   @default("web") // 'web' | 'ios' | 'android' | 'capacitor-ios' | 'capacitor-android'
+  userAgent  String?
+  createdAt  DateTime @default(now())
   lastSeenAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -246,29 +249,31 @@ model PushSubscription {
 // ═══════════════════════════════════════════════════════════════
 
 model Course {
-  id               String   @id @default(cuid())
-  slug             String   @unique
-  title            String
-  titleTraditional String?
-  author           String?
-  authorInfo       String?
-  description      String?
-  coverEmoji       String   @default("🪷")
+  id                    String    @id @default(cuid())
+  slug                  String    @unique
+  title                 String
+  titleTraditional      String?
+  author                String?
+  authorInfo            String?
+  description           String?
+  coverEmoji            String    @default("🪷")
   // 封面图（admin 上传）· 相对路径如 /uploads/courses/<uuid>.jpg · null 时回落 coverEmoji
   // 文件本体存 uploads/courses/，nginx serve 静态
-  coverImageUrl    String?
-  displayOrder     Int      @default(0)
-  isPublished      Boolean  @default(true)
-  licenseInfo      String?
+  coverImageUrl         String?
+  displayOrder          Int       @default(0)
+  isPublished           Boolean   @default(true)
+  licenseInfo           String?
   // 法本导入幂等键：前端打开预览模态时生成 uuid，commit 时透传
   // 同 token 重复 commit 不再产生新 chapter/lesson · null = 该 course 还未通过导入端点写入过
   lastImportClientToken String?
   // 上一次导入的 chapterCount / lessonCount · 用于幂等命中时如实回放
   lastImportSummary     Json?
   // 软删归档：DELETE 端点不真删 · 学员侧已通过 isPublished=true 过滤
-  archivedAt       DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  archivedAt            DateTime?
+  // 内容版本 · 每次法本 / 章节 / 课时结构变更递增 · 客户端可据此失效缓存
+  contentVersion        Int       @default(1)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   chapters    Chapter[]
   questions   Question[]
@@ -397,6 +402,14 @@ model Question {
   ownerClassId String?
   reviewStatus ReviewStatus @default(approved)
 
+  // A/B 题库分组 · null = 主线（所有用户都见）
+  // 实验题填 'A' / 'B' / 'beta-2026q2' 等 · 仅 user.contentCohort 匹配的人看到
+  cohort String?
+
+  // 内容版本 · 每次题面 / 答案 / payload 实质变更递增
+  // 用户答题记录里也存 questionVersion · 题目改写时不影响历史正确率统计
+  contentVersion Int @default(1)
+
   createdByUserId String?
   reviewed        Boolean  @default(true)
   createdAt       DateTime @default(now())
@@ -419,6 +432,7 @@ model Question {
   @@index([reviewStatus])
   @@index([ownerClassId])
   @@index([createdByUserId])
+  @@index([cohort])
   // listLessonQuestions / listCourseQuestions 复合过滤命中此索引
   // 顺序：courseId（高基数）→ reviewStatus → visibility → lessonId（叶级二次过滤）
   @@index([courseId, reviewStatus, visibility, lessonId])
@@ -531,20 +545,20 @@ enum ReportStatus {
 }
 
 model QuestionReport {
-  id         String       @id @default(cuid())
-  userId     String
-  questionId String
-  reason     ReportReason
-  details    String?
-  status     ReportStatus @default(pending)
-  createdAt  DateTime     @default(now())
+  id              String       @id @default(cuid())
+  userId          String
+  questionId      String
+  reason          ReportReason
+  details         String?
+  status          ReportStatus @default(pending)
+  createdAt       DateTime     @default(now())
   // 处理记录 · 让审计 + UI 知道谁/何时/为何处理
   handledByUserId String?
   handledAt       DateTime?
   // 处理时的备注（admin 给团队 / 给举报者的解释 · 可见到 reporter）
-  note       String?
+  note            String?
   // accept 时的额外动作 · null=未处理 · 'hide_question'=同时隐藏题目 · 'keep_question'=保留
-  acceptAction String?
+  acceptAction    String?
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -777,4 +791,42 @@ model SystemSetting {
   value     Json
   updatedAt DateTime @updatedAt
   updatedBy String?
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 内容版本化 · ContentSeed + ContentRelease
+// ContentSeed：注册表（哪些 seed 已经跑过 · 类似 prisma migration history）
+//   每个 seed 文件名唯一 · hash 是文件内容 sha256 · 重跑同名同 hash 跳过
+//   hash 变了说明源码改了 · 默认拒跑（避免误重写）· --force 才覆盖
+//
+// ContentRelease：审计流水（每次内容变更一条）
+//   不止 seed · 后台 admin 手改 / 法本导入 / question 编辑都写一行
+//   entity = 'course'|'lesson'|'question' · entityId 是被改的实体
+//   change 大致分类（'create'|'update'|'archive'|'cohort-promote' 等）
+// ═══════════════════════════════════════════════════════════════
+
+model ContentSeed {
+  id        String   @id @default(cuid())
+  name      String   @unique // 'V202604_add_xinjing_questions' 格式
+  hash      String // 源码 sha256 · 防止悄悄改
+  appliedAt DateTime @default(now())
+  appliedBy String? // CLI=null · admin 触发=userId
+  notes     String? // seed 自报告的'本次插入 N 条' 等
+}
+
+model ContentRelease {
+  id         String   @id @default(cuid())
+  entity     String // 'course' | 'chapter' | 'lesson' | 'question' | 'cohort'
+  entityId   String
+  change     String // 'create' | 'update' | 'archive' | 'restore' | 'cohort-set' | 'cohort-promote'
+  oldVersion Int? // 变更前 contentVersion
+  newVersion Int? // 变更后
+  diff       Json? // 变化详情 · payload 大字段不全存 · 仅记 keys
+  byUserId   String?
+  bySeed     String? // ContentSeed.name · seed 触发时填
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@index([bySeed])
 }

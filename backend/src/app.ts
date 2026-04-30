@@ -21,6 +21,7 @@ import { mistakesRoutes } from './modules/answering/mistakes.routes.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { authSessionsRoutes } from './modules/auth/sessions.routes.js';
 import { adminAuditRoutes } from './modules/admin/audit.routes.js';
+import { adminContentRoutes } from './modules/admin/content.routes.js';
 import { adminLogsRoutes } from './modules/admin/logs.routes.js';
 import { adminRoutes } from './modules/admin/routes.js';
 import { adminSystemSettingsRoutes } from './modules/admin/system-settings.routes.js';
@@ -291,6 +292,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(adminRoutes);
   await app.register(adminSystemSettingsRoutes);
   await app.register(adminAuditRoutes);
+  await app.register(adminContentRoutes);
   await app.register(adminLogsRoutes);
   await app.register(adminClassRoutes);
   await app.register(coachClassRoutes);

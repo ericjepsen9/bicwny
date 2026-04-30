@@ -497,7 +497,87 @@ JX.i18n.register({
 - 班级公告 / 通知具体内容（用户/管理员产出）
 - LLM 答题反馈（按用户语言生成 · 见 backend prompt）
 
-## 十一、还没上线的功能（v1.0 范围外）
+## 十一、内容版本化（content versioning · A/B 题库）
+
+把 prisma migrations 之外的'数据级'变更也纳入 trail：法本结构调整、题目改写、A/B
+实验题库都走同一套 audit + seed 注册表。
+
+### 模型
+
+- `ContentSeed`：seed 注册表 · 同名只跑一次 · hash 变了默认拒跑
+- `ContentRelease`：审计流水 · 每次变更一行（包括 seed / admin 编辑 / cohort 指派）
+- `Course.contentVersion`、`Question.contentVersion`：实质变更递增 · 客户端缓存失效用
+- `Question.cohort`：null = 主线（所有人都见）· 'A' / 'B' / ... 仅匹配 user 的 cohort 看到
+- `User.contentCohort`：null = 主线 · 否则看 主线 ∪ 该 cohort
+
+### 增量 seed 文件
+
+`backend/prisma/seed/content-versioned/V<yyyymm>_<slug>.ts`：
+
+```ts
+import type { SeedDef } from '../../../src/lib/content-seed.js';
+
+const seed: SeedDef = {
+  name: 'V202607_add_xinjing_questions',
+  async run(tx, ctx) {
+    const q = await tx.question.create({ data: { /* ... */ cohort: 'beta-A' } });
+    await ctx.record('question', q.id, 'create', null, q.contentVersion, { source: 'manual' });
+    return { inserted: 1 };
+  },
+};
+export default seed;
+```
+
+应用：
+
+```bash
+cd backend
+npm run content:seed              # 跑所有未应用的（按文件名升序）
+npm run content:seed -- --dry-run # 只列出 · 不写库
+npm run content:seed -- --force   # hash 变了也允许重跑
+```
+
+行为：
+- 同名同 hash → 跳过（不插任何行）
+- 同名 hash 变 → 默认抛错（防止源码改了悄悄重写）· 加 `--force` 才覆盖
+- run 函数在事务里执行 · 任意一步失败回滚 · ContentSeed 不写入
+
+### 服务层手动写 release
+
+admin 编辑题 / 法本导入这种'非 seed'变更，调用 `recordRelease()`：
+
+```ts
+import { recordRelease } from '../../lib/content-seed.js';
+
+await prisma.$transaction(async (tx) => {
+  const updated = await tx.question.update({ /* ... */ });
+  await recordRelease(tx, {
+    entity: 'question',
+    entityId: updated.id,
+    change: 'update',
+    oldVersion: prev.contentVersion,
+    newVersion: updated.contentVersion,
+    diff: { fields: ['questionText'] },
+    byUserId: adminId,
+  });
+});
+```
+
+### A/B 题库实验流程
+
+1. 写一道实验题：`Question.cohort = 'beta-A'`
+2. 选定一批用户：`POST /api/admin/users/:id/cohort` body `{ cohort: 'beta-A' }`
+3. 这些用户答题时 `listLessonQuestions` / `listCourseQuestions` 自动并入 cohort=null + cohort='A'
+4. 实验结束推全：把题改 `cohort = null`（推荐写一个 seed 文件做 cohort-promote · 留 trail）
+
+### 只读 admin 端点
+
+- `GET /api/admin/content/seeds` · seed 注册表（最新优先）
+- `GET /api/admin/content/releases?entity=question&entityId=xxx` · 流水按实体过滤
+- `GET /api/admin/content/releases?bySeed=V202607_xxx` · 流水按 seed 过滤
+- `POST /api/admin/users/:id/cohort` body `{ cohort: 'A' | null }` · 指派 + 写 release
+
+## 十二、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI
 2. Coach 后台 UI（造题表单、批量导入、LLM 造题向导）

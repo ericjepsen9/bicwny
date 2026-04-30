@@ -35,6 +35,8 @@ export async function resetDb(): Promise<void> {
     prisma.analyticsEvent.deleteMany(),
     prisma.classMember.deleteMany(),
     prisma.class.deleteMany(),
+    prisma.contentRelease.deleteMany(),
+    prisma.contentSeed.deleteMany(),
     prisma.question.deleteMany(),
     prisma.lesson.deleteMany(),
     prisma.chapter.deleteMany(),
@@ -152,6 +154,7 @@ export interface SeededQuestionOpts {
   visibility?: 'public' | 'class_private' | 'draft';
   reviewStatus?: 'pending' | 'approved' | 'rejected';
   createdByUserId?: string | null;
+  cohort?: string | null;
 }
 
 /** 直插一道题（绕过 coach 路由），返回 id。默认 single，选项 [a(对), b(错)]。 */
@@ -179,6 +182,7 @@ export async function seedQuestion(opts: SeededQuestionOpts): Promise<string> {
       reviewStatus: opts.reviewStatus ?? 'approved',
       reviewed: (opts.reviewStatus ?? 'approved') !== 'pending',
       createdByUserId: opts.createdByUserId ?? null,
+      cohort: opts.cohort ?? null,
     },
   });
   return q.id;
