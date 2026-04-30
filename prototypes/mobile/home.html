@@ -490,10 +490,7 @@ function renderCourseCard(enrollment, overlay) {
   document.getElementById('course-cta').href = ctaUrl;
   document.getElementById('course-toc').href = tocUrl;
   // 旧 quiz.html 直跳行为已移除：现在阅读页自带'本课答题'按钮
-  // 保留 currentLessonId 注释供未来直跳 quiz 用
-  if (overlayObj.currentLessonId) {
-    // no-op（当前 ctaUrl 不带 lessonId · scripture-reading 内部会自动续读）
-  }
+  // scripture-reading 内部会按 enrollment.currentLessonId 自动续读
 }
 
 
