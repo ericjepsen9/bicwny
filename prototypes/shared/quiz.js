@@ -782,6 +782,7 @@
     if (state.answer && state.answer.__placeholder) {
       state.confirmed = true;
       state.lastGrade = { isCorrect: false, score: 0, feedback: sc('已跳过', '已跳過') };
+      if (window.JX && window.JX.haptics) window.JX.haptics.warning();
       render();
       return;
     }
@@ -825,8 +826,13 @@
       // 后端返回的 question 含完整 payload（不剥答案），用它替换本题的 public view，
       // 让 single/multi/fill/match 的"提交后高亮正确项"能真正生效
       if (data.question) state.questions[state.qi] = data.question;
-      if (data.grade.isCorrect) state.correctCount++;
-      else { state.wrongCount++; state.lives = Math.max(0, state.lives - 1); }
+      if (data.grade.isCorrect) {
+        state.correctCount++;
+        if (window.JX && window.JX.haptics) window.JX.haptics.success();
+      } else {
+        state.wrongCount++; state.lives = Math.max(0, state.lives - 1);
+        if (window.JX && window.JX.haptics) window.JX.haptics.error();
+      }
       // 埋点 · 答题结果
       if (window.JX.analytics) window.JX.analytics.track('quiz_answer', {
         questionId: q.id,
@@ -960,6 +966,7 @@
       req.then(function () {
         state.favoriteIds[q.id] = !on;
         favBtn.classList.toggle('active', !on);
+        if (window.JX && window.JX.haptics) window.JX.haptics.tap();
       }).catch(function () {
         // 失败静默；收藏非核心路径，不打断答题
       }).finally(function () {

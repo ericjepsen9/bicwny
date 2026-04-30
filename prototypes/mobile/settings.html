@@ -96,6 +96,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 <script src="../shared/offline-queue.js"></script>
 <script src="../shared/scroll-restore.js"></script>
 <script src="../shared/skeleton.js"></script>
+<script src="../shared/haptics.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/push.js"></script>
 <script src="../shared/require-auth.js"></script>
@@ -199,6 +200,21 @@ body { background: var(--bg-scene); min-height: 100vh; }
       <div class="row" onclick="toggleRow(this)">
         <span class="row-label"><span class="sc">每日学习提醒</span><span class="tc">每日學習提醒</span></span>
         <div class="toggle"></div>
+      </div>
+    </div>
+
+    <!-- Feedback / 触觉反馈 -->
+    <p class="section-title"><span class="sc">交互反馈</span><span class="tc">交互回饋</span></p>
+    <div class="group">
+      <div class="row" id="haptics-row" style="cursor:pointer;">
+        <div>
+          <span class="row-label"><span class="sc">触觉反馈</span><span class="tc">觸覺回饋</span></span>
+          <div style="font-size:.6875rem;color:var(--ink-4);letter-spacing:.5px;margin-top:2px;">
+            <span class="sc">按钮 / 答题 / 提醒触发轻震</span>
+            <span class="tc">按鈕 / 答題 / 提醒觸發輕震</span>
+          </div>
+        </div>
+        <div class="toggle" id="haptics-toggle"></div>
       </div>
     </div>
 
@@ -381,6 +397,22 @@ document.getElementById('font-size-picker').addEventListener('click', function (
 
   document.addEventListener('DOMContentLoaded', refresh);
   if (document.readyState !== 'loading') refresh();
+})();
+
+// 触觉反馈开关
+(function () {
+  var row = document.getElementById('haptics-row');
+  var toggle = document.getElementById('haptics-toggle');
+  if (!row || !toggle || !window.JX.haptics) return;
+  function paint() { toggle.classList.toggle('on', !!window.JX.haptics.isEnabled()); }
+  paint();
+  row.addEventListener('click', function () {
+    var next = !window.JX.haptics.isEnabled();
+    window.JX.haptics.setEnabled(next);
+    paint();
+    // 开启瞬间给一下选择反馈 · 关闭瞬间不响（已关）
+    if (next) window.JX.haptics.selection();
+  });
 })();
 
 // 设备数量预览（账号 row 显示 N 台 / 仅 1 台）

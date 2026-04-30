@@ -81,6 +81,15 @@
     // 允许单参数：show(kind, msg) ⇒ 只显示 msg，无 title
     if (msg === undefined) { msg = title; title = null; }
 
+    // 触觉反馈 · ok→success / error→error / warn→warning / info→tap
+    if (window.JX && window.JX.haptics) {
+      var h = window.JX.haptics;
+      if      (kind === 'ok')    h.success();
+      else if (kind === 'error') h.error();
+      else if (kind === 'warn')  h.warning();
+      else if (kind === 'info')  h.tap();
+    }
+
     var root = getRoot();
     var t = document.createElement('div');
     t.className = 'jx-toast ' + kind;

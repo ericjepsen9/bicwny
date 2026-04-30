@@ -29,6 +29,7 @@
 <script src="../shared/offline-queue.js"></script>
 <script src="../shared/scroll-restore.js"></script>
 <script src="../shared/skeleton.js"></script>
+<script src="../shared/haptics.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/require-auth.js"></script>
 <script src="../shared/sw-register.js" defer></script>
@@ -340,8 +341,14 @@ document.getElementById('btn-remove').addEventListener('click', function () {
   if (!currentQid) return;
   if (!confirm(sc('确定从错题本移除？', '確定從錯題本移除？'))) return;
   window.JX.api.del('/api/mistakes/' + encodeURIComponent(currentQid))
-    .then(function () { location.href = 'mistakes.html'; })
-    .catch(function (err) { window.JX.toast.error(sc('移除失败：', '移除失敗：') + (err.message || err)); });
+    .then(function () {
+      if (window.JX && window.JX.haptics) window.JX.haptics.success();
+      location.href = 'mistakes.html';
+    })
+    .catch(function (err) {
+      if (window.JX && window.JX.haptics) window.JX.haptics.error();
+      window.JX.toast.error(sc('移除失败：', '移除失敗：') + (err.message || err));
+    });
 });
 
 // ── 举报此题（D 阶段 · 与 quiz.html 同模式）─────────────

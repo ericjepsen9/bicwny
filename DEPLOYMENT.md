@@ -418,6 +418,26 @@ OS 级加密存储 · root/越狱设备读取门槛远高于 localStorage。
 非 Capacitor 场景（用户用浏览器访问）· 已经能直接用 Web Push（前提 HTTPS + VAPID 密钥）·
 无需额外 Capacitor 操作。
 
+### 触觉反馈（@capacitor/haptics）
+
+前端 `shared/haptics.js` 已自适应：检测到 `window.Capacitor.Plugins.Haptics`
+就走 native Taptic Engine / Android Vibrator API · 否则回落 Web Vibration API。
+
+```bash
+npm install @capacitor/haptics
+npx cap sync
+```
+
+用户可在 设置 → 交互反馈 → 触觉反馈 自行关闭（写 localStorage `jx-haptics-enabled`）。
+
+接入点：
+- 答题正确 / 错误 / 跳过 (`shared/quiz.js`)
+- SM-2 自评（重来 → error · 困难 → warning · 合格/容易 → success）
+- 收藏切换 / 错题移除 / 退出设备
+- 全站 Toast（ok/warning/error → 对应 notification）
+- 全站 nav-back（tap）+ tab-bar 切换（selection）
+- 任何带 `data-haptic="tap|selection|success|warning|error|light|medium|heavy"` 的元素
+
 ## 十一、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI

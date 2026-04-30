@@ -35,6 +35,7 @@
 <script src="../shared/offline-queue.js"></script>
 <script src="../shared/scroll-restore.js"></script>
 <script src="../shared/skeleton.js"></script>
+<script src="../shared/haptics.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/require-auth.js"></script>
 <script src="../shared/sw-register.js" defer></script>
@@ -384,6 +385,13 @@ function submitRating(rating) {
   if (!state.revealed) return;
   var c = state.queue[state.index];
   if (!c) return;
+
+  // 触觉反馈 · 0=重来→error · 1=困难→warning · 2/3=合格/容易→success
+  if (window.JX && window.JX.haptics) {
+    if (rating === 0) window.JX.haptics.error();
+    else if (rating === 1) window.JX.haptics.warning();
+    else window.JX.haptics.success();
+  }
 
   // 所有评分按钮置忙
   document.querySelectorAll('.rating-btn').forEach(function (b) {

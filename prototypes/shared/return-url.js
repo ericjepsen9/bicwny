@@ -453,6 +453,7 @@
       if (!el) return;
       if (el.hasAttribute('data-nav-skip-global')) return;
       ev.preventDefault();
+      if (window.JX && window.JX.haptics) window.JX.haptics.tap();
       var href = el.getAttribute('href');
       if (href && href !== '#') {
         location.replace(href);
@@ -482,6 +483,7 @@
         else if (scrollEl) scrollEl.scrollTop = 0;
         return;
       }
+      if (window.JX && window.JX.haptics) window.JX.haptics.selection();
       location.replace(href);
     }, false);
   }
