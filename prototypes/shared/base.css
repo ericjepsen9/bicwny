@@ -156,3 +156,17 @@ body.prototype-frame .status-icons { display: flex; gap: var(--sp-1); align-item
   background: linear-gradient(90deg, var(--saffron), var(--saffron-dark));
   transition: width var(--dur) var(--ease);
 }
+
+/* ── Reduced Motion 适配 ─────────────────────────
+   尊重操作系统层面的'减少动画'偏好（iOS / Android / 桌面都暴露这个 query）·
+   把所有 transition / animation 缩短到 0.01s · 实现'瞬间到位'但不破坏依赖
+   transition 完成事件的 JS 逻辑 · 比 transition: none 更安全
+   ============================================== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -216,11 +216,13 @@ body.prototype-frame .tab-bar {
   max-width: none;
   padding: var(--sp-3) var(--sp-4) 28px;
 }
-/* 凡是含 .tab-bar 的页，主内容区域自动垫 (基础 80) + safe-area · 防 Android 手势区遮挡卡片 */
-body:has(.tab-bar) .phone {
+/* 凡是含 .tab-bar 的页，主内容区域自动垫 (基础 80) + safe-area · 防 Android 手势区遮挡卡片
+   has-tab-bar class 由 return-url.js 在 DOMContentLoaded 时检测 .tab-bar 存在加上 ·
+   不用 body:has() 选择器 · 老 Android WebView (Chrome <105) 不支持 */
+body.has-tab-bar .phone {
   padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
 }
-body.prototype-frame:has(.tab-bar) .phone { padding-bottom: 0; }
+body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
 .tab-item {
   display: flex;
   flex-direction: column;

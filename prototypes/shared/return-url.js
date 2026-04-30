@@ -387,9 +387,11 @@
   //   每个 page hardcode 自己的 active tab · 但 Capacitor restore 状态 / 直接 deep
   //   link 进入时 hardcode 可能错位 · DOM 渲染后按当前 URL 重置一遍
   //   防御性：不依赖 hardcode · 自己根据 location.pathname 决定哪个 active
+  //   同时给 body 加 has-tab-bar class · 替代 :has() 选择器（老 Android 不支持）
   function syncTabBarActive() {
     var bar = document.querySelector('.tab-bar');
     if (!bar) return; // 非 tab 根页 · 没 tab-bar · 跳过
+    document.body.classList.add('has-tab-bar');
     var here = (location.pathname.split('/').pop() || '').toLowerCase();
     if (!here || here === '') here = 'home.html'; // / → home
     var items = bar.querySelectorAll('.tab-item');
