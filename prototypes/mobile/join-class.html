@@ -179,10 +179,14 @@ document.getElementById('form-join').addEventListener('submit', function (ev) {
   }
 
   var btn = document.getElementById('btn-submit');
+  if (btn.dataset && btn.dataset.loading === '1') return; // 二次点击 · 静默
   btn.setAttribute('aria-busy', 'true');
   setMsg('', '');
 
-  window.JX.api.post('/api/classes/join', { joinCode: code })
+  // once · 双击防抖 · 防 join class 重复请求
+  window.JX.util.once(btn, function () {
+    return window.JX.api.post('/api/classes/join', { joinCode: code });
+  })
     .then(function (data) {
       var cls = (data && data.class) || {};
       setMsg('ok', sc('加入成功！', '加入成功！'));

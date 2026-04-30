@@ -222,9 +222,46 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // 双击防抖 · 用法：JX.util.once(btn, function(){ return api.post(...); })
+  //   - 触发瞬间 disabled + data-loading=1 + 文本替换为 '加载中...'（可自定义）
+  //   - Promise 完成（成功/失败）后自动恢复
+  //   - 同一 btn 重复点击在 promise 未完成期间一律忽略（不会再发请求）
+  //   - 失败时 promise reject 让调用方仍能感知
+  // 注意：传入的 fn 必须返回 Promise · 同步函数请用 once(btn, ()=>Promise.resolve(syncCall()))
+  function once(btn, fn, opts) {
+    if (!btn || typeof fn !== 'function') return Promise.reject(new Error('once: bad args'));
+    if (btn.dataset && btn.dataset.loading === '1') {
+      return Promise.reject(new Error('LOADING'));
+    }
+    var loadingText = (opts && opts.loadingText) || '';
+    var origText = btn.innerHTML;
+    var origDisabled = btn.disabled;
+    if (btn.dataset) btn.dataset.loading = '1';
+    btn.disabled = true;
+    if (loadingText) btn.textContent = loadingText;
+    var p;
+    try {
+      p = Promise.resolve(fn());
+    } catch (e) {
+      p = Promise.reject(e);
+    }
+    return p.then(function (v) {
+      btn.disabled = origDisabled;
+      if (btn.dataset) btn.dataset.loading = '';
+      if (loadingText) btn.innerHTML = origText;
+      return v;
+    }, function (e) {
+      btn.disabled = origDisabled;
+      if (btn.dataset) btn.dataset.loading = '';
+      if (loadingText) btn.innerHTML = origText;
+      throw e;
+    });
+  }
+
   window.JX.util = {
     queryParam: queryParam,
     relativeTime: relativeTime,
     escapeHtml: escapeHtml,
+    once: once,
   };
 })();

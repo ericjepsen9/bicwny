@@ -378,16 +378,18 @@ function openSheet(c) {
     var btn = ev.currentTarget;
     var cid = btn.getAttribute('data-cid');
     btn.setAttribute('aria-busy', 'true');
-    window.JX.api.post('/api/enrollments', { courseId: cid })
-      .then(function () {
-        // 加入成功 → 进阅读（首次会自动展示介绍页）· intro=1 强制确保
-        var slug = c.slug;
-        location.href = window.JX.nav.toReading({ slug: slug, intro: true, from: window.JX.nav.FROM.COURSES });
-      })
-      .catch(function (err) {
-        btn.removeAttribute('aria-busy');
-        alert((err && err.message) || sc('加入失败', '加入失敗'));
-      });
+    // once · 双击防抖 + disabled · 防重复 enroll
+    window.JX.util.once(btn, function () {
+      return window.JX.api.post('/api/enrollments', { courseId: cid });
+    }).then(function () {
+      // 加入成功 → 进阅读（首次会自动展示介绍页）· intro=1 强制确保
+      var slug = c.slug;
+      location.href = window.JX.nav.toReading({ slug: slug, intro: true, from: window.JX.nav.FROM.COURSES });
+    }).catch(function (err) {
+      btn.removeAttribute('aria-busy');
+      if (err && err.message === 'LOADING') return; // 重复点击 · 静默
+      alert((err && err.message) || sc('加入失败', '加入失敗'));
+    });
   });
 }
 function closeSheet() {
