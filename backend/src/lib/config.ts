@@ -50,6 +50,14 @@ const envSchema = z
 
   // Dev 专用：Sprint 1 尚无真登录，直接注入 fake user id
   DEV_FAKE_USER_ID: z.string().default('dev_user_001'),
+
+  // Web Push (VAPID) · 浏览器 + Capacitor WebView 推送通知
+  // 用 `npx web-push generate-vapid-keys` 生成（一次性 · 永久使用）
+  // 缺省时推送 API 报 NOT_CONFIGURED · 不影响其他功能
+  // VAPID_SUBJECT 必须是 mailto: 或 https:// URI · 邮件最常见
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().default('mailto:admin@juexue.local'),
   })
   // 生产强制 JWT_SECRET ≥ 32 字节 + 不能是占位值 → 启动时拒绝弱密钥
   .refine(

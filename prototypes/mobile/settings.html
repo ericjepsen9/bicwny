@@ -90,6 +90,8 @@ body { background: var(--bg-scene); min-height: 100vh; }
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/api.js"></script>
+<script src="../shared/toast.js"></script>
+<script src="../shared/push.js"></script>
 <script src="../shared/require-auth.js"></script>
 <script src="../shared/sw-register.js" defer></script>
 </head>
@@ -163,6 +165,14 @@ body { background: var(--bg-scene); min-height: 100vh; }
     <!-- Notifications -->
     <p class="section-title"><span class="sc">通知偏好</span><span class="tc">通知偏好</span></p>
     <div class="group">
+      <!-- 推送通知主开关 · 真接 Web Push API · 控制是否推到设备 -->
+      <div class="row" id="push-row" style="cursor:pointer;">
+        <div>
+          <span class="row-label"><span class="sc">推送通知</span><span class="tc">推送通知</span></span>
+          <div id="push-hint" style="font-size:.6875rem;color:var(--ink-4);letter-spacing:.5px;margin-top:2px;"></div>
+        </div>
+        <div class="toggle" id="push-toggle"></div>
+      </div>
       <div class="row" onclick="toggleRow(this)">
         <span class="row-label"><span class="sc">班级公告</span><span class="tc">班級公告</span></span>
         <div class="toggle on"></div>
@@ -302,6 +312,65 @@ document.getElementById('font-size-picker').addEventListener('click', function (
   if (window.JX && window.JX.fontSize) window.JX.fontSize.set(v);
   renderFontSizePicker();
 });
+
+// ─── 推送通知主开关 ──────────────────────────
+// 读取当前状态 → 设 toggle / hint · 用户点击 → subscribe / unsubscribe
+(function () {
+  var sc = window.JX.sc;
+  var pushRow = document.getElementById('push-row');
+  var pushToggle = document.getElementById('push-toggle');
+  var pushHint = document.getElementById('push-hint');
+  if (!pushRow || !window.JX.push) return;
+
+  function setHint(text) { pushHint.textContent = text; }
+  function setOn(on) { pushToggle.classList.toggle('on', !!on); }
+
+  async function refresh() {
+    var s = await window.JX.push.status();
+    if (s === 'unsupported') {
+      setOn(false);
+      setHint(sc('当前浏览器不支持', '當前瀏覽器不支援'));
+      pushRow.style.opacity = '.5'; pushRow.style.pointerEvents = 'none';
+    } else if (s === 'denied') {
+      setOn(false);
+      setHint(sc('已被系统拦截 · 请到设置开启', '已被系統攔截 · 請到設置開啟'));
+      pushRow.style.opacity = '.7'; pushRow.style.pointerEvents = 'none';
+    } else if (s === 'subscribed') {
+      setOn(true);
+      setHint(sc('已开启', '已開啟'));
+    } else {
+      setOn(false);
+      setHint(sc('点击开启 · 接收班级公告与学习提醒', '點擊開啟 · 接收班級公告與學習提醒'));
+    }
+  }
+
+  pushRow.addEventListener('click', async function () {
+    var s = await window.JX.push.status();
+    pushRow.style.pointerEvents = 'none'; // 防双击
+    try {
+      if (s === 'subscribed') {
+        await window.JX.push.unsubscribe();
+        if (window.JX.toast) window.JX.toast.ok(sc('已关闭推送', '已關閉推送'));
+      } else {
+        var r = await window.JX.push.subscribe();
+        if (r === 'granted' && window.JX.toast) {
+          window.JX.toast.ok(sc('已开启推送', '已開啟推送'));
+        } else if (r === 'denied' && window.JX.toast) {
+          window.JX.toast.error(sc('权限被拒 · 请到系统设置开启', '權限被拒 · 請到系統設置開啟'));
+        }
+      }
+    } catch (err) {
+      console.warn('[push toggle]', err);
+      if (window.JX.toast) window.JX.toast.error(sc('操作失败', '操作失敗'));
+    } finally {
+      pushRow.style.pointerEvents = '';
+      refresh();
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', refresh);
+  if (document.readyState !== 'loading') refresh();
+})();
 
 // 退出登录：调后端 /logout 吊销 refresh，再跳登录页
 document.getElementById('btn-logout').addEventListener('click', function () {

@@ -36,6 +36,7 @@ import { llmAdminRoutes } from './modules/llm/admin.routes.js';
 import { llmScenarioAdminRoutes } from './modules/llm/scenario.admin.routes.js';
 import { achievementsRoutes } from './modules/achievements/routes.js';
 import { notificationsRoutes } from './modules/notifications/routes.js';
+import { pushRoutes } from './modules/push/routes.js';
 import { adminQuestionRoutes } from './modules/questions/admin.routes.js';
 import { coachQuestionRoutes } from './modules/questions/coach.routes.js';
 import { reportsRoutes } from './modules/reports/routes.js';
@@ -297,6 +298,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(sm2Routes);
   await app.register(notificationsRoutes);
   await app.register(achievementsRoutes);
+  await app.register(pushRoutes);
 
   return app;
 }

@@ -49,6 +49,7 @@ model User {
   resetTokens       PasswordResetToken[]
   emailVerifyTokens EmailVerificationToken[]
   notifications     Notification[]
+  pushSubscriptions PushSubscription[]
 
   @@index([role])
 }
@@ -195,6 +196,27 @@ model Notification {
   @@index([userId, isRead, createdAt])
   @@index([userId, createdAt])
   @@index([userId, deletedAt])
+}
+
+// 推送订阅 · Web Push（浏览器 + Capacitor WebView）
+//   一个用户可以多设备订阅 · endpoint 是订阅唯一标识
+//   Capacitor 包后可在 platform='ios'/'android' 字段区分 native token vs web push
+//   过期 / 被浏览器吊销的 endpoint · 服务端发送时返 410 → 物理删除
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique // FCM / Mozilla Autopush / Apple WebPush 端点
+  p256dh    String   // 加密公钥（Web Push 协议）
+  auth      String   // 鉴权密钥（Web Push 协议）
+  platform  String   @default("web") // 'web' | 'ios' | 'android' | 'capacitor-ios' | 'capacitor-android'
+  userAgent String?
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([lastSeenAt]) // 清理 30 天没活的订阅
 }
 
 // ═══════════════════════════════════════════════════════════════

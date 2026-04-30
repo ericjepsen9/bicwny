@@ -123,3 +123,44 @@ async function networkFirst(req) {
 self.addEventListener('message', function (event) {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
+
+// ─── Web Push 事件 ──────────────────────────
+// 后端 web-push lib 发的 payload 是 JSON 字符串：
+//   { title, body, link, tag?, icon?, badge? }
+self.addEventListener('push', function (event) {
+  if (!event.data) return;
+  var data;
+  try { data = event.data.json(); } catch (_) { data = { title: '觉学', body: event.data.text() }; }
+  var title = data.title || '觉学';
+  var options = {
+    body: data.body || '',
+    tag: data.tag,
+    icon: data.icon || '/icon-192.png',
+    badge: data.badge || '/icon-192.png',
+    data: { link: data.link || 'home.html' },
+    // 重要：vibrate 让 Android 锁屏震动 · iOS 自动忽略
+    vibrate: [60, 30, 60],
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// 用户点击通知 · 优先聚焦已开页 · 没开就新开
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  var link = (event.notification.data && event.notification.data.link) || 'home.html';
+  // 链接是相对路径 · 拼成 /mobile/<link>
+  var targetUrl = '/mobile/' + link.replace(/^\/+/, '');
+  event.waitUntil((async function () {
+    var clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    // 已有该 origin 的窗口 → 聚焦 + 导航
+    for (var i = 0; i < clientsList.length; i++) {
+      var c = clientsList[i];
+      if (c.url.indexOf(self.location.origin) === 0 && 'focus' in c) {
+        c.navigate(targetUrl).catch(function () {});
+        return c.focus();
+      }
+    }
+    // 没开窗 → 新开
+    if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+  })());
+});
