@@ -34,6 +34,7 @@ import { adminCoursesCoverRoutes } from './modules/courses/cover.routes.js';
 import { adminCoursesImportRoutes } from './modules/courses/import.routes.js';
 import { favoritesRoutes } from './modules/favorites/routes.js';
 import { healthRoutes } from './modules/health/routes.js';
+import { searchRoutes } from './modules/search/routes.js';
 import { learningRoutes } from './modules/learning/routes.js';
 import { llmAdminRoutes } from './modules/llm/admin.routes.js';
 import { llmScenarioAdminRoutes } from './modules/llm/scenario.admin.routes.js';
@@ -286,6 +287,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // 健康检查（公开，支持 /health/detailed）
   await app.register(healthRoutes);
+  await app.register(searchRoutes);
 
   // 业务路由
   await app.register(authRoutes);

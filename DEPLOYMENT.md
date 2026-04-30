@@ -635,7 +635,69 @@ GET /api/admin/analytics/funnel?fromDays=30&steps=page_view:home,click_start_qui
 每个 step 格式：`event` 或 `event:page` · 用户按时间顺序触发就算完成 ·
 最多 8 步 · 返回每步 `{ users, rateFromStart }`。
 
-## 十三、还没上线的功能（v1.0 范围外）
+## 十三、全文搜索
+
+P2 #24 · 跨 Course / Lesson / Question · ILIKE 评分 · 中英文兼容。
+
+### 设计
+
+- **不依赖任何 PG 扩展**：用 `LOWER(col) LIKE LOWER('%q%')` + 命中位置加权排名
+- **可叠加 pg_trgm GIN 索引**：装上后 ILIKE 自动走索引 · 不改 SQL
+- **可见性 / cohort / 已发布** 过滤直接进 SQL：题目按 viewer.contentCohort（P2 #22）
+- **评分**：标题 100 / 副标 80 / 作者 50 / 正文 20（题目 source 60 / correctText 20）
+- **中文兼容**：ILIKE 不依赖分词 · 子串匹配 · 标题里出现关键词就命中
+
+### 启用 trigram 索引（生产建议）
+
+```bash
+cd backend
+npm run db:search:setup
+```
+
+行为：
+1. `CREATE EXTENSION IF NOT EXISTS pg_trgm`（需 superuser · 失败则跳过 GIN 索引）
+2. 给 `Course.title/titleTraditional/author`、`Lesson.title/teachingSummary`、
+   `Question.questionText/source` 加 `gin (LOWER(COALESCE(col,'')) gin_trgm_ops)`
+3. CREATE INDEX IF NOT EXISTS · 幂等 · 重跑无害
+
+不装也能用 · 数据量 < 10 万行时 seq scan + ILIKE 几十毫秒可接受。
+
+### API
+
+```
+GET /api/search?q=智慧&kind=all&limit=20
+```
+
+- `q`：必填 · 1-120 字 · 自动 trim
+- `kind`：`all` (默认) / `course` / `lesson` / `question`
+- `limit`：1-50 · 默认 20
+- 鉴权可选 · 未登录可搜公开法本/课时/主线公开题
+
+返回：
+
+```json
+{
+  "data": {
+    "q": "智慧",
+    "total": 12,
+    "truncated": true,
+    "hits": [
+      { "type": "course", "id": "...", "slug": "...", "title": "智慧法本", "score": 100 },
+      { "type": "lesson", "id": "...", "courseSlug": "...", "title": "...", "order": 1, "score": 30 },
+      { "type": "question", "id": "...", "lessonId": "...", "questionTextPreview": "…", "score": 100 }
+    ]
+  }
+}
+```
+
+### 客户端
+
+- `shared/search.js` 全屏浮层 · 250ms 防抖 · `<mark>` 高亮 · ESC/× 关闭
+- 触发：任意 `class="jx-search-trigger"` 或 `[data-jx-search]` 元素
+- 已接：`home.html` 顶栏放大镜、`mistakes.html` 顶栏搜索按钮
+- API：`JX.search.open(initialQ?)` / `JX.search.close()`
+
+## 十四、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI
 2. Coach 后台 UI（造题表单、批量导入、LLM 造题向导）

@@ -16,7 +16,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
-    "content:seed": "tsx scripts/content-seed-runner.ts"
+    "content:seed": "tsx scripts/content-seed-runner.ts",
+    "db:search:setup": "tsx scripts/setup-search-indexes.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",
