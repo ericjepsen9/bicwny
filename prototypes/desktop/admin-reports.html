@@ -216,48 +216,43 @@ function render() {
 
   body.innerHTML = state.items.map(function (r) {
     var label = REASON_LABELS[r.reason] || [r.reason, r.reason];
-    var qText = state.qCache[r.questionId];
+    // 后端现在返回丰富数据 · 不需要二次拉
+    var q = r.question || {};
+    var rep = r.reporter || {};
+    var sib = r.siblingPendingCount || 1;
+    var sibBadge = sib > 1
+      ? '<span style="background:var(--crimson);color:#FFF;padding:1px 8px;border-radius:10px;font-size:.7rem;font-weight:700;margin-left:6px;">+' + (sib - 1) + sc(' 条同题', ' 條同題') + '</span>'
+      : '';
+    var hidden = q.reviewStatus === 'rejected'
+      ? '<span style="background:rgba(43,34,24,.08);color:var(--ink-4);padding:1px 8px;border-radius:10px;font-size:.7rem;margin-left:6px;">' + sc('已下架', '已下架') + '</span>'
+      : '';
     return ''
-      + '<div class="r-item" data-rid="' + escapeHtml(r.id) + '">'
+      + '<div class="r-item" data-rid="' + escapeHtml(r.id) + '" data-qid="' + escapeHtml(q.id || '') + '">'
       +   '<div class="r-time">'
       +     '<div class="when">' + fmtTime(r.createdAt) + '</div>'
       +     '<div>' + relAge(r.createdAt) + '</div>'
       +   '</div>'
-      +   '<div><span class="r-reason ' + escapeHtml(r.reason) + '">' + label[0] + '</span></div>'
+      +   '<div><span class="r-reason ' + escapeHtml(r.reason) + '">' + label[0] + '</span>' + sibBadge + hidden + '</div>'
       +   '<div class="r-detail">'
       +     (r.details ? '<div>' + escapeHtml(r.details) + '</div>' : '<div style="color:var(--ink-4);">' + sc('（无补充说明）', '（無補充說明）') + '</div>')
-      +     '<div style="margin-top:6px;">'
-      +       sc('题目 ', '題目 ') + '<span class="qid" data-qid="' + escapeHtml(r.questionId) + '">' + escapeHtml(r.questionId) + '</span>'
+      +     (q.questionText ? '<div class="qtext" style="margin-top:8px;font:var(--text-body-serif);color:var(--ink);background:rgba(43,34,24,.04);padding:8px 10px;border-radius:6px;">' + escapeHtml(q.questionText) + '</div>' : '')
+      +     '<div class="note" style="margin-top:6px;">'
+      +       sc('举报人：', '舉報人：') + escapeHtml(rep.dharmaName || rep.email || '—')
+      +       (q.source ? ' · ' + escapeHtml(q.source) : '')
       +     '</div>'
-      +     (qText
-        ? '<div class="qtext">' + escapeHtml(qText) + '</div>'
-        : '')
-      +     '<div class="note">' + sc('举报人 ', '舉報人 ') + escapeHtml(r.userId || '—') + '</div>'
       +   '</div>'
-      +   '<div class="r-actions">'
-      +     '<button class="r-btn accept" data-action="accept" data-rid="' + escapeHtml(r.id) + '">'
-      +       sc('✓ 成立', '✓ 成立') + '</button>'
+      +   '<div class="r-actions" style="display:flex;flex-direction:column;gap:4px;">'
+      +     (q.reviewStatus !== 'rejected'
+        ? '<button class="r-btn accept" data-action="accept_hide" data-rid="' + escapeHtml(r.id) + '" title="' + escapeHtml(sc('采纳并下架题目', '採納並下架題目')) + '">'
+          + sc('✓ 采纳·下架', '✓ 採納·下架') + '</button>'
+        : '')
+      +     '<button class="r-btn" data-action="accept_keep" data-rid="' + escapeHtml(r.id) + '" title="' + escapeHtml(sc('采纳但保留题目', '採納但保留題目')) + '" style="background:var(--gold-pale);color:var(--gold-dark);border:1px solid var(--gold-light);">'
+      +       sc('✓ 采纳·保留', '✓ 採納·保留') + '</button>'
       +     '<button class="r-btn reject" data-action="reject" data-rid="' + escapeHtml(r.id) + '">'
       +       sc('✗ 不成立', '✗ 不成立') + '</button>'
       +   '</div>'
       + '</div>';
   }).join('');
-
-  // 点 qid → 拉题目详情并注入
-  body.querySelectorAll('.qid[data-qid]').forEach(function (el) {
-    el.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      var qid = el.getAttribute('data-qid');
-      if (state.qCache[qid]) return; // 已展开
-      window.JX.api.get('/api/questions/' + encodeURIComponent(qid)).then(function (q) {
-        state.qCache[qid] = q.questionText || '(无题干)';
-        render();
-      }).catch(function (err) {
-        state.qCache[qid] = sc('（题目加载失败：', '（題目載入失敗：') + ((err && err.message) || '') + '）';
-        render();
-      });
-    });
-  });
 
   // 处理按钮
   body.querySelectorAll('.r-btn[data-action]').forEach(function (btn) {
@@ -265,16 +260,29 @@ function render() {
       if (btn.getAttribute('aria-busy') === 'true') return;
       var rid = btn.getAttribute('data-rid');
       var action = btn.getAttribute('data-action');
-      var noteMsg = action === 'accept'
-        ? sc('可选 · 备注(写给自己或下一位 admin)：', '可選 · 備註(寫給自己或下一位 admin)：')
-        : sc('可选 · 驳回原因：', '可選 · 駁回原因：');
-      var note = prompt(noteMsg) || '';
+      var promptMsg = action === 'accept_hide'
+        ? sc('题目将下架 · 同题所有举报一并采纳 · 举报人将收到通知\n\n可选备注：', '題目將下架 · 同題所有舉報一併採納 · 舉報人將收到通知\n\n可選備註：')
+        : action === 'accept_keep'
+          ? sc('采纳举报但保留题目 · 举报人将收到通知\n\n可选备注：', '採納舉報但保留題目 · 舉報人將收到通知\n\n可選備註：')
+          : sc('驳回此举报 · 举报人将收到通知\n\n可选驳回原因：', '駁回此舉報 · 舉報人將收到通知\n\n可選駁回原因：');
+      var note = prompt(promptMsg);
+      if (note === null) return; // 用户取消
       btn.setAttribute('aria-busy', 'true');
       window.JX.api.post('/api/admin/reports/' + encodeURIComponent(rid) + '/handle', {
-        decision: action, note: note,
-      }).then(function () {
-        // 本地移除（乐观）+ 重新拉
-        state.items = state.items.filter(function (r) { return r.id !== rid; });
+        decision: action, note: note || undefined,
+      }).then(function (data) {
+        // accept_* 时同 question 的所有 pending 都被批量处理 · 全部从 list 移除
+        var rec = state.items.find(function (x) { return x.id === rid; });
+        var qid = rec ? (rec.question && rec.question.id) : null;
+        if (action !== 'reject' && qid) {
+          state.items = state.items.filter(function (r) { return !r.question || r.question.id !== qid; });
+        } else {
+          state.items = state.items.filter(function (r) { return r.id !== rid; });
+        }
+        // 给 admin 一个简短反馈
+        if (data && data.alsoUpdated > 0) {
+          alert(sc('已处理 ', '已處理 ') + (data.alsoUpdated + 1) + sc(' 条 · 通知 ', ' 條 · 通知 ') + (data.notified || 0) + sc(' 位举报人', ' 位舉報人'));
+        }
         render();
       }).catch(function (err) {
         alert(sc('处理失败：', '處理失敗：') + ((err && err.message) || err));

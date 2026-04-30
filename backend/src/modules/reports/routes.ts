@@ -36,7 +36,11 @@ const listQuery = z.object({
 const idParam = z.object({ id: z.string().min(1) });
 
 const handleBody = z.object({
-  decision: z.enum(['accept', 'reject']),
+  // accept_hide = 举报成立 · 隐藏题目（reviewStatus=rejected）· 群发举报人通知
+  // accept_keep = 举报成立 · 保留题目（轻微问题已记录）
+  // reject      = 举报不成立
+  // 兼容老 'accept' = accept_hide
+  decision: z.enum(['accept', 'accept_hide', 'accept_keep', 'reject']),
   note: z.string().max(500).optional(),
 });
 
@@ -80,10 +84,12 @@ export const reportsRoutes: FastifyPluginAsync = async (app) => {
       const pb = handleBody.safeParse(req.body);
       if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
       const adminId = requireUserId(req);
+      // 兼容老 client：'accept' → accept_hide
+      const decision = pb.data.decision === 'accept' ? 'accept_hide' : pb.data.decision;
       const r = await handleReport(
         pp.data.id,
         adminId,
-        pb.data.decision,
+        decision,
         pb.data.note,
       );
       return { data: r };

@@ -516,12 +516,19 @@ model QuestionReport {
   details    String?
   status     ReportStatus @default(pending)
   createdAt  DateTime     @default(now())
+  // 处理记录 · 让审计 + UI 知道谁/何时/为何处理
+  handledByUserId String?
+  handledAt       DateTime?
+  // 处理时的备注（admin 给团队 / 给举报者的解释 · 可见到 reporter）
+  note       String?
+  // accept 时的额外动作 · null=未处理 · 'hide_question'=同时隐藏题目 · 'keep_question'=保留
+  acceptAction String?
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
-  @@index([questionId])
+  @@index([questionId, status]) // 群集同 question 待处理列表
 }
 
 // ═══════════════════════════════════════════════════════════════
