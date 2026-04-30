@@ -13,6 +13,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireUserId } from '../../lib/auth.js';
+import { verifyCaptcha } from '../../lib/captcha.js';
 import { BadRequest, NotFound } from '../../lib/errors.js';
 import { zBody } from '../../lib/openapi.js';
 import { prisma } from '../../lib/prisma.js';
@@ -32,6 +33,8 @@ const registerBody = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   dharmaName: z.string().max(64).optional(),
+  // CAPTCHA token · CAPTCHA_PROVIDER='none' 时可选 · 否则必填
+  captchaToken: z.string().max(2048).optional(),
 });
 
 const loginBody = z.object({
@@ -59,6 +62,7 @@ const changePasswordBody = z
 
 const forgotBody = z.object({
   email: z.string().email(),
+  captchaToken: z.string().max(2048).optional(),
 });
 
 const resetBody = z.object({
@@ -91,8 +95,11 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   }, async (req, reply) => {
     const parsed = registerBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
+    await verifyCaptcha(parsed.data.captchaToken, req.ip);
     const result = await registerUser(app, {
-      ...parsed.data,
+      email: parsed.data.email,
+      password: parsed.data.password,
+      dharmaName: parsed.data.dharmaName,
       ua: req.headers['user-agent'],
       ip: req.ip,
     });
@@ -134,6 +141,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   }, async (req) => {
     const parsed = forgotBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
+    await verifyCaptcha(parsed.data.captchaToken, req.ip);
     const result = await forgotPassword(parsed.data.email, req.ip);
     return { data: { ok: true, ...result } };
   });

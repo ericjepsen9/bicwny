@@ -16,12 +16,14 @@ export const healthRoutes: FastifyPluginAsync = async (app) => {
   // 公开配置 · 前端 boot 时拉一次 · 用来配 Sentry / 其他客户端监控
   // 不暴露任何 secret · DSN 暴露给前端是 Sentry 设计支持的（throttle 在服务端做）
   app.get('/api/config/public', {
-    schema: { tags: TAGS, summary: '前端公开配置（Sentry DSN 等）' },
+    schema: { tags: TAGS, summary: '前端公开配置（Sentry DSN / CAPTCHA 等）' },
   }, async () => ({
     data: {
       sentryDsn: config.SENTRY_DSN_FRONTEND || null,
       sentryEnv: config.NODE_ENV,
       sentryRelease: config.SENTRY_RELEASE,
+      captchaProvider: config.CAPTCHA_PROVIDER,
+      captchaSiteKey: config.CAPTCHA_SITE_KEY || null,
     },
   }));
 

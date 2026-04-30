@@ -66,6 +66,15 @@ const envSchema = z
   SENTRY_DSN_BACKEND: z.string().optional(),
   SENTRY_DSN_FRONTEND: z.string().optional(),
   SENTRY_RELEASE: z.string().default('dev'),
+
+  // CAPTCHA · Bot 防护 · 应用于 register / forgot / resend-verify
+  // CAPTCHA_PROVIDER='none' (默认) → 跳过校验 · 适用于本地 dev
+  // 'turnstile' = Cloudflare Turnstile（推荐 · 全球可用 · 隐私友好）
+  // 'hcaptcha' = hCaptcha（中国可用）
+  // 'recaptcha' = Google reCAPTCHA v2（中国不通）
+  CAPTCHA_PROVIDER: z.enum(['none', 'turnstile', 'hcaptcha', 'recaptcha']).default('none'),
+  CAPTCHA_SITE_KEY: z.string().optional(),
+  CAPTCHA_SECRET_KEY: z.string().optional(),
   })
   // 生产强制 JWT_SECRET ≥ 32 字节 + 不能是占位值 → 启动时拒绝弱密钥
   .refine(

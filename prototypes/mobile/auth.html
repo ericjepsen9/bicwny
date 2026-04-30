@@ -73,6 +73,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 <script src="../shared/config.js"></script>
 <script src="../shared/token-store.js"></script>
 <script src="../shared/api.js"></script>
+<script src="../shared/captcha.js"></script>
 </head>
 <body class="scene">
 <div class="phone-wrap">
@@ -156,6 +157,9 @@ body { background: var(--bg-scene); min-height: 100vh; }
         data-ph-sc="至少 6 位" data-ph-tc="至少 6 位" placeholder="至少 6 位">
     </div>
 
+    <!-- CAPTCHA · CAPTCHA_PROVIDER=none 时整个块自动隐藏 -->
+    <div id="reg-captcha" style="margin-top:8px;display:none;"></div>
+
     <div class="form-msg" id="reg-msg" role="status"></div>
 
     <button type="submit" class="btn btn-primary btn-lg btn-full btn-pill">
@@ -183,6 +187,8 @@ body { background: var(--bg-scene); min-height: 100vh; }
       <input class="input-field" id="forgot-email" name="email" type="email" autocomplete="email" required
         data-ph-sc="请输入注册邮箱" data-ph-tc="請輸入註冊郵箱" placeholder="请输入注册邮箱">
     </div>
+
+    <div id="forgot-captcha" style="margin-top:8px;display:none;"></div>
 
     <div class="form-msg" id="forgot-msg" role="status"></div>
     <div id="forgot-dev-hint" style="display:none;" class="form-msg info"></div>
@@ -340,6 +346,31 @@ document.getElementById('screen-login').addEventListener('submit', function (ev)
 });
 
 // ── 注册 ────────────────────────────────────────
+// CAPTCHA · 异步渲染 · 登录页本身不强 · 仅注册 / 找回密码场景
+//   token 缓存在变量 · 提交时附带 · 失败后 reset
+var regCaptchaToken = null, regCaptchaWidgetId = null;
+var forgotCaptchaToken = null, forgotCaptchaWidgetId = null;
+function setupCaptcha() {
+  if (!window.JX.captcha) return;
+  window.JX.captcha.config().then(function (cfg) {
+    if (!cfg) return; // provider=none · 整块隐藏
+    var regBox = document.getElementById('reg-captcha');
+    var forgotBox = document.getElementById('forgot-captcha');
+    if (regBox) {
+      regBox.style.display = '';
+      window.JX.captcha.render(regBox, function (t) { regCaptchaToken = t; })
+        .then(function (id) { regCaptchaWidgetId = id; });
+    }
+    if (forgotBox) {
+      forgotBox.style.display = '';
+      window.JX.captcha.render(forgotBox, function (t) { forgotCaptchaToken = t; })
+        .then(function (id) { forgotCaptchaWidgetId = id; });
+    }
+  });
+}
+document.addEventListener('DOMContentLoaded', setupCaptcha);
+if (document.readyState !== 'loading') setupCaptcha();
+
 document.getElementById('screen-register').addEventListener('submit', function (ev) {
   ev.preventDefault();
   var email = document.getElementById('reg-email').value.trim();
@@ -349,12 +380,17 @@ document.getElementById('screen-register').addEventListener('submit', function (
     setMsg('reg-msg', 'error', sc('请填写邮箱与至少 6 位密码', '請填寫郵箱與至少 6 位密碼'));
     return;
   }
+  if (window.JX.captcha && window.JX.captcha.isEnabled() && !regCaptchaToken) {
+    setMsg('reg-msg', 'error', sc('请先完成人机验证', '請先完成人機驗證'));
+    return;
+  }
   var btn = ev.target.querySelector('button[type="submit"]');
   btn.setAttribute('aria-busy', 'true');
   clearMsg('reg-msg');
 
   var body = { email: email, password: password };
   if (dharmaName) body.dharmaName = dharmaName;
+  if (regCaptchaToken) body.captchaToken = regCaptchaToken;
 
   window.JX.api.post('/api/auth/register', body, { noAuth: true })
     .then(function (data) {
@@ -369,6 +405,9 @@ document.getElementById('screen-register').addEventListener('submit', function (
     })
     .catch(function (err) {
       setMsg('reg-msg', 'error', localizedError(err));
+      // 提交失败后 reset captcha · 否则 token 已被消费 · 用户卡死
+      regCaptchaToken = null;
+      if (window.JX.captcha) window.JX.captcha.reset(regCaptchaWidgetId);
     })
     .finally(function () {
       btn.removeAttribute('aria-busy');
@@ -383,11 +422,18 @@ document.getElementById('screen-forgot').addEventListener('submit', function (ev
     setMsg('forgot-msg', 'error', sc('请输入邮箱', '請輸入郵箱'));
     return;
   }
+  if (window.JX.captcha && window.JX.captcha.isEnabled() && !forgotCaptchaToken) {
+    setMsg('forgot-msg', 'error', sc('请先完成人机验证', '請先完成人機驗證'));
+    return;
+  }
   var btn = ev.target.querySelector('button[type="submit"]');
   btn.setAttribute('aria-busy', 'true');
   clearMsg('forgot-msg');
 
-  window.JX.api.post('/api/auth/forgot', { email: email }, { noAuth: true })
+  var forgotBody = { email: email };
+  if (forgotCaptchaToken) forgotBody.captchaToken = forgotCaptchaToken;
+
+  window.JX.api.post('/api/auth/forgot', forgotBody, { noAuth: true })
     .then(function (data) {
       setMsg('forgot-msg', 'info',
         sc('已发送重置链接，请查收邮件（含垃圾邮件夹）。链接 30 分钟内有效。',
@@ -406,6 +452,8 @@ document.getElementById('screen-forgot').addEventListener('submit', function (ev
     .catch(function (err) {
       // forgot 几乎不会报错（后端防枚举一律 200），这里兜网络错
       setMsg('forgot-msg', 'error', localizedError(err));
+      forgotCaptchaToken = null;
+      if (window.JX.captcha) window.JX.captcha.reset(forgotCaptchaWidgetId);
     })
     .finally(function () {
       btn.removeAttribute('aria-busy');
