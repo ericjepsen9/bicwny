@@ -41,8 +41,9 @@ function sanitizeFilename(name: string): string {
 
 const previewLessonSchema: z.ZodType<{ title: string; referenceText?: string; teachingSummary?: string }> = z.object({
   title: z.string().trim().min(1).max(200),
-  referenceText: z.string().max(200000).optional(),
-  teachingSummary: z.string().max(50000).optional(),
+  // 收紧到与 admin.routes 一致 · 防 DoS（admin 有写入权但不应单 lesson 200KB）
+  referenceText: z.string().max(50000).optional(),
+  teachingSummary: z.string().max(10000).optional(),
 });
 const previewChapterSchema = z.object({
   title: z.string().trim().min(1).max(200),

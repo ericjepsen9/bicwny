@@ -14,6 +14,7 @@
 import type { Prisma } from '@prisma/client';
 import { BadRequest, Conflict, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { sanitizeRichText, sanitizeTitle } from '../../lib/text-sanitize.js';
 
 // ─── Course ──────────────────────────────────────────────────────
 
@@ -379,10 +380,10 @@ export async function createLesson(
       data: {
         chapterId,
         order,
-        title: input.title,
-        titleTraditional: input.titleTraditional ?? null,
-        referenceText: input.referenceText ?? null,
-        teachingSummary: input.teachingSummary ?? null,
+        title: sanitizeTitle(input.title),
+        titleTraditional: input.titleTraditional ? sanitizeTitle(input.titleTraditional) : null,
+        referenceText: sanitizeRichText(input.referenceText),
+        teachingSummary: sanitizeRichText(input.teachingSummary),
       },
     });
     await tx.auditLog.create({
@@ -413,10 +414,10 @@ export async function updateLesson(
   }
   const data: Prisma.LessonUpdateInput = {};
   if (patch.order !== undefined)            data.order            = patch.order;
-  if (patch.title !== undefined)            data.title            = patch.title;
-  if (patch.titleTraditional !== undefined) data.titleTraditional = patch.titleTraditional;
-  if (patch.referenceText !== undefined)    data.referenceText    = patch.referenceText;
-  if (patch.teachingSummary !== undefined)  data.teachingSummary  = patch.teachingSummary;
+  if (patch.title !== undefined)            data.title            = sanitizeTitle(patch.title);
+  if (patch.titleTraditional !== undefined) data.titleTraditional = patch.titleTraditional ? sanitizeTitle(patch.titleTraditional) : null;
+  if (patch.referenceText !== undefined)    data.referenceText    = sanitizeRichText(patch.referenceText);
+  if (patch.teachingSummary !== undefined)  data.teachingSummary  = sanitizeRichText(patch.teachingSummary);
 
   return prisma.$transaction(async (tx) => {
     const u = await tx.lesson.update({ where: { id }, data });

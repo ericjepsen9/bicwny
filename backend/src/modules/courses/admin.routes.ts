@@ -76,19 +76,21 @@ const updateChapterBody = z.object({
   titleTraditional: z.string().max(200).nullable().optional(),
 });
 
+// referenceText 上限收紧 200KB → 50KB · DoS 防御 + 实际内容（一段经文）够用
+// teachingSummary 上限收紧 50KB → 10KB · 摘要不需要那么长
 const createLessonBody = z.object({
   order: z.number().int().min(1).optional(),
   title: z.string().min(1).max(200),
   titleTraditional: z.string().max(200).optional(),
-  referenceText: z.string().max(200000).optional(),     // 原文 · 最多 20 万字
-  teachingSummary: z.string().max(50000).optional(),    // 讲记摘要 · 5 万字
+  referenceText: z.string().max(50000).optional(),
+  teachingSummary: z.string().max(10000).optional(),
 });
 const updateLessonBody = z.object({
   order: z.number().int().min(1).optional(),
   title: z.string().min(1).max(200).optional(),
   titleTraditional: z.string().max(200).nullable().optional(),
-  referenceText: z.string().max(200000).nullable().optional(),
-  teachingSummary: z.string().max(50000).nullable().optional(),
+  referenceText: z.string().max(50000).nullable().optional(),
+  teachingSummary: z.string().max(10000).nullable().optional(),
 });
 
 const TAGS = ['Admin'];

@@ -32,6 +32,7 @@ import { Agent } from 'undici';
 import { config } from '../../lib/config.js';
 import { BadRequest, Conflict, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { sanitizeRichText, sanitizeTitle } from '../../lib/text-sanitize.js';
 import { getSetting } from '../admin/system-settings.service.js';
 
 export interface PreviewLesson {
@@ -360,9 +361,9 @@ export async function commitImport(
         lessonRows.push({
           chapterId,
           order: li + 1,
-          title: le.title.trim(),
-          referenceText: le.referenceText?.trim() || null,
-          teachingSummary: le.teachingSummary?.trim() || null,
+          title: sanitizeTitle(le.title),
+          referenceText: sanitizeRichText(le.referenceText),
+          teachingSummary: sanitizeRichText(le.teachingSummary),
         });
       }
     }
