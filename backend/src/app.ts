@@ -71,8 +71,32 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   // 响应回传 x-request-id，客户端可据此反查
+  // 同时按方法 + 路径 + 状态加 Cache-Control · 让 webview / CDN 命中本地缓存
   app.addHook('onSend', async (req, reply, payload) => {
     reply.header(REQUEST_ID_HEADER, req.id);
+    // 已显式设过的不覆盖（路由内 reply.header('Cache-Control', ...) 优先）
+    if (!reply.getHeader('Cache-Control')) {
+      const status = reply.statusCode;
+      const method = req.method;
+      // 仅对 2xx GET 加缓存头 · 其他全部 no-store
+      if (method === 'GET' && status >= 200 && status < 300) {
+        const url = req.url || '';
+        // /api/courses · /api/courses/:slug · /api/my/* 都是用户态数据
+        //   private + Vary: Authorization · 防止 CDN 跨用户串
+        //   max-age=60s · stale-while-revalidate=300s
+        //   首屏体感不会过 stale · 后台静默更新
+        if (/^\/api\/(courses|my\/|sm2\/(stats|due)|favorites|mistakes|notifications|achievements)/.test(url)) {
+          reply.header('Cache-Control', 'private, max-age=60, stale-while-revalidate=300');
+          reply.header('Vary', 'Authorization');
+        } else {
+          // 其他 GET（包括 /api/health · /api/auth/me 等敏感的）短保险
+          reply.header('Cache-Control', 'private, no-cache');
+        }
+      } else {
+        // 写操作 / 4xx 5xx 一律不缓存 · 防止 webview 把错误页缓存住
+        reply.header('Cache-Control', 'no-store');
+      }
+    }
     return payload;
   });
 
