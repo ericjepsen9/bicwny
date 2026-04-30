@@ -262,9 +262,68 @@
     var els = document.querySelectorAll('a.nav-back');
     for (var i = 0; i < els.length; i++) attachHistoryBackFallback(els[i]);
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', autoAttachAll);
-  } else {
+
+  // 移动键盘弹起时输入框被遮挡 · 自动 scrollIntoView
+  // 移动浏览器（尤其 Android WebView）虚拟键盘弹出后不自动让焦点元素可见
+  // 监听全局 focusin · input / textarea / [contenteditable] 都触发
+  // 延迟 250ms 等键盘动画完成 · 然后 scrollIntoView({block:'center'})
+  function autoScrollOnFocus() {
+    document.addEventListener('focusin', function (ev) {
+      var t = ev.target;
+      if (!t) return;
+      var tag = t.tagName;
+      var isField =
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        t.isContentEditable;
+      if (!isField) return;
+      // hidden / submit / button 类 input 不需要滚动
+      if (tag === 'INPUT' && /^(hidden|submit|button|checkbox|radio)$/i.test(t.type)) return;
+      setTimeout(function () {
+        try { t.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+      }, 250);
+    });
+  }
+
+  // 离线状态顶部 banner · 监听 navigator.onLine
+  // 移动端常切网络（地铁、电梯）· app 应明确告知离线
+  // 离线时显示红条 · 上线时短暂显示绿条后自动消失
+  function setupOfflineBanner() {
+    var banner = document.createElement('div');
+    banner.id = 'jx-net-banner';
+    banner.style.cssText =
+      'position:fixed;top:0;left:0;right:0;z-index:9999;' +
+      'padding:6px 12px;text-align:center;font-size:.75rem;letter-spacing:1px;' +
+      'transform:translateY(-100%);transition:transform .25s ease;' +
+      'pointer-events:none;color:#FFF;';
+    document.body.appendChild(banner);
+    function show(online) {
+      if (online) {
+        banner.style.background = '#7D9A6C';
+        banner.textContent = '已恢复网络连接';
+        banner.style.transform = 'translateY(0)';
+        setTimeout(function () { banner.style.transform = 'translateY(-100%)'; }, 1500);
+      } else {
+        banner.style.background = '#C0392B';
+        banner.textContent = '离线状态 · 部分功能受限';
+        banner.style.transform = 'translateY(0)';
+      }
+    }
+    window.addEventListener('online', function () { show(true); });
+    window.addEventListener('offline', function () { show(false); });
+    // 初始检查
+    if (navigator.onLine === false) show(false);
+  }
+
+  function runAutoAttach() {
     autoAttachAll();
+    autoScrollOnFocus();
+    setupOfflineBanner();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runAutoAttach);
+  } else {
+    runAutoAttach();
   }
 })();

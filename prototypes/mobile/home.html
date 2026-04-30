@@ -470,10 +470,24 @@ function renderCourseCard(enrollment, overlay) {
     : null;
   var effectiveOverlay = overlay || cached;
   if (!effectiveOverlay) {
-    // 显示降级文案 + 进度条 0% · CTA 仍可点（reading 页内部会再 GET 重试）
-    document.getElementById('course-chapter-tag').textContent = sc('进度数据暂不可用', '進度數據暫不可用');
+    // 降级文案 · #8: 加'重试'按钮 · 用户主动恢复
+    var tag = document.getElementById('course-chapter-tag');
+    tag.innerHTML =
+      '<span class="sc">进度数据加载失败</span><span class="tc">進度數據載入失敗</span>' +
+      ' · <a href="#" id="course-overlay-retry" style="color:var(--saffron-dark);text-decoration:underline;">' +
+      '<span class="sc">重试</span><span class="tc">重試</span></a>';
     document.getElementById('course-percent').textContent = '—';
     document.getElementById('course-progress-fill').style.width = '0%';
+    var retryLink = document.getElementById('course-overlay-retry');
+    if (retryLink && c.slug) {
+      retryLink.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        retryLink.textContent = sc('重试中…', '重試中…');
+        window.JX.api.get('/api/courses/' + encodeURIComponent(c.slug))
+          .then(function (d) { renderCourseCard(enrollment, d.overlay); })
+          .catch(function () { renderCourseCard(enrollment, null); });
+      });
+    }
   } else {
     var pct = effectiveOverlay.progressPercent || 0;
     document.getElementById('course-percent').textContent = pct + '%';

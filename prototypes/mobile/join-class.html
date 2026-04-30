@@ -149,13 +149,25 @@ function setMsg(kind, text) {
 }
 
 // 实时把输入转大写 + 去空格
+// IME 兼容：中文输入法 compose 中不要改 value · 否则中断输入
+// 用 isComposing 标记 · compositionend 后才规范化
 var input = document.getElementById('fld-code');
+var imeComposing = false;
+input.addEventListener('compositionstart', function () { imeComposing = true; });
+input.addEventListener('compositionend', function () {
+  imeComposing = false;
+  normalizeCode();
+});
 input.addEventListener('input', function () {
+  if (imeComposing) return;
+  normalizeCode();
+});
+function normalizeCode() {
   var v = input.value.toUpperCase().replace(/\s+/g, '');
   if (v !== input.value) input.value = v;
   input.classList.remove('invalid');
   setMsg('', '');
-});
+}
 
 document.getElementById('form-join').addEventListener('submit', function (ev) {
   ev.preventDefault();

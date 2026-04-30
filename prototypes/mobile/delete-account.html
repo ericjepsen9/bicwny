@@ -69,7 +69,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
       <strong><span class="sc">此操作不可撤销，请确认：</span><span class="tc">此操作不可撤銷，請確認：</span></strong>
       <ul>
         <li><span class="sc">账号将立即停用，所有设备将被强制退出</span><span class="tc">帳號將立即停用，所有設備將被強制退出</span></li>
-        <li><span class="sc">邮箱会被释放，可在将来用同邮箱重新注册</span><span class="tc">郵箱會被釋放，可在將來用同郵箱重新註冊</span></li>
+        <li><span class="sc">邮箱进入 30 天冷却期 · 期间无法重新注册</span><span class="tc">郵箱進入 30 天冷卻期 · 期間無法重新註冊</span></li>
         <li><span class="sc">答题记录、错题本、SM-2 学习卡片将保留用于匿名统计</span><span class="tc">答題記錄、錯題本、SM-2 學習卡片將保留用於匿名統計</span></li>
         <li><span class="sc">班级成员身份、收藏、报名将一并失效</span><span class="tc">班級成員身份、收藏、報名將一併失效</span></li>
       </ul>
@@ -81,9 +81,17 @@ body { background: var(--bg-scene); min-height: 100vh; }
         data-ph-sc="当前登录密码" data-ph-tc="當前登錄密碼" placeholder="当前登录密码">
     </div>
 
+    <label style="display:flex;align-items:flex-start;gap:8px;padding:12px;background:rgba(192,57,43,.05);border-radius:var(--r);cursor:pointer;font:var(--text-caption);color:var(--ink-2);letter-spacing:1px;line-height:1.6;">
+      <input type="checkbox" id="fld-acknowledge" required style="margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:var(--crimson);">
+      <span>
+        <span class="sc">我已阅读并了解上述后果，确认要注销账号</span>
+        <span class="tc">我已閱讀並了解上述後果，確認要註銷帳號</span>
+      </span>
+    </label>
+
     <div class="form-msg" id="del-msg" role="status"></div>
 
-    <button type="submit" class="btn btn-lg btn-full btn-pill btn-danger">
+    <button type="submit" id="btn-delete" disabled class="btn btn-lg btn-full btn-pill btn-danger">
       <span class="sc">永久注销账号</span><span class="tc">永久註銷帳號</span>
     </button>
     <a href="profile.html" class="btn btn-ghost btn-lg btn-full btn-pill">
@@ -105,11 +113,20 @@ function setMsg(kind, text) {
   el.textContent = text || '';
 }
 
+// 勾选确认 checkbox 才能点提交按钮
+var ackBox = document.getElementById('fld-acknowledge');
+var delBtn = document.getElementById('btn-delete');
+ackBox.addEventListener('change', function () {
+  delBtn.disabled = !ackBox.checked;
+});
+
 document.getElementById('form-delete').addEventListener('submit', function (ev) {
   ev.preventDefault();
   var pw = document.getElementById('fld-pw').value;
   if (!pw) return setMsg('error', sc('请输入当前密码', '請輸入當前密碼'));
-  if (!confirm(sc('真的注销账号？此操作不可恢复。', '真的註銷帳號？此操作不可恢復。'))) return;
+  if (!ackBox.checked) return setMsg('error', sc('请勾选确认了解后果', '請勾選確認了解後果'));
+  if (!confirm(sc('最后确认：注销账号且无法恢复 · 邮箱将被锁定 30 天',
+                  '最後確認：註銷帳號且無法恢復 · 郵箱將被鎖定 30 天'))) return;
 
   var btn = ev.target.querySelector('button[type="submit"]');
   btn.setAttribute('aria-busy', 'true');
