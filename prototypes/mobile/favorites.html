@@ -101,7 +101,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
   <div class="status-bar" data-auto></div>
 
   <div class="top-nav">
-    <a class="nav-back" id="nav-back" href="home.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
+    <a class="nav-back" id="nav-back" href="quiz-center.html"><svg width="18" height="18" fill="none" stroke="#55463A" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></a>
     <span class="nav-title"><span class="sc">收藏</span><span class="tc">收藏</span></span>
     <div style="width:34px;"></div>
   </div>
@@ -375,6 +375,5 @@ window.JX.api.get('/api/favorites?limit=200').then(function (data) {
   render([]);
 });
 </script>
-<script>(function(){var b=document.getElementById("nav-back");if(b&&window.JX&&window.JX.nav&&window.JX.nav.attachHistoryBackFallback)window.JX.nav.attachHistoryBackFallback(b);})();</script>
 </body>
 </html>

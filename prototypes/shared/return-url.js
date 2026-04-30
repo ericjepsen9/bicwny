@@ -235,33 +235,28 @@
     clear: clearOverlayCache,
   };
 
-  // ─── A4 · 返回按钮优先用浏览器历史栈 ──────────────────────
-  // 多层 from 嵌套（home → reading → detail → reading → detail）下，硬编码
-  // fromXxxReturnUrl 容易在两屏间反复横跳。浏览器历史栈天然记录完整链路，
-  // 优先 history.back()；只有深链入站（history.length === 1）才退回 href。
+  // ─── 返回按钮策略 ──────────────────────────────────────────
+  // 设计决策：mature mobile app 的 ← 应该指向'逻辑父级'，不是浏览器历史栈。
+  //   - 浏览器历史会包含 tab 切换、refresh、跨域跳转等噪音
+  //   - 用户点 ← 期望的是'回到这条流的上一步'，不是'撤销刚才的导航'
+  // 实现：每个页面 nav-back href 写'逻辑父级'路径
+  //   - 单入口页面：硬编码（如 settings → profile）
+  //   - 多入口页面：?from= 参数决定（如 reading 可能从 home/courses/detail 进）
+  //
+  // 旧的 attachHistoryBackFallback 保留导出 · 给少数页面（quiz）显式调用 ·
+  // 因 quiz 完成页要 await PATCH 后再跳，比单纯 href 复杂
   function attachHistoryBackFallback(el) {
     if (!el) return;
-    // R9: dataset 防双重绑定 · auto-attach 与显式调用都安全
     if (el.dataset.histBackBound === '1') return;
     el.dataset.histBackBound = '1';
     el.addEventListener('click', function (ev) {
-      // history.length > 1 说明本 tab 内有上一页 · 同源默认假设（跨域跳进来的极少）
       if (history.length > 1) {
         ev.preventDefault();
         history.back();
       }
-      // 否则让 href 接管（深链 / 新 tab 打开）
     });
   }
   window.JX.nav.attachHistoryBackFallback = attachHistoryBackFallback;
-
-  // R9: 自动给所有 a.nav-back 挂 history.back fallback · 二级页统一行为
-  //   - 与显式 attachHistoryBackFallback 调用兼容（dataset 防双绑）
-  //   - 只覆盖 anchor 元素 · 自定义 button / 非 .nav-back 不动
-  function autoAttachAll() {
-    var els = document.querySelectorAll('a.nav-back');
-    for (var i = 0; i < els.length; i++) attachHistoryBackFallback(els[i]);
-  }
 
   // 移动键盘弹起时输入框被遮挡 · 自动 scrollIntoView
   // 移动浏览器（尤其 Android WebView）虚拟键盘弹出后不自动让焦点元素可见
@@ -336,7 +331,6 @@
   }
 
   function runAutoAttach() {
-    autoAttachAll();
     autoScrollOnFocus();
     setupOfflineBanner();
     setupCapacitorBackButton();
