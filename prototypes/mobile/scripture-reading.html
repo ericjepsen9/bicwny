@@ -14,7 +14,7 @@
 <html lang="zh-CN" data-lang="sc">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>觉学 · 色即是空</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -61,10 +61,12 @@ body { background: var(--bg-scene); min-height: 100vh; }
 }
 .annotation-body { font: var(--text-body-serif); color: var(--ink-2); letter-spacing: 1px; line-height: 1.75; }
 
-/* Bottom tools */
+/* Bottom tools · 安全区适配 · iOS home indicator + Android 手势区 */
 .reading-tools {
   position: absolute; bottom: 0; left: 0; right: 0;
-  display: flex; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4) 28px;
+  display: flex; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  padding-bottom: calc(var(--sp-3) + max(env(safe-area-inset-bottom, 16px), 16px));
   background: var(--glass-thick); backdrop-filter: var(--blur);
   border-top: 1px solid var(--glass-border);
 }

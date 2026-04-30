@@ -197,7 +197,12 @@ input, textarea, select {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  padding: var(--sp-3) var(--sp-4) calc(var(--sp-3) + env(safe-area-inset-bottom, 12px));
+  /* iOS notch / home indicator + Android 手势导航区都靠 env(safe-area-inset-bottom)
+     iOS：值通常 34px (home indicator) · Android：值在 viewport-fit=cover + 手势导航
+     时通常 16-48px · 桌面 / 直角屏：值为 0 · fallback 12 保证基础内边距
+     viewport meta 已加 viewport-fit=cover · 否则 env() 不会返回有效值 */
+  padding: var(--sp-3) var(--sp-4);
+  padding-bottom: calc(var(--sp-3) + max(env(safe-area-inset-bottom, 12px), 12px));
   background: var(--glass-thick);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
@@ -211,8 +216,10 @@ body.prototype-frame .tab-bar {
   max-width: none;
   padding: var(--sp-3) var(--sp-4) 28px;
 }
-/* 凡是含 .tab-bar 的页，主内容区域自动垫 80px 避免被 tab 挡 */
-body:has(.tab-bar) .phone { padding-bottom: 80px; }
+/* 凡是含 .tab-bar 的页，主内容区域自动垫 (基础 80) + safe-area · 防 Android 手势区遮挡卡片 */
+body:has(.tab-bar) .phone {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+}
 body.prototype-frame:has(.tab-bar) .phone { padding-bottom: 0; }
 .tab-item {
   display: flex;
