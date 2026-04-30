@@ -313,20 +313,39 @@
 
   // Capacitor / 原生 WebView 系统返回按钮拦截
   //   - Android 物理 / 手势返回触发 backButton 事件
-  //   - 优先 history.back() · 历史栈空则退出 app
+  //   - 决策顺序：(1) 关掉打开的 sheet/modal · (2) 走 .nav-back 逻辑父级 ·
+  //              (3) 都没有 → exitApp（tab 根页才会走到这里）
+  //   - 不再用 history.back() · 与逻辑父级导航策略一致
+  //     （tab 切换 / refresh 污染 history 栈 · history.back() 会跳到错的页）
   //   - 现在 web 环境 window.Capacitor 不存在 = no-op
-  //   - 未来 npm install @capacitor/app 后自动生效 · 无需改业务代码
   function setupCapacitorBackButton() {
     var cap = window.Capacitor;
     if (!cap || !cap.Plugins || !cap.Plugins.App) return;
     var App = cap.Plugins.App;
     if (typeof App.addListener !== 'function') return;
     App.addListener('backButton', function () {
-      if (history.length > 1) {
-        history.back();
-      } else if (typeof App.exitApp === 'function') {
-        App.exitApp();
+      // 1) 优先关 modal / sheet · 一般标 .is-open 或 [open]
+      var openSheet = document.querySelector(
+        '.sheet.is-open, .modal.is-open, dialog[open]'
+      );
+      if (openSheet) {
+        // 触发它的 close 按钮 · 没有则直接移类
+        var closeBtn = openSheet.querySelector('[data-close], .sheet-close, .modal-close');
+        if (closeBtn) closeBtn.click();
+        else {
+          openSheet.classList.remove('is-open');
+          if (openSheet.tagName === 'DIALOG' && openSheet.close) openSheet.close();
+        }
+        return;
       }
+      // 2) 走逻辑父级（页面顶部 ← 按钮）
+      var navBack = document.querySelector('.nav-back, [data-nav-back]');
+      if (navBack && navBack.href) {
+        location.href = navBack.href;
+        return;
+      }
+      // 3) tab 根页（home/courses/quiz-center/profile）无 nav-back · 退出 app
+      if (typeof App.exitApp === 'function') App.exitApp();
     });
   }
 
