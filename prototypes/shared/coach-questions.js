@@ -427,6 +427,43 @@ function renderTypeEditor() {
       '<textarea class="f-area" id="f-refans" rows="3"></textarea></div>' +
       '<div class="f-row"><label>' + escapeHtml(sc('关键要点（每行一条）', '關鍵要點（每行一條）')) + '</label>' +
       '<textarea class="f-area" id="f-keypoints" rows="4" placeholder="成佛因\n净罪障\n圆福德"></textarea></div>';
+  } else if (t === 'sort') {
+    // 排序：每行一个条目 · 行序 = 正确顺序 · 用户答题时打乱后让用户重排
+    host.innerHTML =
+      '<p class="f-hint">' +
+        escapeHtml(sc('每行一个条目 · 当前顺序 = 正确顺序（答题时随机打乱）',
+                      '每行一個條目 · 當前順序 = 正確順序（答題時隨機打亂）')) +
+      '</p>' +
+      '<textarea class="f-area" id="f-sort-items" rows="6" ' +
+      'placeholder="' + escapeHtml(sc('发心\n加行\n正行\n回向', '發心\n加行\n正行\n迴向')) + '"></textarea>';
+  } else if (t === 'match') {
+    // 匹配：左右成对 · 每行 "左 = 右"
+    host.innerHTML =
+      '<p class="f-hint">' +
+        escapeHtml(sc('每行一对 · 用 = 分隔（如「布施 = 舍」）· 答题时打乱右列', '每行一對 · 用 = 分隔（如「布施 = 捨」）· 答題時打亂右列')) +
+      '</p>' +
+      '<textarea class="f-area" id="f-match-pairs" rows="6" ' +
+      'placeholder="' + escapeHtml(sc('布施 = 舍\n持戒 = 防\n忍辱 = 受',
+                                       '布施 = 捨\n持戒 = 防\n忍辱 = 受')) + '"></textarea>';
+  } else if (t === 'flip') {
+    // 速记卡：正反两面 · 不评分（noScoring=true）· 用户翻卡复习用
+    host.innerHTML =
+      '<p class="f-hint">' +
+        escapeHtml(sc('速记卡不评分（noScoring）· 仅用于翻卡复习',
+                      '速記卡不評分（noScoring）· 僅用於翻卡複習')) +
+      '</p>' +
+      '<div class="f-row-split">' +
+        '<div><label>' + escapeHtml(sc('正面 · 主文', '正面 · 主文')) + '</label>' +
+          '<textarea class="f-area" id="f-flip-front" rows="2"></textarea></div>' +
+        '<div><label>' + escapeHtml(sc('正面 · 副文（可选）', '正面 · 副文（可選）')) + '</label>' +
+          '<textarea class="f-area" id="f-flip-fsub" rows="2"></textarea></div>' +
+      '</div>' +
+      '<div class="f-row-split">' +
+        '<div><label>' + escapeHtml(sc('背面 · 主文', '背面 · 主文')) + '</label>' +
+          '<textarea class="f-area" id="f-flip-back" rows="2"></textarea></div>' +
+        '<div><label>' + escapeHtml(sc('背面 · 例句（可选）', '背面 · 例句（可選）')) + '</label>' +
+          '<textarea class="f-area" id="f-flip-bex" rows="2"></textarea></div>' +
+      '</div>';
   }
 }
 
@@ -480,6 +517,9 @@ function renderCreateForm() {
           '<option value="multi">' + escapeHtml(sc('多选', '多選')) + '</option>' +
           '<option value="fill">' + escapeHtml(sc('填空', '填空')) + '</option>' +
           '<option value="open">' + escapeHtml(sc('问答', '問答')) + '</option>' +
+          '<option value="sort">' + escapeHtml(sc('排序', '排序')) + '</option>' +
+          '<option value="match">' + escapeHtml(sc('匹配', '匹配')) + '</option>' +
+          '<option value="flip">' + escapeHtml(sc('速记卡', '速記卡')) + '</option>' +
         '</select></div>' +
       '<div><label>' + escapeHtml(sc('难度', '難度')) + '</label>' +
         '<select class="f-sel" id="f-diff"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>' +
@@ -559,6 +599,7 @@ function renderCreateForm() {
     createForm.type = this.value;
     if (this.value === 'single') createForm.options = [{ text: '', correct: true }, { text: '', correct: false }];
     else if (this.value === 'multi') createForm.options = [{ text: '', correct: true }, { text: '', correct: true }, { text: '', correct: false }];
+    // sort / match / flip 不依赖 createForm.options · 直接交给 renderTypeEditor 重画 host
     renderTypeEditor();
   });
   document.getElementById('f-course').addEventListener('change', function () {
@@ -661,6 +702,39 @@ function collectCreateBody() {
       .map(function (pt) { return { point: pt, signals: [] }; });
     if (!ref) throw new Error(sc('请填写参考答案', '請填寫參考答案'));
     payload = { referenceAnswer: ref, keyPoints: kps, minLength: 20, maxLength: 400 };
+  } else if (t === 'sort') {
+    var sortItems = document.getElementById('f-sort-items').value
+      .split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+    if (sortItems.length < 2) throw new Error(sc('排序题至少 2 个条目', '排序題至少 2 個條目'));
+    payload = { items: sortItems.map(function (text, i) { return { text: text, order: i }; }) };
+  } else if (t === 'match') {
+    var pairs = document.getElementById('f-match-pairs').value
+      .split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean)
+      .map(function (line) {
+        var idx = line.indexOf('=');
+        if (idx < 0) return null;
+        var l = line.slice(0, idx).trim();
+        var r = line.slice(idx + 1).trim();
+        if (!l || !r) return null;
+        return [l, r];
+      }).filter(Boolean);
+    if (pairs.length < 2) {
+      throw new Error(sc('匹配题至少 2 对（用 = 分隔左右）', '匹配題至少 2 對（用 = 分隔左右）'));
+    }
+    var leftArr = pairs.map(function (p, i) { return { id: 'L' + i, text: p[0] }; });
+    var rightArr = pairs.map(function (p, i) { return { id: 'R' + i, text: p[1], match: 'L' + i }; });
+    payload = { left: leftArr, right: rightArr };
+  } else if (t === 'flip') {
+    var front = document.getElementById('f-flip-front').value.trim();
+    var back = document.getElementById('f-flip-back').value.trim();
+    if (!front || !back) throw new Error(sc('速记卡：正面与背面主文均必填', '速記卡：正面與背面主文均必填'));
+    var fsub = document.getElementById('f-flip-fsub').value.trim();
+    var bex = document.getElementById('f-flip-bex').value.trim();
+    payload = {
+      front: fsub ? { text: front, subText: fsub } : { text: front },
+      back:  bex  ? { text: back,  example: bex }  : { text: back },
+      noScoring: true,
+    };
   } else {
     throw new Error(sc('不支持的题型（请用批量导入）', '不支持的題型（請用批量導入）'));
   }
@@ -715,6 +789,27 @@ function prefillEditForm(q) {
     document.getElementById('f-refans').value = p.referenceAnswer || '';
     var pts = (p.keyPoints || []).map(function (k) { return (k && k.point) || k || ''; });
     document.getElementById('f-keypoints').value = pts.join('\n');
+  } else if (q.type === 'sort') {
+    var items = (p.items || []).slice().sort(function (a, b) {
+      return (a.order || 0) - (b.order || 0);
+    }).map(function (it) { return it.text || ''; });
+    document.getElementById('f-sort-items').value = items.join('\n');
+  } else if (q.type === 'match') {
+    // 用 right[].match 反查 left 文字
+    var leftMap = {};
+    (p.left || []).forEach(function (l) { leftMap[l.id] = l.text || ''; });
+    var lines2 = (p.right || []).map(function (r) {
+      var lt = leftMap[r.match] || '';
+      return lt + ' = ' + (r.text || '');
+    });
+    document.getElementById('f-match-pairs').value = lines2.join('\n');
+  } else if (q.type === 'flip') {
+    var f = p.front || {};
+    var b = p.back || {};
+    document.getElementById('f-flip-front').value = f.text || '';
+    document.getElementById('f-flip-fsub').value = f.subText || '';
+    document.getElementById('f-flip-back').value = b.text || '';
+    document.getElementById('f-flip-bex').value = b.example || '';
   }
 
   // 课/章/课时：edit 模式下锁死（后端 PATCH 不接受 location 变更）
