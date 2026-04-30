@@ -28,8 +28,11 @@ export async function resetDb(): Promise<void> {
     prisma.userAnswer.deleteMany(),
     prisma.userCourseEnrollment.deleteMany(),
     prisma.passwordResetToken.deleteMany(),
+    prisma.emailVerificationToken.deleteMany(),
     prisma.authSession.deleteMany(),
     prisma.notification.deleteMany(),
+    prisma.pushSubscription.deleteMany(),
+    prisma.analyticsEvent.deleteMany(),
     prisma.classMember.deleteMany(),
     prisma.class.deleteMany(),
     prisma.question.deleteMany(),
@@ -38,6 +41,7 @@ export async function resetDb(): Promise<void> {
     prisma.course.deleteMany(),
     prisma.systemSetting.deleteMany(),
     prisma.user.deleteMany(),
+    prisma.deletedEmail.deleteMany(),
   ]);
 }
 
