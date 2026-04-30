@@ -361,7 +361,15 @@ function renderCourseSwitch(currentSlug) {
 }
 
 function boot() {
-  resolveSlug()
+  // bootGuard · 8s 没拿到 → 容器换'网络慢 · 刷新'
+  window.JX.util.bootGuard(
+    document.getElementById('chapters-list'),
+    bootInner(),
+    { timeoutMs: 8000 }
+  );
+}
+function bootInner() {
+  return resolveSlug()
     // ?lite=1 · TOC 不需要 referenceText / teachingSummary · 省下整本法本几 KB-MB 文本
     .then(function (slug) { return window.JX.api.get('/api/courses/' + encodeURIComponent(slug) + '?lite=1'); })
     .then(function (data) {

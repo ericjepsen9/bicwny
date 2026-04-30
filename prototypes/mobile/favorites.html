@@ -365,15 +365,20 @@ window.JX.api.get('/api/courses').then(function (cs) {
   populateCourseFilter();
 }).catch(function () { /* 静默 */ });
 
-window.JX.api.get('/api/favorites?limit=200').then(function (data) {
-  allFavorites = Array.isArray(data) ? data : [];
-  populateCourseFilter();
-  applyFilter();
-}).catch(function (err) {
-  console.error('[favorites] 拉取失败', err);
-  allFavorites = [];
-  render([]);
-});
+// bootGuard · 8s 没拿到数据 → 容器换'网络慢 · 刷新'
+window.JX.util.bootGuard(
+  document.getElementById('count-label'),
+  window.JX.api.get('/api/favorites?limit=200').then(function (data) {
+    allFavorites = Array.isArray(data) ? data : [];
+    populateCourseFilter();
+    applyFilter();
+  }).catch(function (err) {
+    console.error('[favorites] 拉取失败', err);
+    allFavorites = [];
+    render([]);
+  }),
+  { timeoutMs: 8000 }
+);
 </script>
 </body>
 </html>

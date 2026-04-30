@@ -398,18 +398,23 @@ function submitRating(rating) {
 // 载入
 showOnly('loading-block');
 
-window.JX.api.get('/api/sm2/due?limit=50').then(function (cards) {
-  state.queue = cards || [];
-  state.total = state.queue.length;
-  if (state.total === 0) {
+// bootGuard · 8s 没拿到数据 → 容器换'网络慢 · 刷新'
+window.JX.util.bootGuard(
+  document.getElementById('loading-block'),
+  window.JX.api.get('/api/sm2/due?limit=50').then(function (cards) {
+    state.queue = cards || [];
+    state.total = state.queue.length;
+    if (state.total === 0) {
+      showOnly('empty-block');
+      return;
+    }
+    renderCard();
+  }).catch(function (err) {
     showOnly('empty-block');
-    return;
-  }
-  renderCard();
-}).catch(function (err) {
-  showOnly('empty-block');
-  console.error('[sm2-review] 拉取失败', err);
-});
+    console.error('[sm2-review] 拉取失败', err);
+  }),
+  { timeoutMs: 8000 }
+);
 
 // 事件绑定
 $('btn-reveal').addEventListener('click', reveal);

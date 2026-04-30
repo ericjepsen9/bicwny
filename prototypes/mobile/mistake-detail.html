@@ -309,11 +309,16 @@ function boot() {
   var endpoint = navFrom === window.JX.nav.FROM.FAVORITES
     ? '/api/my/questions/' + encodeURIComponent(qid)
     : '/api/mistakes/' + encodeURIComponent(qid);
-  window.JX.api.get(endpoint)
-    .then(render)
-    .catch(function (err) {
-      showError(sc('加载失败：', '加載失敗：') + (err.message || err));
-    });
+  // bootGuard · 8s 没拿到 → 容器换'网络慢 · 刷新'
+  window.JX.util.bootGuard(
+    document.getElementById('detail-body'),
+    window.JX.api.get(endpoint)
+      .then(render)
+      .catch(function (err) {
+        showError(sc('加载失败：', '加載失敗：') + (err.message || err));
+      }),
+    { timeoutMs: 8000 }
+  );
 }
 
 // 右上垃圾桶：从错题本移除

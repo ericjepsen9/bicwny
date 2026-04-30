@@ -362,19 +362,24 @@ function bootByList() {
     renderClass(list[0]);
   });
 }
-(qpClassId ? bootByClassId(qpClassId) : bootByList()).catch(function (err) {
-  console.warn('[class-detail] 加载失败', err);
-  // 失败回落：classId 路径若 403/404，再尝试 list
-  if (qpClassId) {
-    bootByList().catch(function () {
+// bootGuard · 8s 没拿到 → loading-block 容器换'网络慢 · 刷新'
+window.JX.util.bootGuard(
+  document.getElementById('loading-block'),
+  (qpClassId ? bootByClassId(qpClassId) : bootByList()).catch(function (err) {
+    console.warn('[class-detail] 加载失败', err);
+    // 失败回落：classId 路径若 403/404，再尝试 list
+    if (qpClassId) {
+      bootByList().catch(function () {
+        showOnly('no-class-block');
+        $('action-wrap').style.display = 'none';
+      });
+    } else {
       showOnly('no-class-block');
       $('action-wrap').style.display = 'none';
-    });
-  } else {
-    showOnly('no-class-block');
-    $('action-wrap').style.display = 'none';
-  }
-});
+    }
+  }),
+  { timeoutMs: 8000 }
+);
 </script>
 </body>
 </html>

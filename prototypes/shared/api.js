@@ -258,10 +258,44 @@
     });
   }
 
+  // Boot 守卫 · 5s 内 promise 没解决 → 把 container 内容换成'网络慢 · 重试'
+  //   - container：装载内容的 DOM 元素（通常显示 '加载中…' 的容器）
+  //   - promise：boot 主流程
+  //   - opts.timeoutMs：超时阈值 · 默认 5000ms
+  //   - opts.containsText：用于判断'是否还在 loading 状态'的字符串 · 默认 '加载中'
+  // 用法：
+  //   JX.util.bootGuard(box, fetchAndRender(), { timeoutMs: 8000 })
+  function bootGuard(container, promise, opts) {
+    opts = opts || {};
+    var timeoutMs = opts.timeoutMs == null ? 5000 : opts.timeoutMs;
+    var containsText = opts.containsText || '加载中';
+    var timer = setTimeout(function () {
+      if (container && container.innerHTML &&
+          container.innerHTML.indexOf(containsText) >= 0) {
+        container.innerHTML =
+          '<div style="text-align:center;padding:24px 16px;color:var(--ink-3);font-size:.875rem;">' +
+            '<p style="margin-bottom:12px;">' +
+              '<span class="sc">网络慢，加载中…</span>' +
+              '<span class="tc">網絡慢，載入中…</span>' +
+            '</p>' +
+            '<a href="javascript:location.reload()" ' +
+              'style="color:var(--saffron-dark);text-decoration:underline;font-weight:600;">' +
+              '<span class="sc">点此刷新</span>' +
+              '<span class="tc">點此刷新</span>' +
+            '</a>' +
+          '</div>';
+      }
+    }, timeoutMs);
+    var done = function () { clearTimeout(timer); };
+    return Promise.resolve(promise).then(function (v) { done(); return v; },
+                                          function (e) { done(); throw e; });
+  }
+
   window.JX.util = {
     queryParam: queryParam,
     relativeTime: relativeTime,
     escapeHtml: escapeHtml,
     once: once,
+    bootGuard: bootGuard,
   };
 })();

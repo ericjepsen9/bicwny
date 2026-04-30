@@ -220,10 +220,15 @@ function render(p) {
   }).join('');
 }
 
-window.JX.api.get('/api/my/progress').then(render).catch(function (err) {
-  console.warn('[achievement] /api/my/progress 拉取失败', err);
-  render({});
-});
+// bootGuard · 8s 没拿到 → by-course-list 容器换'网络慢 · 刷新'
+window.JX.util.bootGuard(
+  document.getElementById('by-course-list'),
+  window.JX.api.get('/api/my/progress').then(render).catch(function (err) {
+    console.warn('[achievement] /api/my/progress 拉取失败', err);
+    render({});
+  }),
+  { timeoutMs: 8000 }
+);
 
 // ─── 勋章墙 · /api/achievements ────────────────────────────────
 // 每枚徽章 { id, category, titleSc/Tc, descSc/Tc, unlocked, progress, current, target }

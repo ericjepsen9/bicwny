@@ -241,15 +241,20 @@ function render() {
 }
 
 function load() {
-  window.JX.api.get('/api/notifications?limit=50').then(function (data) {
-    state.items = data || [];
-    render();
-  }).catch(function (err) {
-    document.getElementById('notif-list').innerHTML =
-      '<div class="empty-block"><p class="empty-desc err-state">' +
-        escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) +
-      '</p></div>';
-  });
+  // bootGuard · 8s 没拿到 → 容器换'网络慢 · 刷新'
+  window.JX.util.bootGuard(
+    document.getElementById('notif-list'),
+    window.JX.api.get('/api/notifications?limit=50').then(function (data) {
+      state.items = data || [];
+      render();
+    }).catch(function (err) {
+      document.getElementById('notif-list').innerHTML =
+        '<div class="empty-block"><p class="empty-desc err-state">' +
+          escapeHtml((err && err.message) || sc('加载失败', '載入失敗')) +
+        '</p></div>';
+    }),
+    { timeoutMs: 8000 }
+  );
 }
 
 // 过滤 chip
