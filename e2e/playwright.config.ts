@@ -35,13 +35,13 @@ export default defineConfig({
   // 自动启动 server · 跑完后 kill
   webServer: [
     {
-      command: 'cd ../backend && pnpm dev',
+      // CI 用 pnpm start（dist · 启动快）· 本地 pnpm dev（tsx watch · 改动即热重载）
+      command: `cd ../backend && ${process.env.BACKEND_START_CMD || 'pnpm dev'}`,
       url: 'http://localhost:3000/health',
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       env: {
-        // dev 默认值 · 仅 E2E 显式覆盖时改这里
-        NODE_ENV: 'development',
+        NODE_ENV: 'development', // localhost 走开发模式 · CORS 全开
       },
     },
     {
