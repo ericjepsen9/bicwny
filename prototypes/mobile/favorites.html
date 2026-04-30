@@ -365,18 +365,63 @@ window.JX.api.get('/api/courses').then(function (cs) {
   populateCourseFilter();
 }).catch(function () { /* 静默 */ });
 
-// bootGuard · 8s 没拿到数据 → 容器换'网络慢 · 刷新'
-window.JX.util.bootGuard(
-  document.getElementById('count-label'),
-  window.JX.api.get('/api/favorites?limit=200').then(function (data) {
-    allFavorites = Array.isArray(data) ? data : [];
+// cursor pagination · 30 条每页 · 触底自动加载下一页
+var PAGE_SIZE = 30;
+var nextCursor = null;
+var hasMore = true;
+var loading = false;
+
+function loadPage() {
+  if (loading || !hasMore) return Promise.resolve();
+  loading = true;
+  var url = '/api/favorites?limit=' + PAGE_SIZE;
+  if (nextCursor) {
+    url += '&cursorAt=' + encodeURIComponent(nextCursor.createdAt) +
+           '&cursorId=' + encodeURIComponent(nextCursor.id);
+  }
+  return window.JX.api.get(url).then(function (data) {
+    var batch = Array.isArray(data) ? data : [];
+    allFavorites = allFavorites.concat(batch);
+    if (batch.length < PAGE_SIZE) hasMore = false;
+    else {
+      var last = batch[batch.length - 1];
+      nextCursor = { createdAt: last.createdAt, id: last.id };
+    }
     populateCourseFilter();
     applyFilter();
+    loading = false;
   }).catch(function (err) {
-    console.error('[favorites] 拉取失败', err);
-    allFavorites = [];
-    render([]);
-  }),
+    loading = false;
+    if (allFavorites.length === 0) {
+      console.error('[favorites] 拉取失败', err);
+      render([]);
+    }
+  });
+}
+
+function setupInfiniteScroll() {
+  var sentinel = document.createElement('div');
+  sentinel.id = 'fav-sentinel';
+  sentinel.style.cssText = 'height:48px;display:flex;align-items:center;justify-content:center;font:var(--text-caption);color:var(--ink-4);';
+  document.getElementById('list-block').appendChild(sentinel);
+  if (typeof IntersectionObserver === 'undefined') return;
+  var io = new IntersectionObserver(function (entries) {
+    if (!entries[0].isIntersecting) return;
+    if (!hasMore) {
+      sentinel.textContent = sc('— 已显示全部 —', '— 已顯示全部 —');
+      return;
+    }
+    sentinel.textContent = sc('加载中…', '載入中…');
+    loadPage().then(function () {
+      sentinel.textContent = hasMore ? '' : sc('— 已显示全部 —', '— 已顯示全部 —');
+    });
+  }, { rootMargin: '200px' });
+  io.observe(sentinel);
+}
+
+window.JX.util.bootGuard(
+  document.getElementById('count-label'),
+  loadPage().then(function () { setupInfiniteScroll(); }),
   { timeoutMs: 8000 }
 );
 </script>

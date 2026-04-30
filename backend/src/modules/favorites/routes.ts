@@ -13,6 +13,9 @@ import { addFavorite, listFavorites, removeFavorite } from './service.js';
 const qidParam = z.object({ questionId: z.string().min(1) });
 const listQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
+  // cursor pagination · 客户端传上一页最后一条的 createdAt + id
+  cursorAt: z.string().datetime().optional(),
+  cursorId: z.string().min(1).optional(),
 });
 
 const TAGS = ['Favorites'];
@@ -42,12 +45,15 @@ export const favoritesRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/api/favorites', {
-    schema: { tags: TAGS, summary: '我的收藏（含题目剥答案视图）', security: SEC },
+    schema: { tags: TAGS, summary: '我的收藏（含题目剥答案视图）· cursor pagination', security: SEC },
   }, async (req) => {
     const userId = requireUserId(req);
     const parsed = listQuery.safeParse(req.query);
     if (!parsed.success) throw BadRequest('查询参数不合法');
-    const items = await listFavorites(userId, parsed.data.limit);
+    const cursor = parsed.data.cursorAt && parsed.data.cursorId
+      ? { createdAt: new Date(parsed.data.cursorAt), id: parsed.data.cursorId }
+      : undefined;
+    const items = await listFavorites(userId, parsed.data.limit, cursor);
     return {
       data: items.map((f) => ({
         id: f.id,

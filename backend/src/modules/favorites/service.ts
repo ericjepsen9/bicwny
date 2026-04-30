@@ -1,6 +1,6 @@
 // 收藏：UserFavorite @@unique([userId, questionId])
 // addFavorite 用 upsert 保证幂等；remove 走 deleteMany 避免不存在时报错。
-import type { UserFavorite } from '@prisma/client';
+import type { Prisma, UserFavorite } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 
 export async function addFavorite(
@@ -31,10 +31,20 @@ export async function removeFavorite(
 export async function listFavorites(
   userId: string,
   limit = 100,
+  cursor?: { createdAt: Date; id: string },
 ) {
+  // cursor pagination · seek 模式（不用 OFFSET）
+  // orderBy [createdAt desc, id desc] · id 兜底唯一序列
+  const where: Prisma.UserFavoriteWhereInput = { userId };
+  if (cursor) {
+    where.OR = [
+      { createdAt: { lt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+    ];
+  }
   const favs = await prisma.userFavorite.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
+    where,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit,
   });
   // UserFavorite 无 Question 关系，需单独 join 避免 N+1
