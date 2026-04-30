@@ -31,6 +31,7 @@
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/api.js"></script>
+<script src="../shared/components.js"></script>
 <script src="../shared/require-auth.js"></script>
 <style>
 body { background: var(--bg-scene); min-height: 100vh; }
@@ -207,11 +208,8 @@ function renderCourses(enrollments) {
 
   box.innerHTML = items.map(function (e) {
     var c = e.course;
-    var title = sc(c.title, c.titleTraditional || c.title);
-    var emoji = c.coverEmoji || '🪷';
-    var coverHtml = c.coverImageUrl
-      ? '<img src="' + escapeHtml(c.coverImageUrl) + '" alt="" loading="lazy" decoding="async">'
-      : '<span class="qc-cover-emoji">' + escapeHtml(emoji) + '</span>';
+    var title = window.JX.components.courseTitle(c);
+    var coverHtml = window.JX.components.coverHtml(c, { emojiClass: 'qc-cover-emoji' });
     var done = (e.lessonsCompleted || []).length;
     // M3: 后端已返回 course.totalLessons · 显示「已答 N / M 课」
     var total = c.totalLessons || 0;

@@ -31,6 +31,7 @@
 <script src="../shared/status-bar.js"></script>
 <script src="../shared/config.js"></script>
 <script src="../shared/api.js"></script>
+<script src="../shared/components.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/require-auth.js"></script>
 <style>
@@ -243,14 +244,13 @@ function renderCard(c) {
   var enrolled = !!enr;
   // C3: '班级主修'徽章看是否仍被班级关联（enrolledViaClassId）· source 不再是当前链接标记
   var isClassMain = enr && !!enr.enrolledViaClassId;
-  var title = sc(c.title, c.titleTraditional || c.title);
+  var title = window.JX.components.courseTitle(c);
   var author = sc(c.author || '', c.author || '');
-  var emoji = c.coverEmoji || '🪷';
 
-  var coverInner = c.coverImageUrl
-    ? '<img src="' + escapeHtml(c.coverImageUrl) + '" alt="" loading="lazy" decoding="async" '
-      + 'onerror="this.parentNode.innerHTML=\'<span class=book-cover-emoji>' + escapeHtml(emoji) + '</span>\'">'
-    : '<span class="book-cover-emoji">' + escapeHtml(emoji) + '</span>';
+  var coverInner = window.JX.components.coverHtml(c, {
+    emojiClass: 'book-cover-emoji',
+    onErrorFallback: true,
+  });
 
   var pill = '';
   if (isClassMain) {
@@ -350,11 +350,8 @@ function render() {
 
 // ── 底部弹层：未加入时点击卡片显示 ────────────────
 function openSheet(c) {
-  var emoji = c.coverEmoji || '🪷';
-  var title = sc(c.title, c.titleTraditional || c.title);
-  var coverInner = c.coverImageUrl
-    ? '<img src="' + escapeHtml(c.coverImageUrl) + '" alt="" loading="lazy" decoding="async">'
-    : '<span class="sheet-cover-emoji">' + escapeHtml(emoji) + '</span>';
+  var title = window.JX.components.courseTitle(c);
+  var coverInner = window.JX.components.coverHtml(c, { emojiClass: 'sheet-cover-emoji' });
   var content = ''
     + '<div class="sheet-cover">' + coverInner + '</div>'
     + '<p class="sheet-title">' + escapeHtml(title) + '</p>'
