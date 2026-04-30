@@ -450,6 +450,9 @@ model UserFavorite {
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([userId, questionId])
+  // 列表查询热路径：where userId orderBy createdAt desc
+  // 复合索引覆盖 sort · 收藏量大时 (>1k) 防排序性能退化
+  @@index([userId, createdAt])
 }
 
 model UserMistakeBook {
@@ -464,6 +467,9 @@ model UserMistakeBook {
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([userId, questionId])
+  // 列表查询热路径：where userId + removedAt: null orderBy lastWrongAt desc
+  // 复合索引覆盖 filter + sort · 防止行多时全表扫
+  @@index([userId, removedAt, lastWrongAt])
 }
 
 enum ReportReason {
