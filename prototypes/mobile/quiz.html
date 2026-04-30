@@ -615,14 +615,22 @@ var __quizPending = { patch: null };
   if (from === FROM.READING || from === FROM.MISTAKE || from === FROM.FAVORITES) return;
   // 等 user-ready 再发 · 避免 401
   function fire() {
-    window.JX.api.patch(
-      '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
-      { currentLessonId: lessonId }
-    ).then(function (res) {
-      // M2: 写 overlay cache 让下一页 reading 优先读
-      if (res && res.overlay && window.JX.overlayCache) {
-        window.JX.overlayCache.save(courseId, res.overlay);
-      }
+    // 预检：只有已报名该 course 才发 PATCH · 避免未报名时 404 噪音
+    //   （从 scripture-detail 进 quiz 时用户可能没主动加入法本）
+    window.JX.api.get('/api/my/enrollments').then(function (list) {
+      var enrolled = (list || []).some(function (e) {
+        return e && (e.courseId === courseId || (e.course && e.course.id === courseId));
+      });
+      if (!enrolled) return; // 未报名 · 跳过进度上报
+      return window.JX.api.patch(
+        '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
+        { currentLessonId: lessonId }
+      ).then(function (res) {
+        // M2: 写 overlay cache 让下一页 reading 优先读
+        if (res && res.overlay && window.JX.overlayCache) {
+          window.JX.overlayCache.save(courseId, res.overlay);
+        }
+      });
     }).catch(function () { /* 静默 · 不阻塞答题 */ });
   }
   if (window.JX && window.JX.user) fire();
@@ -654,26 +662,36 @@ var __quizPending = { patch: null };
       var pct = total > 0 ? Math.round(correct / total * 100) : 0;
 
       if (lessonId && courseId) {
-        // 无条件 PATCH · 后端裁决是否进 lessonsCompleted（M1 实算 ≥ 80%）
-        __quizPending.patch = window.JX.api.patch(
-          '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
-          { addCompletedLessonId: lessonId, currentLessonId: lessonId }
-        ).then(function (res) {
-          // M2: 写 overlay cache 让下一页 reading 立即看到「✓ 本课已学」
-          if (res && res.overlay && window.JX.overlayCache) {
-            window.JX.overlayCache.save(courseId, res.overlay);
+        // 预检报名 · 未报名时不发 PATCH（避免 404 噪音）· 仅反馈正确率
+        __quizPending.patch = window.JX.api.get('/api/my/enrollments').then(function (list) {
+          var enrolled = (list || []).some(function (e) {
+            return e && (e.courseId === courseId || (e.course && e.course.id === courseId));
+          });
+          if (!enrolled) {
+            if (window.JX.toast && total > 0) {
+              window.JX.toast.info(sc('正确率 ' + pct + '%', '正確率 ' + pct + '%'));
+            }
+            return;
           }
-          if (!window.JX.toast) return;
-          // 后端真相：overlay.completedLessonIds 包含本 lessonId 即'已学完'
-          var completed = res && res.overlay && (res.overlay.completedLessonIds || []);
-          var serverPassed = completed && completed.indexOf(lessonId) >= 0;
-          if (serverPassed) {
-            window.JX.toast.ok(sc('✓ 本课已学完（正确率 ' + pct + '%）',
-                                  '✓ 本課已學完（正確率 ' + pct + '%）'));
-          } else if (total > 0) {
-            window.JX.toast.info(sc('正确率 ' + pct + '% · 再练习达标后自动标记',
-                                    '正確率 ' + pct + '% · 再練習達標後自動標記'));
-          }
+          return window.JX.api.patch(
+            '/api/enrollments/' + encodeURIComponent(courseId) + '/progress',
+            { addCompletedLessonId: lessonId, currentLessonId: lessonId }
+          ).then(function (res) {
+            // M2: 写 overlay cache 让下一页 reading 立即看到「✓ 本课已学」
+            if (res && res.overlay && window.JX.overlayCache) {
+              window.JX.overlayCache.save(courseId, res.overlay);
+            }
+            if (!window.JX.toast) return;
+            var completed = res && res.overlay && (res.overlay.completedLessonIds || []);
+            var serverPassed = completed && completed.indexOf(lessonId) >= 0;
+            if (serverPassed) {
+              window.JX.toast.ok(sc('✓ 本课已学完（正确率 ' + pct + '%）',
+                                    '✓ 本課已學完（正確率 ' + pct + '%）'));
+            } else if (total > 0) {
+              window.JX.toast.info(sc('正确率 ' + pct + '% · 再练习达标后自动标记',
+                                      '正確率 ' + pct + '% · 再練習達標後自動標記'));
+            }
+          });
         }).catch(function () { /* 静默 · 失败时不显示 toast */ });
       } else if (window.JX.toast && total > 0) {
         // 无 courseId 场景（mistake / favorites 临时复习）· 仅反馈正确率

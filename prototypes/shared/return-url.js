@@ -159,11 +159,20 @@
       case 'reset-confirm.html': case 'verify-email.html':
         return null;
 
-      // 多入口 · 优先 ?from= · 否则静态默认
+      // 多入口 · 优先 ?from= · 否则查 sessionStorage 入口 · 最后兜底 courses
+      // sessionStorage 里的入口由 lang.js boot 时记录（home/courses/quiz-center/profile）
+      // 解决 home → detail → quiz → back 后丢失 from=home 的导航回环
       case 'scripture-detail.html':
         if (from === FROM.READING && slug) return toReading({ slug: slug, lessonId: lessonId });
         if (from === FROM.HOME)    return 'home.html';
         if (from === FROM.CENTER)  return 'quiz-center.html';
+        try {
+          var origin = sessionStorage.getItem('jx-detail-origin');
+          if (origin === 'home.html' || origin === 'quiz-center.html'
+              || origin === 'courses.html' || origin === 'profile.html') {
+            return origin;
+          }
+        } catch (_) {}
         return 'courses.html';
 
       case 'scripture-reading.html':
@@ -542,6 +551,23 @@
     syncTabBarActive();
     installNavBackInterceptor();
     installTabSwitchInterceptor();
+    recordDetailOrigin();
+  }
+
+  // 记录 scripture-detail 的入口来源 · 用于 quiz → back 链断开时恢复
+  // 仅在用户从 4 个 tab root 跳到 detail 时记 · 防 detail → reading → back-to-detail 覆盖
+  function recordDetailOrigin() {
+    var page = (location.pathname.split('/').pop() || '').toLowerCase();
+    if (page !== 'scripture-detail.html') return;
+    try {
+      var ref = document.referrer || '';
+      if (!ref) return;
+      var refPage = (new URL(ref, location.href).pathname.split('/').pop() || '').toLowerCase();
+      var TAB_ROOTS = ['home.html', 'courses.html', 'quiz-center.html', 'profile.html'];
+      if (TAB_ROOTS.indexOf(refPage) >= 0) {
+        sessionStorage.setItem('jx-detail-origin', refPage);
+      }
+    } catch (_) {}
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', runAutoAttach);
