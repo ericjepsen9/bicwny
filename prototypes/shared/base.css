@@ -170,3 +170,33 @@ body.prototype-frame .status-icons { display: flex; gap: var(--sp-1); align-item
     scroll-behavior: auto !important;
   }
 }
+
+/* ── View Transitions API · 跨文档动画 ───────────
+   Chrome 126+ / Safari 18+ 支持跨文档 view transitions（meta 标签 opt-in）·
+   切换 page 时浏览器自动 crossfade 旧页 → 新页 · 视觉上掩盖了 boot 过程
+   页面 head 已加 <meta name="view-transition" content="same-origin">
+   不支持的浏览器静默降级到默认行为（直接跳转）
+   ============================================== */
+@view-transition {
+  navigation: auto;
+}
+::view-transition-old(root) {
+  animation: 200ms cubic-bezier(.4,0,.2,1) both fadeOutPage;
+}
+::view-transition-new(root) {
+  animation: 220ms cubic-bezier(.4,0,.2,1) both fadeInPage;
+}
+@keyframes fadeOutPage {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes fadeInPage {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms !important;
+  }
+}
