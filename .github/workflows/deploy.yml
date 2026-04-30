@@ -13,6 +13,14 @@ name: deploy
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: '目标环境'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
       branch:
         description: '要部署的分支（默认 main）'
         required: false
@@ -25,9 +33,10 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: production # 让 GitHub 加保护规则（manual approval 等）
+    # environment 让 GitHub 加保护规则（manual approval 等）· staging / production 各自配
+    environment: ${{ github.event.inputs.target }}
     concurrency:
-      group: deploy-prod
+      group: deploy-${{ github.event.inputs.target }}
       cancel-in-progress: false # 不让并发覆盖
 
     steps:
@@ -49,9 +58,22 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           BRANCH: ${{ github.event.inputs.branch }}
           DB_PUSH: ${{ github.event.inputs.run_db_push }}
+          TARGET: ${{ github.event.inputs.target }}
         run: |
           ssh "$DEPLOY_USER@$DEPLOY_HOST" bash -se <<EOF
           set -euo pipefail
+          # target=production → pm2 进程 juexue-api · env .env · 健康端口 3000
+          # target=staging    → pm2 进程 juexue-api-staging · env .env.staging · 健康端口 3001
+          if [ "$TARGET" = "production" ]; then
+            PM2_NAME=juexue-api
+            ENV_FILE=.env
+            HEALTH_PORT=3000
+          else
+            PM2_NAME=juexue-api-staging
+            ENV_FILE=.env.staging
+            HEALTH_PORT=3001
+          fi
+
           cd "$DEPLOY_PATH"
           echo "▸ git fetch"
           git fetch origin --prune
@@ -67,29 +89,30 @@ jobs:
           pnpm prisma generate
 
           if [ "$DB_PUSH" = "true" ]; then
-            echo "▸ prisma db push (schema sync)"
-            pnpm prisma db push
+            echo "▸ prisma db push (\$ENV_FILE)"
+            DATABASE_URL=\$(grep -E '^DATABASE_URL=' \$ENV_FILE | cut -d= -f2- | tr -d '"')
+            DATABASE_URL="\$DATABASE_URL" pnpm prisma db push
           fi
 
           echo "▸ build"
           pnpm build
 
-          echo "▸ pm2 reload"
-          pm2 reload juexue-api --update-env
+          echo "▸ pm2 reload \$PM2_NAME"
+          pm2 reload \$PM2_NAME --update-env
 
-          echo "▸ wait for health"
+          echo "▸ wait for health (port \$HEALTH_PORT)"
           for i in {1..20}; do
-            if curl -sf http://localhost:3000/health > /dev/null; then
+            if curl -sf http://localhost:\$HEALTH_PORT/health > /dev/null; then
               echo "✓ health OK"
               break
             fi
             sleep 1
           done
 
-          curl -sf http://localhost:3000/health || (echo "✗ health 检查超时" && exit 1)
-          echo "✓ deploy done · branch=$BRANCH commit=\$(git rev-parse --short HEAD)"
+          curl -sf http://localhost:\$HEALTH_PORT/health || (echo "✗ health 检查超时" && exit 1)
+          echo "✓ deploy done · target=$TARGET branch=$BRANCH commit=\$(git rev-parse --short HEAD)"
           EOF
 
       - name: Notify (optional · 接 Slack / 钉钉)
         if: always()
-        run: echo "deploy ${{ job.status }} · branch=${{ github.event.inputs.branch }}"
+        run: echo "deploy ${{ job.status }} · target=${{ github.event.inputs.target }} · branch=${{ github.event.inputs.branch }}"
