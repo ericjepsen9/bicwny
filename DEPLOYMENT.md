@@ -881,7 +881,51 @@ DELETE /api/auth/me
 - 后台定期硬删超期软删账号（合规要求 · 当前未实现）
 - 导出格式扩展：CSV 友好版（excel 可读）· 当前仅 JSON
 
-## 十七、还没上线的功能（v1.0 范围外）
+## 十七、应用内反馈
+
+P2 #30 · 用户提交建议/bug → admin 处理 → 回复推送给用户。
+
+### 模型
+
+`Feedback`：
+- `kind`：`suggestion / bug / praise / other`
+- `status`：`open / triaged / resolved / wontfix`
+- `message` · `contactEmail`（匿名必填）· `userId`（登录态自动绑）
+- `page / userAgent / appVersion / sessionId`：自动附加上下文
+- `handledByUserId / handledAt / response`：admin 处理字段
+
+### API
+
+| 路由 | 鉴权 | 说明 |
+|---|---|---|
+| `POST /api/feedback` | 可选 | 提交 · 限速 5/小时（in-memory · 按 userId 或 IP） |
+| `GET  /api/me/feedback` | 必须 | 看自己历史（admin 字段隐藏） |
+| `GET  /api/admin/feedback` | admin | 列表 · `?status=open&kind=bug` 过滤 + 游标 |
+| `PATCH /api/admin/feedback/:id` | admin | 改 status + response · 自动写 Notification + AuditLog |
+
+### 客户端
+
+- `shared/feedback.js` 全屏 sheet · 24 页注入
+- 触发器：`class="jx-feedback-trigger"` 或 `[data-jx-feedback="bug"]`
+- 已挂入：设置 → 关于 → "应用反馈"
+- 三语 sc/tc/en · 走 a11y dialog（焦点陷阱 + role）· 自动附环境信息预览
+
+### 处理后通知
+
+admin 调 PATCH 时如果填了 `response`：
+- 给原 user 写一行 `Notification(type=system, body=response)`
+- 用户在通知页能看到回复
+- 同时写 `AuditLog(action=feedback.handle)`
+- 匿名提交（无 userId）只能依赖 `contactEmail` 邮件外联（当前未实现 SMTP 发邮件 · 推全 backlog）
+
+### 推全 backlog
+
+- 邮件回复（匿名提交时通过 contactEmail 发）· 接 SMTP / Resend
+- 截图上传（用户主动）· 接 admin 上传通道做 reuse
+- admin 后台 UI（当前仅有 API · 暂无前端审核界面）
+- 反馈分类标签（自动分类到 module · 用 LLM 打 tag）
+
+## 十八、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI
 2. Coach 后台 UI（造题表单、批量导入、LLM 造题向导）

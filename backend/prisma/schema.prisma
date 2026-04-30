@@ -53,6 +53,8 @@ model User {
   emailVerifyTokens EmailVerificationToken[]
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
+  feedback          Feedback[]               @relation("UserFeedback")
+  handledFeedback   Feedback[]               @relation("HandledFeedback")
 
   @@index([role])
 }
@@ -872,4 +874,55 @@ model ExperimentExposure {
   @@unique([experimentKey, sessionId])
   @@index([experimentKey, variant])
   @@index([firstSeenAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 应用内反馈 · 用户提交建议 / bug · admin 处理后通知用户
+//   kind:         suggestion / bug / praise / other
+//   status:       open / triaged / resolved / wontfix
+//   message:      用户输入的正文
+//   page:         触发反馈时的页面（auto-attach）
+//   userAgent:    auto-attach
+//   appVersion:   auto-attach（前端读 build version）
+//   sessionId:    打通 analytics / sentry · 便于回查上下文
+//   contactEmail: 匿名提交允许填邮箱让 admin 联系
+//   handledByUserId / handledAt / response · admin 回复
+// ═══════════════════════════════════════════════════════════════
+
+enum FeedbackKind {
+  suggestion
+  bug
+  praise
+  other
+}
+
+enum FeedbackStatus {
+  open
+  triaged
+  resolved
+  wontfix
+}
+
+model Feedback {
+  id              String         @id @default(cuid())
+  userId          String? // null = 匿名（未登录提交）
+  kind            FeedbackKind   @default(other)
+  status          FeedbackStatus @default(open)
+  message         String // 内容 · service 层做长度限制
+  contactEmail    String? // 匿名提交时的可选联系邮箱
+  page            String? // 'home.html' / 'quiz.html' 等
+  userAgent       String?
+  appVersion      String? // 前端 build version · 便于复现
+  sessionId       String? // 关联 analytics / sentry
+  handledByUserId String?
+  handledAt       DateTime?
+  response        String? // admin 回复内容（可选）
+  createdAt       DateTime       @default(now())
+
+  user      User? @relation("UserFeedback", fields: [userId], references: [id], onDelete: SetNull)
+  handledBy User? @relation("HandledFeedback", fields: [handledByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([kind, createdAt])
 }
