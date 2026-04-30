@@ -926,6 +926,10 @@ function renderGenerateForm() {
           '<option value="multi">' + escapeHtml(sc('多选', '多選')) + '</option>' +
           '<option value="fill">' + escapeHtml(sc('填空', '填空')) + '</option>' +
           '<option value="open">' + escapeHtml(sc('问答', '問答')) + '</option>' +
+          '<option value="sort">' + escapeHtml(sc('排序', '排序')) + '</option>' +
+          '<option value="match">' + escapeHtml(sc('匹配', '匹配')) + '</option>' +
+          '<option value="scenario">' + escapeHtml(sc('情境', '情境')) + '</option>' +
+          '<option value="guided">' + escapeHtml(sc('引导', '引導')) + '</option>' +
         '</select></div>' +
       '<div><label>' + escapeHtml(sc('每课题数', '每課題數')) + '</label>' +
         '<select class="f-sel" id="g-count">' +
