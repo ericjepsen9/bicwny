@@ -19,30 +19,28 @@
 //   3. 再失败 → 清 token → 抛 ApiError(401)，调用方负责跳登录
 (function () {
   var API = (window.JX && window.JX.API_BASE) || '';
-  var KEY_A = 'jx-accessToken';
-  var KEY_R = 'jx-refreshToken';
 
-  function storage() {
-    try { return window.localStorage; } catch (_) { return null; }
+  // Token 存储抽象 · token-store.js 提供同步 cache + Capacitor Preferences 异步持久化
+  // 浏览器场景下行为与之前 localStorage 一致 · Capacitor 场景下 token 进 native keychain
+  function getStore() {
+    return (window.JX && window.JX.tokenStore) || null;
   }
-
   function getAccessToken() {
-    var s = storage(); return s ? s.getItem(KEY_A) : null;
+    var s = getStore();
+    return s ? s.getAccess() : null;
   }
   function getRefreshToken() {
-    var s = storage(); return s ? s.getItem(KEY_R) : null;
+    var s = getStore();
+    return s ? s.getRefresh() : null;
   }
   function setTokens(t) {
-    var s = storage(); if (!s) return;
-    if (t && t.accessToken)  s.setItem(KEY_A, t.accessToken);
-    if (t && t.refreshToken) s.setItem(KEY_R, t.refreshToken);
+    var s = getStore();
+    if (s) s.setTokens(t);
   }
   function clearTokens() {
-    var s = storage(); if (!s) return;
-    s.removeItem(KEY_A);
-    s.removeItem(KEY_R);
-    // A3: 清 overlay cache 防止 user1 退出后 user2 登录读到残留
-    if (window.JX && window.JX.overlayCache && window.JX.overlayCache.clear) {
+    var s = getStore();
+    if (s) s.clear();
+    else if (window.JX && window.JX.overlayCache && window.JX.overlayCache.clear) {
       window.JX.overlayCache.clear();
     }
   }

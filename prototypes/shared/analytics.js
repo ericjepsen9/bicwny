@@ -70,10 +70,10 @@
       credentials: 'include',
       headers: (function () {
         var h = { 'Content-Type': 'application/json' };
-        try {
-          var token = localStorage.getItem('jx-access-token');
-          if (token) h['Authorization'] = 'Bearer ' + token;
-        } catch (_) {}
+        // 通过 tokenStore 取 · Capacitor 下走 keychain · 浏览器走 localStorage
+        var ts = window.JX && window.JX.tokenStore;
+        var token = ts ? ts.getAccess() : null;
+        if (token) h['Authorization'] = 'Bearer ' + token;
         return h;
       })(),
       body: JSON.stringify({ events: batch }),

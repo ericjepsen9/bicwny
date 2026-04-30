@@ -312,7 +312,42 @@ export REMOTE_DEST="user@backup-host:/srv/juexue-backups/"
 | Prisma `P1001` | DATABASE_URL 对吗、Postgres 起来了吗 |
 | LLM 造题 503 | `.env` 里的 API key 为空或错误；或 MiniMax 配额耗尽 |
 
-## 八、还没上线的功能（v1.0 范围外）
+## 七、Capacitor 打包注意事项
+
+### 推送通知（@capacitor/push-notifications）
+
+后端已就绪（`POST /api/push/subscribe` + `web-push` 库）· Capacitor 打包后还需：
+
+```bash
+# 在 Capacitor 项目根目录
+npm install @capacitor/push-notifications
+npx cap sync
+```
+
+iOS 还需在 Xcode 项目里启用 Push Notifications capability + 配 APNS .p8 证书。
+
+### Token keychain 化（@capacitor/preferences）
+
+前端 `shared/token-store.js` 已自适应：检测到 `window.Capacitor.Plugins.Preferences`
+就走 native keychain · 否则回落 localStorage。
+
+```bash
+npm install @capacitor/preferences
+npx cap sync
+```
+
+iOS 自动用 Keychain Services · Android 用 EncryptedSharedPreferences · 都是
+OS 级加密存储 · root/越狱设备读取门槛远高于 localStorage。
+
+首次包后老 webview 装的 token 会自动迁移：boot 时 token-store 检测到 localStorage
+有 token 但 keychain 没 · 自动写到 keychain 并清 localStorage。
+
+### Web Push（PWA · 可选）
+
+非 Capacitor 场景（用户用浏览器访问）· 已经能直接用 Web Push（前提 HTTPS + VAPID 密钥）·
+无需额外 Capacitor 操作。
+
+## 九、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI
 2. Coach 后台 UI（造题表单、批量导入、LLM 造题向导）
