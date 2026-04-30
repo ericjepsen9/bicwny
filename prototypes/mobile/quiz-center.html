@@ -186,19 +186,10 @@ body { background: var(--bg-scene); min-height: 100vh; }
 //   下方：我的法本列表（点 → scripture-detail，从章节 ⋮ 进 quiz）
 var sc = window.JX.sc, escapeHtml = window.JX.util.escapeHtml;
 
-function renderReviewRow(sm2Stats, mistakes, favs) {
-  // SM-2 显示到期数；错题显示总数；收藏显示总数
-  var sm2Due = (sm2Stats && typeof sm2Stats.due === 'number') ? sm2Stats.due : 0;
-  var mistakesN = Array.isArray(mistakes) ? mistakes.length : 0;
-  var favsN = Array.isArray(favs) ? favs.length : 0;
-  function set(id, n) {
-    var el = document.getElementById(id);
-    el.textContent = String(n);
-    if (n === 0) el.classList.add('zero'); else el.classList.remove('zero');
-  }
-  set('qc-sm2-num', sm2Due);
-  set('qc-mistake-num', mistakesN);
-  set('qc-fav-num', favsN);
+function setBadge(id, n) {
+  var el = document.getElementById(id);
+  el.textContent = String(n);
+  if (n === 0) el.classList.add('zero'); else el.classList.remove('zero');
 }
 
 function renderCourses(enrollments) {
@@ -252,16 +243,33 @@ function boot() {
         '</div>';
     }
   }, 5000);
+
+  // Phase 1（首屏）· sm2.stats 5KB + my/enrollments 几 KB · 并行 · 先渲染主体
+  //   首屏不等 mistakes (可达数百条) / favorites · badge 用 '—' 占位
+  setBadge('qc-sm2-num', 0);
+  document.getElementById('qc-mistake-num').textContent = '—';
+  document.getElementById('qc-fav-num').textContent = '—';
   Promise.all([
     window.JX.api.get('/api/sm2/stats').catch(function () { return { due: 0 }; }),
-    window.JX.api.get('/api/mistakes?limit=500').catch(function () { return []; }),
-    window.JX.api.get('/api/favorites').catch(function () { return []; }),
     window.JX.api.get('/api/my/enrollments').catch(function () { return []; }),
   ]).then(function (rs) {
     clearTimeout(loadingTimer);
-    renderReviewRow(rs[0], rs[1], rs[2]);
-    renderCourses(rs[3]);
+    var sm2Stats = rs[0];
+    var enrollments = rs[1];
+    setBadge('qc-sm2-num', (sm2Stats && typeof sm2Stats.due === 'number') ? sm2Stats.due : 0);
+    renderCourses(enrollments);
   });
+
+  // Phase 2（次屏）· mistakes / favorites 仅用于 badge 数字 · 后台慢慢拉
+  //   不阻塞 paint · 失败也不显示 error · 用户进 mistakes/favorites 页时再加载完整列表
+  window.JX.api.get('/api/mistakes?limit=500').then(function (m) {
+    var n = Array.isArray(m) ? m.length : 0;
+    setBadge('qc-mistake-num', n);
+  }).catch(function () { setBadge('qc-mistake-num', 0); });
+  window.JX.api.get('/api/favorites').then(function (f) {
+    var n = Array.isArray(f) ? f.length : 0;
+    setBadge('qc-fav-num', n);
+  }).catch(function () { setBadge('qc-fav-num', 0); });
 }
 document.addEventListener('jx:user-ready', boot);
 document.addEventListener('langchange', boot);
