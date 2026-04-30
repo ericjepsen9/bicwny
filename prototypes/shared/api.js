@@ -188,6 +188,21 @@
         if (err && err.name === 'AbortError') {
           throw ApiError(0, 'TIMEOUT', '请求超时（' + Math.round(timeoutMs / 1000) + 's），请检查网络');
         }
+        // 离线队列 · opts.offlineQueue=true 时网络错（TypeError）入队
+        //   仅写操作 · 仅 navigator.onLine===false 时入队 · 防把可达但 5xx 也入队
+        //   入队后返回特殊响应让调用方知道 · 不抛错
+        if (opts.offlineQueue && method !== 'GET' && method !== 'HEAD' &&
+            err && err.name === 'TypeError' &&
+            typeof navigator !== 'undefined' && navigator.onLine === false &&
+            window.JX && window.JX.offlineQueue) {
+          var rid = (body && body.requestId) || (window.crypto && crypto.randomUUID
+            ? crypto.randomUUID()
+            : 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2));
+          window.JX.offlineQueue.enqueue({
+            method: method, path: path, body: body, requestId: rid,
+          }).catch(function () {});
+          return { __queued: true, requestId: rid };
+        }
         throw err;
       });
     }

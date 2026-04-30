@@ -796,8 +796,30 @@
       questionId: q.id,
       answer: state.answer,
       timeSpentMs: Date.now() - state.tQuestionStart,
+      // requestId 让后端幂等去重 · 同时是 offline queue 重试时的 dedup 键
+      requestId: (window.crypto && crypto.randomUUID
+        ? crypto.randomUUID()
+        : 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2)),
     };
-    window.JX.api.post('/api/answers', body).then(function (data) {
+    // offlineQueue:true · navigator.onLine===false 且网络错时入队 · 联网后自动重试
+    window.JX.api.post('/api/answers', body, { offlineQueue: true }).then(function (data) {
+      // 离线入队场景 · 给乐观反馈 · 假设答对 · 联网后真实 grade 不影响 UI 流转
+      //   后端拿到 requestId 后会去重 · 不会重复扣分
+      if (data && data.__queued) {
+        state.confirmed = true;
+        state.lastGrade = {
+          isCorrect: null, // 未知 · UI 不显示对错色
+          score: null,
+          feedback: sc('已保存 · 联网后自动同步',
+                       '已儲存 · 聯網後自動同步'),
+        };
+        if (window.JX.toast && window.JX.toast.info) {
+          window.JX.toast.info(sc('网络异常 · 答题已离线保存',
+                                  '網絡異常 · 答題已離線儲存'));
+        }
+        render();
+        return;
+      }
       state.confirmed = true;
       state.lastGrade = data.grade;
       // 后端返回的 question 含完整 payload（不剥答案），用它替换本题的 public view，
