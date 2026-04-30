@@ -6,6 +6,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireUserId } from '../../lib/auth.js';
 import { BadRequest, NotFound } from '../../lib/errors.js';
+import { prisma } from '../../lib/prisma.js';
 import { toPublicView } from '../answering/publicView.js';
 import { addFavorite, listFavorites, removeFavorite } from './service.js';
 
@@ -55,5 +56,14 @@ export const favoritesRoutes: FastifyPluginAsync = async (app) => {
         question: f.question ? toPublicView(f.question) : null,
       })),
     };
+  });
+
+  // 仅返回收藏数量 · payload 几十字节 · 用于 badge 显示
+  app.get('/api/favorites/count', {
+    schema: { tags: TAGS, summary: '收藏总数（badge）', security: SEC },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const count = await prisma.userFavorite.count({ where: { userId } });
+    return { data: { count } };
   });
 };

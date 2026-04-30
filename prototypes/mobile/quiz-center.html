@@ -260,15 +260,13 @@ function boot() {
     renderCourses(enrollments);
   });
 
-  // Phase 2（次屏）· mistakes / favorites 仅用于 badge 数字 · 后台慢慢拉
-  //   不阻塞 paint · 失败也不显示 error · 用户进 mistakes/favorites 页时再加载完整列表
-  window.JX.api.get('/api/mistakes?limit=500').then(function (m) {
-    var n = Array.isArray(m) ? m.length : 0;
-    setBadge('qc-mistake-num', n);
+  // Phase 2（次屏）· 只取 count · payload 几十字节 · 不下载完整列表
+  //   不阻塞 paint · 失败 → badge 显 0 · 用户进 mistakes/favorites 页时拉完整列表
+  window.JX.api.get('/api/mistakes/count').then(function (r) {
+    setBadge('qc-mistake-num', (r && r.count) || 0);
   }).catch(function () { setBadge('qc-mistake-num', 0); });
-  window.JX.api.get('/api/favorites').then(function (f) {
-    var n = Array.isArray(f) ? f.length : 0;
-    setBadge('qc-fav-num', n);
+  window.JX.api.get('/api/favorites/count').then(function (r) {
+    setBadge('qc-fav-num', (r && r.count) || 0);
   }).catch(function () { setBadge('qc-fav-num', 0); });
 }
 document.addEventListener('jx:user-ready', boot);

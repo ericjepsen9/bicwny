@@ -512,8 +512,11 @@ function renderCourseCard(enrollment, overlay) {
 }
 
 
-function renderReviewBadge(mistakes) {
-  var n = (mistakes || []).length;
+function renderReviewBadge(payload) {
+  // 兼容 /api/mistakes/count （{ count }） 和老的 array shape
+  var n = payload && typeof payload.count === 'number'
+    ? payload.count
+    : ((payload || []).length || 0);
   var card = document.getElementById('review-card');
   if (n === 0) { card.style.display = 'none'; return; }
   card.style.display = '';
@@ -581,7 +584,8 @@ function boot() {
     renderCourseCard(first, localOverlay);
   });
 
-  window.JX.api.get('/api/mistakes?limit=500').then(renderReviewBadge).catch(function () {});
+  // count 端点 · payload 几十字节 · 不下载完整列表
+  window.JX.api.get('/api/mistakes/count').then(renderReviewBadge).catch(function () {});
   window.JX.api.get('/api/sm2/stats').then(renderSm2Badge).catch(function () {});
 
   window.JX.api.get('/api/notifications/unread-count').then(function (r) {
