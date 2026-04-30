@@ -242,7 +242,7 @@ function showIntro(course, flat, slug, manual) {
   var screen = document.getElementById('intro-screen');
   var coverEl = document.getElementById('intro-cover');
   if (course.coverImageUrl) {
-    coverEl.innerHTML = '<img src="' + escapeHtml(course.coverImageUrl) + '" alt="">';
+    coverEl.innerHTML = '<img src="' + escapeHtml(course.coverImageUrl) + '" alt="" loading="lazy" decoding="async">';
   } else {
     coverEl.innerHTML = '<span class="intro-cover-emoji">' + escapeHtml(course.coverEmoji || '🪷') + '</span>';
   }

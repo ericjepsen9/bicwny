@@ -210,7 +210,7 @@ function renderCourses(enrollments) {
     var title = sc(c.title, c.titleTraditional || c.title);
     var emoji = c.coverEmoji || '🪷';
     var coverHtml = c.coverImageUrl
-      ? '<img src="' + escapeHtml(c.coverImageUrl) + '" alt="">'
+      ? '<img src="' + escapeHtml(c.coverImageUrl) + '" alt="" loading="lazy" decoding="async">'
       : '<span class="qc-cover-emoji">' + escapeHtml(emoji) + '</span>';
     var done = (e.lessonsCompleted || []).length;
     // M3: 后端已返回 course.totalLessons · 显示「已答 N / M 课」
