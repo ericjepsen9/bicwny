@@ -262,37 +262,9 @@
     var els = document.querySelectorAll('a.nav-back');
     for (var i = 0; i < els.length; i++) attachHistoryBackFallback(els[i]);
   }
-
-  // tab-bar 切换用 location.replace 不入历史栈
-  //   - 用户点 home tab → courses tab → reading → ←，预期回到 courses 而不是 home
-  //   - 之前 <a href> 切 tab 每次都 push history · 多 tab 切换后 ← 会反复横跳
-  //   - 当前 tab 已 active 时 click 不动（保持原状不刷新）
-  //   - 非 tab-bar 的 a 链接不影响（仍用默认 push）
-  function autoAttachTabBar() {
-    var tabs = document.querySelectorAll('.tab-bar .tab-item');
-    for (var i = 0; i < tabs.length; i++) {
-      var a = tabs[i];
-      if (a.dataset.tabBound === '1') continue;
-      a.dataset.tabBound = '1';
-      a.addEventListener('click', (function (el) {
-        return function (ev) {
-          var href = el.getAttribute('href');
-          if (!href || href === '#') return;
-          ev.preventDefault();
-          if (el.classList.contains('active')) return; // 已在该 tab · 不动
-          location.replace(href);
-        };
-      })(a));
-    }
-  }
-
-  function runAutoAttach() {
-    autoAttachAll();
-    autoAttachTabBar();
-  }
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', runAutoAttach);
+    document.addEventListener('DOMContentLoaded', autoAttachAll);
   } else {
-    runAutoAttach();
+    autoAttachAll();
   }
 })();

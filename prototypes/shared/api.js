@@ -107,13 +107,21 @@
     var token = getAccessToken();
     if (token && !opts.noAuth) headers['Authorization'] = 'Bearer ' + token;
 
+    // 超时兜底 · 默认 15s · 防止后端无响应让前端永远 'loading…'
+    // opts.timeoutMs=0 显式禁用 · 大文件上传等长请求需主动覆盖
+    var timeoutMs = opts.timeoutMs == null ? 15000 : opts.timeoutMs;
+    var ctrl = (timeoutMs && typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs) : null;
+
     var init = {
       method: method,
       headers: headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: ctrl ? ctrl.signal : undefined,
     };
 
     return fetch(buildUrl(path), init).then(function (res) {
+      if (timer) clearTimeout(timer);
       if (res.status === 401 && !opts.noAuth && !opts._retried && getRefreshToken()) {
         return refreshOnce().then(
           function () {
@@ -137,6 +145,13 @@
         }
         return payload;
       });
+    }, function (err) {
+      if (timer) clearTimeout(timer);
+      // AbortError → 用户友好的超时错误
+      if (err && err.name === 'AbortError') {
+        throw ApiError(0, 'TIMEOUT', '请求超时（' + Math.round(timeoutMs / 1000) + 's），请检查网络');
+      }
+      throw err;
     });
   }
 

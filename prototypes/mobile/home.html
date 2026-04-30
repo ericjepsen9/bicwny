@@ -522,6 +522,17 @@ function renderSm2Badge(stats) {
 function boot() {
   renderGreeting();
 
+  // 5s failsafe · 防 API 异常时'加载中…'卡死显示
+  // 正常流程下 api.js timeout 15s 兜底 · 这里 5s 进 UI 兜底更早降级
+  setTimeout(function () {
+    var titleEl = document.getElementById('course-title');
+    if (titleEl && /加载中|加載中/.test(titleEl.textContent)) {
+      renderCourseCard(null, null); // 进入"尚未选修法本"状态比卡死好
+      var emptyBox = document.getElementById('study-empty-box');
+      if (emptyBox) emptyBox.style.display = '';
+    }
+  }, 5000);
+
   // /classes 先 resolve（renderClassCard 缓存 memberships）· /enrollments 跟着 render
   // 避免 race：course-card 显示班级名依赖 __jxMyClasses 缓存
   Promise.all([
