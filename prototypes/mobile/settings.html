@@ -125,6 +125,11 @@ body { background: var(--bg-scene); min-height: 100vh; }
         <span class="row-label"><span class="sc">修改密码</span><span class="tc">修改密碼</span></span>
         <svg class="row-arrow" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
+      <a class="row" href="devices.html" style="text-decoration:none;color:inherit;">
+        <span class="row-label"><span class="sc">登录设备</span><span class="tc">登入裝置</span></span>
+        <span class="row-value" id="devices-count" style="color:var(--ink-3);"></span>
+        <svg class="row-arrow" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </a>
       <div class="row">
         <span class="row-label"><span class="sc">邮箱绑定</span><span class="tc">郵箱綁定</span></span>
         <span class="row-value"><span class="sc">未绑定</span><span class="tc">未綁定</span></span>
@@ -372,6 +377,24 @@ document.getElementById('font-size-picker').addEventListener('click', function (
 
   document.addEventListener('DOMContentLoaded', refresh);
   if (document.readyState !== 'loading') refresh();
+})();
+
+// 设备数量预览（账号 row 显示 N 台 / 仅 1 台）
+(function () {
+  var sc = window.JX.sc;
+  if (!window.JX.api) return;
+  document.addEventListener('jx:user-ready', loadDevicesCount);
+  if (window.JX.user) loadDevicesCount();
+  function loadDevicesCount() {
+    window.JX.api.get('/api/auth/sessions').then(function (sessions) {
+      var n = (sessions || []).length;
+      var el = document.getElementById('devices-count');
+      if (!el) return;
+      el.innerHTML = n > 1
+        ? '<span class="sc">' + n + ' 台</span><span class="tc">' + n + ' 台</span>'
+        : sc('仅当前', '僅當前');
+    }).catch(function () {});
+  }
 })();
 
 // 退出登录：调后端 /logout 吊销 refresh，再跳登录页

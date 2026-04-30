@@ -197,6 +197,7 @@
       case 'change-password.html':return 'profile.html';
       case 'delete-account.html': return 'profile.html';
       case 'settings.html':       return 'profile.html';
+      case 'devices.html':        return 'settings.html';
       case 'about.html':          return 'profile.html';
       case 'help.html':            return 'profile.html';
       case 'privacy.html':        return 'profile.html';

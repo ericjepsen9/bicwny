@@ -53,6 +53,11 @@ export function getUserRole(req: FastifyRequest): UserRole | null {
   return readPayload(req)?.role ?? null;
 }
 
+/** 当前 access token 的 session id（AuthSession.id）· 用于"标记当前设备" */
+export function getCurrentSessionId(req: FastifyRequest): string | null {
+  return readPayload(req)?.sid ?? null;
+}
+
 /** 路由级守卫：preHandler: requireRole('admin') 或 requireRole('admin','coach') */
 export function requireRole(...roles: UserRole[]): preHandlerAsyncHookHandler {
   return async (req) => {

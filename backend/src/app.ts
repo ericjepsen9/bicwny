@@ -19,6 +19,7 @@ import { registerTimingHooks } from './lib/timing.js';
 import { answeringRoutes } from './modules/answering/routes.js';
 import { mistakesRoutes } from './modules/answering/mistakes.routes.js';
 import { authRoutes } from './modules/auth/routes.js';
+import { authSessionsRoutes } from './modules/auth/sessions.routes.js';
 import { adminAuditRoutes } from './modules/admin/audit.routes.js';
 import { adminLogsRoutes } from './modules/admin/logs.routes.js';
 import { adminRoutes } from './modules/admin/routes.js';
@@ -286,6 +287,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // 业务路由
   await app.register(authRoutes);
+  await app.register(authSessionsRoutes);
   await app.register(adminRoutes);
   await app.register(adminSystemSettingsRoutes);
   await app.register(adminAuditRoutes);
