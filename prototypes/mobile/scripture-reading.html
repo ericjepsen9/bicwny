@@ -469,8 +469,15 @@ function boot() {
         u.searchParams.set('slug', slug);
         history.replaceState(null, '', u);
       }
+      // 单 lesson 模式 · 只下载当前 lesson 的 referenceText/teachingSummary
+      // 其他 lesson 仍返回 id/title/order 给前端 prev/next 导航
+      // 没有 lessonId 时（首次进入 / intro 页）不传 · 后端按 lite 模式返回（也不带原文）
+      // intro 页用不到原文 · renderLesson 在 lessonId 缺失时不会 render
+      var courseUrl = '/api/courses/' + encodeURIComponent(slug);
+      if (lessonId) courseUrl += '?lessonId=' + encodeURIComponent(lessonId);
+      else courseUrl += '?lite=1';
       return Promise.all([
-        window.JX.api.get('/api/courses/' + encodeURIComponent(slug)),
+        window.JX.api.get(courseUrl),
         window.JX.api.get('/api/my/enrollments').catch(function () { return []; }),
       ]);
     })
@@ -509,9 +516,13 @@ function boot() {
       } else if (forceIntro || neverOpened) {
         showIntro(course, flat, slug, false);
       } else {
-        var resumeId = overlay && overlay.currentLessonId;
-        var ctx2 = resumeId ? flat.find(function (x) { return x.lesson.id === resumeId; }) : null;
-        renderLesson(ctx2 || flat[0], flat, slug, courseId, enrolled, course, overlay);
+        // 自动续读 · 第一次 fetch 是 ?lite=1（没原文）· 用 location.replace 加上 lessonId
+        // 浏览器再 boot 一次 · 命中 ?lessonId=X 模式（单 lesson 原文）· Cache-Control 60s
+        // 比当场再发一个 fetch 干净：URL 反映了真实状态 · 用户分享/收藏链接也带 lessonId
+        var resumeId = (overlay && overlay.currentLessonId) || flat[0].lesson.id;
+        var u = new URL(location.href);
+        u.searchParams.set('lessonId', resumeId);
+        location.replace(u.toString());
       }
     })
     .catch(function (err) { showError(sc('加载失败：', '加載失敗：') + (err.message || err)); });

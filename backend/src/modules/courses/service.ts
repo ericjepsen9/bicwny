@@ -12,10 +12,17 @@ export async function listPublishedCourses(): Promise<Course[]> {
   });
 }
 
-export async function getCourseBySlug(slug: string, opts?: { lite?: boolean }) {
+export async function getCourseBySlug(
+  slug: string,
+  opts?: { lite?: boolean; lessonId?: string },
+) {
   // lite=true · 仅返回章节 + lesson id/title/order · 省掉 referenceText / teachingSummary
   // referenceText 单课可达 100KB+ · 全树可达数 MB · TOC / 进度叠加场景不需要
-  const lessonSelect = opts?.lite
+  // lessonId=xxx · scripture-reading 模式 · 只有匹配的 lesson 带 referenceText/teachingSummary
+  //   其他 lesson 仍返回 id/title/order 给前端拼 prev/next 导航
+  //   省掉非当前 lesson 的几 MB 原文
+  const lite = opts?.lite || !!opts?.lessonId;
+  const lessonSelect = lite
     ? {
         id: true,
         order: true,
@@ -45,6 +52,25 @@ export async function getCourseBySlug(slug: string, opts?: { lite?: boolean }) {
     },
   });
   if (!course) throw NotFound('课程不存在');
+
+  // lessonId 模式：单独查目标 lesson 的 referenceText/teachingSummary 注回去
+  if (opts?.lessonId) {
+    const target = await prisma.lesson.findUnique({
+      where: { id: opts.lessonId },
+      select: { id: true, referenceText: true, teachingSummary: true },
+    });
+    if (target) {
+      for (const ch of course.chapters) {
+        for (const l of ch.lessons) {
+          if (l.id === target.id) {
+            (l as { referenceText?: string | null }).referenceText = target.referenceText;
+            (l as { teachingSummary?: string | null }).teachingSummary = target.teachingSummary;
+            break;
+          }
+        }
+      }
+    }
+  }
   return course;
 }
 

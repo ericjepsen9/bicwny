@@ -501,9 +501,15 @@ function renderCourseCard(enrollment, overlay) {
     document.getElementById('course-chapter-tag').textContent =
       sc('已完成 ', '已完成 ') + done + ' / ' + total + sc(' 课', ' 課');
   }
-  // 「继续阅读」→ scripture-reading（auto-resume 到 currentLessonId）
+  // 「继续阅读」→ scripture-reading（直接带 currentLessonId · 让后端只返回该 lesson 原文）
   // 「查看详情」→ scripture-detail（章节目录）
-  var ctaUrl = window.JX.nav.toReading({ slug: c.slug, from: window.JX.nav.FROM.HOME });
+  // home 已经知道 currentLessonId · 直接传 · 避免 reading 页二次定位 + 全树下载
+  var resumeId = effectiveOverlay && effectiveOverlay.currentLessonId;
+  var ctaUrl = window.JX.nav.toReading({
+    slug: c.slug,
+    lessonId: resumeId || undefined,
+    from: window.JX.nav.FROM.HOME,
+  });
   var tocUrl = window.JX.nav.toScriptureDetail({ slug: c.slug, from: window.JX.nav.FROM.HOME });
   document.getElementById('course-cta').href = ctaUrl;
   document.getElementById('course-toc').href = tocUrl;
