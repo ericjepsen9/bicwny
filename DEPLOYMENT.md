@@ -301,7 +301,7 @@ export REMOTE_DEST="user@backup-host:/srv/juexue-backups/"
 | `MIN_USER_COUNT` | `1` | User 表至少行数 · 低于报错 |
 | `LOG_FILE` | `/var/log/juexue-backup.log` | 日志路径 |
 
-## 七、常见排错
+## 十、常见排错
 
 | 症状 | 排查 |
 | ---- | ---- |
@@ -312,7 +312,78 @@ export REMOTE_DEST="user@backup-host:/srv/juexue-backups/"
 | Prisma `P1001` | DATABASE_URL 对吗、Postgres 起来了吗 |
 | LLM 造题 503 | `.env` 里的 API key 为空或错误；或 MiniMax 配额耗尽 |
 
-## 七、Capacitor 打包注意事项
+## 七、CDN + 图片加速
+
+### 1. nginx 端 · 长缓存策略（必装）
+
+`prototypes/` 静态文件 + `/uploads/` 图片上 `Cache-Control` 长缓存：
+
+```nginx
+# 静态文件（HTML/CSS/JS）· 短 max-age + must-revalidate · 配合内容哈希更佳
+location ~* \.(html)$ {
+  add_header Cache-Control "public, max-age=300, must-revalidate";
+}
+location ~* \.(css|js)$ {
+  add_header Cache-Control "public, max-age=86400, stale-while-revalidate=604800";
+}
+# 上传图片（覆盖 /uploads/courses/*-{320,640,1024}.webp）· 文件名含 hash · 永远不重写
+location /uploads/ {
+  alias /home/ubuntu/projects/juexue/uploads/;
+  add_header Cache-Control "public, max-age=31536000, immutable";
+  access_log off;
+  expires 1y;
+}
+# Service Worker · 必须不缓存 · 否则发版触达不到老用户
+location = /sw.js {
+  add_header Cache-Control "no-cache, no-store, must-revalidate";
+  add_header Service-Worker-Allowed "/";
+}
+```
+
+### 2. Cloudflare 前置（强烈推荐 · 免费）
+
+`juexue.caughtalert.com` 域名挂到 Cloudflare：
+1. Cloudflare 添加 site · 把 NS 切到 Cloudflare
+2. DNS 记录 A → 服务器 IP · proxy 状态 = orange cloud（默认开）
+3. SSL/TLS mode → Full (strict)
+4. **Speed → Optimization**：
+   - Auto Minify ✓ HTML/CSS/JS
+   - Brotli ✓
+   - Polish: Lossy（自动 WebP 转换 · 即使 origin 是 PNG）
+   - Mirage（移动设备图片懒加载 + 自适应）
+5. **Caching → Configuration**：Browser Cache TTL = Respect Existing Headers
+6. **Page Rules**：`/uploads/*` Edge Cache TTL = 1 month
+
+效果：
+- 海外用户访问命中 Cloudflare 边缘 · 延迟 < 50ms
+- Polish 把 PNG/JPEG 自动转 WebP 给支持的浏览器（**即使后端没生成 webp 也有 30% 体积下降**）
+- 流量 90% 命中 CDN cache · 服务器只 serve 5-10%
+
+### 3. 后端图片处理（已就绪）
+
+admin 上传封面后自动生成 320/640/1024 三尺寸 WebP（sharp · q=80）·
+节省 50-70% 带宽 · 浏览器按 srcset 选最合适。
+
+```
+上传 abc.png (200KB)
+↓
+abc-320.webp  (8KB)   移动列表
+abc-640.webp  (24KB)  详情页
+abc-1024.webp (60KB)  桌面 / 高 DPR
+```
+
+前端 `JX.components.coverHtml` 自动输出 `<picture>` + srcset · 浏览器选择最合适。
+
+### 4. 静态资源迁到对象存储（v2 演进）
+
+当前 `/uploads/` 在 VPS 本地。规模化后：
+- 阿里 OSS / Cloudflare R2 / AWS S3 二选一
+- admin 上传 → 后端 sharp 处理 → 推 OSS · DB 存 OSS URL
+- 前端直连 OSS 或用 CDN 回源 OSS
+
+不在 v1 范围 · 但接口已留好（`coverImageUrl` 是个 URL · 改成 https://oss... 不需改任何 client 代码）。
+
+## 八、Capacitor 打包注意事项
 
 ### 推送通知（@capacitor/push-notifications）
 
@@ -347,7 +418,7 @@ OS 级加密存储 · root/越狱设备读取门槛远高于 localStorage。
 非 Capacitor 场景（用户用浏览器访问）· 已经能直接用 Web Push（前提 HTTPS + VAPID 密钥）·
 无需额外 Capacitor 操作。
 
-## 九、还没上线的功能（v1.0 范围外）
+## 十一、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI
 2. Coach 后台 UI（造题表单、批量导入、LLM 造题向导）
