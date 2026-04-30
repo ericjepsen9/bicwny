@@ -28,6 +28,7 @@
 <script src="../shared/api.js"></script>
 <script src="../shared/offline-queue.js"></script>
 <script src="../shared/scroll-restore.js"></script>
+<script src="../shared/skeleton.js"></script>
 <script src="../shared/require-auth.js"></script>
 <script src="../shared/sw-register.js" defer></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -156,8 +157,9 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
       <div class="section-header">
         <span class="section-title"><span class="sc">按法本分列</span><span class="tc">按法本分列</span></span>
       </div>
-      <div id="by-course-list" style="margin-top:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2);">
-        <div style="text-align:center;padding:var(--sp-4);font:var(--text-caption);color:var(--ink-3);"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+      <div id="by-course-list" style="margin-top:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2);" data-skeleton="1" aria-hidden="true">
+        <div class="skel-card" style="padding:var(--sp-3);"><div class="skel-row" style="padding:0;"><div class="skel skel-thumb" style="width:32px;height:32px;"></div><div class="skel-stack"><div class="skel skel-line-lg"></div><div class="skel skel-line-sm"></div></div><div class="skel skel-pill"></div></div></div>
+        <div class="skel-card" style="padding:var(--sp-3);"><div class="skel-row" style="padding:0;"><div class="skel skel-thumb" style="width:32px;height:32px;"></div><div class="skel-stack"><div class="skel skel-line-lg"></div><div class="skel skel-line-sm"></div></div><div class="skel skel-pill"></div></div></div>
       </div>
     </div>
 
@@ -167,8 +169,13 @@ body { background:linear-gradient(160deg,#EDE0D4 0%,#D8C4AE 100%); min-height:10
         <span class="section-title"><span class="sc">成就勋章</span><span class="tc">成就勳章</span></span>
         <span id="badge-counter" class="section-hint" style="font:var(--text-caption);color:var(--ink-3);letter-spacing:1px;"></span>
       </div>
-      <div id="badge-grid" class="badge-grid">
-        <div style="grid-column:1/-1;text-align:center;padding:var(--sp-4);font:var(--text-caption);color:var(--ink-3);"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+      <div id="badge-grid" class="badge-grid" data-skeleton="1" aria-hidden="true">
+        <div><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:6px;width:80%;margin-left:auto;margin-right:auto;"></div></div>
+        <div><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:6px;width:60%;margin-left:auto;margin-right:auto;"></div></div>
+        <div><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:6px;width:75%;margin-left:auto;margin-right:auto;"></div></div>
+        <div><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:6px;width:70%;margin-left:auto;margin-right:auto;"></div></div>
+        <div><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:6px;width:80%;margin-left:auto;margin-right:auto;"></div></div>
+        <div><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:6px;width:60%;margin-left:auto;margin-right:auto;"></div></div>
       </div>
     </div>
 

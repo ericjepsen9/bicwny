@@ -37,6 +37,7 @@
 <script src="../shared/api.js"></script>
 <script src="../shared/offline-queue.js"></script>
 <script src="../shared/scroll-restore.js"></script>
+<script src="../shared/skeleton.js"></script>
 <script src="../shared/components.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/require-auth.js"></script>
@@ -203,8 +204,13 @@ body { background: var(--bg-scene); min-height: 100vh; }
     <span class="ftab" data-filter="available"><span class="sc">未加入</span><span class="tc">未加入</span></span>
   </div>
 
-  <div class="course-grid" id="course-list">
-    <div class="empty-state"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+  <div class="course-grid" id="course-list" data-skeleton="1" aria-hidden="true">
+    <div class="book-card"><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:8px;width:80%;margin-left:auto;margin-right:auto;"></div></div>
+    <div class="book-card"><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:8px;width:65%;margin-left:auto;margin-right:auto;"></div></div>
+    <div class="book-card"><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:8px;width:75%;margin-left:auto;margin-right:auto;"></div></div>
+    <div class="book-card"><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:8px;width:70%;margin-left:auto;margin-right:auto;"></div></div>
+    <div class="book-card"><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:8px;width:80%;margin-left:auto;margin-right:auto;"></div></div>
+    <div class="book-card"><div class="skel" style="width:100%;aspect-ratio:1/1;border-radius:var(--r-md);"></div><div class="skel skel-line-sm" style="margin-top:8px;width:60%;margin-left:auto;margin-right:auto;"></div></div>
   </div>
 
 </div>

@@ -456,6 +456,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 <script src="../shared/api.js"></script>
 <script src="../shared/offline-queue.js"></script>
 <script src="../shared/scroll-restore.js"></script>
+<script src="../shared/skeleton.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/require-auth.js"></script>
 <script src="../shared/sw-register.js" defer></script>
@@ -499,10 +500,19 @@ body { background: var(--bg-scene); min-height: 100vh; }
         </svg>
       </button>
       <div class="q-num" id="q-num">Q1</div>
-      <div class="q-text" id="q-text"></div>
+      <div class="q-text" id="q-text">
+        <span class="skel skel-line-lg" style="display:block;margin-bottom:8px;width:90%;" aria-hidden="true"></span>
+        <span class="skel skel-line" style="display:block;margin-bottom:8px;" aria-hidden="true"></span>
+        <span class="skel skel-line-sm" style="display:block;" aria-hidden="true"></span>
+      </div>
     </div>
 
-    <div class="options" id="options-list"></div>
+    <div class="options" id="options-list">
+      <div class="skel skel-line" style="height:46px;margin-bottom:10px;" aria-hidden="true"></div>
+      <div class="skel skel-line" style="height:46px;margin-bottom:10px;" aria-hidden="true"></div>
+      <div class="skel skel-line" style="height:46px;margin-bottom:10px;" aria-hidden="true"></div>
+      <div class="skel skel-line" style="height:46px;" aria-hidden="true"></div>
+    </div>
 
     <div class="feedback" id="feedback">
       <div class="feedback-title" id="feedback-title"></div>

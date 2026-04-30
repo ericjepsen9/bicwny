@@ -28,6 +28,7 @@
 <script src="../shared/api.js"></script>
 <script src="../shared/offline-queue.js"></script>
 <script src="../shared/scroll-restore.js"></script>
+<script src="../shared/skeleton.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/require-auth.js"></script>
 <script src="../shared/sw-register.js" defer></script>
@@ -118,8 +119,14 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
   <div class="scroll-area">
   <div id="detail-body" style="padding:0 var(--sp-5) 100px; display:flex; flex-direction:column; gap:var(--sp-4);">
-    <div class="question-block glass-card-thick" style="text-align:center;">
-      <p style="font:var(--text-caption);color:var(--ink-3);"><span class="sc">加载中…</span><span class="tc">加載中…</span></p>
+    <div class="skel-card" data-skeleton="1" aria-hidden="true">
+      <div class="skel skel-meta" style="margin-bottom:14px;"></div>
+      <div class="skel skel-line-lg" style="margin-bottom:10px;"></div>
+      <div class="skel skel-line" style="margin-bottom:8px;"></div>
+      <div class="skel skel-line" style="margin-bottom:18px;width:90%;"></div>
+      <div class="skel skel-line" style="height:42px;margin-bottom:10px;"></div>
+      <div class="skel skel-line" style="height:42px;margin-bottom:10px;"></div>
+      <div class="skel skel-line" style="height:42px;"></div>
     </div>
   </div>
   </div>

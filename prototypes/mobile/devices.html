@@ -34,6 +34,7 @@
 <script src="../shared/api.js"></script>
 <script src="../shared/offline-queue.js"></script>
 <script src="../shared/scroll-restore.js"></script>
+<script src="../shared/skeleton.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/require-auth.js"></script>
 <script src="../shared/sw-register.js" defer></script>
@@ -107,16 +108,16 @@ body { background: var(--bg-scene); min-height: 100vh; }
   </div>
 
   <div class="summary-row">
-    <span id="summary-text"><span class="sc">加载中…</span><span class="tc">載入中…</span></span>
+    <span id="summary-text"><span class="skel skel-line-sm" style="display:inline-block;vertical-align:middle;width:120px;" aria-hidden="true"></span></span>
     <button class="btn-revoke-all" id="btn-revoke-others" style="display:none;">
       <span class="sc">退出其他设备</span><span class="tc">退出其他裝置</span>
     </button>
   </div>
 
-  <div class="devices-wrap" id="devices-list">
-    <div style="text-align:center;padding:var(--sp-6);font:var(--text-caption);color:var(--ink-3);">
-      <span class="sc">加载中…</span><span class="tc">載入中…</span>
-    </div>
+  <div class="devices-wrap" id="devices-list" data-skeleton="1" aria-hidden="true">
+    <div class="skel-card" style="margin-bottom:var(--sp-3);"><div class="skel-row" style="padding:0;"><div class="skel skel-avatar" style="width:36px;height:36px;border-radius:var(--r-sm);"></div><div class="skel-stack"><div class="skel skel-line-lg"></div><div class="skel skel-line-sm"></div></div></div></div>
+    <div class="skel-card" style="margin-bottom:var(--sp-3);"><div class="skel-row" style="padding:0;"><div class="skel skel-avatar" style="width:36px;height:36px;border-radius:var(--r-sm);"></div><div class="skel-stack"><div class="skel skel-line-lg"></div><div class="skel skel-line-sm"></div></div></div></div>
+    <div class="skel-card"><div class="skel-row" style="padding:0;"><div class="skel skel-avatar" style="width:36px;height:36px;border-radius:var(--r-sm);"></div><div class="skel-stack"><div class="skel skel-line-lg"></div><div class="skel skel-line-sm"></div></div></div></div>
   </div>
 
 </div>

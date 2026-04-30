@@ -37,6 +37,7 @@
 <script src="../shared/api.js"></script>
 <script src="../shared/offline-queue.js"></script>
 <script src="../shared/scroll-restore.js"></script>
+<script src="../shared/skeleton.js"></script>
 <script src="../shared/components.js"></script>
 <script src="../shared/require-auth.js"></script>
 <script src="../shared/sw-register.js" defer></script>
@@ -172,8 +173,11 @@ body { background: var(--bg-scene); min-height: 100vh; }
 
   <!-- 按法本练习 -->
   <div class="qc-section-head"><span class="sc">按法本练习</span><span class="tc">按法本練習</span></div>
-  <div class="qc-course-list" id="qc-courses">
-    <div class="qc-empty"><span class="sc">加载中…</span><span class="tc">加載中…</span></div>
+  <div class="qc-course-list" id="qc-courses" data-skeleton="1" aria-hidden="true">
+    <div class="qc-course-card" style="pointer-events:none;"><div class="skel skel-thumb"></div><div class="skel-stack"><div class="skel skel-line-lg"></div><div class="skel skel-line-sm"></div></div></div>
+    <div class="qc-course-card" style="pointer-events:none;"><div class="skel skel-thumb"></div><div class="skel-stack"><div class="skel skel-line-lg"></div><div class="skel skel-line-sm"></div></div></div>
+    <div class="qc-course-card" style="pointer-events:none;"><div class="skel skel-thumb"></div><div class="skel-stack"><div class="skel skel-line-lg"></div><div class="skel skel-line-sm"></div></div></div>
+    <div class="qc-course-card" style="pointer-events:none;"><div class="skel skel-thumb"></div><div class="skel-stack"><div class="skel skel-line-lg"></div><div class="skel skel-line-sm"></div></div></div>
   </div>
 
 </div>
@@ -238,10 +242,11 @@ function renderCourses(enrollments) {
 }
 
 function boot() {
-  // 5s failsafe · 防 API 慢 / 异常时'加载中'卡死
+  // 5s failsafe · 防 API 慢 / 异常时骨架卡死
   var loadingTimer = setTimeout(function () {
     var box = document.getElementById('qc-courses');
-    if (box && box.innerHTML.indexOf('加载中') >= 0) {
+    if (box && box.getAttribute('data-skeleton') === '1') {
+      box.removeAttribute('data-skeleton');
       box.innerHTML = '<div class="qc-empty">' +
         '<span class="sc">网络慢，加载中… <a href="javascript:location.reload()" style="color:var(--saffron-dark);text-decoration:underline;">刷新</a></span>' +
         '<span class="tc">網絡慢，載入中… <a href="javascript:location.reload()" style="color:var(--saffron-dark);text-decoration:underline;">刷新</a></span>' +

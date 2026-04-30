@@ -449,3 +449,49 @@ body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
   font-family: var(--font-serif); font-weight: 700; color: var(--ink);
   font-size: 1.0625rem; letter-spacing: 4px; flex: 1; text-align: center;
 }
+
+/* ── Skeleton 骨架屏 ───────────────────────────── */
+@keyframes jx-skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skel {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    rgba(181,169,154,.16) 25%,
+    rgba(221,211,202,.42) 50%,
+    rgba(181,169,154,.16) 75%
+  );
+  background-size: 200% 100%;
+  animation: jx-skeleton-shimmer 1.4s linear infinite;
+  border-radius: var(--r-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation-duration: 0s; }
+}
+.skel-line   { height: 12px; width: 100%; }
+.skel-line-sm{ height: 10px; width: 60%; }
+.skel-line-lg{ height: 16px; width: 80%; }
+.skel-title  { height: 18px; width: 70%; border-radius: var(--r-sm); }
+.skel-meta   { height: 10px; width: 40%; }
+.skel-pill   { height: 22px; width: 64px; border-radius: var(--r-pill); }
+.skel-avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; }
+.skel-thumb  { width: 56px; height: 56px; border-radius: var(--r-sm); flex-shrink: 0; }
+.skel-cover  { width: 100%; aspect-ratio: 16/9; border-radius: var(--r-lg); }
+
+.skel-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+  box-shadow: var(--shadow-1);
+}
+.skel-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+}
+.skel-row + .skel-row { border-top: 1px solid var(--border-light); }
+.skel-stack { display: flex; flex-direction: column; gap: var(--sp-2); flex: 1; min-width: 0; }
+.skel-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+.skel-list-tight { display: flex; flex-direction: column; }
