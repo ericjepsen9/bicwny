@@ -38,6 +38,7 @@
 <script src="../shared/scroll-restore.js"></script>
 <script src="../shared/skeleton.js"></script>
 <script src="../shared/haptics.js"></script>
+<script src="../shared/a11y.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/search.js"></script>
 <script src="../shared/require-auth.js"></script>
@@ -162,8 +163,10 @@ body { background: var(--bg-scene); min-height: 100vh; }
         </div>
       </div>
       <div class="code-section">
+        <label for="fld-code" class="sr-only"><span class="sc">班级邀请码</span><span class="tc">班級邀請碼</span><span class="en">Class invite code</span></label>
         <input class="code-input" id="fld-code" type="text" autocomplete="off" autocapitalize="characters"
-          maxlength="8" minlength="6" placeholder="XXXXXX" inputmode="text" pattern="[A-Z0-9]{6,8}">
+          maxlength="8" minlength="6" placeholder="XXXXXX" inputmode="text" pattern="[A-Z0-9]{6,8}"
+          aria-label="班级邀请码 6 到 8 位字母数字">
         <p class="code-hint">
           <span class="sc">向辅导员索取 6 位邀请码 · 字母与数字组合，不区分大小写</span>
           <span class="tc">向輔導員索取 6 位邀請碼 · 字母與數字組合，不區分大小寫</span>

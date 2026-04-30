@@ -33,6 +33,7 @@
 <script src="../shared/scroll-restore.js"></script>
 <script src="../shared/skeleton.js"></script>
 <script src="../shared/haptics.js"></script>
+<script src="../shared/a11y.js"></script>
 <script src="../shared/components.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/search.js"></script>
@@ -167,6 +168,7 @@ body { background: var(--bg-scene); min-height:100vh; }
 </style>
 </head>
 <body class="scene">
+<a href="#main-content" class="skip-to-content"><span class="sc">跳到主要内容</span><span class="tc">跳到主要內容</span><span class="en">Skip to main content</span></a>
 <div class="phone-wrap">
 <div class="phone">
 
@@ -174,7 +176,7 @@ body { background: var(--bg-scene); min-height:100vh; }
   <div class="status-bar" data-auto></div>
 
   <!-- Scroll area -->
-  <div class="scroll-area">
+  <main class="scroll-area" id="main-content" tabindex="-1">
 
     <!-- Header -->
     <div class="home-header">
@@ -383,7 +385,7 @@ body { background: var(--bg-scene); min-height:100vh; }
       </div>
 
     </div><!-- /sections -->
-  </div><!-- /scroll-area -->
+  </main><!-- /scroll-area -->
 
   <!-- Bottom Tab Bar -->
   <div class="tab-bar">

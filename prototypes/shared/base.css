@@ -16,6 +16,57 @@ button { cursor: pointer; border: none; background: none; font: inherit; }
 ul, ol { list-style: none; }
 input, textarea, select { font: inherit; }
 
+/* ── A11y 焦点环 · :focus-visible 仅键盘 / 辅助技术触发 ──
+   鼠标点击不显示 · 防止视觉噪音 · Tab/方向键 / 屏幕阅读器导航时显示
+   颜色用 --saffron 与品牌一致 · 圆角随元素 · 离视觉 2px 留白避免被裁切 */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--saffron);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+/* 触发 :focus-visible 后部分 input 自带 outline 也保留品牌色 */
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline-color: var(--saffron);
+}
+
+/* ── Skip-to-content · 仅键盘可见 · Tab 第一个出现 ────────
+   Screen reader / 键盘用户跳过顶栏直达 main 区
+   平时偏出视口 · :focus-visible 时滑入 */
+.skip-to-content {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 99999;
+  padding: 10px 16px;
+  background: var(--bg-card);
+  color: var(--ink);
+  border: 2px solid var(--saffron);
+  border-radius: var(--r-sm);
+  font: var(--text-meta);
+  letter-spacing: 1px;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 200ms var(--ease);
+}
+.skip-to-content:focus,
+.skip-to-content:focus-visible {
+  transform: translateY(0);
+}
+
+/* ── 屏幕阅读器专用文本 · 视觉隐藏但 SR 可读 ────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ── Scene Background ───────────────────────────── */
 .scene {
   min-height: 100vh;

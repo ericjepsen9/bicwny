@@ -33,6 +33,7 @@
 <script src="../shared/scroll-restore.js"></script>
 <script src="../shared/skeleton.js"></script>
 <script src="../shared/haptics.js"></script>
+<script src="../shared/a11y.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/search.js"></script>
 <script src="../shared/require-auth.js"></script>
@@ -391,8 +392,16 @@ document.getElementById('btn-remove').addEventListener('click', function () {
     errBox.classList.remove('show');
     errBox.textContent = '';
     backdrop.classList.add('open');
+    if (window.JX && window.JX.a11y) {
+      var lang = (window.JX.lang && window.JX.lang()) || 'sc';
+      var label = lang === 'en' ? 'Report this question' : (lang === 'tc' ? '舉報此題' : '举报此题');
+      window.JX.a11y.dialog('open', backdrop, { label: label });
+    }
   }
-  function close() { backdrop.classList.remove('open'); }
+  function close() {
+    backdrop.classList.remove('open');
+    if (window.JX && window.JX.a11y) window.JX.a11y.dialog('close', backdrop);
+  }
 
   reasonsC.addEventListener('change', function () {
     reasonsC.querySelectorAll('.rpt-reason').forEach(function (el) {

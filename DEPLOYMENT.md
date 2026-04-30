@@ -697,7 +697,55 @@ GET /api/search?q=智慧&kind=all&limit=20
 - 已接：`home.html` 顶栏放大镜、`mistakes.html` 顶栏搜索按钮
 - API：`JX.search.open(initialQ?)` / `JX.search.close()`
 
-## 十四、还没上线的功能（v1.0 范围外）
+## 十四、A11y（可访问性）
+
+P2 #27 · WCAG 2.1 AA 努力达标 · 屏幕阅读器 / 键盘 / 高对比 / 减少动画。
+
+### 全站基础
+
+- `:focus-visible` 焦点环（仅键盘 / SR 触发 · 鼠标点击不显示）· 颜色 `--saffron`
+- `.skip-to-content` 跳到主要内容（已加 home.html · 其他页可按需加）
+- `.sr-only` 视觉隐藏但 SR 可读
+- `@media (prefers-reduced-motion: reduce)` · 全局 transition / animation 缩到 0.01ms（base.css）
+- `<html lang="zh-CN" data-lang="...">` · lang 切换走 lang.js
+- 所有 nav-back / nav-action / tab-item / 触觉反馈按钮 ≥44×44 hit zone
+
+### `JX.a11y` 工具
+
+```js
+JX.a11y.announce('已保存', true);    // SR 朗读 polite
+JX.a11y.announce('保存失败', false); // assertive 打断
+JX.a11y.dialog('open', el, { label: '搜索' });   // 设 role + aria-modal + 焦点陷阱
+JX.a11y.dialog('close', el);                      // 还原焦点
+JX.a11y.trapFocus(el);                            // 返回 untrap()
+```
+
+模态自动行为：
+- 设 `role="dialog" aria-modal="true"`
+- Tab/Shift+Tab 圈在容器内
+- 锁住 `documentElement.style.overflow`
+- 关闭时焦点回到打开者
+
+### 已接入
+
+- 全站 toast · `aria-live="polite"` · error → `assertive` + `role="alert"`
+  · 关闭 × 改用 `<button>` 带 `aria-label="关闭"`
+- 全站 tab-bar · `.active` 自动加 `aria-current="page"`（a11y.js boot 时同步）
+- 搜索浮层 · 全屏 dialog · 焦点陷阱 + lang 化 aria-label
+- 举报模态（quiz / mistake-detail）· 同上
+- 设置 toggle（推送 / 触觉反馈）· `role="switch" aria-checked` · Enter/Space 键盘触发
+- 首页 home.html · `<main id="main-content">` + skip-to-content
+- onboarding fld-code · `aria-label` + sr-only label
+
+### 仍需完善（推全 backlog）
+
+- 其他 26 页统一加 `<main id="main-content">` + skip-to-content
+- 答题选项（.opt）· 加 `role="radio"` / `radiogroup`（视题型而定）
+- profile-edit / change-password 表单 label review
+- contrast 实测（`@media (prefers-contrast: more)` 增强方案）
+- axe-core / pa11y CI 集成（playwright + @axe-core/playwright）
+
+## 十五、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI
 2. Coach 后台 UI（造题表单、批量导入、LLM 造题向导）

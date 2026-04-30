@@ -100,6 +100,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 <script src="../shared/scroll-restore.js"></script>
 <script src="../shared/skeleton.js"></script>
 <script src="../shared/haptics.js"></script>
+<script src="../shared/a11y.js"></script>
 <script src="../shared/toast.js"></script>
 <script src="../shared/search.js"></script>
 <script src="../shared/push.js"></script>
@@ -197,12 +198,12 @@ body { background: var(--bg-scene); min-height: 100vh; }
     <p class="section-title"><span class="sc">通知偏好</span><span class="tc">通知偏好</span><span class="en">Notifications</span></p>
     <div class="group">
       <!-- 推送通知主开关 · 真接 Web Push API · 控制是否推到设备 -->
-      <div class="row" id="push-row" style="cursor:pointer;">
+      <div class="row" id="push-row" style="cursor:pointer;" role="switch" aria-checked="false" aria-labelledby="push-row-label" tabindex="0">
         <div>
-          <span class="row-label"><span class="sc">推送通知</span><span class="tc">推送通知</span><span class="en">Push Notifications</span></span>
+          <span class="row-label" id="push-row-label"><span class="sc">推送通知</span><span class="tc">推送通知</span><span class="en">Push Notifications</span></span>
           <div id="push-hint" style="font-size:.6875rem;color:var(--ink-4);letter-spacing:.5px;margin-top:2px;"></div>
         </div>
-        <div class="toggle" id="push-toggle"></div>
+        <div class="toggle" id="push-toggle" aria-hidden="true"></div>
       </div>
       <div class="row" onclick="toggleRow(this)">
         <span class="row-label"><span class="sc">班级公告</span><span class="tc">班級公告</span></span>
@@ -225,15 +226,15 @@ body { background: var(--bg-scene); min-height: 100vh; }
     <!-- Feedback / 触觉反馈 -->
     <p class="section-title"><span class="sc">交互反馈</span><span class="tc">交互回饋</span><span class="en">Haptics</span></p>
     <div class="group">
-      <div class="row" id="haptics-row" style="cursor:pointer;">
+      <div class="row" id="haptics-row" style="cursor:pointer;" role="switch" aria-checked="false" aria-labelledby="haptics-row-label" tabindex="0">
         <div>
-          <span class="row-label"><span class="sc">触觉反馈</span><span class="tc">觸覺回饋</span><span class="en">Haptic Feedback</span></span>
+          <span class="row-label" id="haptics-row-label"><span class="sc">触觉反馈</span><span class="tc">觸覺回饋</span><span class="en">Haptic Feedback</span></span>
           <div style="font-size:.6875rem;color:var(--ink-4);letter-spacing:.5px;margin-top:2px;">
             <span class="sc">按钮 / 答题 / 提醒触发轻震</span>
             <span class="tc">按鈕 / 答題 / 提醒觸發輕震</span>
           </div>
         </div>
-        <div class="toggle" id="haptics-toggle"></div>
+        <div class="toggle" id="haptics-toggle" aria-hidden="true"></div>
       </div>
     </div>
 
@@ -415,7 +416,14 @@ document.addEventListener('langchange', renderThemePicker);
   if (!pushRow || !window.JX.push) return;
 
   function setHint(text) { pushHint.textContent = text; }
-  function setOn(on) { pushToggle.classList.toggle('on', !!on); }
+  function setOn(on) {
+    pushToggle.classList.toggle('on', !!on);
+    pushRow.setAttribute('aria-checked', on ? 'true' : 'false');
+  }
+  // 键盘 Enter / Space 触发（role=switch 标准行为）
+  pushRow.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pushRow.click(); }
+  });
 
   async function refresh() {
     var s = await window.JX.push.status();
@@ -469,7 +477,11 @@ document.addEventListener('langchange', renderThemePicker);
   var row = document.getElementById('haptics-row');
   var toggle = document.getElementById('haptics-toggle');
   if (!row || !toggle || !window.JX.haptics) return;
-  function paint() { toggle.classList.toggle('on', !!window.JX.haptics.isEnabled()); }
+  function paint() {
+    var on = !!window.JX.haptics.isEnabled();
+    toggle.classList.toggle('on', on);
+    row.setAttribute('aria-checked', on ? 'true' : 'false');
+  }
   paint();
   row.addEventListener('click', function () {
     var next = !window.JX.haptics.isEnabled();
@@ -477,6 +489,10 @@ document.addEventListener('langchange', renderThemePicker);
     paint();
     // 开启瞬间给一下选择反馈 · 关闭瞬间不响（已关）
     if (next) window.JX.haptics.selection();
+  });
+  // 键盘 Enter / Space
+  row.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); }
   });
 })();
 

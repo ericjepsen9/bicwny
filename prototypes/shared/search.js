@@ -121,12 +121,19 @@
     if (input.value) onInput();
     else r.querySelector('.jxs-results').innerHTML = renderEmpty('hint');
     if (window.JX && window.JX.haptics) window.JX.haptics.tap();
+    // a11y · 设 dialog 角色 + 焦点陷阱 + 锁滚动
+    if (window.JX && window.JX.a11y) {
+      var lang = (window.JX.lang && window.JX.lang()) || 'sc';
+      var label = lang === 'en' ? 'Search' : (lang === 'tc' ? '搜尋' : '搜索');
+      window.JX.a11y.dialog('open', r, { label: label });
+    }
   }
 
   function close() {
     var r = document.getElementById(ROOT_ID);
     if (r) r.classList.remove('open');
     if (inflightCtrl) inflightCtrl.abort();
+    if (r && window.JX && window.JX.a11y) window.JX.a11y.dialog('close', r);
   }
 
   function onInput() {

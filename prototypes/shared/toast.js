@@ -71,6 +71,10 @@
     if (r) return r;
     r = document.createElement('div');
     r.id = ROOT_ID;
+    // SR 朗读：默认 polite · 不打断当前朗读 · error 调用方可改 assertive
+    r.setAttribute('aria-live', 'polite');
+    r.setAttribute('aria-atomic', 'false');
+    r.setAttribute('role', 'status');
     document.body.appendChild(r);
     return r;
   }
@@ -92,15 +96,22 @@
     }
 
     var root = getRoot();
+    // error 用 assertive 打断当前朗读 · 其他保持默认 polite
+    if (kind === 'error') root.setAttribute('aria-live', 'assertive');
+    else root.setAttribute('aria-live', 'polite');
+
     var t = document.createElement('div');
     t.className = 'jx-toast ' + kind;
+    t.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    t.setAttribute('aria-label',
+      (title ? title + ' · ' : '') + (msg == null ? '' : String(msg)));
     t.innerHTML =
       '<div class="jxt-ico">' + (ICONS[kind] || '') + '</div>' +
       '<div class="jxt-body">' +
         (title ? '<div class="jxt-title"></div>' : '') +
         '<div class="jxt-msg"></div>' +
       '</div>' +
-      '<div class="jxt-x">×</div>';
+      '<button type="button" class="jxt-x" aria-label="关闭">×</button>';
     if (title) t.querySelector('.jxt-title').textContent = title;
     t.querySelector('.jxt-msg').textContent = msg == null ? '' : String(msg);
     root.appendChild(t);
