@@ -830,3 +830,46 @@ model ContentRelease {
   @@index([createdAt])
   @@index([bySeed])
 }
+
+// ═══════════════════════════════════════════════════════════════
+// A/B 实验 · Experiment + ExperimentExposure
+//
+// Experiment：实验定义 · key 唯一 · variants=[{name,weight}] · goalEvent 用作转化统计
+//   isActive=false 后 getVariant 返回首个 variant（control）· 不再分配新 exposure
+// ExperimentExposure：第一次看到 variant 的快照（一次写入 · 之后不变）
+//   subject 优先 userId · 匿名期落 sessionId · 用户登录后照旧用老 variant
+// ═══════════════════════════════════════════════════════════════
+
+model Experiment {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  description String?
+  variants    Json // [{ name: 'control', weight: 50 }, { name: 'treatment', weight: 50 }]
+  goalEvent   String? // AnalyticsEvent.event · 转化指标
+  isActive    Boolean   @default(true)
+  startedAt   DateTime  @default(now())
+  archivedAt  DateTime?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  exposures ExperimentExposure[]
+
+  @@index([isActive])
+}
+
+model ExperimentExposure {
+  id            String   @id @default(cuid())
+  experimentKey String
+  userId        String?
+  sessionId     String?
+  variant       String
+  firstSeenAt   DateTime @default(now())
+
+  experiment Experiment @relation(fields: [experimentKey], references: [key], onDelete: Cascade)
+
+  @@unique([experimentKey, userId])
+  @@unique([experimentKey, sessionId])
+  @@index([experimentKey, variant])
+  @@index([firstSeenAt])
+}

@@ -124,4 +124,77 @@ export const analyticsRoutes: FastifyPluginAsync = async (app) => {
       },
     };
   });
+
+  // Funnel · 按步骤序列计算 step-by-step 留存
+  //   ?steps=page_view:home,click:start_quiz,quiz_submit
+  //   每步格式 'event' 或 'event:pageOrTag'（pageOrTag 匹配 page 字段或 properties.tag）
+  //   用户只要按时间序列触发过对应事件就算完成 · 不要求一次性会话
+  app.get('/api/admin/analytics/funnel', {
+    preHandler: adminGuard,
+    schema: { tags: ['Admin'], summary: 'Funnel 步骤留存（按用户）', security: SEC },
+  }, async (req) => {
+    const fq = z.object({
+      fromDays: z.coerce.number().int().min(1).max(90).default(30),
+      steps: z.string().min(1).max(500),
+    }).safeParse(req.query);
+    if (!fq.success) throw BadRequest('查询参数不合法');
+
+    const since = new Date(Date.now() - fq.data.fromDays * 24 * 3600 * 1000);
+    const steps = fq.data.steps.split(',').map((s) => {
+      const [event, tag] = s.trim().split(':');
+      return { event: event!.trim(), tag: tag?.trim() || null };
+    }).filter((s) => s.event.length > 0);
+    if (steps.length === 0) throw BadRequest('steps 不能为空');
+    if (steps.length > 8) throw BadRequest('steps 上限 8 步');
+
+    // 拉所有相关事件 · 按 user / time 排序 · 内存里推进步骤指针
+    const events = await prisma.analyticsEvent.findMany({
+      where: {
+        createdAt: { gte: since },
+        userId: { not: null },
+        event: { in: steps.map((s) => s.event) },
+      },
+      orderBy: [{ userId: 'asc' }, { createdAt: 'asc' }],
+      select: { userId: true, event: true, page: true, createdAt: true },
+    });
+
+    function matchStep(idx: number, ev: { event: string; page: string | null }) {
+      const step = steps[idx]!;
+      if (ev.event !== step.event) return false;
+      if (!step.tag) return true;
+      return ev.page === step.tag;
+    }
+
+    const reached: number[] = new Array(steps.length).fill(0);
+    let curUser: string | null = null;
+    let stepIdx = 0;
+    let countedThisUser: boolean[] = new Array(steps.length).fill(false);
+
+    for (const ev of events) {
+      if (ev.userId !== curUser) {
+        curUser = ev.userId;
+        stepIdx = 0;
+        countedThisUser = new Array(steps.length).fill(false);
+      }
+      while (stepIdx < steps.length && matchStep(stepIdx, ev)) {
+        if (!countedThisUser[stepIdx]) {
+          reached[stepIdx]! += 1;
+          countedThisUser[stepIdx] = true;
+        }
+        stepIdx += 1;
+      }
+    }
+
+    const total = reached[0] || 0;
+    return {
+      data: {
+        fromDays: fq.data.fromDays,
+        steps: steps.map((s, i) => ({
+          step: s.event + (s.tag ? `:${s.tag}` : ''),
+          users: reached[i],
+          rateFromStart: total > 0 ? (reached[i]! / total) : 0,
+        })),
+      },
+    };
+  });
 };

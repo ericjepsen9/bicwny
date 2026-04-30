@@ -41,6 +41,7 @@ import { achievementsRoutes } from './modules/achievements/routes.js';
 import { notificationsRoutes } from './modules/notifications/routes.js';
 import { pushRoutes } from './modules/push/routes.js';
 import { analyticsRoutes } from './modules/analytics/routes.js';
+import { experimentsRoutes } from './modules/experiments/routes.js';
 import { adminQuestionRoutes } from './modules/questions/admin.routes.js';
 import { coachQuestionRoutes } from './modules/questions/coach.routes.js';
 import { reportsRoutes } from './modules/reports/routes.js';
@@ -315,6 +316,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(achievementsRoutes);
   await app.register(pushRoutes);
   await app.register(analyticsRoutes);
+  await app.register(experimentsRoutes);
 
   // shutdown 时把 Sentry buffer flush 出去 · 防止 5xx 没报上去就退出
   attachSentryToFastify(app);

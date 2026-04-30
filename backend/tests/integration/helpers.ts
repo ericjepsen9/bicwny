@@ -35,6 +35,8 @@ export async function resetDb(): Promise<void> {
     prisma.analyticsEvent.deleteMany(),
     prisma.classMember.deleteMany(),
     prisma.class.deleteMany(),
+    prisma.experimentExposure.deleteMany(),
+    prisma.experiment.deleteMany(),
     prisma.contentRelease.deleteMany(),
     prisma.contentSeed.deleteMany(),
     prisma.question.deleteMany(),

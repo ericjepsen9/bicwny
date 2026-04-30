@@ -107,9 +107,20 @@
 
   // 公开 API
   function track(event, properties) {
+    var props = properties || {};
+    // 自动附加当前页激活的实验维度（experiments.js 设置）
+    if (window.JX && window.JX.experiments && window.JX.experiments.tagsForAnalytics) {
+      var expTags = window.JX.experiments.tagsForAnalytics();
+      if (expTags) {
+        props = Object.assign({}, props);
+        Object.keys(expTags).forEach(function (k) {
+          if (props[k] === undefined) props[k] = expTags[k];
+        });
+      }
+    }
     enqueue({
       event: String(event).slice(0, 60),
-      properties: properties || {},
+      properties: props,
       page: (location.pathname.split('/').pop() || '').toLowerCase(),
       sessionId: sessionId,
       ts: Date.now(),

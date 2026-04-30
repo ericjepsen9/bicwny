@@ -577,7 +577,65 @@ await prisma.$transaction(async (tx) => {
 - `GET /api/admin/content/releases?bySeed=V202607_xxx` · 流水按 seed 过滤
 - `POST /api/admin/users/:id/cohort` body `{ cohort: 'A' | null }` · 指派 + 写 release
 
-## 十二、还没上线的功能（v1.0 范围外）
+## 十二、A/B 实验 + Funnel
+
+P2 #23 · 用 Analytics + Experiment 双表组合 · 自建轻量 A/B 测试基础设施。
+
+### 模型
+
+- `Experiment`：定义 · `key` 唯一 · `variants=[{name,weight}]` · 可选 `goalEvent` 用于转化分析
+- `ExperimentExposure`：第一次看到 variant 的快照 · `(key,userId)` 唯一约束 · 用户登录后照旧用老 variant
+- `User.contentCohort`（P2 #22）：与实验互不影响 · 都是 server 控制的分发维度
+
+### 客户端用法
+
+```js
+// 在 home.html boot 时
+const variant = await JX.experiments.assign('home_cta_v1');
+if (variant === 'treatment') {
+  document.getElementById('cta').textContent = '立即开始';
+} else {
+  document.getElementById('cta').textContent = '进入学习';
+}
+// 之后 JX.analytics.track('click_start') 会自动带上 properties.experiment + .variant
+```
+
+`JX.experiments.assign` 行为：
+- `localStorage` 7 天缓存 · 不重复打 server
+- 缓存命中直接返回 · 不命中 POST `/api/experiments/:key/assign`
+- 失败 / 实验不存在 / 已归档 → 回落 `'control'`
+- 自动给当前页所有 `JX.analytics.track()` 附加 `experiment` + `variant` 维度
+
+### 服务端确定性分配
+
+```ts
+sha256(experimentKey + '|' + subject) [前4字节] mod totalWeight
+```
+
+同一 user/session 在同一实验里永远进同一桶 · 即使 exposure 表丢失也稳定。
+
+### Admin 端点
+
+| 路由 | 说明 |
+|---|---|
+| `GET /api/admin/experiments` | 列表（最新优先）|
+| `POST /api/admin/experiments` | 创建 `{ key, variants, goalEvent? }` |
+| `PATCH /api/admin/experiments/:key` | 更新 / `{ archive: true }` 归档 |
+| `GET /api/admin/experiments/:key/results` | 按 variant 看 `{ exposed, converted, rate }` |
+
+转化定义：`AnalyticsEvent.userId` 在该 variant 暴露名单 · `event = goalEvent` ·
+`createdAt >= exposure.firstSeenAt` · 同用户最多算一次。
+
+### Funnel
+
+```
+GET /api/admin/analytics/funnel?fromDays=30&steps=page_view:home,click_start_quiz,quiz_submit
+```
+
+每个 step 格式：`event` 或 `event:page` · 用户按时间顺序触发就算完成 ·
+最多 8 步 · 返回每步 `{ users, rateFromStart }`。
+
+## 十三、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI
 2. Coach 后台 UI（造题表单、批量导入、LLM 造题向导）
