@@ -336,7 +336,7 @@ function render() {
       ))) return;
       btn.disabled = true;
       window.JX.api.del('/api/enrollments/' + encodeURIComponent(cid))
-        .then(function () { return reload(); })
+        .then(function () { return reload({ fresh: true }); })
         .then(function () {
           window.JX.toast && window.JX.toast.ok && window.JX.toast.ok(sc('已退出', '已退出'));
         })
@@ -360,17 +360,27 @@ function openSheet(c) {
         ? '<p class="sheet-desc">' + escapeHtml(c.description) + '</p>'
         : '')
     + '<div class="sheet-actions">'
-    +   '<button class="sheet-btn ghost" id="sheet-cancel">' + sc('取消', '取消') + '</button>'
+    +   '<button class="sheet-btn ghost" id="sheet-preview" data-slug="' + escapeHtml(c.slug || '') + '">'
+    +     sc('先看目录', '先看目錄')
+    +   '</button>'
     +   '<button class="sheet-btn primary" id="sheet-confirm" data-cid="' + escapeHtml(c.id) + '">'
     +     sc('+ 加入并查看', '+ 加入並查看')
     +   '</button>'
-    + '</div>';
+    + '</div>'
+    + '<p style="text-align:center;margin-top:var(--sp-3);font:var(--text-caption);color:var(--ink-4);letter-spacing:.5px;">'
+    +   sc('"先看目录"不算入学习 · 随时可加入', '"先看目錄"不算入學習 · 隨時可加入')
+    + '</p>';
   document.getElementById('sheet-content').innerHTML = content;
   document.getElementById('sheet-bd').classList.add('open');
   document.getElementById('sheet').classList.add('open');
 
-  document.getElementById('sheet-cancel').addEventListener('click', closeSheet);
   document.getElementById('sheet-bd').addEventListener('click', closeSheet);
+  // 先看目录 · 不报名 · 进 scripture-detail（TOC）· 用户阅读后可决定是否加入
+  document.getElementById('sheet-preview').addEventListener('click', function (ev) {
+    var slug = ev.currentTarget.getAttribute('data-slug');
+    if (!slug) return;
+    location.href = window.JX.nav.toScriptureDetail({ slug: slug, from: window.JX.nav.FROM.COURSES });
+  });
   document.getElementById('sheet-confirm').addEventListener('click', function (ev) {
     var btn = ev.currentTarget;
     var cid = btn.getAttribute('data-cid');
@@ -394,10 +404,11 @@ function closeSheet() {
   document.getElementById('sheet').classList.remove('open');
 }
 
-function reload() {
+function reload(opts) {
+  // opts.fresh=true · 绕过 HTTP 缓存（mutation 后调用必须传）
   return Promise.all([
-    window.JX.api.get('/api/courses'),
-    window.JX.api.get('/api/my/enrollments'),
+    window.JX.api.get('/api/courses', opts),
+    window.JX.api.get('/api/my/enrollments', opts),
   ]).then(function (r) {
     state.courses = Array.isArray(r[0]) ? r[0] : [];
     state.enrollments = Array.isArray(r[1]) ? r[1] : [];

@@ -145,6 +145,10 @@
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: ctrl ? ctrl.signal : undefined,
       };
+      // opts.fresh=true · 绕过 HTTP cache · 用于 mutation 后 reload 场景
+      //   Cache-Control: max-age=60 让浏览器复用缓存 · 刚 DELETE 后 GET 可能拿到旧数据
+      //   显式 cache:'reload' 强制走网络 · 不走任何缓存
+      if (opts.fresh) init.cache = 'reload';
 
       return fetch(buildUrl(path), init).then(function (res) {
         if (timer) clearTimeout(timer);

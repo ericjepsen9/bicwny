@@ -681,11 +681,23 @@ var __quizPending = { patch: null };
     return nav.fromQuizReturnLabel({ from: from }, sc);
   }
 
-  // 顶部 ← 返回按钮
+  // 顶部 ← 返回按钮 · 用 location.replace 不入 history
+  //   防止 quiz → detail → 系统返回 → 又回到 quiz 的死循环
+  //   (之前 <a href> 是 push · 用户点 ← 后再按系统返回会重新进入 quiz)
   var backLink = document.getElementById('quiz-back');
-  if (backLink) backLink.href = returnUrl();
+  if (backLink) {
+    backLink.href = returnUrl();
+    backLink.addEventListener('click', function (ev) {
+      var url = returnUrl();
+      var p = __quizPending.patch;
+      ev.preventDefault();
+      var go = function () { location.replace(url); };
+      if (p) p.then(go, go);
+      else go();
+    });
+  }
 
-  // 完成页主按钮
+  // 完成页主按钮 · 同样用 replace · 完成后不该再被 system back 推回 quiz
   var resultBack = document.getElementById('quiz-result-back');
   if (resultBack) {
     resultBack.href = returnUrl();
@@ -706,19 +718,18 @@ var __quizPending = { patch: null };
     }
   }
 
-  // C1 + B1: 跳转前 await 完成页 PATCH (避免 stale)；之后优先 history.back（多层 from 嵌套不横跳）
+  // C1 + B1: 跳转前 await 完成页 PATCH (避免 stale)
+  //   完成页跳转用 location.replace · quiz URL 不留在 history · 防止系统返回回到 quiz
   function awaitNavigate(el) {
     if (!el) return;
     el.addEventListener('click', function (ev) {
-      var p = __quizPending.patch;
       var href = el.getAttribute('href');
-      // 无 pending PATCH → 让浏览器走 href（href 是 fromQuizReturnUrl 算出的逻辑父级）
-      if (!p) return;
-      // 有 pending PATCH → 拦下 click，await 完再跳 href
       if (!href || href === '#') return;
       ev.preventDefault();
-      var go = function () { location.href = href; };
-      p.then(go, go);
+      var p = __quizPending.patch;
+      var go = function () { location.replace(href); };
+      if (p) p.then(go, go);
+      else go();
     });
   }
   awaitNavigate(resultBack);
