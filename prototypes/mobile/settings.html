@@ -270,6 +270,17 @@ body { background: var(--bg-scene); min-height: 100vh; }
         <span class="row-value">3 本</span>
         <svg class="row-arrow" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
+      <div class="row" id="data-export-row" style="cursor:pointer;" tabindex="0" role="button" aria-label="导出我的数据">
+        <div>
+          <span class="row-label"><span class="sc">导出我的数据</span><span class="tc">匯出我的資料</span><span class="en">Export My Data</span></span>
+          <div style="font-size:.6875rem;color:var(--ink-4);letter-spacing:.5px;margin-top:2px;">
+            <span class="sc">下载本人答题记录 / 收藏 / 错题 / 设置等 JSON</span>
+            <span class="tc">下載本人答題記錄 / 收藏 / 錯題 / 設定等 JSON</span>
+            <span class="en">Download answers / favorites / mistakes / settings as JSON</span>
+          </div>
+        </div>
+        <svg class="row-arrow" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
     </div>
 
     <!-- About -->
@@ -514,6 +525,56 @@ document.addEventListener('langchange', renderThemePicker);
         : sc('仅当前', '僅當前');
     }).catch(function () {});
   }
+})();
+
+// 数据导出 · 调 /api/auth/me/data-export · 触发浏览器下载
+(function () {
+  var row = document.getElementById('data-export-row');
+  if (!row) return;
+  function trigger() {
+    var sc = window.JX.sc;
+    if (!confirm(sc(
+      '将下载本人全部数据（JSON 格式）· 仅本人可见 · 5 分钟内只能导出一次。是否继续？',
+      '將下載本人全部資料（JSON 格式）· 僅本人可見 · 5 分鐘內只能匯出一次。是否繼續？',
+    ))) return;
+    if (window.JX.haptics) window.JX.haptics.tap();
+    var token = window.JX.tokenStore && window.JX.tokenStore.getAccess();
+    if (!token) {
+      window.JX.toast && window.JX.toast.error(sc('请先登录', '請先登入'));
+      return;
+    }
+    fetch('/api/auth/me/data-export', {
+      headers: { Authorization: 'Bearer ' + token },
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.json().then(function (j) {
+          throw new Error((j && j.error && j.error.message) || ('HTTP ' + res.status));
+        });
+      }
+      // 从 Content-Disposition 拿文件名 · 失败用 fallback
+      var disp = res.headers.get('Content-Disposition') || '';
+      var m = /filename="?([^"]+)"?/.exec(disp);
+      var fname = (m && m[1]) || ('juexue-data-export-' + Date.now() + '.json');
+      return res.blob().then(function (blob) { return { blob: blob, fname: fname }; });
+    }).then(function (r) {
+      var url = URL.createObjectURL(r.blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = r.fname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      window.JX.toast && window.JX.toast.ok(sc('已开始下载', '已開始下載'));
+    }).catch(function (e) {
+      window.JX.toast && window.JX.toast.error(
+        sc('导出失败：', '匯出失敗：') + (e.message || e),
+      );
+    });
+  }
+  row.addEventListener('click', trigger);
+  row.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trigger(); }
+  });
 })();
 
 // 退出登录：调后端 /logout 吊销 refresh，再跳登录页

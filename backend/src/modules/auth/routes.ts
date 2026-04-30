@@ -19,6 +19,7 @@ import { zBody } from '../../lib/openapi.js';
 import { prisma } from '../../lib/prisma.js';
 import { resendVerification, verifyEmail } from './email-verify.service.js';
 import { forgotPassword, resetPassword } from './password-reset.service.js';
+import { exportFilename, exportUserData } from './export.service.js';
 import {
   changePassword,
   deleteAccount,
@@ -260,6 +261,63 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
     await changePassword(userId, parsed.data.currentPassword, parsed.data.newPassword);
     return { data: { ok: true } };
+  });
+
+  // 数据导出（GDPR style）· 单用户全量数据 JSON 下载
+  // 简易速率限制：5 分钟内一次（in-memory · 生产 Redis 更稳）· 写一条 AuditLog
+  // 不收 password · 已登录态足够 · 防止偷窃直接看 token 也能导出（同账户控制权）
+  const exportCooldown = new Map<string, number>();
+  app.get('/api/auth/me/data-export', {
+    schema: {
+      tags: TAGS,
+      summary: '导出本人全部数据（JSON 下载）· 5 分钟一次',
+      security: [{ bearerAuth: [] }],
+    },
+  }, async (req, reply) => {
+    const userId = requireUserId(req);
+    const now = Date.now();
+    const last = exportCooldown.get(userId) || 0;
+    if (now - last < 5 * 60 * 1000) {
+      const wait = Math.ceil((5 * 60 * 1000 - (now - last)) / 1000);
+      throw BadRequest(`导出过于频繁 · 请 ${wait}s 后重试`);
+    }
+    exportCooldown.set(userId, now);
+    // 清理 30 分钟前的过期 key · 防 map 无限增长
+    if (exportCooldown.size > 1000) {
+      const cutoff = now - 30 * 60 * 1000;
+      for (const [k, t] of exportCooldown.entries()) {
+        if (t < cutoff) exportCooldown.delete(k);
+      }
+    }
+
+    const data = await exportUserData(userId);
+    // 写审计 · admin 可追踪谁在什么时候导过 · 取证用
+    await prisma.auditLog.create({
+      data: {
+        adminId: userId, // 用户自助也记 adminId 字段方便统一查询
+        action: 'user.data_export',
+        targetType: 'user',
+        targetId: userId,
+        after: {
+          counts: {
+            answers: data.answers.length,
+            mistakes: data.mistakes.length,
+            favorites: data.favorites.length,
+            sm2Cards: data.sm2Cards.length,
+            sessions: data.sessions.length,
+            notifications: data.notifications.length,
+          },
+        },
+      },
+    });
+
+    reply.header('Content-Type', 'application/json; charset=utf-8');
+    reply.header(
+      'Content-Disposition',
+      `attachment; filename="${exportFilename(userId)}"`,
+    );
+    reply.header('Cache-Control', 'no-store');
+    return data;
   });
 
   // 注销：软删除（isActive=false + 清 email/passwordHash）+ 吊销全部 session

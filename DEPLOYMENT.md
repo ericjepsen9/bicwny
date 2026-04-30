@@ -818,7 +818,70 @@ curl -I https://your-domain.example | grep -iE "content-security|x-frame|referre
 # 测试工具：securityheaders.com / observatory.mozilla.org
 ```
 
-## 十六、还没上线的功能（v1.0 范围外）
+## 十六、用户数据导出 / 注销（GDPR-style）
+
+P2 #29 · 用户对自己数据的两项权利：导出 (Right to Data Portability) /
+注销 (Right to Erasure)。
+
+### 数据导出
+
+```
+GET /api/auth/me/data-export
+Authorization: Bearer <token>
+→ application/json · attachment · juexue-data-export-{userIdPrefix}-{date}.json
+```
+
+包含：
+- `user`：profile（id / email / role / dharmaName / locale 等）· 不含 passwordHash
+- `answers`：UserAnswer 全部（最多 50,000 条）
+- `mistakes`：UserMistakeBook
+- `favorites`：UserFavorite
+- `sm2Cards`：Sm2Card
+- `enrollments`：UserCourseEnrollment
+- `memberships`：ClassMember
+- `sessions`：AuthSession（不含 refreshTokenHash）
+- `pushSubscriptions`：endpoint + platform · 不含 p256dh / auth 秘钥
+- `notifications`：自己收到的通知（最多 5,000 条 · 已 deletedAt 过滤）
+- `questionReports`：自己提交的题目举报
+- `analyticsEvents`：自己产生的埋点（最多 10,000 条）
+- `experimentExposures`：A/B 实验分配快照
+
+不包含：他人产生的内容（题目 / 法本 / 班级公告 · 仅引用 id）。
+
+行为：
+- **5 分钟 cooldown**（in-memory）· 防滥用
+- 每次导出写一条 `AuditLog{action:'user.data_export'}` · admin 可追踪
+- 客户端入口：设置 → 存储 → "导出我的数据" · `<a download>` 触发浏览器下载
+
+### 账号注销
+
+```
+DELETE /api/auth/me
+{ "currentPassword": "..." }
+```
+
+行为：
+- **软删除**（不 hard-delete）· 保留 UserAnswer / Sm2Card / AuditLog 等 FK 引用完整
+- User 字段清零：`isActive=false` · `email/passwordHash/dharmaName/avatar=null`
+- 吊销全部 AuthSession
+- ClassMember 同步软删（`removedAt=now()`）
+- 邮箱进 `DeletedEmail` 表 · 30 天冷却防冒名重注
+- admin 角色注销前需保证还有其他活跃 admin（防系统瘫痪）
+
+### 用户流程
+
+1. 设置 → 存储 → 导出我的数据 → 确认 → 下载 JSON
+2. 设置 → 账号 → 注销账号 → 输入密码 → 确认 → 立即吊销 + 清空个人字段
+3. 30 天后同邮箱可重注（不延续历史 · 新账号）
+
+### 推荐补充（推全 backlog）
+
+- 邮件二次确认（注销前发邮件）· 防误操作 + 防被盗后被恶意注销
+- 30 天冷却期内允许"撤回注销"（恢复账号）· 当前直接软删，没有撤回入口
+- 后台定期硬删超期软删账号（合规要求 · 当前未实现）
+- 导出格式扩展：CSV 友好版（excel 可读）· 当前仅 JSON
+
+## 十七、还没上线的功能（v1.0 范围外）
 
 1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI
 2. Coach 后台 UI（造题表单、批量导入、LLM 造题向导）
