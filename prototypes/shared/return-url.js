@@ -137,6 +137,85 @@
     return 'courses.html';
   }
 
+  // ─── 中央化逻辑层级映射 (single source of truth) ──────────────
+  // mature mobile app 的真返回 = 跳逻辑父级 · 跟浏览器 history 完全无关
+  // 任何页面的 ← / 系统返回 都查这张表 · 不依赖 history.back · 不依赖 history 顺序
+  function parentOf() {
+    var page = (location.pathname.split('/').pop() || 'home.html').toLowerCase();
+    function qp(k) {
+      return new URLSearchParams(location.search).get(k) || '';
+    }
+    var slug = qp('slug');
+    var lessonId = qp('lessonId');
+    var questionId = qp('questionId');
+    var from = qp('from');
+
+    switch (page) {
+      // Tab roots · 没有父 · 系统返回 → 退出 app（双击确认）
+      case '': case 'home.html':
+      case 'courses.html': case 'quiz-center.html': case 'profile.html':
+      // Pre-auth pages · 也没有父
+      case 'auth.html': case 'onboarding.html':
+      case 'reset-confirm.html': case 'verify-email.html':
+        return null;
+
+      // 多入口 · 优先 ?from= · 否则静态默认
+      case 'scripture-detail.html':
+        if (from === FROM.READING && slug) return toReading({ slug: slug, lessonId: lessonId });
+        if (from === FROM.HOME)    return 'home.html';
+        if (from === FROM.CENTER)  return 'quiz-center.html';
+        return 'courses.html';
+
+      case 'scripture-reading.html':
+        if (from === FROM.DETAIL && slug) return toScriptureDetail({ slug: slug });
+        if (from === FROM.HOME)    return 'home.html';
+        if (from === FROM.CENTER)  return 'quiz-center.html';
+        if (from === FROM.COURSES) return 'courses.html';
+        // 默认回 detail TOC（如果有 slug）· 否则 courses
+        return slug ? toScriptureDetail({ slug: slug }) : 'courses.html';
+
+      case 'quiz.html':
+        if (from === FROM.READING && slug) return toReading({ slug: slug, lessonId: lessonId });
+        if (from === FROM.MISTAKE && questionId) return toMistakeDetail({ questionId: questionId });
+        if (from === FROM.FAVORITES) return 'favorites.html';
+        if (from === FROM.CENTER)    return 'quiz-center.html';
+        if (from === FROM.DETAIL && slug) return toScriptureDetail({ slug: slug });
+        return slug ? toScriptureDetail({ slug: slug }) : 'home.html';
+
+      case 'mistake-detail.html':
+        if (from === FROM.FAVORITES) return 'favorites.html';
+        return 'mistakes.html';
+
+      // 静态父级 · 不看 ?from=
+      case 'mistakes.html':       return 'quiz-center.html';
+      case 'favorites.html':      return 'quiz-center.html';
+      case 'sm2-review.html':     return 'quiz-center.html';
+      case 'achievement.html':    return 'profile.html';
+      case 'class-detail.html':   return 'profile.html';
+      case 'join-class.html':     return 'profile.html';
+      case 'profile-edit.html':   return 'profile.html';
+      case 'change-password.html':return 'profile.html';
+      case 'delete-account.html': return 'profile.html';
+      case 'settings.html':       return 'profile.html';
+      case 'about.html':          return 'profile.html';
+      case 'help.html':            return 'profile.html';
+      case 'privacy.html':        return 'profile.html';
+      case 'terms.html':          return 'profile.html';
+      case 'notification.html':   return 'home.html';
+
+      default: return null;
+    }
+  }
+
+  // 跳逻辑父级 · 用 location.replace 不入 history · 历史栈始终干净
+  // 返回 true = 跳了 · false = 已是 root（调用方决定退出 app / 不动）
+  function goBack() {
+    var parent = parentOf();
+    if (parent == null) return false;
+    location.replace(parent);
+    return true;
+  }
+
   window.JX = window.JX || {};
   window.JX.nav = {
     FROM: FROM,
@@ -148,6 +227,8 @@
     fromQuizReturnLabel: fromQuizReturnLabel,
     fromReadingReturnUrl: fromReadingReturnUrl,
     fromDetailReturnUrl: fromDetailReturnUrl,
+    parentOf: parentOf,
+    goBack: goBack,
   };
 
   // ─── M2 · overlay 客户端缓存 ──────────────────────────────────
@@ -311,13 +392,10 @@
     if (navigator.onLine === false) show(false);
   }
 
-  // Capacitor / 原生 WebView 系统返回按钮拦截
+  // Capacitor / 原生 WebView 系统返回按钮拦截 · 走 LOGICAL_PARENT
   //   - Android 物理 / 手势返回触发 backButton 事件
-  //   - 决策顺序：(1) 关掉打开的 sheet/modal · (2) 走 .nav-back 逻辑父级 ·
-  //              (3) tab 根页 · 双击 2s 内退出（mature Android app 标准）·
-  //                 第一次显示 toast '再按一次退出' · 第二次 exitApp
-  //   - 不再用 history.back() · 与逻辑父级导航策略一致
-  //   - 现在 web 环境 window.Capacitor 不存在 = no-op
+  //   - 决策顺序：(1) 关 sheet/modal · (2) JX.nav.goBack() · (3) tab root 双击退出
+  //   - 完全不用 history.back · 完全不用 .nav-back 元素 · 直接查 parentOf 表
   function setupCapacitorBackButton() {
     var cap = window.Capacitor;
     if (!cap || !cap.Plugins || !cap.Plugins.App) return;
@@ -326,7 +404,7 @@
     var lastBackAt = 0;
     var EXIT_WINDOW_MS = 2000;
     App.addListener('backButton', function () {
-      // 1) 优先关 modal / sheet · 一般标 .is-open 或 [open]
+      // 1) 优先关 modal / sheet
       var openSheet = document.querySelector(
         '.sheet.is-open, .modal.is-open, dialog[open]'
       );
@@ -340,21 +418,18 @@
         lastBackAt = 0;
         return;
       }
-      // 2) 走逻辑父级（页面顶部 ← 按钮）
-      var navBack = document.querySelector('.nav-back, [data-nav-back]');
-      if (navBack && navBack.href) {
-        location.href = navBack.href;
+      // 2) 跳逻辑父级
+      if (goBack()) {
         lastBackAt = 0;
         return;
       }
-      // 3) tab 根页 · 双击退出确认
+      // 3) 已在 tab root · 双击退出
       var now = Date.now();
       if (now - lastBackAt < EXIT_WINDOW_MS) {
         if (typeof App.exitApp === 'function') App.exitApp();
         return;
       }
       lastBackAt = now;
-      // 优先用项目自带 toast · 没有就内联浮层
       var msg = window.JX && window.JX.sc
         ? window.JX.sc('再按一次退出', '再按一次退出')
         : '再按一次退出';
@@ -364,6 +439,50 @@
         showExitToast(msg);
       }
     });
+  }
+
+  // 全站 .nav-back 拦截 · 任何 ← 按钮一律走 location.replace 不入 history
+  //   - 用 bubble phase + defaultPrevented 检测 · 给页面级 handler 让路
+  //   - 没自带 href（或 href=#）→ 走 LOGICAL_PARENT
+  //   - data-nav-skip-global 跳过此拦截（quiz 完成页 PATCH await 等特殊场景）
+  function installNavBackInterceptor() {
+    document.addEventListener('click', function (ev) {
+      if (ev.defaultPrevented) return; // 页面级 handler 已处理
+      var el = ev.target.closest && ev.target.closest('.nav-back, [data-nav-back]');
+      if (!el) return;
+      if (el.hasAttribute('data-nav-skip-global')) return;
+      ev.preventDefault();
+      var href = el.getAttribute('href');
+      if (href && href !== '#') {
+        location.replace(href);
+      } else {
+        goBack();
+      }
+    }, false);
+  }
+
+  // Tab 切换拦截 · tab 之间永远 replace 不 push · 4 个 tab root 始终只占 1 条 history
+  //   - 已在当前 tab → 滚到顶（mature app 标准行为）
+  //   - 切换到另一 tab → location.replace
+  function installTabSwitchInterceptor() {
+    document.addEventListener('click', function (ev) {
+      if (ev.defaultPrevented) return;
+      var el = ev.target.closest && ev.target.closest('.tab-bar .tab-item');
+      if (!el) return;
+      var href = el.getAttribute('href');
+      if (!href || href === '#') return;
+      ev.preventDefault();
+      var here = (location.pathname.split('/').pop() || '').toLowerCase();
+      var target = (href.split('?')[0].split('#')[0]).toLowerCase().split('/').pop();
+      if (here === target) {
+        // 已在该 tab · 滚到顶
+        var scrollEl = document.querySelector('.scroll-area') || document.scrollingElement || document.documentElement;
+        if (scrollEl && scrollEl.scrollTo) scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
+        else if (scrollEl) scrollEl.scrollTop = 0;
+        return;
+      }
+      location.replace(href);
+    }, false);
   }
 
   // 简易浮层 · 仅 Capacitor backButton 的兜底使用
@@ -418,6 +537,8 @@
     setupOfflineBanner();
     setupCapacitorBackButton();
     syncTabBarActive();
+    installNavBackInterceptor();
+    installTabSwitchInterceptor();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', runAutoAttach);
