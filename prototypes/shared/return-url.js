@@ -349,10 +349,39 @@
     });
   }
 
+  // tab-bar active 状态自动同步
+  //   每个 page hardcode 自己的 active tab · 但 Capacitor restore 状态 / 直接 deep
+  //   link 进入时 hardcode 可能错位 · DOM 渲染后按当前 URL 重置一遍
+  //   防御性：不依赖 hardcode · 自己根据 location.pathname 决定哪个 active
+  function syncTabBarActive() {
+    var bar = document.querySelector('.tab-bar');
+    if (!bar) return; // 非 tab 根页 · 没 tab-bar · 跳过
+    var here = (location.pathname.split('/').pop() || '').toLowerCase();
+    if (!here || here === '') here = 'home.html'; // / → home
+    var items = bar.querySelectorAll('.tab-item');
+    var matched = false;
+    items.forEach(function (a) {
+      var href = (a.getAttribute('href') || '').split('?')[0].split('#')[0].toLowerCase();
+      var hrefName = href.split('/').pop();
+      if (hrefName === here) {
+        a.classList.add('active');
+        matched = true;
+      } else {
+        a.classList.remove('active');
+      }
+    });
+    // 如果当前页不是 4 个 tab root（比如 quiz / scripture-detail）· 全部移除 active
+    //   （但这种页一般没 tab-bar · 上面 early return 已经过滤）
+    if (!matched && items.length > 0) {
+      // 兜底什么也不干 · 让首个保持高亮反而 confusing · 索性都灭
+    }
+  }
+
   function runAutoAttach() {
     autoScrollOnFocus();
     setupOfflineBanner();
     setupCapacitorBackButton();
+    syncTabBarActive();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', runAutoAttach);

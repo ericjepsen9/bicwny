@@ -373,9 +373,17 @@ body.prototype-frame:has(.tab-bar) .phone { padding-bottom: 0; }
   font-family: var(--font-serif);
   font-weight: 700;
   color: var(--saffron-dark);
+  /* Tap target ≥44px · 视觉 40 · ::before 扩展 hit zone */
+  position: relative;
   font-size: .875rem;
   flex-shrink: 0;
   border: 2px solid rgba(255,255,255,.8);
+}
+.avatar::before {
+  content: '';
+  position: absolute;
+  /* 40 + 2*2 = 44 · 透明 hit zone */
+  inset: -2px;
 }
 
 /* ── Badge / Medal ──────────────────────────────── */
@@ -426,6 +434,14 @@ body.prototype-frame:has(.tab-bar) .phone { padding-bottom: 0; }
   background: var(--glass-thick); border: 1px solid var(--glass-border);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; text-decoration: none; cursor: pointer;
+  /* Tap target ≥44px · iOS HIG / WCAG · 视觉保持 34 · ::before 扩展 hit zone */
+  position: relative;
+}
+.nav-btn::before, .nav-back::before, .nav-action::before {
+  content: '';
+  position: absolute;
+  /* 34 + 5*2 = 44 · 透明 hit zone · 不影响视觉 */
+  inset: -5px;
 }
 .top-nav-title, .nav-title {
   font-family: var(--font-serif); font-weight: 700; color: var(--ink);
