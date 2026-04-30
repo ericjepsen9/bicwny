@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="../shared/base.css">
 <link rel="stylesheet" href="../shared/components.css">
 <script src="../shared/sentry.js"></script>
+<script src="../shared/analytics.js"></script>
 <script src="../shared/lang.js"></script>
 <script src="../shared/return-url.js"></script>
 <script src="../shared/font-size.js"></script>
@@ -392,6 +393,11 @@ function openSheet(c) {
     window.JX.util.once(btn, function () {
       return window.JX.api.post('/api/enrollments', { courseId: cid });
     }).then(function () {
+      if (window.JX.analytics) window.JX.analytics.track('course_enroll', {
+        courseId: cid,
+        slug: c.slug,
+        title: c.title,
+      });
       // 加入成功 → 进阅读（首次会自动展示介绍页）· intro=1 强制确保
       var slug = c.slug;
       location.href = window.JX.nav.toReading({ slug: slug, intro: true, from: window.JX.nav.FROM.COURSES });

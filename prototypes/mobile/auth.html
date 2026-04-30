@@ -66,6 +66,7 @@ body { background: var(--bg-scene); min-height: 100vh; }
 </style>
 <!-- lang.js 必须在 <head> 最后，data-lang 在渲染前生效避免文字闪烁 -->
 <script src="../shared/sentry.js"></script>
+<script src="../shared/analytics.js"></script>
 <script src="../shared/lang.js"></script>
 <script src="../shared/font-size.js"></script>
 <script src="../shared/status-bar.js"></script>
@@ -323,6 +324,10 @@ document.getElementById('screen-login').addEventListener('submit', function (ev)
   window.JX.api.post('/api/auth/login', { email: email, password: password }, { noAuth: true })
     .then(function (data) {
       window.JX.api.setTokens(data);
+      if (window.JX.analytics) window.JX.analytics.track('login_success', {
+        method: 'email',
+        userId: data && data.user && data.user.id,
+      });
       postAuthRedirect(data && data.user);
     })
     .catch(function (err) {
@@ -353,6 +358,11 @@ document.getElementById('screen-register').addEventListener('submit', function (
   window.JX.api.post('/api/auth/register', body, { noAuth: true })
     .then(function (data) {
       window.JX.api.setTokens(data);
+      if (window.JX.analytics) window.JX.analytics.track('register_success', {
+        method: 'email',
+        userId: data && data.user && data.user.id,
+        hasDharmaName: !!dharmaName,
+      });
       // 新账号默认 student + hasOnboarded=false · postAuthRedirect 会走引导
       postAuthRedirect(data && data.user);
     })

@@ -805,6 +805,14 @@
       if (data.question) state.questions[state.qi] = data.question;
       if (data.grade.isCorrect) state.correctCount++;
       else { state.wrongCount++; state.lives = Math.max(0, state.lives - 1); }
+      // 埋点 · 答题结果
+      if (window.JX.analytics) window.JX.analytics.track('quiz_answer', {
+        questionId: q.id,
+        type: q.type,
+        isCorrect: !!data.grade.isCorrect,
+        score: data.grade.score,
+        timeSpentMs: body.timeSpentMs,
+      });
       render();
     }).catch(function (err) {
       btn.disabled = false;

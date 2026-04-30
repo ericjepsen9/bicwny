@@ -198,6 +198,28 @@ model Notification {
   @@index([userId, deletedAt])
 }
 
+// 分析埋点事件 · 自建轻量方案
+//   - 同时支持匿名（userId=null）和登录用户的事件
+//   - sessionId 客户端生成 · 用 sessionStorage · 关 tab 重置
+//   - 高频写入表 · 单条独立 · 没外键关联（user 删了事件也保留 · 但 userId 设 null）
+//   - Admin 后续可查 DAU/funnel/retention · 或者随时迁到 PostHog/ClickHouse
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  userId     String?  // null = pre-login 匿名
+  sessionId  String
+  event      String   // 'page_view' | 'click' | 'enroll' | 'quiz_submit' | 自定义
+  properties Json     @default("{}")
+  page       String?  // 'home.html' · 仅 page_view 必填
+  referrer   String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([event, createdAt])
+  @@index([userId, createdAt])
+  @@index([sessionId])
+  @@index([createdAt]) // 时间范围查询 / 按天聚合
+}
+
 // 推送订阅 · Web Push（浏览器 + Capacitor WebView）
 //   一个用户可以多设备订阅 · endpoint 是订阅唯一标识
 //   Capacitor 包后可在 platform='ios'/'android' 字段区分 native token vs web push
