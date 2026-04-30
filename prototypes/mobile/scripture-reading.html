@@ -267,7 +267,15 @@ function showIntro(course, flat, slug, manual) {
     startBtn.onclick = function () {
       if (!flat.length) return;
       var first = flat[0];
-      location.href = window.JX.nav.toReading({ slug: slug, lessonId: first.lesson.id });
+      // 保留 from · 让 reading 顶部 ← 能正确回到逻辑父级
+      // 用 replace 不入 history · 防止系统返回时回到 ?intro=1 URL 重新显示 intro
+      var navFrom = window.JX.util.queryParam('from') || '';
+      var nextUrl = window.JX.nav.toReading({
+        slug: slug,
+        lessonId: first.lesson.id,
+        from: navFrom || undefined,
+      });
+      location.replace(nextUrl);
     };
   }
   screen.classList.add('show');
