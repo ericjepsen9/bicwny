@@ -66,16 +66,16 @@ sudo nginx -t && sudo systemctl reload nginx
 # 访问 https://juexue.caughtalert.com/app/
 ```
 
-## 与老版共存（Phase 9 已切默认入口）
+## URL 表
 
 | URL | 内容 | 状态 |
 |---|---|---|
-| `/` | 302 → `/app/` | **新版 default**（Phase 9 完成） |
-| `/app/*` | React SPA（这个项目） | 新版 · 主流量 |
-| `/prototypes/*` | 43 页老 MPA | 兜底 · 顶部"试试新版"banner · Phase 10 后下线 |
+| `/` | 302 → `/app/` | 新版 default |
+| `/app/*` | React SPA（这个项目） | 新版 · 唯一 web 流量 |
+| `/prototypes/*` | ~~43 页老 MPA~~ | **已下线（Phase 15）· nginx 410** |
 | `/api/*` | Fastify backend | **零改动** |
 
-> Phase 9 部署 / 灰度 / 回滚步骤：见 [`CUTOVER.md`](./CUTOVER.md)
+> Phase 9 灰度 / 回滚说明：[`CUTOVER.md`](./CUTOVER.md)
 
 ## 原生壳（iOS / Android · Capacitor 8）
 
@@ -134,4 +134,6 @@ npm run cap:open:android  # → 在 Android Studio 里 Run
 - [x] **Phase 12** /admin/courses 法本三级 CRUD（course / chapter / lesson + 封面上传/移除）
 - [x] **Phase 13** 辅导员新建题（7 题型） + 批量导入 + Service Worker（offline shell）
 - [x] **Phase 14** Admin LLM 管理 + 辅导员 LLM 生成（单课时）
-- [ ] **Phase 15** 老 prototypes 下线 + 辅导员整章批量生成（victory lap）
+- [x] **Phase 15** 整章批量 LLM 生成（serial queue）+ 老 prototypes 整体下线（删 80 文件）+ nginx /prototypes/ → 410
+
+🎉 **迁移完成。** 28 mobile + 15 desktop 老页全部由 React SPA 取代。
