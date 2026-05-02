@@ -124,7 +124,7 @@ export default function HomePage() {
         {/* 班级卡 */}
         {firstClass && (
           <Link
-            to="/profile"
+            to={`/class/${encodeURIComponent(firstClass.classId)}`}
             className="glass-card-thick"
             style={{
               display: 'flex',

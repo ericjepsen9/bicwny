@@ -35,6 +35,7 @@ export default function QuizPage() {
   const slug = search.get('slug') || '';
   const from = search.get('from') || '';
   const nextLessonId = search.get('nextLessonId') || '';
+  const questionId = search.get('questionId') || '';
   const nav = useNavigate();
   const qc = useQueryClient();
 
@@ -138,6 +139,7 @@ export default function QuizPage() {
   function backToSource() {
     if (from === 'reading' && slug) nav(`/read/${slug}/${lessonId}`, { replace: true });
     else if (from === 'detail' && slug) nav(`/scripture-detail?slug=${encodeURIComponent(slug)}`, { replace: true });
+    else if (from === 'mistake') nav(questionId ? `/mistake/${encodeURIComponent(questionId)}` : '/mistakes', { replace: true });
     else nav('/quiz', { replace: true });
   }
 

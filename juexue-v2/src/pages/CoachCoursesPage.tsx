@@ -116,7 +116,7 @@ export default function CoachCoursesPage() {
                           {l.referenceText?.length ?? 0} 字
                         </span>
                         <Link
-                          to={`/coach/questions?autoNew=1&courseId=${encodeURIComponent(detail.data!.id)}&chapterId=${encodeURIComponent(ch.id)}&lessonId=${encodeURIComponent(l.id)}`}
+                          to={`/coach/questions/new?courseId=${encodeURIComponent(detail.data!.id)}&chapterId=${encodeURIComponent(ch.id)}&lessonId=${encodeURIComponent(l.id)}`}
                           style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', fontWeight: 700, letterSpacing: 1 }}
                         >
                           {s('+ 添加新题', '+ 添加新題', '+ Add')}
