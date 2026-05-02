@@ -1,11 +1,13 @@
 // ProfilePage · 我的
-//   user badge + 3 个统计 + 链接行 + 退出登录
+//   user badge + 3 个统计 + 邮箱未验证 banner + 今日计划 + 本周打卡 + 链接行 + 退出登录
 import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
-import { useClasses, useProgress } from '@/lib/queries';
+import { useClasses, useEnrollments, useProgress, useSm2Stats } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 export default function ProfilePage() {
@@ -13,6 +15,8 @@ export default function ProfilePage() {
   const { s } = useLang();
   const nav = useNavigate();
   const progress = useProgress();
+  const sm2 = useSm2Stats();
+  const enrollments = useEnrollments();
   const classes = useClasses();
   const [signing, setSigning] = useState(false);
 
@@ -28,8 +32,21 @@ export default function ProfilePage() {
   const correctRate = progress.data ? Math.round(progress.data.correctRate * 100) : 0;
   const streak = progress.data?.streakDays ?? 0;
   const totalAnswered = progress.data?.totalAnswered ?? 0;
+  const todayAnswered = progress.data?.todayAnswered ?? 0;
+  const dueCount = sm2.data?.totalDue ?? 0;
+  const enrolledCount = enrollments.data?.length ?? 0;
 
   const firstClass = classes.data?.[0];
+
+  const resend = useMutation({
+    mutationFn: () => api.post('/api/auth/resend-verify', {}),
+    onSuccess: () => toast.ok(s(
+      '重发成功 · 请检查邮箱',
+      '重發成功 · 請檢查郵箱',
+      'Sent · check your inbox',
+    )),
+    onError: (e) => toast.warn((e as ApiError).message || s('重发失败', '重發失敗', 'Failed')),
+  });
 
   async function onLogout() {
     if (signing) return;
@@ -73,11 +90,58 @@ export default function ProfilePage() {
         </p>
       </Link>
 
+      {/* 邮箱未验证 banner · 与 HomePage 同步 · 多了「重发邮件」按钮 */}
+      {user && !user.emailVerifiedAt && (
+        <div
+          className="glass-card"
+          style={{
+            margin: '0 var(--sp-5) var(--sp-4)',
+            padding: '12px 16px',
+            background: 'var(--gold-pale)',
+            border: '1px solid var(--gold-light)',
+            borderRadius: 'var(--r-lg)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <svg width="20" height="20" fill="none" stroke="var(--gold-dark)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
+          </svg>
+          <div style={{ flex: 1, font: 'var(--text-caption)', color: 'var(--ink-2)', letterSpacing: 1, lineHeight: 1.5 }}>
+            {s('邮箱未验证', '郵箱未驗證', 'Email not verified')}
+          </div>
+          <button
+            type="button"
+            onClick={() => resend.mutate()}
+            disabled={resend.isPending}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 'var(--r-pill)',
+              border: '1px solid var(--gold-dark)',
+              background: 'var(--gold-dark)',
+              color: '#FFF',
+              font: 'var(--text-caption)',
+              fontWeight: 600,
+              letterSpacing: 1,
+              cursor: resend.isPending ? 'default' : 'pointer',
+              flexShrink: 0,
+              opacity: resend.isPending ? 0.6 : 1,
+            }}
+          >
+            {resend.isPending
+              ? s('发送中…', '發送中…', 'Sending…')
+              : s('重发邮件', '重發郵件', 'Resend')}
+          </button>
+        </div>
+      )}
+
       {/* 三项统计 */}
       <div
         className="glass-card-thick"
         style={{
-          margin: '0 var(--sp-5) var(--sp-5)',
+          margin: '0 var(--sp-5) var(--sp-4)',
           padding: 'var(--sp-4)',
           display: 'grid',
           gridTemplateColumns: '1fr 1px 1fr 1px 1fr',
@@ -103,6 +167,78 @@ export default function ProfilePage() {
           label={s('累计答题', '累計答題', 'Answered')}
           color="var(--saffron)"
         />
+      </div>
+
+      {/* 今日计划 + 🔥 连续 N 天 pill */}
+      <div
+        className="glass-card"
+        style={{
+          margin: '0 var(--sp-5) var(--sp-4)',
+          padding: 'var(--sp-4)',
+          background: 'var(--glass)',
+          border: '1px solid var(--glass-border)',
+          borderRadius: 'var(--r-lg)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 2 }}>
+            {s('今日计划', '今日計劃', "Today's plan")}
+          </span>
+          <span
+            style={{
+              padding: '3px 10px',
+              borderRadius: 'var(--r-pill)',
+              background: 'var(--gold-pale)',
+              color: 'var(--gold-dark)',
+              font: 'var(--text-caption)',
+              fontWeight: 700,
+              letterSpacing: 1,
+            }}
+          >
+            🔥 {s(`连续 ${streak} 天`, `連續 ${streak} 天`, `${streak}-day streak`)}
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr', alignItems: 'center' }}>
+          <PlanStat
+            value={dueCount}
+            color="var(--crimson)"
+            label={s('待复习', '待複習', 'Due')}
+          />
+          <div style={{ background: 'var(--border-light)', justifySelf: 'center', height: 30, width: 1 }} />
+          <PlanStat
+            value={todayAnswered}
+            color="var(--sage-dark)"
+            label={s('已完成', '已完成', 'Done')}
+          />
+          <div style={{ background: 'var(--border-light)', justifySelf: 'center', height: 30, width: 1 }} />
+          <PlanStat
+            value={enrolledCount}
+            color="var(--saffron)"
+            label={s('在学法本', '在學法本', 'Texts')}
+          />
+        </div>
+      </div>
+
+      {/* 本周打卡 · 7 个圆点 · 右起填充 streak 个（封顶 7） */}
+      <div
+        className="glass-card"
+        style={{
+          margin: '0 var(--sp-5) var(--sp-5)',
+          padding: 'var(--sp-4)',
+          background: 'var(--glass)',
+          border: '1px solid var(--glass-border)',
+          borderRadius: 'var(--r-lg)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 2 }}>
+            {s('本周打卡', '本週打卡', 'This week')}
+          </span>
+          <span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1 }}>
+            {s(`已连续 ${streak} 天`, `已連續 ${streak} 天`, `${streak} days`)}
+          </span>
+        </div>
+        <StreakDots streak={streak} />
       </div>
 
       {/* 链接行 */}
@@ -214,6 +350,49 @@ function Stat({ value, label, color, loading }: { value: string; label: string; 
       <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
         {label}
       </div>
+    </div>
+  );
+}
+
+function PlanStat({ value, color, label }: { value: number; color: string; label: string }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem', color, lineHeight: 1.2 }}>
+        {value}
+      </div>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function StreakDots({ streak }: { streak: number }) {
+  // 7 个点 · 右起填充 min(streak, 7) 个 · 左侧空圈
+  const filled = Math.max(0, Math.min(7, streak));
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+      {Array.from({ length: 7 }).map((_, i) => {
+        const isFilled = i >= 7 - filled;
+        return (
+          <span
+            key={i}
+            style={{
+              flex: 1,
+              height: 14,
+              borderRadius: '50%',
+              background: isFilled
+                ? 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))'
+                : 'transparent',
+              border: isFilled ? 'none' : '1.5px dashed var(--border)',
+              maxWidth: 28,
+              minWidth: 14,
+              alignSelf: 'center',
+              boxShadow: isFilled ? '0 2px 6px rgba(224,120,86,.25)' : 'none',
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
