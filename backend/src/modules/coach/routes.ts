@@ -90,7 +90,42 @@ export const coachStatsRoutes: FastifyPluginAsync = async (app) => {
       const detail = await studentDetail(pp.data.uid, pp.data.id, {
         recentLimit: pq.data.recentLimit,
       });
-      return { data: detail };
+      // 与 React 端 CoachStudentDetail 类型对齐 · 字段重命名 + 派生 status / id
+      const data = {
+        user: {
+          id: detail.user.id,
+          dharmaName: detail.user.dharmaName ?? '',
+          email: detail.user.email ?? '',
+          lastLoginAt: detail.user.lastLoginAt,
+          status: detail.user.isActive ? 'active' : 'inactive',
+        },
+        summary: detail.summary,
+        sm2: detail.sm2Progress,
+        dailySeries: detail.dailySeries,
+        recentAnswers: detail.recentAnswers.map((a) => ({
+          id: a.questionId + ':' + a.answeredAt.toISOString(),
+          questionId: a.questionId,
+          lessonId: null as string | null,
+          lessonTitle: a.lessonTitle,
+          score: a.score,
+          isCorrect: a.isCorrect,
+          createdAt: a.answeredAt,
+        })),
+        mistakes: detail.mistakes.map((m) => ({
+          id: m.questionId,
+          questionId: m.questionId,
+          questionText: m.questionText,
+          wrongCount: m.wrongCount,
+          lastWrongAt: m.lastWrongAt,
+        })),
+        enrollments: detail.enrollments.map((e) => ({
+          courseId: e.courseId,
+          courseTitle: e.title,
+          status: e.completedAt ? 'completed' : (e.lastStudiedAt ? 'in_progress' : 'idle'),
+          lastStudiedAt: e.lastStudiedAt,
+        })),
+      };
+      return { data };
     },
   );
 

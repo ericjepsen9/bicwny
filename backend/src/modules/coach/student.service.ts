@@ -7,6 +7,25 @@ import type { StudentDetail } from './student.types.js';
 
 const RECENT_ANSWERS_DEFAULT = 50;
 const MISTAKES_LIMIT = 100;
+const DAILY_WINDOW = 30;
+
+function ymdLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function emptyDays(n: number): Map<string, { count: number; correct: number }> {
+  const out = new Map<string, { count: number; correct: number }>();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(today.getTime() - i * 86_400_000);
+    out.set(ymdLocal(d), { count: 0, correct: 0 });
+  }
+  return out;
+}
 
 export interface StudentDetailOpts {
   recentLimit?: number;
@@ -44,6 +63,9 @@ export async function studentDetail(
 
   // 所有 UserAnswer / UserMistakeBook 查询都按 question.courseId === courseId 过滤
   // 防止 coach A 看到学员在 B 班 / 自学其他法本的答题
+  const dailyWindowStart = new Date(Date.now() - DAILY_WINDOW * 86_400_000);
+  dailyWindowStart.setHours(0, 0, 0, 0);
+
   const [
     totalAnswers,
     correctAnswers,
@@ -53,6 +75,7 @@ export async function studentDetail(
     mistakesRaw,
     sm2,
     enrollmentsRaw,
+    dailyRaw,
   ] = await Promise.all([
     prisma.userAnswer.count({ where: { userId, question: { courseId } } }),
     prisma.userAnswer.count({
@@ -93,7 +116,24 @@ export async function studentDetail(
       include: { course: { select: { title: true } } },
       orderBy: { lastStudiedAt: 'desc' },
     }),
+    // 30 天每日柱图原料 · 仅本班 courseId 范围
+    prisma.userAnswer.findMany({
+      where: { userId, question: { courseId }, answeredAt: { gte: dailyWindowStart } },
+      select: { answeredAt: true, isCorrect: true },
+    }),
   ]);
+
+  // 填充每日柱状（缺位以 0 填）
+  const dayMap = emptyDays(DAILY_WINDOW);
+  for (const a of dailyRaw) {
+    const key = ymdLocal(a.answeredAt);
+    const cur = dayMap.get(key);
+    if (cur) {
+      cur.count++;
+      if (a.isCorrect === true) cur.correct++;
+    }
+  }
+  const dailySeries = [...dayMap.entries()].map(([date, v]) => ({ date, count: v.count, correct: v.correct }));
 
   // UserMistakeBook 未建 Question 关系，需单独取 questionText
   const qLookup = await loadMistakeQuestionTexts(mistakesRaw.map((m) => m.questionId));
@@ -106,6 +146,7 @@ export async function studentDetail(
       firstAnswerAt: firstAnswer?.answeredAt ?? null,
       lastActiveAt: lastAnswer?.answeredAt ?? null,
     },
+    dailySeries,
     recentAnswers: recentRaw.map((a) => ({
       questionId: a.questionId,
       lessonTitle: a.question.lesson.title,

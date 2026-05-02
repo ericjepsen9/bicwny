@@ -30,6 +30,12 @@ export interface StudentSummary {
   lastActiveAt: Date | null;
 }
 
+export interface DailyPoint {
+  date: string; // 'YYYY-MM-DD' 服务器 local
+  count: number;
+  correct: number;
+}
+
 export interface StudentDetail {
   user: {
     id: string;
@@ -39,6 +45,8 @@ export interface StudentDetail {
     isActive: boolean;
   };
   summary: StudentSummary;
+  /** 最近 30 天每日答题（已按班级 courseId 过滤） */
+  dailySeries: DailyPoint[];
   recentAnswers: RecentAnswer[];
   mistakes: MistakeItem[];
   sm2Progress: {

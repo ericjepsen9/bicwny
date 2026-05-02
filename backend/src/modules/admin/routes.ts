@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { requireRole, requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import { platformStats } from './platform-stats.service.js';
+import { userLearningStats } from './learning.service.js';
 import { createUser, listUsers, setUserActive, updateUserRole } from './users.service.js';
 
 const adminGuard = requireRole('admin');
@@ -110,6 +111,21 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
           useCache: parsed.data.cache ?? false,
         }),
       };
+    },
+  );
+
+  // 单用户学习画像 · 总览 + 30 天活跃柱图 + sm2 + 按法本 + 班级
+  app.get(
+    '/api/admin/users/:id/learning',
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '单用户学习画像（admin 看任何用户）', security: SEC },
+    },
+    async (req) => {
+      const pp = idParam.safeParse(req.params);
+      if (!pp.success) throw BadRequest('路径参数不合法');
+      const stats = await userLearningStats(pp.data.id);
+      return { data: stats };
     },
   );
 };

@@ -2,6 +2,7 @@
 //   班级选择 chips + 成员表 + 学员详情侧栏（drawer）
 import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import DailyBarChart from '@/components/DailyBarChart';
 import Skeleton from '@/components/Skeleton';
 import { useLang } from '@/lib/i18n';
 import {
@@ -225,7 +226,7 @@ function Drawer({ onClose, loading, data }: { onClose: () => void; loading: bool
                   {data.user.dharmaName}
                 </h3>
                 <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>{data.user.email}</p>
-                <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 2 }}>
+                <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 2 }} title={data.user.lastLoginAt ? new Date(data.user.lastLoginAt).toLocaleString() : ''}>
                   {data.user.lastLoginAt ? s('上次登录', '上次登入', 'Seen') + ' ' + relTime(data.user.lastLoginAt) : '—'}
                 </p>
               </div>
@@ -236,6 +237,15 @@ function Drawer({ onClose, loading, data }: { onClose: () => void; loading: bool
             <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-3)' }}>
               <Mini value={String(data.summary.totalAnswers)} label={s('累计答题', '累計答題', 'Total')} />
               <Mini value={Math.round(data.summary.correctRate * 100) + '%'} label={s('正确率', '正確率', 'Accuracy')} color="var(--sage-dark)" />
+            </div>
+
+            {/* 30 天活跃柱图 */}
+            <SectionLabel>{s('30 天活跃', '30 天活躍', '30-day activity')}</SectionLabel>
+            <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
+              <DailyBarChart
+                data={data.dailySeries ?? []}
+                emptyLabel={s('近 30 天暂无答题', '近 30 天暫無答題', 'No activity in last 30 days')}
+              />
             </div>
 
             {/* SM2 */}
@@ -268,7 +278,7 @@ function Drawer({ onClose, loading, data }: { onClose: () => void; loading: bool
                         {a.score}
                       </span>
                     )}
-                    <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+                    <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={new Date(a.createdAt).toLocaleString()}>
                       {relTime(a.createdAt)}
                     </span>
                   </div>
@@ -290,7 +300,7 @@ function Drawer({ onClose, loading, data }: { onClose: () => void; loading: bool
                     <span style={{ font: 'var(--text-caption)', color: 'var(--crimson)', fontWeight: 700 }}>
                       ×{m.wrongCount}
                     </span>
-                    <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+                    <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={new Date(m.lastWrongAt).toLocaleString()}>
                       {relTime(m.lastWrongAt)}
                     </span>
                   </div>
@@ -312,7 +322,7 @@ function Drawer({ onClose, loading, data }: { onClose: () => void; loading: bool
                     <span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
                       {e.status}
                     </span>
-                    <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+                    <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={e.lastStudiedAt ? new Date(e.lastStudiedAt).toLocaleString() : ''}>
                       {e.lastStudiedAt ? relTime(e.lastStudiedAt) : '—'}
                     </span>
                   </div>

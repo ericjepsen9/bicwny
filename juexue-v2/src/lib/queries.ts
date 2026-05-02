@@ -383,6 +383,12 @@ export function useCoachClassMembers(classId: string | null | undefined) {
   });
 }
 
+export interface DailyPoint {
+  date: string;     // 'YYYY-MM-DD'
+  count: number;
+  correct: number;
+}
+
 export interface CoachStudentDetail {
   user: { id: string; dharmaName: string; email: string; lastLoginAt: string | null; status: string };
   summary: {
@@ -391,6 +397,8 @@ export interface CoachStudentDetail {
     firstAnswerAt: string | null;
     lastActiveAt: string | null;
   };
+  /** 最近 30 天每日答题（已按班级 courseId 过滤） */
+  dailySeries: DailyPoint[];
   sm2: { new: number; learning: number; review: number; mastered: number; due: number; total: number };
   recentAnswers: Array<{
     id: string;
@@ -829,5 +837,52 @@ export function useAdminLlmLogs(opts?: { success?: boolean; limit?: number; curs
   return useQuery({
     queryKey: ['/api/admin/llm/logs', opts?.success ?? '', opts?.limit ?? 50, opts?.cursor ?? ''],
     queryFn: ({ signal }) => api.get<LlmLog[]>('/api/admin/llm/logs?' + q.join('&'), { signal }),
+  });
+}
+
+// ── Admin · 单用户学习画像 ──────────────────────────────
+export interface AdminUserLearning {
+  account: {
+    id: string;
+    email: string | null;
+    dharmaName: string | null;
+    role: string;
+    isActive: boolean;
+    createdAt: string;
+    lastLoginAt: string | null;
+    emailVerifiedAt: string | null;
+  };
+  summary: {
+    totalAnswers: number;
+    correctAnswers: number;
+    correctRate: number;
+    firstAnswerAt: string | null;
+    lastActiveAt: string | null;
+  };
+  dailySeries: DailyPoint[];
+  sm2Progress: { new: number; learning: number; review: number; mastered: number; due: number; total: number };
+  byCourse: Array<{
+    courseId: string;
+    title: string;
+    coverEmoji: string;
+    answered: number;
+    correct: number;
+    masteredCount: number;
+    lastStudiedAt: string | null;
+  }>;
+  classMemberships: Array<{
+    classId: string;
+    className: string;
+    role: 'coach' | 'student';
+    joinedAt: string;
+    coverEmoji: string;
+  }>;
+}
+
+export function useAdminUserLearning(userId: string | null | undefined) {
+  return useQuery({
+    enabled: !!userId,
+    queryKey: ['/api/admin/users', userId, 'learning'],
+    queryFn: ({ signal }) => api.get<AdminUserLearning>(`/api/admin/users/${encodeURIComponent(userId!)}/learning`, { signal }),
   });
 }

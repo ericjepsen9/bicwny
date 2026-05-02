@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import DailyBarChart from '@/components/DailyBarChart';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
-import { type AdminUser, useAdminUsers } from '@/lib/queries';
+import { type AdminUser, useAdminUserLearning, useAdminUsers } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 type RoleFilter = 'all' | 'admin' | 'coach' | 'student';
@@ -105,8 +106,8 @@ export default function AdminUsersPage() {
                   </Td>
                   <Td><RolePill role={u.role} /></Td>
                   <Td><StatusPill active={u.isActive} /></Td>
-                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>{new Date(u.createdAt).toLocaleDateString()}</span></Td>
-                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>{u.lastLoginAt ? relTime(u.lastLoginAt) : '—'}</span></Td>
+                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }} title={new Date(u.createdAt).toLocaleString()}>{new Date(u.createdAt).toLocaleDateString()}</span></Td>
+                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : ''}>{u.lastLoginAt ? relTime(u.lastLoginAt) : '—'}</span></Td>
                 </tr>
               ))}
             </tbody>
@@ -320,7 +321,7 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
         <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-2)' }}>
           {s('账户状态', '賬戶狀態', 'Status')}
         </h3>
-        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)' }}>
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
             <StatusPill active={user.isActive} />
             <button
@@ -345,8 +346,154 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
             </button>
           </div>
         </div>
+
+        <LearningSection userId={user.id} />
       </aside>
     </>
+  );
+}
+
+function LearningSection({ userId }: { userId: string }) {
+  const { s } = useLang();
+  const { data, isLoading, isError, error } = useAdminUserLearning(userId);
+
+  return (
+    <>
+      <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-2)' }}>
+        {s('学习记录', '學習記錄', 'Learning')}
+      </h3>
+
+      {isLoading ? (
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
+          <Skeleton.Card />
+        </div>
+      ) : isError || !data ? (
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', color: 'var(--crimson)' }}>
+          {(error as ApiError | undefined)?.message ?? s('加载失败', '載入失敗', 'Failed')}
+        </div>
+      ) : (
+        <>
+          {/* 总览 + 精确时间 */}
+          <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--sp-3)' }}>
+            <DrawerStat value={String(data.summary.totalAnswers)} label={s('累计答题', '累計答題', 'Total')} />
+            <DrawerStat value={Math.round(data.summary.correctRate * 100) + '%'} label={s('正确率', '正確率', 'Accuracy')} color="var(--sage-dark)" />
+            <DrawerStat
+              value={data.summary.firstAnswerAt ? new Date(data.summary.firstAnswerAt).toLocaleDateString() : '—'}
+              label={s('首次答题', '首次答題', 'First')}
+              tooltip={data.summary.firstAnswerAt ? new Date(data.summary.firstAnswerAt).toLocaleString() : undefined}
+              small
+            />
+            <DrawerStat
+              value={data.summary.lastActiveAt ? relTime(data.summary.lastActiveAt) : '—'}
+              label={s('最近活跃', '最近活躍', 'Last seen')}
+              tooltip={data.summary.lastActiveAt ? new Date(data.summary.lastActiveAt).toLocaleString() : undefined}
+              color="var(--ink)"
+              small
+            />
+          </div>
+
+          {/* 30 天活跃柱图 */}
+          <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
+            <DailyBarChart
+              data={data.dailySeries}
+              emptyLabel={s('近 30 天暂无答题', '近 30 天暫無答題', 'No activity in last 30 days')}
+            />
+          </div>
+
+          {/* SM-2 状态 */}
+          <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)' }}>
+            <DrawerStat value={String(data.sm2Progress.new)} label={s('新卡', '新卡', 'New')} small />
+            <DrawerStat value={String(data.sm2Progress.learning)} label={s('学习', '學習', 'Learn')} small />
+            <DrawerStat value={String(data.sm2Progress.review)} label={s('复习', '複習', 'Review')} small />
+            <DrawerStat value={String(data.sm2Progress.mastered)} label={s('掌握', '掌握', 'Mastered')} color="var(--sage-dark)" small />
+            <DrawerStat value={String(data.sm2Progress.due)} label={s('到期', '到期', 'Due')} color="var(--gold-dark)" small />
+            <DrawerStat value={String(data.sm2Progress.total)} label={s('总计', '總計', 'Total')} small />
+          </div>
+
+          {/* 按法本分列 */}
+          {data.byCourse.length > 0 && (
+            <>
+              <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-2)' }}>
+                {s('按法本', '按法本', 'By text')}
+              </h3>
+              <div className="glass-card-thick" style={{ padding: 0, marginBottom: 'var(--sp-4)' }}>
+                {data.byCourse.map((c, i) => {
+                  const rate = c.answered > 0 ? Math.round((c.correct / c.answered) * 100) : 0;
+                  return (
+                    <div key={c.courseId} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)', borderTop: i === 0 ? 'none' : '1px solid var(--border-light)' }}>
+                      <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>{c.coverEmoji}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600, color: 'var(--ink)', fontSize: '0.875rem', letterSpacing: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {c.title}
+                        </div>
+                        <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 2 }}>
+                          {s(`${c.answered} 题 · 掌握 ${c.masteredCount}`, `${c.answered} 題 · 掌握 ${c.masteredCount}`, `${c.answered} ans · ${c.masteredCount} mastered`)}
+                          {c.lastStudiedAt && (
+                            <> · <span title={new Date(c.lastStudiedAt).toLocaleString()}>{relTime(c.lastStudiedAt)}</span></>
+                          )}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          flexShrink: 0,
+                          padding: '2px 8px',
+                          borderRadius: 'var(--r-pill)',
+                          font: 'var(--text-caption)',
+                          fontWeight: 700,
+                          letterSpacing: 1,
+                          background: rate >= 80 ? 'rgba(125,154,108,.18)' : rate >= 60 ? 'var(--gold-pale)' : 'var(--crimson-light)',
+                          color: rate >= 80 ? 'var(--sage-dark)' : rate >= 60 ? 'var(--gold-dark)' : 'var(--crimson)',
+                        }}
+                      >
+                        {rate}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* 班级 memberships */}
+          {data.classMemberships.length > 0 && (
+            <>
+              <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-2)' }}>
+                {s('班级', '班級', 'Classes')}
+              </h3>
+              <div className="glass-card-thick" style={{ padding: 0, marginBottom: 'var(--sp-4)' }}>
+                {data.classMemberships.map((m, i) => (
+                  <div key={m.classId} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)', borderTop: i === 0 ? 'none' : '1px solid var(--border-light)' }}>
+                    <span style={{ fontSize: '1rem', flexShrink: 0 }}>{m.coverEmoji}</span>
+                    <span style={{ flex: 1, fontFamily: 'var(--font-serif)', color: 'var(--ink)', fontSize: '0.875rem', letterSpacing: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {m.className}
+                    </span>
+                    <span style={{ padding: '2px 8px', borderRadius: 'var(--r-pill)', background: m.role === 'coach' ? 'var(--gold-pale)' : 'var(--saffron-pale)', color: m.role === 'coach' ? 'var(--gold-dark)' : 'var(--saffron-dark)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1 }}>
+                      {m.role}
+                    </span>
+                    <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={new Date(m.joinedAt).toLocaleString()}>
+                      {relTime(m.joinedAt)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+function DrawerStat({ value, label, color, small, tooltip }: { value: string; label: string; color?: string; small?: boolean; tooltip?: string }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div title={tooltip} style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: small ? '1rem' : '1.25rem', color: color ?? 'var(--ink)', lineHeight: 1.2 }}>
+        {value}
+      </div>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+        {label}
+      </div>
+    </div>
   );
 }
 
