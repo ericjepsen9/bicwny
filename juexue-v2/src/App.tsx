@@ -46,6 +46,8 @@ const CoachDashboardPage = lazy(() => import('./pages/CoachDashboardPage'));
 const CoachCoursesPage = lazy(() => import('./pages/CoachCoursesPage'));
 const CoachStudentsPage = lazy(() => import('./pages/CoachStudentsPage'));
 const CoachQuestionsPage = lazy(() => import('./pages/CoachQuestionsPage'));
+const CoachQuestionNewPage = lazy(() => import('./pages/CoachQuestionNewPage'));
+const CoachQuestionImportPage = lazy(() => import('./pages/CoachQuestionImportPage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const AdminClassesPage = lazy(() => import('./pages/AdminClassesPage'));
@@ -138,6 +140,8 @@ function CoachAppShell() {
               <Route path="/" element={<CoachDashboardPage />} />
               <Route path="/students" element={<CoachStudentsPage />} />
               <Route path="/questions" element={<CoachQuestionsPage />} />
+              <Route path="/questions/new" element={<CoachQuestionNewPage />} />
+              <Route path="/questions/import" element={<CoachQuestionImportPage />} />
               <Route path="/courses" element={<CoachCoursesPage />} />
               <Route path="*" element={<Navigate to="/coach" replace />} />
             </Route>

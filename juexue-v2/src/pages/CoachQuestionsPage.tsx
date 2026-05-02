@@ -3,7 +3,7 @@
 //   创建 / LLM 生成 / 批量导入：暂跳老 prototypes 兜底（Phase 11 完整迁移）
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
@@ -64,15 +64,21 @@ export default function CoachQuestionsPage() {
           <h1 className="page-title">{s('题库', '題庫', 'Questions')}</h1>
           <p className="page-sub">{s('我创建的题目 · 共 ' + (list.data?.length ?? 0), '我創建的題目 · 共 ' + (list.data?.length ?? 0), 'My questions · ' + (list.data?.length ?? 0))}</p>
         </div>
-        <div className="top-actions">
+        <div className="top-actions" style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+          <Link to="/coach/questions/import" className="btn btn-pill" style={{ padding: '8px 14px', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }}>
+            📥 {s('批量导入', '批量匯入', 'Batch')}
+          </Link>
           <a
-            href="/prototypes/desktop/coach-questions.html"
-            className="btn btn-primary btn-pill"
-            style={{ padding: '8px 16px' }}
-            title={s('新建/LLM 生成/批量导入仍走老界面（Phase 11 完整迁移）', '新建/LLM 生成/批量導入仍走老界面（Phase 11 完整遷移）', 'Create/LLM/Batch via legacy UI for now (Phase 11)')}
+            href="/prototypes/desktop/coach-questions.html?action=generate"
+            className="btn btn-pill"
+            style={{ padding: '8px 14px', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }}
+            title={s('LLM 生成 · 仍走老界面（Phase 14 完整迁移）', 'LLM 生成 · 仍走老界面（Phase 14 完整遷移）', 'LLM gen · legacy UI (Phase 14)')}
           >
-            + {s('新建 / 生成', '新建 / 生成', 'New / LLM')}
+            ⚡ {s('LLM 生成 ↗', 'LLM 生成 ↗', 'LLM ↗')}
           </a>
+          <Link to="/coach/questions/new" className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
+            + {s('新建', '新建', 'New')}
+          </Link>
         </div>
       </div>
 

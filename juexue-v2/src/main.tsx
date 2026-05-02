@@ -23,10 +23,12 @@ import { AuthProvider } from './lib/auth';
 import { ROUTER_BASENAME } from './lib/env';
 import { I18nProvider } from './lib/i18n';
 import { initNative } from './lib/native';
+import { registerSW } from './lib/sw-register';
 import { ThemeProvider } from './lib/theme';
 import { ToastContainer } from './lib/toast';
 
 initNative();
+registerSW();
 
 import './styles/tokens.css';
 import './styles/base.css';
