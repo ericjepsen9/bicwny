@@ -1,0 +1,928 @@
+// 觉学 JueXue · Prisma schema (Sprint 1)
+// 范围：答题模块 + LLM Gateway + SM-2 + 题库基础
+// 班级系统 / 辅导员端 / 平台后台 将在后续 Sprint 加入
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 用户 · 角色（Sprint 2：真 JWT 登录 + admin/coach/student 三级）
+// ═══════════════════════════════════════════════════════════════
+
+enum UserRole {
+  admin
+  coach
+  student
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String?   @unique
+  emailVerifiedAt DateTime? // AU3: null = 未验证 · 验证成功后 set
+  passwordHash    String? // 未设密码的旧用户允许 null
+  role            UserRole  @default(student)
+  isActive        Boolean   @default(true)
+  lastLoginAt     DateTime?
+  dharmaName      String?
+  avatar          String?
+  timezone        String    @default("Asia/Taipei")
+  locale          String    @default("zh-Hans")
+  hasOnboarded    Boolean   @default(false) // 首次登录引导是否完成（加入班级 / 选自由学习）
+  // 内容分组（A/B 实验）· null = 走主线题库（cohort==null 的题目）
+  // 'A' / 'B' / 任意自定义字符串 · 指派后看到对应 cohort 的题目并集主线
+  contentCohort   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  answers           UserAnswer[]
+  sm2Cards          Sm2Card[]
+  favorites         UserFavorite[]
+  mistakes          UserMistakeBook[]
+  reports           QuestionReport[]
+  enrollments       UserCourseEnrollment[]
+  memberships       ClassMember[]
+  sessions          AuthSession[]
+  createdQuestions  Question[]               @relation("CreatedQuestions")
+  resetTokens       PasswordResetToken[]
+  emailVerifyTokens EmailVerificationToken[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  feedback          Feedback[]               @relation("UserFeedback")
+  handledFeedback   Feedback[]               @relation("HandledFeedback")
+
+  @@index([role])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 班级 · 班级成员（Sprint 2）
+// ═══════════════════════════════════════════════════════════════
+
+enum ClassMemberRole {
+  coach
+  student
+}
+
+model Class {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  joinCode    String    @unique // 6-8 位字母数字，学员凭此加入
+  coverEmoji  String    @default("📚")
+  courseId    String // 主修法本 · 创建班级时必选 · 加入班级自动报名该法本
+  isActive    Boolean   @default(true)
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  course         Course        @relation(fields: [courseId], references: [id])
+  members        ClassMember[]
+  ownedQuestions Question[]    @relation("ClassOwnedQuestions")
+  userAnswers    UserAnswer[]
+
+  @@index([courseId])
+}
+
+model ClassMember {
+  id        String          @id @default(cuid())
+  classId   String
+  userId    String
+  role      ClassMemberRole
+  joinedAt  DateTime        @default(now())
+  removedAt DateTime?
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, userId])
+  @@index([userId, role])
+  @@index([classId, role])
+  // listMembers / removeMember 多按 (classId 或 userId, removedAt=null) 查活跃成员
+  @@index([userId, removedAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 身份会话（refresh token 白名单）
+// ═══════════════════════════════════════════════════════════════
+
+model AuthSession {
+  id               String    @id @default(cuid())
+  userId           String
+  refreshTokenHash String    @unique // 只存哈希，不落库明文
+  userAgent        String?
+  ipAddress        String?
+  issuedAt         DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime? // 登出 / 管理员下线 / 被更新替换，留审计
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+// 密码找回 token · 明文发邮件 / 短信给用户，DB 只存 sha256
+// - expiresAt：通常 30 分钟
+// - usedAt：单次消费；重置成功后同一用户其它未用 token 一并标记，防并发滥用
+// - requestIp：用于审计和简易限流判断
+// AU7: 注销后邮箱冷却 · 30 天内同邮箱无法重注
+//   - deleteAccount 时插入此行 · 注册时 service 层检查
+//   - 不做后台定时清理：cooldownDays 一过自动放行 · 行可留作审计
+model DeletedEmail {
+  email     String   @id
+  deletedAt DateTime @default(now())
+
+  @@index([deletedAt])
+}
+
+model PasswordResetToken {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  requestedAt DateTime  @default(now())
+  requestIp   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@index([expiresAt])
+}
+
+// AU3: 邮箱验证 token
+// - 注册成功后 + 用户主动重发时生成 · dev 环境 console 输出原文
+// - 校验：未消费 · 未过期 · 用户仍 isActive=true
+// - 验证成功 → User.emailVerifiedAt = now · 同一用户其它未用 token 一并 usedAt
+model EmailVerificationToken {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  requestedAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@index([expiresAt])
+}
+
+// 通知 · 系统/班级/成就/提醒 四类 · 全部落此表
+// - type 标明来源；title / body 是展示文本
+// - link 是点击跳转的前端相对路径（可选，如 "class-detail.html"）
+// - isRead 读后不重置；前端 header 未读计数 = count(isRead=false)
+enum NotificationType {
+  system // 系统通知（版本更新 / 维护预告）
+  class_announcement // 班级公告（辅导员发给班级成员）
+  achievement // 成就解锁
+  reminder // 学习提醒（今日到期 / 错题堆积）
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String?
+  link      String? // 前端相对路径，如 "sm2-review.html"
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+  // 软删（21）：列表查询过滤 deletedAt IS NULL · 物理行保留供 cursor 锚定
+  deletedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@index([userId, createdAt])
+  @@index([userId, deletedAt])
+}
+
+// 分析埋点事件 · 自建轻量方案
+//   - 同时支持匿名（userId=null）和登录用户的事件
+//   - sessionId 客户端生成 · 用 sessionStorage · 关 tab 重置
+//   - 高频写入表 · 单条独立 · 没外键关联（user 删了事件也保留 · 但 userId 设 null）
+//   - Admin 后续可查 DAU/funnel/retention · 或者随时迁到 PostHog/ClickHouse
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  userId     String? // null = pre-login 匿名
+  sessionId  String
+  event      String // 'page_view' | 'click' | 'enroll' | 'quiz_submit' | 自定义
+  properties Json     @default("{}")
+  page       String? // 'home.html' · 仅 page_view 必填
+  referrer   String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([event, createdAt])
+  @@index([userId, createdAt])
+  @@index([sessionId])
+  @@index([createdAt]) // 时间范围查询 / 按天聚合
+}
+
+// 推送订阅 · Web Push（浏览器 + Capacitor WebView）
+//   一个用户可以多设备订阅 · endpoint 是订阅唯一标识
+//   Capacitor 包后可在 platform='ios'/'android' 字段区分 native token vs web push
+//   过期 / 被浏览器吊销的 endpoint · 服务端发送时返 410 → 物理删除
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  endpoint   String   @unique // FCM / Mozilla Autopush / Apple WebPush 端点
+  p256dh     String // 加密公钥（Web Push 协议）
+  auth       String // 鉴权密钥（Web Push 协议）
+  platform   String   @default("web") // 'web' | 'ios' | 'android' | 'capacitor-ios' | 'capacitor-android'
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([lastSeenAt]) // 清理 30 天没活的订阅
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 论典 / 章节 / 课程
+// ═══════════════════════════════════════════════════════════════
+
+model Course {
+  id                    String    @id @default(cuid())
+  slug                  String    @unique
+  title                 String
+  titleTraditional      String?
+  author                String?
+  authorInfo            String?
+  description           String?
+  coverEmoji            String    @default("🪷")
+  // 封面图（admin 上传）· 相对路径如 /uploads/courses/<uuid>.jpg · null 时回落 coverEmoji
+  // 文件本体存 uploads/courses/，nginx serve 静态
+  coverImageUrl         String?
+  displayOrder          Int       @default(0)
+  isPublished           Boolean   @default(true)
+  licenseInfo           String?
+  // 法本导入幂等键：前端打开预览模态时生成 uuid，commit 时透传
+  // 同 token 重复 commit 不再产生新 chapter/lesson · null = 该 course 还未通过导入端点写入过
+  lastImportClientToken String?
+  // 上一次导入的 chapterCount / lessonCount · 用于幂等命中时如实回放
+  lastImportSummary     Json?
+  // 软删归档：DELETE 端点不真删 · 学员侧已通过 isPublished=true 过滤
+  archivedAt            DateTime?
+  // 内容版本 · 每次法本 / 章节 / 课时结构变更递增 · 客户端可据此失效缓存
+  contentVersion        Int       @default(1)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  chapters    Chapter[]
+  questions   Question[]
+  sm2Cards    Sm2Card[]
+  enrollments UserCourseEnrollment[]
+  classes     Class[]
+}
+
+model Chapter {
+  id               String  @id @default(cuid())
+  courseId         String
+  order            Int
+  title            String
+  titleTraditional String?
+
+  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons   Lesson[]
+  questions Question[]
+
+  @@unique([courseId, order])
+}
+
+model Lesson {
+  id               String  @id @default(cuid())
+  chapterId        String
+  order            Int
+  title            String
+  titleTraditional String?
+  referenceText    String?
+  teachingSummary  String?
+
+  chapter   Chapter    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  questions Question[]
+
+  @@unique([chapterId, order])
+}
+
+model UserCourseEnrollment {
+  id                 String    @id @default(cuid())
+  userId             String
+  courseId           String
+  source             String    @default("self") // 'self' = 自学 · 'class' = 加入班级带来
+  enrolledViaClassId String? // source='class' 时指向具体班级 · 用于退班联动
+  enrolledAt         DateTime  @default(now())
+  lastStudiedAt      DateTime?
+  completedAt        DateTime?
+  currentLessonId    String?
+  lessonsCompleted   String[]  @default([])
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([enrolledViaClassId])
+  // removeMember 退班联动按 (userId, enrolledViaClassId) 查孤儿 enrollment
+  @@index([userId, enrolledViaClassId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 题库
+// ═══════════════════════════════════════════════════════════════
+
+enum QuestionType {
+  single
+  fill
+  multi
+  open
+  sort
+  match
+  // v2.0 题型：前端尚未上线，后端 schema + 评分就位
+  flip // 速记卡片 · 无对错，用户自评驱动 SM-2
+  image // 图片辨识 · 基于 imageUrl 的单选
+  listen // 听颂选答 · 基于 audioUrl 的单选
+  flow // 流程拖拽 · slot 坐标匹配
+  guided // 引导分步 · 多步 AI 评分
+  scenario // 情境判断 · 多正确选项且每选项带 reason
+}
+
+enum Visibility {
+  public
+  class_private
+  draft
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+model Question {
+  id         String       @id @default(cuid())
+  type       QuestionType
+  courseId   String
+  chapterId  String
+  lessonId   String
+  difficulty Int          @default(2)
+  tags       String[]     @default([])
+
+  questionText String
+  correctText  String
+  wrongText    String
+  source       String
+
+  // 按 type 分的 payload
+  //   single:   { options: [{text,correct}] }
+  //   fill:     { verseLines: string[], correctWord, options: string[], verseSource }
+  //   multi:    { options: [{text,correct}], scoringMode: "strict"|"partial" }
+  //   open:     { referenceAnswer, keyPoints:[{point,signals[]}], minLength, maxLength,
+  //               gradingHint?, strictMode? }
+  //   sort:     { items: [{text,order}] }
+  //   match:    { left: [{id,text}], right: [{id,text,match}] }
+  //   ── v2.0 ──
+  //   flip:     { front:{text,subText?}, back:{text,example?}, noScoring:true }
+  //   image:    { imageUrl, imageCaption?, imageCredits?, options:[{text,correct}] }
+  //   listen:   { audioUrl, audioDuration, audioTranscript?, maxReplay?,
+  //               options:[{text,correct}] }
+  //   flow:     { canvas:{width,height,backgroundImage?},
+  //               slots:[{id,x,y,correctItem}], items:[{text}] }
+  //   guided:   { finalQuestion, steps:[{stepNum,prompt,hint?,keyPoints:string[]}] }
+  //   scenario: { scenario, scenarioImage?,
+  //               options:[{text,correct,reason}] }
+  payload Json
+
+  visibility   Visibility   @default(public)
+  ownerClassId String?
+  reviewStatus ReviewStatus @default(approved)
+
+  // A/B 题库分组 · null = 主线（所有用户都见）
+  // 实验题填 'A' / 'B' / 'beta-2026q2' 等 · 仅 user.contentCohort 匹配的人看到
+  cohort String?
+
+  // 内容版本 · 每次题面 / 答案 / payload 实质变更递增
+  // 用户答题记录里也存 questionVersion · 题目改写时不影响历史正确率统计
+  contentVersion Int @default(1)
+
+  createdByUserId String?
+  reviewed        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  course        Course            @relation(fields: [courseId], references: [id])
+  chapter       Chapter           @relation(fields: [chapterId], references: [id])
+  lesson        Lesson            @relation(fields: [lessonId], references: [id])
+  ownerClass    Class?            @relation("ClassOwnedQuestions", fields: [ownerClassId], references: [id], onDelete: SetNull)
+  createdBy     User?             @relation("CreatedQuestions", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  userAnswers   UserAnswer[]
+  sm2Cards      Sm2Card[]
+  userFavorites UserFavorite[]
+  userMistakes  UserMistakeBook[]
+  reports       QuestionReport[]
+
+  @@index([lessonId])
+  @@index([chapterId])
+  @@index([courseId, visibility])
+  @@index([reviewStatus])
+  @@index([ownerClassId])
+  @@index([createdByUserId])
+  @@index([cohort])
+  // listLessonQuestions / listCourseQuestions 复合过滤命中此索引
+  // 顺序：courseId（高基数）→ reviewStatus → visibility → lessonId（叶级二次过滤）
+  @@index([courseId, reviewStatus, visibility, lessonId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 答题记录 · SM-2 · 错题 · 收藏
+// ═══════════════════════════════════════════════════════════════
+
+model UserAnswer {
+  id          String   @id @default(cuid())
+  userId      String
+  questionId  String
+  answer      Json
+  isCorrect   Boolean?
+  score       Int?
+  aiGrade     Json?
+  timeSpentMs Int?
+  classId     String?
+  // 幂等键：前端生成的 Idempotency-Key（uuid）。NULL 不参与下方 unique（PG 默认行为）→ 老调用零迁移
+  requestId   String?
+  answeredAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+  class    Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, questionId, requestId])
+  @@index([userId, questionId])
+  @@index([userId, answeredAt])
+  @@index([classId, answeredAt])
+  // 平台大盘按时间窗口聚合（platform-stats.service.ts），不带 userId/classId 前缀
+  // → 单列 answeredAt 索引避免全表扫
+  @@index([answeredAt])
+}
+
+enum Sm2Status {
+  new
+  learning
+  review
+  mastered
+}
+
+model Sm2Card {
+  id           String    @id @default(cuid())
+  userId       String
+  questionId   String
+  courseId     String
+  easeFactor   Float     @default(2.5)
+  interval     Int       @default(0)
+  repetitions  Int       @default(0)
+  dueDate      DateTime  @default(now())
+  lastReviewed DateTime?
+  lastRating   Int?
+  status       Sm2Status @default(new)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+  course   Course   @relation(fields: [courseId], references: [id])
+
+  @@unique([userId, questionId])
+  @@index([userId, dueDate])
+  @@index([userId, courseId, dueDate])
+}
+
+model UserFavorite {
+  id         String   @id @default(cuid())
+  userId     String
+  questionId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  // 列表查询热路径：where userId orderBy createdAt desc
+  // 复合索引覆盖 sort · 收藏量大时 (>1k) 防排序性能退化
+  @@index([userId, createdAt])
+}
+
+model UserMistakeBook {
+  id          String    @id @default(cuid())
+  userId      String
+  questionId  String
+  lastWrongAt DateTime  @default(now())
+  wrongCount  Int       @default(1)
+  removedAt   DateTime?
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  // 列表查询热路径：where userId + removedAt: null orderBy lastWrongAt desc
+  // 复合索引覆盖 filter + sort · 防止行多时全表扫
+  @@index([userId, removedAt, lastWrongAt])
+}
+
+enum ReportReason {
+  wrong_answer
+  sensitive
+  doctrine_error
+  typo
+  other
+}
+
+enum ReportStatus {
+  pending
+  accepted
+  rejected
+}
+
+model QuestionReport {
+  id              String       @id @default(cuid())
+  userId          String
+  questionId      String
+  reason          ReportReason
+  details         String?
+  status          ReportStatus @default(pending)
+  createdAt       DateTime     @default(now())
+  // 处理记录 · 让审计 + UI 知道谁/何时/为何处理
+  handledByUserId String?
+  handledAt       DateTime?
+  // 处理时的备注（admin 给团队 / 给举报者的解释 · 可见到 reporter）
+  note            String?
+  // accept 时的额外动作 · null=未处理 · 'hide_question'=同时隐藏题目 · 'keep_question'=保留
+  acceptAction    String?
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([questionId, status]) // 群集同 question 待处理列表
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LLM Gateway · 供应商配置 + 用量追踪 + 调用流水
+// ═══════════════════════════════════════════════════════════════
+
+enum ProviderRole {
+  primary
+  fallback
+  disabled
+}
+
+enum HealthStatus {
+  healthy
+  degraded
+  down
+  quota_exceeded
+}
+
+enum OveragePolicy {
+  stop
+  pay_as_you_go
+  fallback
+}
+
+model LlmProviderConfig {
+  id           String       @id @default(cuid())
+  name         String       @unique // "minimax" | "claude" | "deepseek"
+  displayName  String
+  baseUrl      String
+  apiKeyEnv    String // 只保存 env var 名称，不落库 API Key 本身
+  defaultModel String
+  isEnabled    Boolean      @default(true)
+  role         ProviderRole @default(fallback)
+  priority     Int          @default(50)
+
+  // 额度（按套餐填；null 表示不限）
+  yearlyTokenQuota  BigInt?
+  monthlyTokenQuota BigInt?
+  dailyRequestQuota Int?
+  rpmLimit          Int?
+  concurrencyLimit  Int?
+
+  // 预留阈值：剩余低于此比例时自动切兜底
+  reservePercent Float @default(5)
+
+  // 包年套餐有效期（null 表示无到期）
+  enabledFrom  DateTime?
+  enabledUntil DateTime?
+
+  // 超额策略
+  overagePolicy OveragePolicy @default(stop)
+
+  // 健康状态（Gateway 维护）
+  healthStatus      HealthStatus @default(healthy)
+  consecutiveErrors Int          @default(0)
+  circuitOpenUntil  DateTime?
+  lastErrorAt       DateTime?
+  lastSuccessAt     DateTime?
+
+  // 成本估算（美元/1k tokens，进出分开）
+  inputCostPer1k  Float @default(0)
+  outputCostPer1k Float @default(0)
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  usages LlmProviderUsage[]
+}
+
+enum PeriodType {
+  year
+  month
+  day
+  hour
+  minute
+}
+
+model LlmProviderUsage {
+  id         String     @id @default(cuid())
+  providerId String
+  periodType PeriodType
+  periodKey  String // "2026" | "2026-04" | "2026-04-20" | "2026-04-20T14" | "2026-04-20T14:23"
+
+  tokenCount   BigInt  @default(0)
+  inputTokens  BigInt  @default(0)
+  outputTokens BigInt  @default(0)
+  requestCount Int     @default(0)
+  errorCount   Int     @default(0)
+  cost         Decimal @default(0) @db.Decimal(14, 6)
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  provider LlmProviderConfig @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, periodType, periodKey])
+  @@index([providerId, periodType])
+}
+
+model LlmScenarioConfig {
+  id                     String  @id @default(cuid())
+  scenario               String  @unique // "open_grading" | "question_gen"
+  primaryProviderId      String
+  primaryModel           String
+  fallbackProviderId     String?
+  fallbackModel          String?
+  temperature            Float   @default(0.3)
+  maxTokens              Int     @default(1500)
+  promptTemplateId       String?
+  estimatedTokensPerCall Int     @default(1200)
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model LlmPromptTemplate {
+  id               String   @id @default(cuid())
+  scenario         String
+  version          String
+  content          String   @db.Text
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  createdByAdminId String?
+
+  @@unique([scenario, version])
+}
+
+model LlmCallLog {
+  id        String  @id @default(cuid())
+  requestId String  @unique
+  scenario  String
+  userId    String?
+  coachId   String?
+
+  providerUsed  String
+  providerTried String[] @default([])
+  switched      Boolean  @default(false)
+  switchReason  String?
+
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  cost         Decimal @default(0) @db.Decimal(14, 6)
+  latencyMs    Int
+
+  success      Boolean
+  errorCode    String?
+  errorMessage String?
+  // CO3: prompt 内容 SHA-256 前 16 hex（约 64 bit 熵）· 不存原文防泄漏，
+  //      但可事后比对'用户报告 X 题质量差，对应哪次生成'
+  promptHash   String?
+
+  timestamp DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([userId, timestamp])
+  @@index([providerUsed, timestamp])
+  @@index([scenario, timestamp])
+  @@index([promptHash])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Admin 审计日志（预留，Sprint 9 完善）
+// ═══════════════════════════════════════════════════════════════
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  // 执行者 userId · NOT NULL 保证可追溯
+  // 列名沿用 adminId（历史），实际语义为「特权操作者」
+  // 含 admin 全部写操作 + coach 的题目自删（before.actorRole 区分角色）
+  adminId    String
+  action     String
+  targetType String?
+  targetId   String?
+  before     Json?
+  after      Json?
+  timestamp  DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([adminId, timestamp])
+  // admin 后台按 action 过滤百万行审计日志
+  @@index([action, timestamp])
+  @@index([targetType, targetId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 运行日志（Sprint 3.5 · Observability）
+// error / slow_request / slow_query 三种共表，Admin 可查
+// ═══════════════════════════════════════════════════════════════
+
+enum LogKind {
+  error
+  slow_request
+  slow_query
+}
+
+model ErrorLog {
+  id        String   @id @default(cuid())
+  kind      LogKind
+  message   String
+  stack     String?  @db.Text
+  /// { method, url, status, duration, query, paramsLen, … } 动态字段
+  context   Json?
+  userId    String?
+  requestId String?
+  createdAt DateTime @default(now())
+
+  @@index([kind, createdAt])
+  @@index([requestId])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 系统设置（Sprint 4 · admin 可调全局开关）
+// 仅小颗粒、低频写、admin 可见的 KV，避免每个开关都建独立表
+// 当前键：
+//   scraper.fetchVia  → "local" | "asia"  · 法本 URL 抓取走哪个出口
+// ═══════════════════════════════════════════════════════════════
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 内容版本化 · ContentSeed + ContentRelease
+// ContentSeed：注册表（哪些 seed 已经跑过 · 类似 prisma migration history）
+//   每个 seed 文件名唯一 · hash 是文件内容 sha256 · 重跑同名同 hash 跳过
+//   hash 变了说明源码改了 · 默认拒跑（避免误重写）· --force 才覆盖
+//
+// ContentRelease：审计流水（每次内容变更一条）
+//   不止 seed · 后台 admin 手改 / 法本导入 / question 编辑都写一行
+//   entity = 'course'|'lesson'|'question' · entityId 是被改的实体
+//   change 大致分类（'create'|'update'|'archive'|'cohort-promote' 等）
+// ═══════════════════════════════════════════════════════════════
+
+model ContentSeed {
+  id        String   @id @default(cuid())
+  name      String   @unique // 'V202604_add_xinjing_questions' 格式
+  hash      String // 源码 sha256 · 防止悄悄改
+  appliedAt DateTime @default(now())
+  appliedBy String? // CLI=null · admin 触发=userId
+  notes     String? // seed 自报告的'本次插入 N 条' 等
+}
+
+model ContentRelease {
+  id         String   @id @default(cuid())
+  entity     String // 'course' | 'chapter' | 'lesson' | 'question' | 'cohort'
+  entityId   String
+  change     String // 'create' | 'update' | 'archive' | 'restore' | 'cohort-set' | 'cohort-promote'
+  oldVersion Int? // 变更前 contentVersion
+  newVersion Int? // 变更后
+  diff       Json? // 变化详情 · payload 大字段不全存 · 仅记 keys
+  byUserId   String?
+  bySeed     String? // ContentSeed.name · seed 触发时填
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@index([bySeed])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// A/B 实验 · Experiment + ExperimentExposure
+//
+// Experiment：实验定义 · key 唯一 · variants=[{name,weight}] · goalEvent 用作转化统计
+//   isActive=false 后 getVariant 返回首个 variant（control）· 不再分配新 exposure
+// ExperimentExposure：第一次看到 variant 的快照（一次写入 · 之后不变）
+//   subject 优先 userId · 匿名期落 sessionId · 用户登录后照旧用老 variant
+// ═══════════════════════════════════════════════════════════════
+
+model Experiment {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  description String?
+  variants    Json // [{ name: 'control', weight: 50 }, { name: 'treatment', weight: 50 }]
+  goalEvent   String? // AnalyticsEvent.event · 转化指标
+  isActive    Boolean   @default(true)
+  startedAt   DateTime  @default(now())
+  archivedAt  DateTime?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  exposures ExperimentExposure[]
+
+  @@index([isActive])
+}
+
+model ExperimentExposure {
+  id            String   @id @default(cuid())
+  experimentKey String
+  userId        String?
+  sessionId     String?
+  variant       String
+  firstSeenAt   DateTime @default(now())
+
+  experiment Experiment @relation(fields: [experimentKey], references: [key], onDelete: Cascade)
+
+  @@unique([experimentKey, userId])
+  @@unique([experimentKey, sessionId])
+  @@index([experimentKey, variant])
+  @@index([firstSeenAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 应用内反馈 · 用户提交建议 / bug · admin 处理后通知用户
+//   kind:         suggestion / bug / praise / other
+//   status:       open / triaged / resolved / wontfix
+//   message:      用户输入的正文
+//   page:         触发反馈时的页面（auto-attach）
+//   userAgent:    auto-attach
+//   appVersion:   auto-attach（前端读 build version）
+//   sessionId:    打通 analytics / sentry · 便于回查上下文
+//   contactEmail: 匿名提交允许填邮箱让 admin 联系
+//   handledByUserId / handledAt / response · admin 回复
+// ═══════════════════════════════════════════════════════════════
+
+enum FeedbackKind {
+  suggestion
+  bug
+  praise
+  other
+}
+
+enum FeedbackStatus {
+  open
+  triaged
+  resolved
+  wontfix
+}
+
+model Feedback {
+  id              String         @id @default(cuid())
+  userId          String? // null = 匿名（未登录提交）
+  kind            FeedbackKind   @default(other)
+  status          FeedbackStatus @default(open)
+  message         String // 内容 · service 层做长度限制
+  contactEmail    String? // 匿名提交时的可选联系邮箱
+  page            String? // 'home.html' / 'quiz.html' 等
+  userAgent       String?
+  appVersion      String? // 前端 build version · 便于复现
+  sessionId       String? // 关联 analytics / sentry
+  handledByUserId String?
+  handledAt       DateTime?
+  response        String? // admin 回复内容（可选）
+  createdAt       DateTime       @default(now())
+
+  user      User? @relation("UserFeedback", fields: [userId], references: [id], onDelete: SetNull)
+  handledBy User? @relation("HandledFeedback", fields: [handledByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([kind, createdAt])
+}
