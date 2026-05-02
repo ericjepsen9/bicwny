@@ -12,6 +12,7 @@
 // 与 React Query 配合：
 //   useQuery({ queryKey: ['/api/me'], queryFn: ({ signal }) => api.get('/api/me', { signal }) })
 
+import { apiUrl } from './env';
 import { clearTokens, getAccess, getRefresh, setTokens } from './tokenStore';
 
 const TIMEOUT_MS = 15_000;
@@ -40,7 +41,7 @@ export interface RequestOpts {
 type Body = Record<string, unknown> | unknown[] | string | FormData | null | undefined;
 
 function buildUrl(path: string): string {
-  return path.startsWith('http') ? path : path;
+  return apiUrl(path);
 }
 
 // 单次正在进行的 refresh promise · 多个并发 401 共用 · 避免 N 个 refresh 同时打
@@ -52,7 +53,7 @@ async function refreshOnce(): Promise<void> {
   if (!token) throw new ApiError('No refresh token', 401);
   refreshing = (async () => {
     try {
-      const res = await fetch('/api/auth/refresh', {
+      const res = await fetch(buildUrl('/api/auth/refresh'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ refreshToken: token }),

@@ -1,6 +1,6 @@
-# 觉学 v2 · React SPA
+# 觉学 v2 · React SPA + Capacitor
 
-> Phase 1 骨架 · 与老 MPA 共存 · 后端零改动
+> Phase 8 进行中 · React Web + iOS/Android 单源代码 · 后端零改动
 
 ## 技术栈
 
@@ -75,15 +75,55 @@ sudo nginx -t && sudo systemctl reload nginx
 | `/app/*` | React SPA（这个项目） | 新版 |
 | `/api/*` | Fastify backend | **零改动** |
 
+## 原生壳（iOS / Android · Capacitor 8）
+
+```bash
+# 1. 准备 .env.native.local（只在本地，不入库）
+cp .env.native.example .env.native.local
+# 编辑：VITE_API_BASE=https://juexue.app
+
+# 2. 构建 native 产物（webDir=dist-native · base='/'）
+npm run build:native
+
+# 3. 首次：在 macOS / 装好 Android Studio 的机器上加平台
+npm run cap:add:ios       # 需 Xcode + CocoaPods
+npm run cap:add:android   # 需 Android Studio + JDK 17
+
+# 4. 后续每次改代码
+npm run cap:sync          # = build:native + cap sync · 把 dist-native 拷到 ios/android
+npm run cap:open:ios      # → 在 Xcode 里 Run
+npm run cap:open:android  # → 在 Android Studio 里 Run
+```
+
+**双产物对照**
+
+| 维度 | Web (`npm run build`) | Native (`npm run build:native`) |
+|---|---|---|
+| outDir | `dist/` | `dist-native/` |
+| base | `/app/` | `/` |
+| Router basename | `/app` | `/` |
+| API host | 相对（nginx 反代） | 绝对（`VITE_API_BASE`） |
+| Token 存储 | localStorage | iOS Keychain / Android EncryptedSharedPrefs |
+| Haptics | `navigator.vibrate` | Taptic Engine / Vibrator |
+| Status bar | n/a | 跟随主题 light/dark |
+| 物理返回键 | n/a | history.back / minimizeApp |
+
+**关键文件**
+- `capacitor.config.ts` — appId / 启动屏 / 状态栏 / 键盘策略
+- `src/lib/env.ts` — `isNative()` / `apiUrl()` / `ROUTER_BASENAME`
+- `src/lib/native.ts` — Splash hide / Status bar 同步 / Android 返回键
+
+> **不要把 `ios/` 或 `android/` 目录入库** — 由 `cap add` 在本地生成，配置都在 `capacitor.config.ts`。
+
 ## Phase 进度
 
 - [x] **Phase 0** 决策 + 计划
-- [x] **Phase 1** 骨架（你正在 review）
-- [ ] **Phase 2** 核心工具（i18n / api / theme / toast / haptics ...）
-- [ ] **Phase 3** 认证流（auth / register / forgot / onboarding）
-- [ ] **Phase 4** Tab 主页（home / courses / quiz / profile 真实实现）
-- [ ] **Phase 5** 答题阅读核心流（detail / reading / quiz / mistake-detail）
-- [ ] **Phase 6** 二级页（mistakes / favorites / sm2 / settings / profile-edit ...）
-- [ ] **Phase 7** Coach + Admin
-- [ ] **Phase 8** Capacitor 打包（iOS / Android）
-- [ ] **Phase 9** 切默认入口 + 老版下线
+- [x] **Phase 1** 骨架
+- [x] **Phase 2** 核心工具（i18n / api / theme / toast / haptics ...）
+- [x] **Phase 3** 认证流
+- [x] **Phase 4** Tab 主页（home / courses / quiz / profile）
+- [x] **Phase 5** 答题阅读核心流
+- [x] **Phase 6** 二级页 11 个
+- [x] **Phase 7** 资料编辑 / 帮助 / 条款 / 隐私 / ErrorBoundary / PWA manifest
+- [x] **Phase 8** Capacitor 打包（iOS / Android）
+- [ ] **Phase 9** 切默认入口 + 老版下线 + Coach/Admin

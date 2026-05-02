@@ -20,9 +20,13 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './lib/auth';
+import { ROUTER_BASENAME } from './lib/env';
 import { I18nProvider } from './lib/i18n';
+import { initNative } from './lib/native';
 import { ThemeProvider } from './lib/theme';
 import { ToastContainer } from './lib/toast';
+
+initNative();
 
 import './styles/tokens.css';
 import './styles/base.css';
@@ -48,7 +52,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <I18nProvider>
-            <BrowserRouter basename="/app">
+            <BrowserRouter basename={ROUTER_BASENAME}>
               <AuthProvider>
                 <App />
                 <ToastContainer />

@@ -1,33 +1,20 @@
 // 觉学 v2 · token 存储
-// 对应老版 prototypes/shared/token-store.js
-//
-// 设计：同步 in-memory cache + 异步持久化（Capacitor Preferences 优先 · 否则 localStorage）
-//   - sync read：getAccess() / getRefresh() · 用 cache 立即返回（boot 时 hydrate 一次）
+//   - sync read：getAccess() / getRefresh() · in-memory cache（boot 时 hydrate 一次）
 //   - async write：setTokens() · cache + 持久化双写
-//   - clear()：登出时全清
+//   - clear()：登出全清
 //
-// Capacitor 集成：
-//   window.Capacitor.Plugins.Preferences 存在时用之 · 否则 localStorage
-//   首次 boot 检测到 localStorage 有 token 但 keychain 没 → 自动迁移
+// 持久化：
+//   - 原生壳（iOS/Android）：@capacitor/preferences（iOS Keychain · Android EncryptedSharedPreferences）
+//   - Web：localStorage（key 'jx-accessToken' / 'jx-refreshToken'）
+//
+// 跨平台迁移：原生首次 boot 检测 localStorage 有 token 但 Preferences 无 → 自动迁移
+import { Preferences } from '@capacitor/preferences';
+import { isNative } from './env';
 
 const ACCESS_KEY = 'jx-accessToken';
 const REFRESH_KEY = 'jx-refreshToken';
 
-interface CapacitorPrefs {
-  get(opts: { key: string }): Promise<{ value: string | null }>;
-  set(opts: { key: string; value: string }): Promise<void>;
-  remove(opts: { key: string }): Promise<void>;
-}
-
-interface CapacitorWindow extends Window {
-  Capacitor?: {
-    Plugins?: { Preferences?: CapacitorPrefs };
-    getPlatform?: () => string;
-  };
-}
-
-const cap = (window as CapacitorWindow).Capacitor;
-const native = cap?.Plugins?.Preferences ?? null;
+const useNative = isNative();
 
 // in-memory cache · sync read
 let accessCache: string | null = null;
@@ -37,25 +24,25 @@ let hydrated = false;
 async function hydrate() {
   if (hydrated) return;
   hydrated = true;
-  if (native) {
+  if (useNative) {
     const [a, r] = await Promise.all([
-      native.get({ key: ACCESS_KEY }),
-      native.get({ key: REFRESH_KEY }),
+      Preferences.get({ key: ACCESS_KEY }),
+      Preferences.get({ key: REFRESH_KEY }),
     ]);
     accessCache = a.value;
     refreshCache = r.value;
-    // 迁移：localStorage 还有但 native 没 · 写到 native
+    // 跨平台迁移：localStorage 还有但 Preferences 没 · 写到 Preferences
     try {
       const lsA = localStorage.getItem(ACCESS_KEY);
       const lsR = localStorage.getItem(REFRESH_KEY);
       if (lsA && !accessCache) {
         accessCache = lsA;
-        await native.set({ key: ACCESS_KEY, value: lsA });
+        await Preferences.set({ key: ACCESS_KEY, value: lsA });
         localStorage.removeItem(ACCESS_KEY);
       }
       if (lsR && !refreshCache) {
         refreshCache = lsR;
-        await native.set({ key: REFRESH_KEY, value: lsR });
+        await Preferences.set({ key: REFRESH_KEY, value: lsR });
         localStorage.removeItem(REFRESH_KEY);
       }
     } catch { /* localStorage 不可用时忽略 */ }
@@ -83,10 +70,10 @@ export async function setTokens(opts: {
 }): Promise<void> {
   accessCache = opts.accessToken;
   if (opts.refreshToken !== undefined) refreshCache = opts.refreshToken;
-  if (native) {
-    await native.set({ key: ACCESS_KEY, value: opts.accessToken });
+  if (useNative) {
+    await Preferences.set({ key: ACCESS_KEY, value: opts.accessToken });
     if (opts.refreshToken !== undefined) {
-      await native.set({ key: REFRESH_KEY, value: opts.refreshToken });
+      await Preferences.set({ key: REFRESH_KEY, value: opts.refreshToken });
     }
   } else {
     try {
@@ -101,10 +88,10 @@ export async function setTokens(opts: {
 export async function clearTokens(): Promise<void> {
   accessCache = null;
   refreshCache = null;
-  if (native) {
+  if (useNative) {
     await Promise.all([
-      native.remove({ key: ACCESS_KEY }),
-      native.remove({ key: REFRESH_KEY }),
+      Preferences.remove({ key: ACCESS_KEY }),
+      Preferences.remove({ key: REFRESH_KEY }),
     ]);
   } else {
     try {

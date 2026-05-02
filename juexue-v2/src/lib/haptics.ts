@@ -1,23 +1,16 @@
 // 觉学 v2 · 触觉反馈
-// 对应老版 prototypes/shared/haptics.js
 //
-// 优先 Capacitor Plugins.Haptics（Taptic Engine / Android Vibrator）
-// 兜底 navigator.vibrate（Web Vibration API）
+// 优先 @capacitor/haptics（iOS Taptic Engine / Android Vibrator）
+// 兜底 navigator.vibrate（Web Vibration API · 桌面浏览器无效但不报错）
 // 30ms 节流 · 防快速点击连震
 //
 // 用户偏好：localStorage['jx-haptics-enabled'] = 'false' 全局关
-// 由 lib/toast 自动调用 · 业务也可以直接 triggerHaptics('tap') 等
+// 由 lib/toast 自动调用 · 业务也可以直接 impact()/notification()/selection()
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
+import { isNative } from './env';
 
 const STORAGE_KEY = 'jx-haptics-enabled';
-
-interface CapacitorHaptics {
-  impact?: (opts: { style: 'LIGHT' | 'MEDIUM' | 'HEAVY' }) => Promise<void> | void;
-  notification?: (opts: { type: 'SUCCESS' | 'WARNING' | 'ERROR' }) => Promise<void> | void;
-  selectionChanged?: () => Promise<void> | void;
-}
-interface CapWindow extends Window {
-  Capacitor?: { Plugins?: { Haptics?: CapacitorHaptics } };
-}
+const useNative = isNative();
 
 function isEnabled(): boolean {
   try {
@@ -28,14 +21,10 @@ function isEnabled(): boolean {
 }
 
 export function setHapticsEnabled(on: boolean): void {
-  try { localStorage.setItem(STORAGE_KEY, on ? 'true' : 'false'); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, on ? 'true' : 'false'); } catch { /* ignore */ }
 }
 export function getHapticsEnabled(): boolean {
   return isEnabled();
-}
-
-function nativePlugin(): CapacitorHaptics | null {
-  return (window as CapWindow).Capacitor?.Plugins?.Haptics ?? null;
 }
 
 function webVibrate(ms: number | number[]): void {
@@ -51,12 +40,22 @@ function throttle(): boolean {
   return true;
 }
 
+const STYLE_MAP = {
+  light: ImpactStyle.Light,
+  medium: ImpactStyle.Medium,
+  heavy: ImpactStyle.Heavy,
+} as const;
+
+const NOTIF_MAP = {
+  success: NotificationType.Success,
+  warning: NotificationType.Warning,
+  error: NotificationType.Error,
+} as const;
+
 export function impact(style: 'light' | 'medium' | 'heavy' = 'light'): void {
   if (!isEnabled() || !throttle()) return;
-  const nat = nativePlugin();
-  if (nat?.impact) {
-    const map = { light: 'LIGHT', medium: 'MEDIUM', heavy: 'HEAVY' } as const;
-    try { nat.impact({ style: map[style] }); } catch { /* ignore */ }
+  if (useNative) {
+    Haptics.impact({ style: STYLE_MAP[style] }).catch(() => { /* ignore */ });
     return;
   }
   webVibrate(style === 'heavy' ? 18 : style === 'medium' ? 12 : 8);
@@ -64,10 +63,8 @@ export function impact(style: 'light' | 'medium' | 'heavy' = 'light'): void {
 
 export function notification(type: 'success' | 'warning' | 'error' = 'success'): void {
   if (!isEnabled() || !throttle()) return;
-  const nat = nativePlugin();
-  if (nat?.notification) {
-    const map = { success: 'SUCCESS', warning: 'WARNING', error: 'ERROR' } as const;
-    try { nat.notification({ type: map[type] }); } catch { /* ignore */ }
+  if (useNative) {
+    Haptics.notification({ type: NOTIF_MAP[type] }).catch(() => { /* ignore */ });
     return;
   }
   if (type === 'error')   webVibrate([20, 60, 20]);
@@ -77,9 +74,8 @@ export function notification(type: 'success' | 'warning' | 'error' = 'success'):
 
 export function selection(): void {
   if (!isEnabled() || !throttle()) return;
-  const nat = nativePlugin();
-  if (nat?.selectionChanged) {
-    try { nat.selectionChanged(); } catch { /* ignore */ }
+  if (useNative) {
+    Haptics.selectionChanged().catch(() => { /* ignore */ });
     return;
   }
   webVibrate(5);
