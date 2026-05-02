@@ -326,3 +326,141 @@ export function useAchievements() {
     queryFn: ({ signal }) => api.get<Achievement[]>('/api/achievements', { signal }),
   });
 }
+
+// ───────────────────────── Coach (辅导员) ─────────────────────────
+
+export interface CoachClassRow {
+  id: string;
+  name: string;
+  coverEmoji: string;
+  joinCode: string | null;
+  courseId: string;
+  course?: { id: string; slug: string; title: string; coverEmoji: string };
+  memberCount?: number;
+  myRole: 'coach';
+}
+
+export function useCoachClasses() {
+  return useQuery({
+    queryKey: ['/api/coach/classes'],
+    queryFn: ({ signal }) => api.get<CoachClassRow[]>('/api/coach/classes', { signal }),
+  });
+}
+
+export interface CoachClassStats {
+  classId: string;
+  memberCount: number;
+  activeInWindow: number;
+  totalAnswers: number;
+  correctRate: number; // 0..1
+  windowDays: number;
+}
+export function useCoachClassStats(classId: string | null | undefined, windowDays = 7) {
+  return useQuery({
+    enabled: !!classId,
+    queryKey: ['/api/coach/classes', classId, 'stats', windowDays],
+    queryFn: ({ signal }) => api.get<CoachClassStats>(
+      `/api/coach/classes/${encodeURIComponent(classId!)}/stats?windowDays=${windowDays}`,
+      { signal },
+    ),
+  });
+}
+
+export interface CoachClassMember {
+  id: string;
+  role: 'coach' | 'student';
+  joinedAt: string;
+  user: { id: string; dharmaName: string; email?: string; lastLoginAt?: string | null };
+}
+export function useCoachClassMembers(classId: string | null | undefined) {
+  return useQuery({
+    enabled: !!classId,
+    queryKey: ['/api/coach/classes', classId, 'members'],
+    queryFn: ({ signal }) => api.get<CoachClassMember[]>(
+      `/api/coach/classes/${encodeURIComponent(classId!)}/members`,
+      { signal },
+    ),
+  });
+}
+
+export interface CoachStudentDetail {
+  user: { id: string; dharmaName: string; email: string; lastLoginAt: string | null; status: string };
+  summary: {
+    totalAnswers: number;
+    correctRate: number;
+    firstAnswerAt: string | null;
+    lastActiveAt: string | null;
+  };
+  sm2: { new: number; learning: number; review: number; mastered: number; due: number; total: number };
+  recentAnswers: Array<{
+    id: string;
+    questionId: string;
+    lessonId: string | null;
+    lessonTitle: string | null;
+    score: number | null;
+    isCorrect: boolean | null;
+    createdAt: string;
+  }>;
+  mistakes: Array<{
+    id: string;
+    questionId: string;
+    questionText: string;
+    wrongCount: number;
+    lastWrongAt: string;
+  }>;
+  enrollments: Array<{
+    courseId: string;
+    courseTitle: string;
+    status: string;
+    lastStudiedAt: string | null;
+  }>;
+}
+export function useCoachStudent(
+  classId: string | null | undefined,
+  uid: string | null | undefined,
+  recentLimit = 20,
+) {
+  return useQuery({
+    enabled: !!classId && !!uid,
+    queryKey: ['/api/coach/classes', classId, 'students', uid, recentLimit],
+    queryFn: ({ signal }) => api.get<CoachStudentDetail>(
+      `/api/coach/classes/${encodeURIComponent(classId!)}/students/${encodeURIComponent(uid!)}?recentLimit=${recentLimit}`,
+      { signal },
+    ),
+  });
+}
+
+export interface CoachQuestion {
+  id: string;
+  type: QuestionType;
+  courseId: string;
+  chapterId: string;
+  lessonId: string;
+  visibility: 'class_private' | 'public';
+  reviewStatus: 'pending' | 'approved' | 'rejected';
+  difficulty: number;
+  tags: string[];
+  questionText: string;
+  correctText: string;
+  wrongText: string;
+  source: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  ownerClassId?: string | null;
+  hasAnswers?: boolean;
+}
+
+export function useCoachQuestions(limit = 200) {
+  return useQuery({
+    queryKey: ['/api/coach/questions', limit],
+    queryFn: ({ signal }) => api.get<CoachQuestion[]>(`/api/coach/questions?limit=${limit}`, { signal }),
+  });
+}
+export function useCoachQuestion(id: string | null | undefined) {
+  return useQuery({
+    enabled: !!id,
+    queryKey: ['/api/coach/questions', id],
+    queryFn: ({ signal }) => api.get<CoachQuestion>(`/api/coach/questions/${encodeURIComponent(id!)}`, { signal }),
+  });
+}

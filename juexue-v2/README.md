@@ -129,4 +129,5 @@ npm run cap:open:android  # → 在 Android Studio 里 Run
 - [x] **Phase 7** 资料编辑 / 帮助 / 条款 / 隐私 / ErrorBoundary / PWA manifest
 - [x] **Phase 8** Capacitor 打包（iOS / Android）
 - [x] **Phase 9** 切默认入口（`/` → `/app/`）+ prototypes 顶部 banner + safe-area 适配
-- [ ] **Phase 10** 老 prototypes 完整下线 + Coach + Admin + Service Worker
+- [x] **Phase 10** 辅导员后台 4 页（dashboard / students / questions / courses）+ desktop layout + RequireCoach 守卫
+- [ ] **Phase 11** Admin 端 9 页 + 辅导员"新建/LLM/批量"完整迁移 + 老 prototypes 下线 + Service Worker

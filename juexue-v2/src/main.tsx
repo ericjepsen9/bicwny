@@ -31,6 +31,7 @@ initNative();
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';
+import './styles/desktop.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

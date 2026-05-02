@@ -4,8 +4,10 @@
 //   / /courses /quiz /profile · 已登录（含 onboarding 完）
 //   /dev-test · 公开 · 自测页（Phase 4 完后删）
 import { Suspense, lazy } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import CoachShell from './components/CoachShell';
 import RequireAuth from './components/RequireAuth';
+import RequireCoach from './components/RequireCoach';
 import TabBar from './components/TabBar';
 import { useAuth } from './lib/auth';
 
@@ -38,6 +40,10 @@ const ProfileEditPage = lazy(() => import('./pages/ProfileEditPage'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const CoachDashboardPage = lazy(() => import('./pages/CoachDashboardPage'));
+const CoachCoursesPage = lazy(() => import('./pages/CoachCoursesPage'));
+const CoachStudentsPage = lazy(() => import('./pages/CoachStudentsPage'));
+const CoachQuestionsPage = lazy(() => import('./pages/CoachQuestionsPage'));
 
 function PageFallback() {
   return (
@@ -111,6 +117,30 @@ function PublicShell({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageFallback />}>{children}</Suspense>;
 }
 
+/** 辅导员后台壳 · 桌面侧栏 + main · 不进 phone-wrap */
+function CoachAppShell() {
+  return (
+    <Suspense fallback={<PageFallback />}>
+      <Routes>
+        <Route element={<RequireAuth />}>
+          <Route element={<CoachOnly />}>
+            <Route element={<CoachShell />}>
+              <Route path="/" element={<CoachDashboardPage />} />
+              <Route path="/students" element={<CoachStudentsPage />} />
+              <Route path="/questions" element={<CoachQuestionsPage />} />
+              <Route path="/courses" element={<CoachCoursesPage />} />
+              <Route path="*" element={<Navigate to="/coach" replace />} />
+            </Route>
+          </Route>
+        </Route>
+      </Routes>
+    </Suspense>
+  );
+}
+function CoachOnly() {
+  return <RequireCoach><Outlet /></RequireCoach>;
+}
+
 export default function App() {
   // 允许已登录用户访问 /auth 时直接重定向到 home（避免登录后打开 /auth）
   const { status } = useAuth();
@@ -133,6 +163,9 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route path="/onboarding" element={<PublicShell><OnboardingPage /></PublicShell>} />
       </Route>
+
+      {/* 辅导员后台 · 桌面布局 · 必须放在 /* 之前 */}
+      <Route path="/coach/*" element={<CoachAppShell />} />
 
       {/* 主壳 · 包含 4 个 tab + 后续详情页 */}
       <Route path="/*" element={<AppShell />} />
