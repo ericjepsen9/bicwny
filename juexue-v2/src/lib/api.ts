@@ -185,7 +185,7 @@ export const api = {
   put<T = unknown>(path: string, body?: Body, opts?: RequestOpts): Promise<T> {
     return request<T>('PUT', path, body, opts);
   },
-  del<T = unknown>(path: string, opts?: RequestOpts): Promise<T> {
-    return request<T>('DELETE', path, undefined, opts);
+  del<T = unknown>(path: string, body?: Body, opts?: RequestOpts): Promise<T> {
+    return request<T>('DELETE', path, body, opts);
   },
 };

@@ -1,8 +1,7 @@
 // ProfilePage · 我的
 //   user badge + 3 个统计 + 链接行 + 退出登录
-//   设置 / 班级详情 / 学习统计 等具体子页 Phase 6 实现 · 当前先用 prototypes 兜底
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
@@ -107,37 +106,45 @@ export default function ProfilePage() {
 
       {/* 链接行 */}
       <div className="group" style={{ margin: '0 var(--sp-5) var(--sp-5)' }}>
-        <LinkRow href="/prototypes/mobile/achievement.html" external>
+        <LinkRow to="/achievement">
           <RowIcon>📊</RowIcon>
           <span className="row-label">
             <span className="sc">学习统计</span><span className="tc">學習統計</span><span className="en">Stats</span>
           </span>
           <RowArrow />
         </LinkRow>
-        {firstClass && (
-          <LinkRow href="/prototypes/mobile/class-detail.html" external>
+        {firstClass ? (
+          <LinkRow to={`/class/${encodeURIComponent(firstClass.classId)}`}>
             <RowIcon>📚</RowIcon>
             <span className="row-label">
               <span className="sc">我的班级</span><span className="tc">我的班級</span><span className="en">My Class</span>
             </span>
             <RowArrow />
           </LinkRow>
+        ) : (
+          <LinkRow to="/join-class">
+            <RowIcon>📚</RowIcon>
+            <span className="row-label">
+              <span className="sc">加入班级</span><span className="tc">加入班級</span><span className="en">Join Class</span>
+            </span>
+            <RowArrow />
+          </LinkRow>
         )}
-        <LinkRow href="/prototypes/mobile/notification.html" external>
+        <LinkRow to="/notifications">
           <RowIcon>🔔</RowIcon>
           <span className="row-label">
             <span className="sc">通知</span><span className="tc">通知</span><span className="en">Notifications</span>
           </span>
           <RowArrow />
         </LinkRow>
-        <LinkRow href="/prototypes/mobile/settings.html" external>
+        <LinkRow to="/settings">
           <RowIcon>⚙️</RowIcon>
           <span className="row-label">
             <span className="sc">设置</span><span className="tc">設定</span><span className="en">Settings</span>
           </span>
           <RowArrow />
         </LinkRow>
-        <LinkRow href="/prototypes/mobile/about.html" external>
+        <LinkRow to="/about">
           <RowIcon>ℹ️</RowIcon>
           <span className="row-label">
             <span className="sc">关于觉学</span><span className="tc">關於覺學</span><span className="en">About</span>
@@ -192,7 +199,7 @@ function Stat({ value, label, color, loading }: { value: string; label: string; 
   );
 }
 
-function LinkRow({ href, external, children }: { href: string; external?: boolean; children: React.ReactNode }) {
+function LinkRow({ to, children }: { to: string; children: React.ReactNode }) {
   const style: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
@@ -202,10 +209,7 @@ function LinkRow({ href, external, children }: { href: string; external?: boolea
     color: 'inherit',
     cursor: 'pointer',
   };
-  if (external) {
-    return <a href={href} style={style}>{children}</a>;
-  }
-  return <a href={href} style={style}>{children}</a>;
+  return <Link to={to} style={style}>{children}</Link>;
 }
 function RowIcon({ children }: { children: React.ReactNode }) {
   return (

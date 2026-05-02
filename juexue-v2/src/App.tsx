@@ -24,6 +24,16 @@ const ScriptureDetailPage = lazy(() => import('./pages/ScriptureDetailPage'));
 const ScriptureReadingPage = lazy(() => import('./pages/ScriptureReadingPage'));
 const QuizPage = lazy(() => import('./pages/QuizPage'));
 const MistakeDetailPage = lazy(() => import('./pages/MistakeDetailPage'));
+const MistakesPage = lazy(() => import('./pages/MistakesPage'));
+const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
+const Sm2ReviewPage = lazy(() => import('./pages/Sm2ReviewPage'));
+const NotificationPage = lazy(() => import('./pages/NotificationPage'));
+const AchievementPage = lazy(() => import('./pages/AchievementPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const DevicesPage = lazy(() => import('./pages/DevicesPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const ClassDetailPage = lazy(() => import('./pages/ClassDetailPage'));
+const JoinClassPage = lazy(() => import('./pages/JoinClassPage'));
 
 function PageFallback() {
   return (
@@ -60,6 +70,16 @@ function AppShell() {
                 <Route path="/read/:slug/:lessonId" element={<ScriptureReadingPage />} />
                 <Route path="/quiz/:lessonId" element={<QuizPage />} />
                 <Route path="/mistake/:questionId" element={<MistakeDetailPage />} />
+                <Route path="/mistakes" element={<MistakesPage />} />
+                <Route path="/favorites" element={<FavoritesPage />} />
+                <Route path="/sm2-review" element={<Sm2ReviewPage />} />
+                <Route path="/notifications" element={<NotificationPage />} />
+                <Route path="/achievement" element={<AchievementPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/devices" element={<DevicesPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/class/:id" element={<ClassDetailPage />} />
+                <Route path="/join-class" element={<JoinClassPage />} />
               </Route>
               {/* 兜底 · 未匹配回首页（再走 RequireAuth 决定跳哪） */}
               <Route path="*" element={<Navigate to="/" replace />} />

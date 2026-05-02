@@ -42,7 +42,7 @@ export default function QuizCenterPage() {
       {/* 复习快捷行 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)', padding: '0 var(--sp-5) var(--sp-5)' }}>
         <ReviewCard
-          to="/prototypes/mobile/sm2-review.html"
+          to="/sm2-review"
           icon="🔁"
           iconBg="rgba(236,180,86,.18)"
           iconColor="var(--gold-dark)"
@@ -51,7 +51,7 @@ export default function QuizCenterPage() {
           label={s('SM-2 复习', 'SM-2 複習', 'SM-2')}
         />
         <ReviewCard
-          to="/prototypes/mobile/mistakes.html"
+          to="/mistakes"
           icon="❌"
           iconBg="var(--crimson-light)"
           iconColor="var(--crimson)"
@@ -60,7 +60,7 @@ export default function QuizCenterPage() {
           label={s('错题本', '錯題本', 'Mistakes')}
         />
         <ReviewCard
-          to="/prototypes/mobile/favorites.html"
+          to="/favorites"
           icon="⭐"
           iconBg="var(--saffron-pale)"
           iconColor="var(--saffron-dark)"
@@ -173,12 +173,22 @@ function ReviewCard({
   loading?: boolean;
   label: string;
 }) {
-  // /prototypes/* 是绝对路径 · 不进 React Router · 走 a tag
-  const isExternal = to.startsWith('/prototypes');
   const display = loading ? '—' : count ?? 0;
   const isZero = !loading && (count ?? 0) === 0;
-  const inner = (
-    <>
+  return (
+    <Link
+      to={to}
+      className="glass-card-thick"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 4,
+        padding: 'var(--sp-4) var(--sp-2)',
+        textDecoration: 'none',
+        color: 'inherit',
+      }}
+    >
       <div
         style={{
           width: 36,
@@ -207,27 +217,6 @@ function ReviewCard({
       <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1 }}>
         {label}
       </div>
-    </>
-  );
-  const style: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 4,
-    padding: 'var(--sp-4) var(--sp-2)',
-    textDecoration: 'none',
-    color: 'inherit',
-  };
-  if (isExternal) {
-    return (
-      <a href={to} className="glass-card-thick" style={style}>
-        {inner}
-      </a>
-    );
-  }
-  return (
-    <Link to={to} className="glass-card-thick" style={style}>
-      {inner}
     </Link>
   );
 }

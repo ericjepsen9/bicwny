@@ -121,14 +121,13 @@ export function useSm2Stats() {
   });
 }
 
-// ── 错题数 / 收藏数（轻量 head 用）──
-//   /api/mistakes 与 /api/favorites 默认返完整列表 · 这里仅取 length
+// ── 错题数 / 收藏数（轻量 badge 用 · 走专用 count 端点）──
 export function useMistakeCount() {
   return useQuery({
     queryKey: ['/api/mistakes', 'count'],
     queryFn: async ({ signal }) => {
-      const list = await api.get<unknown[]>('/api/mistakes', { signal });
-      return Array.isArray(list) ? list.length : 0;
+      const r = await api.get<{ count: number }>('/api/mistakes/count', { signal });
+      return r?.count ?? 0;
     },
   });
 }
@@ -136,8 +135,8 @@ export function useFavoriteCount() {
   return useQuery({
     queryKey: ['/api/favorites', 'count'],
     queryFn: async ({ signal }) => {
-      const list = await api.get<unknown[]>('/api/favorites?limit=500', { signal });
-      return Array.isArray(list) ? list.length : 0;
+      const r = await api.get<{ count: number }>('/api/favorites/count', { signal });
+      return r?.count ?? 0;
     },
   });
 }
@@ -200,5 +199,130 @@ export function useMistakeDetail(questionId: string | null | undefined) {
       '/api/mistakes/' + encodeURIComponent(questionId!),
       { signal },
     ),
+  });
+}
+
+// ── 收藏列表 ──
+export interface FavoriteItem {
+  id: string;
+  createdAt: string;
+  questionId: string;
+  question?: QuestionPublic;
+}
+export function useFavorites() {
+  return useQuery({
+    queryKey: ['/api/favorites'],
+    queryFn: ({ signal }) => api.get<FavoriteItem[]>('/api/favorites?limit=500', { signal }),
+  });
+}
+
+// ── SM-2 待复习卡片 ──
+export interface Sm2Card {
+  cardId: string;
+  questionId: string;
+  courseId: string;
+  status: 'new' | 'learning' | 'review' | 'mastered';
+  interval: number;
+  repetitions: number;
+  easeFactor: number;
+  dueDate: string;
+  lastReviewed: string | null;
+  lastRating: number | null;
+  question: QuestionPublic;
+  answerReveal: { correctText: string; wrongText: string };
+}
+export function useSm2Due(opts?: { courseId?: string; limit?: number }) {
+  const q: string[] = [];
+  if (opts?.courseId) q.push('courseId=' + encodeURIComponent(opts.courseId));
+  q.push('limit=' + (opts?.limit ?? 30));
+  return useQuery({
+    queryKey: ['/api/sm2/due', opts?.courseId ?? null, opts?.limit ?? 30],
+    queryFn: ({ signal }) => api.get<Sm2Card[]>('/api/sm2/due?' + q.join('&'), { signal }),
+  });
+}
+
+// ── 通知 ──
+export interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  read: boolean;
+  createdAt: string;
+  data?: Record<string, unknown>;
+}
+export function useNotifications(opts?: { unreadOnly?: boolean; limit?: number }) {
+  const q: string[] = [];
+  if (opts?.unreadOnly) q.push('unreadOnly=1');
+  q.push('limit=' + (opts?.limit ?? 50));
+  return useQuery({
+    queryKey: ['/api/notifications', opts?.unreadOnly ?? false, opts?.limit ?? 50],
+    queryFn: ({ signal }) => api.get<NotificationItem[]>('/api/notifications?' + q.join('&'), { signal }),
+  });
+}
+export function useUnreadNotifCount() {
+  return useQuery({
+    queryKey: ['/api/notifications/unread-count'],
+    queryFn: async ({ signal }) => {
+      const r = await api.get<{ count: number }>('/api/notifications/unread-count', { signal });
+      return r?.count ?? 0;
+    },
+  });
+}
+
+// ── 登录会话/设备 ──
+export interface SessionInfo {
+  id: string;
+  isCurrent: boolean;
+  browser: string | null;
+  os: string | null;
+  ipAddress: string | null;
+  issuedAt: string;
+  expiresAt: string;
+}
+export function useSessions() {
+  return useQuery({
+    queryKey: ['/api/auth/sessions'],
+    queryFn: ({ signal }) => api.get<SessionInfo[]>('/api/auth/sessions', { signal }),
+  });
+}
+
+// ── 班级详情 ──
+export interface ClassDetail {
+  id: string;
+  name: string;
+  coverEmoji: string;
+  joinCode: string | null;
+  courseId: string;
+  course?: { id: string; slug: string; title: string; coverEmoji: string };
+  members: Array<{
+    id: string;
+    role: 'coach' | 'student';
+    joinedAt: string;
+    user: { id: string; dharmaName: string };
+  }>;
+}
+export function useClassDetail(classId: string | null | undefined) {
+  return useQuery({
+    enabled: !!classId,
+    queryKey: ['/api/classes', classId],
+    queryFn: ({ signal }) => api.get<ClassDetail>('/api/classes/' + encodeURIComponent(classId!), { signal }),
+  });
+}
+
+// ── 成就/徽章 ──
+export interface Achievement {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  icon: string;
+  earnedAt: string | null;
+  progress?: { current: number; target: number };
+}
+export function useAchievements() {
+  return useQuery({
+    queryKey: ['/api/achievements'],
+    queryFn: ({ signal }) => api.get<Achievement[]>('/api/achievements', { signal }),
   });
 }

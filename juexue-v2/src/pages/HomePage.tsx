@@ -254,7 +254,7 @@ export default function HomePage() {
         {/* 错题提醒 */}
         {(mistakes.data ?? 0) > 0 && (
           <Link
-            to="/quiz"
+            to="/mistakes"
             className="glass-card-thick"
             style={{
               display: 'flex',
@@ -311,10 +311,10 @@ export default function HomePage() {
 
         {/* 快速入口 */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--sp-3)' }}>
-          <IconTile to="/quiz" icon="🔁" label={s('SM-2', 'SM-2', 'SM-2')} badge={sm2.data?.totalDue} />
-          <IconTile to="/quiz" icon="❌" label={s('错题', '錯題', 'Mistakes')} badge={mistakes.data} />
-          <IconTile to="/quiz" icon="⭐" label={s('收藏', '收藏', 'Favorites')} />
-          <IconTile to="/profile" icon="⚙️" label={s('设置', '設定', 'Settings')} />
+          <IconTile to="/sm2-review" icon="🔁" label={s('SM-2', 'SM-2', 'SM-2')} badge={sm2.data?.totalDue} />
+          <IconTile to="/mistakes" icon="❌" label={s('错题', '錯題', 'Mistakes')} badge={mistakes.data} />
+          <IconTile to="/favorites" icon="⭐" label={s('收藏', '收藏', 'Favorites')} />
+          <IconTile to="/settings" icon="⚙️" label={s('设置', '設定', 'Settings')} />
         </div>
       </div>
 
