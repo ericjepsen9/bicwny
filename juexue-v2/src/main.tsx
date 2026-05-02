@@ -18,6 +18,7 @@ import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
+import { AuthProvider } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
 import { ThemeProvider } from './lib/theme';
 import { ToastContainer } from './lib/toast';
@@ -46,8 +47,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <ThemeProvider>
         <I18nProvider>
           <BrowserRouter basename="/app">
-            <App />
-            <ToastContainer />
+            <AuthProvider>
+              <App />
+              <ToastContainer />
+            </AuthProvider>
           </BrowserRouter>
         </I18nProvider>
       </ThemeProvider>
