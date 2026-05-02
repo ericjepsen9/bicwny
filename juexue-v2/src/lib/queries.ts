@@ -662,3 +662,68 @@ export function useAdminReports(opts?: { limit?: number; reason?: ReportReason }
     queryFn: ({ signal }) => api.get<AdminReport[]>('/api/admin/reports/pending?' + q.join('&'), { signal }),
   });
 }
+
+// ── Admin · 法本/章节/课时 三级 CRUD ──
+export interface AdminCourseRow {
+  id: string;
+  slug: string;
+  title: string;
+  titleTraditional: string | null;
+  author: string | null;
+  description: string | null;
+  coverEmoji: string;
+  coverImageUrl: string | null;
+  displayOrder: number;
+  isPublished: boolean;
+  archivedAt: string | null;
+  createdAt: string;
+  chapterCount: number;
+  lessonCount: number;
+  enrollmentCount: number;
+}
+
+export interface AdminCourseDetail {
+  id: string;
+  slug: string;
+  title: string;
+  titleTraditional: string | null;
+  author: string | null;
+  authorInfo: string | null;
+  description: string | null;
+  coverEmoji: string;
+  coverImageUrl: string | null;
+  displayOrder: number;
+  isPublished: boolean;
+  licenseInfo: string | null;
+  chapters: AdminChapter[];
+}
+export interface AdminChapter {
+  id: string;
+  order: number;
+  title: string;
+  titleTraditional: string | null;
+  lessons: AdminLesson[];
+}
+export interface AdminLesson {
+  id: string;
+  order: number;
+  title: string;
+  titleTraditional: string | null;
+  referenceText: string | null;
+  teachingSummary: string | null;
+}
+
+export function useAdminCourses() {
+  return useQuery({
+    queryKey: ['/api/admin/courses'],
+    queryFn: ({ signal }) => api.get<AdminCourseRow[]>('/api/admin/courses', { signal }),
+  });
+}
+
+export function useAdminCourseDetail(id: string | null | undefined) {
+  return useQuery({
+    enabled: !!id,
+    queryKey: ['/api/admin/courses', id],
+    queryFn: ({ signal }) => api.get<AdminCourseDetail>(`/api/admin/courses/${encodeURIComponent(id!)}`, { signal }),
+  });
+}

@@ -40,6 +40,7 @@ export default function AdminDashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--sp-3)', marginBottom: 'var(--sp-6)' }}>
         <Action to="/admin/users"   icon="👥" label={s('用户管理', '用戶管理', 'Users')} sub={`${u?.byRole.coach ?? 0} ${s('辅导员', '輔導員', 'coaches')}`} />
         <Action to="/admin/classes" icon="📚" label={s('班级管理', '班級管理', 'Classes')} sub={`${stats.data?.classes.active ?? 0} ${s('活跃', '活躍', 'active')}`} />
+        <Action to="/admin/courses" icon="📖" label={s('法本管理', '法本管理', 'Texts')} sub={`${courses.data?.length ?? 0}`} />
         <Action to="/admin/review"  icon="✅" label={s('题目审核', '題目審核', 'Review')} sub={`${qStatus?.pending ?? 0} ${s('待审', '待審', 'pending')}`} highlight={Boolean(qStatus?.pending && qStatus.pending > 0)} />
         <Action to="/admin/reports" icon="🚩" label={s('举报处理', '舉報處理', 'Reports')} />
         <Action to="/admin/audit"   icon="🕒" label={s('审计日志', '審計日誌', 'Audit')} />

@@ -131,4 +131,5 @@ npm run cap:open:android  # → 在 Android Studio 里 Run
 - [x] **Phase 9** 切默认入口（`/` → `/app/`）+ prototypes 顶部 banner + safe-area 适配
 - [x] **Phase 10** 辅导员后台 4 页 + desktop layout + RequireCoach 守卫
 - [x] **Phase 11** 管理员后台 7 页（dashboard / users / classes / review / reports / audit / logs）+ RequireAdmin 守卫
-- [ ] **Phase 12** Admin courses + LLM 完整迁移 · 辅导员"新建/LLM/批量" · 老 prototypes 下线 · Service Worker
+- [x] **Phase 12** /admin/courses 法本三级 CRUD（course / chapter / lesson + 封面上传/移除）
+- [ ] **Phase 13** Admin LLM 完整迁移 · 辅导员"新建/LLM/批量" · 老 prototypes 下线 · Service Worker

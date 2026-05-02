@@ -55,16 +55,14 @@ export default function AdminShell() {
           <AdminNav to="/admin"          end label={s('总览', '總覽', 'Overview')} icon={IconGrid} />
           <AdminNav to="/admin/users"    label={s('用户管理', '用戶管理', 'Users')} icon={IconUsers} />
           <AdminNav to="/admin/classes"  label={s('班级管理', '班級管理', 'Classes')} icon={IconBook} />
+          <AdminNav to="/admin/courses"  label={s('法本管理', '法本管理', 'Texts')} icon={IconText} />
           <AdminNav to="/admin/review"   label={s('题目审核', '題目審核', 'Review')} icon={IconCheck} />
           <AdminNav to="/admin/reports"  label={s('举报处理', '舉報處理', 'Reports')} icon={IconFlag} />
           <AdminNav to="/admin/audit"    label={s('审计日志', '審計日誌', 'Audit')} icon={IconClock} />
           <AdminNav to="/admin/logs"     label={s('运行日志', '運行日誌', 'Logs')} icon={IconAlert} />
 
           <div className="nav-section" style={{ marginTop: 'var(--sp-3)' }}>{s('待迁移', '待遷移', 'Legacy')}</div>
-          <a className="nav-item" href="/prototypes/desktop/admin-courses.html" title={s('Phase 12 完整迁移', 'Phase 12 完整遷移', 'Migrating in Phase 12')}>
-            <IconText /> {s('法本管理 ↗', '法本管理 ↗', 'Texts ↗')}
-          </a>
-          <a className="nav-item" href="/prototypes/desktop/admin-llm.html" title={s('Phase 12 完整迁移', 'Phase 12 完整遷移', 'Migrating in Phase 12')}>
+          <a className="nav-item" href="/prototypes/desktop/admin-llm.html" title={s('Phase 13 完整迁移', 'Phase 13 完整遷移', 'Migrating in Phase 13')}>
             <IconBolt /> {s('LLM 管理 ↗', 'LLM 管理 ↗', 'LLM ↗')}
           </a>
         </div>
