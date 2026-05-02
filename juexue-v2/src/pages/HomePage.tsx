@@ -13,6 +13,7 @@ import {
   useCourses,
   useEnrollments,
   useMistakeCount,
+  useProgress,
   useSm2Stats,
 } from '@/lib/queries';
 import Skeleton from '@/components/Skeleton';
@@ -36,10 +37,16 @@ export default function HomePage() {
   const classes = useClasses();
   const sm2 = useSm2Stats();
   const mistakes = useMistakeCount();
+  const progress = useProgress();
 
-  const hour = new Date().getHours();
+  const now = new Date();
+  const hour = now.getHours();
   const greet = greetingHour(hour, s);
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  const dateLabel = s(`${month} 月 ${day} 日`, `${month} 月 ${day} 日`, `${month}/${day}`);
   const dharmaName = user?.dharmaName || s('师兄', '師兄', 'Friend');
+  const streak = progress.data?.streakDays ?? 0;
 
   // 找当前要显示的法本：第一个 enrollment 的 course
   const firstEnrollment = enrollments.data?.[0];
@@ -69,11 +76,28 @@ export default function HomePage() {
       >
         <div>
           <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 4 }}>
-            {greet}
+            {greet} · {dateLabel}
           </p>
           <p style={{ fontFamily: 'var(--font-serif)', fontSize: '1.25rem', fontWeight: 700, color: 'var(--ink)', letterSpacing: 3 }}>
             {dharmaName}
           </p>
+          {streak > 0 && (
+            <span
+              style={{
+                display: 'inline-block',
+                marginTop: 6,
+                padding: '3px 10px',
+                borderRadius: 'var(--r-pill)',
+                background: 'var(--gold-pale)',
+                color: 'var(--gold-dark)',
+                font: 'var(--text-caption)',
+                fontWeight: 700,
+                letterSpacing: 1,
+              }}
+            >
+              🔥 {s(`连续 ${streak} 天`, `連續 ${streak} 天`, `${streak}-day streak`)}
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 'var(--sp-3)', alignItems: 'center', paddingTop: 4 }}>
           <Link

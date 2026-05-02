@@ -152,23 +152,51 @@ export default function CoursesPage() {
                 {openCourse.description}
               </p>
             )}
-            <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
-              <button
-                type="button"
-                onClick={() => setOpenSlug(null)}
-                className="btn btn-pill"
-                style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}
-              >
-                {s('取消', '取消', 'Cancel')}
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
               <button
                 type="button"
                 onClick={() => enroll.mutate(openCourse.id)}
                 disabled={enroll.isPending}
                 className="btn btn-primary btn-pill"
-                style={{ flex: 1, padding: 12, justifyContent: 'center' }}
+                style={{ padding: 12, justifyContent: 'center' }}
               >
-                {enroll.isPending ? s('加入中…', '加入中…', 'Joining…') : s('加入学习', '加入學習', 'Join')}
+                + {enroll.isPending ? s('加入中…', '加入中…', 'Joining…') : s('加入并查看', '加入並查看', 'Join & open')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const slug = openCourse.slug;
+                  setOpenSlug(null);
+                  nav(`/scripture-detail?slug=${encodeURIComponent(slug)}`);
+                }}
+                className="btn btn-pill"
+                style={{
+                  padding: 12,
+                  background: 'var(--glass-thick)',
+                  color: 'var(--ink-2)',
+                  border: '1px solid var(--glass-border)',
+                  justifyContent: 'center',
+                }}
+              >
+                {s('先看目录', '先看目錄', 'Preview catalog')}
+              </button>
+              <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1, textAlign: 'center', marginTop: 2 }}>
+                {s('先看目录不算入学习记录', '先看目錄不算入學習記錄', 'Preview does not enroll you')}
+              </p>
+              <button
+                type="button"
+                onClick={() => setOpenSlug(null)}
+                style={{
+                  padding: '8px 12px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--ink-4)',
+                  font: 'var(--text-caption)',
+                  letterSpacing: 1,
+                  cursor: 'pointer',
+                }}
+              >
+                {s('取消', '取消', 'Cancel')}
               </button>
             </div>
           </div>
