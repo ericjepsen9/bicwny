@@ -66,14 +66,16 @@ sudo nginx -t && sudo systemctl reload nginx
 # 访问 https://juexue.caughtalert.com/app/
 ```
 
-## 与老版共存
+## 与老版共存（Phase 9 已切默认入口）
 
 | URL | 内容 | 状态 |
 |---|---|---|
-| `/` | 302 → `/prototypes/mobile/auth.html` | 老版（Phase 9 切到 `/app/`） |
-| `/prototypes/*` | 28 页 MPA | 老版（Phase 9 后下线 30 天） |
-| `/app/*` | React SPA（这个项目） | 新版 |
+| `/` | 302 → `/app/` | **新版 default**（Phase 9 完成） |
+| `/app/*` | React SPA（这个项目） | 新版 · 主流量 |
+| `/prototypes/*` | 43 页老 MPA | 兜底 · 顶部"试试新版"banner · Phase 10 后下线 |
 | `/api/*` | Fastify backend | **零改动** |
+
+> Phase 9 部署 / 灰度 / 回滚步骤：见 [`CUTOVER.md`](./CUTOVER.md)
 
 ## 原生壳（iOS / Android · Capacitor 8）
 
@@ -126,4 +128,5 @@ npm run cap:open:android  # → 在 Android Studio 里 Run
 - [x] **Phase 6** 二级页 11 个
 - [x] **Phase 7** 资料编辑 / 帮助 / 条款 / 隐私 / ErrorBoundary / PWA manifest
 - [x] **Phase 8** Capacitor 打包（iOS / Android）
-- [ ] **Phase 9** 切默认入口 + 老版下线 + Coach/Admin
+- [x] **Phase 9** 切默认入口（`/` → `/app/`）+ prototypes 顶部 banner + safe-area 适配
+- [ ] **Phase 10** 老 prototypes 完整下线 + Coach + Admin + Service Worker

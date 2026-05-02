@@ -429,7 +429,9 @@ body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
 /* ── Mobile top navigation bar ──────────────── */
 .top-nav {
   display: flex; align-items: center; gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-5);
+  /* iOS notch / Dynamic Island · 顶部 padding 跟着 safe-area-inset-top
+     web 上 inset 是 0 · 不影响布局 · Capacitor 壳里自动留出状态栏 */
+  padding: calc(var(--sp-4) + env(safe-area-inset-top, 0px)) var(--sp-5) var(--sp-4);
 }
 .nav-btn, .nav-back, .nav-action {
   width: 34px; height: 34px; border-radius: var(--r-sm);

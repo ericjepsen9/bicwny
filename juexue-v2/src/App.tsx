@@ -62,7 +62,13 @@ function AppShell() {
   return (
     <div className="phone-wrap" data-app="juexue-v2">
       <div className="phone">
-        <main className="scroll-area" id="main-content" tabIndex={-1} style={{ paddingBottom: 80 }}>
+        <main
+          className="scroll-area"
+          id="main-content"
+          tabIndex={-1}
+          /* 80 为 tab-bar 视觉高度 · safe-area-inset-bottom 让 iOS home indicator 区不挡卡片 */
+          style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
+        >
           <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route element={<RequireAuth />}>
