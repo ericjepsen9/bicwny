@@ -1,6 +1,7 @@
 // SettingsPage · /settings
-//   主题 / 语言 picker · 邮箱验证 · 改密码 / 设备 · 关于 / 条款 · 注销账户
-import { useState } from 'react';
+//   外观 / 字号 / 语言 / 邮箱验证 / 安全（密码 + 设备） / 偏好（推送 + 触觉） /
+//   存储（缓存清理 + 数据导出） / 关于 / 注销
+import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
@@ -8,7 +9,10 @@ import Field from '@/components/Field';
 import TopNav from '@/components/TopNav';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { FONT_SCALES, useFontScale } from '@/lib/fontSize';
+import { getHapticsEnabled, setHapticsEnabled, tap } from '@/lib/haptics';
 import { useLang, type Lang } from '@/lib/i18n';
+import * as push from '@/lib/push';
 import { useTheme, type ThemeMode } from '@/lib/theme';
 import { toast } from '@/lib/toast';
 
@@ -33,6 +37,10 @@ export default function SettingsPage() {
         {/* 主题 */}
         <SectionLabel>{s('外观', '外觀', 'Appearance')}</SectionLabel>
         <ThemePicker />
+
+        {/* 字号 */}
+        <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('字号', '字號', 'Font size')}</SectionLabel>
+        <FontScalePicker />
 
         {/* 语言 */}
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('语言', '語言', 'Language')}</SectionLabel>
@@ -66,6 +74,20 @@ export default function SettingsPage() {
         <div className="group">
           <RowButton onClick={() => setPwOpen(true)} icon="🔒" label={s('修改密码', '修改密碼', 'Change password')} />
           <LinkRow to="/devices" icon="📱" label={s('登录设备', '登入裝置', 'Devices')} />
+        </div>
+
+        {/* 偏好 · 推送通知 + 触觉反馈 */}
+        <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('偏好', '偏好', 'Preferences')}</SectionLabel>
+        <div className="group">
+          <PushToggle />
+          <HapticsToggle />
+        </div>
+
+        {/* 存储 · 清缓存 + 导出数据 */}
+        <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('存储', '存儲', 'Storage')}</SectionLabel>
+        <div className="group">
+          <CacheClearRow />
+          <DataExportRow />
         </div>
 
         {/* 关于 */}
@@ -150,6 +172,295 @@ function LangPicker() {
     { v: 'en', label: 'EN' },
   ];
   return <ChipPicker value={lang} options={opts} onChange={setLang} />;
+}
+
+function FontScalePicker() {
+  const { scale, setScale } = useFontScale();
+  const { s } = useLang();
+  const opts = FONT_SCALES.map((o) => ({
+    v: String(o.value),
+    label: s(o.labelSc, o.labelTc, o.labelEn),
+  }));
+  return (
+    <ChipPicker
+      value={String(scale)}
+      options={opts}
+      onChange={(v) => {
+        const num = parseFloat(v);
+        setScale(num);
+        tap();
+      }}
+    />
+  );
+}
+
+function PushToggle() {
+  const { s } = useLang();
+  const [st, setSt] = useState<push.PushStatus>('off');
+  const [busy, setBusy] = useState(false);
+  const supported = push.isSupported();
+
+  useEffect(() => {
+    if (!supported) {
+      setSt('unsupported');
+      return;
+    }
+    push.status().then(setSt);
+  }, [supported]);
+
+  async function toggle() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (st === 'on') {
+        const next = await push.unsubscribe();
+        setSt(next);
+        toast.ok(s('已关闭推送', '已關閉推送', 'Push off'));
+      } else {
+        const next = await push.subscribe();
+        setSt(next);
+        if (next === 'on') toast.ok(s('已开启推送', '已開啟推送', 'Push on'));
+        else if (next === 'denied') toast.warn(s('已被浏览器拒绝 · 请到设置开启', '已被瀏覽器拒絕', 'Blocked by browser'));
+        else if (next === 'unconfigured') toast.warn(s('服务端未配置 VAPID', '服務端未配置 VAPID', 'Server not configured'));
+        else toast.warn(s('暂时无法开启', '暫時無法開啟', 'Could not enable'));
+      }
+    } catch (e) {
+      toast.error((e as ApiError).message || s('失败', '失敗', 'Failed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const on = st === 'on';
+  const disabled = !supported || st === 'denied' || st === 'unsupported' || busy;
+  const sub = !supported
+    ? s('当前浏览器不支持', '當前瀏覽器不支援', 'Browser unsupported')
+    : st === 'denied'
+      ? s('已被浏览器拒绝', '已被瀏覽器拒絕', 'Blocked')
+      : st === 'unconfigured'
+        ? s('服务端未配置', '服務端未配置', 'Server unconfigured')
+        : null;
+
+  return (
+    <ToggleRow
+      icon="🔔"
+      label={s('推送通知', '推送通知', 'Push notifications')}
+      sub={sub}
+      checked={on}
+      disabled={disabled}
+      onChange={toggle}
+    />
+  );
+}
+
+function HapticsToggle() {
+  const { s } = useLang();
+  const [on, setOn] = useState<boolean>(() => getHapticsEnabled());
+  function toggle() {
+    const next = !on;
+    setHapticsEnabled(next);
+    setOn(next);
+    if (next) tap();
+    toast.ok(next ? s('已开启', '已開啟', 'On') : s('已关闭', '已關閉', 'Off'));
+  }
+  return (
+    <ToggleRow
+      icon="📳"
+      label={s('触觉反馈', '觸覺回饋', 'Haptic feedback')}
+      checked={on}
+      onChange={toggle}
+    />
+  );
+}
+
+function CacheClearRow() {
+  const { s } = useLang();
+  const [busy, setBusy] = useState(false);
+
+  async function clear() {
+    if (busy) return;
+    if (!confirm(s('清除离线缓存？下次访问需重新加载。', '清除離線快取？下次訪問需重新載入。', 'Clear offline cache?'))) return;
+    setBusy(true);
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      toast.ok(s('缓存已清除', '快取已清除', 'Cache cleared'));
+    } catch (e) {
+      toast.error(s('清除失败', '清除失敗', 'Failed') + ' · ' + ((e as Error).message || ''));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={clear}
+      disabled={busy}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--sp-3)',
+        padding: 'var(--sp-3) var(--sp-4)',
+        background: 'transparent',
+        border: 'none',
+        cursor: busy ? 'default' : 'pointer',
+        textAlign: 'left',
+        width: '100%',
+        color: 'inherit',
+        opacity: busy ? 0.6 : 1,
+      }}
+    >
+      <span style={{ width: 28, height: 28, borderRadius: 'var(--r-sm)', background: 'var(--saffron-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        🧹
+      </span>
+      <span style={{ flex: 1, fontFamily: 'var(--font-serif)', fontSize: '0.9375rem', color: 'var(--ink)', letterSpacing: 1.5 }}>
+        {busy ? s('清除中…', '清除中…', 'Clearing…') : s('清除缓存', '清除快取', 'Clear cache')}
+      </span>
+      <Arrow />
+    </button>
+  );
+}
+
+function DataExportRow() {
+  const { s } = useLang();
+  const [busy, setBusy] = useState(false);
+
+  async function exportData() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      // 直接 fetch 而非 api.get · 需要 blob
+      const res = await fetch('/api/auth/me/data-export', {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `HTTP ${res.status}`);
+      }
+      const cd = res.headers.get('content-disposition') || '';
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const filename = m?.[1] || `juexue-data-export-${new Date().toISOString().slice(0, 10)}.json`;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.ok(s('数据导出已开始下载', '數據導出已開始下載', 'Export downloading'));
+    } catch (e) {
+      const msg = (e as Error).message || s('导出失败', '導出失敗', 'Export failed');
+      toast.warn(msg.includes('cooldown') || msg.includes('Too soon')
+        ? s('请稍后再试 · 5 分钟内仅可导出一次', '請稍後再試 · 5 分鐘內僅可導出一次', 'Try again later (1/5min)')
+        : msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={exportData}
+      disabled={busy}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--sp-3)',
+        padding: 'var(--sp-3) var(--sp-4)',
+        background: 'transparent',
+        border: 'none',
+        cursor: busy ? 'default' : 'pointer',
+        textAlign: 'left',
+        width: '100%',
+        color: 'inherit',
+        opacity: busy ? 0.6 : 1,
+      }}
+    >
+      <span style={{ width: 28, height: 28, borderRadius: 'var(--r-sm)', background: 'var(--saffron-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        📦
+      </span>
+      <span style={{ flex: 1, fontFamily: 'var(--font-serif)', fontSize: '0.9375rem', color: 'var(--ink)', letterSpacing: 1.5 }}>
+        {busy ? s('导出中…', '導出中…', 'Exporting…') : s('导出我的数据', '導出我的數據', 'Export my data')}
+      </span>
+      <Arrow />
+    </button>
+  );
+}
+
+function ToggleRow({
+  icon, label, sub, checked, disabled, onChange,
+}: {
+  icon: string;
+  label: string;
+  sub?: string | null;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--sp-3)',
+        padding: 'var(--sp-3) var(--sp-4)',
+      }}
+    >
+      <span style={{ width: 28, height: 28, borderRadius: 'var(--r-sm)', background: 'var(--saffron-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {icon}
+      </span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '0.9375rem', color: 'var(--ink)', letterSpacing: 1.5 }}>
+          {label}
+        </div>
+        {sub && (
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1, marginTop: 2 }}>
+            {sub}
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={onChange}
+        disabled={disabled}
+        style={{
+          width: 44,
+          height: 26,
+          borderRadius: 13,
+          background: checked ? 'var(--saffron)' : 'var(--border)',
+          border: 'none',
+          padding: 2,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.5 : 1,
+          transition: 'background .2s var(--ease)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: checked ? 'flex-end' : 'flex-start',
+          flexShrink: 0,
+        }}
+      >
+        <span
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: '50%',
+            background: '#fff',
+            boxShadow: '0 2px 4px rgba(0,0,0,.15)',
+            transition: 'all .2s var(--ease)',
+            display: 'block',
+          }}
+        />
+      </button>
+    </div>
+  );
 }
 
 function ChipPicker<T extends string>({
