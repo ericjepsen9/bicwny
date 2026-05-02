@@ -10,6 +10,7 @@ const HomePage = lazy(() => import('./pages/HomePage'));
 const CoursesPage = lazy(() => import('./pages/CoursesPage'));
 const QuizCenterPage = lazy(() => import('./pages/QuizCenterPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const DevTestPage = lazy(() => import('./pages/DevTestPage'));
 
 function PageFallback() {
   // 占位 · Phase 2 接入 Skeleton 组件
@@ -46,6 +47,7 @@ export default function App() {
               <Route path="/courses" element={<CoursesPage />} />
               <Route path="/quiz" element={<QuizCenterPage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/dev-test" element={<DevTestPage />} />
               {/* 兜底 · 未匹配回首页 */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
