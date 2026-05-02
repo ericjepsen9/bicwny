@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import CourseImportDialog from '@/components/CourseImportDialog';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
@@ -23,6 +24,7 @@ export default function AdminCoursesPage() {
   const [sp, setSp] = useSearchParams();
   const list = useAdminCourses();
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const courseId = sp.get('id');
   const detail = useAdminCourseDetail(courseId);
@@ -36,7 +38,15 @@ export default function AdminCoursesPage() {
             {list.data ? list.data.length + ' ' + s('部 · 含未发布', '部 · 含未發布', 'incl. unpublished') : '…'}
           </p>
         </div>
-        <div className="top-actions">
+        <div className="top-actions" style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="btn btn-pill"
+            style={{ padding: '8px 14px', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }}
+          >
+            📥 {s('导入', '導入', 'Import')}
+          </button>
           <button type="button" onClick={() => setCreateOpen(true)} className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
             + {s('新建法本', '新建法本', 'New text')}
           </button>
@@ -110,6 +120,12 @@ export default function AdminCoursesPage() {
           onCancel={() => setCreateOpen(false)}
         />
       </Dialog>
+      <CourseImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        courses={list.data ?? []}
+        onCommitted={(id) => setSp({ id })}
+      />
     </>
   );
 }

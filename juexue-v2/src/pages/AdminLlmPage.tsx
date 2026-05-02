@@ -79,6 +79,7 @@ export default function AdminLlmPage() {
               <Th>{s('角色', '角色', 'Role')}</Th>
               <Th>{s('健康', '健康', 'Health')}</Th>
               <Th>{s('成本 / 1k', '成本 / 1k', 'Cost / 1k')}</Th>
+              <Th>{s('配额 / 限速', '配額 / 限速', 'Quota / Limits')}</Th>
               <Th>{s('启用', '啟用', 'Enabled')}</Th>
               <Th>{s('操作', '操作', 'Actions')}</Th>
             </tr></thead>
@@ -129,6 +130,7 @@ export default function AdminLlmPage() {
               <Th>{s('状态', '狀態', 'Status')}</Th>
               <Th>{s('场景', '場景', 'Scenario')}</Th>
               <Th>{s('供应商', '供應商', 'Provider')}</Th>
+              <Th>{s('模型', '模型', 'Model')}</Th>
               <Th>{s('Tokens', 'Tokens', 'Tokens')}</Th>
               <Th>{s('成本', '成本', 'Cost')}</Th>
               <Th>{s('延迟', '延遲', 'Latency')}</Th>
@@ -144,9 +146,22 @@ export default function AdminLlmPage() {
                     {l.switched && <span style={{ marginLeft: 4, font: 'var(--text-caption)', color: 'var(--saffron-dark)' }}>降级</span>}
                   </Td>
                   <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-2)' }}>{l.scenario}</span></Td>
+                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink)' }}>{l.providerUsed}</span></Td>
                   <Td>
-                    <span style={{ font: 'var(--text-caption)', color: 'var(--ink)' }}>{l.providerUsed}</span>
-                    <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>{l.model}</div>
+                    <span
+                      style={{
+                        padding: '1px 7px',
+                        borderRadius: 'var(--r-pill)',
+                        background: 'var(--glass)',
+                        border: '1px solid var(--glass-border)',
+                        font: 'var(--text-caption)',
+                        color: 'var(--ink-3)',
+                        letterSpacing: '.5px',
+                        fontFamily: 'var(--font-mono, monospace)',
+                      }}
+                    >
+                      {l.model}
+                    </span>
                   </Td>
                   <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textAlign: 'right' }}>{l.inputTokens + l.outputTokens}</span></Td>
                   <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>${l.cost.toFixed(4)}</span></Td>
@@ -184,6 +199,16 @@ function Th({ children }: { children: React.ReactNode }) {
 }
 function Td({ children }: { children: React.ReactNode }) {
   return <td style={{ padding: 'var(--sp-3) var(--sp-4)' }}>{children}</td>;
+}
+
+function formatTokens(raw: string | number | null): string {
+  if (raw == null) return '—';
+  const n = typeof raw === 'string' ? Number(raw) : raw;
+  if (!Number.isFinite(n) || n <= 0) return String(raw);
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k';
+  return String(n);
 }
 
 function ProviderRow({ p, onEdit }: { p: LlmProvider; onEdit: () => void }) {
@@ -242,6 +267,21 @@ function ProviderRow({ p, onEdit }: { p: LlmProvider; onEdit: () => void }) {
         <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
           in ${p.inputCostPer1k.toFixed(4)}<br />
           out ${p.outputCostPer1k.toFixed(4)}
+        </div>
+      </Td>
+      <Td>
+        <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', lineHeight: 1.6 }}>
+          {p.monthlyTokenQuota
+            ? <div>📅 {formatTokens(p.monthlyTokenQuota)} / {s('月', '月', 'mo')}</div>
+            : <div style={{ color: 'var(--ink-4)' }}>— / {s('月', '月', 'mo')}</div>}
+          {p.dailyRequestQuota != null
+            ? <div>☀️ {p.dailyRequestQuota.toLocaleString()} {s('请求/日', '請求/日', 'req/d')}</div>
+            : <div style={{ color: 'var(--ink-4)' }}>— {s('请求/日', '請求/日', 'req/d')}</div>}
+          <div style={{ color: 'var(--ink-4)' }}>
+            {p.rpmLimit != null ? `${p.rpmLimit} rpm` : '— rpm'}
+            {' · '}
+            {p.concurrencyLimit != null ? `${p.concurrencyLimit} ` + s('并发', '併發', 'conc') : '— ' + s('并发', '併發', 'conc')}
+          </div>
         </div>
       </Td>
       <Td>
