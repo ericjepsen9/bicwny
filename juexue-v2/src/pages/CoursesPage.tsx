@@ -1,9 +1,10 @@
 // CoursesPage · 法本网格 + 搜索 + 筛选
 //   filter: all / enrolled / available
 //   点击未加入 → 弹层显示详情 + 加入按钮
-//   点击已加入 → 进 scripture-detail（暂走 prototypes 兜底 · Phase 5 替换）
+//   点击已加入 → 进 /scripture-detail
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import CourseCover from '@/components/CourseCover';
 import Dialog from '@/components/Dialog';
 import Skeleton from '@/components/Skeleton';
@@ -19,6 +20,7 @@ export default function CoursesPage() {
   const courses = useCourses();
   const enrollments = useEnrollments();
   const qc = useQueryClient();
+  const nav = useNavigate();
 
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
@@ -117,8 +119,7 @@ export default function CoursesPage() {
               enrolled={enrolledIds.has(c.id)}
               onClick={() => {
                 if (enrolledIds.has(c.id)) {
-                  // 已加入 → 直接进 detail（暂用 prototypes 兜底）
-                  location.href = `/prototypes/mobile/scripture-detail.html?slug=${c.slug}`;
+                  nav(`/scripture-detail?slug=${encodeURIComponent(c.slug)}`);
                 } else {
                   setOpenSlug(c.slug);
                 }

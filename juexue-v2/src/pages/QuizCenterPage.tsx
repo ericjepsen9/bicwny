@@ -114,9 +114,9 @@ export default function QuizCenterPage() {
           </div>
         ) : (
           courseList.map((c) => (
-            <a
+            <Link
               key={c.id}
-              href={`/prototypes/mobile/scripture-detail.html?slug=${c.slug}&mode=quiz`}
+              to={`/scripture-detail?slug=${encodeURIComponent(c.slug)}&mode=quiz`}
               className="glass-card-thick"
               style={{
                 display: 'flex',
@@ -154,7 +154,7 @@ export default function QuizCenterPage() {
               <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24" style={{ color: 'var(--ink-4)' }}>
                 <polyline points="9 18 15 12 9 6" />
               </svg>
-            </a>
+            </Link>
           ))
         )}
       </div>

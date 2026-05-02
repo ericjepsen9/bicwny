@@ -216,15 +216,15 @@ export default function HomePage() {
                 <div className="progress-fill" style={{ width: pct + '%' }} />
               </div>
               <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-4)' }}>
-                <a
-                  href={`/prototypes/mobile/scripture-reading.html?slug=${currentCourse.slug}`}
+                <Link
+                  to={`/scripture-detail?slug=${encodeURIComponent(currentCourse.slug)}`}
                   className="btn btn-primary btn-pill"
                   style={{ flex: 1, padding: 12, justifyContent: 'center' }}
                 >
                   {s('继续阅读', '繼續閱讀', 'Continue')}
-                </a>
-                <a
-                  href={`/prototypes/mobile/scripture-detail.html?slug=${currentCourse.slug}`}
+                </Link>
+                <Link
+                  to={`/scripture-detail?slug=${encodeURIComponent(currentCourse.slug)}`}
                   className="btn btn-pill"
                   style={{
                     flex: 1,
@@ -236,7 +236,7 @@ export default function HomePage() {
                   }}
                 >
                   {s('查看详情', '查看詳情', 'Details')}
-                </a>
+                </Link>
               </div>
             </>
           ) : (

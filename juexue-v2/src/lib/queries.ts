@@ -141,3 +141,64 @@ export function useFavoriteCount() {
     },
   });
 }
+
+// ── 课时题目 + 答题相关 ──
+
+export type QuestionType =
+  | 'single' | 'multi' | 'fill' | 'open'
+  | 'sort' | 'match' | 'flip'
+  | 'image' | 'listen' | 'flow' | 'guided' | 'scenario';
+
+export interface QuestionPublic {
+  id: string;
+  type: QuestionType;
+  courseId: string;
+  chapterId: string;
+  lessonId: string;
+  difficulty: number;
+  tags: string[];
+  questionText: string;
+  /** 评分时后端补全 · 列题时为空串 */
+  correctText: string;
+  wrongText: string;
+  source: string;
+  payload: Record<string, unknown>;
+}
+
+export function useLessonQuestions(lessonId: string | null | undefined) {
+  return useQuery({
+    enabled: !!lessonId,
+    queryKey: ['/api/lessons', lessonId, 'questions'],
+    queryFn: ({ signal }) => api.get<QuestionPublic[]>(
+      '/api/lessons/' + encodeURIComponent(lessonId!) + '/questions',
+      { signal },
+    ),
+  });
+}
+
+// ── 错题列表 / 详情 ──
+export interface MistakeItem {
+  id: string;
+  questionId: string;
+  lastWrongAt: string;
+  wrongCount: number;
+  question?: QuestionPublic;
+}
+
+export function useMistakes() {
+  return useQuery({
+    queryKey: ['/api/mistakes'],
+    queryFn: ({ signal }) => api.get<MistakeItem[]>('/api/mistakes', { signal }),
+  });
+}
+
+export function useMistakeDetail(questionId: string | null | undefined) {
+  return useQuery({
+    enabled: !!questionId,
+    queryKey: ['/api/mistakes', questionId],
+    queryFn: ({ signal }) => api.get<MistakeItem>(
+      '/api/mistakes/' + encodeURIComponent(questionId!),
+      { signal },
+    ),
+  });
+}
