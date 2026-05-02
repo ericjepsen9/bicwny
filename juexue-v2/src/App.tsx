@@ -48,6 +48,7 @@ const CoachStudentsPage = lazy(() => import('./pages/CoachStudentsPage'));
 const CoachQuestionsPage = lazy(() => import('./pages/CoachQuestionsPage'));
 const CoachQuestionNewPage = lazy(() => import('./pages/CoachQuestionNewPage'));
 const CoachQuestionImportPage = lazy(() => import('./pages/CoachQuestionImportPage'));
+const CoachQuestionGeneratePage = lazy(() => import('./pages/CoachQuestionGeneratePage'));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const AdminClassesPage = lazy(() => import('./pages/AdminClassesPage'));
@@ -56,6 +57,7 @@ const AdminReviewPage = lazy(() => import('./pages/AdminReviewPage'));
 const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage'));
 const AdminLogsPage = lazy(() => import('./pages/AdminLogsPage'));
 const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
+const AdminLlmPage = lazy(() => import('./pages/AdminLlmPage'));
 
 function PageFallback() {
   return (
@@ -142,6 +144,7 @@ function CoachAppShell() {
               <Route path="/questions" element={<CoachQuestionsPage />} />
               <Route path="/questions/new" element={<CoachQuestionNewPage />} />
               <Route path="/questions/import" element={<CoachQuestionImportPage />} />
+              <Route path="/questions/generate" element={<CoachQuestionGeneratePage />} />
               <Route path="/courses" element={<CoachCoursesPage />} />
               <Route path="*" element={<Navigate to="/coach" replace />} />
             </Route>
@@ -171,6 +174,7 @@ function AdminAppShell() {
               <Route path="/reports" element={<AdminReportsPage />} />
               <Route path="/audit" element={<AdminAuditPage />} />
               <Route path="/logs" element={<AdminLogsPage />} />
+              <Route path="/llm" element={<AdminLlmPage />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>
           </Route>

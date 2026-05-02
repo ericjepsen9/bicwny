@@ -133,4 +133,5 @@ npm run cap:open:android  # → 在 Android Studio 里 Run
 - [x] **Phase 11** 管理员后台 7 页（dashboard / users / classes / review / reports / audit / logs）+ RequireAdmin 守卫
 - [x] **Phase 12** /admin/courses 法本三级 CRUD（course / chapter / lesson + 封面上传/移除）
 - [x] **Phase 13** 辅导员新建题（7 题型） + 批量导入 + Service Worker（offline shell）
-- [ ] **Phase 14** Admin LLM · 辅导员 LLM 生成 · 老 prototypes 下线
+- [x] **Phase 14** Admin LLM 管理 + 辅导员 LLM 生成（单课时）
+- [ ] **Phase 15** 老 prototypes 下线 + 辅导员整章批量生成（victory lap）

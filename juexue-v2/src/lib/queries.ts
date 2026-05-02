@@ -727,3 +727,107 @@ export function useAdminCourseDetail(id: string | null | undefined) {
     queryFn: ({ signal }) => api.get<AdminCourseDetail>(`/api/admin/courses/${encodeURIComponent(id!)}`, { signal }),
   });
 }
+
+// ── Admin · LLM 管理 ──
+export type LlmRole = 'primary' | 'fallback' | 'disabled';
+export type LlmHealth = 'healthy' | 'degraded' | 'down' | 'quota_exceeded';
+export type OveragePolicy = 'stop' | 'pay_as_you_go' | 'fallback';
+
+export interface LlmProvider {
+  id: string;
+  name: string;
+  displayName: string;
+  baseUrl: string;
+  apiKeyEnvHint: string | null;
+  defaultModel: string;
+  isEnabled: boolean;
+  role: LlmRole;
+  priority: number;
+  yearlyTokenQuota: string | null;
+  monthlyTokenQuota: string | null;
+  dailyRequestQuota: number | null;
+  rpmLimit: number | null;
+  concurrencyLimit: number | null;
+  reservePercent: number;
+  enabledFrom: string | null;
+  enabledUntil: string | null;
+  overagePolicy: OveragePolicy;
+  healthStatus: LlmHealth;
+  consecutiveErrors: number;
+  circuitOpenUntil: string | null;
+  lastErrorAt: string | null;
+  lastSuccessAt: string | null;
+  inputCostPer1k: number;
+  outputCostPer1k: number;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export function useAdminLlmProviders() {
+  return useQuery({
+    queryKey: ['/api/admin/llm/providers'],
+    queryFn: ({ signal }) => api.get<LlmProvider[]>('/api/admin/llm/providers', { signal }),
+  });
+}
+
+export interface LlmUsage {
+  periodType: string;
+  periodKey: string;
+  byProvider: Array<{
+    providerId: string;
+    name: string;
+    displayName: string;
+    periodKey: string;
+    tokenCount: number;
+    inputTokens: number;
+    outputTokens: number;
+    requestCount: number;
+    errorCount: number;
+    cost: number;
+  }>;
+  totals: {
+    tokenCount: number;
+    requestCount: number;
+    errorCount: number;
+    cost: number;
+  };
+}
+export function useAdminLlmUsage(periodType: 'year' | 'month' | 'day' | 'hour' = 'month') {
+  return useQuery({
+    queryKey: ['/api/admin/llm/usage', periodType],
+    queryFn: ({ signal }) => api.get<LlmUsage>(`/api/admin/llm/usage?periodType=${periodType}`, { signal }),
+  });
+}
+
+export interface LlmLog {
+  id: string;
+  requestId: string;
+  scenario: string;
+  userId: string | null;
+  coachId: string | null;
+  providerUsed: string;
+  providerTried: string[];
+  switched: boolean;
+  switchReason: string | null;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
+  latencyMs: number;
+  success: boolean;
+  errorCode: string | null;
+  errorMessage: string | null;
+  promptHash: string | null;
+  timestamp: string;
+}
+export function useAdminLlmLogs(opts?: { success?: boolean; limit?: number; cursor?: string }) {
+  const q: string[] = [];
+  q.push('limit=' + (opts?.limit ?? 50));
+  if (opts?.success === true) q.push('success=true');
+  if (opts?.success === false) q.push('success=false');
+  if (opts?.cursor) q.push('cursor=' + encodeURIComponent(opts.cursor));
+  return useQuery({
+    queryKey: ['/api/admin/llm/logs', opts?.success ?? '', opts?.limit ?? 50, opts?.cursor ?? ''],
+    queryFn: ({ signal }) => api.get<LlmLog[]>('/api/admin/llm/logs?' + q.join('&'), { signal }),
+  });
+}

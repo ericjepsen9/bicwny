@@ -60,11 +60,7 @@ export default function AdminShell() {
           <AdminNav to="/admin/reports"  label={s('举报处理', '舉報處理', 'Reports')} icon={IconFlag} />
           <AdminNav to="/admin/audit"    label={s('审计日志', '審計日誌', 'Audit')} icon={IconClock} />
           <AdminNav to="/admin/logs"     label={s('运行日志', '運行日誌', 'Logs')} icon={IconAlert} />
-
-          <div className="nav-section" style={{ marginTop: 'var(--sp-3)' }}>{s('待迁移', '待遷移', 'Legacy')}</div>
-          <a className="nav-item" href="/prototypes/desktop/admin-llm.html" title={s('Phase 13 完整迁移', 'Phase 13 完整遷移', 'Migrating in Phase 13')}>
-            <IconBolt /> {s('LLM 管理 ↗', 'LLM 管理 ↗', 'LLM ↗')}
-          </a>
+          <AdminNav to="/admin/llm"      label={s('LLM 管理', 'LLM 管理', 'LLM')} icon={IconBolt} />
         </div>
 
         <div className="nav-section" style={{ marginTop: 'auto' }}>{s('其他', '其他', 'Other')}</div>

@@ -45,6 +45,7 @@ export default function AdminDashboardPage() {
         <Action to="/admin/reports" icon="🚩" label={s('举报处理', '舉報處理', 'Reports')} />
         <Action to="/admin/audit"   icon="🕒" label={s('审计日志', '審計日誌', 'Audit')} />
         <Action to="/admin/logs"    icon="⚠️" label={s('运行日志', '運行日誌', 'Logs')} />
+        <Action to="/admin/llm"     icon="⚡" label={s('LLM 管理', 'LLM 管理', 'LLM')} sub={'$' + (llm?.monthCost ?? 0).toFixed(2)} />
       </div>
 
       {/* 分布 */}

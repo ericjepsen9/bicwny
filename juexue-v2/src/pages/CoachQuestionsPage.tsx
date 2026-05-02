@@ -68,14 +68,13 @@ export default function CoachQuestionsPage() {
           <Link to="/coach/questions/import" className="btn btn-pill" style={{ padding: '8px 14px', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }}>
             📥 {s('批量导入', '批量匯入', 'Batch')}
           </Link>
-          <a
-            href="/prototypes/desktop/coach-questions.html?action=generate"
+          <Link
+            to="/coach/questions/generate"
             className="btn btn-pill"
             style={{ padding: '8px 14px', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }}
-            title={s('LLM 生成 · 仍走老界面（Phase 14 完整迁移）', 'LLM 生成 · 仍走老界面（Phase 14 完整遷移）', 'LLM gen · legacy UI (Phase 14)')}
           >
-            ⚡ {s('LLM 生成 ↗', 'LLM 生成 ↗', 'LLM ↗')}
-          </a>
+            ⚡ {s('LLM 生成', 'LLM 生成', 'LLM')}
+          </Link>
           <Link to="/coach/questions/new" className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
             + {s('新建', '新建', 'New')}
           </Link>
