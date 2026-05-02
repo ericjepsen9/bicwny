@@ -510,20 +510,15 @@ function renderOptionRows() {
 function renderCreateForm() {
   var body = document.getElementById('dr-body');
   body.innerHTML =
+    '<div class="f-row">' +
+      '<label>' + escapeHtml(sc('题型', '題型')) + '</label>' +
+      '<div class="fchips" id="f-type-chips" style="flex-wrap:wrap;gap:6px;" role="radiogroup" aria-label="题型"></div>' +
+      '<input type="hidden" id="f-type">' +
+    '</div>' +
     '<div class="f-row-split">' +
-      '<div><label>' + escapeHtml(sc('题型', '題型')) + '</label>' +
-        '<select class="f-sel" id="f-type">' +
-          '<option value="single">' + escapeHtml(sc('单选', '單選')) + '</option>' +
-          '<option value="multi">' + escapeHtml(sc('多选', '多選')) + '</option>' +
-          '<option value="fill">' + escapeHtml(sc('填空', '填空')) + '</option>' +
-          '<option value="open">' + escapeHtml(sc('问答', '問答')) + '</option>' +
-          '<option value="sort">' + escapeHtml(sc('排序', '排序')) + '</option>' +
-          '<option value="match">' + escapeHtml(sc('匹配', '匹配')) + '</option>' +
-          '<option value="flip">' + escapeHtml(sc('速记卡', '速記卡')) + '</option>' +
-        '</select></div>' +
       '<div><label>' + escapeHtml(sc('难度', '難度')) + '</label>' +
         '<select class="f-sel" id="f-diff"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select></div>' +
-      '<div><label>' + escapeHtml(sc('可见性', '可見性')) + '</label>' +
+      '<div style="grid-column:span 2;"><label>' + escapeHtml(sc('可见性', '可見性')) + '</label>' +
         '<select class="f-sel" id="f-vis">' +
           '<option value="public">' + escapeHtml(sc('公开（待审）', '公開（待審）')) + '</option>' +
           '<option value="class_private">' + escapeHtml(sc('班级私题（无需审核）', '班級私題（無需審核）')) + '</option>' +
@@ -595,12 +590,44 @@ function renderCreateForm() {
     courseSel.dispatchEvent(new Event('change'));
   });
 
-  document.getElementById('f-type').addEventListener('change', function () {
-    createForm.type = this.value;
-    if (this.value === 'single') createForm.options = [{ text: '', correct: true }, { text: '', correct: false }];
-    else if (this.value === 'multi') createForm.options = [{ text: '', correct: true }, { text: '', correct: true }, { text: '', correct: false }];
+  // 题型 chip-picker（替代 native select · 与设置页 lang-picker / theme-picker 风格一致）
+  var TYPES_AVAILABLE = [
+    { v: 'single', sc: '单选',   tc: '單選' },
+    { v: 'multi',  sc: '多选',   tc: '多選' },
+    { v: 'fill',   sc: '填空',   tc: '填空' },
+    { v: 'open',   sc: '问答',   tc: '問答' },
+    { v: 'sort',   sc: '排序',   tc: '排序' },
+    { v: 'match',  sc: '匹配',   tc: '匹配' },
+    { v: 'flip',   sc: '速记卡', tc: '速記卡' },
+  ];
+  function paintTypeChips() {
+    var box = document.getElementById('f-type-chips');
+    if (!box) return;
+    var disabled = state.drawerMode === 'edit';
+    box.innerHTML = TYPES_AVAILABLE.map(function (t) {
+      var on = createForm.type === t.v;
+      return '<button type="button" class="fchip' + (on ? ' active' : '') + '"' +
+        ' data-type="' + t.v + '"' +
+        ' role="radio" aria-checked="' + (on ? 'true' : 'false') + '"' +
+        (disabled ? ' disabled style="opacity:.55;cursor:not-allowed;"' : '') +
+        '>' + escapeHtml(sc(t.sc, t.tc)) + '</button>';
+    }).join('');
+    var hidden = document.getElementById('f-type');
+    if (hidden) hidden.value = createForm.type;
+  }
+  paintTypeChips();
+  document.getElementById('f-type-chips').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-type]');
+    if (!btn || btn.disabled) return;
+    var v = btn.getAttribute('data-type');
+    if (createForm.type === v) return;
+    createForm.type = v;
+    if (v === 'single') createForm.options = [{ text: '', correct: true }, { text: '', correct: false }];
+    else if (v === 'multi') createForm.options = [{ text: '', correct: true }, { text: '', correct: true }, { text: '', correct: false }];
     // sort / match / flip 不依赖 createForm.options · 直接交给 renderTypeEditor 重画 host
+    paintTypeChips();
     renderTypeEditor();
+    if (window.JX.haptics) window.JX.haptics.selection();
   });
   document.getElementById('f-course').addEventListener('change', function () {
     var slug = this.value;
@@ -637,6 +664,7 @@ function renderCreateForm() {
   });
 
   document.getElementById('f-type').value = createForm.type;
+  paintTypeChips();
   renderTypeEditor();
 }
 
@@ -778,6 +806,15 @@ function prefillEditForm(q) {
     }
   }
   document.getElementById('f-type').value = q.type;
+  // 同步 chip 选中态 + edit 模式下全部 disabled
+  document.querySelectorAll('#f-type-chips .fchip').forEach(function (b) {
+    var on = b.getAttribute('data-type') === q.type;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+    b.disabled = true;
+    b.style.opacity = '.55';
+    b.style.cursor = 'not-allowed';
+  });
   renderTypeEditor();
 
   if (q.type === 'fill') {
@@ -852,8 +889,7 @@ function prefillEditForm(q) {
   document.getElementById('f-diff').value = String(q.difficulty || 2);
   document.getElementById('f-tags').value = (q.tags || []).join(', ');
 
-  // type select 也禁用（避免从 single 切到 fill 后后端 PATCH 难处理）
-  document.getElementById('f-type').disabled = true;
+  // type 已通过上方 chip disabled 处理 · hidden input 不需要 disabled
 }
 
 function openEditDrawer() {

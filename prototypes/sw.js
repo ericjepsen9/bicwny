@@ -6,7 +6,7 @@
 //
 // 部署版本号（每次发版改）：bump VERSION 触发 activate 清旧缓存
 //   实际部署时可由 build script 注入 git commit hash · 当前手动 bump
-const VERSION = 'v2026-04-30-01';
+const VERSION = 'v2026-04-30-02';
 const SHELL_CACHE = 'shell-' + VERSION;
 const RUNTIME_CACHE = 'runtime-' + VERSION;
 
