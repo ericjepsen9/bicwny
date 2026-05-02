@@ -17,7 +17,7 @@ export default function ProfilePage() {
   const [signing, setSigning] = useState(false);
 
   const dharmaName = user?.dharmaName || s('师兄', '師兄', 'Friend');
-  const initial = dharmaName.slice(0, 1);
+  const initial = (user?.avatar || dharmaName).slice(0, 1);
   const role = user?.role ?? 'student';
   const roleLabel = role === 'admin'
     ? s('管理员', '管理員', 'Admin')
@@ -42,8 +42,8 @@ export default function ProfilePage() {
 
   return (
     <div>
-      {/* 头部头像区 */}
-      <div style={{ padding: 'var(--sp-7) var(--sp-5) var(--sp-5)', textAlign: 'center' }}>
+      {/* 头部头像区 · 整块可点 → /profile/edit */}
+      <Link to="/profile/edit" style={{ textDecoration: 'none', color: 'inherit', display: 'block', padding: 'var(--sp-7) var(--sp-5) var(--sp-5)', textAlign: 'center' }}>
         <div
           style={{
             width: 80,
@@ -69,8 +69,9 @@ export default function ProfilePage() {
         <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginTop: 4 }}>
           {roleLabel}
           {firstClass && ' · ' + firstClass.class.name}
+          <span style={{ color: 'var(--ink-4)', marginLeft: 6 }}>· {s('编辑', '編輯', 'Edit')}</span>
         </p>
-      </div>
+      </Link>
 
       {/* 三项统计 */}
       <div

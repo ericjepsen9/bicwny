@@ -93,7 +93,7 @@ export default function HomePage() {
               fontSize: '0.875rem',
             }}
           >
-            {dharmaName.slice(0, 1)}
+            {(user?.avatar || dharmaName).slice(0, 1)}
           </Link>
         </div>
       </div>

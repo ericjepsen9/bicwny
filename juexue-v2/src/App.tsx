@@ -34,6 +34,10 @@ const DevicesPage = lazy(() => import('./pages/DevicesPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const ClassDetailPage = lazy(() => import('./pages/ClassDetailPage'));
 const JoinClassPage = lazy(() => import('./pages/JoinClassPage'));
+const ProfileEditPage = lazy(() => import('./pages/ProfileEditPage'));
+const HelpPage = lazy(() => import('./pages/HelpPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 
 function PageFallback() {
   return (
@@ -80,6 +84,10 @@ function AppShell() {
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/class/:id" element={<ClassDetailPage />} />
                 <Route path="/join-class" element={<JoinClassPage />} />
+                <Route path="/profile/edit" element={<ProfileEditPage />} />
+                <Route path="/help" element={<HelpPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
               </Route>
               {/* 兜底 · 未匹配回首页（再走 RequireAuth 决定跳哪） */}
               <Route path="*" element={<Navigate to="/" replace />} />

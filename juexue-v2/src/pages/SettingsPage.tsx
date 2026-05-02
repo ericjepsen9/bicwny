@@ -72,9 +72,9 @@ export default function SettingsPage() {
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('关于', '關於', 'About')}</SectionLabel>
         <div className="group">
           <LinkRow to="/about" icon="ℹ️" label={s('关于觉学', '關於覺學', 'About')} />
-          <LinkRow href="/prototypes/mobile/help.html" external icon="❓" label={s('帮助', '幫助', 'Help')} />
-          <LinkRow href="/prototypes/mobile/terms.html" external icon="📜" label={s('用户协议', '用戶協議', 'Terms')} />
-          <LinkRow href="/prototypes/mobile/privacy.html" external icon="🔐" label={s('隐私政策', '隱私政策', 'Privacy')} />
+          <LinkRow to="/help" icon="❓" label={s('帮助', '幫助', 'Help')} />
+          <LinkRow to="/terms" icon="📜" label={s('用户协议', '用戶協議', 'Terms')} />
+          <LinkRow to="/privacy" icon="🔐" label={s('隐私政策', '隱私政策', 'Privacy')} />
         </div>
 
         {/* 注销账户 */}
@@ -215,10 +215,19 @@ function RowButton({ onClick, icon, label }: { onClick: () => void; icon: string
   );
 }
 
-function LinkRow({ to, href, external, icon, label }:
-  { to?: string; href?: string; external?: boolean; icon: string; label: string }) {
-  const inner = (
-    <>
+function LinkRow({ to, icon, label }: { to: string; icon: string; label: string }) {
+  return (
+    <Link
+      to={to}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--sp-3)',
+        padding: 'var(--sp-3) var(--sp-4)',
+        textDecoration: 'none',
+        color: 'inherit',
+      }}
+    >
       <span style={{ width: 28, height: 28, borderRadius: 'var(--r-sm)', background: 'var(--saffron-pale)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {icon}
       </span>
@@ -226,18 +235,8 @@ function LinkRow({ to, href, external, icon, label }:
         {label}
       </span>
       <Arrow />
-    </>
+    </Link>
   );
-  const style: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--sp-3)',
-    padding: 'var(--sp-3) var(--sp-4)',
-    textDecoration: 'none',
-    color: 'inherit',
-  };
-  if (to && !external) return <Link to={to} style={style}>{inner}</Link>;
-  return <a href={href} style={style}>{inner}</a>;
 }
 function Arrow() {
   return (
