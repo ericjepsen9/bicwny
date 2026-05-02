@@ -9,9 +9,11 @@
 //   BrowserRouter · 路由
 //   <App /> · 业务
 
-// 在 React 渲染之前立即应用主题 · 避免 FOUC
+// 在 React 渲染之前立即应用主题 + 字号 · 避免 FOUC
 import { applyThemeNow } from './lib/theme';
+import { applyFontScaleNow } from './lib/fontSize';
 applyThemeNow();
+applyFontScaleNow();
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -25,6 +27,7 @@ import { I18nProvider } from './lib/i18n';
 import { initNative } from './lib/native';
 import { registerSW } from './lib/sw-register';
 import { ThemeProvider } from './lib/theme';
+import { FontScaleProvider } from './lib/fontSize';
 import { ToastContainer } from './lib/toast';
 
 initNative();
@@ -54,14 +57,16 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <I18nProvider>
-            <BrowserRouter basename={ROUTER_BASENAME}>
-              <AuthProvider>
-                <App />
-                <ToastContainer />
-              </AuthProvider>
-            </BrowserRouter>
-          </I18nProvider>
+          <FontScaleProvider>
+            <I18nProvider>
+              <BrowserRouter basename={ROUTER_BASENAME}>
+                <AuthProvider>
+                  <App />
+                  <ToastContainer />
+                </AuthProvider>
+              </BrowserRouter>
+            </I18nProvider>
+          </FontScaleProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
