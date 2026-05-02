@@ -107,6 +107,15 @@ export default function ProfilePage() {
 
       {/* 链接行 */}
       <div className="group" style={{ margin: '0 var(--sp-5) var(--sp-5)' }}>
+        {role === 'admin' && (
+          <LinkRow to="/admin">
+            <RowIcon>🛡️</RowIcon>
+            <span className="row-label">
+              <span className="sc">管理员后台</span><span className="tc">管理員後台</span><span className="en">Admin</span>
+            </span>
+            <RowArrow />
+          </LinkRow>
+        )}
         {(role === 'coach' || role === 'admin') && (
           <LinkRow to="/coach">
             <RowIcon>🎓</RowIcon>

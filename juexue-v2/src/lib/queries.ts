@@ -464,3 +464,201 @@ export function useCoachQuestion(id: string | null | undefined) {
     queryFn: ({ signal }) => api.get<CoachQuestion>(`/api/coach/questions/${encodeURIComponent(id!)}`, { signal }),
   });
 }
+
+// ───────────────────────── Admin (管理员) ─────────────────────────
+
+export interface AdminPlatformStats {
+  windowDays: number;
+  users: {
+    total: number;
+    newInWindow: number;
+    activeInWindow: number;
+    byRole: { admin: number; coach: number; student: number };
+  };
+  classes: { active: number; archived: number };
+  questions: {
+    byStatus: { pending: number; approved: number; rejected: number };
+    byType: Record<string, number>;
+  };
+  answers: { total: number; inWindow: number; correctRate: number };
+  llm: { monthRequests: number; monthTokens: number; errorRate: number; monthCost: number };
+}
+export function useAdminPlatformStats(windowDays = 7) {
+  return useQuery({
+    queryKey: ['/api/admin/platform-stats', windowDays],
+    queryFn: ({ signal }) => api.get<AdminPlatformStats>(`/api/admin/platform-stats?windowDays=${windowDays}`, { signal }),
+  });
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  dharmaName: string | null;
+  role: 'admin' | 'coach' | 'student';
+  isActive: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+  emailVerifiedAt: string | null;
+}
+export interface AdminUsersResp {
+  items: AdminUser[];
+  total: number;
+  nextCursor: string | null;
+}
+export function useAdminUsers(opts?: { limit?: number; role?: string; search?: string; cursor?: string }) {
+  const q: string[] = [];
+  q.push('limit=' + (opts?.limit ?? 50));
+  if (opts?.role) q.push('role=' + encodeURIComponent(opts.role));
+  if (opts?.search) q.push('search=' + encodeURIComponent(opts.search));
+  if (opts?.cursor) q.push('cursor=' + encodeURIComponent(opts.cursor));
+  return useQuery({
+    queryKey: ['/api/admin/users', opts?.limit ?? 50, opts?.role ?? '', opts?.search ?? '', opts?.cursor ?? ''],
+    queryFn: ({ signal }) => api.get<AdminUsersResp>('/api/admin/users?' + q.join('&'), { signal }),
+  });
+}
+
+export interface AdminClass {
+  id: string;
+  name: string;
+  coverEmoji: string;
+  joinCode: string | null;
+  isActive: boolean;
+  description: string | null;
+  courseId: string;
+  course?: { id: string; slug: string; title: string; coverEmoji: string };
+  memberCount?: number;
+  createdAt: string;
+}
+export function useAdminClasses() {
+  return useQuery({
+    queryKey: ['/api/admin/classes'],
+    queryFn: ({ signal }) => api.get<AdminClass[]>('/api/admin/classes', { signal }),
+  });
+}
+
+export interface AdminClassMember {
+  id: string;
+  role: 'coach' | 'student';
+  joinedAt: string;
+  user: { id: string; dharmaName: string; email: string };
+}
+export function useAdminClassMembers(classId: string | null | undefined) {
+  return useQuery({
+    enabled: !!classId,
+    queryKey: ['/api/admin/classes', classId, 'members'],
+    queryFn: ({ signal }) => api.get<AdminClassMember[]>(`/api/admin/classes/${encodeURIComponent(classId!)}/members`, { signal }),
+  });
+}
+
+export interface AdminPendingQuestion {
+  id: string;
+  type: QuestionType;
+  questionText: string;
+  correctText: string;
+  wrongText: string;
+  source: string;
+  difficulty: number;
+  tags: string[];
+  payload: Record<string, unknown>;
+  courseId: string;
+  chapterId: string;
+  lessonId: string;
+  visibility: 'class_private' | 'public';
+  createdByUserId: string;
+  createdAt: string;
+}
+export function useAdminPendingQuestions(opts?: { limit?: number; courseId?: string }) {
+  const q: string[] = [];
+  q.push('limit=' + (opts?.limit ?? 200));
+  if (opts?.courseId) q.push('courseId=' + encodeURIComponent(opts.courseId));
+  return useQuery({
+    queryKey: ['/api/admin/questions/pending', opts?.limit ?? 200, opts?.courseId ?? ''],
+    queryFn: ({ signal }) => api.get<AdminPendingQuestion[]>('/api/admin/questions/pending?' + q.join('&'), { signal }),
+  });
+}
+
+export interface AdminAuditEntry {
+  id: string;
+  adminId: string;
+  adminName?: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  createdAt: string;
+}
+export interface AdminAuditResp {
+  items: AdminAuditEntry[];
+  nextCursor: string | null;
+}
+export function useAdminAudit(opts?: { adminId?: string; action?: string; targetType?: string; targetId?: string; limit?: number; cursor?: string }) {
+  const q: string[] = [];
+  q.push('limit=' + (opts?.limit ?? 50));
+  if (opts?.adminId) q.push('adminId=' + encodeURIComponent(opts.adminId));
+  if (opts?.action) q.push('action=' + encodeURIComponent(opts.action));
+  if (opts?.targetType) q.push('targetType=' + encodeURIComponent(opts.targetType));
+  if (opts?.targetId) q.push('targetId=' + encodeURIComponent(opts.targetId));
+  if (opts?.cursor) q.push('cursor=' + encodeURIComponent(opts.cursor));
+  return useQuery({
+    queryKey: ['/api/admin/audit', opts?.action ?? '', opts?.targetType ?? '', opts?.limit ?? 50, opts?.cursor ?? ''],
+    queryFn: ({ signal }) => api.get<AdminAuditResp>('/api/admin/audit?' + q.join('&'), { signal }),
+  });
+}
+
+export interface AdminLogEntry {
+  id: string;
+  kind: 'error' | 'slow_request' | 'slow_query';
+  message: string;
+  userId: string | null;
+  requestId: string | null;
+  stack: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+}
+export interface AdminLogsResp {
+  items: AdminLogEntry[];
+  nextCursor: string | null;
+}
+export function useAdminLogs(opts?: { kind?: string; userId?: string; requestId?: string; limit?: number; cursor?: string }) {
+  const q: string[] = [];
+  q.push('limit=' + (opts?.limit ?? 50));
+  if (opts?.kind) q.push('kind=' + encodeURIComponent(opts.kind));
+  if (opts?.userId) q.push('userId=' + encodeURIComponent(opts.userId));
+  if (opts?.requestId) q.push('requestId=' + encodeURIComponent(opts.requestId));
+  if (opts?.cursor) q.push('cursor=' + encodeURIComponent(opts.cursor));
+  return useQuery({
+    queryKey: ['/api/admin/logs', opts?.kind ?? '', opts?.limit ?? 50, opts?.cursor ?? ''],
+    queryFn: ({ signal }) => api.get<AdminLogsResp>('/api/admin/logs?' + q.join('&'), { signal }),
+  });
+}
+export interface AdminLogsStats {
+  windowHours: number;
+  counts: { error: number; slow_request: number; slow_query: number };
+}
+export function useAdminLogsStats() {
+  return useQuery({
+    queryKey: ['/api/admin/logs/stats'],
+    queryFn: ({ signal }) => api.get<AdminLogsStats>('/api/admin/logs/stats', { signal }),
+  });
+}
+
+export type ReportReason = 'wrong_answer' | 'sensitive' | 'doctrine_error' | 'typo' | 'other';
+export interface AdminReport {
+  id: string;
+  questionId: string;
+  reason: ReportReason;
+  details: string | null;
+  reportedByUserId: string;
+  createdAt: string;
+  question?: { id: string; questionText: string };
+}
+export function useAdminReports(opts?: { limit?: number; reason?: ReportReason }) {
+  const q: string[] = [];
+  q.push('limit=' + (opts?.limit ?? 200));
+  if (opts?.reason) q.push('reason=' + encodeURIComponent(opts.reason));
+  return useQuery({
+    queryKey: ['/api/admin/reports/pending', opts?.limit ?? 200, opts?.reason ?? ''],
+    queryFn: ({ signal }) => api.get<AdminReport[]>('/api/admin/reports/pending?' + q.join('&'), { signal }),
+  });
+}

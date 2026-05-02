@@ -5,7 +5,9 @@
 //   /dev-test · 公开 · 自测页（Phase 4 完后删）
 import { Suspense, lazy } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import AdminShell from './components/AdminShell';
 import CoachShell from './components/CoachShell';
+import RequireAdmin from './components/RequireAdmin';
 import RequireAuth from './components/RequireAuth';
 import RequireCoach from './components/RequireCoach';
 import TabBar from './components/TabBar';
@@ -44,6 +46,13 @@ const CoachDashboardPage = lazy(() => import('./pages/CoachDashboardPage'));
 const CoachCoursesPage = lazy(() => import('./pages/CoachCoursesPage'));
 const CoachStudentsPage = lazy(() => import('./pages/CoachStudentsPage'));
 const CoachQuestionsPage = lazy(() => import('./pages/CoachQuestionsPage'));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
+const AdminClassesPage = lazy(() => import('./pages/AdminClassesPage'));
+const AdminReviewPage = lazy(() => import('./pages/AdminReviewPage'));
+const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage'));
+const AdminLogsPage = lazy(() => import('./pages/AdminLogsPage'));
+const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
 
 function PageFallback() {
   return (
@@ -141,6 +150,33 @@ function CoachOnly() {
   return <RequireCoach><Outlet /></RequireCoach>;
 }
 
+/** 管理员后台壳 · 桌面侧栏 + main · 不进 phone-wrap */
+function AdminAppShell() {
+  return (
+    <Suspense fallback={<PageFallback />}>
+      <Routes>
+        <Route element={<RequireAuth />}>
+          <Route element={<AdminOnly />}>
+            <Route element={<AdminShell />}>
+              <Route path="/" element={<AdminDashboardPage />} />
+              <Route path="/users" element={<AdminUsersPage />} />
+              <Route path="/classes" element={<AdminClassesPage />} />
+              <Route path="/review" element={<AdminReviewPage />} />
+              <Route path="/reports" element={<AdminReportsPage />} />
+              <Route path="/audit" element={<AdminAuditPage />} />
+              <Route path="/logs" element={<AdminLogsPage />} />
+              <Route path="*" element={<Navigate to="/admin" replace />} />
+            </Route>
+          </Route>
+        </Route>
+      </Routes>
+    </Suspense>
+  );
+}
+function AdminOnly() {
+  return <RequireAdmin><Outlet /></RequireAdmin>;
+}
+
 export default function App() {
   // 允许已登录用户访问 /auth 时直接重定向到 home（避免登录后打开 /auth）
   const { status } = useAuth();
@@ -164,8 +200,10 @@ export default function App() {
         <Route path="/onboarding" element={<PublicShell><OnboardingPage /></PublicShell>} />
       </Route>
 
-      {/* 辅导员后台 · 桌面布局 · 必须放在 /* 之前 */}
+      {/* 辅导员后台 · 桌面布局 */}
       <Route path="/coach/*" element={<CoachAppShell />} />
+      {/* 管理员后台 · 桌面布局 */}
+      <Route path="/admin/*" element={<AdminAppShell />} />
 
       {/* 主壳 · 包含 4 个 tab + 后续详情页 */}
       <Route path="/*" element={<AppShell />} />
