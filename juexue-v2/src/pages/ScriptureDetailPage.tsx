@@ -468,8 +468,9 @@ export default function ScriptureDetailPage() {
                           borderRadius: 'var(--r-sm)',
                           textDecoration: 'none',
                           color: 'inherit',
-                          background: done ? 'var(--sage-light)' : 'transparent',
-                          border: '1px solid ' + (done ? 'var(--sage)' : 'var(--border-light)'),
+                          background: done ? 'var(--sage-light)' : 'var(--glass)',
+                          border: '1px solid ' + (done ? 'var(--sage)' : 'var(--glass-border)'),
+                          cursor: 'pointer',
                         }}
                       >
                         <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontWeight: 700, minWidth: 24 }}>
@@ -478,8 +479,28 @@ export default function ScriptureDetailPage() {
                         <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)' }}>
                           {l.title}
                         </span>
-                        {done && (
-                          <span style={{ fontSize: 14, color: 'var(--sage-dark)', fontWeight: 700 }}>✓</span>
+                        {done ? (
+                          <span style={{ fontSize: 14, color: 'var(--sage-dark)', fontWeight: 700 }}>✓ {s('已学', '已學', 'Done')}</span>
+                        ) : (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '3px 9px',
+                              borderRadius: 'var(--r-pill)',
+                              background: 'var(--saffron-pale)',
+                              color: 'var(--saffron-dark)',
+                              font: 'var(--text-caption)',
+                              fontWeight: 700,
+                              letterSpacing: 1,
+                            }}
+                          >
+                            {s('阅读', '閱讀', 'Read')}
+                            <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" viewBox="0 0 24 24">
+                              <polyline points="9 6 15 12 9 18" />
+                            </svg>
+                          </span>
                         )}
                       </Link>
                     );

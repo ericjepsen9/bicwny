@@ -3,12 +3,15 @@
 //   - 焦点陷阱（useFocusTrap）· Esc 关闭 · 点 backdrop 关闭
 //   - 锁住 body 滚动
 //   - 入场动画（slideUp 从底部 · 与原 sheet 一致风格）
+//   - createPortal 到 document.body 避免任何 ancestor stacking context /
+//     transform 干扰 fixed 定位（之前用户截图遇到 sheet 错位即此）
 //
 // 用法：
 //   <Dialog open={open} onClose={() => setOpen(false)} title="搜索">
 //     <input ... />
 //   </Dialog>
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useFocusTrap } from '@/lib/a11y';
 
 interface DialogProps {
@@ -56,10 +59,12 @@ export default function Dialog({
   const panelStyle: React.CSSProperties =
     variant === 'overlay'
       ? {
-          position: 'absolute',
-          inset: 0,
+          position: 'fixed',
+          top: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '100%',
           maxWidth: 480,
-          margin: '0 auto',
           background: 'var(--bg-card)',
           display: 'flex',
           flexDirection: 'column',
@@ -67,21 +72,23 @@ export default function Dialog({
           height: '100vh',
         }
       : {
-          position: 'absolute',
-          left: 0,
-          right: 0,
+          position: 'fixed',
+          left: '50%',
           bottom: 0,
+          transform: 'translateX(-50%)',
+          width: '100%',
           maxWidth: 480,
-          margin: '0 auto',
           background: 'var(--bg-card)',
           borderRadius: '18px 18px 0 0',
           padding: 16,
           maxHeight: '85vh',
           overflowY: 'auto',
           animation: 'slideUp .25s var(--ease) both',
+          paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
         };
 
-  return (
+  // Portal 到 body · 避免任何祖先 transform / overflow / contain 影响 fixed
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -91,7 +98,7 @@ export default function Dialog({
       <div
         onClick={onClose}
         aria-hidden
-        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.45)' }}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)' }}
       />
       <div ref={panelRef} style={panelStyle}>
         {(header || title || !hideClose) && (
@@ -140,6 +147,7 @@ export default function Dialog({
         <div style={{ flex: 1, minHeight: 0 }}>{children}</div>
         {footer && <div style={{ marginTop: 14 }}>{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -9,6 +9,7 @@
 //
 // 单例 host 由 <ConfirmHost /> 在 main.tsx 渲染 · confirmAsync 通过事件总线触发
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useFocusTrap } from '@/lib/a11y';
 
 export interface ConfirmOptions {
@@ -98,7 +99,8 @@ function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  // Portal 到 body · 同 Dialog 原因
+  return createPortal(
     <div
       role="alertdialog"
       aria-modal="true"
@@ -185,6 +187,7 @@ function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

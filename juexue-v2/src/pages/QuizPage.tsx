@@ -198,36 +198,84 @@ export default function QuizPage() {
 
   if (done) {
     const correct = Object.values(grades).filter((g) => g.isCorrect === true).length;
+    const wrong = Object.values(grades).filter((g) => g.isCorrect === false).length;
     const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+    const title = pct >= 80
+      ? s('太棒了', '太棒了', 'Excellent')
+      : pct >= 50
+        ? s('继续加油', '繼續加油', 'Keep going')
+        : s('再来一次', '再來一次', 'Try again');
+    // 圆环 SVG · 半径 50 · 周长 314
+    const ringR = 50;
+    const ringC = 2 * Math.PI * ringR;
+    const ringFilled = (pct / 100) * ringC;
+    const ringColor = pct >= 80 ? 'var(--sage-dark)' : pct >= 50 ? 'var(--saffron)' : 'var(--crimson)';
     return (
-      <div style={{ padding: 'var(--sp-8) var(--sp-5)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-4)' }}>
-        <div style={{ fontSize: '4rem' }}>{pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪'}</div>
+      <div style={{ padding: 'var(--sp-8) var(--sp-5)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-5)' }}>
+        {/* 120×120 圆环 · 内显百分比 */}
+        <div style={{ position: 'relative', width: 120, height: 120 }}>
+          <svg width="120" height="120" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }} aria-hidden>
+            <circle cx="60" cy="60" r={ringR} fill="none" stroke="var(--border-light)" strokeWidth="8" />
+            <circle
+              cx="60"
+              cy="60"
+              r={ringR}
+              fill="none"
+              stroke={ringColor}
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeDasharray={ringC}
+              strokeDashoffset={ringC - ringFilled}
+              style={{ transition: 'stroke-dashoffset .6s var(--ease)' }}
+            />
+          </svg>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--ink)' }}>
+              {pct}%
+            </span>
+            <span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 2 }}>
+              {s('正确率', '正確率', 'Accuracy')}
+            </span>
+          </div>
+        </div>
+
+        {/* 大标题 */}
         <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--ink)', letterSpacing: 4 }}>
-          {s('完成', '完成', 'Done')}
+          {title}
         </h1>
-        <p style={{ font: 'var(--text-body)', color: 'var(--ink-2)', letterSpacing: 1 }}>
-          {s(`正确 ${correct} / ${total} · ${pct}%`,
-              `正確 ${correct} / ${total} · ${pct}%`,
-              `${correct} / ${total} · ${pct}%`)}
-        </p>
-        <div style={{ display: 'flex', gap: 'var(--sp-3)', marginTop: 'var(--sp-4)' }}>
+
+        {/* 三栏 stat */}
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr', gap: 0, alignItems: 'center', maxWidth: 320, width: '100%' }}>
+          <DoneStat val={String(correct)} label={s('答对', '答對', 'Right')} color="var(--sage-dark)" />
+          <DoneSep />
+          <DoneStat val={String(wrong)} label={s('答错', '答錯', 'Wrong')} color="var(--crimson)" />
+          <DoneSep />
+          <DoneStat val={String(total)} label={s('总数', '總數', 'Total')} />
+        </div>
+
+        {/* 按钮：下一课（仅 nextLessonId 时） + 返回首页 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', width: '100%', maxWidth: 320, marginTop: 'var(--sp-2)' }}>
           {nextLessonId && slug && (
             <button
               type="button"
               onClick={() => nav(`/read/${slug}/${nextLessonId}`, { replace: true })}
-              className="btn btn-primary btn-pill"
-              style={{ padding: '10px 24px' }}
+              className="btn btn-primary btn-pill btn-full"
+              style={{ padding: 14, justifyContent: 'center' }}
             >
-              {s('下一课', '下一課', 'Next lesson')}
+              {s('下一课 →', '下一課 →', 'Next lesson →')}
             </button>
           )}
           <button
             type="button"
-            onClick={backToSource}
-            className="btn btn-pill"
-            style={{ padding: '10px 24px', background: 'transparent', color: 'var(--ink-2)', border: '1px solid var(--border)' }}
+            onClick={() => nav('/', { replace: true })}
+            className={nextLessonId && slug ? 'btn btn-pill btn-full' : 'btn btn-primary btn-pill btn-full'}
+            style={
+              nextLessonId && slug
+                ? { padding: 14, justifyContent: 'center', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }
+                : { padding: 14, justifyContent: 'center' }
+            }
           >
-            {s('返回', '返回', 'Back')}
+            {s('返回首页', '返回首頁', 'Back to home')}
           </button>
         </div>
       </div>
@@ -371,4 +419,21 @@ function typeLabel(t: string): string {
 function cryptoRandom(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
   return 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function DoneStat({ val, label, color }: { val: string; label: string; color?: string }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.25rem', color: color ?? 'var(--ink)', lineHeight: 1.2 }}>
+        {val}
+      </div>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function DoneSep() {
+  return <div style={{ background: 'var(--border-light)', justifySelf: 'center', height: 28, width: 1 }} />;
 }
