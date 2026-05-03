@@ -11,7 +11,7 @@
 // 顶部 nav：
 //   · 左上：返回（保留）· 中：截断标题
 //   · 右上：⋯ 菜单弹出（加入/退出报名 · 重置进度 · 复制链接）
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
@@ -48,6 +48,22 @@ export default function ScriptureDetailPage() {
   const isMainCourse = !!course.data && mainCourseId === course.data.id;
 
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // 顶部 nav · 滚出 hero 后转玻璃模糊 + 显示标题（参考 Apple 图书）
+  // hero 区高度 ~ 360px · 滚到 200 时开始过渡 · 250 时完成
+  const [scrolled, setScrolled] = useState(0); // 0..1 渐变进度
+  useEffect(() => {
+    function onScroll() {
+      const y = window.scrollY;
+      const start = 180;
+      const end = 280;
+      const t = Math.max(0, Math.min(1, (y - start) / (end - start)));
+      setScrolled(t);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const enroll = useMutation({
     mutationFn: () => api.post('/api/enrollments', { courseId: course.data!.id }),
@@ -190,15 +206,23 @@ export default function ScriptureDetailPage() {
         />
       )}
 
-      {/* 顶部 nav · 透明叠在 hero 上 */}
+      {/* 顶部 nav · hero 区透明 · 滚出 hero 后渐变为玻璃模糊 + 显示法本名 */}
       <div
         className="top-nav"
         style={{
           position: 'sticky',
           top: 0,
           zIndex: 5,
-          background: 'transparent',
-          backdropFilter: 'none',
+          // 滚动联动：透明 → 玻璃白半透明
+          background: scrolled > 0
+            ? `rgba(255, 250, 244, ${0.85 * scrolled})`
+            : 'transparent',
+          // 模糊度跟随 scroll 渐变
+          backdropFilter: scrolled > 0 ? `blur(${12 * scrolled}px) saturate(1.3)` : 'none',
+          WebkitBackdropFilter: scrolled > 0 ? `blur(${12 * scrolled}px) saturate(1.3)` : 'none',
+          // 底部细线 · 玻璃出现后才显
+          borderBottom: scrolled > 0.5 ? '1px solid rgba(43,34,24,.06)' : 'none',
+          transition: 'border-color .2s var(--ease)',
         }}
       >
         <button
@@ -212,7 +236,20 @@ export default function ScriptureDetailPage() {
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
-        <span className="nav-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} />
+        <span
+          className="nav-title"
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            opacity: scrolled,
+            transform: `translateY(${(1 - scrolled) * 8}px)`,
+            transition: 'opacity .15s var(--ease), transform .15s var(--ease)',
+            pointerEvents: scrolled > 0.5 ? 'auto' : 'none',
+          }}
+        >
+          {c.coverEmoji} {c.title}
+        </span>
         <button
           type="button"
           onClick={() => setMenuOpen(true)}
