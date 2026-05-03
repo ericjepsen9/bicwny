@@ -145,8 +145,8 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* 班级卡 */}
-        {firstClass && (
+        {/* 班级卡 · 已加入显示班级，未加入显示"加入班级"引导卡 */}
+        {firstClass ? (
           <Link
             to={`/class/${encodeURIComponent(firstClass.classId)}`}
             className="glass-card-thick"
@@ -192,6 +192,63 @@ export default function HomePage() {
               </div>
               <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 2 }}>
                 {s('我的班级', '我的班級', 'My class')}
+              </div>
+            </div>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--ink-4)' }}>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </Link>
+        ) : (
+          // 未加入班级 · 老 prototype home.html 第 254-269 行的引导卡
+          <Link
+            to="/join-class"
+            className="glass-card-thick"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--sp-3)',
+              padding: '10px var(--sp-4)',
+              cursor: 'pointer',
+              textDecoration: 'none',
+              color: 'inherit',
+              borderLeft: '3px solid var(--saffron)',
+            }}
+          >
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 'var(--r-sm)',
+                background: 'var(--saffron-pale)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                color: 'var(--saffron-dark)',
+              }}
+            >
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontWeight: 700,
+                  color: 'var(--ink)',
+                  fontSize: '0.8125rem',
+                  letterSpacing: 2,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {s('加入班级', '加入班級', 'Join a class')}
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 2 }}>
+                {s('输入辅导员提供的 6 位邀请码', '輸入輔導員提供的 6 位邀請碼', 'Enter your coach\'s 6-digit code')}
               </div>
             </div>
             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--ink-4)' }}>

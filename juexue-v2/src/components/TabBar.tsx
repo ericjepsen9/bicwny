@@ -2,7 +2,9 @@
 //   - NavLink 自带 active 状态（aria-current=page 由 a11y 友好版自动加）
 //   - 切 tab 走 React Router · 不触发浏览器导航 · 不显示进度条
 //   - 视觉沿用 prototypes/shared/components.css 里的 .tab-bar / .tab-item
-import { NavLink } from 'react-router-dom';
+//   - 仅 4 个 tab root（/, /courses, /quiz, /profile）显示 · 二级及以下隐藏
+//     （app 沉浸式体验：阅读 / 答题 / 详情等不被打断）
+import { NavLink, useLocation } from 'react-router-dom';
 
 interface TabDef {
   to: string;
@@ -43,7 +45,16 @@ const TABS: TabDef[] = [
   { to: '/profile', label: { sc: '我的', tc: '我的', en: 'Profile' },  icon: ProfileIcon },
 ];
 
+const ROOT_PATHS = new Set(TABS.map((t) => t.to));
+
+export function shouldShowTabBar(pathname: string): boolean {
+  // /quiz 是 root · /quiz/:lessonId 是详情页（不显示）
+  return ROOT_PATHS.has(pathname);
+}
+
 export default function TabBar() {
+  const { pathname } = useLocation();
+  if (!shouldShowTabBar(pathname)) return null;
   return (
     <nav className="tab-bar" aria-label="主导航">
       {TABS.map((t) => (
@@ -65,3 +76,4 @@ export default function TabBar() {
     </nav>
   );
 }
+

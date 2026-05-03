@@ -5,12 +5,13 @@
 //   /dev-test · 公开 · 自测页（Phase 4 完后删）
 import { Suspense, lazy } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import AdminShell from './components/AdminShell';
 import CoachShell from './components/CoachShell';
 import RequireAdmin from './components/RequireAdmin';
 import RequireAuth from './components/RequireAuth';
 import RequireCoach from './components/RequireCoach';
-import TabBar from './components/TabBar';
+import TabBar, { shouldShowTabBar } from './components/TabBar';
 import { useAuth } from './lib/auth';
 
 // lazy 切分 · 进各页才加载对应代码
@@ -77,8 +78,13 @@ function PageFallback() {
   );
 }
 
-/** 已登录 layout · phone 容器 + scroll-area + TabBar */
+/** 已登录 layout · phone 容器 + scroll-area + TabBar
+ *  TabBar 仅在 4 个 tab root 显示 · 二级/三级页面隐藏（沉浸式 app 体验）
+ *  对应 paddingBottom 也跟着变 · 二级页给 0（safe-area 兜底）· root 给 80px
+ */
 function AppShell() {
+  const { pathname } = useLocation();
+  const tabVisible = shouldShowTabBar(pathname);
   return (
     <div className="phone-wrap" data-app="juexue-v2">
       <div className="phone">
@@ -86,8 +92,11 @@ function AppShell() {
           className="scroll-area"
           id="main-content"
           tabIndex={-1}
-          /* 80 为 tab-bar 视觉高度 · safe-area-inset-bottom 让 iOS home indicator 区不挡卡片 */
-          style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' }}
+          style={{
+            paddingBottom: tabVisible
+              ? 'calc(80px + env(safe-area-inset-bottom, 0px))'
+              : 'env(safe-area-inset-bottom, 0px)',
+          }}
         >
           <Suspense fallback={<PageFallback />}>
             <Routes>
