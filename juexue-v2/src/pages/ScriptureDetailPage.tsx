@@ -312,7 +312,7 @@ export default function ScriptureDetailPage() {
                 className="btn btn-primary"
                 style={{
                   padding: '10px 18px',
-                  borderRadius: 'var(--r-md)',
+                  borderRadius: 'var(--r-lg)',
                   fontFamily: 'var(--font-serif)',
                   fontWeight: 600,
                   fontSize: '0.875rem',
@@ -328,7 +328,7 @@ export default function ScriptureDetailPage() {
                 aria-disabled
                 style={{
                   padding: '10px 18px',
-                  borderRadius: 'var(--r-md)',
+                  borderRadius: 'var(--r-lg)',
                   fontFamily: 'var(--font-serif)',
                   fontWeight: 600,
                   fontSize: '0.875rem',
@@ -508,8 +508,8 @@ export default function ScriptureDetailPage() {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 4,
-                              padding: '4px 10px',
-                              borderRadius: 'var(--r-md)',
+                              padding: '5px 12px',
+                              borderRadius: 'var(--r-lg)',
                               background: 'var(--saffron-pale)',
                               color: 'var(--saffron-dark)',
                               border: '1px solid var(--saffron-light)',
