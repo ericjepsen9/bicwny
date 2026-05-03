@@ -129,7 +129,14 @@ export default function ScriptureDetailPage() {
     : null;
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{
+      position: 'relative',
+      minHeight: '100vh',
+      background: 'var(--bg)',
+      // 必须裁掉横向溢出 · 否则下方 hero 的 transform: scale(1.5) blur 层
+      // 会撑出右侧水平滚动条
+      overflowX: 'clip',
+    }}>
       {/* Hero 背景 · 有封面图时用 blur 模糊提色（参考 Apple 图书）· 否则 saffron 渐变 */}
       {c.coverImageUrl ? (
         <>
