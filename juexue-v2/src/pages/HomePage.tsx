@@ -76,7 +76,8 @@ export default function HomePage() {
     );
 
   // 拉法本详情（章节树）· 用来算 totalLessons + 找 currentLesson 元数据
-  const currentCourseDetail = useCourseDetail(currentCourse?.slug);
+  // 首页只看 TOC 和进度 · 不显示原文 · 用 lite 省几 MB payload
+  const currentCourseDetail = useCourseDetail(currentCourse?.slug, { lite: true });
   const completedSet = new Set(firstEnrollment?.lessonsCompleted ?? []);
   const completedCount = firstEnrollment?.lessonsCompleted.length ?? 0;
   const totalLessons = (currentCourseDetail.data?.chapters ?? []).reduce(

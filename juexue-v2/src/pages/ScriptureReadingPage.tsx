@@ -23,7 +23,9 @@ export default function ScriptureReadingPage() {
   const nav = useNavigate();
   const { step } = useFontScale();
 
-  const course = useCourseDetail(slug);
+  // 阅读页只需要"当前 lesson 的原文"+ 全树 TOC 用于 prev/next 跳转
+  // lessonId 模式：仅当前 lesson 带 referenceText/teachingSummary · 其他课只 id/title
+  const course = useCourseDetail(slug, { lessonId });
   const enrollments = useEnrollments();
   const [tocOpen, setTocOpen] = useState(false);
   // 工具栏可见性 · 进入默认显示 · 向下滚收 / 向上滚显（iOS Safari 风格）

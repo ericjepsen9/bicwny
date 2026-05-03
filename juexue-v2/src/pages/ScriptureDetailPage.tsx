@@ -31,7 +31,8 @@ export default function ScriptureDetailPage() {
   const mode = (params.get('mode') as 'read' | 'quiz' | null) ?? 'read';
   const qc = useQueryClient();
 
-  const course = useCourseDetail(slug);
+  // 详情页只显示 TOC + 章节 · 不渲染原文 · 用 lite 省几 MB payload
+  const course = useCourseDetail(slug, { lite: true });
   const enrollments = useEnrollments();
 
   const enrollment = useMemo(

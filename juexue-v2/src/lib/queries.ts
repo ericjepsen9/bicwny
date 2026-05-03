@@ -41,17 +41,28 @@ export function useCourses() {
   });
 }
 
-export function useCourseDetail(slug: string | null | undefined) {
+// useCourseDetail · 论典详情
+//   默认 = 全树（含 referenceText）· 单课原文几十~几百 KB · 整书可达 MB
+//   传 { lite: true } · 后端跳过 referenceText / teachingSummary · TOC / 进度叠加场景用
+//   传 { lessonId } · 单 lesson 模式 · 只有该 lesson 带原文 · 其他仍返回 id/title
+//   queryKey 包含 mode 以区分缓存
+export function useCourseDetail(
+  slug: string | null | undefined,
+  opts?: { lite?: boolean; lessonId?: string },
+) {
+  const lite = !!opts?.lite;
+  const lessonId = opts?.lessonId;
   return useQuery({
     enabled: !!slug,
-    queryKey: ['/api/courses', slug],
+    queryKey: ['/api/courses', slug, lessonId ? `lesson:${lessonId}` : (lite ? 'lite' : 'full')],
     queryFn: async ({ signal }) => {
+      const qs = new URLSearchParams();
+      if (lite) qs.set('lite', '1');
+      if (lessonId) qs.set('lessonId', lessonId);
+      const path = '/api/courses/' + encodeURIComponent(slug!) + (qs.toString() ? '?' + qs.toString() : '');
       // 后端返回 { course, overlay } 包装 · api.* 已剥外层 { data: ... }
       // 兼容两种 shape：直接是 CourseDetail · 或 { course, overlay }
-      const r = await api.get<CourseDetail | { course: CourseDetail; overlay?: unknown }>(
-        '/api/courses/' + encodeURIComponent(slug!),
-        { signal },
-      );
+      const r = await api.get<CourseDetail | { course: CourseDetail; overlay?: unknown }>(path, { signal });
       if (r && typeof r === 'object' && 'course' in r && (r as { course?: unknown }).course) {
         return (r as { course: CourseDetail }).course;
       }
