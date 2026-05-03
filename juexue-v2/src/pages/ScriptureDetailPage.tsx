@@ -125,19 +125,58 @@ export default function ScriptureDetailPage() {
 
   return (
     <div style={{ position: 'relative', minHeight: '100vh', background: 'var(--bg)' }}>
-      {/* Hero 渐变背景 · 沿用 saffron 色系（避免每本书计算提色） */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 360,
-          background: 'linear-gradient(180deg, var(--saffron-pale) 0%, var(--saffron-pale) 50%, var(--bg) 100%)',
-          pointerEvents: 'none',
-        }}
-        aria-hidden
-      />
+      {/* Hero 背景 · 有封面图时用 blur 模糊提色（参考 Apple 图书）· 否则 saffron 渐变 */}
+      {c.coverImageUrl ? (
+        <>
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 320,
+              backgroundImage: `url(${c.coverImageUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(60px) saturate(1.4)',
+              transform: 'scale(1.5)',
+              transformOrigin: 'center top',
+              opacity: 0.55,
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+            aria-hidden
+          />
+          {/* 底部渐隐到 bg · 让目录区融入 */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 220,
+              left: 0,
+              right: 0,
+              height: 120,
+              background: 'linear-gradient(180deg, transparent 0%, var(--bg) 100%)',
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+            aria-hidden
+          />
+        </>
+      ) : (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 320,
+            background: 'linear-gradient(180deg, var(--saffron-pale) 0%, var(--saffron-pale) 50%, var(--bg) 100%)',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+          aria-hidden
+        />
+      )}
 
       {/* 顶部 nav · 透明叠在 hero 上 */}
       <div
@@ -161,9 +200,7 @@ export default function ScriptureDetailPage() {
             <polyline points="15 18 9 12 15 6" />
           </svg>
         </button>
-        <span className="nav-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {/* 滚动到 hero 后才显示标题 · 暂时简化为始终空 */}
-        </span>
+        <span className="nav-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} />
         <button
           type="button"
           onClick={() => setMenuOpen(true)}
@@ -190,24 +227,23 @@ export default function ScriptureDetailPage() {
         </button>
       </div>
 
-      {/* Hero · 居中封面 + 标题 */}
+      {/* Hero · 紧凑 · 缩小封面让目录早展示 */}
       <div
         style={{
           position: 'relative',
           zIndex: 1,
-          padding: 'var(--sp-3) var(--sp-5) var(--sp-5)',
+          padding: 'var(--sp-2) var(--sp-5) var(--sp-4)',
           textAlign: 'center',
         }}
       >
-        {/* 封面卡 · 120px 宽 · 不太大 */}
         <div
           style={{
-            width: 120,
-            height: 160,
-            margin: '0 auto var(--sp-4)',
+            width: 96,
+            height: 128,
+            margin: '0 auto var(--sp-3)',
             borderRadius: 'var(--r-md)',
             overflow: 'hidden',
-            boxShadow: '0 14px 32px rgba(43,34,24,.22)',
+            boxShadow: '0 12px 28px rgba(43,34,24,.28)',
             background: c.coverImageUrl
               ? `center/cover url(${c.coverImageUrl})`
               : 'linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%)',
@@ -215,7 +251,7 @@ export default function ScriptureDetailPage() {
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: '3.5rem',
+            fontSize: '2.8rem',
           }}
           aria-hidden
         >
@@ -225,11 +261,11 @@ export default function ScriptureDetailPage() {
         <h1
           style={{
             fontFamily: 'var(--font-serif)',
-            fontSize: '1.5rem',
+            fontSize: '1.375rem',
             fontWeight: 700,
             color: 'var(--ink)',
             letterSpacing: 4,
-            marginBottom: 6,
+            marginBottom: 4,
           }}
         >
           {c.title}
@@ -240,26 +276,76 @@ export default function ScriptureDetailPage() {
           </p>
         )}
 
-        {/* 三栏统计 */}
+        {/* 统计 + CTA 整合卡 · 圆角矩形 · 与全站规范对齐 */}
         <div
+          className="glass-card-thick"
           style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1px 1fr 1px 1fr',
-            alignItems: 'center',
-            maxWidth: 320,
-            margin: '0 auto var(--sp-4)',
-            padding: 'var(--sp-3) var(--sp-4)',
-            background: 'var(--glass-thick)',
-            backdropFilter: 'var(--blur)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: 'var(--r-md)',
+            maxWidth: 360,
+            margin: '0 auto',
+            padding: 'var(--sp-3) var(--sp-4) var(--sp-4)',
+            borderRadius: 'var(--r-lg)',
           }}
         >
-          <Stat num={chapters.length} label={s('章', '章', 'Ch')} />
-          <Sep />
-          <Stat num={totalLessons} label={s('课', '課', 'Le')} />
-          <Sep />
-          <Stat num={pct + '%'} label={s('已学', '已學', 'Done')} color="var(--sage-dark)" />
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1px 1fr 1px 1fr',
+              alignItems: 'center',
+              padding: 'var(--sp-1) 0 var(--sp-3)',
+            }}
+          >
+            <Stat num={chapters.length} label={s('章', '章', 'Ch')} />
+            <Sep />
+            <Stat num={totalLessons} label={s('课', '課', 'Le')} />
+            <Sep />
+            <Stat num={pct + '%'} label={s('已学', '已學', 'Done')} color="var(--sage-dark)" />
+          </div>
+          <div style={{ height: 1, background: 'var(--border-light)', margin: '0 calc(var(--sp-4) * -1) var(--sp-3)' }} />
+          <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+            {continueLesson ? (
+              <Link
+                to={`/read/${c.slug}/${continueLesson.id}`}
+                className="btn btn-primary btn-pill"
+                style={{ flex: 1, padding: 11, justifyContent: 'center' }}
+              >
+                {currentLessonId
+                  ? s('继续阅读', '繼續閱讀', 'Continue')
+                  : s('开始阅读', '開始閱讀', 'Start reading')}
+              </Link>
+            ) : (
+              <span
+                className="btn btn-pill"
+                aria-disabled
+                style={{
+                  flex: 1,
+                  padding: 11,
+                  justifyContent: 'center',
+                  background: 'var(--glass-thick)',
+                  color: 'var(--ink-4)',
+                  border: '1px solid var(--glass-border)',
+                  cursor: 'not-allowed',
+                }}
+              >
+                {s('暂无课时', '暫無課時', 'No lessons')}
+              </span>
+            )}
+            {!enrollment && firstLesson && (
+              <button
+                type="button"
+                onClick={() => enroll.mutate()}
+                disabled={enroll.isPending}
+                className="btn btn-pill"
+                style={{
+                  padding: '11px 16px',
+                  background: 'var(--glass-thick)',
+                  color: 'var(--ink-2)',
+                  border: '1px solid var(--glass-border)',
+                }}
+              >
+                {enroll.isPending ? '…' : '+ ' + s('加入', '加入', 'Join')}
+              </button>
+            )}
+          </div>
         </div>
 
         {c.description && (
@@ -270,60 +356,13 @@ export default function ScriptureDetailPage() {
               letterSpacing: 1,
               lineHeight: 1.7,
               maxWidth: 360,
-              margin: '0 auto var(--sp-4)',
+              margin: 'var(--sp-3) auto 0',
               padding: '0 var(--sp-2)',
             }}
           >
             {c.description}
           </p>
         )}
-
-        {/* 主 CTA */}
-        <div style={{ display: 'flex', gap: 'var(--sp-2)', maxWidth: 360, margin: '0 auto' }}>
-          {continueLesson ? (
-            <Link
-              to={`/read/${c.slug}/${continueLesson.id}`}
-              className="btn btn-primary btn-pill"
-              style={{ flex: 1, padding: 12, justifyContent: 'center' }}
-            >
-              {currentLessonId
-                ? s('继续阅读', '繼續閱讀', 'Continue')
-                : s('开始阅读', '開始閱讀', 'Start reading')}
-            </Link>
-          ) : (
-            <span
-              className="btn btn-pill"
-              aria-disabled
-              style={{
-                flex: 1,
-                padding: 12,
-                justifyContent: 'center',
-                background: 'var(--glass-thick)',
-                color: 'var(--ink-4)',
-                border: '1px solid var(--glass-border)',
-                cursor: 'not-allowed',
-              }}
-            >
-              {s('暂无课时', '暫無課時', 'No lessons')}
-            </span>
-          )}
-          {!enrollment && firstLesson && (
-            <button
-              type="button"
-              onClick={() => enroll.mutate()}
-              disabled={enroll.isPending}
-              className="btn btn-pill"
-              style={{
-                padding: '12px 18px',
-                background: 'var(--glass-thick)',
-                color: 'var(--ink-2)',
-                border: '1px solid var(--glass-border)',
-              }}
-            >
-              {enroll.isPending ? s('…', '…', '…') : '+ ' + s('加入', '加入', 'Join')}
-            </button>
-          )}
-        </div>
       </div>
 
       {/* 目录 section */}
@@ -348,13 +387,20 @@ export default function ScriptureDetailPage() {
           )}
         </h2>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
           {chapters.map((ch) => {
             const lessons = ch.lessons ?? [];
             const chCompleted = lessons.filter((l) => completedSet.has(l.id)).length;
             const chPct = lessons.length > 0 ? Math.round((chCompleted / lessons.length) * 100) : 0;
             return (
-              <details key={ch.id} className="glass-card-thick" style={{ padding: 'var(--sp-4)' }} open>
+              <details
+                key={ch.id}
+                className="glass-card-thick"
+                style={{ padding: 'var(--sp-3) var(--sp-4)', borderRadius: 'var(--r-lg)' }}
+                /* 默认折叠 · 节省版面让更多章节可见 · 用户主动展开看课时
+                   仅当法本只有 1 章时默认展开 */
+                {...(chapters.length === 1 ? { open: true } : {})}
+              >
                 <summary
                   style={{
                     cursor: 'pointer',
