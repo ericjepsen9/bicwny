@@ -241,15 +241,15 @@ export default function ScriptureDetailPage() {
           textAlign: 'center',
         }}
       >
-        {/* 封面 · 加大到 120×160 · 视觉更突出 */}
+        {/* 封面 · 144×192 · 视觉主体更突出 */}
         <div
           style={{
-            width: 120,
-            height: 160,
+            width: 144,
+            height: 192,
             margin: '0 auto var(--sp-4)',
             borderRadius: 'var(--r-md)',
             overflow: 'hidden',
-            boxShadow: '0 14px 32px rgba(43,34,24,.30)',
+            boxShadow: '0 16px 38px rgba(43,34,24,.32)',
             background: c.coverImageUrl
               ? `center/cover url(${c.coverImageUrl})`
               : 'linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%)',
@@ -257,7 +257,7 @@ export default function ScriptureDetailPage() {
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: '3.2rem',
+            fontSize: '3.6rem',
           }}
           aria-hidden
         >
@@ -508,10 +508,11 @@ export default function ScriptureDetailPage() {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 4,
-                              padding: '3px 9px',
-                              borderRadius: 'var(--r-pill)',
+                              padding: '4px 10px',
+                              borderRadius: 'var(--r-md)',
                               background: 'var(--saffron-pale)',
                               color: 'var(--saffron-dark)',
+                              border: '1px solid var(--saffron-light)',
                               font: 'var(--text-caption)',
                               fontWeight: 700,
                               letterSpacing: 1,

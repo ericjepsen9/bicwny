@@ -11,9 +11,11 @@
 //     ChapterProgressGrid 组件保留 · 后续可能放法本详情页 hero 区
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import Dialog from '@/components/Dialog';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
-import { useMainCourseId } from '@/lib/mainCourse';
+import { setMainCourseId, useMainCourseId } from '@/lib/mainCourse';
+import { toast } from '@/lib/toast';
 import {
   useClasses,
   useCourseDetail,
@@ -97,6 +99,12 @@ export default function HomePage() {
 
   // 智能练习题量 picker（与 /quiz 同口径）
   const [practiceLimit, setPracticeLimit] = useState<5 | 10 | 20>(10);
+  // 主修法本切换 sheet（仅多本时启用）
+  const [switchOpen, setSwitchOpen] = useState(false);
+  // 已加入的法本（带 course meta）· 给 sheet 列表用
+  const enrolledCourseList = enrollList
+    .map((e) => courseList.find((c) => c.id === e.courseId))
+    .filter((c): c is NonNullable<typeof c> => !!c);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -324,13 +332,31 @@ export default function HomePage() {
             <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2 }}>
               {s('当前法本', '當前法本', 'Current text')}
             </p>
-            <Link
-              to="/courses?filter=enrolled"
-              style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1 }}
-              title={s('切换主修法本', '切換主修法本', 'Switch main text')}
-            >
-              {s('切换 →', '切換 →', 'Switch →')}
-            </Link>
+            {enrolledCourseList.length > 1 ? (
+              <button
+                type="button"
+                onClick={() => setSwitchOpen(true)}
+                style={{
+                  font: 'var(--text-caption)',
+                  color: 'var(--saffron-dark)',
+                  letterSpacing: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+                title={s('切换主修法本', '切換主修法本', 'Switch main text')}
+              >
+                {s('切换 →', '切換 →', 'Switch →')}
+              </button>
+            ) : (
+              <Link
+                to="/courses"
+                style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1 }}
+              >
+                {s('全部 →', '全部 →', 'All →')}
+              </Link>
+            )}
           </div>
 
           {enrollments.isLoading || courses.isLoading ? (
@@ -508,6 +534,99 @@ export default function HomePage() {
       </div>
 
       <div style={{ height: 'var(--sp-8)' }} />
+
+      {/* 主修法本切换 sheet · 仅多本时弹 */}
+      <Dialog
+        open={switchOpen}
+        onClose={() => setSwitchOpen(false)}
+        title={s('切换主修法本', '切換主修法本', 'Switch main text')}
+      >
+        <div className="group" style={{ marginTop: 'var(--sp-2)' }}>
+          {enrolledCourseList.map((c) => {
+            const isCur = currentCourse?.id === c.id;
+            const en = enrollList.find((e) => e.courseId === c.id);
+            const done = en?.lessonsCompleted.length ?? 0;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  if (!isCur) {
+                    setMainCourseId(c.id);
+                    toast.ok(s('已切换主修法本', '已切換主修法本', 'Switched'));
+                  }
+                  setSwitchOpen(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--sp-3)',
+                  width: '100%',
+                  padding: 'var(--sp-3) var(--sp-4)',
+                  background: isCur ? 'var(--saffron-pale)' : 'transparent',
+                  border: 'none',
+                  borderLeft: isCur ? '3px solid var(--saffron)' : '3px solid transparent',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  color: 'inherit',
+                }}
+              >
+                <span
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 'var(--r-sm)',
+                    background: 'var(--glass)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.4rem',
+                    flexShrink: 0,
+                  }}
+                >
+                  {c.coverEmoji || '🪷'}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontWeight: 700,
+                      color: 'var(--ink)',
+                      fontSize: '0.9375rem',
+                      letterSpacing: 1.5,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {c.title}
+                  </div>
+                  <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+                    {s(`已学 ${done} 课`, `已學 ${done} 課`, `${done} done`)}
+                    {isCur && (
+                      <span style={{ marginLeft: 6, color: 'var(--saffron-dark)', fontWeight: 700 }}>
+                        · {s('当前', '當前', 'Current')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {isCur && (
+                  <span style={{ color: 'var(--saffron-dark)', fontWeight: 700, fontSize: 14 }}>✓</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ padding: 'var(--sp-3) var(--sp-4) 0', textAlign: 'center' }}>
+          <Link
+            to="/courses?filter=available"
+            onClick={() => setSwitchOpen(false)}
+            style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1, textDecoration: 'none' }}
+          >
+            + {s('选修新法本', '選修新法本', 'Enroll new text')}
+          </Link>
+        </div>
+      </Dialog>
     </div>
   );
 }
