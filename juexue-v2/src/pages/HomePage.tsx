@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
 import {
   useClasses,
+  useCourseDetail,
   useCourses,
   useEnrollments,
   useMistakeCount,
@@ -59,10 +60,26 @@ export default function HomePage() {
     courseList.find(
       (c) => c.id === firstEnrollment.courseId,
     );
+
+  // 拉法本详情（章节树）· 用来算 totalLessons + 找 currentLesson 元数据
+  const currentCourseDetail = useCourseDetail(currentCourse?.slug);
+  const completedSet = new Set(firstEnrollment?.lessonsCompleted ?? []);
   const completedCount = firstEnrollment?.lessonsCompleted.length ?? 0;
-  const totalLessons = 0; // 需要 useCourseDetail 才能拿到 · home 暂不展开 · 留 — 占位
-  const pct =
-    totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+  const totalLessons = (currentCourseDetail.data?.chapters ?? []).reduce(
+    (sum, ch) => sum + (ch.lessons?.length ?? 0),
+    0,
+  );
+  const pct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+
+  // 找"继续阅读"目标 lesson · 优先 enrollment.currentLessonId · 否则首个未完成 · 兜底首课时
+  const flatLessons = (currentCourseDetail.data?.chapters ?? []).flatMap((ch) =>
+    (ch.lessons ?? []).map((l) => ({ chapter: ch, lesson: l })),
+  );
+  const continueTarget =
+    flatLessons.find((f) => f.lesson.id === firstEnrollment?.currentLessonId) ??
+    flatLessons.find((f) => !completedSet.has(f.lesson.id)) ??
+    flatLessons[0] ??
+    null;
 
   const firstClass = classes.data?.[0];
 
@@ -332,41 +349,83 @@ export default function HomePage() {
                   fontWeight: 700,
                   color: 'var(--ink)',
                   letterSpacing: 3,
-                  marginBottom: 'var(--sp-3)',
+                  marginBottom: 'var(--sp-2)',
                 }}
               >
                 {currentCourse.coverEmoji} {currentCourse.title}
               </p>
+
+              {/* 当前学到哪里 · 章 + 课名 */}
+              {currentCourseDetail.isLoading ? (
+                <div style={{ marginBottom: 'var(--sp-3)' }}>
+                  <Skeleton.LineSm style={{ width: '60%' }} />
+                </div>
+              ) : continueTarget ? (
+                <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 'var(--sp-3)', lineHeight: 1.6 }}>
+                  📍 {continueTarget.chapter.title}
+                  <span style={{ color: 'var(--ink-4)', marginLeft: 6 }}>·</span>{' '}
+                  <span style={{ color: 'var(--saffron-dark)', fontWeight: 600 }}>
+                    {s('第 ' + continueTarget.lesson.order + ' 课', '第 ' + continueTarget.lesson.order + ' 課', 'Lesson ' + continueTarget.lesson.order)}
+                  </span>{' '}
+                  {continueTarget.lesson.title}
+                </p>
+              ) : null}
+
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--sp-2)' }}>
                 <span className="t-caption t-ink-3">{s('学习进度', '學習進度', 'Progress')}</span>
-                <span className="t-meta" style={{ color: 'var(--saffron)', fontWeight: 700 }}>
-                  {pct > 0 ? pct + '%' : '—'}
+                <span className="t-meta" style={{ color: 'var(--saffron-dark)', fontWeight: 700 }}>
+                  {currentCourseDetail.isLoading
+                    ? '—'
+                    : totalLessons > 0
+                      ? `${completedCount} / ${totalLessons} · ${pct}%`
+                      : '—'}
                 </span>
               </div>
               <div className="progress-track">
                 <div className="progress-fill" style={{ width: pct + '%' }} />
               </div>
               <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-4)' }}>
-                <Link
-                  to={`/scripture-detail?slug=${encodeURIComponent(currentCourse.slug)}`}
-                  className="btn btn-primary btn-pill"
-                  style={{ flex: 1, padding: 12, justifyContent: 'center' }}
-                >
-                  {s('继续阅读', '繼續閱讀', 'Continue')}
-                </Link>
+                {continueTarget ? (
+                  <Link
+                    to={`/read/${currentCourse.slug}/${continueTarget.lesson.id}`}
+                    className="btn btn-primary btn-pill"
+                    style={{ flex: 1, padding: 12, justifyContent: 'center' }}
+                  >
+                    {firstEnrollment?.currentLessonId
+                      ? s('继续阅读', '繼續閱讀', 'Continue')
+                      : completedCount > 0
+                        ? s('继续阅读', '繼續閱讀', 'Continue')
+                        : s('开始阅读', '開始閱讀', 'Start')}
+                  </Link>
+                ) : (
+                  <span
+                    className="btn btn-pill"
+                    aria-disabled
+                    style={{
+                      flex: 1,
+                      padding: 12,
+                      justifyContent: 'center',
+                      background: 'var(--glass-thick)',
+                      color: 'var(--ink-4)',
+                      border: '1px solid var(--glass-border)',
+                      cursor: 'not-allowed',
+                    }}
+                  >
+                    {s('暂无课时', '暫無課時', 'No lessons')}
+                  </span>
+                )}
                 <Link
                   to={`/scripture-detail?slug=${encodeURIComponent(currentCourse.slug)}`}
                   className="btn btn-pill"
                   style={{
-                    flex: 1,
-                    padding: 12,
-                    background: 'transparent',
+                    padding: '12px 18px',
+                    background: 'var(--glass-thick)',
                     color: 'var(--ink-2)',
-                    border: '1px solid var(--border)',
+                    border: '1px solid var(--glass-border)',
                     justifyContent: 'center',
                   }}
                 >
-                  {s('查看详情', '查看詳情', 'Details')}
+                  {s('目录', '目錄', 'Catalog')}
                 </Link>
               </div>
             </>
