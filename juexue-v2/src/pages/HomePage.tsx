@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom';
 import ChapterProgressGrid from '@/components/ChapterProgressGrid';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
+import { useMainCourseId } from '@/lib/mainCourse';
 import {
   useClasses,
   useCourseDetail,
@@ -55,9 +56,15 @@ export default function HomePage() {
   const dharmaName = user?.dharmaName || s('师兄', '師兄', 'Friend');
   const streak = progress.data?.streakDays ?? 0;
 
-  // 找当前要显示的法本：第一个 enrollment 的 course
-  const firstEnrollment = enrollments.data?.[0];
+  // 找当前要显示的法本：
+  //   优先用户在法本详情页设的"主修"（localStorage）·
+  //   否则首本 enrollment（兜底）
+  const mainCourseId = useMainCourseId();
+  const enrollList = enrollments.data ?? [];
   const courseList = courses.data ?? [];
+  const firstEnrollment =
+    (mainCourseId ? enrollList.find((e) => e.courseId === mainCourseId) : null) ??
+    enrollList[0];
   const currentCourse =
     firstEnrollment &&
     courseList.find(
@@ -316,10 +323,11 @@ export default function HomePage() {
               {s('当前法本', '當前法本', 'Current text')}
             </p>
             <Link
-              to="/courses"
+              to="/courses?filter=enrolled"
               style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1 }}
+              title={s('切换主修法本', '切換主修法本', 'Switch main text')}
             >
-              {s('全部 →', '全部 →', 'All →')}
+              {s('切换 →', '切換 →', 'Switch →')}
             </Link>
           </div>
 

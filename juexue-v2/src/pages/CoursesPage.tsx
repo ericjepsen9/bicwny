@@ -4,7 +4,7 @@
 //   点击已加入 → 进 /scripture-detail
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import CourseCover from '@/components/CourseCover';
 import Dialog from '@/components/Dialog';
 import Skeleton from '@/components/Skeleton';
@@ -22,7 +22,12 @@ export default function CoursesPage() {
   const qc = useQueryClient();
   const nav = useNavigate();
 
-  const [filter, setFilter] = useState<Filter>('all');
+  // 默认 filter 来自 URL ?filter=enrolled · 从首页"切换 →"过来时直接显示已加入
+  const [sp] = useSearchParams();
+  const initialFilter = (sp.get('filter') === 'enrolled' || sp.get('filter') === 'available')
+    ? (sp.get('filter') as Filter)
+    : 'all';
+  const [filter, setFilter] = useState<Filter>(initialFilter);
   const [search, setSearch] = useState('');
   const [openSlug, setOpenSlug] = useState<string | null>(null);
 

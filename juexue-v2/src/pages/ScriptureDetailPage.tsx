@@ -19,6 +19,7 @@ import Skeleton from '@/components/Skeleton';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
+import { setMainCourseId, useMainCourseId } from '@/lib/mainCourse';
 import { useCourseDetail, useEnrollments } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
@@ -41,6 +42,10 @@ export default function ScriptureDetailPage() {
     () => new Set(enrollment?.lessonsCompleted ?? []),
     [enrollment],
   );
+
+  // 当前是否为主修法本
+  const mainCourseId = useMainCourseId();
+  const isMainCourse = !!course.data && mainCourseId === course.data.id;
 
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -236,14 +241,15 @@ export default function ScriptureDetailPage() {
           textAlign: 'center',
         }}
       >
+        {/* 封面 · 加大到 120×160 · 视觉更突出 */}
         <div
           style={{
-            width: 96,
-            height: 128,
-            margin: '0 auto var(--sp-3)',
+            width: 120,
+            height: 160,
+            margin: '0 auto var(--sp-4)',
             borderRadius: 'var(--r-md)',
             overflow: 'hidden',
-            boxShadow: '0 12px 28px rgba(43,34,24,.28)',
+            boxShadow: '0 14px 32px rgba(43,34,24,.30)',
             background: c.coverImageUrl
               ? `center/cover url(${c.coverImageUrl})`
               : 'linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%)',
@@ -251,7 +257,7 @@ export default function ScriptureDetailPage() {
             alignItems: 'center',
             justifyContent: 'center',
             color: '#fff',
-            fontSize: '2.8rem',
+            fontSize: '3.2rem',
           }}
           aria-hidden
         >
@@ -271,27 +277,28 @@ export default function ScriptureDetailPage() {
           {c.title}
         </h1>
         {c.author && (
-          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-3)' }}>
+          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-4)' }}>
             {c.author}
           </p>
         )}
+        {!c.author && <div style={{ height: 'var(--sp-4)' }} />}
 
-        {/* 统计 + CTA 整合卡 · 圆角矩形 · 与全站规范对齐 */}
+        {/* 统计 + 「阅读」按钮整合卡 · 4 列同一行 · 圆角矩形 */}
         <div
           className="glass-card-thick"
           style={{
-            maxWidth: 360,
+            maxWidth: 380,
             margin: '0 auto',
-            padding: 'var(--sp-3) var(--sp-4) var(--sp-4)',
+            padding: 'var(--sp-3) var(--sp-3)',
             borderRadius: 'var(--r-lg)',
           }}
         >
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1px 1fr 1px 1fr',
+              gridTemplateColumns: '1fr 1px 1fr 1px 1fr auto',
               alignItems: 'center',
-              padding: 'var(--sp-1) 0 var(--sp-3)',
+              gap: 'var(--sp-2)',
             }}
           >
             <Stat num={chapters.length} label={s('章', '章', 'Ch')} />
@@ -299,54 +306,69 @@ export default function ScriptureDetailPage() {
             <Stat num={totalLessons} label={s('课', '課', 'Le')} />
             <Sep />
             <Stat num={pct + '%'} label={s('已学', '已學', 'Done')} color="var(--sage-dark)" />
-          </div>
-          <div style={{ height: 1, background: 'var(--border-light)', margin: '0 calc(var(--sp-4) * -1) var(--sp-3)' }} />
-          <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
             {continueLesson ? (
               <Link
                 to={`/read/${c.slug}/${continueLesson.id}`}
-                className="btn btn-primary btn-pill"
-                style={{ flex: 1, padding: 11, justifyContent: 'center' }}
+                className="btn btn-primary"
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: 'var(--r-md)',
+                  fontFamily: 'var(--font-serif)',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  letterSpacing: 2,
+                  whiteSpace: 'nowrap',
+                  marginLeft: 'var(--sp-2)',
+                }}
               >
-                {currentLessonId
-                  ? s('继续阅读', '繼續閱讀', 'Continue')
-                  : s('开始阅读', '開始閱讀', 'Start reading')}
+                {s('阅读', '閱讀', 'Read')}
               </Link>
             ) : (
               <span
-                className="btn btn-pill"
                 aria-disabled
                 style={{
-                  flex: 1,
-                  padding: 11,
-                  justifyContent: 'center',
+                  padding: '10px 18px',
+                  borderRadius: 'var(--r-md)',
+                  fontFamily: 'var(--font-serif)',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  letterSpacing: 2,
                   background: 'var(--glass-thick)',
                   color: 'var(--ink-4)',
                   border: '1px solid var(--glass-border)',
                   cursor: 'not-allowed',
+                  marginLeft: 'var(--sp-2)',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                {s('暂无课时', '暫無課時', 'No lessons')}
+                —
               </span>
-            )}
-            {!enrollment && firstLesson && (
-              <button
-                type="button"
-                onClick={() => enroll.mutate()}
-                disabled={enroll.isPending}
-                className="btn btn-pill"
-                style={{
-                  padding: '11px 16px',
-                  background: 'var(--glass-thick)',
-                  color: 'var(--ink-2)',
-                  border: '1px solid var(--glass-border)',
-                }}
-              >
-                {enroll.isPending ? '…' : '+ ' + s('加入', '加入', 'Join')}
-              </button>
             )}
           </div>
         </div>
+
+        {/* 未加入时 · 在卡下方加一个小提示链 · 不再用大按钮 */}
+        {!enrollment && firstLesson && (
+          <button
+            type="button"
+            onClick={() => enroll.mutate()}
+            disabled={enroll.isPending}
+            style={{
+              marginTop: 'var(--sp-3)',
+              padding: '6px 14px',
+              borderRadius: 'var(--r-pill)',
+              background: 'var(--saffron-pale)',
+              color: 'var(--saffron-dark)',
+              border: '1px solid var(--saffron-light)',
+              font: 'var(--text-caption)',
+              fontWeight: 700,
+              letterSpacing: 1,
+              cursor: enroll.isPending ? 'default' : 'pointer',
+            }}
+          >
+            {enroll.isPending ? '…' : '+ ' + s('加入学习同步进度', '加入學習同步進度', 'Join to sync progress')}
+          </button>
+        )}
 
         {c.description && (
           <p
@@ -355,7 +377,7 @@ export default function ScriptureDetailPage() {
               color: 'var(--ink-2)',
               letterSpacing: 1,
               lineHeight: 1.7,
-              maxWidth: 360,
+              maxWidth: 380,
               margin: 'var(--sp-3) auto 0',
               padding: '0 var(--sp-2)',
             }}
@@ -397,9 +419,8 @@ export default function ScriptureDetailPage() {
                 key={ch.id}
                 className="glass-card-thick"
                 style={{ padding: 'var(--sp-3) var(--sp-4)', borderRadius: 'var(--r-lg)' }}
-                /* 默认折叠 · 节省版面让更多章节可见 · 用户主动展开看课时
-                   仅当法本只有 1 章时默认展开 */
-                {...(chapters.length === 1 ? { open: true } : {})}
+                /* 默认全部展开 · 让用户直接看到课时 · 不需要再点章节展开 */
+                open
               >
                 <summary
                   style={{
@@ -559,6 +580,19 @@ export default function ScriptureDetailPage() {
           )}
         </div>
         <div className="group" style={{ marginTop: 'var(--sp-3)' }}>
+          {/* 已加入但不是当前主修 · 显示「设为主修」 */}
+          {enrollment && !isMainCourse && (
+            <SheetItem
+              icon="📍"
+              label={s('设为主修法本', '設為主修法本', 'Set as main')}
+              sub={s('首页将显示这本的进度', '首頁將顯示這本的進度', 'Home will show this text')}
+              onClick={() => {
+                setMainCourseId(c.id);
+                setMenuOpen(false);
+                toast.ok(s('已设为主修法本', '已設為主修法本', 'Set as main'));
+              }}
+            />
+          )}
           <SheetItem
             icon="🔗"
             label={s('复制链接', '複製連結', 'Copy link')}

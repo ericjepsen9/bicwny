@@ -174,6 +174,14 @@ export default function QuizPage() {
   }
 
   function backToSource() {
+    // /practice 智能练习 / 单题模式 / 仅错题 · 完成或返回都回首页
+    // （不回 /quiz · 因为入口主要是首页 ⚡ 智能练习卡）
+    if (isPractice) {
+      if (practiceOnlyMistakes) nav('/mistakes', { replace: true });
+      else if (practiceSingleQid) nav(`/mistake/${encodeURIComponent(practiceSingleQid)}`, { replace: true });
+      else nav('/', { replace: true });
+      return;
+    }
     if (from === 'reading' && slug) nav(`/read/${slug}/${lessonId}`, { replace: true });
     else if (from === 'detail' && slug) nav(`/scripture-detail?slug=${encodeURIComponent(slug)}`, { replace: true });
     else if (from === 'mistake') nav(questionId ? `/mistake/${encodeURIComponent(questionId)}` : '/mistakes', { replace: true });
