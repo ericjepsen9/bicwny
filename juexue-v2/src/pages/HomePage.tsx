@@ -478,47 +478,50 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* ⚡ 智能练习卡 · 与 /quiz 同款 · 一键开始答题 */}
+        {/* 二级 section header · 「智能练习」从卡内标题升格为功能区分隔
+            上方留 sp-3 额外间距 · 让"当前法本"和"智能练习"两个功能区视觉分开 */}
+        <div style={{ marginTop: 'var(--sp-3)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.125rem', color: 'var(--ink)', letterSpacing: 3 }}>
+              {s('智能练习', '智能練習', 'Smart practice')}
+            </h2>
+            <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+              {s('待复习 + 错题 + 已学课时混合', '待複習 + 錯題 + 已學課時混合', 'SM-2 + mistakes + studied')}
+            </p>
+          </div>
+          {/* 题数 chip · 点击呼出滚轮 sheet */}
+          <button
+            type="button"
+            onClick={() => setLimitSheetOpen(true)}
+            aria-label={s(`题数 ${practiceLimit}`, `題數 ${practiceLimit}`, `${practiceLimit} questions`)}
+            style={{
+              flexShrink: 0,
+              padding: '5px 12px',
+              borderRadius: 'var(--r-pill)',
+              background: 'var(--saffron-pale)',
+              border: '1px solid var(--saffron-light)',
+              color: 'var(--saffron-dark)',
+              font: 'var(--text-caption)',
+              fontWeight: 700,
+              letterSpacing: 1,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            {practiceLimit} {s('题', '題', 'Q')}
+            <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 智能练习卡 · 标题已上提 · 卡内只剩 CTA */}
         <div
           className="glass-card-thick"
           style={{ padding: 'var(--sp-4)', borderRadius: 'var(--r-lg)' }}
         >
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--sp-3)', marginBottom: 'var(--sp-3)' }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 2, fontSize: '1rem' }}>
-                ⚡ {s('智能练习', '智能練習', 'Smart practice')}
-              </div>
-              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
-                {s('待复习 + 错题 + 已学课时混合', '待複習 + 錯題 + 已學課時混合', 'SM-2 + mistakes + studied')}
-              </div>
-            </div>
-            {/* 题数 chip · 点击呼出滚轮 sheet */}
-            <button
-              type="button"
-              onClick={() => setLimitSheetOpen(true)}
-              aria-label={s(`题数 ${practiceLimit}`, `題數 ${practiceLimit}`, `${practiceLimit} questions`)}
-              style={{
-                flexShrink: 0,
-                padding: '5px 12px',
-                borderRadius: 'var(--r-pill)',
-                background: 'var(--saffron-pale)',
-                border: '1px solid var(--saffron-light)',
-                color: 'var(--saffron-dark)',
-                font: 'var(--text-caption)',
-                fontWeight: 700,
-                letterSpacing: 1,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              {practiceLimit} {s('题', '題', 'Q')}
-              <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-          </div>
           <Link
             to={`/practice?limit=${practiceLimit}`}
             className="btn btn-pill btn-full"
@@ -532,7 +535,7 @@ export default function HomePage() {
               fontWeight: 600,
             }}
           >
-            {s('开始练习', '開始練習', 'Start practice')} →
+            ⚡ {s('开始练习', '開始練習', 'Start practice')} →
           </Link>
         </div>
 
