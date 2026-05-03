@@ -11,7 +11,6 @@ import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { FONT_SCALES, useFontScale } from '@/lib/fontSize';
-import { useReadMode, type ReadMode } from '@/lib/readMode';
 import { getHapticsEnabled, setHapticsEnabled, tap } from '@/lib/haptics';
 import { useLang, type Lang } from '@/lib/i18n';
 import * as push from '@/lib/push';
@@ -43,10 +42,6 @@ export default function SettingsPage() {
         {/* 字号 */}
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('字号', '字號', 'Font size')}</SectionLabel>
         <FontScalePicker />
-
-        {/* 翻页方式 */}
-        <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('翻页方式', '翻頁方式', 'Page mode')}</SectionLabel>
-        <ReadModePicker />
 
         {/* 语言 */}
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('语言', '語言', 'Language')}</SectionLabel>
@@ -196,22 +191,6 @@ function FontScalePicker() {
         setScale(num);
         tap();
       }}
-    />
-  );
-}
-
-function ReadModePicker() {
-  const { mode, setMode } = useReadMode();
-  const { s } = useLang();
-  const opts: { v: ReadMode; label: string }[] = [
-    { v: 'scroll', label: s('上下滚动', '上下滾動', 'Scroll') },
-    { v: 'swipe',  label: s('左右翻页', '左右翻頁', 'Page-flip') },
-  ];
-  return (
-    <ChipPicker
-      value={mode}
-      options={opts}
-      onChange={(v) => { setMode(v); tap(); }}
     />
   );
 }

@@ -1,13 +1,11 @@
 // ScriptureReadingPage · /read/:slug/:lessonId
-//   显示课时原文 + 顶部章节标题 + 底部"开始答题" / "下一课"按钮
-//   工具栏：A- / A+ 字号步进 · 上一课 · 下一课（跨章节连贯）
+//   Apple 图书风沉浸阅读 · 进入显示工具栏 → 滚一屏后自动隐 → 点正文呼出/收起
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import Dialog from '@/components/Dialog';
 import { useFontScale } from '@/lib/fontSize';
 import { useLang } from '@/lib/i18n';
-import { useReadMode } from '@/lib/readMode';
 import { useCourseDetail, useEnrollments, useUpdateEnrollmentProgress } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
@@ -28,9 +26,9 @@ export default function ScriptureReadingPage() {
   const course = useCourseDetail(slug);
   const enrollments = useEnrollments();
   const [tocOpen, setTocOpen] = useState(false);
-  const { mode: readMode } = useReadMode();
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [swipeAnim, setSwipeAnim] = useState<'none' | 'reset' | 'next' | 'prev'>('none');
+  // 工具栏可见性 · 进入默认显示 · 滚一屏后自动隐 · 点正文 toggle
+  const [chromeVisible, setChromeVisible] = useState(true);
+  const [autoHidden, setAutoHidden] = useState(false);
 
   // 把所有章节的课时拍平成一维 · 方便上一课/下一课跨章节查找
   const flat: FlatLesson[] = useMemo(() => {
@@ -73,9 +71,26 @@ export default function ScriptureReadingPage() {
   }, [courseId, lessonId, enrolledHere, savedLessonId]);
 
   // 切换课时时滚回顶部 · 否则上一课的尾部位置会"继承"到下一课视觉上很奇怪
+  // 同时重置工具栏：新课先显示 · 用户滚动后再自动隐
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
+    setChromeVisible(true);
+    setAutoHidden(false);
   }, [lessonId]);
+
+  // 滚一屏（>120px）后首次自动隐藏工具栏
+  // 之后只能点击正文 toggle · 不再随滚动位置自动开关
+  useEffect(() => {
+    function onScroll() {
+      if (autoHidden) return;
+      if (window.scrollY > 120) {
+        setChromeVisible(false);
+        setAutoHidden(true);
+      }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [autoHidden]);
 
   function bumpFont(dir: 1 | -1) {
     const opt = step(dir);
@@ -133,7 +148,15 @@ export default function ScriptureReadingPage() {
 
   return (
     <div>
-      <div className="top-nav">
+      <div
+        className="top-nav"
+        style={{
+          opacity: chromeVisible ? 1 : 0,
+          transform: chromeVisible ? 'translateY(0)' : 'translateY(-100%)',
+          pointerEvents: chromeVisible ? 'auto' : 'none',
+          transition: 'opacity .25s var(--ease), transform .25s var(--ease)',
+        }}
+      >
         <button
           type="button"
           className="nav-back"
@@ -223,88 +246,11 @@ export default function ScriptureReadingPage() {
       </div>
 
       <div
+        onClick={() => setChromeVisible((v) => !v)}
         style={{
-          padding: '0 var(--sp-5) var(--sp-8)',
-          // swipe 模式下整页跟随手指 · 进入下一课时执行 380px translate 动画
-          transform: readMode === 'swipe' ? `translateX(${
-            swipeAnim === 'next' ? '-100%' :
-            swipeAnim === 'prev' ? '100%' :
-            swipeOffset + 'px'
-          })` : undefined,
-          transition: readMode === 'swipe' && swipeAnim !== 'none'
-            ? 'transform .28s cubic-bezier(.4, 0, .2, 1)'
-            : 'none',
-          touchAction: readMode === 'swipe' ? 'pan-y' : 'auto',
+          padding: '0 var(--sp-5) calc(var(--sp-8) + 80px)',
+          cursor: 'pointer',
         }}
-        onTouchStart={readMode === 'swipe' ? (e) => {
-          if (swipeAnim !== 'none') return;
-          const t = e.touches[0]!;
-          const el = e.currentTarget as HTMLElement;
-          el.dataset.startX = String(t.clientX);
-          el.dataset.startY = String(t.clientY);
-          el.dataset.startTime = String(Date.now());
-          // 'idle' = 还没决定方向 · 'h' = 横向翻页 · 'v' = 纵向滚动（不再拦截）
-          el.dataset.dir = 'idle';
-        } : undefined}
-        onTouchMove={readMode === 'swipe' ? (e) => {
-          const el = e.currentTarget as HTMLElement;
-          if (el.dataset.dir === 'v') return; // 已确定纵向 · 不拦
-          const sx = parseFloat(el.dataset.startX || '0');
-          const sy = parseFloat(el.dataset.startY || '0');
-          const t = e.touches[0]!;
-          const dx = t.clientX - sx;
-          const dy = t.clientY - sy;
-          const absDx = Math.abs(dx);
-          const absDy = Math.abs(dy);
-          // 决定方向：移动距离要 > 24px 才判定 · 横向必须明显大于纵向（>1.8x）
-          if (el.dataset.dir === 'idle') {
-            if (absDx < 24 && absDy < 24) return; // 还没动够 · 等
-            if (absDx > absDy * 1.8 && absDx > 30) {
-              el.dataset.dir = 'h';
-            } else {
-              el.dataset.dir = 'v';
-              return;
-            }
-          }
-          if (el.dataset.dir === 'h') {
-            // 边界态阻力（无 prev/next 时拉动衰减）
-            const blocked = (dx > 0 && !prev) || (dx < 0 && !next);
-            setSwipeOffset(blocked ? dx * 0.25 : dx);
-          }
-        } : undefined}
-        onTouchEnd={readMode === 'swipe' ? (e) => {
-          const el = e.currentTarget as HTMLElement;
-          if (el.dataset.dir !== 'h') {
-            // 没进入横向翻页 · 直接清状态
-            el.dataset.dir = 'idle';
-            return;
-          }
-          const startTime = parseFloat(el.dataset.startTime || '0');
-          const elapsed = Date.now() - startTime;
-          // 提高阈值：120px 距离 · 或 60px+快速滑动（< 250ms）算翻页
-          const distOk = Math.abs(swipeOffset) > 120;
-          const flickOk = Math.abs(swipeOffset) > 60 && elapsed < 250;
-          if ((distOk || flickOk) && swipeOffset < 0 && next) {
-            setSwipeAnim('next');
-            setTimeout(() => {
-              nav(`/read/${c.slug}/${next.lesson.id}`, { replace: true });
-              setSwipeOffset(0);
-              setSwipeAnim('none');
-            }, 280);
-          } else if ((distOk || flickOk) && swipeOffset > 0 && prev) {
-            setSwipeAnim('prev');
-            setTimeout(() => {
-              nav(`/read/${c.slug}/${prev.lesson.id}`, { replace: true });
-              setSwipeOffset(0);
-              setSwipeAnim('none');
-            }, 280);
-          } else {
-            setSwipeAnim('reset');
-            setSwipeOffset(0);
-            setTimeout(() => setSwipeAnim('none'), 280);
-          }
-          el.dataset.dir = 'idle';
-        } : undefined}
       >
         <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: '1.5px', marginBottom: 'var(--sp-2)' }}>
           {chapterTitle} · {s('第 ' + lesson.order + ' 课', '第 ' + lesson.order + ' 課', 'Lesson ' + lesson.order)}
@@ -339,57 +285,77 @@ export default function ScriptureReadingPage() {
         >
           {lesson.referenceText || s('（本课时尚无原文）', '（本課時尚無原文）', '(No reference text yet)')}
         </article>
+      </div>
 
-        {/* 操作行 · 上一课 · 本课答题 · 下一课 */}
-        <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-5)', alignItems: 'center' }}>
-          {prev ? (
-            <Link
-              to={`/read/${c.slug}/${prev.lesson.id}`}
-              replace
-              style={{ ...toolBtn, flex: 1 }}
-              aria-label={s('上一课', '上一課', 'Previous lesson')}
-            >
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              <span>{s('上一课', '上一課', 'Prev')}</span>
-            </Link>
-          ) : (
-            <span style={{ ...toolBtn, ...toolBtnDisabled, flex: 1 }} aria-disabled="true">
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              <span>{s('上一课', '上一課', 'Prev')}</span>
-            </span>
-          )}
+      {/* 底部操作栏 · 固定在屏底 · 跟顶部 nav 联动显示/隐藏 */}
+      <div
+        style={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          padding: `var(--sp-3) var(--sp-5) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px))`,
+          display: 'flex',
+          gap: 'var(--sp-2)',
+          alignItems: 'center',
+          background: 'var(--glass-thick)',
+          backdropFilter: 'var(--blur)',
+          WebkitBackdropFilter: 'var(--blur)',
+          borderTop: '1px solid var(--glass-border)',
+          zIndex: 20,
+          opacity: chromeVisible ? 1 : 0,
+          transform: chromeVisible ? 'translateY(0)' : 'translateY(100%)',
+          pointerEvents: chromeVisible ? 'auto' : 'none',
+          transition: 'opacity .25s var(--ease), transform .25s var(--ease)',
+        }}
+      >
+        {prev ? (
           <Link
-            to={`/quiz/${lesson.id}?courseId=${c.id}&slug=${encodeURIComponent(c.slug)}&from=reading${next ? '&nextLessonId=' + next.lesson.id : ''}`}
-            className="btn btn-primary btn-pill"
-            style={{ flex: 1.4, padding: 12, justifyContent: 'center' }}
+            to={`/read/${c.slug}/${prev.lesson.id}`}
+            replace
+            style={{ ...toolBtn, flex: 1 }}
+            aria-label={s('上一课', '上一課', 'Previous lesson')}
           >
-            {s('开始答题', '開始答題', 'Start quiz')}
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            <span>{s('上一课', '上一課', 'Prev')}</span>
           </Link>
-          {next ? (
-            <Link
-              to={`/read/${c.slug}/${next.lesson.id}`}
-              replace
-              style={{ ...toolBtn, flex: 1 }}
-              aria-label={s('下一课', '下一課', 'Next lesson')}
-            >
-              <span>{s('下一课', '下一課', 'Next')}</span>
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-                <polyline points="9 6 15 12 9 18" />
-              </svg>
-            </Link>
-          ) : (
-            <span style={{ ...toolBtn, ...toolBtnDisabled, flex: 1 }} aria-disabled="true">
-              <span>{s('下一课', '下一課', 'Next')}</span>
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-                <polyline points="9 6 15 12 9 18" />
-              </svg>
-            </span>
-          )}
-        </div>
+        ) : (
+          <span style={{ ...toolBtn, ...toolBtnDisabled, flex: 1 }} aria-disabled="true">
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            <span>{s('上一课', '上一課', 'Prev')}</span>
+          </span>
+        )}
+        <Link
+          to={`/quiz/${lesson.id}?courseId=${c.id}&slug=${encodeURIComponent(c.slug)}&from=reading${next ? '&nextLessonId=' + next.lesson.id : ''}`}
+          className="btn btn-primary btn-pill"
+          style={{ flex: 1.4, padding: 12, justifyContent: 'center' }}
+        >
+          {s('开始答题', '開始答題', 'Start quiz')}
+        </Link>
+        {next ? (
+          <Link
+            to={`/read/${c.slug}/${next.lesson.id}`}
+            replace
+            style={{ ...toolBtn, flex: 1 }}
+            aria-label={s('下一课', '下一課', 'Next lesson')}
+          >
+            <span>{s('下一课', '下一課', 'Next')}</span>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+              <polyline points="9 6 15 12 9 18" />
+            </svg>
+          </Link>
+        ) : (
+          <span style={{ ...toolBtn, ...toolBtnDisabled, flex: 1 }} aria-disabled="true">
+            <span>{s('下一课', '下一課', 'Next')}</span>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+              <polyline points="9 6 15 12 9 18" />
+            </svg>
+          </span>
+        )}
       </div>
 
       {/* 目录 sheet · 当前课时高亮 · 点击直跳 */}
