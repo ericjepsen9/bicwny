@@ -4,7 +4,16 @@ import { useMemo } from 'react';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
 import { useLang } from '@/lib/i18n';
-import { useAchievements, useCourses, useProgress, useSm2Stats } from '@/lib/queries';
+import { type BadgeCategory, useAchievements, useCourses, useProgress, useSm2Stats } from '@/lib/queries';
+
+// 后端徽章只带 category · 前端按 category 派生 emoji
+const CATEGORY_ICONS: Record<BadgeCategory, string> = {
+  activity: '🌱',
+  streak: '🔥',
+  accuracy: '🎯',
+  mastery: '💎',
+  breadth: '🌏',
+};
 
 export default function AchievementPage() {
   const { s } = useLang();
@@ -214,7 +223,7 @@ export default function AchievementPage() {
           label={s('成就勋章', '成就勳章', 'Badges')}
           right={
             achievements.data
-              ? `${achievements.data.filter((a) => a.earnedAt).length} / ${achievements.data.length}`
+              ? `${achievements.data.unlockedCount} / ${achievements.data.totalBadges}`
               : ''
           }
         />
@@ -228,14 +237,17 @@ export default function AchievementPage() {
               </div>
             ))}
           </div>
-        ) : !achievements.data || achievements.data.length === 0 ? (
+        ) : !achievements.data || achievements.data.badges.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 'var(--sp-6)', color: 'var(--ink-3)' }}>
             {s('继续答题解锁徽章', '繼續答題解鎖徽章', 'Keep answering to unlock')}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)' }}>
-            {achievements.data.map((a) => {
-              const earned = !!a.earnedAt;
+            {achievements.data.badges.map((a) => {
+              const earned = a.unlocked;
+              const icon = CATEGORY_ICONS[a.category] ?? '🏅';
+              const title = s(a.titleSc, a.titleTc, a.titleSc);
+              const desc = s(a.descSc, a.descTc, a.descSc);
               return (
                 <div
                   key={a.id}
@@ -246,17 +258,17 @@ export default function AchievementPage() {
                     opacity: earned ? 1 : 0.5,
                     border: earned ? '1px solid var(--saffron-light)' : undefined,
                   }}
-                  title={a.description}
+                  title={desc}
                 >
                   <div style={{ fontSize: '1.6rem', marginBottom: 6 }}>
-                    {earned ? a.icon : '🔒'}
+                    {earned ? icon : '🔒'}
                   </div>
                   <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600, fontSize: '0.8125rem', color: 'var(--ink)', letterSpacing: 1 }}>
-                    {a.name}
+                    {title}
                   </div>
-                  {a.progress && !earned && (
+                  {!earned && a.target > 0 && (
                     <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 4, letterSpacing: '.5px' }}>
-                      {a.progress.current} / {a.progress.target}
+                      {a.current} / {a.target}
                     </div>
                   )}
                 </div>

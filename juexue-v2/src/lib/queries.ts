@@ -378,19 +378,37 @@ export function useClassDetail(classId: string | null | undefined) {
 }
 
 // ── 成就/徽章 ──
-export interface Achievement {
+export type BadgeCategory = 'activity' | 'streak' | 'accuracy' | 'mastery' | 'breadth';
+export interface Badge {
   id: string;
-  code: string;
-  name: string;
-  description: string;
-  icon: string;
-  earnedAt: string | null;
-  progress?: { current: number; target: number };
+  category: BadgeCategory;
+  titleSc: string;
+  titleTc: string;
+  descSc: string;
+  descTc: string;
+  unlocked: boolean;
+  /** 0..1 进度比例 */
+  progress: number;
+  current: number;
+  target: number;
+}
+export interface AchievementsResp {
+  totalBadges: number;
+  unlockedCount: number;
+  badges: Badge[];
+  metrics: {
+    totalAnswers: number;
+    correctRate: number;
+    streakCurrent: number;
+    streakLongest: number;
+    sm2Mastered: number;
+    coursesCovered: number;
+  };
 }
 export function useAchievements() {
   return useQuery({
     queryKey: ['/api/achievements'],
-    queryFn: ({ signal }) => api.get<Achievement[]>('/api/achievements', { signal }),
+    queryFn: ({ signal }) => api.get<AchievementsResp>('/api/achievements', { signal }),
   });
 }
 
