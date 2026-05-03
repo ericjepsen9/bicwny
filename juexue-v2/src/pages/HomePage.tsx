@@ -1,14 +1,16 @@
 // HomePage · 学习仪表盘
 //   1. greeting · 时段问候 + dharmaName + 🔥 streak + 通知铃铛 + 头像
 //   2. class-card · 当前班级 / 加入班级引导
-//   3. course-card · 当前法本（进度 + 当前学到第 N 课 + 继续阅读 / 目录）
+//   3. course-card · 当前法本（进度 + 当前学到第 N 课 + 阅读 / 目录 / 切换主修）
 //   4. ⚡ smart-practice card · 题量 chip + 开始练习（secondary）
 //   5. icon-grid · SM-2 / 错题 / 收藏 / 设置（错题/SM-2 红点提醒）
-//   6. ChapterProgressGrid · 章级棋盘格 · 当前法本完整进度
-// 已删：邮箱未验证 banner（移到 ProfilePage 单点）· 错题大 banner（与 IconTile 重复）
+// 已删：
+//   · 邮箱未验证 banner（移到 ProfilePage 单点）
+//   · 错题大 banner（与 IconTile 重复）
+//   · 章级棋盘格（与当前法本卡的进度数字重复 · 145 章铺满后视觉噪音）
+//     ChapterProgressGrid 组件保留 · 后续可能放法本详情页 hero 区
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import ChapterProgressGrid from '@/components/ChapterProgressGrid';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
 import { useMainCourseId } from '@/lib/mainCourse';
@@ -503,40 +505,6 @@ export default function HomePage() {
           <IconTile to="/favorites" icon="⭐" label={s('收藏', '收藏', 'Favorites')} />
           <IconTile to="/settings" icon="⚙️" label={s('设置', '設定', 'Settings')} />
         </div>
-
-        {/* 章级棋盘格 · 当前法本完整章节进度 */}
-        {currentCourse && (currentCourseDetail.data?.chapters ?? []).length > 0 && (
-          <div
-            className="glass-card-thick"
-            style={{ padding: 'var(--sp-4)', borderRadius: 'var(--r-lg)', marginTop: 'var(--sp-2)' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
-              <div>
-                <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 2, fontSize: '1rem' }}>
-                  📊 {s('学习进度', '學習進度', 'Progress')}
-                </div>
-                <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
-                  {currentCourse.coverEmoji} {currentCourse.title}
-                  <span style={{ color: 'var(--ink-4)', marginLeft: 6 }}>
-                    · {(currentCourseDetail.data?.chapters ?? []).length} {s('章', '章', 'chapters')}
-                  </span>
-                </div>
-              </div>
-              <Link
-                to={`/scripture-detail?slug=${encodeURIComponent(currentCourse.slug)}`}
-                style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1, textDecoration: 'none', whiteSpace: 'nowrap' }}
-              >
-                {s('目录 →', '目錄 →', 'Catalog →')}
-              </Link>
-            </div>
-            <ChapterProgressGrid
-              slug={currentCourse.slug}
-              chapters={currentCourseDetail.data?.chapters ?? []}
-              completedSet={completedSet}
-              currentLessonId={firstEnrollment?.currentLessonId}
-            />
-          </div>
-        )}
       </div>
 
       <div style={{ height: 'var(--sp-8)' }} />
