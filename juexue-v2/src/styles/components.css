@@ -639,3 +639,6 @@ body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
 .menu-arrow { color: var(--ink-4); }
 .menu-item.danger .menu-label { color: var(--crimson); }
 .menu-item.danger .menu-icon  { background: var(--crimson-light); }
+
+/* ── WheelPicker · iOS 风滚轮 · 隐藏 webkit 滚动条 ── */
+.wheel-picker-scroll::-webkit-scrollbar { display: none; width: 0; height: 0; }

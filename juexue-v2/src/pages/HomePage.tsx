@@ -12,9 +12,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
+import WheelPicker from '@/components/WheelPicker';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
 import { setMainCourseId, useMainCourseId } from '@/lib/mainCourse';
+import { PRACTICE_LIMIT_OPTIONS, usePracticeLimit } from '@/lib/practiceLimit';
 import { toast } from '@/lib/toast';
 import {
   useClasses,
@@ -112,8 +114,9 @@ export default function HomePage() {
 
   const firstClass = classes.data?.[0];
 
-  // 智能练习题量 picker（与 /quiz 同口径）
-  const [practiceLimit, setPracticeLimit] = useState<5 | 10 | 20>(10);
+  // 智能练习题量 · localStorage 持久化 · 默认 20
+  const [practiceLimit, setPracticeLimit] = usePracticeLimit();
+  const [limitSheetOpen, setLimitSheetOpen] = useState(false);
   // 主修法本切换 sheet（仅多本时启用）
   const [switchOpen, setSwitchOpen] = useState(false);
   // 已加入的法本（带 course meta）· 给 sheet 列表用
@@ -480,8 +483,8 @@ export default function HomePage() {
           className="glass-card-thick"
           style={{ padding: 'var(--sp-4)', borderRadius: 'var(--r-lg)' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
-            <div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--sp-3)', marginBottom: 'var(--sp-3)' }}>
+            <div style={{ minWidth: 0 }}>
               <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 2, fontSize: '1rem' }}>
                 ⚡ {s('智能练习', '智能練習', 'Smart practice')}
               </div>
@@ -489,35 +492,33 @@ export default function HomePage() {
                 {s('待复习 + 错题 + 已学课时混合', '待複習 + 錯題 + 已學課時混合', 'SM-2 + mistakes + studied')}
               </div>
             </div>
+            {/* 题数 chip · 点击呼出滚轮 sheet */}
+            <button
+              type="button"
+              onClick={() => setLimitSheetOpen(true)}
+              aria-label={s(`题数 ${practiceLimit}`, `題數 ${practiceLimit}`, `${practiceLimit} questions`)}
+              style={{
+                flexShrink: 0,
+                padding: '5px 12px',
+                borderRadius: 'var(--r-pill)',
+                background: 'var(--saffron-pale)',
+                border: '1px solid var(--saffron-light)',
+                color: 'var(--saffron-dark)',
+                font: 'var(--text-caption)',
+                fontWeight: 700,
+                letterSpacing: 1,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              {practiceLimit} {s('题', '題', 'Q')}
+              <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-3)' }}>
-            {([5, 10, 20] as const).map((n) => {
-              const on = n === practiceLimit;
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setPracticeLimit(n)}
-                  aria-pressed={on}
-                  style={{
-                    flex: 1,
-                    padding: '7px 6px',
-                    borderRadius: 'var(--r-pill)',
-                    border: '1px solid ' + (on ? 'var(--saffron-light)' : 'var(--glass-border)'),
-                    background: on ? 'var(--saffron-pale)' : 'var(--glass-thick)',
-                    color: on ? 'var(--saffron-dark)' : 'var(--ink-3)',
-                    font: 'var(--text-caption)',
-                    fontWeight: 600,
-                    letterSpacing: 1,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {n} {s('题', '題', 'Q')}
-                </button>
-              );
-            })}
-          </div>
-          {/* secondary 风格 · 与上方"开始阅读"主 CTA 形成主次 · 避免一屏两 primary */}
           <Link
             to={`/practice?limit=${practiceLimit}`}
             className="btn btn-pill btn-full"
@@ -531,7 +532,7 @@ export default function HomePage() {
               fontWeight: 600,
             }}
           >
-            {s(`开始练习 · ${practiceLimit} 题`, `開始練習 · ${practiceLimit} 題`, `Start · ${practiceLimit} questions`)} →
+            {s('开始练习', '開始練習', 'Start practice')} →
           </Link>
         </div>
 
@@ -547,6 +548,33 @@ export default function HomePage() {
       </div>
 
       <div style={{ height: 'var(--sp-8)' }} />
+
+      {/* 智能练习题数 sheet · 滚轮选择 · 持久化到 localStorage */}
+      <Dialog
+        open={limitSheetOpen}
+        onClose={() => setLimitSheetOpen(false)}
+        title={s('每次练习题数', '每次練習題數', 'Questions per session')}
+      >
+        <div style={{ padding: 'var(--sp-3) 0 var(--sp-2)' }}>
+          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, textAlign: 'center', marginBottom: 'var(--sp-3)' }}>
+            {s('滑动选择 · 自动保存', '滑動選擇 · 自動保存', 'Slide to pick · auto-saved')}
+          </p>
+          <WheelPicker
+            value={practiceLimit}
+            options={PRACTICE_LIMIT_OPTIONS}
+            onChange={(v) => setPracticeLimit(v)}
+            unit={s('题', '題', 'Q')}
+          />
+          <button
+            type="button"
+            onClick={() => setLimitSheetOpen(false)}
+            className="btn btn-primary btn-pill btn-full"
+            style={{ padding: 12, justifyContent: 'center', marginTop: 'var(--sp-4)' }}
+          >
+            {s('完成', '完成', 'Done')}
+          </button>
+        </div>
+      </Dialog>
 
       {/* 主修法本切换 sheet · 仅多本时弹 */}
       <Dialog
