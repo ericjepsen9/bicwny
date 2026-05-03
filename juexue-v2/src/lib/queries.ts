@@ -186,21 +186,30 @@ export function useLessonQuestions(lessonId: string | null | undefined) {
   });
 }
 
-// 智能练习选题 · SM-2 + 错题 + 已学课时混合 · 可限到某 course
+// 智能练习选题 · SM-2 + 错题 + 已学课时混合 · 可限到某 course / 仅错题 / 单题
 export function useSmartPractice(opts: {
   enabled: boolean;
   limit?: number;
   courseId?: string;
+  onlyMistakes?: boolean;
+  /** 单题模式 · 错题详情"再练这一道" */
+  questionId?: string;
 }) {
   const q: string[] = [];
   if (opts.limit) q.push('limit=' + opts.limit);
   if (opts.courseId) q.push('courseId=' + encodeURIComponent(opts.courseId));
+  if (opts.onlyMistakes) q.push('onlyMistakes=true');
+  if (opts.questionId) q.push('questionId=' + encodeURIComponent(opts.questionId));
   return useQuery({
     enabled: opts.enabled,
-    // 不设 staleTime · 默认共享 5min cache · 但每次进入 PracticePage 时
-    // 强制 refetch（在 page 端用 refetchOnMount: 'always'）
     refetchOnMount: 'always',
-    queryKey: ['/api/quiz/smart-practice', opts.limit ?? 10, opts.courseId ?? ''],
+    queryKey: [
+      '/api/quiz/smart-practice',
+      opts.limit ?? 10,
+      opts.courseId ?? '',
+      opts.onlyMistakes ?? false,
+      opts.questionId ?? '',
+    ],
     queryFn: ({ signal }) => api.get<QuestionPublic[]>(
       '/api/quiz/smart-practice' + (q.length ? '?' + q.join('&') : ''),
       { signal },

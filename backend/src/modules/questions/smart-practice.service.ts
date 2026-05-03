@@ -17,6 +17,10 @@ interface SmartPracticeOpts {
   limit?: number; // 5 / 10 / 20
   /** 限定到某 course · 如果提供 · 仅从这个 course 抽题 */
   courseId?: string;
+  /** 仅刷错题（UserMistakeBook · removedAt = null）· 不混 SM-2 / 随机 */
+  onlyMistakes?: boolean;
+  /** 仅练某一道题（错题详情"再练这一道"）· 优先级最高 · limit 强制为 1 */
+  questionId?: string;
 }
 
 async function viewerVisibilityWhere(userId: string) {
@@ -55,6 +59,36 @@ export async function smartPractice(
 ): Promise<Question[]> {
   const limit = Math.max(1, Math.min(50, opts.limit ?? 10));
   const visibilityWhere = await viewerVisibilityWhere(userId);
+
+  // ── 0. 单题模式（错题详情"再练这一道"）──
+  if (opts.questionId) {
+    const q = await prisma.question.findFirst({
+      where: { id: opts.questionId, ...visibilityWhere },
+    });
+    return q ? [q] : [];
+  }
+
+  // ── 0b. 仅刷错题模式 ──
+  if (opts.onlyMistakes) {
+    const mistakeRows = await prisma.userMistakeBook.findMany({
+      where: {
+        userId,
+        removedAt: null,
+        ...(opts.courseId ? { question: { courseId: opts.courseId } } : {}),
+      },
+      orderBy: { lastWrongAt: 'desc' },
+      take: limit * 3, // 多取一点 · 后面 visibility 过滤可能去掉一些
+      select: { questionId: true },
+    });
+    if (mistakeRows.length === 0) return [];
+    const items = await prisma.question.findMany({
+      where: {
+        id: { in: mistakeRows.map((m) => m.questionId) },
+        ...visibilityWhere,
+      },
+    });
+    return shuffle(items).slice(0, limit);
+  }
 
   // 拿用户已报名的 course ids · 后续 random 兜底用 · 如有 courseId 参数则限定
   const enrolls = await prisma.userCourseEnrollment.findMany({

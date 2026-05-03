@@ -1,10 +1,11 @@
-// HomePage · 三 section
-//   1. greeting · 时段问候 + dharmaName + 顶部搜索/通知/头像
-//   2. unverified email banner（如果 emailVerifiedAt=null）
-//   3. class-card · 当前班级（如果有）
-//   4. course-card · 当前法本（首个 enrollment · 显示进度 + 继续阅读 / 查看详情）
-//   5. review-card · 错题提醒（mistakeCount > 0 时显示）
-//   6. icon-grid · 4 个快速入口
+// HomePage · 学习仪表盘
+//   1. greeting · 时段问候 + dharmaName + 🔥 streak + 通知铃铛 + 头像
+//   2. class-card · 当前班级 / 加入班级引导
+//   3. course-card · 当前法本（进度 + 当前学到第 N 课 + 继续阅读 / 目录）
+//   4. ⚡ smart-practice card · 题量 chip + 开始练习（secondary）
+//   5. icon-grid · SM-2 / 错题 / 收藏 / 设置（错题/SM-2 红点提醒）
+//   6. ChapterProgressGrid · 章级棋盘格 · 当前法本完整进度
+// 已删：邮箱未验证 banner（移到 ProfilePage 单点）· 错题大 banner（与 IconTile 重复）
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import ChapterProgressGrid from '@/components/ChapterProgressGrid';
@@ -196,27 +197,6 @@ export default function HomePage() {
 
       {/* Sections */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', padding: '0 var(--sp-5)' }}>
-        {/* 邮箱未验证 banner */}
-        {user && !user.emailVerifiedAt && (
-          <div
-            className="glass-card"
-            style={{
-              padding: '12px 16px',
-              background: 'var(--gold-pale)',
-              border: '1px solid var(--gold-light)',
-              borderRadius: 'var(--r-lg)',
-            }}
-          >
-            <p style={{ font: 'var(--text-caption)', color: 'var(--gold-dark)', letterSpacing: 1, lineHeight: 1.6 }}>
-              📧 {s(
-                '邮箱尚未验证 · 在设置中可重发验证邮件',
-                '郵箱尚未驗證 · 在設定中可重發驗證郵件',
-                'Email not verified yet',
-              )}
-            </p>
-          </div>
-        )}
-
         {/* 班级卡 · 已加入显示班级，未加入显示"加入班级"引导卡 */}
         {firstClass ? (
           <Link
@@ -506,63 +486,7 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {/* 错题提醒 */}
-        {(mistakes.data ?? 0) > 0 && (
-          <Link
-            to="/mistakes"
-            className="glass-card-thick"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--sp-3)',
-              padding: 'var(--sp-4)',
-              borderLeft: '3px solid var(--crimson)',
-              textDecoration: 'none',
-              color: 'inherit',
-            }}
-          >
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 'var(--r-sm)',
-                background: 'var(--crimson-light)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              ❌
-            </div>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontWeight: 600, color: 'var(--ink)' }}>
-                {s('待复习的错题', '待複習的錯題', 'Mistakes to review')}
-              </p>
-              <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
-                {s('错题本提醒', '錯題本提醒', 'Mistakes notebook')}
-              </p>
-            </div>
-            <span
-              style={{
-                marginLeft: 'auto',
-                minWidth: 24,
-                height: 24,
-                borderRadius: 'var(--r-pill)',
-                background: 'var(--crimson)',
-                color: '#fff',
-                fontSize: '0.6rem',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0 6px',
-              }}
-            >
-              {mistakes.data}
-            </span>
-          </Link>
-        )}
+        {/* 错题提醒 banner 已删除 · 由下方 IconTile "❌ 错题" badge 承担红点提醒 */}
 
         {/* 快速入口 */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--sp-3)' }}>

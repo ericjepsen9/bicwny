@@ -43,6 +43,9 @@ const lessonQuery = z.object({
 const smartPracticeQuery = z.object({
   limit: z.coerce.number().int().min(1).max(50).optional(),
   courseId: z.string().min(1).optional(),
+  onlyMistakes: z.coerce.boolean().optional(),
+  /** 单题模式：仅练这一道（错题详情"再练这一道"用） */
+  questionId: z.string().min(1).optional(),
 });
 const enrollBody = z.object({ courseId: z.string().min(1) });
 const progressBody = z.object({
@@ -106,6 +109,8 @@ export const learningRoutes: FastifyPluginAsync = async (app) => {
     const items = await smartPractice(userId, {
       limit: pq.data.limit,
       courseId: pq.data.courseId,
+      onlyMistakes: pq.data.onlyMistakes,
+      questionId: pq.data.questionId,
     });
     return { data: items.map(toPublicView) };
   });

@@ -44,12 +44,16 @@ export default function QuizPage() {
   const isPractice = location.pathname === '/practice';
   const practiceLimit = Math.max(1, Math.min(50, Number(search.get('limit')) || 10));
   const practiceCourseId = search.get('courseId') || undefined;
+  const practiceOnlyMistakes = search.get('onlyMistakes') === '1' || search.get('onlyMistakes') === 'true';
+  const practiceSingleQid = search.get('questionId') || undefined;
 
   const lessonQuestions = useLessonQuestions(isPractice ? null : lessonId);
   const practiceQuestions = useSmartPractice({
     enabled: isPractice,
     limit: practiceLimit,
     courseId: practiceCourseId,
+    onlyMistakes: practiceOnlyMistakes,
+    questionId: practiceSingleQid,
   });
   const questions = isPractice ? practiceQuestions : lessonQuestions;
 
@@ -80,7 +84,7 @@ export default function QuizPage() {
     setGrades({});
     setEnriched({});
     setDone(false);
-  }, [lessonId, isPractice, practiceCourseId, practiceLimit]);
+  }, [lessonId, isPractice, practiceCourseId, practiceLimit, practiceOnlyMistakes, practiceSingleQid]);
 
   // 渲染时把 enriched.payload 合并进 question
   const displayQuestion = useMemo(() => {
@@ -201,7 +205,9 @@ export default function QuizPage() {
         <p style={{ color: 'var(--ink-3)', fontSize: '1.125rem', marginBottom: 16 }}>📭</p>
         <p style={{ color: 'var(--ink-2)', lineHeight: 1.7, marginBottom: 'var(--sp-4)' }}>
           {isPractice
-            ? s('暂无可练习的题目 · 先去学习一些课时', '暫無可練習的題目 · 先去學習一些課時', 'Nothing to practice yet · study some lessons first')
+            ? practiceOnlyMistakes
+              ? s('错题本暂时无题 · 太棒了', '錯題本暫時無題 · 太棒了', 'No mistakes to review · awesome')
+              : s('暂无可练习的题目 · 先去学习一些课时', '暫無可練習的題目 · 先去學習一些課時', 'Nothing to practice yet · study some lessons first')
             : s('本课时尚无题目', '本課時尚無題目', 'No questions for this lesson yet')}
         </p>
         <button type="button" onClick={backToSource} className="btn btn-primary btn-pill" style={{ padding: '10px 24px' }}>

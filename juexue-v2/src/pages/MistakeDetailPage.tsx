@@ -130,15 +130,32 @@ export default function MistakeDetailPage() {
               )}
             </div>
 
-            {detail.data.question.lessonId && detail.data.question.courseId && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+              {/* 主：再练这一道（单题模式 · /practice?questionId=...）*/}
               <Link
-                to={`/quiz/${detail.data.question.lessonId}?courseId=${detail.data.question.courseId}&from=mistake&questionId=${qid}`}
+                to={`/practice?questionId=${encodeURIComponent(qid)}`}
                 className="btn btn-primary btn-pill btn-full"
                 style={{ padding: 12, justifyContent: 'center' }}
               >
-                {s('再练一次', '再練一次', 'Practice again')}
+                {s('再练这一道 →', '再練這一道 →', 'Retry this question →')}
               </Link>
-            )}
+              {/* 副：去同课时所有题（保留旧行为 · 用户可能想顺便复习同课）*/}
+              {detail.data.question.lessonId && detail.data.question.courseId && (
+                <Link
+                  to={`/quiz/${detail.data.question.lessonId}?courseId=${detail.data.question.courseId}&from=mistake&questionId=${qid}`}
+                  className="btn btn-pill btn-full"
+                  style={{
+                    padding: 12,
+                    justifyContent: 'center',
+                    background: 'var(--glass-thick)',
+                    color: 'var(--ink-2)',
+                    border: '1px solid var(--glass-border)',
+                  }}
+                >
+                  {s('练同课时所有题', '練同課時所有題', 'Practice all in lesson')}
+                </Link>
+              )}
+            </div>
           </>
         )}
       </div>
