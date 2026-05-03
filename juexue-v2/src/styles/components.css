@@ -172,9 +172,11 @@ textarea.input-field,
 select.input-field { font-size: 16px; }
 
 /* 兜底：凡是 input / textarea / select 都 ≥ 16px（防止 .input-field 之外
-   某处用裸元素仍触发 iOS 放大）· 桌面端视觉影响很小（原本 14→16） */
+   某处用裸元素仍触发 iOS Safari 聚焦时自动放大 viewport）·
+   !important 覆盖 React inline style 中常见的 `font: var(--text-caption)`
+   shorthand 重置 · 桌面端视觉影响很小（原本 14→16） */
 input, textarea, select {
-  font-size: max(16px, 1rem);
+  font-size: max(16px, 1rem) !important;
 }
 .input-field::placeholder { color: var(--ink-4); }
 .input-field:focus {
