@@ -42,7 +42,7 @@ const ProfileIcon = (
 const TABS: TabDef[] = [
   { to: '/',        label: { sc: '首页', tc: '首頁', en: 'Home' },     icon: HomeIcon },
   { to: '/courses', label: { sc: '法本', tc: '法本', en: 'Texts' },    icon: CoursesIcon },
-  { to: '/quiz',    label: { sc: '答题', tc: '答題', en: 'Quiz' },     icon: QuizIcon },
+  { to: '/quiz',    label: { sc: '复习', tc: '複習', en: 'Review' },   icon: QuizIcon },
   { to: '/profile', label: { sc: '我的', tc: '我的', en: 'Profile' },  icon: ProfileIcon },
 ];
 

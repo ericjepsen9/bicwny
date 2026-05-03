@@ -5,7 +5,9 @@
 //   4. course-card · 当前法本（首个 enrollment · 显示进度 + 继续阅读 / 查看详情）
 //   5. review-card · 错题提醒（mistakeCount > 0 时显示）
 //   6. icon-grid · 4 个快速入口
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import ChapterProgressGrid from '@/components/ChapterProgressGrid';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
 import {
@@ -82,6 +84,9 @@ export default function HomePage() {
     null;
 
   const firstClass = classes.data?.[0];
+
+  // 智能练习题量 picker（与 /quiz 同口径）
+  const [practiceLimit, setPracticeLimit] = useState<5 | 10 | 20>(10);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -441,6 +446,57 @@ export default function HomePage() {
           )}
         </div>
 
+        {/* ⚡ 智能练习卡 · 与 /quiz 同款 · 一键开始答题 */}
+        <div
+          className="glass-card-thick"
+          style={{ padding: 'var(--sp-4)', borderRadius: 'var(--r-lg)' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
+            <div>
+              <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 2, fontSize: '1rem' }}>
+                ⚡ {s('智能练习', '智能練習', 'Smart practice')}
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+                {s('待复习 + 错题 + 已学课时混合', '待複習 + 錯題 + 已學課時混合', 'SM-2 + mistakes + studied')}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-3)' }}>
+            {([5, 10, 20] as const).map((n) => {
+              const on = n === practiceLimit;
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPracticeLimit(n)}
+                  aria-pressed={on}
+                  style={{
+                    flex: 1,
+                    padding: '7px 6px',
+                    borderRadius: 'var(--r-pill)',
+                    border: '1px solid ' + (on ? 'var(--saffron-light)' : 'var(--glass-border)'),
+                    background: on ? 'var(--saffron-pale)' : 'var(--glass-thick)',
+                    color: on ? 'var(--saffron-dark)' : 'var(--ink-3)',
+                    font: 'var(--text-caption)',
+                    fontWeight: 600,
+                    letterSpacing: 1,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {n} {s('题', '題', 'Q')}
+                </button>
+              );
+            })}
+          </div>
+          <Link
+            to={`/practice?limit=${practiceLimit}`}
+            className="btn btn-primary btn-pill btn-full"
+            style={{ padding: 12, justifyContent: 'center' }}
+          >
+            {s(`开始练习 · ${practiceLimit} 题`, `開始練習 · ${practiceLimit} 題`, `Start · ${practiceLimit} questions`)}
+          </Link>
+        </div>
+
         {/* 错题提醒 */}
         {(mistakes.data ?? 0) > 0 && (
           <Link
@@ -506,6 +562,40 @@ export default function HomePage() {
           <IconTile to="/favorites" icon="⭐" label={s('收藏', '收藏', 'Favorites')} />
           <IconTile to="/settings" icon="⚙️" label={s('设置', '設定', 'Settings')} />
         </div>
+
+        {/* 章级棋盘格 · 当前法本完整章节进度 */}
+        {currentCourse && (currentCourseDetail.data?.chapters ?? []).length > 0 && (
+          <div
+            className="glass-card-thick"
+            style={{ padding: 'var(--sp-4)', borderRadius: 'var(--r-lg)', marginTop: 'var(--sp-2)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
+              <div>
+                <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 2, fontSize: '1rem' }}>
+                  📊 {s('学习进度', '學習進度', 'Progress')}
+                </div>
+                <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+                  {currentCourse.coverEmoji} {currentCourse.title}
+                  <span style={{ color: 'var(--ink-4)', marginLeft: 6 }}>
+                    · {(currentCourseDetail.data?.chapters ?? []).length} {s('章', '章', 'chapters')}
+                  </span>
+                </div>
+              </div>
+              <Link
+                to={`/scripture-detail?slug=${encodeURIComponent(currentCourse.slug)}`}
+                style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1, textDecoration: 'none', whiteSpace: 'nowrap' }}
+              >
+                {s('目录 →', '目錄 →', 'Catalog →')}
+              </Link>
+            </div>
+            <ChapterProgressGrid
+              slug={currentCourse.slug}
+              chapters={currentCourseDetail.data?.chapters ?? []}
+              completedSet={completedSet}
+              currentLessonId={firstEnrollment?.currentLessonId}
+            />
+          </div>
+        )}
       </div>
 
       <div style={{ height: 'var(--sp-8)' }} />
