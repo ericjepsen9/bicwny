@@ -172,8 +172,11 @@ body.prototype-frame .status-icons { display: flex; gap: var(--sp-1); align-item
 .flex-1 { flex: 1; }
 
 /* ── Scroll Container ───────────────────────────── */
+/* 注意：main.tsx 的 .scroll-area 之前用 overflow-y:auto 让自己成为 scroll
+   container，这会导致 .top-nav 的 position:sticky 相对它工作（无效，因为
+   main 没固定高度，等于 sticky 相对内容顶部 = 不动）。
+   改成 body 自然滚动 · sticky 直接相对 viewport · 顶部 nav 真正固定 */
 .scroll-area {
-  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }

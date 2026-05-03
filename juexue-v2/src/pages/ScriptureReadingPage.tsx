@@ -220,33 +220,59 @@ export default function ScriptureReadingPage() {
         onTouchStart={readMode === 'swipe' ? (e) => {
           if (swipeAnim !== 'none') return;
           const t = e.touches[0]!;
-          (e.currentTarget as HTMLElement).dataset.startX = String(t.clientX);
-          (e.currentTarget as HTMLElement).dataset.startY = String(t.clientY);
+          const el = e.currentTarget as HTMLElement;
+          el.dataset.startX = String(t.clientX);
+          el.dataset.startY = String(t.clientY);
+          el.dataset.startTime = String(Date.now());
+          // 'idle' = 还没决定方向 · 'h' = 横向翻页 · 'v' = 纵向滚动（不再拦截）
+          el.dataset.dir = 'idle';
         } : undefined}
         onTouchMove={readMode === 'swipe' ? (e) => {
           const el = e.currentTarget as HTMLElement;
+          if (el.dataset.dir === 'v') return; // 已确定纵向 · 不拦
           const sx = parseFloat(el.dataset.startX || '0');
           const sy = parseFloat(el.dataset.startY || '0');
           const t = e.touches[0]!;
           const dx = t.clientX - sx;
           const dy = t.clientY - sy;
-          // 横向 > 纵向 + 横向 > 12 才视为翻页 · 否则保持纵向滚动
-          if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 12) {
-            // 边界态阻力（无 prev/next 时拉动减半）
+          const absDx = Math.abs(dx);
+          const absDy = Math.abs(dy);
+          // 决定方向：移动距离要 > 24px 才判定 · 横向必须明显大于纵向（>1.8x）
+          if (el.dataset.dir === 'idle') {
+            if (absDx < 24 && absDy < 24) return; // 还没动够 · 等
+            if (absDx > absDy * 1.8 && absDx > 30) {
+              el.dataset.dir = 'h';
+            } else {
+              el.dataset.dir = 'v';
+              return;
+            }
+          }
+          if (el.dataset.dir === 'h') {
+            // 边界态阻力（无 prev/next 时拉动衰减）
             const blocked = (dx > 0 && !prev) || (dx < 0 && !next);
-            setSwipeOffset(blocked ? dx * 0.3 : dx);
+            setSwipeOffset(blocked ? dx * 0.25 : dx);
           }
         } : undefined}
-        onTouchEnd={readMode === 'swipe' ? () => {
-          const threshold = 80;
-          if (swipeOffset < -threshold && next) {
+        onTouchEnd={readMode === 'swipe' ? (e) => {
+          const el = e.currentTarget as HTMLElement;
+          if (el.dataset.dir !== 'h') {
+            // 没进入横向翻页 · 直接清状态
+            el.dataset.dir = 'idle';
+            return;
+          }
+          const startTime = parseFloat(el.dataset.startTime || '0');
+          const elapsed = Date.now() - startTime;
+          // 提高阈值：120px 距离 · 或 60px+快速滑动（< 250ms）算翻页
+          const distOk = Math.abs(swipeOffset) > 120;
+          const flickOk = Math.abs(swipeOffset) > 60 && elapsed < 250;
+          if ((distOk || flickOk) && swipeOffset < 0 && next) {
             setSwipeAnim('next');
             setTimeout(() => {
               nav(`/read/${c.slug}/${next.lesson.id}`, { replace: true });
               setSwipeOffset(0);
               setSwipeAnim('none');
             }, 280);
-          } else if (swipeOffset > threshold && prev) {
+          } else if ((distOk || flickOk) && swipeOffset > 0 && prev) {
             setSwipeAnim('prev');
             setTimeout(() => {
               nav(`/read/${c.slug}/${prev.lesson.id}`, { replace: true });
@@ -254,11 +280,11 @@ export default function ScriptureReadingPage() {
               setSwipeAnim('none');
             }, 280);
           } else {
-            // 不满阈值 · 弹回
             setSwipeAnim('reset');
             setSwipeOffset(0);
             setTimeout(() => setSwipeAnim('none'), 280);
           }
+          el.dataset.dir = 'idle';
         } : undefined}
       >
         <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: '1.5px', marginBottom: 'var(--sp-2)' }}>
