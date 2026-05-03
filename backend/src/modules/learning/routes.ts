@@ -25,6 +25,7 @@ import {
   updateProgress,
 } from '../enrollment/service.js';
 import { listLessonQuestions } from '../questions/list.service.js';
+import { smartPractice } from '../questions/smart-practice.service.js';
 
 const slugParam = z.object({ slug: z.string().min(1) });
 const slugQuery = z.object({
@@ -38,6 +39,10 @@ const lessonIdParam = z.object({ id: z.string().min(1) });
 const courseIdParam = z.object({ courseId: z.string().min(1) });
 const lessonQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
+});
+const smartPracticeQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+  courseId: z.string().min(1).optional(),
 });
 const enrollBody = z.object({ courseId: z.string().min(1) });
 const progressBody = z.object({
@@ -84,6 +89,23 @@ export const learningRoutes: FastifyPluginAsync = async (app) => {
     const userId = getUserId(req);
     const items = await listLessonQuestions(pp.data.id, userId, {
       limit: pq.data.limit,
+    });
+    return { data: items.map(toPublicView) };
+  });
+
+  app.get('/api/quiz/smart-practice', {
+    schema: {
+      tags: TAGS,
+      summary: '智能练习 · SM-2 待复习 + 错题 + 已学课时随机 混合选题',
+      security: [{ bearerAuth: [] as string[] }],
+    },
+  }, async (req) => {
+    const pq = smartPracticeQuery.safeParse(req.query);
+    if (!pq.success) throw BadRequest('查询参数不合法');
+    const userId = requireUserId(req);
+    const items = await smartPractice(userId, {
+      limit: pq.data.limit,
+      courseId: pq.data.courseId,
     });
     return { data: items.map(toPublicView) };
   });

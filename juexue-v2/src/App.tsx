@@ -107,6 +107,8 @@ function AppShell() {
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/scripture-detail" element={<ScriptureDetailPage />} />
                 <Route path="/read/:slug/:lessonId" element={<ScriptureReadingPage />} />
+                {/* 注意顺序：/practice 在 /quiz/:lessonId 之前 · 否则 "practice" 被当成 lessonId */}
+                <Route path="/practice" element={<QuizPage />} />
                 <Route path="/quiz/:lessonId" element={<QuizPage />} />
                 <Route path="/mistake/:questionId" element={<MistakeDetailPage />} />
                 <Route path="/mistakes" element={<MistakesPage />} />

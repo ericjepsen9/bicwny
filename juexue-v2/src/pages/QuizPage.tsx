@@ -6,13 +6,13 @@
 //   4. 全部完成 → 显示结果 overlay · PATCH 报名进度（如已报名）
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import QuestionRenderer, { canSubmit } from '@/components/quiz';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { selection, notification } from '@/lib/haptics';
 import { useLang } from '@/lib/i18n';
-import { useEnrollments, useLessonQuestions, useProgress } from '@/lib/queries';
+import { useEnrollments, useLessonQuestions, useProgress, useSmartPractice } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 interface Grade {
@@ -37,9 +37,22 @@ export default function QuizPage() {
   const nextLessonId = search.get('nextLessonId') || '';
   const questionId = search.get('questionId') || '';
   const nav = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
 
-  const questions = useLessonQuestions(lessonId);
+  // 智能练习模式 · /practice 路由（无 lessonId）· 题集来自 smart-practice 后端
+  const isPractice = location.pathname === '/practice';
+  const practiceLimit = Math.max(1, Math.min(50, Number(search.get('limit')) || 10));
+  const practiceCourseId = search.get('courseId') || undefined;
+
+  const lessonQuestions = useLessonQuestions(isPractice ? null : lessonId);
+  const practiceQuestions = useSmartPractice({
+    enabled: isPractice,
+    limit: practiceLimit,
+    courseId: practiceCourseId,
+  });
+  const questions = isPractice ? practiceQuestions : lessonQuestions;
+
   const enrollments = useEnrollments();
   const progress = useProgress();
   // 进入答题前的"今日已答" · 用于判断本次完成是否触发首日打卡
@@ -60,14 +73,14 @@ export default function QuizPage() {
   const total = list.length;
   const current = list[qi];
 
-  // 当用户切到新课时 · 重置
+  // 当用户切到新课时 · 或新练习集 · 重置
   useEffect(() => {
     setQi(0);
     setAnswers({});
     setGrades({});
     setEnriched({});
     setDone(false);
-  }, [lessonId]);
+  }, [lessonId, isPractice, practiceCourseId, practiceLimit]);
 
   // 渲染时把 enriched.payload 合并进 question
   const displayQuestion = useMemo(() => {
@@ -187,7 +200,9 @@ export default function QuizPage() {
       <div style={{ padding: 'var(--sp-7) var(--sp-5)', textAlign: 'center' }}>
         <p style={{ color: 'var(--ink-3)', fontSize: '1.125rem', marginBottom: 16 }}>📭</p>
         <p style={{ color: 'var(--ink-2)', lineHeight: 1.7, marginBottom: 'var(--sp-4)' }}>
-          {s('本课时尚无题目', '本課時尚無題目', 'No questions for this lesson yet')}
+          {isPractice
+            ? s('暂无可练习的题目 · 先去学习一些课时', '暫無可練習的題目 · 先去學習一些課時', 'Nothing to practice yet · study some lessons first')
+            : s('本课时尚无题目', '本課時尚無題目', 'No questions for this lesson yet')}
         </p>
         <button type="button" onClick={backToSource} className="btn btn-primary btn-pill" style={{ padding: '10px 24px' }}>
           {s('返回', '返回', 'Back')}
