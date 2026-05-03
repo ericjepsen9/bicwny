@@ -113,11 +113,11 @@ export default function CoursesPage() {
         <FilterChip on={filter === 'available'}onClick={() => setFilter('available')}>{s('未加入', '未加入', 'Available')}</FilterChip>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)', padding: '0 var(--sp-5) var(--sp-8)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', columnGap: 'var(--sp-4)', rowGap: 'var(--sp-6)', padding: '0 var(--sp-5) var(--sp-8)' }}>
         {courses.isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
             <div key={i}>
-              <Skeleton.Line style={{ aspectRatio: '1/1', borderRadius: 'var(--r-md)' }} />
+              <Skeleton.Line style={{ aspectRatio: '2 / 3', borderRadius: 'var(--r-sm)' }} />
               <Skeleton.LineSm style={{ marginTop: 8 }} />
             </div>
           ))
@@ -260,7 +260,17 @@ function BookCard({ course, enrolled, onClick }: { course: Course; enrolled: boo
         textAlign: 'left',
       }}
     >
-      <div style={{ position: 'relative', borderRadius: 'var(--r-md)', overflow: 'hidden', boxShadow: 'var(--shadow-1)' }}>
+      {/* 封面 · 参考 Apple 图书：portrait 2:3 比例 · 层叠阴影聚焦书底 · 像放在书架上
+          ambient 1px 给"轻贴墙"质感 · 底部 14px-2 spread 大投影聚拢在书下沿 */}
+      <div
+        style={{
+          position: 'relative',
+          aspectRatio: '2 / 3',
+          borderRadius: 'var(--r-sm)',
+          overflow: 'hidden',
+          boxShadow: '0 1px 2px rgba(43,34,24,.08), 0 10px 18px -4px rgba(43,34,24,.22)',
+        }}
+      >
         <CourseCover course={course} />
         {enrolled && (
           <span
@@ -286,11 +296,11 @@ function BookCard({ course, enrolled, onClick }: { course: Course; enrolled: boo
         style={{
           fontFamily: 'var(--font-serif)',
           fontWeight: 600,
-          fontSize: '.8125rem',
+          fontSize: '.875rem',
           color: 'var(--ink)',
           letterSpacing: '1.5px',
-          marginTop: 8,
-          lineHeight: 1.4,
+          marginTop: 12,
+          lineHeight: 1.35,
           display: '-webkit-box',
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
@@ -301,7 +311,7 @@ function BookCard({ course, enrolled, onClick }: { course: Course; enrolled: boo
         {course.title}
       </div>
       {course.author && (
-        <div style={{ fontSize: '.6875rem', color: 'var(--ink-3)', letterSpacing: '.5px', marginTop: 2, lineHeight: 1.3, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ fontSize: '.6875rem', color: 'var(--ink-3)', letterSpacing: '.5px', marginTop: 3, lineHeight: 1.3, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {course.author}
         </div>
       )}
