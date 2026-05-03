@@ -488,12 +488,21 @@ export default function HomePage() {
               );
             })}
           </div>
+          {/* secondary 风格 · 与上方"开始阅读"主 CTA 形成主次 · 避免一屏两 primary */}
           <Link
             to={`/practice?limit=${practiceLimit}`}
-            className="btn btn-primary btn-pill btn-full"
-            style={{ padding: 12, justifyContent: 'center' }}
+            className="btn btn-pill btn-full"
+            style={{
+              padding: 12,
+              justifyContent: 'center',
+              background: 'var(--glass-thick)',
+              color: 'var(--saffron-dark)',
+              border: '1.5px solid var(--saffron-light)',
+              fontFamily: 'var(--font-serif)',
+              fontWeight: 600,
+            }}
           >
-            {s(`开始练习 · ${practiceLimit} 题`, `開始練習 · ${practiceLimit} 題`, `Start · ${practiceLimit} questions`)}
+            {s(`开始练习 · ${practiceLimit} 题`, `開始練習 · ${practiceLimit} 題`, `Start · ${practiceLimit} questions`)} →
           </Link>
         </div>
 
