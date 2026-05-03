@@ -76,13 +76,15 @@ export default function CoursesPage() {
 
   return (
     <div>
-      <div className="top-nav">
-        <span className="nav-title" style={{ marginLeft: 0 }}>
+      <div style={{ padding: 'var(--sp-2) var(--sp-5) var(--sp-4)' }}>
+        <p style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--ink)', letterSpacing: 4 }}>
           <span className="sc">法本</span>
           <span className="tc">法本</span>
           <span className="en">Texts</span>
-        </span>
-        <div style={{ width: 34, marginLeft: 'auto' }} />
+        </p>
+        <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 4 }}>
+          {s('诸经汇集 · 选本入学', '諸經匯集 · 選本入學', 'Browse texts · join to learn')}
+        </p>
       </div>
 
       <div style={{ padding: '0 var(--sp-5) var(--sp-3)' }}>
