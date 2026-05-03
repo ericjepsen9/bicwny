@@ -136,13 +136,28 @@ export default function ScriptureDetailPage() {
   );
   const pct = totalLessons > 0 ? Math.round((doneCount / totalLessons) * 100) : 0;
 
-  // 找到"继续阅读"目标 lesson：currentLessonId · 否则首课时
-  const firstLesson = chapters[0]?.lessons?.[0];
+  // 找到"继续阅读"目标 lesson:
+  //   1. currentLessonId 未读完 → 回到该课
+  //   2. currentLessonId 已读完且后面还有课 → 跳到下一课
+  //   3. currentLessonId 已读完且是最后一课 → 留在最后一课
+  //   4. 无 currentLessonId → 首课时
+  type LessonItem = NonNullable<(typeof chapters)[number]['lessons']>[number];
+  const flatAll: LessonItem[] = chapters.flatMap((ch) => ch.lessons ?? []);
+  const firstLesson = flatAll[0];
   const currentLessonId = enrollment?.currentLessonId;
-  const continueLessonId = currentLessonId || firstLesson?.id;
-  const continueLesson = continueLessonId
-    ? chapters.flatMap((ch) => ch.lessons ?? []).find((l) => l.id === continueLessonId)
-    : null;
+  const savedIdx = currentLessonId ? flatAll.findIndex((l) => l.id === currentLessonId) : -1;
+  let continueLesson: LessonItem | undefined;
+  if (savedIdx >= 0) {
+    const saved = flatAll[savedIdx]!;
+    if (completedSet.has(saved.id) && savedIdx < flatAll.length - 1) {
+      continueLesson = flatAll[savedIdx + 1]!;
+    } else {
+      continueLesson = saved;
+    }
+  } else {
+    continueLesson = firstLesson;
+  }
+  const hasReadHistory = !!currentLessonId || completedSet.size > 0;
 
   return (
     <div style={{
@@ -365,7 +380,9 @@ export default function ScriptureDetailPage() {
                   marginLeft: 'var(--sp-2)',
                 }}
               >
-                {s('阅读', '閱讀', 'Read')}
+                {hasReadHistory
+                  ? s('继续阅读', '繼續閱讀', 'Continue')
+                  : s('开始阅读', '開始閱讀', 'Start')}
               </Link>
             ) : (
               <span

@@ -1,6 +1,6 @@
 // 觉学 v2 · 共享 React Query hooks
 // 所有 GET 数据走这里 · queryKey 统一约定 · staleTime 5min（main.tsx 默认）
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 
 // ── 课程相关 ──
@@ -73,6 +73,20 @@ export function useEnrollments() {
   return useQuery({
     queryKey: ['/api/my/enrollments'],
     queryFn: ({ signal }) => api.get<Enrollment[]>('/api/my/enrollments', { signal }),
+  });
+}
+
+// ── 更新报名进度 · currentLessonId 记忆"上次阅读位置" ──
+export function useUpdateEnrollmentProgress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { courseId: string; currentLessonId?: string | null; addCompletedLessonId?: string }) => {
+      const { courseId, ...body } = vars;
+      return api.patch(`/api/enrollments/${encodeURIComponent(courseId)}/progress`, body);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/my/enrollments'] });
+    },
   });
 }
 

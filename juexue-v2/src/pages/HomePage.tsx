@@ -85,15 +85,29 @@ export default function HomePage() {
   );
   const pct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
-  // 找"继续阅读"目标 lesson · 优先 enrollment.currentLessonId · 否则首个未完成 · 兜底首课时
+  // 找"继续阅读"目标 lesson:
+  //   1. 有 currentLessonId 且该课未读完 → 回到该课
+  //   2. 有 currentLessonId 且该课已读完 → 跳到下一课（推动学习）
+  //   3. 已是最后一课且读完 → 留在最后一课（让用户复读）
+  //   4. 无 currentLessonId → 首个未完成 → 兜底首课时
   const flatLessons = (currentCourseDetail.data?.chapters ?? []).flatMap((ch) =>
     (ch.lessons ?? []).map((l) => ({ chapter: ch, lesson: l })),
   );
-  const continueTarget =
-    flatLessons.find((f) => f.lesson.id === firstEnrollment?.currentLessonId) ??
-    flatLessons.find((f) => !completedSet.has(f.lesson.id)) ??
-    flatLessons[0] ??
-    null;
+  const savedIdx = flatLessons.findIndex((f) => f.lesson.id === firstEnrollment?.currentLessonId);
+  let continueTarget = null as (typeof flatLessons)[number] | null;
+  if (savedIdx >= 0) {
+    const saved = flatLessons[savedIdx]!;
+    if (completedSet.has(saved.lesson.id) && savedIdx < flatLessons.length - 1) {
+      continueTarget = flatLessons[savedIdx + 1]!;
+    } else {
+      continueTarget = saved;
+    }
+  } else {
+    continueTarget =
+      flatLessons.find((f) => !completedSet.has(f.lesson.id)) ??
+      flatLessons[0] ??
+      null;
+  }
 
   const firstClass = classes.data?.[0];
 
@@ -412,11 +426,9 @@ export default function HomePage() {
                     className="btn btn-primary btn-pill"
                     style={{ flex: 1, padding: 12, justifyContent: 'center' }}
                   >
-                    {firstEnrollment?.currentLessonId
+                    {(firstEnrollment?.currentLessonId || completedCount > 0)
                       ? s('继续阅读', '繼續閱讀', 'Continue')
-                      : completedCount > 0
-                        ? s('继续阅读', '繼續閱讀', 'Continue')
-                        : s('开始阅读', '開始閱讀', 'Start')}
+                      : s('开始阅读', '開始閱讀', 'Start')}
                   </Link>
                 ) : (
                   <span

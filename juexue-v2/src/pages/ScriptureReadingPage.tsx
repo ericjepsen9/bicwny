@@ -1,14 +1,14 @@
 // ScriptureReadingPage · /read/:slug/:lessonId
 //   显示课时原文 + 顶部章节标题 + 底部"开始答题" / "下一课"按钮
 //   工具栏：A- / A+ 字号步进 · 上一课 · 下一课（跨章节连贯）
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import Dialog from '@/components/Dialog';
 import { useFontScale } from '@/lib/fontSize';
 import { useLang } from '@/lib/i18n';
 import { useReadMode } from '@/lib/readMode';
-import { useCourseDetail, useEnrollments } from '@/lib/queries';
+import { useCourseDetail, useEnrollments, useUpdateEnrollmentProgress } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 interface FlatLesson {
@@ -57,6 +57,20 @@ export default function ScriptureReadingPage() {
     [enrollments.data, course.data?.id],
   );
   const completed = !!enrollment?.lessonsCompleted.includes(lessonId);
+
+  // 记忆"上次阅读位置" · 用户每打开一课就把 enrollment.currentLessonId 推进到这里
+  // 下次首页 / 详情页"继续阅读"按钮即可跳回
+  const updateProgress = useUpdateEnrollmentProgress();
+  const courseId = course.data?.id;
+  const enrolledHere = !!enrollment;
+  const savedLessonId = enrollment?.currentLessonId ?? null;
+  useEffect(() => {
+    if (!courseId || !lessonId || !enrolledHere) return;
+    if (savedLessonId === lessonId) return;
+    updateProgress.mutate({ courseId, currentLessonId: lessonId });
+    // updateProgress 是稳定 mutation 引用 · 仅依赖 courseId / lessonId / 状态
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId, lessonId, enrolledHere, savedLessonId]);
 
   function bumpFont(dir: 1 | -1) {
     const opt = step(dir);
