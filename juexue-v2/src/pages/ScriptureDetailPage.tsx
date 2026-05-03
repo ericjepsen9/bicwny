@@ -166,10 +166,10 @@ export default function ScriptureDetailPage() {
               backgroundImage: `url(${c.coverImageUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              filter: 'blur(60px) saturate(1.4)',
+              filter: 'blur(60px) saturate(1.5) brightness(1.2)',
               transform: 'scale(1.5)',
               transformOrigin: 'center top',
-              opacity: 0.55,
+              opacity: 0.5,
               pointerEvents: 'none',
               zIndex: 0,
             }}
