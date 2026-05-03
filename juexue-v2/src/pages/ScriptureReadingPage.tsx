@@ -30,8 +30,8 @@ export default function ScriptureReadingPage() {
   const flat: FlatLesson[] = useMemo(() => {
     if (!course.data) return [];
     const out: FlatLesson[] = [];
-    for (const ch of course.data.chapters) {
-      for (const l of ch.lessons) {
+    for (const ch of course.data.chapters ?? []) {
+      for (const l of ch.lessons ?? []) {
         out.push({ chapterId: ch.id, chapterTitle: ch.title, lesson: l });
       }
     }

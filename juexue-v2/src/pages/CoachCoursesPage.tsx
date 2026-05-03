@@ -94,7 +94,7 @@ export default function CoachCoursesPage() {
                 )}
               </div>
 
-              {detail.data.chapters.map((ch) => (
+              {(detail.data.chapters ?? []).map((ch) => (
                 <details key={ch.id} className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-3)' }} open>
                   <summary style={{ cursor: 'pointer', listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
                     <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 2 }}>

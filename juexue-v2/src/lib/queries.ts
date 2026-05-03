@@ -45,7 +45,18 @@ export function useCourseDetail(slug: string | null | undefined) {
   return useQuery({
     enabled: !!slug,
     queryKey: ['/api/courses', slug],
-    queryFn: ({ signal }) => api.get<CourseDetail>('/api/courses/' + encodeURIComponent(slug!), { signal }),
+    queryFn: async ({ signal }) => {
+      // 后端返回 { course, overlay } 包装 · api.* 已剥外层 { data: ... }
+      // 兼容两种 shape：直接是 CourseDetail · 或 { course, overlay }
+      const r = await api.get<CourseDetail | { course: CourseDetail; overlay?: unknown }>(
+        '/api/courses/' + encodeURIComponent(slug!),
+        { signal },
+      );
+      if (r && typeof r === 'object' && 'course' in r && (r as { course?: unknown }).course) {
+        return (r as { course: CourseDetail }).course;
+      }
+      return r as CourseDetail;
+    },
   });
 }
 

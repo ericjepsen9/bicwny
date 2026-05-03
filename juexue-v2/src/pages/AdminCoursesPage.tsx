@@ -156,10 +156,13 @@ function PubPill({ published }: { published: boolean }) {
 }
 
 // ── Course 编辑器（metadata + 封面 + 章节 + 删除） ─────────────────────────────
-function CourseEditor({ c }: { c: AdminCourseDetail }) {
+function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
   const { s } = useLang();
   const [, setSp] = useSearchParams();
   const qc = useQueryClient();
+
+  // 后端可能返回 chapters: undefined（空法本未加载嵌套关系）· 拍平到 []
+  const c = { ...cIn, chapters: cIn.chapters ?? [] };
 
   // metadata 状态（受控 · 用 key 重置）
   const [slug, setSlug] = useState(c.slug);

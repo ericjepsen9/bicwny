@@ -42,9 +42,10 @@ export default function ScriptureDetailPage() {
   if (!course.data) return <Empty title={s('法本不存在', '法本不存在', 'Text not found')} />;
 
   const c = course.data;
-  const totalLessons = c.chapters.reduce((sum, ch) => sum + ch.lessons.length, 0);
-  const doneCount = c.chapters.reduce(
-    (sum, ch) => sum + ch.lessons.filter((l) => completedSet.has(l.id)).length,
+  const chapters = c.chapters ?? [];
+  const totalLessons = chapters.reduce((sum, ch) => sum + (ch.lessons?.length ?? 0), 0);
+  const doneCount = chapters.reduce(
+    (sum, ch) => sum + (ch.lessons ?? []).filter((l) => completedSet.has(l.id)).length,
     0,
   );
 
@@ -94,7 +95,7 @@ export default function ScriptureDetailPage() {
             </p>
           )}
           <div style={{ display: 'flex', gap: 'var(--sp-6)' }}>
-            <Stat num={c.chapters.length} label={s('章节', '章節', 'Chapters')} />
+            <Stat num={chapters.length} label={s('章节', '章節', 'Chapters')} />
             <Stat num={totalLessons} label={s('课时', '課時', 'Lessons')} />
             <Stat
               num={totalLessons > 0 ? Math.round((doneCount / totalLessons) * 100) + '%' : '0%'}
@@ -105,7 +106,7 @@ export default function ScriptureDetailPage() {
 
         {/* 章节列表 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-          {c.chapters.map((ch) => {
+          {chapters.map((ch) => {
             const firstLesson = ch.lessons[0];
             const chCompleted = ch.lessons.filter((l) => completedSet.has(l.id)).length;
             const chPct =
