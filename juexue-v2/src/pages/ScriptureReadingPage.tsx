@@ -26,9 +26,9 @@ export default function ScriptureReadingPage() {
   const course = useCourseDetail(slug);
   const enrollments = useEnrollments();
   const [tocOpen, setTocOpen] = useState(false);
-  // 工具栏可见性 · 进入默认显示 · 滚一屏后自动隐 · 点正文 toggle
+  // 工具栏可见性 · 进入默认显示 · 向下滚收 / 向上滚显（iOS Safari 风格）
+  // 整屏点击正文也能 toggle
   const [chromeVisible, setChromeVisible] = useState(true);
-  const [autoHidden, setAutoHidden] = useState(false);
 
   // 把所有章节的课时拍平成一维 · 方便上一课/下一课跨章节查找
   const flat: FlatLesson[] = useMemo(() => {
@@ -70,27 +70,33 @@ export default function ScriptureReadingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, lessonId, enrolledHere, savedLessonId]);
 
-  // 切换课时时滚回顶部 · 否则上一课的尾部位置会"继承"到下一课视觉上很奇怪
-  // 同时重置工具栏：新课先显示 · 用户滚动后再自动隐
+  // 切换课时时滚回顶部 + 工具栏复位显示
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
     setChromeVisible(true);
-    setAutoHidden(false);
   }, [lessonId]);
 
-  // 滚一屏（>120px）后首次自动隐藏工具栏
-  // 之后只能点击正文 toggle · 不再随滚动位置自动开关
+  // 向下滚 → 隐藏工具栏；向上滚 → 显示
+  // 顶部 60px 内强制显示（避免顶端就给隐了 · 视觉断层）
+  // 抖动阈值 8px 避免微抖动反复触发
   useEffect(() => {
+    let lastY = window.scrollY;
     function onScroll() {
-      if (autoHidden) return;
-      if (window.scrollY > 120) {
+      const y = window.scrollY;
+      const dy = y - lastY;
+      if (Math.abs(dy) < 8) return;
+      if (y < 60) {
+        setChromeVisible(true);
+      } else if (dy > 0) {
         setChromeVisible(false);
-        setAutoHidden(true);
+      } else {
+        setChromeVisible(true);
       }
+      lastY = y;
     }
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [autoHidden]);
+  }, []);
 
   function bumpFont(dir: 1 | -1) {
     const opt = step(dir);
