@@ -1,0 +1,468 @@
+// QuizPage · /quiz/:lessonId?courseId=&slug=&from=
+//   核心答题流：
+//   1. 拉本课时所有题目
+//   2. 状态机：当前题序 / 答案值 / 已确认 / 反馈 / 完成态
+//   3. 提交单题 → POST /api/answers · 后端实算 · 返回 grade
+//   4. 全部完成 → 显示结果 overlay · PATCH 报名进度（如已报名）
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import QuestionRenderer, { canSubmit } from '@/components/quiz';
+import Skeleton from '@/components/Skeleton';
+import { api, ApiError } from '@/lib/api';
+import { selection, notification } from '@/lib/haptics';
+import { useLang } from '@/lib/i18n';
+import { useEnrollments, useLessonQuestions, useProgress, useSmartPractice } from '@/lib/queries';
+import { toast } from '@/lib/toast';
+
+interface Grade {
+  isCorrect: boolean | null;
+  score: number | null;
+  feedback: string;
+}
+
+interface SubmitResult {
+  grade: Grade;
+  question?: { id: string; payload: Record<string, unknown> };
+}
+
+export default function QuizPage() {
+  const { s } = useLang();
+  const params = useParams<{ lessonId: string }>();
+  const lessonId = params.lessonId || '';
+  const [search] = useSearchParams();
+  const courseId = search.get('courseId') || '';
+  const slug = search.get('slug') || '';
+  const from = search.get('from') || '';
+  const nextLessonId = search.get('nextLessonId') || '';
+  const questionId = search.get('questionId') || '';
+  const nav = useNavigate();
+  const location = useLocation();
+  const qc = useQueryClient();
+
+  // 智能练习模式 · /practice 路由（无 lessonId）· 题集来自 smart-practice 后端
+  const isPractice = location.pathname === '/practice';
+  const practiceLimit = Math.max(1, Math.min(50, Number(search.get('limit')) || 10));
+  const practiceCourseId = search.get('courseId') || undefined;
+  const practiceOnlyMistakes = search.get('onlyMistakes') === '1' || search.get('onlyMistakes') === 'true';
+  const practiceSingleQid = search.get('questionId') || undefined;
+
+  const lessonQuestions = useLessonQuestions(isPractice ? null : lessonId);
+  const practiceQuestions = useSmartPractice({
+    enabled: isPractice,
+    limit: practiceLimit,
+    courseId: practiceCourseId,
+    onlyMistakes: practiceOnlyMistakes,
+    questionId: practiceSingleQid,
+  });
+  const questions = isPractice ? practiceQuestions : lessonQuestions;
+
+  const enrollments = useEnrollments();
+  const progress = useProgress();
+  // 进入答题前的"今日已答" · 用于判断本次完成是否触发首日打卡
+  const [enterTodayAnswered] = useState(() => progress.data?.todayAnswered ?? 0);
+
+  // 当前题索引
+  const [qi, setQi] = useState(0);
+  // 当前题答案 · key=qi
+  const [answers, setAnswers] = useState<Record<number, unknown>>({});
+  // 已确认 · key=qi · 包含后端 grade
+  const [grades, setGrades] = useState<Record<number, Grade>>({});
+  // 单题提交后 update 的题目（payload 含正确答案）
+  const [enriched, setEnriched] = useState<Record<number, Record<string, unknown>>>({});
+  // 已显示完成 overlay
+  const [done, setDone] = useState(false);
+
+  const list = questions.data ?? [];
+  const total = list.length;
+  const current = list[qi];
+
+  // 当用户切到新课时 · 或新练习集 · 重置
+  useEffect(() => {
+    setQi(0);
+    setAnswers({});
+    setGrades({});
+    setEnriched({});
+    setDone(false);
+  }, [lessonId, isPractice, practiceCourseId, practiceLimit, practiceOnlyMistakes, practiceSingleQid]);
+
+  // 渲染时把 enriched.payload 合并进 question
+  const displayQuestion = useMemo(() => {
+    if (!current) return null;
+    const e = enriched[qi];
+    if (!e) return current;
+    return { ...current, payload: { ...current.payload, ...e } };
+  }, [current, enriched, qi]);
+
+  const confirmed = grades[qi] !== undefined;
+
+  const submit = useMutation<SubmitResult, ApiError, void>({
+    mutationFn: async () => {
+      if (!current) throw new ApiError('No question', 0);
+      return api.post<SubmitResult>('/api/answers', {
+        questionId: current.id,
+        answer: answers[qi] ?? null,
+        timeSpentMs: 0,
+        requestId: cryptoRandom(),
+      });
+    },
+    onSuccess: (data) => {
+      setGrades((g) => ({ ...g, [qi]: data.grade }));
+      if (data.question?.payload) {
+        setEnriched((e) => ({ ...e, [qi]: data.question!.payload }));
+      }
+      const ok = data.grade.isCorrect;
+      if (ok === true) notification('success');
+      else if (ok === false) notification('error');
+    },
+    onError: (e) => {
+      toast.error(e.message);
+    },
+  });
+
+  function next() {
+    if (qi < total - 1) {
+      setQi(qi + 1);
+      selection();
+    } else {
+      finish();
+    }
+  }
+
+  async function finish() {
+    setDone(true);
+    // 算正确数
+    const correct = Object.values(grades).filter((g) => g.isCorrect === true).length;
+    const enrolledHere = (enrollments.data ?? []).some((e) => e.courseId === courseId);
+    if (lessonId && courseId && enrolledHere) {
+      try {
+        await api.patch('/api/enrollments/' + encodeURIComponent(courseId) + '/progress', {
+          addCompletedLessonId: lessonId,
+          currentLessonId: lessonId,
+        });
+        qc.invalidateQueries({ queryKey: ['/api/my/enrollments'] });
+        qc.invalidateQueries({ queryKey: ['/api/my/progress'] });
+      } catch {
+        // 静默 · 完成态已显示
+      }
+    }
+    qc.invalidateQueries({ queryKey: ['/api/mistakes'] });
+    qc.invalidateQueries({ queryKey: ['/api/sm2/stats'] });
+    notification('success');
+    // 首日打卡判定：进入时今日已答=0 + 本次完成 · 弹 🔥 toast
+    if (enterTodayAnswered === 0 && total > 0) {
+      // 先弹分数 toast · 再延迟弹打卡 toast（避免同时叠加）
+      toast.ok(s(
+        `正确 ${correct} / ${total}`,
+        `正確 ${correct} / ${total}`,
+        `Correct ${correct} / ${total}`,
+      ));
+      setTimeout(() => {
+        toast.ok(s(
+          '🔥 今日打卡 +1 · 连续学习中',
+          '🔥 今日打卡 +1 · 連續學習中',
+          '🔥 Daily check-in +1',
+        ));
+      }, 800);
+    } else {
+      toast.ok(s(
+        `正确 ${correct} / ${total}`,
+        `正確 ${correct} / ${total}`,
+        `Correct ${correct} / ${total}`,
+      ));
+    }
+  }
+
+  function backToSource() {
+    // /practice 智能练习 / 单题模式 / 仅错题 · 完成或返回都回首页
+    // （不回 /quiz · 因为入口主要是首页 ⚡ 智能练习卡）
+    if (isPractice) {
+      if (practiceOnlyMistakes) nav('/mistakes', { replace: true });
+      else if (practiceSingleQid) nav(`/mistake/${encodeURIComponent(practiceSingleQid)}`, { replace: true });
+      else nav('/', { replace: true });
+      return;
+    }
+    if (from === 'reading' && slug) nav(`/read/${slug}/${lessonId}`, { replace: true });
+    else if (from === 'detail' && slug) nav(`/scripture-detail?slug=${encodeURIComponent(slug)}`, { replace: true });
+    else if (from === 'mistake') nav(questionId ? `/mistake/${encodeURIComponent(questionId)}` : '/mistakes', { replace: true });
+    else nav('/quiz', { replace: true });
+  }
+
+  if (questions.isLoading) {
+    return (
+      <div style={{ padding: 'var(--sp-5)' }}>
+        <Skeleton.Card />
+      </div>
+    );
+  }
+
+  if (questions.isError) {
+    return (
+      <div style={{ padding: 'var(--sp-7) var(--sp-5)', textAlign: 'center' }}>
+        <p style={{ color: 'var(--crimson)' }}>{(questions.error as ApiError).message}</p>
+        <button type="button" onClick={() => nav(-1)} className="btn btn-pill" style={{ marginTop: 16, padding: '8px 18px' }}>
+          {s('返回', '返回', 'Back')}
+        </button>
+      </div>
+    );
+  }
+
+  if (total === 0) {
+    return (
+      <div style={{ padding: 'var(--sp-7) var(--sp-5)', textAlign: 'center' }}>
+        <p style={{ color: 'var(--ink-3)', fontSize: '1.125rem', marginBottom: 16 }}>📭</p>
+        <p style={{ color: 'var(--ink-2)', lineHeight: 1.7, marginBottom: 'var(--sp-4)' }}>
+          {isPractice
+            ? practiceOnlyMistakes
+              ? s('错题本暂时无题 · 太棒了', '錯題本暫時無題 · 太棒了', 'No mistakes to review · awesome')
+              : s('暂无可练习的题目 · 先去学习一些课时', '暫無可練習的題目 · 先去學習一些課時', 'Nothing to practice yet · study some lessons first')
+            : s('本课时尚无题目', '本課時尚無題目', 'No questions for this lesson yet')}
+        </p>
+        <button type="button" onClick={backToSource} className="btn btn-primary btn-pill" style={{ padding: '10px 24px' }}>
+          {s('返回', '返回', 'Back')}
+        </button>
+      </div>
+    );
+  }
+
+  if (done) {
+    const correct = Object.values(grades).filter((g) => g.isCorrect === true).length;
+    const wrong = Object.values(grades).filter((g) => g.isCorrect === false).length;
+    const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+    const title = pct >= 80
+      ? s('太棒了', '太棒了', 'Excellent')
+      : pct >= 50
+        ? s('继续加油', '繼續加油', 'Keep going')
+        : s('再来一次', '再來一次', 'Try again');
+    // 圆环 SVG · 半径 50 · 周长 314
+    const ringR = 50;
+    const ringC = 2 * Math.PI * ringR;
+    const ringFilled = (pct / 100) * ringC;
+    const ringColor = pct >= 80 ? 'var(--sage-dark)' : pct >= 50 ? 'var(--saffron)' : 'var(--crimson)';
+    return (
+      <div style={{ padding: 'var(--sp-8) var(--sp-5)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-5)' }}>
+        {/* 120×120 圆环 · 内显百分比 */}
+        <div style={{ position: 'relative', width: 120, height: 120 }}>
+          <svg width="120" height="120" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }} aria-hidden>
+            <circle cx="60" cy="60" r={ringR} fill="none" stroke="var(--border-light)" strokeWidth="8" />
+            <circle
+              cx="60"
+              cy="60"
+              r={ringR}
+              fill="none"
+              stroke={ringColor}
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeDasharray={ringC}
+              strokeDashoffset={ringC - ringFilled}
+              style={{ transition: 'stroke-dashoffset .6s var(--ease)' }}
+            />
+          </svg>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--ink)' }}>
+              {pct}%
+            </span>
+            <span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 2 }}>
+              {s('正确率', '正確率', 'Accuracy')}
+            </span>
+          </div>
+        </div>
+
+        {/* 大标题 */}
+        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--ink)', letterSpacing: 4 }}>
+          {title}
+        </h1>
+
+        {/* 三栏 stat */}
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr', gap: 0, alignItems: 'center', maxWidth: 320, width: '100%' }}>
+          <DoneStat val={String(correct)} label={s('答对', '答對', 'Right')} color="var(--sage-dark)" />
+          <DoneSep />
+          <DoneStat val={String(wrong)} label={s('答错', '答錯', 'Wrong')} color="var(--crimson)" />
+          <DoneSep />
+          <DoneStat val={String(total)} label={s('总数', '總數', 'Total')} />
+        </div>
+
+        {/* 按钮：下一课（仅 nextLessonId 时） + 返回首页 */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', width: '100%', maxWidth: 320, marginTop: 'var(--sp-2)' }}>
+          {nextLessonId && slug && (
+            <button
+              type="button"
+              onClick={() => nav(`/read/${slug}/${nextLessonId}`, { replace: true })}
+              className="btn btn-primary btn-pill btn-full"
+              style={{ padding: 14, justifyContent: 'center' }}
+            >
+              {s('下一课 →', '下一課 →', 'Next lesson →')}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => nav('/', { replace: true })}
+            className={nextLessonId && slug ? 'btn btn-pill btn-full' : 'btn btn-primary btn-pill btn-full'}
+            style={
+              nextLessonId && slug
+                ? { padding: 14, justifyContent: 'center', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }
+                : { padding: 14, justifyContent: 'center' }
+            }
+          >
+            {s('返回首页', '返回首頁', 'Back to home')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!current || !displayQuestion) return null;
+
+  const grade = grades[qi];
+  const ok = grade?.isCorrect;
+  const showFeedback = confirmed && current.type !== 'flip';
+
+  return (
+    <div>
+      {/* Header · 进度 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-5)' }}>
+        <button
+          type="button"
+          className="nav-back"
+          onClick={backToSource}
+          aria-label={s('返回', '返回', 'Back')}
+        >
+          <svg width="18" height="18" fill="none" stroke="#55463A" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', font: 'var(--text-caption)', color: 'var(--ink-3)', marginBottom: 4 }}>
+            <span>{qi + 1} / {total}</span>
+            <span>{s('正确率', '正確率', 'Accuracy')} {Object.values(grades).length > 0 ? Math.round(Object.values(grades).filter((g) => g.isCorrect).length / Object.values(grades).length * 100) : 0}%</span>
+          </div>
+          <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%',
+                background: 'var(--saffron)',
+                width: `${((qi + (confirmed ? 1 : 0)) / total) * 100}%`,
+                transition: 'width .4s var(--ease)',
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 题卡 */}
+      <div style={{ padding: 'var(--sp-4) var(--sp-5)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-5)', position: 'relative' }}>
+          <span
+            style={{
+              display: 'inline-block',
+              font: 'var(--text-caption)',
+              fontWeight: 700,
+              color: 'var(--saffron)',
+              background: 'var(--saffron-pale)',
+              border: '1px solid var(--saffron-light)',
+              borderRadius: 'var(--r-pill)',
+              padding: '2px 10px',
+              letterSpacing: 1,
+              marginBottom: 'var(--sp-3)',
+            }}
+          >
+            {typeLabel(current.type)}
+          </span>
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginBottom: 'var(--sp-2)' }}>Q{qi + 1}</div>
+          <div style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', lineHeight: 1.7 }}>
+            {current.questionText}
+          </div>
+        </div>
+
+        <QuestionRenderer
+          question={displayQuestion}
+          value={answers[qi] ?? null}
+          onChange={(v) => setAnswers((a) => ({ ...a, [qi]: v }))}
+          confirmed={confirmed}
+          grade={grade}
+        />
+
+        {/* Feedback */}
+        {showFeedback && grade && (
+          <div
+            style={{
+              borderRadius: 'var(--r-xl)',
+              padding: 'var(--sp-4) var(--sp-5)',
+              font: 'var(--text-caption)',
+              lineHeight: 1.7,
+              background: ok ? 'var(--sage-light)' : 'var(--crimson-light)',
+              border: '1px solid ' + (ok ? 'var(--sage)' : 'var(--crimson-light)'),
+            }}
+          >
+            <div style={{ fontWeight: 700, color: ok ? 'var(--sage-dark)' : 'var(--crimson)', marginBottom: 'var(--sp-2)' }}>
+              {ok ? s('✓ 回答正确', '✓ 回答正確', '✓ Correct') : s('✗ 回答有误', '✗ 回答有誤', '✗ Incorrect')}
+              {grade.score !== null && grade.score !== undefined && ` · ${s('得分', '得分', 'Score')} ${grade.score}`}
+            </div>
+            <div style={{ color: 'var(--ink-2)' }}>
+              {grade.feedback || s('请参考法本原文', '請參考法本原文', 'Refer to the source text')}
+            </div>
+          </div>
+        )}
+
+        {/* Action */}
+        <div style={{ display: 'flex', gap: 'var(--sp-3)', paddingBottom: 'var(--sp-8)' }}>
+          {!confirmed ? (
+            <button
+              type="button"
+              onClick={() => submit.mutate()}
+              disabled={submit.isPending || !canSubmit(current.type, answers[qi])}
+              className="btn btn-primary btn-lg btn-pill btn-full"
+              style={{ flex: 1, justifyContent: 'center', padding: 14 }}
+            >
+              {submit.isPending
+                ? s('提交中…', '提交中…', 'Submitting…')
+                : current.type === 'flip'
+                  ? s('继续', '繼續', 'Continue')
+                  : s('提交答案', '提交答案', 'Submit')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={next}
+              className="btn btn-primary btn-lg btn-pill btn-full"
+              style={{ flex: 1, justifyContent: 'center', padding: 14 }}
+            >
+              {qi < total - 1
+                ? s('下一题', '下一題', 'Next')
+                : s('完成', '完成', 'Finish')}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function typeLabel(t: string): string {
+  return ({
+    single: '单选', multi: '多选', fill: '填空', open: '问答',
+    sort: '排序', match: '匹配', flip: '速记卡',
+  } as Record<string, string>)[t] || t;
+}
+
+function cryptoRandom(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'r_' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function DoneStat({ val, label, color }: { val: string; label: string; color?: string }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.25rem', color: color ?? 'var(--ink)', lineHeight: 1.2 }}>
+        {val}
+      </div>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function DoneSep() {
+  return <div style={{ background: 'var(--border-light)', justifySelf: 'center', height: 28, width: 1 }} />;
+}

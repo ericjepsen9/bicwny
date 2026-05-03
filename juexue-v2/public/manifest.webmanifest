@@ -1,0 +1,17 @@
+{
+  "name": "觉学 Juexue",
+  "short_name": "觉学",
+  "description": "用现代工具学习佛法",
+  "id": "/app/",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFAF4",
+  "theme_color": "#E07856",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/app/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/app/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

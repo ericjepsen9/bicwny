@@ -1,0 +1,118 @@
+name: deploy
+
+# 手动触发 · 走 SSH 把 main / 指定分支推上服务器
+# 配合 secrets:
+#   DEPLOY_SSH_KEY        服务器 SSH 私钥（推荐用 deploy key 限定到本仓库）
+#   DEPLOY_HOST           e.g. juexue.caughtalert.com
+#   DEPLOY_USER           e.g. ubuntu
+#   DEPLOY_PATH           /home/ubuntu/projects/juexue
+#
+# 默认部署分支：选 workflow_dispatch input 的 branch · 留空 = main
+# 流程：ssh → git fetch + checkout + pull → cd backend → install/build/migrate
+#       → pm2 reload juexue-api → 等 health check
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: '目标环境'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      branch:
+        description: '要部署的分支（默认 main）'
+        required: false
+        default: 'main'
+      run_db_push:
+        description: '是否跑 prisma db push（schema 变更时勾上）'
+        required: false
+        default: 'false'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # environment 让 GitHub 加保护规则（manual approval 等）· staging / production 各自配
+    environment: ${{ github.event.inputs.target }}
+    concurrency:
+      group: deploy-${{ github.event.inputs.target }}
+      cancel-in-progress: false # 不让并发覆盖
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          BRANCH: ${{ github.event.inputs.branch }}
+          DB_PUSH: ${{ github.event.inputs.run_db_push }}
+          TARGET: ${{ github.event.inputs.target }}
+        run: |
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" bash -se <<EOF
+          set -euo pipefail
+          # target=production → pm2 进程 juexue-api · env .env · 健康端口 3000
+          # target=staging    → pm2 进程 juexue-api-staging · env .env.staging · 健康端口 3001
+          if [ "$TARGET" = "production" ]; then
+            PM2_NAME=juexue-api
+            ENV_FILE=.env
+            HEALTH_PORT=3000
+          else
+            PM2_NAME=juexue-api-staging
+            ENV_FILE=.env.staging
+            HEALTH_PORT=3001
+          fi
+
+          cd "$DEPLOY_PATH"
+          echo "▸ git fetch"
+          git fetch origin --prune
+          echo "▸ checkout $BRANCH"
+          git checkout "$BRANCH"
+          git pull origin "$BRANCH"
+
+          cd backend
+          echo "▸ pnpm install"
+          pnpm install --frozen-lockfile
+
+          echo "▸ prisma generate"
+          pnpm prisma generate
+
+          if [ "$DB_PUSH" = "true" ]; then
+            echo "▸ prisma db push (\$ENV_FILE)"
+            DATABASE_URL=\$(grep -E '^DATABASE_URL=' \$ENV_FILE | cut -d= -f2- | tr -d '"')
+            DATABASE_URL="\$DATABASE_URL" pnpm prisma db push
+          fi
+
+          echo "▸ build"
+          pnpm build
+
+          echo "▸ pm2 reload \$PM2_NAME"
+          pm2 reload \$PM2_NAME --update-env
+
+          echo "▸ wait for health (port \$HEALTH_PORT)"
+          for i in {1..20}; do
+            if curl -sf http://localhost:\$HEALTH_PORT/health > /dev/null; then
+              echo "✓ health OK"
+              break
+            fi
+            sleep 1
+          done
+
+          curl -sf http://localhost:\$HEALTH_PORT/health || (echo "✗ health 检查超时" && exit 1)
+          echo "✓ deploy done · target=$TARGET branch=$BRANCH commit=\$(git rev-parse --short HEAD)"
+          EOF
+
+      - name: Notify (optional · 接 Slack / 钉钉)
+        if: always()
+        run: echo "deploy ${{ job.status }} · target=${{ github.event.inputs.target }} · branch=${{ github.event.inputs.branch }}"

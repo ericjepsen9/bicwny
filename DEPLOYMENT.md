@@ -1,0 +1,938 @@
+# 觉学 · 部署指南（v1.0）
+
+v1.0 上线标准：用户可以注册、登录、浏览 home/profile/settings，前后端打通跑通认证闭环。
+v2.0 题型的前端 UI、题目编辑后台 UI 暂未上线，后端 API 已就绪。
+
+## 一、架构总览
+
+```
+┌──────────────────────────────────────────────┐
+│  单台服务器（Oracle Cloud ARM / 任意 VPS）    │
+│                                              │
+│  nginx :443/:80                              │
+│   ├── /         → 静态文件 (prototypes/)      │
+│   └── /api/     → 反代 127.0.0.1:3000 (node) │
+│                                              │
+│  PM2 / systemd → node backend (:3000)        │
+│  PostgreSQL 16 (:5432)                       │
+└──────────────────────────────────────────────┘
+```
+
+- **静态前端**和 **Node API** 同域（nginx 反代）→ 天然同源，无需 CORS
+- 想分域部署也行：前端填 `CORS_ORIGINS=https://app.example.com`
+
+## 二、本地开发（一次性）
+
+```bash
+# 1) Postgres
+sudo pg_ctlcluster 16 main start       # 或 docker-compose -f backend/docker-compose.yml up -d
+sudo -u postgres createuser juexue -P   # 密码：juexue_dev（或随意）
+sudo -u postgres createdb -O juexue juexue
+
+# 2) 后端依赖 + schema + 种子
+cd backend
+cp .env.example .env                    # 按需改 DATABASE_URL / JWT_SECRET
+pnpm install
+pnpm prisma generate
+pnpm prisma db push                     # 非破坏式同步 schema（首次）
+pnpm prisma:seed                        # 写入法本 / 3 个 demo 账号 / LLM 模板
+
+# 3) 同时开两个进程
+pnpm dev                                # backend → :3000
+python3 -m http.server 5173 --directory ../prototypes   # 静态 → :5173
+
+# 4) 浏览器打开 http://localhost:5173/mobile/auth.html
+#    - 注册 → 自动跳 home.html
+#    - 刷新应保持登录；退出登录 → 跳回 auth.html
+```
+
+### 演示账号（seed 自动写入）
+
+| 角色    | 邮箱                  | 密码        |
+| ------- | --------------------- | ----------- |
+| admin   | admin@juexue.app      | admin123    |
+| coach   | coach@juexue.app      | coach123    |
+| student | student@juexue.app    | student123  |
+
+## 三、生产部署（Oracle Cloud ARM 示例）
+
+假设域名 `app.juexue.example`，代码放在 `/opt/juexue`。
+
+### 1. 系统依赖
+
+```bash
+# Ubuntu 22.04 / 24.04
+sudo apt update
+sudo apt install -y nodejs npm postgresql-16 nginx
+sudo npm install -g pnpm pm2
+```
+
+### 2. 拉取代码
+
+```bash
+sudo mkdir -p /opt/juexue && sudo chown $USER /opt/juexue
+git clone <repo-url> /opt/juexue
+cd /opt/juexue/backend
+pnpm install --prod=false
+pnpm build         # tsc → dist/
+```
+
+### 3. 数据库
+
+```bash
+sudo -u postgres psql <<EOF
+CREATE USER juexue WITH PASSWORD '<强密码>';
+CREATE DATABASE juexue OWNER juexue;
+EOF
+```
+
+### 4. 环境变量 `/opt/juexue/backend/.env`
+
+```env
+NODE_ENV=production
+PORT=3000
+HOST=127.0.0.1                # 只绑定 loopback，nginx 反代访问
+
+DATABASE_URL="postgresql://juexue:<强密码>@localhost:5432/juexue?schema=public"
+JWT_SECRET=<openssl rand -hex 48 输出的 96 字符>
+
+CORS_ORIGINS=                 # 同源部署留空；跨域时填前端域名
+
+MINIMAX_API_KEY=<...>         # 不用 LLM 造题可留空
+MINIMAX_GROUP_ID=<...>
+ANTHROPIC_API_KEY=<...>
+```
+
+### 5. 首次 schema + seed
+
+```bash
+cd /opt/juexue/backend
+pnpm prisma migrate deploy   # 若日后加了 migrations/
+# 或首次部署：
+pnpm prisma db push
+pnpm prisma:seed
+```
+
+### 6. PM2 常驻
+
+```bash
+cd /opt/juexue/backend
+pm2 start dist/server.js --name juexue-api --time
+pm2 save
+pm2 startup systemd           # 跟着按提示跑一条 sudo 命令
+```
+
+### 7. nginx 配置 `/etc/nginx/sites-available/juexue`
+
+```nginx
+server {
+  listen 80;
+  server_name app.juexue.example;
+
+  # certbot 会自动加 SSL，这里先写 HTTP；跑 certbot --nginx 后自动 HTTPS
+  root /opt/juexue/prototypes;
+  index mobile/auth.html index.html;
+
+  # 文件上传上限：
+  #   后端 multipart 上限 20 MB（src/app.ts），nginx 留 5 MB 余量
+  #   不设这个 → 默认 1 MB，admin 上传法本 PDF/DOCX 立刻 413
+  client_max_body_size 25M;
+
+  # 1. 静态资源
+  location / {
+    try_files $uri $uri/ =404;
+    # 根访问默认进入登录页
+    location = / { return 302 /mobile/auth.html; }
+  }
+
+  # 2. API 反代 —— 保留 Authorization header
+  location /api/ {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Authorization     $http_authorization;
+    # 大文件上传 + LLM 长任务 → 留足超时
+    proxy_read_timeout    120s;
+    proxy_send_timeout    120s;
+    proxy_connect_timeout  30s;
+    client_body_timeout   120s;
+  }
+
+  # 3. 健康检查
+  location = /health { proxy_pass http://127.0.0.1:3000/health; }
+}
+```
+
+> 完整模板见 `deploy/nginx/juexue.conf`。
+
+```bash
+# 推荐：直接用仓库里的模板（含 client_max_body_size 等已校准的参数）
+sudo cp /opt/juexue/deploy/nginx/juexue.conf /etc/nginx/sites-available/juexue
+sudo sed -i 's/app.juexue.example/你的真实域名/g' /etc/nginx/sites-available/juexue
+sudo ln -sf /etc/nginx/sites-available/juexue /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d 你的真实域名   # 自动签 HTTPS
+```
+
+#### 已部署的服务器：单独追加 `client_max_body_size`（避免 413）
+
+如果你之前按旧版文档部署、没有 `client_max_body_size`，**热修复**一行：
+
+```bash
+sudo sed -i '/server_name/a \    client_max_body_size 25M;' /etc/nginx/sites-enabled/juexue
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 8. 防火墙
+
+Oracle Cloud ARM 默认只开 22。要在控制台的 Security List 放行 80/443；本机再：
+
+```bash
+sudo ufw allow 80,443/tcp
+sudo ufw enable
+```
+
+## 四、前端配置 API 地址
+
+前端默认策略：
+- `localhost`/`127.0.0.1` → `http://localhost:3000`（本地 dev 自动）
+- 其它域名 → 同源（`/api/...`），由 nginx 反代 → 生产零配置
+
+如需手动覆盖（比如前端托在 Oracle Cloud Object Storage、后端在另一台服务器）：
+
+```html
+<!-- 在 prototypes 里每个 .html <head> 的 config.js 之前加一行： -->
+<meta name="jx-api-base" content="https://api.juexue.example">
+```
+
+或运行时改：`localStorage.setItem('jx-api-base', 'https://api.juexue.example')`
+
+## 五、升级流程
+
+```bash
+cd /opt/juexue
+git pull
+cd backend
+pnpm install --prod=false
+pnpm prisma generate
+pnpm prisma migrate deploy   # 有新迁移时
+pnpm build
+pm2 reload juexue-api        # 零停机重启
+```
+
+前端是纯静态，`git pull` 就生效。
+
+## 六、数据库备份与恢复验证
+
+**必装** · 任何上线项目都要有自动备份 + 定期"演练"恢复 · 否则真出事时
+才发现备份坏掉就是灾难。
+
+### 一键安装
+
+```bash
+cd /home/ubuntu/projects/juexue
+sudo bash deploy/setup-backup-cron.sh
+```
+
+脚本做了：
+- 从 `backend/.env` 读 `DATABASE_URL` · 解析出连接信息写到 `/etc/juexue/backup-env.sh`（权限 600）
+- 写 cron 文件 `/etc/cron.d/juexue-backup`：
+  - **每日 03:00** 执行 `db-backup.sh`：`pg_dump | gzip` → `/var/backups/juexue/` · 保留 30 天
+  - **每周日 04:00** 执行 `db-restore-verify.sh`：把最新备份恢复到临时库 `juexue_verify` · 检查 User/Course/Question/AuditLog 表能 SELECT · 跑完 drop 临时库
+- 失败时 cron 通过 `MAILTO=root` 邮件告警（前提：服务器装了 sendmail/postfix）
+
+### 立即测试
+
+```bash
+source /etc/juexue/backup-env.sh && bash deploy/db-backup.sh
+ls -lh /var/backups/juexue/                       # 应看到 juexue-YYYYMMDD-HHMMSS.sql.gz
+source /etc/juexue/backup-env.sh && bash deploy/db-restore-verify.sh
+tail /var/log/juexue-backup.log                   # 应看到 verify PASS
+```
+
+### 手动恢复（真出事故时）
+
+```bash
+# 1) 停后端避免有写入
+pm2 stop juexue-api
+
+# 2) drop + recreate 主库（会清空所有数据 · 确认你真的要这么做）
+sudo -u postgres psql -c "DROP DATABASE juexue;"
+sudo -u postgres psql -c "CREATE DATABASE juexue OWNER juexue;"
+
+# 3) 解压并恢复
+zcat /var/backups/juexue/juexue-YYYYMMDD-HHMMSS.sql.gz | \
+  PGPASSWORD=<你的密码> psql -U juexue -h localhost -d juexue
+
+# 4) Prisma client 不需要重新 generate（schema 没变）· 直接重启
+pm2 restart juexue-api
+```
+
+### 异地备份（强烈建议）
+
+单机备份还在同一台机器 · 机器爆了就一起没。配置 `REMOTE_DEST` 推送到另一台 / 对象存储：
+
+```bash
+# /etc/juexue/backup-env.sh 末尾加
+export REMOTE_DEST="user@backup-host:/srv/juexue-backups/"
+# 或用 rclone 推 S3 / B2 / 阿里云 OSS：
+# 先 rclone config 配 remote · 再 export REMOTE_DEST="rclone:juexue-backup:/"
+# 改 db-backup.sh 调 rclone copy 替代 rsync（如需）
+```
+
+### 配置项
+
+环境变量（覆盖默认）：
+
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `DB_NAME` | `juexue` | 数据库名 |
+| `DB_USER` | `juexue` | Postgres 角色 |
+| `DB_HOST` | `localhost` | 主机 |
+| `DB_PORT` | `5432` | 端口 |
+| `PGPASSWORD` | （空） | 密码 · 也可写 `~/.pgpass` |
+| `BACKUP_DIR` | `/var/backups/juexue` | 备份目录 |
+| `KEEP_DAYS` | `30` | 本地保留天数 |
+| `REMOTE_DEST` | （空） | rsync 目的地 · 设了就推一份到远端 |
+| `VERIFY_DB` | `juexue_verify` | 验证用临时库名 |
+| `MIN_USER_COUNT` | `1` | User 表至少行数 · 低于报错 |
+| `LOG_FILE` | `/var/log/juexue-backup.log` | 日志路径 |
+
+## 十、常见排错
+
+| 症状 | 排查 |
+| ---- | ---- |
+| 前端打开空白 | 浏览器 Console 看有没有 404；检查 `prototypes/shared/*.js` 是否 200 |
+| 注册/登录按钮没反应 | Network 看 `/api/auth/login` 请求；大概率 CORS 或 DATABASE_URL |
+| 401 循环跳登录 | `JWT_SECRET` 变更了导致老 token 失效；让用户清 localStorage 重登 |
+| `ECONNREFUSED 127.0.0.1:3000` | `pm2 status` 看 juexue-api 是否 online；`pm2 logs juexue-api` |
+| Prisma `P1001` | DATABASE_URL 对吗、Postgres 起来了吗 |
+| LLM 造题 503 | `.env` 里的 API key 为空或错误；或 MiniMax 配额耗尽 |
+
+## 七、CDN + 图片加速
+
+### 1. nginx 端 · 长缓存策略（必装）
+
+`prototypes/` 静态文件 + `/uploads/` 图片上 `Cache-Control` 长缓存：
+
+```nginx
+# 静态文件（HTML/CSS/JS）· 短 max-age + must-revalidate · 配合内容哈希更佳
+location ~* \.(html)$ {
+  add_header Cache-Control "public, max-age=300, must-revalidate";
+}
+location ~* \.(css|js)$ {
+  add_header Cache-Control "public, max-age=86400, stale-while-revalidate=604800";
+}
+# 上传图片（覆盖 /uploads/courses/*-{320,640,1024}.webp）· 文件名含 hash · 永远不重写
+location /uploads/ {
+  alias /home/ubuntu/projects/juexue/uploads/;
+  add_header Cache-Control "public, max-age=31536000, immutable";
+  access_log off;
+  expires 1y;
+}
+# Service Worker · 必须不缓存 · 否则发版触达不到老用户
+location = /sw.js {
+  add_header Cache-Control "no-cache, no-store, must-revalidate";
+  add_header Service-Worker-Allowed "/";
+}
+```
+
+### 2. Cloudflare 前置（强烈推荐 · 免费）
+
+`juexue.caughtalert.com` 域名挂到 Cloudflare：
+1. Cloudflare 添加 site · 把 NS 切到 Cloudflare
+2. DNS 记录 A → 服务器 IP · proxy 状态 = orange cloud（默认开）
+3. SSL/TLS mode → Full (strict)
+4. **Speed → Optimization**：
+   - Auto Minify ✓ HTML/CSS/JS
+   - Brotli ✓
+   - Polish: Lossy（自动 WebP 转换 · 即使 origin 是 PNG）
+   - Mirage（移动设备图片懒加载 + 自适应）
+5. **Caching → Configuration**：Browser Cache TTL = Respect Existing Headers
+6. **Page Rules**：`/uploads/*` Edge Cache TTL = 1 month
+
+效果：
+- 海外用户访问命中 Cloudflare 边缘 · 延迟 < 50ms
+- Polish 把 PNG/JPEG 自动转 WebP 给支持的浏览器（**即使后端没生成 webp 也有 30% 体积下降**）
+- 流量 90% 命中 CDN cache · 服务器只 serve 5-10%
+
+### 3. 后端图片处理（已就绪）
+
+admin 上传封面后自动生成 320/640/1024 三尺寸 WebP（sharp · q=80）·
+节省 50-70% 带宽 · 浏览器按 srcset 选最合适。
+
+```
+上传 abc.png (200KB)
+↓
+abc-320.webp  (8KB)   移动列表
+abc-640.webp  (24KB)  详情页
+abc-1024.webp (60KB)  桌面 / 高 DPR
+```
+
+前端 `JX.components.coverHtml` 自动输出 `<picture>` + srcset · 浏览器选择最合适。
+
+### 4. 静态资源迁到对象存储（v2 演进）
+
+当前 `/uploads/` 在 VPS 本地。规模化后：
+- 阿里 OSS / Cloudflare R2 / AWS S3 二选一
+- admin 上传 → 后端 sharp 处理 → 推 OSS · DB 存 OSS URL
+- 前端直连 OSS 或用 CDN 回源 OSS
+
+不在 v1 范围 · 但接口已留好（`coverImageUrl` 是个 URL · 改成 https://oss... 不需改任何 client 代码）。
+
+## 八、Capacitor 打包注意事项
+
+### 推送通知（@capacitor/push-notifications）
+
+后端已就绪（`POST /api/push/subscribe` + `web-push` 库）· Capacitor 打包后还需：
+
+```bash
+# 在 Capacitor 项目根目录
+npm install @capacitor/push-notifications
+npx cap sync
+```
+
+iOS 还需在 Xcode 项目里启用 Push Notifications capability + 配 APNS .p8 证书。
+
+### Token keychain 化（@capacitor/preferences）
+
+前端 `shared/token-store.js` 已自适应：检测到 `window.Capacitor.Plugins.Preferences`
+就走 native keychain · 否则回落 localStorage。
+
+```bash
+npm install @capacitor/preferences
+npx cap sync
+```
+
+iOS 自动用 Keychain Services · Android 用 EncryptedSharedPreferences · 都是
+OS 级加密存储 · root/越狱设备读取门槛远高于 localStorage。
+
+首次包后老 webview 装的 token 会自动迁移：boot 时 token-store 检测到 localStorage
+有 token 但 keychain 没 · 自动写到 keychain 并清 localStorage。
+
+### Web Push（PWA · 可选）
+
+非 Capacitor 场景（用户用浏览器访问）· 已经能直接用 Web Push（前提 HTTPS + VAPID 密钥）·
+无需额外 Capacitor 操作。
+
+### 触觉反馈（@capacitor/haptics）
+
+前端 `shared/haptics.js` 已自适应：检测到 `window.Capacitor.Plugins.Haptics`
+就走 native Taptic Engine / Android Vibrator API · 否则回落 Web Vibration API。
+
+```bash
+npm install @capacitor/haptics
+npx cap sync
+```
+
+用户可在 设置 → 交互反馈 → 触觉反馈 自行关闭（写 localStorage `jx-haptics-enabled`）。
+
+接入点：
+- 答题正确 / 错误 / 跳过 (`shared/quiz.js`)
+- SM-2 自评（重来 → error · 困难 → warning · 合格/容易 → success）
+- 收藏切换 / 错题移除 / 退出设备
+- 全站 Toast（ok/warning/error → 对应 notification）
+- 全站 nav-back（tap）+ tab-bar 切换（selection）
+- 任何带 `data-haptic="tap|selection|success|warning|error|light|medium|heavy"` 的元素
+
+## 十、i18n（多语言）
+
+支持简体中文（sc）/ 繁体中文（tc）/ English（en）三语言。
+
+### 用户切换
+
+设置 → 语言 → 三档 chip 选择（简体 / 繁體 / English）· 持久化到
+localStorage `jx-lang` · 跨标签页同步。
+
+### HTML 内联（推荐 · 同步）
+
+```html
+<span class="sc">中文</span><span class="tc">中文</span><span class="en">English</span>
+```
+
+CSS 选择器（tokens.css）按 `[data-lang]` 切换显隐。新写代码请直接给三个 span。
+仅有 `.sc` 没有 `.en` 时 · `[data-lang="en"]` 默认隐藏 · 需要 EN 兜底回落 SC 时
+给 `.sc` 加 `.en-fallback` 类。
+
+### JS 拼接（动态内容）
+
+```js
+JX.sc(scStr, tcStr);            // 历史 · 兼容 · en 自动回落 sc
+JX.sc(scStr, tcStr, enStr);     // 三参数 · 显式给 EN
+JX.t('common.confirm');         // 词典 · shared/i18n.js
+JX.t('quiz.scoreSummary', n);   // 占位 {0} {1} 替换
+```
+
+### 词典扩展
+
+shared/i18n.js · 加 key 三语都要填 · 缺 EN 自动 fallback SC：
+
+```js
+JX.i18n.register({
+  'mymodule.someKey': ['中文', '中文', 'English'],
+});
+```
+
+### 占位符（input / textarea）
+
+```html
+<input data-ph-sc="搜索" data-ph-tc="搜尋" data-ph-en="Search">
+```
+
+`lang.js` 在 langchange 时自动应用。
+
+### 当前覆盖范围
+
+- 全部页面顶部 nav 标题 + tab-bar
+- 设置页所有 section title 与 row label
+- 语言 picker / 主题 picker / 字号 picker
+- toast 颜色（不依赖文本）
+- 词典覆盖：common / tab / settings / quiz / course / mistakes / fav / sm2
+
+未覆盖（仍只 sc/tc）· EN 模式回落到 SC：
+- 法本经文正文（专业术语 · 翻译需要法师审校）
+- 班级公告 / 通知具体内容（用户/管理员产出）
+- LLM 答题反馈（按用户语言生成 · 见 backend prompt）
+
+## 十一、内容版本化（content versioning · A/B 题库）
+
+把 prisma migrations 之外的'数据级'变更也纳入 trail：法本结构调整、题目改写、A/B
+实验题库都走同一套 audit + seed 注册表。
+
+### 模型
+
+- `ContentSeed`：seed 注册表 · 同名只跑一次 · hash 变了默认拒跑
+- `ContentRelease`：审计流水 · 每次变更一行（包括 seed / admin 编辑 / cohort 指派）
+- `Course.contentVersion`、`Question.contentVersion`：实质变更递增 · 客户端缓存失效用
+- `Question.cohort`：null = 主线（所有人都见）· 'A' / 'B' / ... 仅匹配 user 的 cohort 看到
+- `User.contentCohort`：null = 主线 · 否则看 主线 ∪ 该 cohort
+
+### 增量 seed 文件
+
+`backend/prisma/seed/content-versioned/V<yyyymm>_<slug>.ts`：
+
+```ts
+import type { SeedDef } from '../../../src/lib/content-seed.js';
+
+const seed: SeedDef = {
+  name: 'V202607_add_xinjing_questions',
+  async run(tx, ctx) {
+    const q = await tx.question.create({ data: { /* ... */ cohort: 'beta-A' } });
+    await ctx.record('question', q.id, 'create', null, q.contentVersion, { source: 'manual' });
+    return { inserted: 1 };
+  },
+};
+export default seed;
+```
+
+应用：
+
+```bash
+cd backend
+npm run content:seed              # 跑所有未应用的（按文件名升序）
+npm run content:seed -- --dry-run # 只列出 · 不写库
+npm run content:seed -- --force   # hash 变了也允许重跑
+```
+
+行为：
+- 同名同 hash → 跳过（不插任何行）
+- 同名 hash 变 → 默认抛错（防止源码改了悄悄重写）· 加 `--force` 才覆盖
+- run 函数在事务里执行 · 任意一步失败回滚 · ContentSeed 不写入
+
+### 服务层手动写 release
+
+admin 编辑题 / 法本导入这种'非 seed'变更，调用 `recordRelease()`：
+
+```ts
+import { recordRelease } from '../../lib/content-seed.js';
+
+await prisma.$transaction(async (tx) => {
+  const updated = await tx.question.update({ /* ... */ });
+  await recordRelease(tx, {
+    entity: 'question',
+    entityId: updated.id,
+    change: 'update',
+    oldVersion: prev.contentVersion,
+    newVersion: updated.contentVersion,
+    diff: { fields: ['questionText'] },
+    byUserId: adminId,
+  });
+});
+```
+
+### A/B 题库实验流程
+
+1. 写一道实验题：`Question.cohort = 'beta-A'`
+2. 选定一批用户：`POST /api/admin/users/:id/cohort` body `{ cohort: 'beta-A' }`
+3. 这些用户答题时 `listLessonQuestions` / `listCourseQuestions` 自动并入 cohort=null + cohort='A'
+4. 实验结束推全：把题改 `cohort = null`（推荐写一个 seed 文件做 cohort-promote · 留 trail）
+
+### 只读 admin 端点
+
+- `GET /api/admin/content/seeds` · seed 注册表（最新优先）
+- `GET /api/admin/content/releases?entity=question&entityId=xxx` · 流水按实体过滤
+- `GET /api/admin/content/releases?bySeed=V202607_xxx` · 流水按 seed 过滤
+- `POST /api/admin/users/:id/cohort` body `{ cohort: 'A' | null }` · 指派 + 写 release
+
+## 十二、A/B 实验 + Funnel
+
+P2 #23 · 用 Analytics + Experiment 双表组合 · 自建轻量 A/B 测试基础设施。
+
+### 模型
+
+- `Experiment`：定义 · `key` 唯一 · `variants=[{name,weight}]` · 可选 `goalEvent` 用于转化分析
+- `ExperimentExposure`：第一次看到 variant 的快照 · `(key,userId)` 唯一约束 · 用户登录后照旧用老 variant
+- `User.contentCohort`（P2 #22）：与实验互不影响 · 都是 server 控制的分发维度
+
+### 客户端用法
+
+```js
+// 在 home.html boot 时
+const variant = await JX.experiments.assign('home_cta_v1');
+if (variant === 'treatment') {
+  document.getElementById('cta').textContent = '立即开始';
+} else {
+  document.getElementById('cta').textContent = '进入学习';
+}
+// 之后 JX.analytics.track('click_start') 会自动带上 properties.experiment + .variant
+```
+
+`JX.experiments.assign` 行为：
+- `localStorage` 7 天缓存 · 不重复打 server
+- 缓存命中直接返回 · 不命中 POST `/api/experiments/:key/assign`
+- 失败 / 实验不存在 / 已归档 → 回落 `'control'`
+- 自动给当前页所有 `JX.analytics.track()` 附加 `experiment` + `variant` 维度
+
+### 服务端确定性分配
+
+```ts
+sha256(experimentKey + '|' + subject) [前4字节] mod totalWeight
+```
+
+同一 user/session 在同一实验里永远进同一桶 · 即使 exposure 表丢失也稳定。
+
+### Admin 端点
+
+| 路由 | 说明 |
+|---|---|
+| `GET /api/admin/experiments` | 列表（最新优先）|
+| `POST /api/admin/experiments` | 创建 `{ key, variants, goalEvent? }` |
+| `PATCH /api/admin/experiments/:key` | 更新 / `{ archive: true }` 归档 |
+| `GET /api/admin/experiments/:key/results` | 按 variant 看 `{ exposed, converted, rate }` |
+
+转化定义：`AnalyticsEvent.userId` 在该 variant 暴露名单 · `event = goalEvent` ·
+`createdAt >= exposure.firstSeenAt` · 同用户最多算一次。
+
+### Funnel
+
+```
+GET /api/admin/analytics/funnel?fromDays=30&steps=page_view:home,click_start_quiz,quiz_submit
+```
+
+每个 step 格式：`event` 或 `event:page` · 用户按时间顺序触发就算完成 ·
+最多 8 步 · 返回每步 `{ users, rateFromStart }`。
+
+## 十三、全文搜索
+
+P2 #24 · 跨 Course / Lesson / Question · ILIKE 评分 · 中英文兼容。
+
+### 设计
+
+- **不依赖任何 PG 扩展**：用 `LOWER(col) LIKE LOWER('%q%')` + 命中位置加权排名
+- **可叠加 pg_trgm GIN 索引**：装上后 ILIKE 自动走索引 · 不改 SQL
+- **可见性 / cohort / 已发布** 过滤直接进 SQL：题目按 viewer.contentCohort（P2 #22）
+- **评分**：标题 100 / 副标 80 / 作者 50 / 正文 20（题目 source 60 / correctText 20）
+- **中文兼容**：ILIKE 不依赖分词 · 子串匹配 · 标题里出现关键词就命中
+
+### 启用 trigram 索引（生产建议）
+
+```bash
+cd backend
+npm run db:search:setup
+```
+
+行为：
+1. `CREATE EXTENSION IF NOT EXISTS pg_trgm`（需 superuser · 失败则跳过 GIN 索引）
+2. 给 `Course.title/titleTraditional/author`、`Lesson.title/teachingSummary`、
+   `Question.questionText/source` 加 `gin (LOWER(COALESCE(col,'')) gin_trgm_ops)`
+3. CREATE INDEX IF NOT EXISTS · 幂等 · 重跑无害
+
+不装也能用 · 数据量 < 10 万行时 seq scan + ILIKE 几十毫秒可接受。
+
+### API
+
+```
+GET /api/search?q=智慧&kind=all&limit=20
+```
+
+- `q`：必填 · 1-120 字 · 自动 trim
+- `kind`：`all` (默认) / `course` / `lesson` / `question`
+- `limit`：1-50 · 默认 20
+- 鉴权可选 · 未登录可搜公开法本/课时/主线公开题
+
+返回：
+
+```json
+{
+  "data": {
+    "q": "智慧",
+    "total": 12,
+    "truncated": true,
+    "hits": [
+      { "type": "course", "id": "...", "slug": "...", "title": "智慧法本", "score": 100 },
+      { "type": "lesson", "id": "...", "courseSlug": "...", "title": "...", "order": 1, "score": 30 },
+      { "type": "question", "id": "...", "lessonId": "...", "questionTextPreview": "…", "score": 100 }
+    ]
+  }
+}
+```
+
+### 客户端
+
+- `shared/search.js` 全屏浮层 · 250ms 防抖 · `<mark>` 高亮 · ESC/× 关闭
+- 触发：任意 `class="jx-search-trigger"` 或 `[data-jx-search]` 元素
+- 已接：`home.html` 顶栏放大镜、`mistakes.html` 顶栏搜索按钮
+- API：`JX.search.open(initialQ?)` / `JX.search.close()`
+
+## 十四、A11y（可访问性）
+
+P2 #27 · WCAG 2.1 AA 努力达标 · 屏幕阅读器 / 键盘 / 高对比 / 减少动画。
+
+### 全站基础
+
+- `:focus-visible` 焦点环（仅键盘 / SR 触发 · 鼠标点击不显示）· 颜色 `--saffron`
+- `.skip-to-content` 跳到主要内容（已加 home.html · 其他页可按需加）
+- `.sr-only` 视觉隐藏但 SR 可读
+- `@media (prefers-reduced-motion: reduce)` · 全局 transition / animation 缩到 0.01ms（base.css）
+- `<html lang="zh-CN" data-lang="...">` · lang 切换走 lang.js
+- 所有 nav-back / nav-action / tab-item / 触觉反馈按钮 ≥44×44 hit zone
+
+### `JX.a11y` 工具
+
+```js
+JX.a11y.announce('已保存', true);    // SR 朗读 polite
+JX.a11y.announce('保存失败', false); // assertive 打断
+JX.a11y.dialog('open', el, { label: '搜索' });   // 设 role + aria-modal + 焦点陷阱
+JX.a11y.dialog('close', el);                      // 还原焦点
+JX.a11y.trapFocus(el);                            // 返回 untrap()
+```
+
+模态自动行为：
+- 设 `role="dialog" aria-modal="true"`
+- Tab/Shift+Tab 圈在容器内
+- 锁住 `documentElement.style.overflow`
+- 关闭时焦点回到打开者
+
+### 已接入
+
+- 全站 toast · `aria-live="polite"` · error → `assertive` + `role="alert"`
+  · 关闭 × 改用 `<button>` 带 `aria-label="关闭"`
+- 全站 tab-bar · `.active` 自动加 `aria-current="page"`（a11y.js boot 时同步）
+- 搜索浮层 · 全屏 dialog · 焦点陷阱 + lang 化 aria-label
+- 举报模态（quiz / mistake-detail）· 同上
+- 设置 toggle（推送 / 触觉反馈）· `role="switch" aria-checked` · Enter/Space 键盘触发
+- 首页 home.html · `<main id="main-content">` + skip-to-content
+- onboarding fld-code · `aria-label` + sr-only label
+
+### 仍需完善（推全 backlog）
+
+- 其他 26 页统一加 `<main id="main-content">` + skip-to-content
+- 答题选项（.opt）· 加 `role="radio"` / `radiogroup`（视题型而定）
+- profile-edit / change-password 表单 label review
+- contrast 实测（`@media (prefers-contrast: more)` 增强方案）
+- axe-core / pa11y CI 集成（playwright + @axe-core/playwright）
+
+## 十五、CSP / SRI / 安全响应头
+
+P2 #28 · 防 XSS / clickjacking / MIME sniffing / 数据外泄。
+
+### 双层部署
+
+1. **前端 HTML `<meta>`**（防御纵深）· 28 页 head 内
+   - `Content-Security-Policy` · 限制资源加载来源
+   - `referrer` · `strict-origin-when-cross-origin`
+2. **nginx HTTP 响应头**（canonical · 真正强制）
+   - `deploy/nginx/security-headers.conf`
+   - juexue.conf / staging.conf 都 include
+
+### CSP 白名单
+
+| Directive | 允许 | 说明 |
+|---|---|---|
+| `script-src` | `'self' 'unsafe-inline'` + sentry/cloudflare/google/hcaptcha | 内联仍允许 · 见妥协说明 |
+| `style-src` | `'self' 'unsafe-inline'` + fonts.googleapis.com | 大量内联 style |
+| `font-src` | `'self'` + fonts.gstatic.com | Google Fonts woff2 |
+| `img-src` | `'self' data: blob: https:` | admin 上传 / canvas / 任意 https 封面 |
+| `connect-src` | `'self'` + sentry.io | API + 错误上报 |
+| `frame-src` | `'self'` + 三家 CAPTCHA | iframe 嵌入 |
+| `worker-src` | `'self' blob:` | service-worker + 离线队列可能 blob |
+| `object-src` | `'none'` | 全面禁 plugins |
+| `base-uri` | `'self'` | 防 `<base>` 注入 |
+| `form-action` | `'self'` | 表单只能提交回自家 |
+| `frame-ancestors` | `'none'` | 禁被 iframe（仅 nginx · meta 不支持） |
+| `upgrade-insecure-requests` | — | 自动 http → https |
+
+### 关于 `'unsafe-inline'`
+
+当前 28 页大量内联 `<script>` 和内联 `style="…"`，全部允许是妥协。
+后续收紧路径：
+
+1. **第一步**：把所有 `<script>...</script>` 块抽到外部 .js（已有 25+ shared/ 文件，剩余按页面拆出来）
+2. **第二步**：把内联 `style="…"` 移到 .css class
+3. **第三步**：CSP 改 `script-src 'self' 'nonce-{随机}' 'strict-dynamic'` · 用 nginx `sub_filter` 注入 nonce
+4. **第四步**：开 `Trusted Types` · 强制所有 innerHTML 走 sanitizer
+
+### 关于 SRI
+
+SRI 主要保护跨域 CDN 资源被篡改。当前情况：
+
+- **`shared/*.js` / `shared/*.css`**：同源 nginx · 与攻击者改 HTML 同等门槛 · SRI 无意义
+- **Google Fonts CSS** (`fonts.googleapis.com/css2?...`)：响应按 User-Agent 不同 ·
+  hash 每次都不一样 · **不能加 integrity 属性**（会拒绝加载）
+  - 升级路径 A：换 [fonts.bunny.net](https://fonts.bunny.net) · 静态 CSS · 一行 sed 替换
+  - 升级路径 B：把字体 download 后 self-host · 自定义 `@font-face` 在 base.css
+- **Sentry SDK** (`browser.sentry-cdn.com/8.41.0/bundle.tracing.min.js`)：
+  动态 script 加载 · 可在 `shared/sentry.js` 加 `s.integrity = 'sha384-...'`
+  · 升级版本时手工更新 hash · 当前未加（推全可补）
+- **CAPTCHA SDK** (Turnstile / hCaptcha / reCAPTCHA)：版本号自动更新 · SRI 不适用
+
+### 部署步骤
+
+```bash
+# 在 VPS 上：
+sudo cp /opt/juexue/deploy/nginx/security-headers.conf \
+        /etc/nginx/conf.d/juexue-security-headers.conf
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 验证
+
+```bash
+# 检查响应头
+curl -I https://your-domain.example | grep -iE "content-security|x-frame|referrer|permissions"
+
+# CSP 违规会浏览器控制台报红 · 可加 report-to 上报 Sentry
+# 测试工具：securityheaders.com / observatory.mozilla.org
+```
+
+## 十六、用户数据导出 / 注销（GDPR-style）
+
+P2 #29 · 用户对自己数据的两项权利：导出 (Right to Data Portability) /
+注销 (Right to Erasure)。
+
+### 数据导出
+
+```
+GET /api/auth/me/data-export
+Authorization: Bearer <token>
+→ application/json · attachment · juexue-data-export-{userIdPrefix}-{date}.json
+```
+
+包含：
+- `user`：profile（id / email / role / dharmaName / locale 等）· 不含 passwordHash
+- `answers`：UserAnswer 全部（最多 50,000 条）
+- `mistakes`：UserMistakeBook
+- `favorites`：UserFavorite
+- `sm2Cards`：Sm2Card
+- `enrollments`：UserCourseEnrollment
+- `memberships`：ClassMember
+- `sessions`：AuthSession（不含 refreshTokenHash）
+- `pushSubscriptions`：endpoint + platform · 不含 p256dh / auth 秘钥
+- `notifications`：自己收到的通知（最多 5,000 条 · 已 deletedAt 过滤）
+- `questionReports`：自己提交的题目举报
+- `analyticsEvents`：自己产生的埋点（最多 10,000 条）
+- `experimentExposures`：A/B 实验分配快照
+
+不包含：他人产生的内容（题目 / 法本 / 班级公告 · 仅引用 id）。
+
+行为：
+- **5 分钟 cooldown**（in-memory）· 防滥用
+- 每次导出写一条 `AuditLog{action:'user.data_export'}` · admin 可追踪
+- 客户端入口：设置 → 存储 → "导出我的数据" · `<a download>` 触发浏览器下载
+
+### 账号注销
+
+```
+DELETE /api/auth/me
+{ "currentPassword": "..." }
+```
+
+行为：
+- **软删除**（不 hard-delete）· 保留 UserAnswer / Sm2Card / AuditLog 等 FK 引用完整
+- User 字段清零：`isActive=false` · `email/passwordHash/dharmaName/avatar=null`
+- 吊销全部 AuthSession
+- ClassMember 同步软删（`removedAt=now()`）
+- 邮箱进 `DeletedEmail` 表 · 30 天冷却防冒名重注
+- admin 角色注销前需保证还有其他活跃 admin（防系统瘫痪）
+
+### 用户流程
+
+1. 设置 → 存储 → 导出我的数据 → 确认 → 下载 JSON
+2. 设置 → 账号 → 注销账号 → 输入密码 → 确认 → 立即吊销 + 清空个人字段
+3. 30 天后同邮箱可重注（不延续历史 · 新账号）
+
+### 推荐补充（推全 backlog）
+
+- 邮件二次确认（注销前发邮件）· 防误操作 + 防被盗后被恶意注销
+- 30 天冷却期内允许"撤回注销"（恢复账号）· 当前直接软删，没有撤回入口
+- 后台定期硬删超期软删账号（合规要求 · 当前未实现）
+- 导出格式扩展：CSV 友好版（excel 可读）· 当前仅 JSON
+
+## 十七、应用内反馈
+
+P2 #30 · 用户提交建议/bug → admin 处理 → 回复推送给用户。
+
+### 模型
+
+`Feedback`：
+- `kind`：`suggestion / bug / praise / other`
+- `status`：`open / triaged / resolved / wontfix`
+- `message` · `contactEmail`（匿名必填）· `userId`（登录态自动绑）
+- `page / userAgent / appVersion / sessionId`：自动附加上下文
+- `handledByUserId / handledAt / response`：admin 处理字段
+
+### API
+
+| 路由 | 鉴权 | 说明 |
+|---|---|---|
+| `POST /api/feedback` | 可选 | 提交 · 限速 5/小时（in-memory · 按 userId 或 IP） |
+| `GET  /api/me/feedback` | 必须 | 看自己历史（admin 字段隐藏） |
+| `GET  /api/admin/feedback` | admin | 列表 · `?status=open&kind=bug` 过滤 + 游标 |
+| `PATCH /api/admin/feedback/:id` | admin | 改 status + response · 自动写 Notification + AuditLog |
+
+### 客户端
+
+- `shared/feedback.js` 全屏 sheet · 24 页注入
+- 触发器：`class="jx-feedback-trigger"` 或 `[data-jx-feedback="bug"]`
+- 已挂入：设置 → 关于 → "应用反馈"
+- 三语 sc/tc/en · 走 a11y dialog（焦点陷阱 + role）· 自动附环境信息预览
+
+### 处理后通知
+
+admin 调 PATCH 时如果填了 `response`：
+- 给原 user 写一行 `Notification(type=system, body=response)`
+- 用户在通知页能看到回复
+- 同时写 `AuditLog(action=feedback.handle)`
+- 匿名提交（无 userId）只能依赖 `contactEmail` 邮件外联（当前未实现 SMTP 发邮件 · 推全 backlog）
+
+### 推全 backlog
+
+- 邮件回复（匿名提交时通过 contactEmail 发）· 接 SMTP / Resend
+- 截图上传（用户主动）· 接 admin 上传通道做 reuse
+- admin 后台 UI（当前仅有 API · 暂无前端审核界面）
+- 反馈分类标签（自动分类到 module · 用 LLM 打 tag）
+
+## 十八、还没上线的功能（v1.0 范围外）
+
+1. 前端 v2.0 题型（flip/image/listen/flow/guided/scenario）UI
+2. Coach 后台 UI（造题表单、批量导入、LLM 造题向导）
+3. Admin 后台 UI（审核队列）
+4. 找回密码（需邮件发送 provider）
+5. CDN 上传签名 URL（image/listen 资源）
+6. image/listen 题所需的对象存储
+
+这些后端都已就绪（见 `backend/docs/v2-question-types.md` 和 `question-editor-and-generation.md`），
+等前端 UI 跟上即可激活。
