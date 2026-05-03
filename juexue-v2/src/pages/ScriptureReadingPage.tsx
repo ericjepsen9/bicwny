@@ -72,6 +72,11 @@ export default function ScriptureReadingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, lessonId, enrolledHere, savedLessonId]);
 
+  // 切换课时时滚回顶部 · 否则上一课的尾部位置会"继承"到下一课视觉上很奇怪
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [lessonId]);
+
   function bumpFont(dir: 1 | -1) {
     const opt = step(dir);
     if (!opt) return;
@@ -132,7 +137,7 @@ export default function ScriptureReadingPage() {
         <button
           type="button"
           className="nav-back"
-          onClick={() => nav(-1)}
+          onClick={() => nav(`/scripture-detail?slug=${encodeURIComponent(slug)}`)}
           aria-label={s('返回', '返回', 'Back')}
         >
           <svg width="18" height="18" fill="none" stroke="#55463A" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
@@ -340,6 +345,7 @@ export default function ScriptureReadingPage() {
           {prev ? (
             <Link
               to={`/read/${c.slug}/${prev.lesson.id}`}
+              replace
               style={{ ...toolBtn, flex: 1 }}
               aria-label={s('上一课', '上一課', 'Previous lesson')}
             >
@@ -366,6 +372,7 @@ export default function ScriptureReadingPage() {
           {next ? (
             <Link
               to={`/read/${c.slug}/${next.lesson.id}`}
+              replace
               style={{ ...toolBtn, flex: 1 }}
               aria-label={s('下一课', '下一課', 'Next lesson')}
             >
@@ -409,6 +416,7 @@ export default function ScriptureReadingPage() {
                     <Link
                       key={l.id}
                       to={`/read/${c.slug}/${l.id}`}
+                      replace
                       onClick={() => setTocOpen(false)}
                       style={{
                         display: 'flex',
