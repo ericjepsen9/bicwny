@@ -8,6 +8,7 @@ import CourseImportDialog from '@/components/CourseImportDialog';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import {
@@ -249,8 +250,8 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
           <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'var(--sp-2)' }}>
             <button
               type="button"
-              onClick={() => {
-                if (!confirm(s('归档此法本？学员不再能访问（可通过未发布恢复展示）', '歸檔此法本？學員不再能訪問', 'Archive this text? Students lose access.'))) return;
+              onClick={async () => {
+                if (!(await confirmAsync({ title: s('归档此法本？学员不再能访问（可通过未发布恢复展示）', '歸檔此法本？學員不再能訪問', 'Archive this text? Students lose access.') }))) return;
                 del.mutate();
               }}
               disabled={del.isPending}
@@ -365,7 +366,7 @@ function CoverEditor({ courseId, url, emoji }: { courseId: string; url: string |
         {url && (
           <button
             type="button"
-            onClick={() => { if (confirm(s('移除封面？', '移除封面？', 'Remove?'))) remove.mutate(); }}
+            onClick={async () => { (await confirmAsync({ title: s('移除封面？', '移除封面？', 'Remove?') })) && remove.mutate(); }}
             disabled={remove.isPending}
             style={{ font: 'var(--text-caption)', color: 'var(--crimson)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 2 }}
           >
@@ -445,7 +446,7 @@ function ChapterCard({ ch }: { ch: AdminChapter }) {
           </button>
           <button
             type="button"
-            onClick={() => { if (confirm(s('删除此章节？（如果有题目引用会失败）', '刪除此章節？（如果有題目引用會失敗）', 'Delete chapter? (fails if any question references it)'))) del.mutate(); }}
+            onClick={async () => { (await confirmAsync({ title: s('删除此章节？（如果有题目引用会失败）', '刪除此章節？（如果有題目引用會失敗）', 'Delete chapter? (fails if any question references it)') })) && del.mutate(); }}
             disabled={del.isPending}
             style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)' }}
           >
@@ -530,7 +531,7 @@ function LessonRow({ l }: { l: AdminLesson }) {
         </button>
         <button
           type="button"
-          onClick={() => { if (confirm(s('删除此课时？（如果有题目引用会失败）', '刪除此課時？（如果有題目引用會失敗）', 'Delete lesson? (fails if any question references it)'))) del.mutate(); }}
+          onClick={async () => { (await confirmAsync({ title: s('删除此课时？（如果有题目引用会失败）', '刪除此課時？（如果有題目引用會失敗）', 'Delete lesson? (fails if any question references it)') })) && del.mutate(); }}
           disabled={del.isPending}
           style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)' }}
         >

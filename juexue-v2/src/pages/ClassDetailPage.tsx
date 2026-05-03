@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
@@ -218,8 +219,8 @@ export default function ClassDetailPage() {
 
         <button
           type="button"
-          onClick={() => {
-            if (!confirm(s('确定退出班级？退出后学习数据保留。', '確定退出班級？退出後學習資料保留。', 'Leave class? Your study data will be kept.'))) return;
+          onClick={async () => {
+            if (!(await confirmAsync({ title: s('确定退出班级？退出后学习数据保留。', '確定退出班級？退出後學習資料保留。', 'Leave class? Your study data will be kept.') }))) return;
             leave.mutate();
           }}
           disabled={leave.isPending}

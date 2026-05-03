@@ -20,6 +20,7 @@ import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
+import { ConfirmHost } from './components/ConfirmDialog';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './lib/auth';
 import { ROUTER_BASENAME } from './lib/env';
@@ -28,6 +29,7 @@ import { initNative } from './lib/native';
 import { registerSW } from './lib/sw-register';
 import { ThemeProvider } from './lib/theme';
 import { FontScaleProvider } from './lib/fontSize';
+import { ReadModeProvider } from './lib/readMode';
 import { ToastContainer } from './lib/toast';
 
 initNative();
@@ -58,14 +60,17 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <FontScaleProvider>
+            <ReadModeProvider>
             <I18nProvider>
               <BrowserRouter basename={ROUTER_BASENAME}>
                 <AuthProvider>
                   <App />
                   <ToastContainer />
+                  <ConfirmHost />
                 </AuthProvider>
               </BrowserRouter>
             </I18nProvider>
+            </ReadModeProvider>
           </FontScaleProvider>
         </ThemeProvider>
       </QueryClientProvider>

@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import {
@@ -343,8 +344,8 @@ function ViewQuestion({ q, onEdit, onDeleted }: { q: CoachQuestion; onEdit: () =
         </button>
         <button
           type="button"
-          onClick={() => {
-            if (!confirm(s('删除这题？', '刪除這題？', 'Delete?'))) return;
+          onClick={async () => {
+            if (!(await confirmAsync({ title: s('删除这题？', '刪除這題？', 'Delete?') }))) return;
             del.mutate();
           }}
           disabled={del.isPending || q.hasAnswers}

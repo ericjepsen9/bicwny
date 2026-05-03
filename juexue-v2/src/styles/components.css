@@ -432,6 +432,14 @@ body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
   /* iOS notch / Dynamic Island · 顶部 padding 跟着 safe-area-inset-top
      web 上 inset 是 0 · 不影响布局 · Capacitor 壳里自动留出状态栏 */
   padding: calc(var(--sp-4) + env(safe-area-inset-top, 0px)) var(--sp-5) var(--sp-4);
+  /* 二/三级页 nav 始终固定在顶部 · scroll 时不消失 */
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  /* 玻璃模糊兜底（Safari 14+） */
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
 }
 .nav-btn, .nav-back, .nav-action {
   width: 34px; height: 34px; border-radius: var(--r-sm);
@@ -580,3 +588,52 @@ body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
 .feedback.correct .feedback-title { color: var(--sage-dark); }
 .feedback.wrong   .feedback-title { color: var(--crimson); }
 .feedback-body { color: var(--ink-2); }
+
+/* ── 功能列表 group / menu-card · 老 prototype mobile/profile.html 第 110-122 ── */
+.group, .menu-card {
+  background: var(--glass-thick);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+}
+.group > a, .group > button,
+.menu-card > a, .menu-card > button {
+  width: 100%;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+/* 相邻行加顶部分割线 · 老 prototype 用 menu-item + menu-item · React 用直接子元素 */
+.group > a + a, .group > button + a, .group > a + button, .group > button + button,
+.menu-card > a + a, .menu-card > button + a, .menu-card > a + button, .menu-card > button + button,
+.menu-card > .menu-item + .menu-item {
+  border-top: 1px solid var(--border-light);
+}
+/* 按下反馈 */
+.group > a:active, .group > button:active:not(:disabled),
+.menu-card > a:active, .menu-card > button:active:not(:disabled) {
+  background: rgba(224, 120, 86, 0.06);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  transition: background var(--dur) var(--ease);
+}
+.menu-icon {
+  width: 34px; height: 34px;
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.menu-label { flex: 1; font: var(--text-body); color: var(--ink); letter-spacing: 1px; }
+.menu-arrow { color: var(--ink-4); }
+.menu-item.danger .menu-label { color: var(--crimson); }
+.menu-item.danger .menu-icon  { background: var(--crimson-light); }

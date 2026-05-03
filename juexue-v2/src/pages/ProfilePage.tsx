@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
@@ -50,7 +51,7 @@ export default function ProfilePage() {
 
   async function onLogout() {
     if (signing) return;
-    if (!confirm(s('确定退出登录？', '確定退出登入？', 'Sign out?'))) return;
+    if (!(await confirmAsync({ title: s('确定退出登录？', '確定退出登入？', 'Sign out?') }))) return;
     setSigning(true);
     await logout();
     toast.ok(s('已退出', '已退出', 'Signed out'));

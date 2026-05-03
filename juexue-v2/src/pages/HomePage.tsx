@@ -15,6 +15,7 @@ import {
   useMistakeCount,
   useProgress,
   useSm2Stats,
+  useUnreadNotifCount,
 } from '@/lib/queries';
 import Skeleton from '@/components/Skeleton';
 
@@ -38,6 +39,8 @@ export default function HomePage() {
   const sm2 = useSm2Stats();
   const mistakes = useMistakeCount();
   const progress = useProgress();
+  const unreadNotifQ = useUnreadNotifCount();
+  const unreadNotifs = unreadNotifQ.data ?? 0;
 
   const now = new Date();
   const hour = now.getHours();
@@ -100,6 +103,53 @@ export default function HomePage() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 'var(--sp-3)', alignItems: 'center', paddingTop: 4 }}>
+          {/* 通知铃铛 · 含未读 badge */}
+          <Link
+            to="/notifications"
+            aria-label={s('通知', '通知', 'Notifications') + (unreadNotifs > 0 ? ` · ${unreadNotifs} 条未读` : '')}
+            style={{
+              position: 'relative',
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              background: 'var(--glass-thick)',
+              border: '1px solid var(--glass-border)',
+              color: 'var(--ink-2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {unreadNotifs > 0 && (
+              <span
+                aria-hidden
+                style={{
+                  position: 'absolute',
+                  top: 4,
+                  right: 4,
+                  minWidth: 14,
+                  height: 14,
+                  padding: '0 4px',
+                  borderRadius: 999,
+                  background: 'var(--crimson)',
+                  border: '2px solid var(--bg)',
+                  color: '#fff',
+                  fontSize: 9,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {unreadNotifs > 9 ? '9+' : unreadNotifs}
+              </span>
+            )}
+          </Link>
           <Link
             to="/profile"
             aria-label={s('个人资料', '個人資料', 'Profile')}

@@ -51,11 +51,18 @@ export default function CoursesPage() {
   );
 
   const enroll = useMutation({
-    mutationFn: (courseId: string) => api.post('/api/enrollments', { courseId }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['/api/my/enrollments'] });
-      toast.ok(s('已加入', '已加入', 'Joined'));
+    mutationFn: (vars: { courseId: string; slug: string }) =>
+      api.post('/api/enrollments', { courseId: vars.courseId }).then(() => vars),
+    onSuccess: async (vars) => {
+      // 强制 refetch（不止 invalidate）· 保证关闭弹窗后 BookCard ✓ 标识立刻更新
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ['/api/my/enrollments'] }),
+        qc.refetchQueries({ queryKey: ['/api/my/progress'] }),
+      ]);
+      toast.ok(s('已加入 · 即将进入', '已加入 · 即將進入', 'Joined · opening…'));
       setOpenSlug(null);
+      // "加入并查看" · 直接跳法本详情
+      nav(`/scripture-detail?slug=${encodeURIComponent(vars.slug)}`);
     },
     onError: (e) => {
       toast.error((e as ApiError).message);
@@ -155,7 +162,7 @@ export default function CoursesPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
               <button
                 type="button"
-                onClick={() => enroll.mutate(openCourse.id)}
+                onClick={() => enroll.mutate({ courseId: openCourse.id, slug: openCourse.slug })}
                 disabled={enroll.isPending}
                 className="btn btn-primary btn-pill"
                 style={{ padding: 12, justifyContent: 'center' }}

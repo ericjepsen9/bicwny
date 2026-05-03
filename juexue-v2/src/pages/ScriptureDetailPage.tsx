@@ -11,10 +11,12 @@
 // 顶部 nav：
 //   · 左上：返回（保留）· 中：截断标题
 //   · 右上：⋯ 菜单弹出（加入/退出报名 · 重置进度 · 复制链接）
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import Dialog from '@/components/Dialog';
 import Skeleton from '@/components/Skeleton';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { useCourseDetail, useEnrollments } from '@/lib/queries';
@@ -41,19 +43,6 @@ export default function ScriptureDetailPage() {
   );
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // 点击 menu 外区域关菜单
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onDocClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [menuOpen]);
 
   const enroll = useMutation({
     mutationFn: () => api.post('/api/enrollments', { courseId: course.data!.id }),
@@ -175,87 +164,30 @@ export default function ScriptureDetailPage() {
         <span className="nav-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {/* 滚动到 hero 后才显示标题 · 暂时简化为始终空 */}
         </span>
-        <div ref={menuRef} style={{ position: 'relative' }}>
-          <button
-            type="button"
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-label={s('更多操作', '更多操作', 'More')}
-            aria-expanded={menuOpen}
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: '50%',
-              background: 'var(--glass-thick)',
-              backdropFilter: 'var(--blur)',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              color: 'var(--ink-2)',
-            }}
-          >
-            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-              <circle cx="5" cy="12" r="2" />
-              <circle cx="12" cy="12" r="2" />
-              <circle cx="19" cy="12" r="2" />
-            </svg>
-          </button>
-          {menuOpen && (
-            <div
-              role="menu"
-              style={{
-                position: 'absolute',
-                right: 0,
-                top: 'calc(100% + 6px)',
-                minWidth: 180,
-                background: 'var(--bg-card)',
-                border: '1px solid var(--glass-border)',
-                borderRadius: 'var(--r-md)',
-                boxShadow: '0 10px 30px rgba(43,34,24,.15)',
-                padding: 4,
-                zIndex: 10,
-              }}
-            >
-              {!enrollment ? (
-                <MenuItem
-                  icon="✓"
-                  label={s('加入学习', '加入學習', 'Join')}
-                  disabled={enroll.isPending}
-                  onClick={() => enroll.mutate()}
-                />
-              ) : (
-                <>
-                  <MenuItem
-                    icon="↻"
-                    label={s('重置进度', '重置進度', 'Reset progress')}
-                    disabled={reset.isPending}
-                    onClick={() => {
-                      if (!confirm(s('重置后已学课时记录将清空 · 是否继续？', '重置後已學課時記錄將清空 · 是否繼續？', 'Reset wipes lesson completion. Continue?'))) return;
-                      reset.mutate();
-                    }}
-                  />
-                  <MenuItem
-                    icon="✕"
-                    label={s('退出学习', '退出學習', 'Unenroll')}
-                    danger
-                    disabled={unenroll.isPending}
-                    onClick={() => {
-                      if (!confirm(s('退出后进度不再同步 · 已答题记录保留', '退出後進度不再同步 · 已答題記錄保留', 'Unenroll? Past answers will be kept.'))) return;
-                      unenroll.mutate();
-                    }}
-                  />
-                </>
-              )}
-              <MenuDivider />
-              <MenuItem
-                icon="🔗"
-                label={s('复制链接', '複製連結', 'Copy link')}
-                onClick={copyLink}
-              />
-            </div>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => setMenuOpen(true)}
+          aria-label={s('更多操作', '更多操作', 'More')}
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: '50%',
+            background: 'var(--glass-thick)',
+            backdropFilter: 'var(--blur)',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'var(--ink-2)',
+          }}
+        >
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+            <circle cx="5" cy="12" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="19" cy="12" r="2" />
+          </svg>
+        </button>
       </div>
 
       {/* Hero · 居中封面 + 标题 */}
@@ -512,6 +444,61 @@ export default function ScriptureDetailPage() {
           })}
         </div>
       </div>
+
+      {/* 底部 action sheet · 与 Dialog UI 风格统一（玻璃 + 圆角 + 滑入） */}
+      <Dialog open={menuOpen} onClose={() => setMenuOpen(false)} title={s('更多操作', '更多操作', 'More actions')}>
+        <div className="group" style={{ marginTop: 'var(--sp-2)' }}>
+          {!enrollment ? (
+            <SheetItem
+              icon="✓"
+              label={s('加入学习', '加入學習', 'Join')}
+              sub={s('加入后进度自动同步', '加入後進度自動同步', 'Progress will sync')}
+              disabled={enroll.isPending}
+              onClick={() => { setMenuOpen(false); enroll.mutate(); }}
+            />
+          ) : (
+            <>
+              <SheetItem
+                icon="↻"
+                label={s('重置进度', '重置進度', 'Reset progress')}
+                sub={s('清空已学课时记录', '清空已學課時記錄', 'Clear lesson completion')}
+                disabled={reset.isPending}
+                onClick={async () => {
+                  if (!(await confirmAsync({
+                    title: s('重置进度？', '重置進度？', 'Reset progress?'),
+                    body: s('已学课时记录将清空（答题记录保留）', '已學課時記錄將清空（答題記錄保留）', 'Lesson completion will be cleared (answers kept).'),
+                  }))) return;
+                  setMenuOpen(false);
+                  reset.mutate();
+                }}
+              />
+              <SheetItem
+                icon="✕"
+                label={s('退出学习', '退出學習', 'Unenroll')}
+                sub={s('进度不再同步 · 已答题记录保留', '進度不再同步 · 已答題記錄保留', 'Progress stops syncing · answers kept')}
+                danger
+                disabled={unenroll.isPending}
+                onClick={async () => {
+                  if (!(await confirmAsync({
+                    title: s('退出学习？', '退出學習？', 'Unenroll?'),
+                    body: s('进度不再同步 · 已答题记录保留', '進度不再同步 · 已答題記錄保留', 'Progress stops syncing · answers kept'),
+                    danger: true,
+                  }))) return;
+                  setMenuOpen(false);
+                  unenroll.mutate();
+                }}
+              />
+            </>
+          )}
+        </div>
+        <div className="group" style={{ marginTop: 'var(--sp-3)' }}>
+          <SheetItem
+            icon="🔗"
+            label={s('复制链接', '複製連結', 'Copy link')}
+            onClick={() => { setMenuOpen(false); copyLink(); }}
+          />
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -531,11 +518,12 @@ function Sep() {
   return <div style={{ background: 'var(--border-light)', justifySelf: 'center', height: 24, width: 1 }} />;
 }
 
-function MenuItem({
-  icon, label, onClick, disabled, danger,
+function SheetItem({
+  icon, label, sub, onClick, disabled, danger,
 }: {
   icon: string;
   label: string;
+  sub?: string;
   onClick: () => void;
   disabled?: boolean;
   danger?: boolean;
@@ -549,34 +537,46 @@ function MenuItem({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
+        gap: 'var(--sp-3)',
         width: '100%',
-        padding: '10px 12px',
+        padding: 'var(--sp-3) var(--sp-4)',
         background: 'transparent',
         border: 'none',
         cursor: disabled ? 'default' : 'pointer',
         textAlign: 'left',
-        color: danger ? 'var(--crimson)' : 'var(--ink-2)',
-        font: 'var(--text-body)',
-        letterSpacing: 1,
-        borderRadius: 'var(--r-sm)',
+        color: 'inherit',
         opacity: disabled ? 0.5 : 1,
       }}
-      onMouseEnter={(e) => {
-        if (!disabled) (e.currentTarget as HTMLElement).style.background = 'var(--glass)';
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.background = 'transparent';
-      }}
     >
-      <span style={{ width: 18, fontSize: 14, opacity: 0.8 }}>{icon}</span>
-      <span style={{ flex: 1 }}>{label}</span>
+      <span
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 'var(--r-sm)',
+          background: danger ? 'var(--crimson-light)' : 'var(--saffron-pale)',
+          color: danger ? 'var(--crimson)' : 'var(--saffron-dark)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          fontSize: 15,
+          fontWeight: 700,
+        }}
+      >
+        {icon}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '0.9375rem', color: danger ? 'var(--crimson)' : 'var(--ink)', letterSpacing: 1.5 }}>
+          {label}
+        </div>
+        {sub && (
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1, marginTop: 2 }}>
+            {sub}
+          </div>
+        )}
+      </div>
     </button>
   );
-}
-
-function MenuDivider() {
-  return <div style={{ height: 1, background: 'var(--border-light)', margin: '4px 8px' }} />;
 }
 
 function Empty({ title }: { title: string }) {

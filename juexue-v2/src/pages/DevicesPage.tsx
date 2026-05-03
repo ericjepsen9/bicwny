@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { useSessions } from '@/lib/queries';
@@ -78,8 +79,8 @@ export default function DevicesPage() {
                   {!d.isCurrent && (
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!confirm(s('退出此设备？', '退出此裝置？', 'Revoke?'))) return;
+                      onClick={async () => {
+                        if (!(await confirmAsync({ title: s('退出此设备？', '退出此裝置？', 'Revoke?') }))) return;
                         revokeOne.mutate(d.id);
                       }}
                       className="btn btn-pill"
@@ -95,8 +96,8 @@ export default function DevicesPage() {
             {others.length > 0 && (
               <button
                 type="button"
-                onClick={() => {
-                  if (!confirm(s('退出所有其他设备？', '退出所有其他裝置？', 'Sign out other devices?'))) return;
+                onClick={async () => {
+                  if (!(await confirmAsync({ title: s('退出所有其他设备？', '退出所有其他裝置？', 'Sign out other devices?') }))) return;
                   revokeOthers.mutate();
                 }}
                 disabled={revokeOthers.isPending}

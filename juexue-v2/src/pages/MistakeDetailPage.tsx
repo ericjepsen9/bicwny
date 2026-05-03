@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { useMistakeDetail } from '@/lib/queries';
@@ -48,8 +49,8 @@ export default function MistakeDetailPage() {
         <button
           type="button"
           className="nav-action"
-          onClick={() => {
-            if (!confirm(s('确定移除？', '確定移除？', 'Remove from mistakes?'))) return;
+          onClick={async () => {
+            if (!(await confirmAsync({ title: s('确定移除？', '確定移除？', 'Remove from mistakes?') }))) return;
             remove.mutate();
           }}
           aria-label={s('移除', '移除', 'Remove')}

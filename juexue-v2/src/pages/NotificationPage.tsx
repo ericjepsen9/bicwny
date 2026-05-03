@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { useNotifications } from '@/lib/queries';
@@ -177,9 +178,9 @@ export default function NotificationPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    if (!confirm(s('删除？', '刪除？', 'Delete?'))) return;
+                    if (!(await confirmAsync({ title: s('删除？', '刪除？', 'Delete?') }))) return;
                     remove.mutate(n.id);
                   }}
                   aria-label={s('删除', '刪除', 'Delete')}

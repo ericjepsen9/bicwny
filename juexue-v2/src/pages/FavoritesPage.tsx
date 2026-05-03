@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { useCourses, useFavorites } from '@/lib/queries';
@@ -115,8 +116,8 @@ export default function FavoritesPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (!confirm(s('取消收藏？', '取消收藏？', 'Remove favorite?'))) return;
+                    onClick={async () => {
+                      if (!(await confirmAsync({ title: s('取消收藏？', '取消收藏？', 'Remove favorite?') }))) return;
                       remove.mutate(f.questionId);
                     }}
                     aria-label={s('移除', '移除', 'Remove')}

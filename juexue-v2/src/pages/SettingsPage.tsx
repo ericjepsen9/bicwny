@@ -7,9 +7,11 @@ import { Link } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import TopNav from '@/components/TopNav';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { FONT_SCALES, useFontScale } from '@/lib/fontSize';
+import { useReadMode, type ReadMode } from '@/lib/readMode';
 import { getHapticsEnabled, setHapticsEnabled, tap } from '@/lib/haptics';
 import { useLang, type Lang } from '@/lib/i18n';
 import * as push from '@/lib/push';
@@ -41,6 +43,10 @@ export default function SettingsPage() {
         {/* 字号 */}
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('字号', '字號', 'Font size')}</SectionLabel>
         <FontScalePicker />
+
+        {/* 翻页方式 */}
+        <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('翻页方式', '翻頁方式', 'Page mode')}</SectionLabel>
+        <ReadModePicker />
 
         {/* 语言 */}
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('语言', '語言', 'Language')}</SectionLabel>
@@ -194,6 +200,22 @@ function FontScalePicker() {
   );
 }
 
+function ReadModePicker() {
+  const { mode, setMode } = useReadMode();
+  const { s } = useLang();
+  const opts: { v: ReadMode; label: string }[] = [
+    { v: 'scroll', label: s('上下滚动', '上下滾動', 'Scroll') },
+    { v: 'swipe',  label: s('左右翻页', '左右翻頁', 'Page-flip') },
+  ];
+  return (
+    <ChipPicker
+      value={mode}
+      options={opts}
+      onChange={(v) => { setMode(v); tap(); }}
+    />
+  );
+}
+
 function PushToggle() {
   const { s } = useLang();
   const [st, setSt] = useState<push.PushStatus>('off');
@@ -279,7 +301,7 @@ function CacheClearRow() {
 
   async function clear() {
     if (busy) return;
-    if (!confirm(s('清除离线缓存？下次访问需重新加载。', '清除離線快取？下次訪問需重新載入。', 'Clear offline cache?'))) return;
+    if (!(await confirmAsync({ title: s('清除离线缓存？下次访问需重新加载。', '清除離線快取？下次訪問需重新載入。', 'Clear offline cache?') }))) return;
     setBusy(true);
     try {
       if ('caches' in window) {
@@ -630,10 +652,10 @@ function DeleteAccountForm({ onDone }: { onDone: () => Promise<void> | void }) {
     onError: (e) => setErr((e as ApiError).message),
   });
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr('');
-    if (!confirm(s('此操作不可逆 · 真的要注销？', '此操作不可逆 · 真的要註銷？', 'Irreversible. Continue?'))) return;
+    if (!(await confirmAsync({ title: s('此操作不可逆 · 真的要注销？', '此操作不可逆 · 真的要註銷？', 'Irreversible. Continue?') }))) return;
     submit.mutate();
   }
 

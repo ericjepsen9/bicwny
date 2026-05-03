@@ -12,7 +12,7 @@ import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { selection, notification } from '@/lib/haptics';
 import { useLang } from '@/lib/i18n';
-import { useEnrollments, useLessonQuestions } from '@/lib/queries';
+import { useEnrollments, useLessonQuestions, useProgress } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 interface Grade {
@@ -41,6 +41,9 @@ export default function QuizPage() {
 
   const questions = useLessonQuestions(lessonId);
   const enrollments = useEnrollments();
+  const progress = useProgress();
+  // 进入答题前的"今日已答" · 用于判断本次完成是否触发首日打卡
+  const [enterTodayAnswered] = useState(() => progress.data?.todayAnswered ?? 0);
 
   // 当前题索引
   const [qi, setQi] = useState(0);
@@ -129,11 +132,28 @@ export default function QuizPage() {
     qc.invalidateQueries({ queryKey: ['/api/mistakes'] });
     qc.invalidateQueries({ queryKey: ['/api/sm2/stats'] });
     notification('success');
-    toast.ok(s(
-      `正确 ${correct} / ${total}`,
-      `正確 ${correct} / ${total}`,
-      `Correct ${correct} / ${total}`,
-    ));
+    // 首日打卡判定：进入时今日已答=0 + 本次完成 · 弹 🔥 toast
+    if (enterTodayAnswered === 0 && total > 0) {
+      // 先弹分数 toast · 再延迟弹打卡 toast（避免同时叠加）
+      toast.ok(s(
+        `正确 ${correct} / ${total}`,
+        `正確 ${correct} / ${total}`,
+        `Correct ${correct} / ${total}`,
+      ));
+      setTimeout(() => {
+        toast.ok(s(
+          '🔥 今日打卡 +1 · 连续学习中',
+          '🔥 今日打卡 +1 · 連續學習中',
+          '🔥 Daily check-in +1',
+        ));
+      }, 800);
+    } else {
+      toast.ok(s(
+        `正确 ${correct} / ${total}`,
+        `正確 ${correct} / ${total}`,
+        `Correct ${correct} / ${total}`,
+      ));
+    }
   }
 
   function backToSource() {

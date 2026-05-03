@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import {
@@ -317,8 +318,8 @@ function ClassDrawer({ cls, onClose }: { cls: AdminClass; onClose: () => void })
           <button
             type="button"
             disabled={archive.isPending}
-            onClick={() => {
-              if (!confirm(s('归档此班级？学员将失去访问', '歸檔此班級？學員將失去訪問', 'Archive this class? Students lose access.'))) return;
+            onClick={async () => {
+              if (!(await confirmAsync({ title: s('归档此班级？学员将失去访问', '歸檔此班級？學員將失去訪問', 'Archive this class? Students lose access.') }))) return;
               archive.mutate();
             }}
             className="btn btn-pill btn-full"
@@ -442,7 +443,7 @@ function MemberRow({ m, classId, top }: { m: { id: string; role: 'coach' | 'stud
       </span>
       <button
         type="button"
-        onClick={() => { if (confirm(s('移除该成员？', '移除該成員？', 'Remove?'))) kick.mutate(); }}
+        onClick={async () => { (await confirmAsync({ title: s('移除该成员？', '移除該成員？', 'Remove?') })) && kick.mutate(); }}
         disabled={kick.isPending}
         aria-label={s('移除', '移除', 'Remove')}
         style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', padding: 4 }}

@@ -5,6 +5,7 @@
 //   - 仅 4 个 tab root（/, /courses, /quiz, /profile）显示 · 二级及以下隐藏
 //     （app 沉浸式体验：阅读 / 答题 / 详情等不被打断）
 import { NavLink, useLocation } from 'react-router-dom';
+import { useUnreadNotifCount } from '@/lib/queries';
 
 interface TabDef {
   to: string;
@@ -54,25 +55,59 @@ export function shouldShowTabBar(pathname: string): boolean {
 
 export default function TabBar() {
   const { pathname } = useLocation();
+  const unreadNotif = useUnreadNotifCount();
+  const unread = unreadNotif.data ?? 0;
   if (!shouldShowTabBar(pathname)) return null;
   return (
     <nav className="tab-bar" aria-label="主导航">
-      {TABS.map((t) => (
-        <NavLink
-          key={t.to}
-          to={t.to}
-          end={t.to === '/'}
-          className={({ isActive }) => 'tab-item' + (isActive ? ' active' : '')}
-          aria-label={t.label.sc}
-        >
-          {t.icon}
-          <span>
-            <span className="sc">{t.label.sc}</span>
-            <span className="tc">{t.label.tc}</span>
-            <span className="en">{t.label.en}</span>
-          </span>
-        </NavLink>
-      ))}
+      {TABS.map((t) => {
+        const isProfile = t.to === '/profile';
+        const showDot = isProfile && unread > 0;
+        return (
+          <NavLink
+            key={t.to}
+            to={t.to}
+            end={t.to === '/'}
+            className={({ isActive }) => 'tab-item' + (isActive ? ' active' : '')}
+            aria-label={t.label.sc + (showDot ? ` · ${unread} 条未读` : '')}
+            style={{ position: 'relative' }}
+          >
+            <span style={{ position: 'relative', display: 'inline-flex' }}>
+              {t.icon}
+              {showDot && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -4,
+                    minWidth: 8,
+                    height: 8,
+                    padding: unread > 9 ? '0 4px' : 0,
+                    borderRadius: 999,
+                    background: 'var(--crimson)',
+                    border: '2px solid var(--bg)',
+                    color: '#fff',
+                    fontSize: 9,
+                    fontWeight: 700,
+                    lineHeight: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {unread > 9 ? '9+' : ''}
+                </span>
+              )}
+            </span>
+            <span>
+              <span className="sc">{t.label.sc}</span>
+              <span className="tc">{t.label.tc}</span>
+              <span className="en">{t.label.en}</span>
+            </span>
+          </NavLink>
+        );
+      })}
     </nav>
   );
 }

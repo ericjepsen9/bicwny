@@ -7,6 +7,7 @@ import DailyBarChart from '@/components/DailyBarChart';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
@@ -327,8 +328,8 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
             <button
               type="button"
               disabled={toggleActive.isPending || isSelf}
-              onClick={() => {
-                if (!confirm(user.isActive ? s('停用此账户？', '停用此賬戶？', 'Disable account?') : s('启用此账户？', '啟用此賬戶？', 'Enable account?'))) return;
+              onClick={async () => {
+                if (!(await confirmAsync({ title: user.isActive ? s('停用此账户？', '停用此賬戶？', 'Disable account?') : s('启用此账户？', '啟用此賬戶？', 'Enable account?') }))) return;
                 toggleActive.mutate();
               }}
               className="btn btn-pill"

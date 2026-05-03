@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
+import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import {
@@ -315,7 +316,7 @@ function ProviderRow({ p, onEdit }: { p: LlmProvider; onEdit: () => void }) {
           {tripped && (
             <button
               type="button"
-              onClick={() => { if (confirm(s('重置熔断器？', '重置熔斷器？', 'Reset circuit?'))) reset.mutate(); }}
+              onClick={async () => { (await confirmAsync({ title: s('重置熔断器？', '重置熔斷器？', 'Reset circuit?') })) && reset.mutate(); }}
               disabled={reset.isPending}
               style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)', fontWeight: 700 }}
             >
