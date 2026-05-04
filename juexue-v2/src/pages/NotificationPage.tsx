@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
+import FilterChip from '@/components/FilterChip';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
 import { confirmAsync } from '@/components/ConfirmDialog';
@@ -98,33 +99,33 @@ export default function NotificationPage() {
             scrollbarWidth: 'none',
           }}
         >
-          <NotifTab active={filter === ''} onClick={() => setFilter('')}>
+          <FilterChip active={filter === ''} onClick={() => setFilter('')}>
             {s('全部', '全部', 'All')} ({counts.all})
-          </NotifTab>
+          </FilterChip>
           {counts.unread > 0 && (
-            <NotifTab active={filter === 'unread'} onClick={() => setFilter('unread')}>
+            <FilterChip active={filter === 'unread'} onClick={() => setFilter('unread')}>
               {s('未读', '未讀', 'Unread')} ({counts.unread})
-            </NotifTab>
+            </FilterChip>
           )}
           {counts.class_announcement > 0 && (
-            <NotifTab active={filter === 'class_announcement'} onClick={() => setFilter('class_announcement')}>
+            <FilterChip active={filter === 'class_announcement'} onClick={() => setFilter('class_announcement')}>
               {s('班级', '班級', 'Class')} ({counts.class_announcement})
-            </NotifTab>
+            </FilterChip>
           )}
           {counts.reminder > 0 && (
-            <NotifTab active={filter === 'reminder'} onClick={() => setFilter('reminder')}>
+            <FilterChip active={filter === 'reminder'} onClick={() => setFilter('reminder')}>
               {s('学习', '學習', 'Learning')} ({counts.reminder})
-            </NotifTab>
+            </FilterChip>
           )}
           {counts.achievement > 0 && (
-            <NotifTab active={filter === 'achievement'} onClick={() => setFilter('achievement')}>
+            <FilterChip active={filter === 'achievement'} onClick={() => setFilter('achievement')}>
               {s('成就', '成就', 'Achievement')} ({counts.achievement})
-            </NotifTab>
+            </FilterChip>
           )}
           {counts.system > 0 && (
-            <NotifTab active={filter === 'system'} onClick={() => setFilter('system')}>
+            <FilterChip active={filter === 'system'} onClick={() => setFilter('system')}>
               {s('系统', '系統', 'System')} ({counts.system})
-            </NotifTab>
+            </FilterChip>
           )}
         </div>
       )}
@@ -202,26 +203,3 @@ export default function NotificationPage() {
   );
 }
 
-function NotifTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        padding: '5px 12px',
-        borderRadius: 'var(--r-pill)',
-        border: '1px solid ' + (active ? 'var(--saffron-light)' : 'var(--glass-border)'),
-        background: active ? 'var(--saffron-pale)' : 'var(--glass-thick)',
-        color: active ? 'var(--saffron-dark)' : 'var(--ink-3)',
-        font: 'var(--text-caption)',
-        fontWeight: 600,
-        letterSpacing: 1,
-        cursor: 'pointer',
-        whiteSpace: 'nowrap',
-        flexShrink: 0,
-      }}
-    >
-      {children}
-    </button>
-  );
-}

@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
+import FilterChip from '@/components/FilterChip';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
 import { useLang } from '@/lib/i18n';
@@ -281,26 +282,3 @@ export default function MistakesPage() {
   );
 }
 
-function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        padding: '6px 14px',
-        borderRadius: 'var(--r-pill)',
-        border: '1px solid ' + (active ? 'var(--saffron-light)' : 'var(--glass-border)'),
-        background: active ? 'var(--saffron-pale)' : 'var(--glass-thick)',
-        color: active ? 'var(--saffron-dark)' : 'var(--ink-3)',
-        font: 'var(--text-caption)',
-        fontWeight: 600,
-        letterSpacing: 1,
-        cursor: 'pointer',
-        whiteSpace: 'nowrap',
-        flexShrink: 0,
-      }}
-    >
-      {children}
-    </button>
-  );
-}

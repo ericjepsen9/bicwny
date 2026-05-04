@@ -9,6 +9,7 @@ import CourseCover from '@/components/CourseCover';
 import Dialog from '@/components/Dialog';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
+import FilterChip from '@/components/FilterChip';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
@@ -134,9 +135,9 @@ export default function CoursesPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 'var(--sp-2)', padding: '0 var(--sp-5) var(--sp-3)' }}>
-        <FilterChip on={filter === 'all'}      onClick={() => setFilter('all')}>      {s('全部', '全部', 'All')}      </FilterChip>
-        <FilterChip on={filter === 'enrolled'} onClick={() => setFilter('enrolled')}> {s('已加入', '已加入', 'Enrolled')} </FilterChip>
-        <FilterChip on={filter === 'available'}onClick={() => setFilter('available')}>{s('未加入', '未加入', 'Available')}</FilterChip>
+        <FilterChip active={filter === 'all'}       onClick={() => setFilter('all')}>      {s('全部', '全部', 'All')}      </FilterChip>
+        <FilterChip active={filter === 'enrolled'}  onClick={() => setFilter('enrolled')}> {s('已加入', '已加入', 'Enrolled')} </FilterChip>
+        <FilterChip active={filter === 'available'} onClick={() => setFilter('available')}>{s('未加入', '未加入', 'Available')}</FilterChip>
       </div>
 
       {courses.isError ? (
@@ -251,29 +252,6 @@ export default function CoursesPage() {
         )}
       </Dialog>
     </div>
-  );
-}
-
-function FilterChip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        padding: '5px 14px',
-        borderRadius: 'var(--r-pill)',
-        font: 'var(--text-caption)',
-        fontWeight: 600,
-        letterSpacing: 1,
-        background: on ? 'var(--saffron-pale)' : 'rgba(43,34,24,.05)',
-        border: '1px solid ' + (on ? 'var(--saffron-light)' : 'transparent'),
-        color: on ? 'var(--saffron-dark)' : 'var(--ink-3)',
-        cursor: 'pointer',
-        transition: 'all .2s var(--ease)',
-      }}
-    >
-      {children}
-    </button>
   );
 }
 
