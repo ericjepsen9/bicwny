@@ -606,7 +606,12 @@ export function useAdminUsers(opts?: { limit?: number; role?: string; search?: s
   if (opts?.cursor) q.push('cursor=' + encodeURIComponent(opts.cursor));
   return useQuery({
     queryKey: ['/api/admin/users', opts?.limit ?? 50, opts?.role ?? '', opts?.search ?? '', opts?.cursor ?? ''],
-    queryFn: ({ signal }) => api.get<AdminUsersResp>('/api/admin/users?' + q.join('&'), { signal }),
+    // 后端实际返回 AdminUser[] 数组 · 这里包成 AdminUsersResp 形态以保持调用方
+    // .items / .total 访问不变 · cursor 暂未实现 · 一次性返回 limit 条
+    queryFn: async ({ signal }) => {
+      const items = await api.get<AdminUser[]>('/api/admin/users?' + q.join('&'), { signal });
+      return { items, total: items.length, nextCursor: null } as AdminUsersResp;
+    },
   });
 }
 
