@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import CourseCover from '@/components/CourseCover';
 import Dialog from '@/components/Dialog';
+import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
@@ -150,8 +151,12 @@ export default function CoursesPage() {
             </div>
           ))
         ) : list.length === 0 ? (
-          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 'var(--sp-8) var(--sp-5)', color: 'var(--ink-3)' }}>
-            {search ? s('没有匹配的法本', '沒有匹配的法本', 'No matches') : s('暂无法本', '暫無法本', 'No texts')}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <EmptyState
+              icon={search ? '🔍' : '📚'}
+              title={search ? s('没有匹配的法本', '沒有匹配的法本', 'No matches') : s('暂无法本', '暫無法本', 'No texts')}
+              hint={!search ? s('管理员稍后会上架法本', '管理員稍後會上架法本', 'Admin will publish soon') : undefined}
+            />
           </div>
         ) : (
           list.map((c) => (

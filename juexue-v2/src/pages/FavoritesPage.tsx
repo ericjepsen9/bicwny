@@ -3,6 +3,8 @@
 //   筛选：按法本（course）下拉
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import EmptyState from '@/components/EmptyState';
+import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
 import { confirmAsync } from '@/components/ConfirmDialog';
@@ -13,7 +15,7 @@ import { toast } from '@/lib/toast';
 
 export default function FavoritesPage() {
   const { s } = useLang();
-  const { data, isLoading, isError, error } = useFavorites();
+  const { data, isLoading, isError, error, refetch } = useFavorites();
   const courses = useCourses();
   const qc = useQueryClient();
   const [courseId, setCourseId] = useState<string>('');
@@ -86,22 +88,18 @@ export default function FavoritesPage() {
             {Array.from({ length: 4 }).map((_, i) => <Skeleton.Card key={i} />)}
           </div>
         ) : isError ? (
-          <p style={{ color: 'var(--crimson)', textAlign: 'center', padding: 'var(--sp-6)' }}>
-            {(error as ApiError).message}
-          </p>
+          <ErrorState error={error} onRetry={() => refetch()} />
         ) : all.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 'var(--sp-8) var(--sp-5)', color: 'var(--ink-3)' }}>
-            <div style={{ fontSize: '2rem', marginBottom: 'var(--sp-2)' }}>⭐</div>
-            <p style={{ font: 'var(--text-body)', letterSpacing: 1 }}>
-              {s('暂无收藏', '暫無收藏', 'No favorites yet')}
-            </p>
-          </div>
+          <EmptyState
+            icon="⭐"
+            title={s('暂无收藏', '暫無收藏', 'No favorites yet')}
+            hint={s('答题时点收藏即可加入', '答題時點收藏即可加入', 'Tap star while answering')}
+          />
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 'var(--sp-7) var(--sp-5)', color: 'var(--ink-3)' }}>
-            <p style={{ font: 'var(--text-body)', letterSpacing: 1 }}>
-              {s('当前法本下暂无收藏', '當前法本下暫無收藏', 'No favorites in this text')}
-            </p>
-          </div>
+          <EmptyState
+            icon="🔍"
+            title={s('当前法本下暂无收藏', '當前法本下暫無收藏', 'No favorites in this text')}
+          />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
             {filtered.map((f) => (

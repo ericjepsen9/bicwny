@@ -4,6 +4,7 @@
 //   筛选 tabs: 全部 / 今日（按 lastWrongAt 是不是今天）
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
@@ -142,18 +143,16 @@ export default function MistakesPage() {
         ) : isError ? (
           <ErrorState error={error} onRetry={() => refetch()} />
         ) : all.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 'var(--sp-8) var(--sp-5)', color: 'var(--ink-3)' }}>
-            <div style={{ fontSize: '2.4rem', marginBottom: 'var(--sp-2)' }}>🌿</div>
-            <p style={{ font: 'var(--text-body)', letterSpacing: 1 }}>
-              {s('暂无错题 · 太棒了', '暫無錯題 · 太棒了', 'No mistakes yet · awesome')}
-            </p>
-          </div>
+          <EmptyState
+            icon="🌿"
+            title={s('暂无错题', '暫無錯題', 'No mistakes yet')}
+            hint={s('太棒了', '太棒了', 'Awesome')}
+          />
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 'var(--sp-7) var(--sp-5)', color: 'var(--ink-3)' }}>
-            <p style={{ font: 'var(--text-body)', letterSpacing: 1 }}>
-              {s('当前筛选下暂无错题', '當前篩選下暫無錯題', 'No mistakes match this filter')}
-            </p>
-          </div>
+          <EmptyState
+            icon="🔍"
+            title={s('当前筛选下暂无错题', '當前篩選下暫無錯題', 'No mistakes match this filter')}
+          />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
             {filtered.map((m) => {

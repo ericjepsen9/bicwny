@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import QuestionRenderer, { canSubmit } from '@/components/quiz';
+import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
@@ -207,19 +208,28 @@ export default function QuizPage() {
 
   if (total === 0) {
     return (
-      <div style={{ padding: 'var(--sp-7) var(--sp-5)', textAlign: 'center' }}>
-        <p style={{ color: 'var(--ink-3)', fontSize: '1.125rem', marginBottom: 16 }}>📭</p>
-        <p style={{ color: 'var(--ink-2)', lineHeight: 1.7, marginBottom: 'var(--sp-4)' }}>
-          {isPractice
+      <EmptyState
+        icon={isPractice && practiceOnlyMistakes ? '🌿' : '📭'}
+        title={
+          isPractice
             ? practiceOnlyMistakes
-              ? s('错题本暂时无题 · 太棒了', '錯題本暫時無題 · 太棒了', 'No mistakes to review · awesome')
-              : s('暂无可练习的题目 · 先去学习一些课时', '暫無可練習的題目 · 先去學習一些課時', 'Nothing to practice yet · study some lessons first')
-            : s('本课时尚无题目', '本課時尚無題目', 'No questions for this lesson yet')}
-        </p>
-        <button type="button" onClick={backToSource} className="btn btn-primary btn-pill" style={{ padding: '10px 24px' }}>
-          {s('返回', '返回', 'Back')}
-        </button>
-      </div>
+              ? s('错题本暂时无题', '錯題本暫時無題', 'No mistakes to review')
+              : s('暂无可练习的题目', '暫無可練習的題目', 'Nothing to practice yet')
+            : s('本课时尚无题目', '本課時尚無題目', 'No questions for this lesson yet')
+        }
+        hint={
+          isPractice && practiceOnlyMistakes
+            ? s('太棒了', '太棒了', 'Awesome')
+            : isPractice
+              ? s('先去学习一些课时', '先去學習一些課時', 'Study some lessons first')
+              : undefined
+        }
+        cta={
+          <button type="button" onClick={backToSource} className="btn btn-primary btn-pill" style={{ padding: '10px 24px' }}>
+            {s('返回', '返回', 'Back')}
+          </button>
+        }
+      />
     );
   }
 

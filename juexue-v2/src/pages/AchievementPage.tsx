@@ -1,6 +1,7 @@
 // AchievementPage · /achievement
 //   学习统计：顶部累计答题 ring · 三项指标 · 按法本分列 · 成就墙
 import { useMemo } from 'react';
+import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
@@ -249,9 +250,12 @@ export default function AchievementPage() {
             ))}
           </div>
         ) : !achievements.data || achievements.data.badges.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 'var(--sp-6)', color: 'var(--ink-3)' }}>
-            {s('继续答题解锁徽章', '繼續答題解鎖徽章', 'Keep answering to unlock')}
-          </div>
+          <EmptyState
+            icon="🏅"
+            title={s('暂未解锁徽章', '暫未解鎖徽章', 'No badges yet')}
+            hint={s('继续答题积累成就', '繼續答題積累成就', 'Keep answering to unlock')}
+            compact
+          />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)' }}>
             {achievements.data.badges.map((a) => {

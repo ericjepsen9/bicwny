@@ -3,6 +3,8 @@
 //   筛选 tabs：全部 / 未读 / 班级 / 学习 / 成就 / 系统
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import EmptyState from '@/components/EmptyState';
+import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
 import { confirmAsync } from '@/components/ConfirmDialog';
@@ -133,22 +135,17 @@ export default function NotificationPage() {
             {Array.from({ length: 4 }).map((_, i) => <Skeleton.Card key={i} />)}
           </div>
         ) : list.isError ? (
-          <p style={{ color: 'var(--crimson)', textAlign: 'center', padding: 'var(--sp-6)' }}>
-            {(list.error as ApiError).message}
-          </p>
+          <ErrorState error={list.error} onRetry={() => list.refetch()} />
         ) : data.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 'var(--sp-8) var(--sp-5)', color: 'var(--ink-3)' }}>
-            <div style={{ fontSize: '2rem', marginBottom: 'var(--sp-2)' }}>🔔</div>
-            <p style={{ font: 'var(--text-body)', letterSpacing: 1 }}>
-              {s('暂无通知', '暫無通知', 'No notifications')}
-            </p>
-          </div>
+          <EmptyState
+            icon="🔔"
+            title={s('暂无通知', '暫無通知', 'No notifications')}
+          />
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 'var(--sp-7) var(--sp-5)', color: 'var(--ink-3)' }}>
-            <p style={{ font: 'var(--text-body)', letterSpacing: 1 }}>
-              {s('当前筛选下暂无通知', '當前篩選下暫無通知', 'No notifications match this filter')}
-            </p>
-          </div>
+          <EmptyState
+            icon="🔍"
+            title={s('当前筛选下暂无通知', '當前篩選下暫無通知', 'No notifications match this filter')}
+          />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
             {filtered.map((n) => (
