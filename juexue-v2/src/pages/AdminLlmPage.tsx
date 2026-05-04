@@ -399,7 +399,7 @@ function ProviderForm({ mode, initial, onDone }: ProviderFormProps) {
   return (
     <form onSubmit={onSubmit} style={{ padding: 'var(--sp-2) 0 var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-3)' }}>
-        <Field label={s('内部名 (lowercase_underscore)', '內部名 (lowercase_underscore)', 'Name (lowercase_underscore)')} value={name} onChange={setName} required pattern="[a-z0-9_-]+" maxLength={64} />
+        <Field label={s('内部名 (lowercase_underscore)', '內部名 (lowercase_underscore)', 'Name (lowercase_underscore)')} value={name} onChange={setName} required pattern="[a-z0-9_\-]+" maxLength={64} />
         <Field label={s('显示名', '顯示名', 'Display name')} value={displayName} onChange={setDisplayName} required maxLength={120} />
       </div>
       <Field label={s('Base URL', 'Base URL', 'Base URL')} type="url" value={baseUrl} onChange={setBaseUrl} required maxLength={500} />

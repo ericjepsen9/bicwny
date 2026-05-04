@@ -229,7 +229,7 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
         >
           <Field label={s('标题（简）', '標題（簡）', 'Title (SC)')} value={title} onChange={setTitle} required maxLength={120} />
           <Field label={s('标题（繁）', '標題（繁）', 'Title (TC)')} value={titleTC} onChange={setTitleTC} maxLength={120} />
-          <Field label={s('Slug · URL 用', 'Slug · URL 用', 'Slug')} value={slug} onChange={setSlug} required pattern="[a-z0-9-]+" maxLength={80} />
+          <Field label={s('Slug · URL 用', 'Slug · URL 用', 'Slug')} value={slug} onChange={setSlug} required pattern="[a-z0-9\-]+" maxLength={80} />
           <Field label={s('作者 / 译者', '作者 / 譯者', 'Author')} value={author} onChange={setAuthor} maxLength={120} />
           <div style={{ gridColumn: '1 / -1' }}>
             <TextArea label={s('简介', '簡介', 'Description')} value={description} onChange={setDescription} rows={3} maxLength={2000} />
@@ -739,7 +739,7 @@ function CreateCourseForm({ onCreated, onCancel }: { onCreated: (id: string) => 
         value={slug}
         onChange={(v) => { slugDirty.current = true; setSlug(v); }}
         required
-        pattern="[a-z0-9-]+"
+        pattern="[a-z0-9\-]+"
         maxLength={80}
       />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 4fr', gap: 'var(--sp-3)' }}>

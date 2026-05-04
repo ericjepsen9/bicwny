@@ -364,7 +364,7 @@ export default function CourseImportDialog({ open, onClose, courses, onCommitted
                   value={newSlug}
                   onChange={setNewSlug}
                   required
-                  pattern="[a-z0-9-]+"
+                  pattern="[a-z0-9\-]+"
                   maxLength={80}
                 />
                 <Field
