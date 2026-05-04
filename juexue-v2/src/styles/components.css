@@ -211,9 +211,10 @@ input, textarea, select {
   /* iOS notch / home indicator + Android 手势导航区都靠 env(safe-area-inset-bottom)
      iOS：值通常 34px (home indicator) · Android：值在 viewport-fit=cover + 手势导航
      时通常 16-48px · 桌面 / 直角屏：值为 0 · fallback 12 保证基础内边距
-     viewport meta 已加 viewport-fit=cover · 否则 env() 不会返回有效值 */
-  padding: var(--sp-3) var(--sp-4);
-  padding-bottom: calc(var(--sp-3) + max(env(safe-area-inset-bottom, 12px), 12px));
+     viewport meta 已加 viewport-fit=cover · 否则 env() 不会返回有效值
+     顶部 padding sp-2 (8) · 底部仍要让出 home indicator 区域 */
+  padding: var(--sp-2) var(--sp-4);
+  padding-bottom: calc(var(--sp-2) + max(env(safe-area-inset-bottom, 12px), 12px));
   background: var(--glass-thick);
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
@@ -240,7 +241,8 @@ body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
   align-items: center;
   gap: 4px;
   flex: 1;
-  padding: var(--sp-2) 0;
+  /* 与 Apple HIG 49pt 内容区对齐 · sp-1 (4) × 2 + icon 22 + gap 4 + label 14 ≈ 46 */
+  padding: var(--sp-1) 0;
   transition: all var(--dur) var(--ease);
 }
 .tab-item svg { stroke: var(--ink-4); transition: stroke var(--dur) var(--ease); }
