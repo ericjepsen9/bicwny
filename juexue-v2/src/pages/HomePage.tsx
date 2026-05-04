@@ -410,15 +410,15 @@ export default function HomePage() {
                 </p>
               ) : null}
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--sp-2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-2)' }}>
                 <span className="t-caption t-ink-3">{s('学习进度', '學習進度', 'Progress')}</span>
-                <span className="t-meta" style={{ color: 'var(--saffron-dark)', fontWeight: 700 }}>
-                  {currentCourseDetail.isLoading
-                    ? '—'
-                    : totalLessons > 0
-                      ? `${completedCount} / ${totalLessons} · ${pct}%`
-                      : '—'}
-                </span>
+                {currentCourseDetail.isLoading ? (
+                  <Skeleton.LineSm style={{ width: 80 }} />
+                ) : (
+                  <span className="t-meta" style={{ color: 'var(--saffron-dark)', fontWeight: 700 }}>
+                    {totalLessons > 0 ? `${completedCount} / ${totalLessons} · ${pct}%` : '—'}
+                  </span>
+                )}
               </div>
               <div className="progress-track">
                 <div className="progress-fill" style={{ width: pct + '%' }} />

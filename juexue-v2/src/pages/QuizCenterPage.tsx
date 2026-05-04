@@ -182,7 +182,6 @@ function ReviewCard({
   label: string;
   sub: string;
 }) {
-  const display = loading ? '—' : count ?? 0;
   const isZero = !loading && (count ?? 0) === 0;
   return (
     <Link
@@ -222,9 +221,13 @@ function ReviewCard({
           color: isZero ? 'var(--ink-4)' : 'var(--ink)',
           lineHeight: 1.1,
           marginTop: 4,
+          minHeight: 28,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        {display}
+        {loading ? <Skeleton.LineSm style={{ width: 28, height: 18 }} /> : (count ?? 0)}
       </div>
       <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, fontWeight: 700 }}>
         {label}
