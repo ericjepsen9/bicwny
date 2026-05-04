@@ -13,6 +13,7 @@
 // - 阻力系数 0.5 让下拉感觉"沉"
 // - 实际 refetch 完成前菊花持续旋转 · 防止用户重复触发
 import { useEffect, useRef, useState } from 'react';
+import { selection, notification } from '@/lib/haptics';
 
 const TRIGGER = 70;
 const MAX_PULL = 110;
@@ -20,7 +21,7 @@ const MAX_PULL = 110;
 export function usePullToRefresh(onRefresh: () => Promise<unknown> | void) {
   const [pulled, setPulled] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const stateRef = useRef({ startY: -1, pulled: 0 });
+  const stateRef = useRef({ startY: -1, pulled: 0, primed: false });
   const onRefreshRef = useRef(onRefresh);
   const refreshingRef = useRef(false);
 
@@ -46,6 +47,13 @@ export function usePullToRefresh(onRefresh: () => Promise<unknown> | void) {
         return;
       }
       const next = Math.min(MAX_PULL, dy * 0.5);
+      // 跨阈值时一次轻 selection · 用户手感"咔哒"提示可以松手
+      if (next >= TRIGGER && !stateRef.current.primed) {
+        stateRef.current.primed = true;
+        selection();
+      } else if (next < TRIGGER && stateRef.current.primed) {
+        stateRef.current.primed = false;
+      }
       stateRef.current.pulled = next;
       setPulled(next);
     }
@@ -53,12 +61,14 @@ export function usePullToRefresh(onRefresh: () => Promise<unknown> | void) {
       const finalPulled = stateRef.current.pulled;
       stateRef.current.startY = -1;
       stateRef.current.pulled = 0;
+      stateRef.current.primed = false;
       if (finalPulled >= TRIGGER) {
         refreshingRef.current = true;
         setRefreshing(true);
         setPulled(TRIGGER);
         try {
           await onRefreshRef.current();
+          notification('success');
         } finally {
           refreshingRef.current = false;
           setRefreshing(false);

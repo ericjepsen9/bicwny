@@ -2,6 +2,7 @@
 //   原生 scroll + scroll-snap-type 实现 · 不依赖任何拖拽库
 //   高亮中间槽位 · 上下渐隐 · 滚动停止后自动 snap + onChange
 import { useEffect, useRef } from 'react';
+import { selection } from '@/lib/haptics';
 
 interface Props<T extends number | string> {
   value: T;
@@ -53,7 +54,10 @@ export default function WheelPicker<T extends number | string>({
         el.scrollTo({ top: target, behavior: 'smooth' });
       }
       const picked = options[idx]!;
-      if (picked !== value) onChange(picked);
+      if (picked !== value) {
+        selection();
+        onChange(picked);
+      }
     }, 100);
   }
 

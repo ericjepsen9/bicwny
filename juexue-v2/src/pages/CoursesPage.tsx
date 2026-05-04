@@ -12,6 +12,7 @@ import ErrorState from '@/components/ErrorState';
 import FilterChip from '@/components/FilterChip';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
+import { notification } from '@/lib/haptics';
 import { usePullToRefresh } from '@/lib/pullToRefresh';
 import { useLang } from '@/lib/i18n';
 import { type Course, useCourses, useEnrollments } from '@/lib/queries';
@@ -68,6 +69,7 @@ export default function CoursesPage() {
         qc.refetchQueries({ queryKey: ['/api/my/enrollments'] }),
         qc.refetchQueries({ queryKey: ['/api/my/progress'] }),
       ]);
+      notification('success');
       toast.ok(s('已加入 · 即将进入', '已加入 · 即將進入', 'Joined · opening…'));
       setOpenSlug(null);
       // "加入并查看" · 直接跳法本详情

@@ -19,6 +19,7 @@ import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
+import { notification } from '@/lib/haptics';
 import { useLang } from '@/lib/i18n';
 import { setMainCourseId, useMainCourseId } from '@/lib/mainCourse';
 import { useCourseDetail, useEnrollments } from '@/lib/queries';
@@ -71,6 +72,7 @@ export default function ScriptureDetailPage() {
     mutationFn: () => api.post('/api/enrollments', { courseId: course.data!.id }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/my/enrollments'] });
+      notification('success');
       toast.ok(s('已加入学习', '已加入學習', 'Joined'));
       setMenuOpen(false);
     },
@@ -81,6 +83,7 @@ export default function ScriptureDetailPage() {
     mutationFn: () => api.del(`/api/enrollments/${encodeURIComponent(course.data!.id)}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/my/enrollments'] });
+      notification('warning');
       toast.ok(s('已退出学习', '已退出學習', 'Unenrolled'));
       setMenuOpen(false);
     },
@@ -96,6 +99,7 @@ export default function ScriptureDetailPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/my/enrollments'] });
+      notification('success');
       toast.ok(s('进度已重置', '進度已重置', 'Progress reset'));
       setMenuOpen(false);
     },

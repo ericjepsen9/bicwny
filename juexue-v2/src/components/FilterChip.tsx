@@ -7,6 +7,7 @@
 //     全部
 //   </FilterChip>
 import type { ReactNode } from 'react';
+import { selection } from '@/lib/haptics';
 
 interface Props {
   active: boolean;
@@ -18,7 +19,7 @@ export default function FilterChip({ active, onClick, children }: Props) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={() => { if (!active) selection(); onClick(); }}
       aria-pressed={active}
       style={{
         padding: '6px 14px',
