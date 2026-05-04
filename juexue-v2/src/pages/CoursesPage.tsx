@@ -251,6 +251,9 @@ function BookCard({ course, enrolled, onClick }: { course: Course; enrolled: boo
       style={{
         position: 'relative',
         display: 'block',
+        width: '100%',
+        // grid 1fr 默认 min-width: auto 会卡 content-min · 强制 0 让网格可以收窄
+        minWidth: 0,
         textDecoration: 'none',
         color: 'inherit',
         cursor: 'pointer',
@@ -260,18 +263,19 @@ function BookCard({ course, enrolled, onClick }: { course: Course; enrolled: boo
         textAlign: 'left',
       }}
     >
-      {/* 封面 · 参考 Apple 图书：portrait 2:3 比例 · 层叠阴影聚焦书底 · 像放在书架上
-          ambient 1px 给"轻贴墙"质感 · 底部 14px-2 spread 大投影聚拢在书下沿 */}
+      {/* 封面 · 参考 Apple 图书：portrait 2:3 比例 · 层叠阴影聚焦书底
+          CourseCover 显式 100%/100% · 让其内部 aspectRatio 1/1 失效不撞 wrapper 的 2/3 */}
       <div
         style={{
           position: 'relative',
+          width: '100%',
           aspectRatio: '2 / 3',
           borderRadius: 'var(--r-sm)',
           overflow: 'hidden',
           boxShadow: '0 1px 2px rgba(43,34,24,.08), 0 10px 18px -4px rgba(43,34,24,.22)',
         }}
       >
-        <CourseCover course={course} />
+        <CourseCover course={course} width="100%" height="100%" />
         {enrolled && (
           <span
             style={{
