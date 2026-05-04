@@ -35,17 +35,15 @@ export default function SettingsPage() {
       <TopNav titles={['设置', '設定', 'Settings']} />
 
       <div style={{ padding: '0 var(--sp-5) var(--sp-8)' }}>
-        {/* 主题 */}
-        <SectionLabel>{s('外观', '外觀', 'Appearance')}</SectionLabel>
-        <ThemePicker />
-
-        {/* 字号 */}
-        <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('字号', '字號', 'Font size')}</SectionLabel>
-        <FontScalePicker />
-
-        {/* 语言 */}
-        <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('语言', '語言', 'Language')}</SectionLabel>
-        <LangPicker />
+        {/* 显示 · 合并 主题 / 字号 / 语言 三个相关偏好 · iOS 风分组 */}
+        <SectionLabel>{s('显示', '顯示', 'Display')}</SectionLabel>
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+          <PickerRow label={s('主题', '主題', 'Theme')}><ThemePicker /></PickerRow>
+          <Divider />
+          <PickerRow label={s('字号', '字號', 'Font size')}><FontScalePicker /></PickerRow>
+          <Divider />
+          <PickerRow label={s('语言', '語言', 'Language')}><LangPicker /></PickerRow>
+        </div>
 
         {/* 邮箱验证 */}
         {user && !user.emailVerifiedAt && (
@@ -132,6 +130,21 @@ export default function SettingsPage() {
       </Dialog>
     </div>
   );
+}
+
+function PickerRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, marginBottom: 'var(--sp-2)' }}>
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Divider() {
+  return <div style={{ height: 1, background: 'var(--border-light)' }} aria-hidden />;
 }
 
 function SectionLabel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
