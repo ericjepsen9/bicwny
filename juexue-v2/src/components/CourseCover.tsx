@@ -58,7 +58,9 @@ export default function CourseCover({
           ...containerStyle,
           background: palette.bg,
           flexDirection: 'column',
-          padding: '14% 12% 12%',
+          // 顶部 padding 用 max(20%, 36px) · 保证 36px 给"已加入"徽章
+          // (徽章 top:8 + 高度 22 + 6buf = 36px) · 标题不再被挡
+          padding: 'max(20%, 36px) 12% 12%',
           position: 'relative',
           textAlign: 'center',
           // 用 container query 让标题字号跟着封面宽度线性放大

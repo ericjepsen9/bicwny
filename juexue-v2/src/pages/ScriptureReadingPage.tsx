@@ -1,7 +1,7 @@
 // ScriptureReadingPage · /read/:slug/:lessonId
 //   Apple 图书风沉浸阅读 · 进入显示工具栏 → 滚一屏后自动隐 → 点正文呼出/收起
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import Dialog from '@/components/Dialog';
 import { useFontScale } from '@/lib/fontSize';
@@ -21,6 +21,7 @@ export default function ScriptureReadingPage() {
   const slug = params.slug || '';
   const lessonId = params.lessonId || '';
   const nav = useNavigate();
+  const location = useLocation();
   const { step } = useFontScale();
 
   // 阅读页只需要"当前 lesson 的原文"+ 全树 TOC 用于 prev/next 跳转
@@ -186,7 +187,15 @@ export default function ScriptureReadingPage() {
         <button
           type="button"
           className="nav-back"
-          onClick={() => nav(`/scripture-detail?slug=${encodeURIComponent(slug)}`, { replace: true })}
+          onClick={() => {
+            // location.key === 'default' = 直接 deep link 进入 · 历史栈空 · 用显式 nav 兜底
+            // 否则 nav(-1) 走浏览器历史 · 由于 lesson 切换都用 replace · 上一条必然是 detail
+            if (location.key === 'default') {
+              nav(`/scripture-detail?slug=${encodeURIComponent(slug)}`, { replace: true });
+            } else {
+              nav(-1);
+            }
+          }}
           aria-label={s('返回', '返回', 'Back')}
         >
           <svg width="18" height="18" fill="none" stroke="#55463A" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
