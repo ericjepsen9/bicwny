@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import CourseCover from '@/components/CourseCover';
 import Dialog from '@/components/Dialog';
 import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
@@ -309,7 +310,9 @@ export default function ScriptureDetailPage() {
           textAlign: 'center',
         }}
       >
-        {/* 封面 · 144×192 · 视觉主体更突出 */}
+        {/* 封面 · 144×192 · 视觉主体更突出
+            用 CourseCover 复用 list 页同套逻辑：
+            有图 → 渲染图片；无图 → 自动设计封面（标题 + 书脊 + emoji）*/}
         <div
           style={{
             width: 144,
@@ -318,18 +321,9 @@ export default function ScriptureDetailPage() {
             borderRadius: 'var(--r-md)',
             overflow: 'hidden',
             boxShadow: '0 16px 38px rgba(43,34,24,.32)',
-            background: c.coverImageUrl
-              ? `center/cover url(${c.coverImageUrl})`
-              : 'linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontSize: '3.6rem',
           }}
-          aria-hidden
         >
-          {!c.coverImageUrl && (c.coverEmoji || '🪷')}
+          <CourseCover course={c} width="100%" height="100%" />
         </div>
 
         <h1

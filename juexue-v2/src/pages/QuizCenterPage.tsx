@@ -55,37 +55,34 @@ export default function QuizCenterPage() {
         </p>
       </div>
 
-      {/* 三复习卡 */}
+      {/* 三复习卡 · 简化为 icon + 数字 + label · 数字 > 0 时染色提示紧迫感 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)', padding: '0 var(--sp-5) var(--sp-5)' }}>
         <ReviewCard
           to="/sm2-review"
           icon="🔁"
           iconBg="rgba(236,180,86,.18)"
-          iconColor="var(--gold-dark)"
+          activeColor="var(--gold-dark)"
           count={sm2.data?.totalDue}
           loading={sm2.isLoading}
           label={s('待复习', '待複習', 'Due')}
-          sub={s('SM-2 间隔', 'SM-2 間隔', 'SM-2')}
         />
         <ReviewCard
           to="/mistakes"
           icon="❌"
           iconBg="var(--crimson-light)"
-          iconColor="var(--crimson)"
+          activeColor="var(--crimson)"
           count={mistakes.data}
           loading={mistakes.isLoading}
           label={s('错题', '錯題', 'Mistakes')}
-          sub={s('需巩固', '需鞏固', 'Practice')}
         />
         <ReviewCard
           to="/favorites"
           icon="⭐"
           iconBg="var(--saffron-pale)"
-          iconColor="var(--saffron-dark)"
+          activeColor="var(--saffron-dark)"
           count={favorites.data}
           loading={favorites.isLoading}
           label={s('收藏', '收藏', 'Saved')}
-          sub={s('题目', '題目', 'Items')}
         />
       </div>
 
@@ -176,16 +173,16 @@ export default function QuizCenterPage() {
 }
 
 function ReviewCard({
-  to, icon, iconBg, iconColor, count, loading, label, sub,
+  to, icon, iconBg, activeColor, count, loading, label,
 }: {
   to: string;
   icon: string;
   iconBg: string;
-  iconColor: string;
+  /** count > 0 时数字用此色 · 0 时灰 */
+  activeColor: string;
   count?: number;
   loading?: boolean;
   label: string;
-  sub: string;
 }) {
   const isZero = !loading && (count ?? 0) === 0;
   return (
@@ -196,8 +193,8 @@ function ReviewCard({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 4,
-        padding: 'var(--sp-4) var(--sp-2)',
+        gap: 6,
+        padding: 'var(--sp-3) var(--sp-2)',
         textDecoration: 'none',
         color: 'inherit',
         borderRadius: 'var(--r-lg)',
@@ -205,15 +202,14 @@ function ReviewCard({
     >
       <div
         style={{
-          width: 40,
-          height: 40,
+          width: 36,
+          height: 36,
           borderRadius: '50%',
           background: iconBg,
-          color: iconColor,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '1.25rem',
+          fontSize: '1.125rem',
         }}
       >
         {icon}
@@ -222,10 +218,9 @@ function ReviewCard({
         style={{
           fontFamily: 'var(--font-serif)',
           fontWeight: isZero ? 500 : 700,
-          fontSize: '1.5rem',
-          color: isZero ? 'var(--ink-4)' : 'var(--ink)',
-          lineHeight: 1.1,
-          marginTop: 4,
+          fontSize: '1.625rem',
+          color: isZero ? 'var(--ink-4)' : activeColor,
+          lineHeight: 1,
           minHeight: 28,
           display: 'flex',
           alignItems: 'center',
@@ -234,11 +229,8 @@ function ReviewCard({
       >
         {loading ? <Skeleton.LineSm style={{ width: 28, height: 18 }} /> : (count ?? 0)}
       </div>
-      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, fontWeight: 700 }}>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-2)', letterSpacing: 1, fontWeight: 700 }}>
         {label}
-      </div>
-      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1, fontSize: '.6875rem' }}>
-        {sub}
       </div>
     </Link>
   );
