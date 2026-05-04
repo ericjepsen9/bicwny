@@ -8,11 +8,13 @@
 //   1. 标题 + 小 stat（待复习 / 错题 / 收藏 总数）
 //   2. 三复习卡（SM-2 / 错题 / 收藏）
 //   3. 「按法本随机抽题」· 直接 /practice?courseId=X 不跳目录
+import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import CourseCover from '@/components/CourseCover';
 import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
 import { useLang } from '@/lib/i18n';
+import { usePullToRefresh } from '@/lib/pullToRefresh';
 import {
   useCourses,
   useEnrollments,
@@ -34,8 +36,14 @@ export default function QuizCenterPage() {
     .map((e) => courses.data?.find((c) => c.id === e.courseId))
     .filter((c): c is NonNullable<typeof c> => !!c);
 
+  const qc = useQueryClient();
+  const { indicator: pullIndicator } = usePullToRefresh(() =>
+    qc.refetchQueries({ type: 'active' }),
+  );
+
   return (
     <div>
+      {pullIndicator}
       <div style={{ padding: 'var(--sp-2) var(--sp-5) var(--sp-4)' }}>
         <p className="t-h1" style={{ color: 'var(--ink)' }}>
           <span className="sc">复习</span>

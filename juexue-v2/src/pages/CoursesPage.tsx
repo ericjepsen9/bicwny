@@ -12,6 +12,7 @@ import ErrorState from '@/components/ErrorState';
 import FilterChip from '@/components/FilterChip';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
+import { usePullToRefresh } from '@/lib/pullToRefresh';
 import { useLang } from '@/lib/i18n';
 import { type Course, useCourses, useEnrollments } from '@/lib/queries';
 import { toast } from '@/lib/toast';
@@ -77,8 +78,13 @@ export default function CoursesPage() {
     },
   });
 
+  const { indicator: pullIndicator } = usePullToRefresh(() =>
+    qc.refetchQueries({ type: 'active' }),
+  );
+
   return (
     <div>
+      {pullIndicator}
       <div style={{ padding: 'var(--sp-2) var(--sp-5) var(--sp-4)' }}>
         <p className="t-h1" style={{ color: 'var(--ink)' }}>
           <span className="sc">法本</span>

@@ -10,6 +10,7 @@
 //   · 章级棋盘格（与当前法本卡的进度数字重复 · 145 章铺满后视觉噪音）
 //     ChapterProgressGrid 组件保留 · 后续可能放法本详情页 hero 区
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import WheelPicker from '@/components/WheelPicker';
@@ -17,6 +18,7 @@ import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
 import { setMainCourseId, useMainCourseId } from '@/lib/mainCourse';
 import { PRACTICE_LIMIT_OPTIONS, usePracticeLimit } from '@/lib/practiceLimit';
+import { usePullToRefresh } from '@/lib/pullToRefresh';
 import { toast } from '@/lib/toast';
 import {
   useClasses,
@@ -124,8 +126,15 @@ export default function HomePage() {
     .map((e) => courseList.find((c) => c.id === e.courseId))
     .filter((c): c is NonNullable<typeof c> => !!c);
 
+  // 下拉刷新 · 重拉所有当前活跃 query
+  const qc = useQueryClient();
+  const { indicator: pullIndicator } = usePullToRefresh(() =>
+    qc.refetchQueries({ type: 'active' }),
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {pullIndicator}
       {/* Header */}
       <div
         style={{
