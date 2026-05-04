@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
+import StreakDots from '@/components/StreakDots';
 import TopNav from '@/components/TopNav';
 import { useLang } from '@/lib/i18n';
 import { type BadgeCategory, useAchievements, useCourses, useProgress, useSm2Stats } from '@/lib/queries';
@@ -152,6 +153,26 @@ export default function AchievementPage() {
             label={s('已掌握', '已掌握', 'Mastered')}
             color="var(--saffron)"
           />
+        </div>
+
+        {/* 本周打卡 · 7 圆点 · 从 ProfilePage 搬来 · 学习数据该跟统计同居 */}
+        <div
+          className="glass-card"
+          style={{
+            padding: 'var(--sp-4)',
+            marginBottom: 'var(--sp-4)',
+            borderRadius: 'var(--r-lg)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
+            <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 2 }}>
+              {s('本周打卡', '本週打卡', 'This week')}
+            </span>
+            <span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1 }}>
+              {s(`已连续 ${streak} 天`, `已連續 ${streak} 天`, `${streak} days`)}
+            </span>
+          </div>
+          <StreakDots streak={streak} />
         </div>
 
         {/* 待复习提示行 */}
