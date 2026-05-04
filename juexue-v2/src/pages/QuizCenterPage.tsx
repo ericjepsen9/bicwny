@@ -10,6 +10,7 @@
 //   3. 「按法本随机抽题」· 直接 /practice?courseId=X 不跳目录
 import { Link } from 'react-router-dom';
 import CourseCover from '@/components/CourseCover';
+import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
 import { useLang } from '@/lib/i18n';
 import {
@@ -80,23 +81,15 @@ export default function QuizCenterPage() {
         />
       </div>
 
-      {/* 按法本随机抽题 · 直接 /practice */}
-      <div
-        style={{
-          padding: '0 var(--sp-5) var(--sp-3)',
-          font: 'var(--text-caption)',
-          color: 'var(--ink-3)',
-          letterSpacing: 2,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-        }}
-      >
-        <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--saffron)' }} />
-        {s('按法本练习', '按法本練習', 'By text')}
-        <span style={{ marginLeft: 'auto', font: 'var(--text-caption)', color: 'var(--ink-4)', fontWeight: 400, letterSpacing: 1 }}>
-          {s('已学课时混合抽题', '已學課時混合抽題', 'Mix from studied')}
-        </span>
+      {/* 按法本随机抽题 · 二级 section header · 与首页"智能练习"同规范
+          复习卡区与本区清晰分隔 · 不再用一行小 caption 容易被略过 */}
+      <div style={{ padding: '0 var(--sp-5) var(--sp-3)', marginTop: 'var(--sp-3)' }}>
+        <h2 className="t-section" style={{ color: 'var(--ink)' }}>
+          {s('按法本练习', '按法本練習', 'By text')}
+        </h2>
+        <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+          {s('从已学课时随机抽题', '從已學課時隨機抽題', 'Random questions from studied lessons')}
+        </p>
       </div>
 
       <div style={{ padding: '0 var(--sp-5) var(--sp-8)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
@@ -115,16 +108,20 @@ export default function QuizCenterPage() {
             </div>
           ))
         ) : courseList.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 'var(--sp-7) var(--sp-5)', color: 'var(--ink-3)', font: 'var(--text-body)', letterSpacing: 1 }}>
-            <p>{s('暂未报名法本', '暫未報名法本', 'No enrolled texts')}</p>
-            <Link
-              to="/courses"
-              className="btn btn-primary btn-pill"
-              style={{ display: 'inline-block', marginTop: 'var(--sp-3)', padding: '10px 20px' }}
-            >
-              {s('去选修法本', '去選修法本', 'Browse texts')}
-            </Link>
-          </div>
+          <EmptyState
+            icon="📚"
+            title={s('暂未报名法本', '暫未報名法本', 'No enrolled texts')}
+            hint={s('去法本页选一本开始学习', '去法本頁選一本開始學習', 'Browse texts to start')}
+            cta={
+              <Link
+                to="/courses"
+                className="btn btn-primary btn-pill"
+                style={{ padding: '10px 20px' }}
+              >
+                {s('去选修法本', '去選修法本', 'Browse texts')}
+              </Link>
+            }
+          />
         ) : (
           courseList.map((c) => (
             <Link
