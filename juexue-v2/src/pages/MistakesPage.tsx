@@ -4,9 +4,9 @@
 //   筛选 tabs: 全部 / 今日（按 lastWrongAt 是不是今天）
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
-import { ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { useCourses, useMistakes } from '@/lib/queries';
 
@@ -24,7 +24,7 @@ type PracticeLimit = typeof PRACTICE_LIMIT_OPTS[number];
 
 export default function MistakesPage() {
   const { s } = useLang();
-  const { data, isLoading, isError, error } = useMistakes();
+  const { data, isLoading, isError, error, refetch } = useMistakes();
   const courses = useCourses();
   const [filter, setFilter] = useState<MistakeFilter>('all');
   const [practiceLimit, setPracticeLimit] = useState<PracticeLimit>(10);
@@ -140,9 +140,7 @@ export default function MistakesPage() {
             {Array.from({ length: 4 }).map((_, i) => <Skeleton.Card key={i} />)}
           </div>
         ) : isError ? (
-          <p style={{ color: 'var(--crimson)', textAlign: 'center', padding: 'var(--sp-6)' }}>
-            {(error as ApiError).message}
-          </p>
+          <ErrorState error={error} onRetry={() => refetch()} />
         ) : all.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 'var(--sp-8) var(--sp-5)', color: 'var(--ink-3)' }}>
             <div style={{ fontSize: '2.4rem', marginBottom: 'var(--sp-2)' }}>🌿</div>

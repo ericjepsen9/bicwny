@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
+import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
@@ -124,6 +125,9 @@ export default function ScriptureDetailPage() {
         <Skeleton.List count={4} variant="thumb" />
       </div>
     );
+  }
+  if (course.isError) {
+    return <ErrorState error={course.error} onRetry={() => course.refetch()} />;
   }
 
   if (!course.data) return <Empty title={s('法本不存在', '法本不存在', 'Text not found')} />;

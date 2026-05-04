@@ -1,6 +1,7 @@
 // AchievementPage · /achievement
 //   学习统计：顶部累计答题 ring · 三项指标 · 按法本分列 · 成就墙
 import { useMemo } from 'react';
+import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
 import { useLang } from '@/lib/i18n';
@@ -59,6 +60,16 @@ export default function AchievementPage() {
         };
       });
   }, [progress.data, courseById]);
+
+  // 主数据失败时整页降级 · 子查询（achievements / sm2）失败仍能看到主面
+  if (progress.isError) {
+    return (
+      <div>
+        <TopNav titles={['学习统计', '學習統計', 'Stats']} />
+        <ErrorState error={progress.error} onRetry={() => progress.refetch()} />
+      </div>
+    );
+  }
 
   return (
     <div>

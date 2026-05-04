@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import QuestionRenderer, { canSubmit } from '@/components/quiz';
+import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { selection, notification } from '@/lib/haptics';
@@ -201,14 +202,7 @@ export default function QuizPage() {
   }
 
   if (questions.isError) {
-    return (
-      <div style={{ padding: 'var(--sp-7) var(--sp-5)', textAlign: 'center' }}>
-        <p style={{ color: 'var(--crimson)' }}>{(questions.error as ApiError).message}</p>
-        <button type="button" onClick={backToSource} className="btn btn-pill" style={{ marginTop: 16, padding: '8px 18px' }}>
-          {s('返回', '返回', 'Back')}
-        </button>
-      </div>
-    );
+    return <ErrorState error={questions.error} onRetry={() => questions.refetch()} />;
   }
 
   if (total === 0) {

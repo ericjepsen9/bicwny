@@ -4,6 +4,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
 import { api, ApiError } from '@/lib/api';
@@ -79,9 +80,7 @@ export default function Sm2ReviewPage() {
     return (
       <div>
         <TopNav titles={['SM-2 复习', 'SM-2 複習', 'SM-2']} />
-        <p style={{ color: 'var(--crimson)', textAlign: 'center', padding: 'var(--sp-6)' }}>
-          {(due.error as ApiError).message}
-        </p>
+        <ErrorState error={due.error} onRetry={() => due.refetch()} />
       </div>
     );
   }

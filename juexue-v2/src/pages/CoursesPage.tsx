@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import CourseCover from '@/components/CourseCover';
 import Dialog from '@/components/Dialog';
+import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
@@ -137,6 +138,9 @@ export default function CoursesPage() {
         <FilterChip on={filter === 'available'}onClick={() => setFilter('available')}>{s('未加入', '未加入', 'Available')}</FilterChip>
       </div>
 
+      {courses.isError ? (
+        <ErrorState error={courses.error} onRetry={() => courses.refetch()} />
+      ) : (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', columnGap: 'var(--sp-4)', rowGap: 'var(--sp-6)', padding: '0 var(--sp-5) var(--sp-8)' }}>
         {courses.isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
@@ -166,6 +170,7 @@ export default function CoursesPage() {
           ))
         )}
       </div>
+      )}
 
       <Dialog
         open={!!openCourse}
