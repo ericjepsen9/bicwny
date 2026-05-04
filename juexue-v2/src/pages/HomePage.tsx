@@ -548,8 +548,9 @@ export default function HomePage() {
 
         {/* 错题提醒 banner 已删除 · 由下方 IconTile "❌ 错题" badge 承担红点提醒 */}
 
-        {/* 快速入口 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--sp-3)' }}>
+        {/* 快速入口 · 与智能练习按钮拉开间距（容器默认 sp-4 + 额外 sp-3 = ~28px）·
+            形成"主功能区 → 速入口区"的清晰断点 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--sp-3)', marginTop: 'var(--sp-3)' }}>
           <IconTile to="/sm2-review" icon="🔁" label={s('SM-2', 'SM-2', 'SM-2')} badge={sm2.data?.totalDue} />
           <IconTile to="/mistakes" icon="❌" label={s('错题', '錯題', 'Mistakes')} badge={mistakes.data} />
           <IconTile to="/favorites" icon="⭐" label={s('收藏', '收藏', 'Favorites')} />
