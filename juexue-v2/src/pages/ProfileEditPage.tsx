@@ -54,7 +54,7 @@ export default function ProfileEditPage() {
     onSuccess: async () => {
       await refreshUser();
       toast.ok(s('已保存', '已保存', 'Saved'));
-      nav(-1);
+      nav('/profile');
     },
     onError: (e) => setErr((e as ApiError).message),
   });
@@ -114,7 +114,7 @@ export default function ProfileEditPage() {
         <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
           <button
             type="button"
-            onClick={() => nav(-1)}
+            onClick={() => nav('/profile')}
             className="btn btn-pill"
             style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}
           >

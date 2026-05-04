@@ -23,7 +23,7 @@ export default function MistakeDetailPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/mistakes'] });
       toast.ok(s('已从错题本移除', '已從錯題本移除', 'Removed'));
-      nav(-1);
+      nav('/mistakes');
     },
     onError: (e) => toast.error((e as ApiError).message),
   });
@@ -34,7 +34,7 @@ export default function MistakeDetailPage() {
         <button
           type="button"
           className="nav-back"
-          onClick={() => nav(-1)}
+          onClick={() => nav('/mistakes')}
           aria-label={s('返回', '返回', 'Back')}
         >
           <svg width="18" height="18" fill="none" stroke="#55463A" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">

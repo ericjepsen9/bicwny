@@ -97,7 +97,7 @@ export default function Sm2ReviewPage() {
           </p>
           <button
             type="button"
-            onClick={() => nav(-1)}
+            onClick={() => nav('/quiz')}
             className="btn btn-pill"
             style={{ padding: '8px 18px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--ink-2)' }}
           >
@@ -122,7 +122,7 @@ export default function Sm2ReviewPage() {
           </p>
           <button
             type="button"
-            onClick={() => nav(-1)}
+            onClick={() => nav('/quiz')}
             className="btn btn-primary btn-pill"
             style={{ padding: '10px 24px' }}
           >

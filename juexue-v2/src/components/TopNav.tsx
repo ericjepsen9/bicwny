@@ -6,16 +6,22 @@ import { useLang } from '@/lib/i18n';
 interface Props {
   /** 三语标题 [sc, tc, en] */
   titles: [string, string, string];
-  /** 自定义返回 · 不传则 nav(-1) */
+  /** 自定义返回 · 优先级最高 · 不传走 backTo 或 nav(-1) */
   onBack?: () => void;
+  /** 显式父路由 · 比 nav(-1) 更稳（避免历史栈被同页 push 弄脏）*/
+  backTo?: string;
   /** 右侧 slot · 通常放 action button */
   right?: ReactNode;
 }
 
-export default function TopNav({ titles, onBack, right }: Props) {
+export default function TopNav({ titles, onBack, backTo, right }: Props) {
   const { s } = useLang();
   const nav = useNavigate();
-  const back = () => (onBack ? onBack() : nav(-1));
+  const back = () => {
+    if (onBack) return onBack();
+    if (backTo) return nav(backTo);
+    nav(-1);
+  };
 
   return (
     <div className="top-nav">
