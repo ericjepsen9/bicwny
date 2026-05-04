@@ -280,22 +280,27 @@ function BookCard({ course, enrolled, onClick }: { course: Course; enrolled: boo
           <span
             style={{
               position: 'absolute',
-              top: 6,
-              left: 6,
-              padding: '2px 8px',
-              borderRadius: 'var(--r-pill)',
+              top: 8,
+              right: 8,
+              padding: '3px 8px',
+              borderRadius: 'var(--r-sm)',
               fontSize: '.625rem',
               fontWeight: 700,
-              letterSpacing: '.5px',
-              background: 'var(--saffron)',
-              color: '#fff',
-              boxShadow: '0 2px 6px rgba(224,120,86,.4)',
+              letterSpacing: '1px',
+              background: 'rgba(255,255,255,.92)',
+              color: 'var(--saffron-dark)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              boxShadow: '0 2px 6px rgba(43,34,24,.18)',
             }}
           >
-            ✓
+            <span className="sc">已加入</span>
+            <span className="tc">已加入</span>
+            <span className="en">JOINED</span>
           </span>
         )}
       </div>
+      {/* 标题 · 预留 2 行高度让 1/2 行书在网格中底对齐 */}
       <div
         style={{
           fontFamily: 'var(--font-serif)',
@@ -305,6 +310,7 @@ function BookCard({ course, enrolled, onClick }: { course: Course; enrolled: boo
           letterSpacing: '1.5px',
           marginTop: 12,
           lineHeight: 1.35,
+          minHeight: 'calc(.875rem * 1.35 * 2)',
           display: '-webkit-box',
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
@@ -314,11 +320,6 @@ function BookCard({ course, enrolled, onClick }: { course: Course; enrolled: boo
       >
         {course.title}
       </div>
-      {course.author && (
-        <div style={{ fontSize: '.6875rem', color: 'var(--ink-3)', letterSpacing: '.5px', marginTop: 3, lineHeight: 1.3, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {course.author}
-        </div>
-      )}
     </button>
   );
 }

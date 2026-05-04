@@ -1,6 +1,23 @@
-// 课程封面 · 优先 coverImageUrl(支持 -1024.webp srcset) · 否则渐变 + emoji
-//   原版 prototypes/shared/components.js 的 coverHtml 函数 React 化
+// 课程封面 · 优先 coverImageUrl(支持 -1024.webp srcset) · 否则自动生成设计封面
+//   - 有 coverImageUrl · 走 <picture> 多尺寸 srcset
+//   - 无 coverImageUrl · 渲染 标题 + emoji + 书脊 的设计版式（按 title hash 选色）
 import type { Course } from '@/lib/queries';
+
+// 6 套配色 · 按 title 字符 hash 选 · 同法本永远同色 · 列表里色相分散
+const PALETTES = [
+  { bg: 'linear-gradient(160deg, #F4D6B8 0%, #E8B98A 100%)', fg: '#5A3A1F', spine: '#C99563' },
+  { bg: 'linear-gradient(160deg, #D9E5C8 0%, #B6C9A0 100%)', fg: '#3F4F2D', spine: '#8AA170' },
+  { bg: 'linear-gradient(160deg, #E8D4D0 0%, #C99B92 100%)', fg: '#5A2D24', spine: '#A56F65' },
+  { bg: 'linear-gradient(160deg, #D9DAE6 0%, #A8AAC4 100%)', fg: '#2E2F4A', spine: '#7A7C9C' },
+  { bg: 'linear-gradient(160deg, #F1E0BD 0%, #DBBF85 100%)', fg: '#5A4220', spine: '#B5945C' },
+  { bg: 'linear-gradient(160deg, #C9DDD9 0%, #8FB4AC 100%)', fg: '#1F3F3A', spine: '#5F8B82' },
+];
+
+function pickPalette(seed: string) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+  return PALETTES[Math.abs(h) % PALETTES.length]!;
+}
 
 interface Props {
   course: Pick<Course, 'coverImageUrl' | 'coverEmoji' | 'title'>;
@@ -31,9 +48,65 @@ export default function CourseCover({
   };
 
   if (!url) {
+    // 自动生成设计封面 · 标题 emoji 同构 · 不依赖外部图片
+    // 颜色 token 按 title 字符 hash 选 · 同一本法本永远同色
+    const palette = pickPalette(course.title);
     return (
-      <div className={className} style={containerStyle}>
-        <span aria-hidden style={{ fontSize: emojiSize, lineHeight: 1 }}>{course.coverEmoji}</span>
+      <div
+        className={className}
+        style={{
+          ...containerStyle,
+          background: palette.bg,
+          flexDirection: 'column',
+          padding: '14% 12% 12%',
+          position: 'relative',
+          textAlign: 'center',
+          // 用 container query 让标题字号跟着封面宽度线性放大
+          // 详情页大封面用同一组件不会显得字小
+          containerType: 'inline-size',
+        }}
+      >
+        {/* 左侧书脊线 · 模拟装订 · 视觉提示"这是一本书" */}
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: 0,
+            width: '4%',
+            background: palette.spine,
+          }}
+        />
+        {/* 标题 · 顶部居中 · 直排观感的横排兜底 */}
+        <span
+          style={{
+            fontFamily: 'var(--font-serif)',
+            fontWeight: 700,
+            fontSize: 'clamp(.875rem, 14cqw, 1.5rem)',
+            lineHeight: 1.25,
+            letterSpacing: '2px',
+            color: palette.fg,
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {course.title}
+        </span>
+        {/* 装饰 emoji · 底部居中 */}
+        <span
+          aria-hidden
+          style={{
+            marginTop: 'auto',
+            fontSize: emojiSize,
+            lineHeight: 1,
+            opacity: 0.85,
+          }}
+        >
+          {course.coverEmoji}
+        </span>
       </div>
     );
   }
