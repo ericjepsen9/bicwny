@@ -186,7 +186,7 @@ export default function ScriptureReadingPage() {
         <button
           type="button"
           className="nav-back"
-          onClick={() => nav(`/scripture-detail?slug=${encodeURIComponent(slug)}`)}
+          onClick={() => nav(`/scripture-detail?slug=${encodeURIComponent(slug)}`, { replace: true })}
           aria-label={s('返回', '返回', 'Back')}
         >
           <svg width="18" height="18" fill="none" stroke="#55463A" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
