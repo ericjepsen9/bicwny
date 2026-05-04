@@ -60,17 +60,29 @@ export default function ScriptureReadingPage() {
 
   // 记忆"上次阅读位置" · 用户每打开一课就把 enrollment.currentLessonId 推进到这里
   // 下次首页 / 详情页"继续阅读"按钮即可跳回
+  // 注意：仅在 lesson 确实属于本 course 时 PATCH（idx >= 0）· 避免脏写
   const updateProgress = useUpdateEnrollmentProgress();
   const courseId = course.data?.id;
   const enrolledHere = !!enrollment;
   const savedLessonId = enrollment?.currentLessonId ?? null;
+  const lessonValid = idx >= 0;
   useEffect(() => {
-    if (!courseId || !lessonId || !enrolledHere) return;
+    if (!courseId || !lessonId || !enrolledHere || !lessonValid) return;
     if (savedLessonId === lessonId) return;
     updateProgress.mutate({ courseId, currentLessonId: lessonId });
     // updateProgress 是稳定 mutation 引用 · 仅依赖 courseId / lessonId / 状态
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, lessonId, enrolledHere, savedLessonId]);
+  }, [courseId, lessonId, enrolledHere, savedLessonId, lessonValid]);
+
+  // lessonId 失效（被删 / 拼错）但 course 还有课 → 自动重定向到第一课
+  // 与"继续阅读"按钮的 stale id 自愈对齐 · 不让用户卡在 404
+  const firstLessonId = flat[0]?.lesson.id;
+  useEffect(() => {
+    if (!course.data || !lessonId) return;
+    if (lessonValid) return;
+    if (!firstLessonId) return;
+    nav(`/read/${slug}/${firstLessonId}`, { replace: true });
+  }, [course.data, lessonId, lessonValid, firstLessonId, slug, nav]);
 
   // 切换课时时滚回顶部 + 工具栏复位显示
   useEffect(() => {
@@ -123,11 +135,17 @@ export default function ScriptureReadingPage() {
   }
 
   if (!cur) {
+    // 走到这里 = course 加载完了但 lessonId 不在课程里 · 且无 firstLesson 兜底（或 useEffect 还没触发跳转）
+    // 跳目录页让用户重新选课 · 比给死链 /courses 更友好
     return (
       <div style={{ padding: 'var(--sp-7) var(--sp-5)', textAlign: 'center' }}>
         <p style={{ color: 'var(--ink-3)' }}>{s('课时不存在', '課時不存在', 'Lesson not found')}</p>
-        <Link to="/courses" className="btn btn-primary btn-pill" style={{ marginTop: 16, padding: '8px 18px', display: 'inline-block' }}>
-          {s('返回法本', '返回法本', 'Back to texts')}
+        <Link
+          to={slug ? `/scripture-detail?slug=${encodeURIComponent(slug)}` : '/courses'}
+          className="btn btn-primary btn-pill"
+          style={{ marginTop: 16, padding: '8px 18px', display: 'inline-block' }}
+        >
+          {s('返回目录', '返回目錄', 'Back to catalog')}
         </Link>
       </div>
     );
