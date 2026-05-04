@@ -78,7 +78,7 @@ export default function CoursesPage() {
   return (
     <div>
       <div style={{ padding: 'var(--sp-2) var(--sp-5) var(--sp-4)' }}>
-        <p style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--ink)', letterSpacing: 4 }}>
+        <p className="t-h1" style={{ color: 'var(--ink)' }}>
           <span className="sc">法本</span>
           <span className="tc">法本</span>
           <span className="en">Texts</span>

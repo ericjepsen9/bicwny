@@ -36,7 +36,7 @@ export default function QuizCenterPage() {
   return (
     <div>
       <div style={{ padding: 'var(--sp-2) var(--sp-5) var(--sp-4)' }}>
-        <p style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem', color: 'var(--ink)', letterSpacing: 4 }}>
+        <p className="t-h1" style={{ color: 'var(--ink)' }}>
           <span className="sc">复习</span>
           <span className="tc">複習</span>
           <span className="en">Review</span>

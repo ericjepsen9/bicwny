@@ -139,7 +139,7 @@ export default function HomePage() {
           <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 4 }}>
             {greet} · {dateLabel}
           </p>
-          <p style={{ fontFamily: 'var(--font-serif)', fontSize: '1.25rem', fontWeight: 700, color: 'var(--ink)', letterSpacing: 3 }}>
+          <p className="t-h2" style={{ color: 'var(--ink)' }}>
             {dharmaName}
           </p>
           {streak > 0 && (
@@ -482,7 +482,7 @@ export default function HomePage() {
             上方留 sp-3 额外间距 · 让"当前法本"和"智能练习"两个功能区视觉分开 */}
         <div style={{ marginTop: 'var(--sp-3)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
           <div style={{ minWidth: 0 }}>
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.125rem', color: 'var(--ink)', letterSpacing: 3 }}>
+            <h2 className="t-section" style={{ color: 'var(--ink)' }}>
               {s('智能练习', '智能練習', 'Smart practice')}
             </h2>
             <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>

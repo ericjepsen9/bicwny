@@ -130,6 +130,7 @@ body.prototype-frame .status-icons { display: flex; gap: var(--sp-1); align-item
 .t-display { font: var(--text-display); letter-spacing: 6px; }
 .t-h1      { font: var(--text-h1);      letter-spacing: 4px; }
 .t-h2      { font: var(--text-h2);      letter-spacing: 3px; }
+.t-section { font: var(--text-section); letter-spacing: 3px; }
 .t-h3      { font: var(--text-h3);      letter-spacing: 2px; }
 .t-serif   { font: var(--text-body-serif); letter-spacing: 1.5px; }
 .t-body    { font: var(--text-body);    letter-spacing: .5px; }

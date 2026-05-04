@@ -83,7 +83,7 @@ export default function ProfilePage() {
         >
           {initial}
         </div>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.25rem', color: 'var(--ink)', letterSpacing: 4 }}>
+        <h1 className="t-h2" style={{ color: 'var(--ink)' }}>
           {dharmaName}
         </h1>
         <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginTop: 6 }}>
