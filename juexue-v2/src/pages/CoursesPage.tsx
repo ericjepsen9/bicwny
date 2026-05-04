@@ -87,7 +87,30 @@ export default function CoursesPage() {
         </p>
       </div>
 
-      <div style={{ padding: '0 var(--sp-5) var(--sp-3)' }}>
+      <div style={{ padding: '0 var(--sp-5) var(--sp-3)', position: 'relative' }}>
+        {/* 放大镜图标 · 给搜索框视觉锚点 */}
+        <svg
+          aria-hidden
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            position: 'absolute',
+            left: 'calc(var(--sp-5) + 14px)',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: 'var(--ink-3)',
+            pointerEvents: 'none',
+          }}
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
         <input
           type="search"
           placeholder={s('搜索法本', '搜尋法本', 'Search texts')}
@@ -95,14 +118,15 @@ export default function CoursesPage() {
           onChange={(e) => setSearch(e.target.value)}
           style={{
             width: '100%',
-            padding: '8px 14px',
+            padding: '11px 16px 11px 40px',
             borderRadius: 'var(--r-pill)',
-            border: '1px solid var(--glass-border)',
-            background: 'var(--bg-input)',
+            border: '1px solid var(--border)',
+            background: 'var(--glass-thick)',
             color: 'var(--ink)',
-            font: 'var(--text-caption)',
-            letterSpacing: '1px',
+            font: 'var(--text-body)',
+            letterSpacing: '.5px',
             outline: 'none',
+            boxShadow: 'var(--shadow-1)',
           }}
         />
       </div>

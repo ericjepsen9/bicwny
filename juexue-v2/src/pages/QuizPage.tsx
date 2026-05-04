@@ -174,11 +174,15 @@ export default function QuizPage() {
   }
 
   function backToSource() {
-    // /practice 智能练习 / 单题模式 / 仅错题 · 完成或返回都回首页
-    // （不回 /quiz · 因为入口主要是首页 ⚡ 智能练习卡）
+    // /practice 智能练习返回逻辑：按入口分流
+    //   onlyMistakes  → /mistakes（错题中心）
+    //   questionId    → /mistake/:id（单题详情）
+    //   courseId      → /quiz（复习中心 · 「按法本练习」入口）
+    //   其他          → /（首页 · 智能练习卡入口）
     if (isPractice) {
       if (practiceOnlyMistakes) nav('/mistakes', { replace: true });
       else if (practiceSingleQid) nav(`/mistake/${encodeURIComponent(practiceSingleQid)}`, { replace: true });
+      else if (practiceCourseId) nav('/quiz', { replace: true });
       else nav('/', { replace: true });
       return;
     }
