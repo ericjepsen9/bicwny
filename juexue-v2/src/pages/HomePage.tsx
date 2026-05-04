@@ -583,7 +583,7 @@ export default function HomePage() {
         onClose={() => setSwitchOpen(false)}
         title={s('切换主修法本', '切換主修法本', 'Switch main text')}
       >
-        <div className="group" style={{ marginTop: 'var(--sp-2)' }}>
+        <div className="menu-card" style={{ marginTop: 'var(--sp-2)' }}>
           {enrolledCourseList.map((c) => {
             const isCur = currentCourse?.id === c.id;
             const en = enrollList.find((e) => e.courseId === c.id);

@@ -72,28 +72,28 @@ export default function SettingsPage() {
         <SectionLabel style={{ marginTop: user?.emailVerifiedAt ? 'var(--sp-4)' : 'var(--sp-3)' }}>
           {s('安全', '安全', 'Security')}
         </SectionLabel>
-        <div className="group">
+        <div className="menu-card">
           <RowButton onClick={() => setPwOpen(true)} icon="🔒" label={s('修改密码', '修改密碼', 'Change password')} />
           <LinkRow to="/devices" icon="📱" label={s('登录设备', '登入裝置', 'Devices')} />
         </div>
 
         {/* 偏好 · 推送通知 + 触觉反馈 */}
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('偏好', '偏好', 'Preferences')}</SectionLabel>
-        <div className="group">
+        <div className="menu-card">
           <PushToggle />
           <HapticsToggle />
         </div>
 
         {/* 存储 · 清缓存 + 导出数据 */}
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('存储', '存儲', 'Storage')}</SectionLabel>
-        <div className="group">
+        <div className="menu-card">
           <CacheClearRow />
           <DataExportRow />
         </div>
 
         {/* 关于 */}
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('关于', '關於', 'About')}</SectionLabel>
-        <div className="group">
+        <div className="menu-card">
           <LinkRow to="/about" icon="ℹ️" label={s('关于觉学', '關於覺學', 'About')} />
           <LinkRow to="/help" icon="❓" label={s('帮助', '幫助', 'Help')} />
           <LinkRow to="/terms" icon="📜" label={s('用户协议', '用戶協議', 'Terms')} />

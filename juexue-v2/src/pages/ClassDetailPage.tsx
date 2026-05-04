@@ -160,7 +160,7 @@ export default function ClassDetailPage() {
         {coaches.length > 0 && (
           <>
             <SectionHead label={s('辅导员', '輔導員', 'Coaches')} />
-            <div className="group" style={{ marginBottom: 'var(--sp-4)' }}>
+            <div className="menu-card" style={{ marginBottom: 'var(--sp-4)' }}>
               {coaches.map((m) => (
                 <MemberRow
                   key={m.id}
@@ -177,7 +177,7 @@ export default function ClassDetailPage() {
 
         {/* 学员列表 */}
         <SectionHead label={s('学员 · ' + students.length, '學員 · ' + students.length, `Students · ${students.length}`)} />
-        <div className="group" style={{ marginBottom: 'var(--sp-4)' }}>
+        <div className="menu-card" style={{ marginBottom: 'var(--sp-4)' }}>
           {students.length > 0 ? (
             students.map((m) => (
               <MemberRow

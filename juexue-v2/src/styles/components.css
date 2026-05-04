@@ -2,6 +2,15 @@
    觉学 Components · Glass / Button / Tag / Input / Nav
    =================================================== */
 
+/* ── Card 选型规则 ─────────────────────────────────
+   .glass-card        半透明 .55 alpha · 用于"次要内容载体"·
+                      与 bg-scene 渐变背景对比柔和（如 banner / 提示 / 信息块）
+   .glass-card-thick  不透明 .78 alpha · 用于"核心内容载体"·
+                      视觉权重高（如当前法本卡 / 复习 dashboard 卡）
+   .solid-card        100% 白底 + shadow · 用于 dialog/对话上下文 / 表单
+   .menu-card         功能行列表组（a/button 子项 + 自动分割线）
+   决策口诀：内容越关键 → 玻璃越厚；可点列表 → menu-card
+   ─────────────────────────────────────────────── */
 /* ── Glass Card ─────────────────────────────────── */
 .glass-card {
   background: var(--glass);
@@ -591,8 +600,10 @@ body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
 .feedback.wrong   .feedback-title { color: var(--crimson); }
 .feedback-body { color: var(--ink-2); }
 
-/* ── 功能列表 group / menu-card · 老 prototype mobile/profile.html 第 110-122 ── */
-.group, .menu-card {
+/* ── 功能列表 menu-card · 用于 a/button 行组（设置 / 我的 / 切换法本 sheet 等）
+   老 prototype mobile/profile.html 第 110-122 · 之前 .group 已统一为 .menu-card
+   ── */
+.menu-card {
   background: var(--glass-thick);
   border: 1px solid var(--glass-border);
   border-radius: var(--r-lg);
@@ -600,7 +611,6 @@ body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
 }
-.group > a, .group > button,
 .menu-card > a, .menu-card > button {
   width: 100%;
   background: transparent;
@@ -611,13 +621,11 @@ body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
   font: inherit;
 }
 /* 相邻行加顶部分割线 · 老 prototype 用 menu-item + menu-item · React 用直接子元素 */
-.group > a + a, .group > button + a, .group > a + button, .group > button + button,
 .menu-card > a + a, .menu-card > button + a, .menu-card > a + button, .menu-card > button + button,
 .menu-card > .menu-item + .menu-item {
   border-top: 1px solid var(--border-light);
 }
 /* 按下反馈 */
-.group > a:active, .group > button:active:not(:disabled),
 .menu-card > a:active, .menu-card > button:active:not(:disabled) {
   background: rgba(224, 120, 86, 0.06);
 }

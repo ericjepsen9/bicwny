@@ -602,7 +602,7 @@ export default function ScriptureDetailPage() {
 
       {/* 底部 action sheet · 与 Dialog UI 风格统一（玻璃 + 圆角 + 滑入） */}
       <Dialog open={menuOpen} onClose={() => setMenuOpen(false)} title={s('更多操作', '更多操作', 'More actions')}>
-        <div className="group" style={{ marginTop: 'var(--sp-2)' }}>
+        <div className="menu-card" style={{ marginTop: 'var(--sp-2)' }}>
           {!enrollment ? (
             <SheetItem
               icon="✓"
@@ -646,7 +646,7 @@ export default function ScriptureDetailPage() {
             </>
           )}
         </div>
-        <div className="group" style={{ marginTop: 'var(--sp-3)' }}>
+        <div className="menu-card" style={{ marginTop: 'var(--sp-3)' }}>
           {/* 已加入但不是当前主修 · 显示「设为主修」 */}
           {enrollment && !isMainCourse && (
             <SheetItem

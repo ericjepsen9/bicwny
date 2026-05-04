@@ -400,7 +400,7 @@ export default function ScriptureReadingPage() {
               >
                 {s('第 ' + ch.order + ' 章', '第 ' + ch.order + ' 章', 'Ch ' + ch.order)} · {ch.title}
               </div>
-              <div className="group">
+              <div className="menu-card">
                 {(ch.lessons ?? []).map((l) => {
                   const done = !!enrollment?.lessonsCompleted.includes(l.id);
                   const isCur = l.id === lessonId;
