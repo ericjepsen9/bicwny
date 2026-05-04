@@ -517,27 +517,22 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* 智能练习卡 · 标题已上提 · 卡内只剩 CTA */}
-        <div
-          className="glass-card-thick"
-          style={{ padding: 'var(--sp-4)', borderRadius: 'var(--r-lg)' }}
+        {/* 智能练习 CTA · 去掉外层卡片 · 直接 primary 大按钮作 section 主操作
+            视觉层级：法本卡(重) → 智能练习 section(轻+主按钮) → 快速入口 grid(最轻) */}
+        <Link
+          to={`/practice?limit=${practiceLimit}`}
+          className="btn btn-primary btn-pill btn-full"
+          style={{
+            padding: 14,
+            justifyContent: 'center',
+            fontFamily: 'var(--font-serif)',
+            fontWeight: 700,
+            fontSize: '0.9375rem',
+            letterSpacing: 2,
+          }}
         >
-          <Link
-            to={`/practice?limit=${practiceLimit}`}
-            className="btn btn-pill btn-full"
-            style={{
-              padding: 12,
-              justifyContent: 'center',
-              background: 'var(--glass-thick)',
-              color: 'var(--saffron-dark)',
-              border: '1.5px solid var(--saffron-light)',
-              fontFamily: 'var(--font-serif)',
-              fontWeight: 600,
-            }}
-          >
-            ⚡ {s('开始练习', '開始練習', 'Start practice')} →
-          </Link>
-        </div>
+          {s('开始练习', '開始練習', 'Start practice')} →
+        </Link>
 
         {/* 错题提醒 banner 已删除 · 由下方 IconTile "❌ 错题" badge 承担红点提醒 */}
 
