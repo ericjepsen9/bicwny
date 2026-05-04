@@ -517,14 +517,17 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* 智能练习 CTA · 去掉外层卡片 · 直接 primary 大按钮作 section 主操作
-            视觉层级：法本卡(重) → 智能练习 section(轻+主按钮) → 快速入口 grid(最轻) */}
+        {/* 智能练习 CTA · saffron 描边 + pale 底色（次主）
+            一屏一个 primary 原则：法本卡的"继续阅读"才是主 · 这里是次 */}
         <Link
           to={`/practice?limit=${practiceLimit}`}
-          className="btn btn-primary btn-pill btn-full"
+          className="btn btn-pill btn-full"
           style={{
             padding: 14,
             justifyContent: 'center',
+            background: 'var(--saffron-pale)',
+            color: 'var(--saffron-dark)',
+            border: '1.5px solid var(--saffron)',
             fontFamily: 'var(--font-serif)',
             fontWeight: 700,
             fontSize: '0.9375rem',
