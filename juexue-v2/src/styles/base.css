@@ -249,6 +249,13 @@ body.prototype-frame .status-icons { display: flex; gap: var(--sp-1); align-item
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* SPA 内路由切换 · App.tsx 用 useLocation 给 wrapper 加 key
+   · 每次 pathname 变 wrapper 重 mount 触发动画
+   · prefers-reduced-motion 时上面 220ms 已被覆盖为 0.01ms */
+.page-enter {
+  animation: 220ms cubic-bezier(.4,0,.2,1) both fadeInPage;
+}
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root),
   ::view-transition-new(root) {

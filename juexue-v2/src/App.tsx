@@ -99,6 +99,10 @@ function AppShell() {
           }}
         >
           <Suspense fallback={<PageFallback />}>
+            {/* 页面切换动画 · key=pathname 让 wrapper 在路由变化时 remount
+                CSS .page-enter 触发 fadeInPage（淡入 + translateY 4px → 0）·
+                prefers-reduced-motion 自动降级为 0.01ms */}
+            <div key={pathname} className="page-enter">
             <Routes>
               <Route element={<RequireAuth />}>
                 <Route path="/" element={<HomePage />} />
@@ -129,6 +133,7 @@ function AppShell() {
               {/* 兜底 · 未匹配回首页（再走 RequireAuth 决定跳哪） */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </div>
           </Suspense>
         </main>
         <TabBar />
