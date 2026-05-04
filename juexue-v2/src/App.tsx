@@ -9,8 +9,10 @@ import { useLocation } from 'react-router-dom';
 import AdminShell from './components/AdminShell';
 import CoachShell from './components/CoachShell';
 import RequireAdmin from './components/RequireAdmin';
+import RequireAdminAuth from './components/RequireAdminAuth';
 import RequireAuth from './components/RequireAuth';
 import RequireCoach from './components/RequireCoach';
+import RequireCoachAuth from './components/RequireCoachAuth';
 import TabBar, { shouldShowTabBar } from './components/TabBar';
 import { useAuth } from './lib/auth';
 
@@ -21,6 +23,8 @@ const QuizCenterPage = lazy(() => import('./pages/QuizCenterPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const DevTestPage = lazy(() => import('./pages/DevTestPage'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
+const CoachLoginPage = lazy(() => import('./pages/CoachLoginPage'));
 const ForgotPage = lazy(() => import('./pages/ForgotPage'));
 const ResetPage = lazy(() => import('./pages/ResetPage'));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
@@ -152,7 +156,9 @@ function CoachAppShell() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Routes>
-        <Route element={<RequireAuth />}>
+        {/* 独立登录页 · 在守卫之外 · 公开访问 */}
+        <Route path="/login" element={<CoachLoginPage />} />
+        <Route element={<RequireCoachAuth />}>
           <Route element={<CoachOnly />}>
             <Route element={<CoachShell />}>
               <Route path="/" element={<CoachDashboardPage />} />
@@ -179,7 +185,9 @@ function AdminAppShell() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Routes>
-        <Route element={<RequireAuth />}>
+        {/* 独立登录页 · 在守卫之外 · 公开访问 */}
+        <Route path="/login" element={<AdminLoginPage />} />
+        <Route element={<RequireAdminAuth />}>
           <Route element={<AdminOnly />}>
             <Route element={<AdminShell />}>
               <Route path="/" element={<AdminDashboardPage />} />
