@@ -22,39 +22,43 @@ enum UserRole {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  email           String?   @unique
-  emailVerifiedAt DateTime? // AU3: null = 未验证 · 验证成功后 set
-  passwordHash    String? // 未设密码的旧用户允许 null
-  role            UserRole  @default(student)
-  isActive        Boolean   @default(true)
-  lastLoginAt     DateTime?
-  dharmaName      String?
-  avatar          String?
-  timezone        String    @default("Asia/Taipei")
-  locale          String    @default("zh-Hans")
-  hasOnboarded    Boolean   @default(false) // 首次登录引导是否完成（加入班级 / 选自由学习）
+  id                       String    @id @default(cuid())
+  email                    String?   @unique
+  emailVerifiedAt          DateTime? // AU3: null = 未验证 · 验证成功后 set
+  passwordHash             String? // 未设密码的旧用户允许 null
+  role                     UserRole  @default(student)
+  isActive                 Boolean   @default(true)
+  lastLoginAt              DateTime?
+  dharmaName               String?
+  avatar                   String?
+  timezone                 String    @default("Asia/Taipei")
+  locale                   String    @default("zh-Hans")
+  hasOnboarded             Boolean   @default(false) // 首次登录引导是否完成（加入班级 / 选自由学习）
   // 内容分组（A/B 实验）· null = 走主线题库（cohort==null 的题目）
   // 'A' / 'B' / 任意自定义字符串 · 指派后看到对应 cohort 的题目并集主线
-  contentCohort   String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  contentCohort            String?
+  // 观修记录（量化数据 · 不含 reflection）对班级同学/辅导员/管理员是否可见
+  // 默认 true · settings 关闭后排行不再显示自己
+  meditationVisibleToClass Boolean   @default(true)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
-  answers           UserAnswer[]
-  sm2Cards          Sm2Card[]
-  favorites         UserFavorite[]
-  mistakes          UserMistakeBook[]
-  reports           QuestionReport[]
-  enrollments       UserCourseEnrollment[]
-  memberships       ClassMember[]
-  sessions          AuthSession[]
-  createdQuestions  Question[]               @relation("CreatedQuestions")
-  resetTokens       PasswordResetToken[]
-  emailVerifyTokens EmailVerificationToken[]
-  notifications     Notification[]
-  pushSubscriptions PushSubscription[]
-  feedback          Feedback[]               @relation("UserFeedback")
-  handledFeedback   Feedback[]               @relation("HandledFeedback")
+  answers            UserAnswer[]
+  sm2Cards           Sm2Card[]
+  favorites          UserFavorite[]
+  mistakes           UserMistakeBook[]
+  reports            QuestionReport[]
+  enrollments        UserCourseEnrollment[]
+  memberships        ClassMember[]
+  sessions           AuthSession[]
+  createdQuestions   Question[]               @relation("CreatedQuestions")
+  resetTokens        PasswordResetToken[]
+  emailVerifyTokens  EmailVerificationToken[]
+  notifications      Notification[]
+  pushSubscriptions  PushSubscription[]
+  feedback           Feedback[]               @relation("UserFeedback")
+  handledFeedback    Feedback[]               @relation("HandledFeedback")
+  meditationSessions MeditationSession[]
 
   @@index([role])
 }
@@ -282,6 +286,7 @@ model Course {
   sm2Cards    Sm2Card[]
   enrollments UserCourseEnrollment[]
   classes     Class[]
+  meditations Meditation[]
 }
 
 model Chapter {
@@ -307,23 +312,26 @@ model Lesson {
   referenceText    String?
   teachingSummary  String?
 
-  chapter   Chapter    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  questions Question[]
+  chapter     Chapter      @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  questions   Question[]
+  meditations Meditation[]
 
   @@unique([chapterId, order])
 }
 
 model UserCourseEnrollment {
-  id                 String    @id @default(cuid())
-  userId             String
-  courseId           String
-  source             String    @default("self") // 'self' = 自学 · 'class' = 加入班级带来
-  enrolledViaClassId String? // source='class' 时指向具体班级 · 用于退班联动
-  enrolledAt         DateTime  @default(now())
-  lastStudiedAt      DateTime?
-  completedAt        DateTime?
-  currentLessonId    String?
-  lessonsCompleted   String[]  @default([])
+  id                   String    @id @default(cuid())
+  userId               String
+  courseId             String
+  source               String    @default("self") // 'self' = 自学 · 'class' = 加入班级带来
+  enrolledViaClassId   String? // source='class' 时指向具体班级 · 用于退班联动
+  enrolledAt           DateTime  @default(now())
+  lastStudiedAt        DateTime?
+  completedAt          DateTime?
+  currentLessonId      String?
+  lessonsCompleted     String[]  @default([])
+  // 完成的观修 id 列表（meditation v1.0）
+  meditationsCompleted String[]  @default([])
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -332,6 +340,75 @@ model UserCourseEnrollment {
   @@index([enrolledViaClassId])
   // removeMember 退班联动按 (userId, enrolledViaClassId) 查孤儿 enrollment
   @@index([userId, enrolledViaClassId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 观修引导（meditation v1.0）
+// 视频 + PPT 由 admin 上传 · 学员播放 + 完成记录 + 班级排行
+// 视频文件存 OSS 服务器（媒体专用 · scp 推送）· nginx 反代到 https://media.juexue.caughtalert.com
+// ═══════════════════════════════════════════════════════════════
+
+model Meditation {
+  id       String  @id @default(cuid())
+  // 关联（可选 · null = 通用基础修 · 不绑课时）
+  lessonId String?
+  courseId String?
+
+  title            String
+  titleTraditional String?
+  description      String?
+
+  // 视频（必传）· https://media.../videos/<id>.mp4
+  videoUrl         String
+  videoDurationSec Int
+
+  // PPT（可选）· https://media.../slides/<id>.pdf
+  slidesPdfUrl String?
+
+  // v2 预留（v1 不读不写 · 提前建表避免后续迁库）
+  chapters      Json? // 章节标注数组
+  transcriptVtt String? // 同步字幕
+
+  // 上架元数据
+  isPublished  Boolean   @default(true)
+  displayOrder Int       @default(0)
+  authorName   String? // 录制 / 编写老师
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  archivedAt   DateTime?
+
+  course   Course?             @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  lesson   Lesson?             @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  sessions MeditationSession[]
+
+  @@index([lessonId])
+  @@index([courseId])
+}
+
+model MeditationSession {
+  id           String @id @default(cuid())
+  userId       String
+  meditationId String
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  // 视频观看进度
+  videoWatchedSec Int     @default(0)
+  isCompleted     Boolean @default(false) // ≥ 80% 自动 true
+
+  // v2 预留（v1 不用）
+  insightNotes  String? // 体悟反思
+  practiceNotes String? // 践行反思
+  shareScope    String  @default("self") // self | coach | admin | class | public
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meditation Meditation @relation(fields: [meditationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, meditationId])
+  @@index([userId, completedAt])
+  @@index([completedAt])
+  @@index([meditationId, completedAt])
 }
 
 // ═══════════════════════════════════════════════════════════════
