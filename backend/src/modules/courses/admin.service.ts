@@ -200,9 +200,13 @@ export async function deleteCourse(adminId: string, id: string) {
   }
 
   await prisma.$transaction(async (tx) => {
+    // 归档同时把 slug 改名释放（加 --archived-{ts} 后缀）
+    // · 原 slug 可立即被新法本复用 · 老归档数据全保留（外键不变）
+    // · listAllCoursesAdmin / 学员侧都按 archivedAt: null 过滤 · 不会看到改名后的
+    const archivedSlug = `${before.slug}--archived-${Date.now()}`;
     await tx.course.update({
       where: { id },
-      data: { isPublished: false, archivedAt: new Date() },
+      data: { isPublished: false, archivedAt: new Date(), slug: archivedSlug },
     });
     await tx.auditLog.create({
       data: {
