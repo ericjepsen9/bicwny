@@ -803,16 +803,21 @@ function CreateCourseForm({ onCreated, onCancel }: { onCreated: (id: string) => 
   }, [title]);
 
   const create = useMutation({
-    mutationFn: () => api.post<{ id: string }>('/api/admin/courses', {
-      slug: slug.trim(),
-      title: title.trim(),
-      titleTraditional: titleTC.trim() || null,
-      author: author.trim() || null,
-      description: description.trim() || null,
-      coverEmoji: emoji.trim() || '🪷',
-      displayOrder: order,
-      isPublished: published,
-    }),
+    mutationFn: () => {
+      const body: Record<string, unknown> = {
+        slug: slug.trim(),
+        title: title.trim(),
+        coverEmoji: emoji.trim() || '🪷',
+        displayOrder: order,
+        isPublished: published,
+      };
+      // 后端 createCourseBody 字段是 .optional() 不是 .nullable()
+      // 空值省略字段 · 不发 null（否则 zod 拒收 → 400）
+      if (titleTC.trim()) body.titleTraditional = titleTC.trim();
+      if (author.trim()) body.author = author.trim();
+      if (description.trim()) body.description = description.trim();
+      return api.post<{ id: string }>('/api/admin/courses', body);
+    },
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['/api/admin/courses'] });
       qc.invalidateQueries({ queryKey: ['/api/courses'] });
