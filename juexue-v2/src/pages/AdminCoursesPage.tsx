@@ -605,14 +605,17 @@ function LessonRow({ l, courseId, chapterId }: { l: AdminLesson; courseId: strin
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={() => createMed.mutate()}
-              disabled={createMed.isPending}
-              style={{ background: 'transparent', border: 'none', color: 'var(--saffron-dark)', cursor: 'pointer', font: 'var(--text-caption)', letterSpacing: 1 }}
-            >
-              {createMed.isPending ? '…' : '+ ' + s('添加观修', '添加觀修', 'Add meditation')}
-            </button>
+            <>
+              <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>🧘 {s('暂无观修', '暫無觀修', 'No meditation')}</span>
+              <button
+                type="button"
+                onClick={() => createMed.mutate()}
+                disabled={createMed.isPending}
+                style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--saffron-dark)', cursor: 'pointer', font: 'var(--text-caption)', letterSpacing: 1 }}
+              >
+                {createMed.isPending ? '…' : '+ ' + s('添加观修', '添加觀修', 'Add meditation')}
+              </button>
+            </>
           )}
         </div>
 

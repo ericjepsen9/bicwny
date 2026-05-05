@@ -103,19 +103,39 @@ export default function Dialog({
         };
 
   // Portal 到 body · 避免任何祖先 transform / overflow / contain 影响 fixed
+  // centered 模式用 flex 居中（比 transform 对滚动条 / 不同 DPR 更稳）
   return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      style={{ position: 'fixed', inset: 0, zIndex: 9000 }}
+      style={
+        variant === 'centered'
+          ? { position: 'fixed', inset: 0, zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }
+          : { position: 'fixed', inset: 0, zIndex: 9000 }
+      }
     >
       <div
         onClick={onClose}
         aria-hidden
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)' }}
       />
-      <div ref={panelRef} style={panelStyle}>
+      <div
+        ref={panelRef}
+        style={variant === 'centered'
+          ? {
+              position: 'relative',
+              width: 'min(560px, 100%)',
+              background: 'var(--bg-card)',
+              borderRadius: 'var(--r-md)',
+              padding: 16,
+              maxHeight: '100%',
+              overflowY: 'auto',
+              animation: 'fadeInPage .2s var(--ease) both',
+              boxShadow: '0 12px 40px rgba(0,0,0,.18)',
+            }
+          : panelStyle}
+      >
         {(header || title || !hideClose) && (
           <div
             style={{
