@@ -190,3 +190,50 @@ export const api = {
     return request<T>('DELETE', path, body, opts);
   },
 };
+
+// 大文件上传 · 用 XHR 拿 progress · 不走全局 15s timeout
+// 返回 backend { data } · 调用方拿到的就是 data
+export function uploadWithProgress<T = unknown>(
+  path: string,
+  file: File,
+  opts?: { fieldName?: string; onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal },
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', buildUrl(path), true);
+    const token = getAccess();
+    if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && opts?.onProgress) opts.onProgress(e.loaded, e.total);
+    };
+    xhr.onload = () => {
+      let payload: unknown = null;
+      try {
+        payload = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        payload = xhr.responseText;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const data = (payload as { data?: T })?.data;
+        resolve(data !== undefined ? (data as T) : (payload as T));
+      } else {
+        const msg = (payload as { message?: string })?.message
+          || (payload as { error?: { message?: string } })?.error?.message
+          || `HTTP ${xhr.status}`;
+        reject(new ApiError(msg, xhr.status, payload));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError('Network error', 0));
+    xhr.onabort = () => reject(new ApiError('Aborted', 0));
+
+    if (opts?.signal) {
+      if (opts.signal.aborted) { xhr.abort(); return; }
+      opts.signal.addEventListener('abort', () => xhr.abort());
+    }
+
+    const fd = new FormData();
+    fd.append(opts?.fieldName ?? 'file', file);
+    xhr.send(fd);
+  });
+}

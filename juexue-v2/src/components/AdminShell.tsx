@@ -56,6 +56,7 @@ export default function AdminShell() {
           <AdminNav to="/admin/users"    label={s('用户管理', '用戶管理', 'Users')} icon={IconUsers} />
           <AdminNav to="/admin/classes"  label={s('班级管理', '班級管理', 'Classes')} icon={IconBook} />
           <AdminNav to="/admin/courses"  label={s('法本管理', '法本管理', 'Texts')} icon={IconText} />
+          <AdminNav to="/admin/meditations" label={s('观修管理', '觀修管理', 'Meditations')} icon={IconMeditation} />
           <AdminNav to="/admin/review"   label={s('题目审核', '題目審核', 'Review')} icon={IconCheck} />
           <AdminNav to="/admin/reports"  label={s('举报处理', '舉報處理', 'Reports')} icon={IconFlag} />
           <AdminNav to="/admin/audit"    label={s('审计日志', '審計日誌', 'Audit')} icon={IconClock} />
@@ -95,4 +96,5 @@ const IconClock = () => (<svg width="18" height="18" fill="none" stroke="current
 const IconAlert = () => (<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>);
 const IconText = () => (<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>);
 const IconBolt = () => (<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>);
+const IconMeditation = () => (<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><circle cx="12" cy="6" r="2.5"/><path d="M12 11v3"/><path d="M5 21c1-3 4-5 7-5s6 2 7 5"/><path d="M3 14c2-1 4-1 6 0"/><path d="M21 14c-2-1-4-1-6 0"/></svg>);
 const IconHome = () => (<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>);

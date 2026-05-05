@@ -58,6 +58,7 @@ const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const AdminClassesPage = lazy(() => import('./pages/AdminClassesPage'));
 const AdminCoursesPage = lazy(() => import('./pages/AdminCoursesPage'));
+const AdminMeditationsPage = lazy(() => import('./pages/AdminMeditationsPage'));
 const AdminReviewPage = lazy(() => import('./pages/AdminReviewPage'));
 const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage'));
 const AdminLogsPage = lazy(() => import('./pages/AdminLogsPage'));
@@ -194,6 +195,7 @@ function AdminAppShell() {
               <Route path="/users" element={<AdminUsersPage />} />
               <Route path="/classes" element={<AdminClassesPage />} />
               <Route path="/courses" element={<AdminCoursesPage />} />
+              <Route path="/meditations" element={<AdminMeditationsPage />} />
               <Route path="/review" element={<AdminReviewPage />} />
               <Route path="/reports" element={<AdminReportsPage />} />
               <Route path="/audit" element={<AdminAuditPage />} />

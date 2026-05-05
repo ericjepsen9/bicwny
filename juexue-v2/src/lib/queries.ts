@@ -976,3 +976,42 @@ export function useAdminUserLearning(userId: string | null | undefined) {
     queryFn: ({ signal }) => api.get<AdminUserLearning>(`/api/admin/users/${encodeURIComponent(userId!)}/learning`, { signal }),
   });
 }
+
+// ── Admin · 观修 v1 ──
+export interface AdminMeditation {
+  id: string;
+  lessonId: string | null;
+  courseId: string | null;
+  title: string;
+  titleTraditional: string | null;
+  description: string | null;
+  authorName: string | null;
+  videoUrl: string;
+  videoDurationSec: number;
+  slidesPdfUrl: string | null;
+  isPublished: boolean;
+  displayOrder: number;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function useAdminMeditations(opts?: { courseId?: string; lessonId?: string; includeArchived?: boolean }) {
+  const qs = new URLSearchParams();
+  if (opts?.courseId) qs.set('courseId', opts.courseId);
+  if (opts?.lessonId) qs.set('lessonId', opts.lessonId);
+  if (opts?.includeArchived) qs.set('includeArchived', '1');
+  const qStr = qs.toString();
+  return useQuery({
+    queryKey: ['/api/admin/meditations', qStr],
+    queryFn: ({ signal }) => api.get<AdminMeditation[]>('/api/admin/meditations' + (qStr ? '?' + qStr : ''), { signal }),
+  });
+}
+
+export function useAdminMeditationDetail(id: string | null | undefined) {
+  return useQuery({
+    enabled: !!id,
+    queryKey: ['/api/admin/meditations', id],
+    queryFn: ({ signal }) => api.get<AdminMeditation>(`/api/admin/meditations/${encodeURIComponent(id!)}`, { signal }),
+  });
+}
