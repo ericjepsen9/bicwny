@@ -59,6 +59,30 @@ export const adminQuestionRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
+  // 列出某课时下所有题目（admin 视角 · 跨 coach · 含 pending / approved / class_private）
+  app.get(
+    '/api/admin/lessons/:id/questions',
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '某课时所有题目（admin 视角）', security: SEC },
+    },
+    async (req) => {
+      const parsed = idParam.safeParse(req.params);
+      if (!parsed.success) throw BadRequest('路径参数不合法');
+      const items = await prisma.question.findMany({
+        where: { lessonId: parsed.data.id },
+        orderBy: [{ reviewStatus: 'asc' }, { createdAt: 'desc' }],
+        select: {
+          id: true, type: true, questionText: true, difficulty: true, tags: true,
+          visibility: true, reviewStatus: true, ownerClassId: true,
+          createdByUserId: true, createdAt: true, updatedAt: true,
+          courseId: true, chapterId: true, lessonId: true,
+        },
+      });
+      return { data: items };
+    },
+  );
+
   app.post(
     '/api/admin/questions/:id/review',
     {

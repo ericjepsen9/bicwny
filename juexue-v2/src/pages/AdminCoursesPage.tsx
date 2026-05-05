@@ -21,6 +21,7 @@ import {
   useAdminMeditations,
 } from '@/lib/queries';
 import { MeditationFullEditor } from '@/components/MeditationAdmin';
+import { LessonQuestionsSlot } from '@/components/QuestionAdminInline';
 import { toast } from '@/lib/toast';
 
 export default function AdminCoursesPage() {
@@ -283,7 +284,7 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
           {s('还没有章节 · 点击 +新章节', '還沒有章節 · 點擊 +新章節', 'No chapters yet')}
         </div>
       ) : (
-        [...c.chapters].sort((a, b) => a.order - b.order).map((ch) => <ChapterCard key={ch.id} ch={ch} />)
+        [...c.chapters].sort((a, b) => a.order - b.order).map((ch) => <ChapterCard key={ch.id} ch={ch} courseId={c.id} />)
       )}
     </>
   );
@@ -403,7 +404,7 @@ function AddChapterButton({ courseId, nextOrder }: { courseId: string; nextOrder
 }
 
 // ── ChapterCard：折叠 · 含课时列表 + edit/delete
-function ChapterCard({ ch }: { ch: AdminChapter }) {
+function ChapterCard({ ch, courseId }: { ch: AdminChapter; courseId: string }) {
   const { s } = useLang();
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState(true);
@@ -464,7 +465,7 @@ function ChapterCard({ ch }: { ch: AdminChapter }) {
                 <div style={{ padding: 'var(--sp-3)', textAlign: 'center', color: 'var(--ink-4)', font: 'var(--text-caption)' }}>
                   {s('（暂无课时）', '（暫無課時）', '(No lessons yet)')}
                 </div>
-              ) : sortedLessons.map((l) => <LessonRow key={l.id} l={l} />)}
+              ) : sortedLessons.map((l) => <LessonRow key={l.id} l={l} courseId={courseId} chapterId={ch.id} />)}
             </div>
 
             <button
@@ -503,7 +504,7 @@ function ChapterCard({ ch }: { ch: AdminChapter }) {
   );
 }
 
-function LessonRow({ l }: { l: AdminLesson }) {
+function LessonRow({ l, courseId, chapterId }: { l: AdminLesson; courseId: string; chapterId: string }) {
   const { s } = useLang();
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
@@ -625,6 +626,9 @@ function LessonRow({ l }: { l: AdminLesson }) {
             />
           </div>
         )}
+
+        {/* 题目副行 · 跨 coach 视角 · 弹窗管理 */}
+        <LessonQuestionsSlot courseId={courseId} chapterId={chapterId} lessonId={l.id} />
       </div>
 
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={s('编辑课时', '編輯課時', 'Edit lesson')} variant="centered">

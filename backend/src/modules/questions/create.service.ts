@@ -70,8 +70,9 @@ export async function createQuestion(
       visibility: input.visibility,
       ownerClassId: input.ownerClassId ?? null,
       createdByUserId,
-      reviewStatus: isPublic ? 'pending' : 'approved',
-      reviewed: !isPublic,
+      // admin 创建的题直接 approved · coach 创建 public 题入审
+      reviewStatus: isPublic && createdByRole !== 'admin' ? 'pending' : 'approved',
+      reviewed: !isPublic || createdByRole === 'admin',
     },
   });
 }

@@ -1015,3 +1015,44 @@ export function useAdminMeditationDetail(id: string | null | undefined) {
     queryFn: ({ signal }) => api.get<AdminMeditation>(`/api/admin/meditations/${encodeURIComponent(id!)}`, { signal }),
   });
 }
+
+// ── Admin · 题目（按课时浏览 + 详情 · 跨 coach） ──
+export interface AdminLessonQuestion {
+  id: string;
+  type: QuestionType;
+  questionText: string;
+  difficulty: number;
+  tags: string[];
+  visibility: 'public' | 'class_private' | 'draft';
+  reviewStatus: 'pending' | 'approved' | 'rejected';
+  ownerClassId: string | null;
+  createdByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  courseId: string;
+  chapterId: string;
+  lessonId: string;
+}
+
+export function useAdminLessonQuestions(lessonId: string | null | undefined) {
+  return useQuery({
+    enabled: !!lessonId,
+    queryKey: ['/api/admin/lessons', lessonId, 'questions'],
+    queryFn: ({ signal }) => api.get<AdminLessonQuestion[]>(`/api/admin/lessons/${encodeURIComponent(lessonId!)}/questions`, { signal }),
+  });
+}
+
+export interface AdminQuestionDetail extends AdminLessonQuestion {
+  correctText: string;
+  wrongText: string;
+  source: string;
+  payload: Record<string, unknown>;
+}
+
+export function useAdminQuestionDetail(id: string | null | undefined) {
+  return useQuery({
+    enabled: !!id,
+    queryKey: ['/api/admin/questions', id],
+    queryFn: ({ signal }) => api.get<AdminQuestionDetail>(`/api/admin/questions/${encodeURIComponent(id!)}`, { signal }),
+  });
+}
