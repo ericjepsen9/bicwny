@@ -24,8 +24,8 @@ interface DialogProps {
   /** 显示在底部的操作区 · 不传则不显示底部 */
   footer?: ReactNode;
   children: ReactNode;
-  /** 'sheet' = 底部 sheet 弹起 · 'overlay' = 全屏覆盖（搜索浮层用） */
-  variant?: 'sheet' | 'overlay';
+  /** 'sheet' = 底部 sheet 弹起 · 'overlay' = 全屏覆盖（搜索浮层用）· 'centered' = 桌面居中模态 */
+  variant?: 'sheet' | 'overlay' | 'centered';
   /** 隐藏关闭按钮（少用 · 一般要给用户出口） */
   hideClose?: boolean;
 }
@@ -70,6 +70,21 @@ export default function Dialog({
           flexDirection: 'column',
           maxHeight: '100vh',
           height: '100vh',
+        }
+      : variant === 'centered'
+      ? {
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 'min(560px, calc(100vw - 32px))',
+          background: 'var(--bg-card)',
+          borderRadius: 'var(--r-md)',
+          padding: 16,
+          maxHeight: 'calc(100vh - 64px)',
+          overflowY: 'auto',
+          animation: 'fadeInPage .2s var(--ease) both',
+          boxShadow: '0 12px 40px rgba(0,0,0,.18)',
         }
       : {
           position: 'fixed',

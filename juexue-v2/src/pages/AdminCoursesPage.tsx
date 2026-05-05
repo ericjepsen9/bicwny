@@ -15,9 +15,12 @@ import {
   type AdminChapter,
   type AdminCourseDetail,
   type AdminLesson,
+  type AdminMeditation,
   useAdminCourseDetail,
   useAdminCourses,
+  useAdminMeditations,
 } from '@/lib/queries';
+import { MeditationFullEditor } from '@/components/MeditationAdmin';
 import { toast } from '@/lib/toast';
 
 export default function AdminCoursesPage() {
@@ -115,7 +118,7 @@ export default function AdminCoursesPage() {
         </section>
       </div>
 
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s('新建法本', '新建法本', 'New text')}>
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s("新建法本", "新建法本", "New text")} variant="centered">
         <CreateCourseForm
           onCreated={(id) => { setCreateOpen(false); setSp({ id }); }}
           onCancel={() => setCreateOpen(false)}
@@ -387,7 +390,7 @@ function AddChapterButton({ courseId, nextOrder }: { courseId: string; nextOrder
       <button type="button" onClick={() => setOpen(true)} className="btn btn-primary btn-pill" style={{ padding: '6px 14px', font: 'var(--text-caption)' }}>
         + {s('新章节', '新章節', 'Chapter')}
       </button>
-      <Dialog open={open} onClose={() => setOpen(false)} title={s('新章节', '新章節', 'New chapter')}>
+      <Dialog open={open} onClose={() => setOpen(false)} title={s("新章节", "新章節", "New chapter")} variant="centered">
         <ChapterForm
           submit={(body) => api.post(`/api/admin/courses/${encodeURIComponent(courseId)}/chapters`, body)}
           initial={{ title: '', titleTraditional: '', order: nextOrder }}
@@ -480,7 +483,7 @@ function ChapterCard({ ch }: { ch: AdminChapter }) {
         )}
       </div>
 
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={s('编辑章节', '編輯章節', 'Edit chapter')}>
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={s("编辑章节", "編輯章節", "Edit chapter")} variant="centered">
         <ChapterForm
           submit={(body) => api.patch(`/api/admin/chapters/${encodeURIComponent(ch.id)}`, body)}
           initial={{ title: ch.title, titleTraditional: ch.titleTraditional ?? '', order: ch.order }}
@@ -489,7 +492,7 @@ function ChapterCard({ ch }: { ch: AdminChapter }) {
         />
       </Dialog>
 
-      <Dialog open={addLessonOpen} onClose={() => setAddLessonOpen(false)} title={s('新课时', '新課時', 'New lesson')}>
+      <Dialog open={addLessonOpen} onClose={() => setAddLessonOpen(false)} title={s("新课时", "新課時", "New lesson")} variant="centered">
         <LessonForm
           submit={(body) => api.post(`/api/admin/chapters/${encodeURIComponent(ch.id)}/lessons`, body)}
           initial={{ title: '', titleTraditional: '', order: nextOrder, referenceText: '', teachingSummary: '' }}
@@ -504,8 +507,13 @@ function LessonRow({ l }: { l: AdminLesson }) {
   const { s } = useLang();
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
+  const [medExpanded, setMedExpanded] = useState(false);
   const refLen = l.referenceText?.length ?? 0;
   const sumLen = l.teachingSummary?.length ?? 0;
+
+  // 拉本课时的观修（含未发布 · 不含归档）
+  const meds = useAdminMeditations({ lessonId: l.id });
+  const meditation = meds.data?.[0];
 
   const del = useMutation({
     mutationFn: () => api.del(`/api/admin/lessons/${encodeURIComponent(l.id)}`),
@@ -516,30 +524,110 @@ function LessonRow({ l }: { l: AdminLesson }) {
     onError: (e) => toast.error((e as ApiError).message),
   });
 
+  const createMed = useMutation({
+    mutationFn: () => api.post<AdminMeditation>('/api/admin/meditations', {
+      lessonId: l.id,
+      title: l.title, // 默认用课时标题 · 用户可改
+      titleTraditional: l.titleTraditional || null,
+      isPublished: false,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/admin/meditations'] });
+      setMedExpanded(true);
+      toast.ok(s('观修已创建 · 上传视频后再发布', '觀修已創建', 'Created · upload video then publish'));
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-2) var(--sp-3)', borderRadius: 'var(--r-sm)', background: 'var(--glass)' }}>
-        <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 24 }}>{l.order}.</span>
-        <span style={{ flex: 1, fontFamily: 'var(--font-serif)', color: 'var(--ink)', letterSpacing: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {l.title}
-        </span>
-        <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', whiteSpace: 'nowrap' }}>
-          {refLen > 0 ? refLen + '字原文' : '（空）'} · {sumLen > 0 ? sumLen + '字讲记' : '（空）'}
-        </span>
-        <button type="button" onClick={() => setEditOpen(true)} style={{ background: 'transparent', border: 'none', color: 'var(--saffron-dark)', cursor: 'pointer', font: 'var(--text-caption)' }}>
-          {s('编辑', '編輯', 'Edit')}
-        </button>
-        <button
-          type="button"
-          onClick={async () => { (await confirmAsync({ title: s('删除此课时？（如果有题目引用会失败）', '刪除此課時？（如果有題目引用會失敗）', 'Delete lesson? (fails if any question references it)') })) && del.mutate(); }}
-          disabled={del.isPending}
-          style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)' }}
-        >
-          {del.isPending ? '…' : s('删除', '刪除', 'Delete')}
-        </button>
+      <div style={{ borderRadius: 'var(--r-sm)', background: 'var(--glass)', overflow: 'hidden' }}>
+        {/* 主行 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-2) var(--sp-3)' }}>
+          <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 24 }}>{l.order}.</span>
+          <span style={{ flex: 1, fontFamily: 'var(--font-serif)', color: 'var(--ink)', letterSpacing: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {l.title}
+          </span>
+          <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', whiteSpace: 'nowrap' }}>
+            {refLen > 0 ? refLen + '字原文' : '（空）'} · {sumLen > 0 ? sumLen + '字讲记' : '（空）'}
+          </span>
+          <button type="button" onClick={() => setEditOpen(true)} style={{ background: 'transparent', border: 'none', color: 'var(--saffron-dark)', cursor: 'pointer', font: 'var(--text-caption)' }}>
+            {s('编辑', '編輯', 'Edit')}
+          </button>
+          <button
+            type="button"
+            onClick={async () => { (await confirmAsync({ title: s('删除此课时？（如果有题目引用会失败）', '刪除此課時？（如果有題目引用會失敗）', 'Delete lesson? (fails if any question references it)') })) && del.mutate(); }}
+            disabled={del.isPending}
+            style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)' }}
+          >
+            {del.isPending ? '…' : s('删除', '刪除', 'Delete')}
+          </button>
+        </div>
+
+        {/* 观修副行 · 缩进 */}
+        <div style={{ borderTop: '1px solid var(--border-light)', padding: 'var(--sp-2) var(--sp-3)', paddingLeft: 'calc(var(--sp-3) + 32px)', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+          {meds.isLoading ? (
+            <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>🧘 …</span>
+          ) : meditation ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setMedExpanded((v) => !v)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', font: 'var(--text-caption)' }}
+              >
+                {medExpanded ? '▾' : '▸'}
+              </button>
+              <span style={{ font: 'var(--text-caption)', color: 'var(--ink-2)' }}>🧘 {meditation.title}</span>
+              {meditation.videoUrl ? (
+                <span style={{ font: 'var(--text-caption)', color: 'var(--sage-dark)' }}>
+                  · 🎥 {Math.floor(meditation.videoDurationSec / 60)}:{String(meditation.videoDurationSec % 60).padStart(2, '0')}
+                </span>
+              ) : (
+                <span style={{ font: 'var(--text-caption)', color: 'var(--crimson)' }}>· 无视频</span>
+              )}
+              {meditation.slidesPdfUrl && <span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>· 📄</span>}
+              <span style={{
+                marginLeft: 'auto',
+                padding: '1px 6px', borderRadius: 'var(--r-pill)',
+                background: meditation.isPublished ? 'rgba(125,154,108,.15)' : 'var(--border-light)',
+                color: meditation.isPublished ? 'var(--sage-dark)' : 'var(--ink-3)',
+                font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1,
+              }}>
+                {meditation.isPublished ? '✓pub' : '—草稿'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setMedExpanded((v) => !v)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--saffron-dark)', cursor: 'pointer', font: 'var(--text-caption)' }}
+              >
+                {medExpanded ? s('收起', '收起', 'Hide') : s('编辑', '編輯', 'Edit')}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => createMed.mutate()}
+              disabled={createMed.isPending}
+              style={{ background: 'transparent', border: 'none', color: 'var(--saffron-dark)', cursor: 'pointer', font: 'var(--text-caption)', letterSpacing: 1 }}
+            >
+              {createMed.isPending ? '…' : '+ ' + s('添加观修', '添加觀修', 'Add meditation')}
+            </button>
+          )}
+        </div>
+
+        {/* 内联编辑器 */}
+        {medExpanded && meditation && (
+          <div style={{ padding: 'var(--sp-3)', background: 'var(--bg)', borderTop: '1px solid var(--border-light)' }}>
+            <MeditationFullEditor
+              key={meditation.id}
+              m={meditation}
+              onArchived={() => setMedExpanded(false)}
+            />
+          </div>
+        )}
       </div>
 
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={s('编辑课时', '編輯課時', 'Edit lesson')}>
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={s('编辑课时', '編輯課時', 'Edit lesson')} variant="centered">
         <LessonForm
           submit={(body) => api.patch(`/api/admin/lessons/${encodeURIComponent(l.id)}`, body)}
           initial={{
