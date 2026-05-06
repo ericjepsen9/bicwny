@@ -333,7 +333,7 @@ export default function ScriptureDetailPage() {
             boxShadow: '0 16px 38px rgba(43,34,24,.32)',
           }}
         >
-          <CourseCover course={c} width="100%" height="100%" />
+          <CourseCover course={c} width="100%" height="100%" fit="contain" />
         </div>
 
         <h1
@@ -544,7 +544,7 @@ export default function ScriptureDetailPage() {
                   </svg>
                 </summary>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'var(--sp-3)' }}>
                   {lessons.map((l) => {
                     const done = completedSet.has(l.id);
                     const lessonMed = meditationByLesson.get(l.id);
@@ -552,50 +552,85 @@ export default function ScriptureDetailPage() {
                       <div
                         key={l.id}
                         style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 'var(--sp-2)',
                           padding: '10px 12px',
                           borderRadius: 'var(--r-sm)',
                           background: done ? 'var(--sage-light)' : 'var(--glass)',
                           border: '1px solid ' + (done ? 'var(--sage)' : 'var(--glass-border)'),
                         }}
                       >
-                        {/* 顶行：序号 · 标题 · 已学标记 */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 8 }}>
+                        <Link
+                          to={`/read/${c.slug}/${l.id}`}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 'var(--sp-3)',
+                            textDecoration: 'none',
+                            color: 'inherit',
+                            minWidth: 0,
+                          }}
+                        >
                           <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontWeight: 700, minWidth: 24 }}>
                             {l.order}
                           </span>
                           <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {l.title}
                           </span>
-                          {done && (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, font: 'var(--text-caption)', color: 'var(--sage-dark)', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                              <IconCheck />
-                              {s('已学', '已學', 'Done')}
-                            </span>
-                          )}
-                        </div>
+                        </Link>
 
-                        {/* 子项：📖 阅读 · 📝 答题 · 🧘 观修（如有）· 全线性 svg 图标 */}
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                          <SubItem
+                        {/* 副入口：📝 答题 · 🧘 观修 · 仅图标（无 label · 不喧宾夺主） */}
+                        <Link
+                          to={`/quiz/${l.id}?courseId=${c.id}&slug=${encodeURIComponent(c.slug)}&from=detail`}
+                          aria-label={s('答题', '答題', 'Quiz')}
+                          title={s('答题', '答題', 'Quiz')}
+                          style={iconBtn(false)}
+                        >
+                          <IconQuiz />
+                        </Link>
+                        {lessonMed && (
+                          <Link
+                            to={`/meditation/${lessonMed.id}`}
+                            aria-label={s('观修', '觀修', 'Meditation')}
+                            title={lessonMed.title}
+                            style={iconBtn(true)}
+                          >
+                            <IconMeditation />
+                          </Link>
+                        )}
+
+                        {/* 主入口：✓已学 / [阅读 →] · 维持原样 */}
+                        {done ? (
+                          <span style={{ fontSize: 14, color: 'var(--sage-dark)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            ✓ {s('已学', '已學', 'Done')}
+                          </span>
+                        ) : (
+                          <Link
                             to={`/read/${c.slug}/${l.id}`}
-                            icon={<IconBook />}
-                            label={s('阅读', '閱讀', 'Read')}
-                          />
-                          <SubItem
-                            to={`/quiz/${l.id}?courseId=${c.id}&slug=${encodeURIComponent(c.slug)}&from=detail`}
-                            icon={<IconQuiz />}
-                            label={s('答题', '答題', 'Quiz')}
-                          />
-                          {lessonMed && (
-                            <SubItem
-                              to={`/meditation/${lessonMed.id}`}
-                              icon={<IconMeditation />}
-                              label={s('观修', '觀修', 'Meditation')}
-                              meta={lessonMed.videoDurationSec > 0 ? `${Math.floor(lessonMed.videoDurationSec / 60)}m` : undefined}
-                              accent
-                            />
-                          )}
-                        </div>
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '5px 12px',
+                              borderRadius: 'var(--r-lg)',
+                              background: 'var(--saffron-pale)',
+                              color: 'var(--saffron-dark)',
+                              border: '1px solid var(--saffron-light)',
+                              font: 'var(--text-caption)',
+                              fontWeight: 700,
+                              letterSpacing: 1,
+                              whiteSpace: 'nowrap',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            {s('阅读', '閱讀', 'Read')}
+                            <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" viewBox="0 0 24 24">
+                              <polyline points="9 6 15 12 9 18" />
+                            </svg>
+                          </Link>
+                        )}
                       </div>
                     );
                   })}
@@ -761,50 +796,25 @@ function Empty({ title }: { title: string }) {
   );
 }
 
-// ── 课时子项按钮（📖 阅读 · 📝 答题 · 🧘 观修）── 方案 B 视觉单元
-function SubItem({ to, icon, label, meta, accent }: {
-  to: string;
-  icon: React.ReactNode;
-  label: string;
-  meta?: string;
-  accent?: boolean; // 观修 accent · 橙色突出
-}) {
-  return (
-    <Link
-      to={to}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        padding: '5px 10px',
-        borderRadius: 'var(--r-pill)',
-        background: accent ? 'var(--saffron)' : 'var(--glass-thick)',
-        color: accent ? '#fff' : 'var(--ink-2)',
-        border: '1px solid ' + (accent ? 'var(--saffron-dark)' : 'var(--glass-border)'),
-        font: 'var(--text-caption)',
-        fontWeight: 600,
-        letterSpacing: 1,
-        textDecoration: 'none',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {icon}
-      <span>{label}</span>
-      {meta && <span style={{ opacity: 0.8, fontWeight: 500 }}>· {meta}</span>}
-    </Link>
-  );
+// ── 课时小图标按钮 · 答题（默认）/ 观修（accent 橙色）─────
+function iconBtn(accent: boolean): React.CSSProperties {
+  return {
+    width: 28,
+    height: 28,
+    flexShrink: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 'var(--r-sm)',
+    background: accent ? 'var(--saffron)' : 'var(--glass-thick)',
+    color: accent ? '#fff' : 'var(--ink-3)',
+    border: '1px solid ' + (accent ? 'var(--saffron-dark)' : 'var(--glass-border)'),
+    textDecoration: 'none',
+    cursor: 'pointer',
+  };
 }
 
 // ── 线性图标（与项目其他 admin shell 统一风格）─────
-function IconBook() {
-  return (
-    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-    </svg>
-  );
-}
-
 function IconQuiz() {
   return (
     <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
@@ -827,10 +837,3 @@ function IconMeditation() {
   );
 }
 
-function IconCheck() {
-  return (
-    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}

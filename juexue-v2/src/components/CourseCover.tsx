@@ -29,10 +29,12 @@ interface Props {
   alt?: string;
   className?: string;
   style?: React.CSSProperties;
+  /** 'cover' = 填满裁切（小缩略图）· 'contain' = 完整不裁切（详情页大封面）· 默认 cover */
+  fit?: 'cover' | 'contain';
 }
 
 export default function CourseCover({
-  course, width, height, emojiSize = '2.2rem', alt, className, style,
+  course, width, height, emojiSize = '2.2rem', alt, className, style, fit = 'cover',
 }: Props) {
   const url = course.coverImageUrl;
   const containerStyle: React.CSSProperties = {
@@ -131,7 +133,7 @@ export default function CourseCover({
             alt={alt ?? course.title}
             loading="lazy"
             decoding="async"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            style={{ width: '100%', height: '100%', objectFit: fit }}
           />
         </picture>
       </div>

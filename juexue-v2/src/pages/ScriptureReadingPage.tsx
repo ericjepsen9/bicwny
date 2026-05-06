@@ -1,6 +1,7 @@
 // ScriptureReadingPage · /read/:slug/:lessonId
 //   Apple 图书风沉浸阅读 · 进入显示工具栏 → 滚一屏后自动隐 → 点正文呼出/收起
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import Dialog from '@/components/Dialog';
@@ -324,70 +325,74 @@ export default function ScriptureReadingPage() {
         </article>
       </div>
 
-      {/* 观修入口（如该课时有发布观修）· 底部栏上方 · 跟工具栏联动显示 */}
-      {lessonMeditation.data && lessonMeditation.data.isPublished && (
-        <Link
-          to={`/meditation/${lessonMeditation.data.id}`}
-          style={{
-            position: 'fixed',
-            left: 'var(--sp-5)',
-            right: 'var(--sp-5)',
-            bottom: `calc(64px + env(safe-area-inset-bottom, 0px))`,
-            padding: '12px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--sp-3)',
-            background: 'var(--saffron)',
-            color: '#fff',
-            borderRadius: 'var(--r)',
-            boxShadow: '0 4px 16px rgba(224,120,86,.35)',
-            textDecoration: 'none',
-            zIndex: 21,
-            opacity: chromeVisible ? 1 : 0,
-            transform: chromeVisible ? 'translateY(0)' : 'translateY(120%)',
-            pointerEvents: chromeVisible ? 'auto' : 'none',
-            transition: 'opacity .25s var(--ease), transform .25s var(--ease)',
-            letterSpacing: 1,
-          }}
-        >
-          <span style={{ fontSize: '1.4rem' }}>🧘</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
-              {s('进入观修', '進入觀修', 'Start meditation')}
-            </div>
-            <div style={{ font: 'var(--text-caption)', opacity: .85, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {lessonMeditation.data.title}
-              {lessonMeditation.data.videoDurationSec > 0 && (
-                <span> · {Math.floor(lessonMeditation.data.videoDurationSec / 60)}:{String(lessonMeditation.data.videoDurationSec % 60).padStart(2, '0')}</span>
-              )}
-            </div>
-          </div>
-          <span style={{ fontSize: '1.2rem' }}>→</span>
-        </Link>
-      )}
+      {/* 观修 + 工具栏走 createPortal · 渲到 document.body 避免被 .page-enter 的
+          transform 创建的 containing block 影响 fixed 定位（之前 bug：栏漂到页面底而非视口） */}
+      {createPortal(
+        <>
+          {/* 观修入口（如该课时有发布观修）· 底部栏上方 · 跟工具栏联动显示 */}
+          {lessonMeditation.data && lessonMeditation.data.isPublished && (
+            <Link
+              to={`/meditation/${lessonMeditation.data.id}`}
+              style={{
+                position: 'fixed',
+                left: 'var(--sp-5)',
+                right: 'var(--sp-5)',
+                bottom: `calc(64px + env(safe-area-inset-bottom, 0px))`,
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--sp-3)',
+                background: 'var(--saffron)',
+                color: '#fff',
+                borderRadius: 'var(--r)',
+                boxShadow: '0 4px 16px rgba(224,120,86,.35)',
+                textDecoration: 'none',
+                zIndex: 21,
+                opacity: chromeVisible ? 1 : 0,
+                transform: chromeVisible ? 'translateY(0)' : 'translateY(120%)',
+                pointerEvents: chromeVisible ? 'auto' : 'none',
+                transition: 'opacity .25s var(--ease), transform .25s var(--ease)',
+                letterSpacing: 1,
+              }}
+            >
+              <span style={{ fontSize: '1.4rem' }}>🧘</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
+                  {s('进入观修', '進入觀修', 'Start meditation')}
+                </div>
+                <div style={{ font: 'var(--text-caption)', opacity: .85, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {lessonMeditation.data.title}
+                  {lessonMeditation.data.videoDurationSec > 0 && (
+                    <span> · {Math.floor(lessonMeditation.data.videoDurationSec / 60)}:{String(lessonMeditation.data.videoDurationSec % 60).padStart(2, '0')}</span>
+                  )}
+                </div>
+              </div>
+              <span style={{ fontSize: '1.2rem' }}>→</span>
+            </Link>
+          )}
 
-      {/* 底部操作栏 · 固定在屏底 · 跟顶部 nav 联动显示/隐藏 */}
-      <div
-        style={{
-          position: 'fixed',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          padding: `var(--sp-3) var(--sp-5) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px))`,
-          display: 'flex',
-          gap: 'var(--sp-2)',
-          alignItems: 'center',
-          background: 'var(--glass-thick)',
-          backdropFilter: 'var(--blur)',
-          WebkitBackdropFilter: 'var(--blur)',
-          borderTop: '1px solid var(--glass-border)',
-          zIndex: 20,
-          opacity: chromeVisible ? 1 : 0,
-          transform: chromeVisible ? 'translateY(0)' : 'translateY(100%)',
-          pointerEvents: chromeVisible ? 'auto' : 'none',
-          transition: 'opacity .25s var(--ease), transform .25s var(--ease)',
-        }}
-      >
+          {/* 底部操作栏 · 固定在屏底 · 跟顶部 nav 联动显示/隐藏 */}
+          <div
+            style={{
+              position: 'fixed',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              padding: `var(--sp-3) var(--sp-5) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px))`,
+              display: 'flex',
+              gap: 'var(--sp-2)',
+              alignItems: 'center',
+              background: 'var(--glass-thick)',
+              backdropFilter: 'var(--blur)',
+              WebkitBackdropFilter: 'var(--blur)',
+              borderTop: '1px solid var(--glass-border)',
+              zIndex: 20,
+              opacity: chromeVisible ? 1 : 0,
+              transform: chromeVisible ? 'translateY(0)' : 'translateY(100%)',
+              pointerEvents: chromeVisible ? 'auto' : 'none',
+              transition: 'opacity .25s var(--ease), transform .25s var(--ease)',
+            }}
+          >
         {prev ? (
           <Link
             to={`/read/${c.slug}/${prev.lesson.id}`}
@@ -435,7 +440,10 @@ export default function ScriptureReadingPage() {
             </svg>
           </span>
         )}
-      </div>
+          </div>
+        </>,
+        document.body,
+      )}
 
       {/* 目录 sheet · 当前课时高亮 · 点击直跳 */}
       <Dialog open={tocOpen} onClose={() => setTocOpen(false)} title={s('目录', '目錄', 'Catalog')}>
