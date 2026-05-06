@@ -26,6 +26,14 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5174,
       strictPort: true,
+      // Vite 5+ 默认拒绝非 localhost host · 生产域名 reverse proxy 时必须放行
+      // 包含 prod 域名 + .nip.io 等通配 · 内部测试用 IP / localhost 不受限
+      allowedHosts: [
+        'juexue.caughtalert.com',
+        '.caughtalert.com',           // 子域名通配
+        'localhost',
+        '127.0.0.1',
+      ],
       proxy: {
         '/api': {
           target: 'http://127.0.0.1:3001',
