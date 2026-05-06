@@ -268,6 +268,17 @@ export async function buildApp(): Promise<FastifyInstance> {
 
     req.log.error({ err }, 'Unhandled error');
     const e = err instanceof Error ? err : new Error(String(err));
+
+    // 第三方 plugin 抛带 statusCode 的 Error（如 @fastify/rate-limit 的 429）
+    // 保留原 statusCode · 不一律降为 500（测试 / 用户都需要看到准确状态码）
+    const errStatus = (err as { statusCode?: number }).statusCode;
+    if (typeof errStatus === 'number' && errStatus >= 400 && errStatus < 500) {
+      return reply.code(errStatus).send({
+        error: errStatus === 429 ? 'RATE_LIMITED' : 'BAD_REQUEST',
+        message: e.message,
+      });
+    }
+
     writeErrorLog({
       kind: 'error',
       message: e.message,

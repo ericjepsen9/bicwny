@@ -3,12 +3,24 @@
 // 报告：playwright-report/index.html · nginx /dev/__test-report__/ 反代后可手机访问
 //
 // 假定：vite dev server 已在 5173 跑 + 后端在 3001 跑
-// auth：依赖 backend .env 的 DEV_FAKE_USER_ID 自动绑定 user_admin_001（admin 角色）
+// auth：tests/global-setup.ts 启动时调一次 /api/auth/login 拿 token
+//       写到 .auth/admin.json (storageState) · 所有测试通过 storageState 复用
+//       优点：不重复登录 · 不撞速率限制
 
 import { defineConfig } from '@playwright/test';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default defineConfig({
   testDir: './tests',
+  testIgnore: ['**/global-setup.ts'],
+
+  // 启动时跑一次（登录 + 保存 storageState）
+  globalSetup: './tests/global-setup.ts',
+
   // 整个测试套超时 60s · 单个 test 超时 15s
   timeout: 15_000,
   expect: { timeout: 5_000 },
@@ -32,11 +44,11 @@ export default defineConfig({
     // 失败时截图 + trace · 报告里能看到出错时的页面
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
-    // 把每个 step 都加日志（行内打印）
     actionTimeout: 8_000,
     navigationTimeout: 12_000,
-    // 本地自签证书 OK
     ignoreHTTPSErrors: true,
+    // 自动加载登录态（globalSetup 写入的）
+    storageState: path.resolve(__dirname, '.auth/admin.json'),
   },
 
   projects: [
@@ -46,3 +58,4 @@ export default defineConfig({
     },
   ],
 });
+

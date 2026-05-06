@@ -1,76 +1,15 @@
 // 觉学 smoke 测试 · 关键路径页面渲染 + 核心交互
 //
-// auth 策略：
-//   测试启动时 · 先调 /api/auth/login 拿 access token · 写到 localStorage
-//   每个测试 page 起来后已是登录态（admin）
-//
-//   admin 凭证从环境变量读：
-//     TEST_ADMIN_EMAIL=...
-//     TEST_ADMIN_PASSWORD=...
-//   写到 juexue-v2/.env.test（gitignored · 见 docs/SMOKE-TESTS.md）
+// auth：playwright.config.ts use.storageState 自动加载已登录态
+//       登录由 tests/global-setup.ts 启动一次完成 · 不撞速率限制
 //
 // 设计原则：
 //   - 不创造 / 不删数据（避免污染 dev 环境）
 //   - 仅 read + 渲染 / UI 检查
-//   - 任何 console error → 整个测试 fail
+//   - 任何 console error → 测试 fail（已忽略已知 noise）
 //   - 失败自动截图 + trace · playwright-report/ 里看
 
-import { expect, test as base, type ConsoleMessage, type Page } from '@playwright/test';
-import { readFileSync, existsSync } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-// __dirname polyfill for ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// 加载 .env.test（如果存在）· 在测试 spec 同级父目录（juexue-v2/.env.test）
-const envPath = path.resolve(__dirname, '..', '.env.test');
-if (existsSync(envPath)) {
-  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
-    const m = /^([A-Z_]+)=(.*)$/.exec(line.trim());
-    if (m) process.env[m[1]!] = m[2]!.replace(/^["']|["']$/g, '');
-  }
-}
-
-const ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD;
-
-// ── 自定义 fixture · 自动登录 + 注入 token ──
-const test = base.extend<{ loggedInPage: Page }>({
-  loggedInPage: async ({ page, baseURL }, use) => {
-    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
-      throw new Error('TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD 未设置 · 请创建 juexue-v2/.env.test 见 docs/SMOKE-TESTS.md');
-    }
-
-    // API 走真 nginx /api/ → backend 3001 · 不带 /dev/ 前缀
-    // baseURL 末尾是 /dev · 剥掉给 API 调用 · 但保留给页面导航
-    const apiBase = (baseURL ?? '').replace(/\/dev\/?$/, '');
-    // 用 fetch 调登录接口拿 token
-    const r = await fetch(`${apiBase}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
-    });
-    if (!r.ok) {
-      throw new Error(`登录失败 ${r.status}: ${await r.text()}`);
-    }
-    const { data } = await r.json();
-    const accessToken = data?.accessToken;
-    const refreshToken = data?.refreshToken;
-    if (!accessToken) throw new Error(`登录响应缺 accessToken · 实际 keys: ${Object.keys(data ?? {}).join(',')}`);
-
-    // 进 /app/auth 域 · 写 localStorage（必须先有 origin · 不能在 about:blank 写 localStorage）
-    await page.goto('/app/auth');
-    await page.evaluate(({ a, r }) => {
-      // 跟 frontend tokenStore key 对齐 · 见 src/lib/tokenStore.ts
-      localStorage.setItem('jx-accessToken', a);
-      if (r) localStorage.setItem('jx-refreshToken', r);
-    }, { a: accessToken, r: refreshToken });
-
-    await use(page);
-  },
-});
+import { expect, test, type ConsoleMessage, type Page } from '@playwright/test';
 
 function attachConsoleAssert(page: Page, ignoredPatterns: RegExp[] = []): string[] {
   const errors: string[] = [];
@@ -92,14 +31,15 @@ function attachConsoleAssert(page: Page, ignoredPatterns: RegExp[] = []): string
 }
 
 test.describe('Smoke · 关键页面无 console error + 关键元素可见', () => {
-  test('首页 /app/ → 已登录跳到主页', async ({ loggedInPage: page }) => {
+  test('首页 /app/ → 已登录跳到主页', async ({ page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/');
     await page.waitForLoadState('networkidle');
+    expect(page.url()).not.toContain('/auth');
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 法本管理页 · 列表加载', async ({ loggedInPage: page }) => {
+  test('Admin 法本管理页 · 列表加载', async ({ page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/courses');
     await page.waitForLoadState('networkidle');
@@ -107,19 +47,17 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 用户管理页 · 列表 + total 显示', async ({ loggedInPage: page }) => {
+  test('Admin 用户管理页 · 列表 + total 显示', async ({ page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/users');
     await page.waitForLoadState('networkidle');
-    // h1 必须显示「用户管理」 · 不被重定向
     await expect(page.getByRole('heading', { name: '用户管理' })).toBeVisible({ timeout: 10_000 });
-    // 至少有 1 个用户行（admin 自己 + 可能更多）
     const userRows = page.locator('tbody tr');
     expect(await userRows.count()).toBeGreaterThan(0);
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 班级管理页 · 列表 + 过滤按钮', async ({ loggedInPage: page }) => {
+  test('Admin 班级管理页 · 列表 + 过滤按钮', async ({ page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/classes');
     await page.waitForLoadState('networkidle');
@@ -130,7 +68,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 观修管理页 · 列表加载', async ({ loggedInPage: page }) => {
+  test('Admin 观修管理页 · 列表加载', async ({ page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/meditations');
     await page.waitForLoadState('networkidle');
@@ -138,39 +76,35 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 总览 dashboard · 渲染', async ({ loggedInPage: page }) => {
+  test('Admin 总览 dashboard · 渲染', async ({ page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin');
     await page.waitForLoadState('networkidle');
-    // dashboard 标题文字（搜「总览」 · 是 nav 项 + 可能有 h1）
-    // 简化：URL 没被重定向到 auth 即视为 dashboard 加载
     expect(page.url()).toContain('/app/admin');
     expect(page.url()).not.toContain('/auth');
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('学员侧 · 法本目录页 · 渲染', async ({ loggedInPage: page }) => {
+  test('学员侧 · 法本目录页 · 渲染', async ({ page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/courses');
     await page.waitForLoadState('networkidle');
-    // URL 未跳到 auth · body 有内容
     expect(page.url()).toContain('/app/courses');
     expect(page.url()).not.toContain('/auth');
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 题目审核页 · 列表 / 空态', async ({ loggedInPage: page }) => {
+  test('Admin 题目审核页 · 列表 / 空态', async ({ page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/review');
     await page.waitForLoadState('networkidle');
-    // 标题用 heading 准 · 不去匹配空态文案（差异多）
     await expect(page.getByRole('heading', { name: '题目审核' })).toBeVisible({ timeout: 10_000 });
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 });
 
 test.describe('UI · 关键交互', () => {
-  test('班级详情抽屉 · 编辑按钮可见（活跃班级）', async ({ loggedInPage: page }) => {
+  test('班级详情抽屉 · 编辑按钮可见（活跃班级）', async ({ page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/classes');
     await page.waitForLoadState('networkidle');
@@ -183,15 +117,13 @@ test.describe('UI · 关键交互', () => {
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('用户管理抽屉 · 重置密码按钮可见', async ({ loggedInPage: page }) => {
+  test('用户管理抽屉 · 重置密码按钮可见', async ({ page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/users');
     await page.waitForLoadState('networkidle');
-    // 等表格 render · 点第一行用户
     const firstRow = page.locator('tbody tr').first();
     await expect(firstRow).toBeVisible({ timeout: 10_000 });
     await firstRow.click();
-    // 抽屉应包含「重置密码」按钮（图标 🔑 可能在前 · 用部分匹配）
     await expect(page.getByRole('button', { name: /重置密码/ })).toBeVisible({ timeout: 5_000 });
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
