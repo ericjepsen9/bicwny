@@ -32,11 +32,12 @@ test.describe('Interaction · 关键 dialog 开关', () => {
     await page.goto('/dev/app/admin/courses');
     await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: /新建法本|New text/ }).first().click();
-    // dialog 标题可见
-    await expect(page.getByRole('heading', { name: /新建法本|New text/ })).toBeVisible({ timeout: 5_000 });
+    // dialog 打开 · 用 role=dialog + aria-label 命中（标题不是 heading 元素 · 是 div）
+    const dialog = page.getByRole('dialog', { name: /新建法本|New text/ });
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
     // ESC 关闭
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('heading', { name: /新建法本|New text/ })).toBeHidden({ timeout: 3_000 });
+    await expect(dialog).toBeHidden({ timeout: 3_000 });
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
