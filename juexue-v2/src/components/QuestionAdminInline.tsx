@@ -390,7 +390,7 @@ function QuestionEditForm({
         {/* 正确解析 / 错误解析 / 来源 / 难度 / 标签 / visibility */}
         <Field label={s('正确答案解析（学员答对时显示）', '正確解析', 'Correct explanation')} value={correctText} onChange={setCText} maxLength={500} />
         <Field label={s('错误答案解析（学员答错时显示）', '錯誤解析', 'Wrong explanation')} value={wrongText} onChange={setWText} maxLength={500} />
-        <Field label={s('来源（可选）', '來源', 'Source')} value={source} onChange={setSource} maxLength={200} />
+        <Field label={s('来源（可选）', '來源', 'Source')} value={source} onChange={setSource} maxLength={2000} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <Field label={s('难度（1-5）', '難度', 'Difficulty')} value={String(difficulty)} onChange={(v) => setDiff(Math.max(1, Math.min(5, Number(v) || 2)))} type="number" />
           <Field label={s('标签（逗号分隔）', '標籤', 'Tags')} value={tagsStr} onChange={setTagsStr} maxLength={200} />
