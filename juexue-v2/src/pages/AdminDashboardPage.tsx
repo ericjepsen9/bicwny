@@ -13,6 +13,11 @@ export default function AdminDashboardPage() {
 
   const u = stats.data?.users;
   const a = stats.data?.answers;
+  // 兼容老/新两种 shape：老后端返回 AdminUser[] 数组 · 新后端返回 { items, total }
+  // prod 可能还跑老后端 · 这里前端做兼容（参考 fix 0957e83）
+  const recentItems = Array.isArray(recent.data)
+    ? recent.data
+    : (recent.data?.items ?? []);
   const llm = stats.data?.llm;
   const qStatus = stats.data?.questions.byStatus;
 
@@ -93,7 +98,7 @@ export default function AdminDashboardPage() {
       <div className="glass-card-thick" style={{ padding: 0, overflow: 'hidden' }}>
         {recent.isLoading ? (
           <div style={{ padding: 'var(--sp-4)' }}><Skeleton.Card /></div>
-        ) : !recent.data || recent.data.items.length === 0 ? (
+        ) : recentItems.length === 0 ? (
           <div style={{ padding: 'var(--sp-5)', textAlign: 'center', color: 'var(--ink-3)' }}>{s('暂无数据', '暫無數據', 'None')}</div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -104,7 +109,7 @@ export default function AdminDashboardPage() {
               <Th>{s('上次登录', '上次登入', 'Last seen')}</Th>
             </tr></thead>
             <tbody>
-              {recent.data.items.map((u) => (
+              {recentItems.map((u) => (
                 <tr key={u.id} style={{ borderTop: '1px solid var(--border-light)' }}>
                   <Td>
                     <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600, color: 'var(--ink)' }}>

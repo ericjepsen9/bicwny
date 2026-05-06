@@ -29,6 +29,14 @@ export default function AdminUsersPage() {
     search: search.trim() || undefined,
   });
 
+  // 兼容老/新 shape：老后端返回 AdminUser[] · 新返回 { items, total }
+  const items: AdminUser[] = Array.isArray(list.data)
+    ? list.data
+    : (list.data?.items ?? []);
+  const total: number = Array.isArray(list.data)
+    ? list.data.length
+    : (list.data?.total ?? 0);
+
   const openId = sp.get('id');
 
   return (
@@ -37,7 +45,7 @@ export default function AdminUsersPage() {
         <div>
           <h1 className="page-title">{s('用户管理', '用戶管理', 'Users')}</h1>
           <p className="page-sub">
-            {list.data ? list.data.total + ' ' + s('用户', '用戶', 'users') : s('加载中…', '載入中…', 'Loading…')}
+            {list.data ? total + ' ' + s('用户', '用戶', 'users') : s('加载中…', '載入中…', 'Loading…')}
           </p>
         </div>
         <div className="top-actions">
@@ -78,7 +86,7 @@ export default function AdminUsersPage() {
 
       {list.isLoading ? (
         <Skeleton.Card />
-      ) : !list.data || list.data.items.length === 0 ? (
+      ) : items.length === 0 ? (
         <div style={{ padding: 'var(--sp-6)', textAlign: 'center', color: 'var(--ink-3)' }}>
           {s('没有匹配的用户', '沒有匹配的用戶', 'No matches')}
         </div>
@@ -93,7 +101,7 @@ export default function AdminUsersPage() {
               <Th>{s('上次登录', '上次登入', 'Last seen')}</Th>
             </tr></thead>
             <tbody>
-              {list.data.items.map((u) => (
+              {items.map((u) => (
                 <tr
                   key={u.id}
                   onClick={() => setSp({ id: u.id })}
@@ -120,9 +128,9 @@ export default function AdminUsersPage() {
         <CreateForm onDone={() => setCreateOpen(false)} />
       </Dialog>
 
-      {openId && list.data?.items.find((u) => u.id === openId) && (
+      {openId && items.find((u) => u.id === openId) && (
         <UserDrawer
-          user={list.data.items.find((u) => u.id === openId)!}
+          user={items.find((u) => u.id === openId)!}
           onClose={() => setSp({})}
         />
       )}

@@ -606,8 +606,9 @@ export function useAdminUsers(opts?: { limit?: number; role?: string; search?: s
   if (opts?.cursor) q.push('cursor=' + encodeURIComponent(opts.cursor));
   return useQuery({
     queryKey: ['/api/admin/users', opts?.limit ?? 50, opts?.role ?? '', opts?.search ?? '', opts?.cursor ?? ''],
-    // 后端返回 { items, total } · total 是真实 count（不受 limit 影响）
-    queryFn: ({ signal }) => api.get<AdminUsersResp>('/api/admin/users?' + q.join('&'), { signal }),
+    // 兼容老/新 shape：老后端返回 AdminUser[] · 新返回 { items, total }
+    // 调用方用 Array.isArray() 做类型收窄
+    queryFn: ({ signal }) => api.get<AdminUsersResp | AdminUser[]>('/api/admin/users?' + q.join('&'), { signal }),
   });
 }
 
