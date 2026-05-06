@@ -14,3 +14,8 @@ dist-ssr
 # 体积大 · 只在 macOS / Android 开发环境构建 · 用 capacitor.config.ts 描述
 ios/
 android/
+
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/
