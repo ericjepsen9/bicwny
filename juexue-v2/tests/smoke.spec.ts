@@ -103,7 +103,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/courses');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('法本管理')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: '法本管理' })).toBeVisible({ timeout: 10_000 });
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
@@ -122,7 +122,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/classes');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('班级管理')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: '班级管理' })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole('button', { name: '全部' })).toBeVisible();
     await expect(page.getByRole('button', { name: '活跃' })).toBeVisible();
     await expect(page.getByRole('button', { name: '已归档' })).toBeVisible();
@@ -133,7 +133,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/meditations');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('观修管理')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: '观修管理' })).toBeVisible({ timeout: 10_000 });
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
@@ -158,7 +158,8 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/review');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText(/题目审核|无待审/)).toBeVisible({ timeout: 10_000 });
+    // 标题用 heading 准 · 不去匹配空态文案（差异多）
+    await expect(page.getByRole('heading', { name: '题目审核' })).toBeVisible({ timeout: 10_000 });
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 });
