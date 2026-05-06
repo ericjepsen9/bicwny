@@ -123,6 +123,12 @@ async function request<T = unknown>(
     res = await fetch(buildUrl(path), init);
   } catch (e) {
     clearTimeout(timer);
+    // 调用方主动 abort（组件卸载 / React Query 取消）→ 不重试 · 直接抛 AbortError
+    // · React Query 看到 AbortError 会安静处理 · 不当作业务失败
+    // · 重试已取消的请求会触发 N 次相同错误 · 浪费且污染控制台
+    if (opts.signal?.aborted) {
+      throw e;
+    }
     // 网络错 / 超时 → 重试（5xx 同样路径）
     if (attempt < RETRY_DELAYS.length && method === 'GET') {
       await delay(RETRY_DELAYS[attempt]!);
