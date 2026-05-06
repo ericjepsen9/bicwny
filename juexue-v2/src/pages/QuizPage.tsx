@@ -25,7 +25,12 @@ interface Grade {
 
 interface SubmitResult {
   grade: Grade;
-  question?: { id: string; payload: Record<string, unknown> };
+  question?: {
+    id: string;
+    payload: Record<string, unknown>;
+    correctText?: string;
+    wrongText?: string;
+  };
 }
 
 export default function QuizPage() {
@@ -72,6 +77,8 @@ export default function QuizPage() {
   const [grades, setGrades] = useState<Record<number, Grade>>({});
   // 单题提交后 update 的题目（payload 含正确答案）
   const [enriched, setEnriched] = useState<Record<number, Record<string, unknown>>>({});
+  // 答完后 admin 写的「正确解析 / 错误解析」
+  const [explanations, setExplanations] = useState<Record<number, { correctText?: string; wrongText?: string }>>({});
   // 已显示完成 overlay
   const [done, setDone] = useState(false);
 
@@ -85,6 +92,7 @@ export default function QuizPage() {
     setAnswers({});
     setGrades({});
     setEnriched({});
+    setExplanations({});
     setDone(false);
   }, [lessonId, isPractice, practiceCourseId, practiceLimit, practiceOnlyMistakes, practiceSingleQid]);
 
@@ -112,6 +120,15 @@ export default function QuizPage() {
       setGrades((g) => ({ ...g, [qi]: data.grade }));
       if (data.question?.payload) {
         setEnriched((e) => ({ ...e, [qi]: data.question!.payload }));
+      }
+      if (data.question) {
+        setExplanations((m) => ({
+          ...m,
+          [qi]: {
+            correctText: data.question!.correctText,
+            wrongText: data.question!.wrongText,
+          },
+        }));
       }
       const ok = data.grade.isCorrect;
       if (ok === true) notification('success');
@@ -406,8 +423,15 @@ export default function QuizPage() {
               {ok ? s('✓ 回答正确', '✓ 回答正確', '✓ Correct') : s('✗ 回答有误', '✗ 回答有誤', '✗ Incorrect')}
               {grade.score !== null && grade.score !== undefined && ` · ${s('得分', '得分', 'Score')} ${grade.score}`}
             </div>
-            <div style={{ color: 'var(--ink-2)' }}>
-              {grade.feedback || s('请参考法本原文', '請參考法本原文', 'Refer to the source text')}
+            <div style={{ color: 'var(--ink-2)', whiteSpace: 'pre-wrap' }}>
+              {(() => {
+                const exp = explanations[qi];
+                // admin 写的解析优先（按答对/答错分流）· grade.feedback 兜底（如部分得分提示）· 都没有再 fallback
+                const adminText = ok ? exp?.correctText : exp?.wrongText;
+                if (adminText && adminText.trim()) return adminText;
+                if (grade.feedback) return grade.feedback;
+                return s('请参考法本原文', '請參考法本原文', 'Refer to the source text');
+              })()}
             </div>
           </div>
         )}
