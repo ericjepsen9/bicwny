@@ -309,9 +309,13 @@ function QuestionEditForm({
     onError: (e) => toast.error((e as ApiError).message),
   });
 
-  const valid = !isComplexType
-    && questionText.trim().length >= 4
-    && validatePayload(type, payload);
+  // 不阻塞按钮 · 点击时给具体错误 · 比 disabled 看起来「点不动」体验好
+  function tryValidate(): string | null {
+    if (isComplexType) return s('请去 /coach/questions 创建该类型', '請去 /coach/questions', 'Use /coach/questions for this type');
+    if (questionText.trim().length < 4) return s('题干至少 4 个字符', '題幹至少 4 個字符', 'Question text needs ≥ 4 chars');
+    if (!validatePayload(type, payload)) return validationHint(type, s);
+    return null;
+  }
 
   return (
     <Dialog
@@ -413,10 +417,14 @@ function QuestionEditForm({
           </button>
           <button
             type="button"
-            onClick={() => submit.mutate()}
-            disabled={!valid || submit.isPending}
+            onClick={() => {
+              const err = tryValidate();
+              if (err) { toast.error(err); return; }
+              submit.mutate();
+            }}
+            disabled={submit.isPending}
             className="btn btn-primary btn-pill"
-            style={{ padding: '8px 18px', opacity: valid ? 1 : 0.5 }}
+            style={{ padding: '8px 18px' }}
           >
             {submit.isPending ? '…' : (mode === 'create' ? s('创建', '創建', 'Create') : s('保存', '保存', 'Save'))}
           </button>
@@ -782,5 +790,26 @@ function normalizePayload(t: QuestionType, p: Record<string, unknown>): Record<s
     }
     default:
       return p;
+  }
+}
+
+function validationHint(t: QuestionType, s: (sc: string, tc: string, en: string) => string): string {
+  switch (t) {
+    case 'single':
+      return s('单选：至少 2 个选项有文字 · 仅 1 个标为正确', '單選：≥2 選項 · 僅 1 正確', 'Single: ≥2 options with text · 1 marked correct');
+    case 'multi':
+      return s('多选：至少 3 个选项有文字 · 至少 2 个标为正确', '多選：≥3 選項 · ≥2 正確', 'Multi: ≥3 options · ≥2 correct');
+    case 'fill':
+      return s('填空：原文行需含 ___ · 正确填入不能空 · 备选项至少 2 个', '填空：原文需含 ___ · 備選項 ≥2', 'Fill: verse must contain ___ · ≥2 options');
+    case 'sort':
+      return s('排序：至少 2 行排序项', '排序：至少 2 行', 'Sort: ≥2 items');
+    case 'open':
+      return s('问答：参考答案 ≥10 字 · 至少 1 个关键点', '問答：參考答案 ≥10 字 · ≥1 關鍵點', 'Open: reference ≥10 chars · ≥1 key point');
+    case 'match':
+      return s('配对：至少 2 行 · 每行用 = 分隔', '配對：≥2 行 · 用 = 分隔', 'Match: ≥2 lines · A = B');
+    case 'flip':
+      return s('速记卡：正面和反面都不能空', '速記卡：正反面必填', 'Flip: front + back required');
+    default:
+      return s('payload 未填全', 'payload 未填全', 'payload incomplete');
   }
 }
