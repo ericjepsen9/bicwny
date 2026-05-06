@@ -6,7 +6,7 @@ import Skeleton from '@/components/Skeleton';
 import Dialog from '@/components/Dialog';
 import { useFontScale } from '@/lib/fontSize';
 import { useLang } from '@/lib/i18n';
-import { useCourseDetail, useEnrollments, useUpdateEnrollmentProgress } from '@/lib/queries';
+import { useCourseDetail, useEnrollments, useLessonMeditation, useUpdateEnrollmentProgress } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 interface FlatLesson {
@@ -28,6 +28,8 @@ export default function ScriptureReadingPage() {
   // lessonId 模式：仅当前 lesson 带 referenceText/teachingSummary · 其他课只 id/title
   const course = useCourseDetail(slug, { lessonId });
   const enrollments = useEnrollments();
+  // 该课时关联的观修（如有）· null = 无 · 用于底部入口
+  const lessonMeditation = useLessonMeditation(lessonId || null);
   const [tocOpen, setTocOpen] = useState(false);
   // 工具栏可见性 · 进入默认显示 · 向下滚收 / 向上滚显（iOS Safari 风格）
   // 整屏点击正文也能 toggle
@@ -321,6 +323,48 @@ export default function ScriptureReadingPage() {
           {lesson.referenceText || s('（本课时尚无原文）', '（本課時尚無原文）', '(No reference text yet)')}
         </article>
       </div>
+
+      {/* 观修入口（如该课时有发布观修）· 底部栏上方 · 跟工具栏联动显示 */}
+      {lessonMeditation.data && lessonMeditation.data.isPublished && (
+        <Link
+          to={`/meditation/${lessonMeditation.data.id}`}
+          style={{
+            position: 'fixed',
+            left: 'var(--sp-5)',
+            right: 'var(--sp-5)',
+            bottom: `calc(64px + env(safe-area-inset-bottom, 0px))`,
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--sp-3)',
+            background: 'var(--saffron)',
+            color: '#fff',
+            borderRadius: 'var(--r)',
+            boxShadow: '0 4px 16px rgba(224,120,86,.35)',
+            textDecoration: 'none',
+            zIndex: 21,
+            opacity: chromeVisible ? 1 : 0,
+            transform: chromeVisible ? 'translateY(0)' : 'translateY(120%)',
+            pointerEvents: chromeVisible ? 'auto' : 'none',
+            transition: 'opacity .25s var(--ease), transform .25s var(--ease)',
+            letterSpacing: 1,
+          }}
+        >
+          <span style={{ fontSize: '1.4rem' }}>🧘</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
+              {s('进入观修', '進入觀修', 'Start meditation')}
+            </div>
+            <div style={{ font: 'var(--text-caption)', opacity: .85, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {lessonMeditation.data.title}
+              {lessonMeditation.data.videoDurationSec > 0 && (
+                <span> · {Math.floor(lessonMeditation.data.videoDurationSec / 60)}:{String(lessonMeditation.data.videoDurationSec % 60).padStart(2, '0')}</span>
+              )}
+            </div>
+          </div>
+          <span style={{ fontSize: '1.2rem' }}>→</span>
+        </Link>
+      )}
 
       {/* 底部操作栏 · 固定在屏底 · 跟顶部 nav 联动显示/隐藏 */}
       <div
