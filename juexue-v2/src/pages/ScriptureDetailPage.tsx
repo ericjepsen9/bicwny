@@ -322,19 +322,37 @@ export default function ScriptureDetailPage() {
       >
         {/* 封面 · 144×192 · 视觉主体更突出
             用 CourseCover 复用 list 页同套逻辑：
-            有图 → 渲染图片；无图 → 自动设计封面（标题 + 书脊 + emoji）*/}
-        <div
-          style={{
-            width: 144,
-            height: 192,
-            margin: '0 auto var(--sp-4)',
-            borderRadius: 'var(--r-md)',
-            overflow: 'hidden',
-            boxShadow: '0 16px 38px rgba(43,34,24,.32)',
-          }}
-        >
-          <CourseCover course={c} width="100%" height="100%" fit="contain" />
-        </div>
+            有图 → 直接渲染原图（保留原宽高比 · 不裁切不留白）
+            无图 → 144×192 设计封面（标题 + 书脊 + emoji）*/}
+        {c.coverImageUrl ? (
+          <img
+            src={c.coverImageUrl}
+            alt={c.title}
+            style={{
+              display: 'block',
+              maxWidth: 160,
+              maxHeight: 240,
+              width: 'auto',
+              height: 'auto',
+              margin: '0 auto var(--sp-4)',
+              borderRadius: 'var(--r-md)',
+              boxShadow: '0 16px 38px rgba(43,34,24,.32)',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 144,
+              height: 192,
+              margin: '0 auto var(--sp-4)',
+              borderRadius: 'var(--r-md)',
+              overflow: 'hidden',
+              boxShadow: '0 16px 38px rgba(43,34,24,.32)',
+            }}
+          >
+            <CourseCover course={c} width="100%" height="100%" />
+          </div>
+        )}
 
         <h1
           style={{
