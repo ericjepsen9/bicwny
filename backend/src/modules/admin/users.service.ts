@@ -23,9 +23,14 @@ export interface ListUsersOpts {
   search?: string;
 }
 
+export interface ListUsersResult {
+  items: PublicUser[];
+  total: number;
+}
+
 export async function listUsers(
   opts: ListUsersOpts = {},
-): Promise<PublicUser[]> {
+): Promise<ListUsersResult> {
   const where: Prisma.UserWhereInput = {
     ...(opts.role ? { role: opts.role } : {}),
     ...(opts.search
@@ -37,13 +42,17 @@ export async function listUsers(
         }
       : {}),
   };
-  const rows = await prisma.user.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    take: opts.limit ?? 50,
-    ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
-  });
-  return rows.map(stripPassword);
+  // 并行执行 count + findMany · count 给真实总数 · 不被 limit 截断
+  const [total, rows] = await Promise.all([
+    prisma.user.count({ where }),
+    prisma.user.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: opts.limit ?? 50,
+      ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
+    }),
+  ]);
+  return { items: rows.map(stripPassword), total };
 }
 
 export interface CreateUserInput {
