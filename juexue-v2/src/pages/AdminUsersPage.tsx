@@ -403,11 +403,89 @@ function LearningSection({ userId }: { userId: string }) {
   const { s } = useLang();
   const { data, isLoading, isError, error, refetch } = useAdminUserLearning(userId);
 
+  function downloadCsv() {
+    if (!data) return;
+    const rows: string[] = [];
+    const csv = (s: string | number | boolean | null | undefined): string => {
+      if (s === null || s === undefined) return '';
+      const v = String(s);
+      return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    };
+    rows.push('# 账户基础信息');
+    rows.push('字段,值');
+    rows.push(`id,${csv(data.account.id)}`);
+    rows.push(`email,${csv(data.account.email)}`);
+    rows.push(`dharmaName,${csv(data.account.dharmaName)}`);
+    rows.push(`role,${csv(data.account.role)}`);
+    rows.push(`isActive,${csv(data.account.isActive)}`);
+    rows.push(`createdAt,${csv(data.account.createdAt)}`);
+    rows.push(`lastLoginAt,${csv(data.account.lastLoginAt)}`);
+    rows.push('');
+    rows.push('# 汇总');
+    rows.push('字段,值');
+    rows.push(`totalAnswers,${csv(data.summary.totalAnswers)}`);
+    rows.push(`correctAnswers,${csv(data.summary.correctAnswers)}`);
+    rows.push(`correctRate,${csv((data.summary.correctRate * 100).toFixed(1) + '%')}`);
+    rows.push(`firstAnswerAt,${csv(data.summary.firstAnswerAt)}`);
+    rows.push(`lastActiveAt,${csv(data.summary.lastActiveAt)}`);
+    rows.push('');
+    rows.push('# SM-2 卡片状态');
+    rows.push('状态,数量');
+    rows.push(`新卡 new,${csv(data.sm2Progress.new)}`);
+    rows.push(`学习中 learning,${csv(data.sm2Progress.learning)}`);
+    rows.push(`复习 review,${csv(data.sm2Progress.review)}`);
+    rows.push(`已掌握 mastered,${csv(data.sm2Progress.mastered)}`);
+    rows.push(`今日到期 due,${csv(data.sm2Progress.due)}`);
+    rows.push(`总计 total,${csv(data.sm2Progress.total)}`);
+    rows.push('');
+    rows.push('# 按法本统计');
+    rows.push('法本ID,法本标题,答过题数,答对题数,已掌握,最近学习');
+    for (const c of data.byCourse) {
+      rows.push([c.courseId, c.title, c.answered, c.correct, c.masteredCount, c.lastStudiedAt ?? ''].map(csv).join(','));
+    }
+    rows.push('');
+    rows.push('# 班级关系');
+    rows.push('班级ID,班级名,角色,加入时间');
+    for (const m of data.classMemberships) {
+      rows.push([m.classId, m.className, m.role, m.joinedAt].map(csv).join(','));
+    }
+    rows.push('');
+    rows.push('# 每日活跃');
+    rows.push('日期,答题数,答对数');
+    for (const d of data.dailySeries) {
+      rows.push([d.date, d.count, d.correct].map(csv).join(','));
+    }
+
+    // BOM + UTF-8 让 Excel 中文不乱码
+    const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.download = `learning-${data.account.dharmaName || data.account.email || data.account.id}-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <>
-      <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-2)' }}>
-        {s('学习记录', '學習記錄', 'Learning')}
-      </h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-2)' }}>
+        <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, margin: 0 }}>
+          {s('学习记录', '學習記錄', 'Learning')}
+        </h3>
+        {data && (
+          <button
+            type="button"
+            onClick={downloadCsv}
+            className="btn btn-pill"
+            style={{ padding: '4px 10px', font: 'var(--text-caption)', fontWeight: 600, background: 'transparent', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)' }}
+          >
+            ⬇ {s('下载 CSV', '下載 CSV', 'Download CSV')}
+          </button>
+        )}
+      </div>
 
       {isLoading ? (
         <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
