@@ -38,8 +38,11 @@ export default defineConfig({
   ],
 
   use: {
-    // dev mode 通过 nginx /dev/ 反代访问 · 让浏览器看到的 base 跟用户实际一致
-    baseURL: 'https://juexue.caughtalert.com/dev',
+    // ⚠️ baseURL 不带 /dev · 让 goto('/dev/app/...') 走 dev hot-reload
+    // 之前坑：baseURL='/dev' + goto('/app/...') → 绝对 path 替换 → 实际访问 /app/（prod 老 bundle）
+    // 老 prod 跟新 backend API shape 不匹配 → 测试 fail
+    // 解法：goto 全部显式带 /dev/app/ 前缀 · 看到的就是 vite dev 的最新代码
+    baseURL: 'https://juexue.caughtalert.com',
     headless: true,
     // 失败时截图 + trace · 报告里能看到出错时的页面
     screenshot: 'only-on-failure',

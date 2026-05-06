@@ -28,8 +28,9 @@ export default async function globalSetup(config: FullConfig) {
     throw new Error('TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD 未设置 · 见 docs/SMOKE-TESTS.md');
   }
 
-  const baseURL = config.projects[0]?.use?.baseURL ?? 'https://juexue.caughtalert.com/dev';
-  const apiBase = baseURL.replace(/\/dev\/?$/, '');
+  const baseURL = config.projects[0]?.use?.baseURL ?? 'https://juexue.caughtalert.com';
+  // baseURL 现在是裸域名（无 /dev）· API 直接拼接 /api/...
+  const apiBase = baseURL.replace(/\/$/, '');
 
   // 调登录接口（绕开浏览器 · 避免速率限制因为只跑一次）
   const ctx = await request.newContext();
@@ -48,7 +49,8 @@ export default async function globalSetup(config: FullConfig) {
   // 用 chromium 创建一个 page · 写 localStorage · 保存 storageState
   const browser = await chromium.launch();
   const page = await browser.newPage();
-  await page.goto(`${baseURL}/app/auth`);
+  // dev 路径 · 同源 · localStorage 跨 /dev/app/ 和 /app/ 共享
+  await page.goto(`${baseURL}/dev/app/auth`);
   await page.evaluate(({ a, r }) => {
     localStorage.setItem('jx-accessToken', a);
     if (r) localStorage.setItem('jx-refreshToken', r);

@@ -33,7 +33,7 @@ function attachConsoleAssert(page: Page, ignoredPatterns: RegExp[] = []): string
 test.describe('Smoke · 关键页面无 console error + 关键元素可见', () => {
   test('首页 /app/ → 已登录跳到主页', async ({ page }) => {
     const errors = attachConsoleAssert(page);
-    await page.goto('/app/');
+    await page.goto('/dev/app/');
     await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/auth');
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
@@ -41,7 +41,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
 
   test('Admin 法本管理页 · 列表加载', async ({ page }) => {
     const errors = attachConsoleAssert(page);
-    await page.goto('/app/admin/courses');
+    await page.goto('/dev/app/admin/courses');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('heading', { name: '法本管理' })).toBeVisible({ timeout: 10_000 });
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
@@ -49,7 +49,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
 
   test('Admin 用户管理页 · 列表 + total 显示', async ({ page }) => {
     const errors = attachConsoleAssert(page);
-    await page.goto('/app/admin/users');
+    await page.goto('/dev/app/admin/users');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('heading', { name: '用户管理' })).toBeVisible({ timeout: 10_000 });
     const userRows = page.locator('tbody tr');
@@ -59,7 +59,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
 
   test('Admin 班级管理页 · 列表 + 过滤按钮', async ({ page }) => {
     const errors = attachConsoleAssert(page);
-    await page.goto('/app/admin/classes');
+    await page.goto('/dev/app/admin/classes');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('heading', { name: '班级管理' })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole('button', { name: '全部' })).toBeVisible();
@@ -70,7 +70,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
 
   test('Admin 观修管理页 · 列表加载', async ({ page }) => {
     const errors = attachConsoleAssert(page);
-    await page.goto('/app/admin/meditations');
+    await page.goto('/dev/app/admin/meditations');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('heading', { name: '观修管理' })).toBeVisible({ timeout: 10_000 });
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
@@ -78,7 +78,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
 
   test('Admin 总览 dashboard · 渲染', async ({ page }) => {
     const errors = attachConsoleAssert(page);
-    await page.goto('/app/admin');
+    await page.goto('/dev/app/admin');
     await page.waitForLoadState('networkidle');
     expect(page.url()).toContain('/app/admin');
     expect(page.url()).not.toContain('/auth');
@@ -87,7 +87,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
 
   test('学员侧 · 法本目录页 · 渲染', async ({ page }) => {
     const errors = attachConsoleAssert(page);
-    await page.goto('/app/courses');
+    await page.goto('/dev/app/courses');
     await page.waitForLoadState('networkidle');
     expect(page.url()).toContain('/app/courses');
     expect(page.url()).not.toContain('/auth');
@@ -96,7 +96,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
 
   test('Admin 题目审核页 · 列表 / 空态', async ({ page }) => {
     const errors = attachConsoleAssert(page);
-    await page.goto('/app/admin/review');
+    await page.goto('/dev/app/admin/review');
     await page.waitForLoadState('networkidle');
     await expect(page.getByRole('heading', { name: '题目审核' })).toBeVisible({ timeout: 10_000 });
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
@@ -106,7 +106,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
 test.describe('UI · 关键交互', () => {
   test('班级详情抽屉 · 编辑按钮可见（活跃班级）', async ({ page }) => {
     const errors = attachConsoleAssert(page);
-    await page.goto('/app/admin/classes');
+    await page.goto('/dev/app/admin/classes');
     await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: '活跃' }).click();
     const firstCard = page.locator('[class*="glass-card"]').filter({ hasText: /[一-龥]/ }).nth(1);
@@ -119,7 +119,7 @@ test.describe('UI · 关键交互', () => {
 
   test('用户管理抽屉 · 重置密码按钮可见', async ({ page }) => {
     const errors = attachConsoleAssert(page);
-    await page.goto('/app/admin/users');
+    await page.goto('/dev/app/admin/users');
     await page.waitForLoadState('networkidle');
     const firstRow = page.locator('tbody tr').first();
     await expect(firstRow).toBeVisible({ timeout: 10_000 });
