@@ -1,5 +1,5 @@
 #!/bin/bash
-# 自动验测 · cron 每 5 分钟跑一次
+# 自动验测 · cron 每 5 分钟跑一次 · v1
 #   任务：检查 origin 是否有新 commit · 有就 pull + 跑 smoke · 写日志
 #   日志：~/logs/juexue-tests.log（超过 5MB 自动截断保留尾 2MB）
 #   锁：/tmp/juexue-verify.lock 防并发
