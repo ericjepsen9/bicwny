@@ -398,6 +398,49 @@ export async function getClassForMember(classId: string, userId: string) {
   };
 }
 
+export interface UpdateClassInput {
+  name?: string;
+  description?: string | null;
+  coverEmoji?: string | null;
+}
+/** 更新班级元数据（不含归档/课程/加入码 · 这些有专门接口） */
+export async function updateClass(
+  id: string,
+  patch: UpdateClassInput,
+  opts: { actorAdminId?: string } = {},
+): Promise<Class> {
+  const before = await prisma.class.findUnique({ where: { id } });
+  if (!before) throw NotFound('班级不存在');
+  if (!before.isActive) throw NotFound('班级已归档 · 不可编辑');
+
+  const data: Record<string, unknown> = {};
+  if (patch.name !== undefined) data.name = patch.name.trim();
+  if (patch.description !== undefined) data.description = patch.description?.trim() || null;
+  if (patch.coverEmoji !== undefined) data.coverEmoji = patch.coverEmoji?.trim() || null;
+  if (Object.keys(data).length === 0) return before;
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.class.update({
+      where: { id },
+      data,
+      include: CLASS_COURSE_INCLUDE,
+    });
+    if (opts.actorAdminId) {
+      await tx.auditLog.create({
+        data: {
+          adminId: opts.actorAdminId,
+          action: 'class.update',
+          targetType: 'class',
+          targetId: id,
+          before: { name: before.name, description: before.description, coverEmoji: before.coverEmoji } as Prisma.InputJsonValue,
+          after: data as Prisma.InputJsonValue,
+        },
+      });
+    }
+    return updated;
+  });
+}
+
 export async function archiveClass(
   id: string,
   opts: { actorAdminId?: string } = {},

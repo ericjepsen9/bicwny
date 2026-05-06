@@ -17,6 +17,7 @@ import {
   getClass,
   listMembers,
   removeMember,
+  updateClass,
 } from './service.js';
 
 const adminGuard = requireRole('admin');
@@ -33,6 +34,12 @@ const createBody = z.object({
   description: z.string().max(500).optional(),
   coverEmoji: z.string().max(8).optional(),
 });
+
+const updateBody = z.object({
+  name: z.string().min(1).max(80).optional(),
+  description: z.string().max(500).nullable().optional(),
+  coverEmoji: z.string().max(8).nullable().optional(),
+}).refine((p) => Object.keys(p).length > 0, { message: 'patch 不能为空' });
 
 const addMemberBody = z.object({
   userId: z.string().min(1),
@@ -77,6 +84,24 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
     });
     return { data: items };
   });
+
+  // 更新班级元数据（不含归档 · 不含主修法本变更 · 不含 joinCode 变更）
+  app.patch(
+    '/api/admin/classes/:id',
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '更新班级（name / description / coverEmoji）', security: SEC },
+    },
+    async (req) => {
+      const pp = idParam.safeParse(req.params);
+      if (!pp.success) throw BadRequest('路径参数不合法');
+      const pb = updateBody.safeParse(req.body);
+      if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
+      const adminId = requireUserId(req);
+      const cls = await updateClass(pp.data.id, pb.data, { actorAdminId: adminId });
+      return { data: cls };
+    },
+  );
 
   app.patch(
     '/api/admin/classes/:id/archive',

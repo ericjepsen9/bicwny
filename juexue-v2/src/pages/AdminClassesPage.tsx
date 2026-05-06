@@ -260,6 +260,32 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
   const { s } = useLang();
   const qc = useQueryClient();
   const members = useAdminClassMembers(cls.id);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(cls.name);
+  const [emoji, setEmoji] = useState(cls.coverEmoji ?? '📚');
+  const [description, setDescription] = useState(cls.description ?? '');
+
+  // 切换班级时同步表单字段（避免编辑 A 班 cancel 后切到 B 班还显示 A 的内容）
+  useEffect(() => {
+    setName(cls.name);
+    setEmoji(cls.coverEmoji ?? '📚');
+    setDescription(cls.description ?? '');
+    setEditing(false);
+  }, [cls.id, cls.name, cls.coverEmoji, cls.description]);
+
+  const update = useMutation({
+    mutationFn: () => api.patch(`/api/admin/classes/${encodeURIComponent(cls.id)}`, {
+      name: name.trim(),
+      coverEmoji: emoji.trim() || null,
+      description: description.trim() || null,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/admin/classes'] });
+      toast.ok(s('已保存', '已保存', 'Saved'));
+      setEditing(false);
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
 
   const archive = useMutation({
     mutationFn: () => api.patch(`/api/admin/classes/${encodeURIComponent(cls.id)}/archive`),
@@ -319,28 +345,72 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
         )}
 
         <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
-            <span style={{ fontSize: '2rem' }}>{cls.coverEmoji || '📚'}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', fontSize: '1.125rem', letterSpacing: 2 }}>
-                {cls.name}
+          {editing ? (
+            <form
+              onSubmit={(e) => { e.preventDefault(); update.mutate(); }}
+              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr', gap: 'var(--sp-2)' }}>
+                <Field label={s('封面', '封面', 'Emoji')} value={emoji} onChange={setEmoji} maxLength={8} />
+                <Field label={s('班级名', '班級名', 'Name')} value={name} onChange={setName} required maxLength={80} />
               </div>
-              {cls.course && (
-                <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
-                  {cls.course.coverEmoji} {cls.course.title}
+              <div>
+                <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+                  {s('描述（可选）', '描述（可選）', 'Description (opt)')}
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                  maxLength={500}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink)', resize: 'vertical', minHeight: 50, boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                <button type="button" onClick={() => setEditing(false)} className="btn btn-pill" style={{ padding: '6px 14px', font: 'var(--text-caption)', background: 'transparent', color: 'var(--ink-2)', border: '1px solid var(--border)' }}>
+                  {s('取消', '取消', 'Cancel')}
+                </button>
+                <button type="submit" disabled={update.isPending || !name.trim()} className="btn btn-primary btn-pill" style={{ padding: '6px 16px', font: 'var(--text-caption)' }}>
+                  {update.isPending ? '…' : s('保存', '保存', 'Save')}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+                <span style={{ fontSize: '2rem' }}>{cls.coverEmoji || '📚'}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', fontSize: '1.125rem', letterSpacing: 2 }}>
+                    {cls.name}
+                  </div>
+                  {cls.course && (
+                    <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
+                      {cls.course.coverEmoji} {cls.course.title}
+                    </div>
+                  )}
+                  {cls.joinCode && (
+                    <div style={{ marginTop: 6 }}>
+                      <code style={{ padding: '2px 10px', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', borderRadius: 'var(--r-pill)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 2 }}>
+                        {cls.joinCode}
+                      </code>
+                    </div>
+                  )}
                 </div>
+                {cls.isActive && (
+                  <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    className="btn btn-pill"
+                    style={{ padding: '4px 12px', font: 'var(--text-caption)', fontWeight: 600, background: 'transparent', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)' }}
+                  >
+                    {s('编辑', '編輯', 'Edit')}
+                  </button>
+                )}
+              </div>
+              {cls.description && (
+                <p style={{ font: 'var(--text-caption)', color: 'var(--ink-2)', lineHeight: 1.6, marginTop: 'var(--sp-3)' }}>{cls.description}</p>
               )}
-              {cls.joinCode && (
-                <div style={{ marginTop: 6 }}>
-                  <code style={{ padding: '2px 10px', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', borderRadius: 'var(--r-pill)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 2 }}>
-                    {cls.joinCode}
-                  </code>
-                </div>
-              )}
-            </div>
-          </div>
-          {cls.description && (
-            <p style={{ font: 'var(--text-caption)', color: 'var(--ink-2)', lineHeight: 1.6, marginTop: 'var(--sp-3)' }}>{cls.description}</p>
+            </>
           )}
         </div>
 
