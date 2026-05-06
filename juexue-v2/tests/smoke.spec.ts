@@ -18,8 +18,13 @@
 import { expect, test as base, type ConsoleMessage, type Page } from '@playwright/test';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-// 加载 .env.test（如果存在）
+// __dirname polyfill for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 加载 .env.test（如果存在）· 在测试 spec 同级父目录（juexue-v2/.env.test）
 const envPath = path.resolve(__dirname, '..', '.env.test');
 if (existsSync(envPath)) {
   for (const line of readFileSync(envPath, 'utf8').split('\n')) {
