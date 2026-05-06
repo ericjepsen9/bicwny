@@ -62,7 +62,7 @@ export default function Sm2ReviewPage() {
     () => total > 0 && idx === total - 1 && reviewedCount >= total,
     [idx, reviewedCount, total],
   );
-  const progressPct = total > 0 ? Math.round(((idx + (review.isPending ? 0 : 0)) / total) * 100) : 0;
+  const progressPct = total > 0 ? Math.round((idx / total) * 100) : 0;
 
   if (due.isLoading) {
     return (

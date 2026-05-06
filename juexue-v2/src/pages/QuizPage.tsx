@@ -312,7 +312,7 @@ export default function QuizPage() {
           {nextLessonId && slug && (
             <button
               type="button"
-              onClick={() => nav(`/read/${slug}/${nextLessonId}`, { replace: true })}
+              onClick={() => nav(`/read/${encodeURIComponent(slug)}/${encodeURIComponent(nextLessonId)}`, { replace: true })}
               className="btn btn-primary btn-pill btn-full"
               style={{ padding: 14, justifyContent: 'center' }}
             >

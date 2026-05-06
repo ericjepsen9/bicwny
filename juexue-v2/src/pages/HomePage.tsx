@@ -9,7 +9,7 @@
 //   · 错题大 banner（与 IconTile 重复）
 //   · 章级棋盘格（与当前法本卡的进度数字重复 · 145 章铺满后视觉噪音）
 //     ChapterProgressGrid 组件保留 · 后续可能放法本详情页 hero 区
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
@@ -95,24 +95,25 @@ export default function HomePage() {
   //   2. 有 currentLessonId 且该课已读完 → 跳到下一课（推动学习）
   //   3. 已是最后一课且读完 → 留在最后一课（让用户复读）
   //   4. 无 currentLessonId → 首个未完成 → 兜底首课时
-  const flatLessons = (currentCourseDetail.data?.chapters ?? []).flatMap((ch) =>
-    (ch.lessons ?? []).map((l) => ({ chapter: ch, lesson: l })),
+  // memo 化避免每次 render 都 flatMap + findIndex（章节多时 O(n²) 浪费）
+  const flatLessons = useMemo(
+    () => (currentCourseDetail.data?.chapters ?? []).flatMap((ch) =>
+      (ch.lessons ?? []).map((l) => ({ chapter: ch, lesson: l })),
+    ),
+    [currentCourseDetail.data?.chapters],
   );
-  const savedIdx = flatLessons.findIndex((f) => f.lesson.id === firstEnrollment?.currentLessonId);
-  let continueTarget = null as (typeof flatLessons)[number] | null;
-  if (savedIdx >= 0) {
-    const saved = flatLessons[savedIdx]!;
-    if (completedSet.has(saved.lesson.id) && savedIdx < flatLessons.length - 1) {
-      continueTarget = flatLessons[savedIdx + 1]!;
-    } else {
-      continueTarget = saved;
+  const continueTarget = useMemo(() => {
+    if (flatLessons.length === 0) return null;
+    const savedIdx = flatLessons.findIndex((f) => f.lesson.id === firstEnrollment?.currentLessonId);
+    if (savedIdx >= 0) {
+      const saved = flatLessons[savedIdx]!;
+      if (completedSet.has(saved.lesson.id) && savedIdx < flatLessons.length - 1) {
+        return flatLessons[savedIdx + 1]!;
+      }
+      return saved;
     }
-  } else {
-    continueTarget =
-      flatLessons.find((f) => !completedSet.has(f.lesson.id)) ??
-      flatLessons[0] ??
-      null;
-  }
+    return flatLessons.find((f) => !completedSet.has(f.lesson.id)) ?? flatLessons[0] ?? null;
+  }, [flatLessons, firstEnrollment?.currentLessonId, completedSet]);
 
   const firstClass = classes.data?.[0];
 
