@@ -21,14 +21,14 @@ import { sanitizeRichText, sanitizeTitle } from '../../lib/text-sanitize.js';
 export interface CreateCourseInput {
   slug: string;
   title: string;
-  titleTraditional?: string;
-  author?: string;
-  authorInfo?: string;
-  description?: string;
-  coverEmoji?: string;
+  titleTraditional?: string | null;
+  author?: string | null;
+  authorInfo?: string | null;
+  description?: string | null;
+  coverEmoji?: string | null;
   displayOrder?: number;
   isPublished?: boolean;
-  licenseInfo?: string;
+  licenseInfo?: string | null;
 }
 
 export interface UpdateCourseInput {
@@ -230,7 +230,7 @@ export async function deleteCourse(adminId: string, id: string) {
 export interface CreateChapterInput {
   order?: number;            // 不填则自动取末尾 +1
   title: string;
-  titleTraditional?: string;
+  titleTraditional?: string | null;
 }
 
 export interface UpdateChapterInput {
@@ -344,9 +344,9 @@ export async function deleteChapter(adminId: string, id: string) {
 export interface CreateLessonInput {
   order?: number;
   title: string;
-  titleTraditional?: string;
-  referenceText?: string;
-  teachingSummary?: string;
+  titleTraditional?: string | null;
+  referenceText?: string | null;
+  teachingSummary?: string | null;
 }
 
 export interface UpdateLessonInput {

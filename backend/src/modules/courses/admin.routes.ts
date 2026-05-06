@@ -43,14 +43,14 @@ const chidParam = z.object({ chid: z.string().min(1) });
 const createCourseBody = z.object({
   slug: z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/i, 'slug 只能含字母 / 数字 / 连字符'),
   title: z.string().min(1).max(120),
-  titleTraditional: z.string().max(120).optional(),
-  author: z.string().max(120).optional(),
-  authorInfo: z.string().max(2000).optional(),
-  description: z.string().max(2000).optional(),
-  coverEmoji: z.string().max(8).optional(),
+  titleTraditional: z.string().max(120).nullable().optional(),
+  author: z.string().max(120).nullable().optional(),
+  authorInfo: z.string().max(2000).nullable().optional(),
+  description: z.string().max(2000).nullable().optional(),
+  coverEmoji: z.string().max(8).nullable().optional(),
   displayOrder: z.number().int().optional(),
   isPublished: z.boolean().optional(),
-  licenseInfo: z.string().max(500).optional(),
+  licenseInfo: z.string().max(500).nullable().optional(),
 });
 const updateCourseBody = z.object({
   slug: z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/i).optional(),
@@ -68,7 +68,7 @@ const updateCourseBody = z.object({
 const createChapterBody = z.object({
   order: z.number().int().min(1).optional(),
   title: z.string().min(1).max(200),
-  titleTraditional: z.string().max(200).optional(),
+  titleTraditional: z.string().max(200).nullable().optional(),
 });
 const updateChapterBody = z.object({
   order: z.number().int().min(1).optional(),
@@ -81,9 +81,9 @@ const updateChapterBody = z.object({
 const createLessonBody = z.object({
   order: z.number().int().min(1).optional(),
   title: z.string().min(1).max(200),
-  titleTraditional: z.string().max(200).optional(),
-  referenceText: z.string().max(50000).optional(),
-  teachingSummary: z.string().max(10000).optional(),
+  titleTraditional: z.string().max(200).nullable().optional(),
+  referenceText: z.string().max(50000).nullable().optional(),
+  teachingSummary: z.string().max(10000).nullable().optional(),
 });
 const updateLessonBody = z.object({
   order: z.number().int().min(1).optional(),
