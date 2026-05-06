@@ -43,8 +43,11 @@ const test = base.extend<{ loggedInPage: Page }>({
       throw new Error('TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD 未设置 · 请创建 juexue-v2/.env.test 见 docs/SMOKE-TESTS.md');
     }
 
+    // API 走真 nginx /api/ → backend 3001 · 不带 /dev/ 前缀
+    // baseURL 末尾是 /dev · 剥掉给 API 调用 · 但保留给页面导航
+    const apiBase = (baseURL ?? '').replace(/\/dev\/?$/, '');
     // 用 fetch 调登录接口拿 token
-    const r = await fetch(`${baseURL}/api/auth/login`, {
+    const r = await fetch(`${apiBase}/api/auth/login`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
