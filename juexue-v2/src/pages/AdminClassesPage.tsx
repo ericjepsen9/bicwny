@@ -1,6 +1,6 @@
 // AdminClassesPage · /admin/classes
 //   状态过滤 + 搜索 + 列表 + 新建 modal + 详情 drawer（成员 CRUD + 归档）
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
@@ -42,7 +42,22 @@ export default function AdminClassesPage() {
   }, [list.data, status, search]);
 
   const openId = sp.get('id');
-  const openClass = filtered.find((c) => c.id === openId) || (list.data ?? []).find((c) => c.id === openId);
+  // 抽屉数据始终从 list.data 取（不受 filter 影响 · 永远是最新真相）
+  // 同时检测「URL 指向的班级被 filter 隐藏」 · 给用户清晰的提示
+  const openClass = (list.data ?? []).find((c) => c.id === openId);
+  const openHiddenByFilter = !!openClass && !filtered.includes(openClass);
+
+  // openId 在 list 中找不到（班级被删 / 归档后 list 拉新数据但 openId 没清）
+  // → 关闭抽屉避免显示陈旧数据
+  useEffect(() => {
+    if (!openId || !list.data) return;
+    const exists = list.data.some((c) => c.id === openId);
+    if (!exists) {
+      const next = new URLSearchParams(sp);
+      next.delete('id');
+      setSp(next, { replace: true });
+    }
+  }, [openId, list.data, sp, setSp]);
 
   return (
     <>
@@ -153,7 +168,14 @@ export default function AdminClassesPage() {
         <CreateClassForm onDone={() => setCreateOpen(false)} />
       </Dialog>
 
-      {openClass && <ClassDrawer cls={openClass} onClose={() => setSp({})} />}
+      {openClass && (
+        <ClassDrawer
+          cls={openClass}
+          onClose={() => setSp({})}
+          hiddenByFilter={openHiddenByFilter}
+          onClearFilter={() => setStatus('all')}
+        />
+      )}
     </>
   );
 }
@@ -229,7 +251,12 @@ function CreateClassForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function ClassDrawer({ cls, onClose }: { cls: AdminClass; onClose: () => void }) {
+function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
+  cls: AdminClass;
+  onClose: () => void;
+  hiddenByFilter?: boolean;
+  onClearFilter?: () => void;
+}) {
   const { s } = useLang();
   const qc = useQueryClient();
   const members = useAdminClassMembers(cls.id);
@@ -265,6 +292,31 @@ function ClassDrawer({ cls, onClose }: { cls: AdminClass; onClose: () => void })
           </h2>
           <button type="button" onClick={onClose} aria-label={s('关闭', '關閉', 'Close')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: '1.4rem', lineHeight: 1 }}>✕</button>
         </div>
+
+        {hiddenByFilter && (
+          <div style={{
+            padding: 'var(--sp-3) var(--sp-4)',
+            marginBottom: 'var(--sp-3)',
+            background: 'var(--saffron-pale)',
+            border: '1px solid var(--saffron-light)',
+            borderRadius: 'var(--r-sm)',
+            font: 'var(--text-caption)',
+            color: 'var(--ink-2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)',
+          }}>
+            <span>⚠️ {s('此班级被当前过滤器隐藏 · 列表中看不到', '此班級被當前過濾器隱藏', 'This class is hidden by the current filter')}</span>
+            {onClearFilter && (
+              <button
+                type="button"
+                onClick={onClearFilter}
+                className="btn btn-pill"
+                style={{ padding: '4px 10px', font: 'var(--text-caption)', fontWeight: 600, background: 'var(--saffron)', color: '#fff', border: 'none' }}
+              >
+                {s('显示全部', '顯示全部', 'Show all')}
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
