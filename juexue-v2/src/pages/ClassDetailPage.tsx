@@ -156,6 +156,44 @@ export default function ClassDetailPage() {
           </Link>
         )}
 
+        {/* 班级观修排行入口卡 */}
+        <Link
+          to={`/class/${c.id}/meditations`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--sp-3)',
+            padding: 'var(--sp-4)',
+            background: 'var(--saffron-pale)',
+            border: '1px solid var(--saffron-light)',
+            borderLeft: '3px solid var(--saffron)',
+            borderRadius: 'var(--r-lg)',
+            marginBottom: 'var(--sp-4)',
+            textDecoration: 'none',
+            color: 'inherit',
+          }}
+        >
+          <div style={{
+            width: 46, height: 46, borderRadius: 'var(--r-lg)', flexShrink: 0,
+            background: 'var(--saffron)', color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '1.5rem',
+          }}>
+            🧘
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1.5, marginBottom: 2 }}>
+              {s('观修排行', '觀修排行', 'Ranking')}
+            </p>
+            <p style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', fontSize: '1rem', letterSpacing: 2, margin: 0 }}>
+              {s('班级观修榜', '班級觀修榜', 'Class meditation board')}
+            </p>
+          </div>
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24" style={{ color: 'var(--ink-3)' }}>
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </Link>
+
         {/* 辅导员独立卡 */}
         {coaches.length > 0 && (
           <>

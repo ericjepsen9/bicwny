@@ -34,6 +34,7 @@ export interface AuthUser {
   locale: string;
   hasOnboarded: boolean;
   contentCohort: string | null;
+  meditationVisibleToClass: boolean;
 }
 
 interface AuthCtx {

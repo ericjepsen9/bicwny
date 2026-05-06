@@ -82,6 +82,12 @@ export default function SettingsPage() {
           <HapticsToggle />
         </div>
 
+        {/* 隐私 · 观修班级可见性 */}
+        <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('隐私', '隱私', 'Privacy')}</SectionLabel>
+        <div className="menu-card">
+          <MeditationVisibleToggle />
+        </div>
+
         {/* 存储 · 清缓存 + 导出数据 */}
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('存储', '存儲', 'Storage')}</SectionLabel>
         <div className="menu-card">
@@ -262,6 +268,46 @@ function PushToggle() {
       sub={sub}
       checked={on}
       disabled={disabled}
+      onChange={toggle}
+    />
+  );
+}
+
+function MeditationVisibleToggle() {
+  const { s } = useLang();
+  const { user, refreshUser } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const on = user?.meditationVisibleToClass ?? true;
+
+  async function toggle() {
+    if (busy) return;
+    const next = !on;
+    setBusy(true);
+    try {
+      await api.patch('/api/auth/me', { meditationVisibleToClass: next });
+      await refreshUser();
+      toast.ok(next
+        ? s('已对班级开放观修排行', '已對班級開放觀修排行', 'Visible to class')
+        : s('已对班级隐藏观修排行', '已對班級隱藏觀修排行', 'Hidden from class'),
+      );
+    } catch (e) {
+      toast.error((e as ApiError).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ToggleRow
+      icon="🧘"
+      label={s('对班级开放观修', '對班級開放觀修', 'Meditation visible to class')}
+      sub={s(
+        '关闭后 · 你的观修次数 / 时长不会出现在班级排行榜',
+        '關閉後 · 你的觀修不會出現在班級排行榜',
+        'When off · your stats won\'t appear in class ranking',
+      )}
+      checked={on}
+      disabled={busy}
       onChange={toggle}
     />
   );

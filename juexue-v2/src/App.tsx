@@ -32,6 +32,7 @@ const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const ScriptureDetailPage = lazy(() => import('./pages/ScriptureDetailPage'));
 const ScriptureReadingPage = lazy(() => import('./pages/ScriptureReadingPage'));
 const MeditationPlayerPage = lazy(() => import('./pages/MeditationPlayerPage'));
+const ClassMeditationRankingPage = lazy(() => import('./pages/ClassMeditationRankingPage'));
 const QuizPage = lazy(() => import('./pages/QuizPage'));
 const MistakeDetailPage = lazy(() => import('./pages/MistakeDetailPage'));
 const MistakesPage = lazy(() => import('./pages/MistakesPage'));
@@ -118,6 +119,7 @@ function AppShell() {
                 <Route path="/scripture-detail" element={<ScriptureDetailPage />} />
                 <Route path="/read/:slug/:lessonId" element={<ScriptureReadingPage />} />
                 <Route path="/meditation/:id" element={<MeditationPlayerPage />} />
+                <Route path="/class/:id/meditations" element={<ClassMeditationRankingPage />} />
                 {/* 注意顺序：/practice 在 /quiz/:lessonId 之前 · 否则 "practice" 被当成 lessonId */}
                 <Route path="/practice" element={<QuizPage />} />
                 <Route path="/quiz/:lessonId" element={<QuizPage />} />

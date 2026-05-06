@@ -1111,3 +1111,27 @@ export function useCourseMeditations(courseId: string | null | undefined) {
     queryFn: ({ signal }) => api.get<StudentMeditation[]>(`/api/courses/${encodeURIComponent(courseId!)}/meditations`, { signal }),
   });
 }
+
+// ── 班级观修排行（v1） ──
+export interface MeditationRankingRow {
+  userId: string;
+  dharmaName: string | null;
+  count: number;
+  totalSec: number;
+}
+
+export type MeditationRankingPeriod = 'week' | 'month' | 'all';
+
+export function useClassMeditationRanking(
+  classId: string | null | undefined,
+  period: MeditationRankingPeriod = 'month',
+) {
+  return useQuery({
+    enabled: !!classId,
+    queryKey: ['/api/classes', classId, 'meditation-ranking', period],
+    queryFn: ({ signal }) => api.get<MeditationRankingRow[]>(
+      `/api/classes/${encodeURIComponent(classId!)}/meditation-ranking?period=${period}`,
+      { signal },
+    ),
+  });
+}
