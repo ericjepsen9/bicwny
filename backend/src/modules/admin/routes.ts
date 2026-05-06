@@ -10,7 +10,7 @@ import { requireRole, requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import { platformStats } from './platform-stats.service.js';
 import { userLearningStats } from './learning.service.js';
-import { createUser, listUsers, setUserActive, updateUserRole } from './users.service.js';
+import { createUser, listUsers, resetUserPassword, setUserActive, updateUserRole } from './users.service.js';
 
 const adminGuard = requireRole('admin');
 
@@ -32,6 +32,7 @@ const createUserBody = z.object({
 });
 
 const roleBody = z.object({ role: roleEnum });
+const resetPasswordBody = z.object({ password: z.string().min(6).max(200) });
 const activeBody = z.object({ isActive: z.boolean() });
 
 const statsQuery = z.object({
@@ -76,6 +77,23 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
       if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
       const adminId = requireUserId(req);
       const u = await updateUserRole(pp.data.id, adminId, pb.data.role);
+      return { data: u };
+    },
+  );
+
+  app.post(
+    '/api/admin/users/:id/reset-password',
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: 'admin 重置用户密码（吊销该用户所有 session）+ AuditLog', security: SEC },
+    },
+    async (req) => {
+      const pp = idParam.safeParse(req.params);
+      if (!pp.success) throw BadRequest('路径参数不合法');
+      const pb = resetPasswordBody.safeParse(req.body);
+      if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
+      const adminId = requireUserId(req);
+      const u = await resetUserPassword(pp.data.id, adminId, pb.data.password);
       return { data: u };
     },
   );

@@ -249,6 +249,32 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
     onError: (e) => toast.error((e as ApiError).message),
   });
 
+  const resetPassword = useMutation({
+    mutationFn: (newPwd: string) => api.post(`/api/admin/users/${encodeURIComponent(user.id)}/reset-password`, { password: newPwd }),
+    onSuccess: () => {
+      // 不需要 invalidate · 密码不在 list 显示
+      toast.ok(s('密码已重置 · 该用户所有 session 已吊销', '密碼已重置', 'Password reset · all sessions revoked'));
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
+  async function handleResetPassword() {
+    const pwd = window.prompt(s(
+      `输入 ${user.email || user.dharmaName || '用户'} 的新密码（≥6 位）：`,
+      `輸入新密碼（≥6 位）：`,
+      `New password for ${user.email || user.dharmaName || 'user'} (≥6):`,
+    ));
+    if (!pwd) return;
+    if (pwd.length < 6 || pwd.length > 200) {
+      toast.error(s('密码长度需 6-200 位', '密碼長度需 6-200 位', 'Password 6-200 chars'));
+      return;
+    }
+    if (!(await confirmAsync({
+      title: s('确认重置密码？该用户所有设备会被强制登出', '確認重置密碼？', 'Reset password? User sessions revoked.'),
+    }))) return;
+    resetPassword.mutate(pwd);
+  }
+
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(43,34,24,.35)', zIndex: 200 }} />
@@ -346,6 +372,25 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
               {toggleActive.isPending ? '…' : user.isActive ? s('停用', '停用', 'Disable') : s('启用', '啟用', 'Enable')}
             </button>
           </div>
+          {/* 重置密码 · 单独一行 · 因为它需要更慎重的提示 */}
+          <button
+            type="button"
+            disabled={resetPassword.isPending}
+            onClick={handleResetPassword}
+            className="btn btn-pill"
+            style={{
+              marginTop: 'var(--sp-3)',
+              padding: '6px 14px',
+              background: 'transparent',
+              color: 'var(--saffron-dark)',
+              border: '1px solid var(--saffron-light)',
+              alignSelf: 'flex-start',
+              font: 'var(--text-caption)',
+              fontWeight: 600,
+            }}
+          >
+            🔑 {resetPassword.isPending ? '…' : s('重置密码', '重置密碼', 'Reset password')}
+          </button>
         </div>
 
         <LearningSection userId={user.id} />

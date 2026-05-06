@@ -133,6 +133,48 @@ export async function updateUserRole(
   return stripPassword(updated);
 }
 
+/**
+ * Admin 重置某用户密码 · 同时吊销该用户所有 session（强制重登）
+ * 不要求旧密码 · admin 信任边界
+ * AuditLog 记录 · before/after 不存密码（hash 不应进 audit）
+ */
+export async function resetUserPassword(
+  userId: string,
+  adminId: string,
+  newPassword: string,
+): Promise<PublicUser> {
+  if (newPassword.length < 6 || newPassword.length > 200) {
+    throw new Error('密码长度需 6-200 字符');
+  }
+  const before = await prisma.user.findUnique({ where: { id: userId } });
+  if (!before) throw NotFound('用户不存在');
+
+  const passwordHash = await hashPassword(newPassword);
+  const updated = await prisma.$transaction(async (tx) => {
+    const u = await tx.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: 'user.reset_password',
+        targetType: 'user',
+        targetId: userId,
+        before: { email: before.email } as Prisma.InputJsonValue,
+        after: { passwordChanged: true } as Prisma.InputJsonValue,
+      },
+    });
+    // 吊销所有现有 session · 强制全设备重登
+    await tx.authSession.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return u;
+  });
+  return stripPassword(updated);
+}
+
 export async function setUserActive(
   userId: string,
   adminId: string,
