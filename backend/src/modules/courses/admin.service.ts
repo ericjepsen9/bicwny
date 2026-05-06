@@ -48,9 +48,11 @@ export interface UpdateCourseInput {
 export async function listAllCoursesAdmin() {
   // 含未发布；过滤已归档（admin 用「删除」按钮触发的归档不应再显示在列表）
   // 如需查归档，将来可加 ?includeArchived=1 query
+  // 防御：上限 500 · 法本通常 < 100 部 · 500 远超合理上界但防意外膨胀崩内存
   const courses = await prisma.course.findMany({
     where: { archivedAt: null },
     orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
+    take: 500,
     include: { _count: { select: { chapters: true, enrollments: true } } },
   });
   // 附 lesson 总数（chapter 跨级 count 不能直接 select）

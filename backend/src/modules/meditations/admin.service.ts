@@ -69,6 +69,7 @@ export async function listMeditations(opts?: {
       ...(opts?.includeArchived ? {} : { archivedAt: null }),
     },
     orderBy: [{ displayOrder: 'asc' }, { createdAt: 'desc' }],
+    take: 500,  // 防御：观修通常一课 1 个 · 500 远超 · 防意外失控
   });
 }
 
