@@ -1131,3 +1131,14 @@ export function useClassMeditationRanking(
     ),
   });
 }
+
+// ── Admin · 删除前依赖检查 ──
+export interface ChapterDependencies { questionCount: number; lessonCount: number; }
+export interface LessonDependencies { questionCount: number; meditationCount: number; }
+
+export async function fetchChapterDependencies(chapterId: string): Promise<ChapterDependencies> {
+  return api.get<ChapterDependencies>(`/api/admin/chapters/${encodeURIComponent(chapterId)}/dependencies`);
+}
+export async function fetchLessonDependencies(lessonId: string): Promise<LessonDependencies> {
+  return api.get<LessonDependencies>(`/api/admin/lessons/${encodeURIComponent(lessonId)}/dependencies`);
+}

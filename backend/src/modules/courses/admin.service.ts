@@ -317,6 +317,21 @@ export async function updateChapter(
   });
 }
 
+/** 章节删除前的依赖统计 · 让前端在确认对话框前展示具体阻塞原因 */
+export interface ChapterDependencies {
+  questionCount: number;
+  lessonCount: number;
+}
+export async function getChapterDependencies(id: string): Promise<ChapterDependencies> {
+  const exists = await prisma.chapter.findUnique({ where: { id }, select: { id: true } });
+  if (!exists) throw NotFound('章不存在');
+  const [questionCount, lessonCount] = await Promise.all([
+    prisma.question.count({ where: { chapterId: id } }),
+    prisma.lesson.count({ where: { chapterId: id } }),
+  ]);
+  return { questionCount, lessonCount };
+}
+
 export async function deleteChapter(adminId: string, id: string) {
   const before = await prisma.chapter.findUnique({ where: { id } });
   if (!before) throw NotFound('章不存在');
@@ -448,6 +463,21 @@ export async function updateLesson(
     });
     return u;
   });
+}
+
+/** 课时删除前的依赖统计 · 题目 + 观修 */
+export interface LessonDependencies {
+  questionCount: number;
+  meditationCount: number;
+}
+export async function getLessonDependencies(id: string): Promise<LessonDependencies> {
+  const exists = await prisma.lesson.findUnique({ where: { id }, select: { id: true } });
+  if (!exists) throw NotFound('课时不存在');
+  const [questionCount, meditationCount] = await Promise.all([
+    prisma.question.count({ where: { lessonId: id } }),
+    prisma.meditation.count({ where: { lessonId: id, archivedAt: null } }),
+  ]);
+  return { questionCount, meditationCount };
 }
 
 export async function deleteLesson(adminId: string, id: string) {

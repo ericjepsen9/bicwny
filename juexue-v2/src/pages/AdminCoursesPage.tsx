@@ -16,6 +16,8 @@ import {
   type AdminCourseDetail,
   type AdminLesson,
   type AdminMeditation,
+  fetchChapterDependencies,
+  fetchLessonDependencies,
   useAdminCourseDetail,
   useAdminCourses,
   useAdminMeditations,
@@ -448,7 +450,30 @@ function ChapterCard({ ch, courseId }: { ch: AdminChapter; courseId: string }) {
           </button>
           <button
             type="button"
-            onClick={async () => { (await confirmAsync({ title: s('删除此章节？（如果有题目引用会失败）', '刪除此章節？（如果有題目引用會失敗）', 'Delete chapter? (fails if any question references it)') })) && del.mutate(); }}
+            onClick={async () => {
+              // 删除前查依赖 · 给用户具体的阻塞原因
+              try {
+                const deps = await fetchChapterDependencies(ch.id);
+                if (deps.questionCount > 0) {
+                  toast.error(s(
+                    `本章关联 ${deps.questionCount} 道题 · 请先删除这些题再归档`,
+                    `本章關聯 ${deps.questionCount} 道題`,
+                    `${deps.questionCount} question(s) reference this chapter · remove them first`,
+                  ));
+                  return;
+                }
+                const ok = await confirmAsync({
+                  title: s(
+                    `删除此章节（含 ${deps.lessonCount} 课时）？此操作不可恢复。`,
+                    `刪除此章節（含 ${deps.lessonCount} 課時）？`,
+                    `Delete this chapter (with ${deps.lessonCount} lessons)? Cannot undo.`,
+                  ),
+                });
+                if (ok) del.mutate();
+              } catch (e) {
+                toast.error((e as ApiError).message);
+              }
+            }}
             disabled={del.isPending}
             style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)' }}
           >
@@ -554,7 +579,33 @@ function LessonRow({ l, courseId, chapterId }: { l: AdminLesson; courseId: strin
           </button>
           <button
             type="button"
-            onClick={async () => { (await confirmAsync({ title: s('删除此课时？（如果有题目引用会失败）', '刪除此課時？（如果有題目引用會失敗）', 'Delete lesson? (fails if any question references it)') })) && del.mutate(); }}
+            onClick={async () => {
+              try {
+                const deps = await fetchLessonDependencies(l.id);
+                if (deps.questionCount > 0) {
+                  toast.error(s(
+                    `本课时关联 ${deps.questionCount} 道题 · 请先删除这些题`,
+                    `本課時關聯 ${deps.questionCount} 道題`,
+                    `${deps.questionCount} question(s) reference this lesson · remove them first`,
+                  ));
+                  return;
+                }
+                if (deps.meditationCount > 0) {
+                  toast.error(s(
+                    `本课时关联 ${deps.meditationCount} 个观修 · 请先归档`,
+                    `本課時關聯 ${deps.meditationCount} 個觀修`,
+                    `${deps.meditationCount} meditation(s) linked · archive them first`,
+                  ));
+                  return;
+                }
+                const ok = await confirmAsync({
+                  title: s('删除此课时？此操作不可恢复。', '刪除此課時？此操作不可恢復。', 'Delete this lesson? Cannot undo.'),
+                });
+                if (ok) del.mutate();
+              } catch (e) {
+                toast.error((e as ApiError).message);
+              }
+            }}
             disabled={del.isPending}
             style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)' }}
           >

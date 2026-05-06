@@ -25,6 +25,8 @@ import {
   createCourse,
   createLesson,
   deleteChapter,
+  getChapterDependencies,
+  getLessonDependencies,
   deleteCourse,
   deleteLesson,
   getCourseTreeAdmin,
@@ -175,6 +177,16 @@ export const adminCoursesRoutes: FastifyPluginAsync = async (app) => {
     return { data: await updateChapter(adminId, pp.data.id, pb.data) };
   });
 
+  // 删除前查依赖 · 让前端在确认对话框里展示具体阻塞原因（多少道题等）
+  app.get('/api/admin/chapters/:id/dependencies', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: '查章节删除前的依赖（题目数 / 课时数）', security: SEC },
+  }, async (req) => {
+    const pp = idParam.safeParse(req.params);
+    if (!pp.success) throw BadRequest('路径参数不合法');
+    return { data: await getChapterDependencies(pp.data.id) };
+  });
+
   app.delete('/api/admin/chapters/:id', {
     preHandler: adminGuard,
     schema: { tags: TAGS, summary: '删除章（仅在无 Question 引用时）', security: SEC },
@@ -212,6 +224,15 @@ export const adminCoursesRoutes: FastifyPluginAsync = async (app) => {
     if (!pb.success) throw BadRequest('参数不合法', pb.error.flatten());
     const adminId = requireUserId(req);
     return { data: await updateLesson(adminId, pp.data.id, pb.data) };
+  });
+
+  app.get('/api/admin/lessons/:id/dependencies', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: '查课时删除前的依赖（题目 / 观修）', security: SEC },
+  }, async (req) => {
+    const pp = idParam.safeParse(req.params);
+    if (!pp.success) throw BadRequest('路径参数不合法');
+    return { data: await getLessonDependencies(pp.data.id) };
   });
 
   app.delete('/api/admin/lessons/:id', {
