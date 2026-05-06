@@ -125,6 +125,14 @@ export default function MeditationPlayerPage() {
     onError: (e) => toast.error((e as ApiError).message),
   });
 
+  // 时长格式化 · 必须在所有条件 return 之前调用 · 否则 hooks 顺序变化触发 React error #310
+  const durationLabel = useMemo(() => {
+    const sec = meditation?.videoDurationSec ?? 0;
+    const m = Math.floor(sec / 60);
+    const ss = Math.floor(sec % 60);
+    return `${m}:${String(ss).padStart(2, '0')}`;
+  }, [meditation?.videoDurationSec]);
+
   // ── 渲染 ───────────────────────────────────────────
   if (detail.isLoading) {
     return (
@@ -143,8 +151,6 @@ export default function MeditationPlayerPage() {
       </div>
     );
   }
-
-  const durationLabel = useMemoFmt(meditation.videoDurationSec);
 
   return (
     <div style={{ padding: 'var(--sp-3)', paddingBottom: 'var(--sp-5)' }}>
@@ -257,11 +263,3 @@ export default function MeditationPlayerPage() {
   );
 }
 
-/** 时长格式化 mm:ss */
-function useMemoFmt(sec: number): string {
-  return useMemo(() => {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${String(s).padStart(2, '0')}`;
-  }, [sec]);
-}
