@@ -1056,3 +1056,49 @@ export function useAdminQuestionDetail(id: string | null | undefined) {
     queryFn: ({ signal }) => api.get<AdminQuestionDetail>(`/api/admin/questions/${encodeURIComponent(id!)}`, { signal }),
   });
 }
+
+// ── 学员观修 (v1) ──
+export interface StudentMeditation {
+  id: string;
+  lessonId: string | null;
+  courseId: string | null;
+  title: string;
+  titleTraditional: string | null;
+  description: string | null;
+  authorName: string | null;
+  videoUrl: string;
+  videoDurationSec: number;
+  slidesPdfUrl: string | null;
+  isPublished: boolean;
+  displayOrder: number;
+}
+
+export interface MeditationDetailResp {
+  meditation: StudentMeditation;
+  latestSession?: {
+    id: string;
+    startedAt: string;
+    completedAt: string | null;
+    videoWatchedSec: number;
+    isCompleted: boolean;
+  };
+  totalCompletions: number;
+}
+
+/** 取课时关联的观修（如有 · 否则 null） */
+export function useLessonMeditation(lessonId: string | null | undefined) {
+  return useQuery({
+    enabled: !!lessonId,
+    queryKey: ['/api/lessons', lessonId, 'meditation'],
+    queryFn: ({ signal }) => api.get<StudentMeditation | null>(`/api/lessons/${encodeURIComponent(lessonId!)}/meditation`, { signal }),
+  });
+}
+
+/** 观修详情 + 最近 session + 完成次数 */
+export function useMeditationDetail(meditationId: string | null | undefined) {
+  return useQuery({
+    enabled: !!meditationId,
+    queryKey: ['/api/meditations', meditationId],
+    queryFn: ({ signal }) => api.get<MeditationDetailResp>(`/api/meditations/${encodeURIComponent(meditationId!)}`, { signal }),
+  });
+}
