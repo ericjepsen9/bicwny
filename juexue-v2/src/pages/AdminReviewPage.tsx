@@ -7,6 +7,7 @@ import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { type AdminPendingQuestion, useAdminPendingQuestions, useCourses } from '@/lib/queries';
+import { relTime } from '@/lib/relTime';
 import { toast } from '@/lib/toast';
 
 export default function AdminReviewPage() {
@@ -102,7 +103,7 @@ export default function AdminReviewPage() {
                     <code style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>{q.createdByUserId.slice(0, 8)}</code>
                   </Td>
                   <Td>
-                    <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>{relTime(q.createdAt)}</span>
+                    <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>{relTime(q.createdAt, s)}</span>
                   </Td>
                 </tr>
               ))}
@@ -210,7 +211,7 @@ function ReviewDrawer({ q, onDone }: { q: AdminPendingQuestion; onDone: () => vo
         )}
 
         <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1, marginBottom: 'var(--sp-4)' }}>
-          {s('提交人', '提交人', 'By')} {q.createdByUserId.slice(0, 8)} · {relTime(q.createdAt)}
+          {s('提交人', '提交人', 'By')} {q.createdByUserId.slice(0, 8)} · {relTime(q.createdAt, s)}
         </div>
 
         {rejectMode ? (
@@ -289,15 +290,3 @@ function Block({ label, accent, children }: { label: string; accent: 'sage' | 'c
   );
 }
 
-function relTime(iso: string): string {
-  const t = new Date(iso).getTime();
-  const diff = Date.now() - t;
-  const m = Math.floor(diff / 60_000);
-  if (m < 1) return '刚刚';
-  if (m < 60) return m + '分前';
-  const h = Math.floor(m / 60);
-  if (h < 24) return h + '时前';
-  const d = Math.floor(h / 24);
-  if (d < 30) return d + '天前';
-  return new Date(iso).toLocaleDateString();
-}

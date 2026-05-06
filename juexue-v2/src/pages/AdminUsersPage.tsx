@@ -12,6 +12,7 @@ import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
 import { type AdminUser, useAdminUserLearning, useAdminUsers } from '@/lib/queries';
+import { relTime } from '@/lib/relTime';
 import { toast } from '@/lib/toast';
 
 type RoleFilter = 'all' | 'admin' | 'coach' | 'student';
@@ -116,7 +117,7 @@ export default function AdminUsersPage() {
                   <Td><RolePill role={u.role} /></Td>
                   <Td><StatusPill active={u.isActive} /></Td>
                   <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }} title={new Date(u.createdAt).toLocaleString()}>{new Date(u.createdAt).toLocaleDateString()}</span></Td>
-                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : ''}>{u.lastLoginAt ? relTime(u.lastLoginAt) : '—'}</span></Td>
+                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : ''}>{u.lastLoginAt ? relTime(u.lastLoginAt, s) : '—'}</span></Td>
                 </tr>
               ))}
             </tbody>
@@ -524,7 +525,7 @@ function LearningSection({ userId }: { userId: string }) {
               small
             />
             <DrawerStat
-              value={data.summary.lastActiveAt ? relTime(data.summary.lastActiveAt) : '—'}
+              value={data.summary.lastActiveAt ? relTime(data.summary.lastActiveAt, s) : '—'}
               label={s('最近活跃', '最近活躍', 'Last seen')}
               tooltip={data.summary.lastActiveAt ? new Date(data.summary.lastActiveAt).toLocaleString() : undefined}
               color="var(--ink)"
@@ -569,7 +570,7 @@ function LearningSection({ userId }: { userId: string }) {
                         <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 2 }}>
                           {s(`${c.answered} 题 · 掌握 ${c.masteredCount}`, `${c.answered} 題 · 掌握 ${c.masteredCount}`, `${c.answered} ans · ${c.masteredCount} mastered`)}
                           {c.lastStudiedAt && (
-                            <> · <span title={new Date(c.lastStudiedAt).toLocaleString()}>{relTime(c.lastStudiedAt)}</span></>
+                            <> · <span title={new Date(c.lastStudiedAt).toLocaleString()}>{relTime(c.lastStudiedAt, s)}</span></>
                           )}
                         </div>
                       </div>
@@ -611,7 +612,7 @@ function LearningSection({ userId }: { userId: string }) {
                       {m.role}
                     </span>
                     <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={new Date(m.joinedAt).toLocaleString()}>
-                      {relTime(m.joinedAt)}
+                      {relTime(m.joinedAt, s)}
                     </span>
                   </div>
                 ))}
@@ -637,15 +638,3 @@ function DrawerStat({ value, label, color, small, tooltip }: { value: string; la
   );
 }
 
-function relTime(iso: string): string {
-  const t = new Date(iso).getTime();
-  const diff = Date.now() - t;
-  const m = Math.floor(diff / 60_000);
-  if (m < 1) return '刚刚';
-  if (m < 60) return m + '分前';
-  const h = Math.floor(m / 60);
-  if (h < 24) return h + '时前';
-  const d = Math.floor(h / 24);
-  if (d < 30) return d + '天前';
-  return new Date(iso).toLocaleDateString();
-}

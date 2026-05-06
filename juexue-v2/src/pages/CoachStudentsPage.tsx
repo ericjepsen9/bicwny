@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import DailyBarChart from '@/components/DailyBarChart';
 import Skeleton from '@/components/Skeleton';
 import { useLang } from '@/lib/i18n';
+import { relTime } from '@/lib/relTime';
 import {
   useCoachClassMembers,
   useCoachClasses,
@@ -140,7 +141,7 @@ export default function CoachStudentsPage() {
                   </Td>
                   <Td>
                     <span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
-                      {m.user.lastLoginAt ? relTime(m.user.lastLoginAt) : '—'}
+                      {m.user.lastLoginAt ? relTime(m.user.lastLoginAt, s) : '—'}
                     </span>
                   </Td>
                 </tr>
@@ -227,7 +228,7 @@ function Drawer({ onClose, loading, data }: { onClose: () => void; loading: bool
                 </h3>
                 <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>{data.user.email}</p>
                 <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 2 }} title={data.user.lastLoginAt ? new Date(data.user.lastLoginAt).toLocaleString() : ''}>
-                  {data.user.lastLoginAt ? s('上次登录', '上次登入', 'Seen') + ' ' + relTime(data.user.lastLoginAt) : '—'}
+                  {data.user.lastLoginAt ? s('上次登录', '上次登入', 'Seen') + ' ' + relTime(data.user.lastLoginAt, s) : '—'}
                 </p>
               </div>
             </div>
@@ -279,7 +280,7 @@ function Drawer({ onClose, loading, data }: { onClose: () => void; loading: bool
                       </span>
                     )}
                     <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={new Date(a.createdAt).toLocaleString()}>
-                      {relTime(a.createdAt)}
+                      {relTime(a.createdAt, s)}
                     </span>
                   </div>
                 ))}
@@ -301,7 +302,7 @@ function Drawer({ onClose, loading, data }: { onClose: () => void; loading: bool
                       ×{m.wrongCount}
                     </span>
                     <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={new Date(m.lastWrongAt).toLocaleString()}>
-                      {relTime(m.lastWrongAt)}
+                      {relTime(m.lastWrongAt, s)}
                     </span>
                   </div>
                 ))}
@@ -323,7 +324,7 @@ function Drawer({ onClose, loading, data }: { onClose: () => void; loading: bool
                       {e.status}
                     </span>
                     <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={e.lastStudiedAt ? new Date(e.lastStudiedAt).toLocaleString() : ''}>
-                      {e.lastStudiedAt ? relTime(e.lastStudiedAt) : '—'}
+                      {e.lastStudiedAt ? relTime(e.lastStudiedAt, s) : '—'}
                     </span>
                   </div>
                 ))}
@@ -360,15 +361,3 @@ function Empty({ children }: { children: React.ReactNode }) {
   );
 }
 
-function relTime(iso: string): string {
-  const t = new Date(iso).getTime();
-  const diff = Date.now() - t;
-  const m = Math.floor(diff / 60_000);
-  if (m < 1) return '刚刚';
-  if (m < 60) return m + '分前';
-  const h = Math.floor(m / 60);
-  if (h < 24) return h + '时前';
-  const d = Math.floor(h / 24);
-  if (d < 30) return d + '天前';
-  return new Date(iso).toLocaleDateString();
-}

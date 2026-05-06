@@ -56,14 +56,14 @@ export default function CoachQuestionImportPage() {
     if (!text.trim()) return { ok: false, count: 0 };
     try {
       const j = JSON.parse(text);
-      if (!Array.isArray(j)) return { ok: false, count: 0, err: 'JSON 必须是数组' };
-      if (j.length === 0) return { ok: false, count: 0, err: '数组为空' };
-      if (j.length > 200) return { ok: false, count: j.length, err: '超过 200 条上限' };
+      if (!Array.isArray(j)) return { ok: false, count: 0, err: s('JSON 必须是数组', 'JSON 必須是數組', 'JSON must be an array') };
+      if (j.length === 0) return { ok: false, count: 0, err: s('数组为空', '陣列為空', 'Array is empty') };
+      if (j.length > 200) return { ok: false, count: j.length, err: s('超过 200 条上限', '超過 200 條上限', 'Exceeds 200 limit') };
       return { ok: true, count: j.length, items: j };
     } catch (e) {
       return { ok: false, count: 0, err: (e as Error).message };
     }
-  }, [text]);
+  }, [text, s]);
 
   const submit = useMutation({
     mutationFn: () => api.post<BatchResult>('/api/coach/questions/batch', {

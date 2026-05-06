@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import { useLang } from '@/lib/i18n';
 import { useAdminPlatformStats, useAdminUsers, useCourses } from '@/lib/queries';
+import { relTime } from '@/lib/relTime';
 
 export default function AdminDashboardPage() {
   const { s } = useLang();
@@ -119,7 +120,7 @@ export default function AdminDashboardPage() {
                   </Td>
                   <Td><RolePill role={u.role} /></Td>
                   <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>{new Date(u.createdAt).toLocaleDateString()}</span></Td>
-                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>{u.lastLoginAt ? relTime(u.lastLoginAt) : '—'}</span></Td>
+                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>{u.lastLoginAt ? relTime(u.lastLoginAt, s) : '—'}</span></Td>
                 </tr>
               ))}
             </tbody>
@@ -220,15 +221,3 @@ function fmt(n: number | null | undefined): string {
   return String(n);
 }
 
-function relTime(iso: string): string {
-  const t = new Date(iso).getTime();
-  const diff = Date.now() - t;
-  const m = Math.floor(diff / 60_000);
-  if (m < 1) return '刚刚';
-  if (m < 60) return m + '分前';
-  const h = Math.floor(m / 60);
-  if (h < 24) return h + '时前';
-  const d = Math.floor(h / 24);
-  if (d < 30) return d + '天前';
-  return new Date(iso).toLocaleDateString();
-}

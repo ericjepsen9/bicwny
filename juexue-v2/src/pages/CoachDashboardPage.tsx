@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import { api } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
+import { relTime } from '@/lib/relTime';
 import {
   type CoachClassRow,
   type CoachClassStats,
@@ -123,7 +124,7 @@ export default function CoachDashboardPage() {
                 {q.questionText}
               </span>
               <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
-                {relTime(q.createdAt)}
+                {relTime(q.createdAt, s)}
               </span>
             </Link>
           ))
@@ -196,15 +197,3 @@ function ClassCard({ cls, stats, loading }: { cls: CoachClassRow; stats?: CoachC
   );
 }
 
-function relTime(iso: string): string {
-  const t = new Date(iso).getTime();
-  const diff = Date.now() - t;
-  const m = Math.floor(diff / 60_000);
-  if (m < 1) return '刚刚';
-  if (m < 60) return m + '分钟前';
-  const h = Math.floor(m / 60);
-  if (h < 24) return h + '小时前';
-  const d = Math.floor(h / 24);
-  if (d < 30) return d + '天前';
-  return new Date(iso).toLocaleDateString();
-}

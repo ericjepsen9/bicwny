@@ -415,6 +415,27 @@ function EditForm({ q, onCancel, onSaved }: { q: CoachQuestion; onCancel: () => 
     onError: (e) => setErr((e as ApiError).message),
   });
 
+  const isDirty =
+    questionText !== q.questionText ||
+    correctText !== q.correctText ||
+    wrongText !== q.wrongText ||
+    source !== q.source ||
+    difficulty !== q.difficulty ||
+    tags !== (q.tags ?? []).join(', ');
+
+  async function handleCancel() {
+    if (isDirty) {
+      const ok = await confirmAsync({
+        title: s('放弃修改？', '放棄修改？', 'Discard changes?'),
+        body: s('未保存的修改将丢失。', '未儲存的修改將遺失。', 'Unsaved changes will be lost.'),
+        okLabel: s('放弃', '放棄', 'Discard'),
+        danger: true,
+      });
+      if (!ok) return;
+    }
+    onCancel();
+  }
+
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); setErr(''); save.mutate(); }}
@@ -433,7 +454,7 @@ function EditForm({ q, onCancel, onSaved }: { q: CoachQuestion; onCancel: () => 
       <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
         <button
           type="button"
-          onClick={onCancel}
+          onClick={handleCancel}
           className="btn btn-pill"
           style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}
         >
