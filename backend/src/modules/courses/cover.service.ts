@@ -40,10 +40,12 @@ async function generateVariants(buf: Buffer, dir: string, baseName: string): Pro
   const tasks = VARIANT_SIZES.map(async (w) => {
     const fname = `${baseName}-${w}.webp`;
     const fullPath = path.join(dir, fname);
-    // EXIF rotate 自动校正 · cover 1:1 裁切（封面卡片是方形）· q=80 视觉上看不出差异
+    // EXIF rotate 自动校正 · fit: inside 保持原宽高比 · 输出 ≤ w×w 内最大尺寸
+    // 不裁切：竖版书封 → 输出竖版 · 横版插画 → 输出横版
+    // 列表卡片用 css object-fit: cover 填满方形 · 详情页用 contain 完整展示
     await sharp(buf, { failOn: 'none' })
       .rotate()
-      .resize({ width: w, height: w, fit: 'cover', position: 'centre' })
+      .resize({ width: w, height: w, fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 80, effort: 4 })
       .toFile(fullPath);
     return `/uploads/courses/${fname}`;
