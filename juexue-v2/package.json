@@ -13,7 +13,7 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "test:smoke": "playwright test",
-    "verify": "git pull && playwright test --reporter=list",
+    "verify": "git pull && playwright test",
     "cap:sync": "npm run build:native && cap sync",
     "cap:open:ios": "cap open ios",
     "cap:open:android": "cap open android",

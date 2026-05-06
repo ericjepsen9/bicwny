@@ -1,23 +1,74 @@
 // 觉学 smoke 测试 · 关键路径页面渲染 + 核心交互
 //
+// auth 策略：
+//   测试启动时 · 先调 /api/auth/login 拿 access token · 写到 localStorage
+//   每个测试 page 起来后已是登录态（admin）
+//
+//   admin 凭证从环境变量读：
+//     TEST_ADMIN_EMAIL=...
+//     TEST_ADMIN_PASSWORD=...
+//   写到 juexue-v2/.env.test（gitignored · 见 docs/SMOKE-TESTS.md）
+//
 // 设计原则：
 //   - 不创造 / 不删数据（避免污染 dev 环境）
 //   - 仅 read + 渲染 / UI 检查
 //   - 任何 console error → 整个测试 fail
 //   - 失败自动截图 + trace · playwright-report/ 里看
-//
-// auth：依赖 DEV_FAKE_USER_ID（已在 .env · 当前是 user_admin_001）
-//       backend 自动把无 token 的请求绑定到该用户
 
-import { expect, test, type ConsoleMessage, type Page } from '@playwright/test';
+import { expect, test as base, type ConsoleMessage, type Page } from '@playwright/test';
+import { readFileSync, existsSync } from 'fs';
+import path from 'path';
 
-// 关键页面渲染必须无 console error
+// 加载 .env.test（如果存在）
+const envPath = path.resolve(__dirname, '..', '.env.test');
+if (existsSync(envPath)) {
+  for (const line of readFileSync(envPath, 'utf8').split('\n')) {
+    const m = /^([A-Z_]+)=(.*)$/.exec(line.trim());
+    if (m) process.env[m[1]!] = m[2]!.replace(/^["']|["']$/g, '');
+  }
+}
+
+const ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD;
+
+// ── 自定义 fixture · 自动登录 + 注入 token ──
+const test = base.extend<{ loggedInPage: Page }>({
+  loggedInPage: async ({ page, baseURL }, use) => {
+    if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
+      throw new Error('TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD 未设置 · 请创建 juexue-v2/.env.test 见 docs/SMOKE-TESTS.md');
+    }
+
+    // 用 fetch 调登录接口拿 token
+    const r = await fetch(`${baseURL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
+    });
+    if (!r.ok) {
+      throw new Error(`登录失败 ${r.status}: ${await r.text()}`);
+    }
+    const { data } = await r.json();
+    const accessToken = data?.accessToken;
+    const refreshToken = data?.refreshToken;
+    if (!accessToken) throw new Error(`登录响应缺 accessToken · 实际 keys: ${Object.keys(data ?? {}).join(',')}`);
+
+    // 进 /app/auth 域 · 写 localStorage（必须先有 origin · 不能在 about:blank 写 localStorage）
+    await page.goto('/app/auth');
+    await page.evaluate(({ a, r }) => {
+      // 跟 frontend tokenStore key 对齐 · 见 src/lib/tokenStore.ts
+      localStorage.setItem('jx-accessToken', a);
+      if (r) localStorage.setItem('jx-refreshToken', r);
+    }, { a: accessToken, r: refreshToken });
+
+    await use(page);
+  },
+});
+
 function attachConsoleAssert(page: Page, ignoredPatterns: RegExp[] = []): string[] {
   const errors: string[] = [];
   const onConsole = (msg: ConsoleMessage) => {
     if (msg.type() !== 'error') return;
     const text = msg.text();
-    // 忽略已知 noise（浏览器扩展 / PWA manifest 等）
     const ignore = [
       /Permissions-Policy header.*Unrecognized feature/,
       /manifest\.webmanifest.*Syntax error/,
@@ -33,51 +84,44 @@ function attachConsoleAssert(page: Page, ignoredPatterns: RegExp[] = []): string
 }
 
 test.describe('Smoke · 关键页面无 console error + 关键元素可见', () => {
-  test('首页 /app/ → 重定向到 auth 或 home', async ({ page }) => {
+  test('首页 /app/ → 已登录跳到主页', async ({ loggedInPage: page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/');
-    // 等到 React 渲染完
     await page.waitForLoadState('networkidle');
-    // 应该见到 auth 表单的 email 输入 OR 已登录的主页内容
-    const isAuthOrHome = await page.locator('input[type="email"], main, [role="main"]').first().isVisible().catch(() => false);
-    expect(isAuthOrHome).toBeTruthy();
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 法本管理页 · 列表加载', async ({ page }) => {
+  test('Admin 法本管理页 · 列表加载', async ({ loggedInPage: page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/courses');
     await page.waitForLoadState('networkidle');
-    // 顶部标题应可见
     await expect(page.getByText('法本管理')).toBeVisible({ timeout: 10_000 });
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 用户管理页 · 列表 + total 显示', async ({ page }) => {
+  test('Admin 用户管理页 · 列表 + total 显示', async ({ loggedInPage: page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/users');
     await page.waitForLoadState('networkidle');
-    // 顶部「N 用户」格式 · total 必须 > 0（DEV_FAKE_USER 至少自己 1 条）
     const subtitle = page.locator('.page-sub').first();
     await expect(subtitle).toBeVisible({ timeout: 10_000 });
     const text = await subtitle.textContent();
-    expect(text).toMatch(/\d+/);  // 至少含数字
+    expect(text).toMatch(/\d+/);
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 班级管理页 · 列表 + 过滤按钮', async ({ page }) => {
+  test('Admin 班级管理页 · 列表 + 过滤按钮', async ({ loggedInPage: page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/classes');
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('班级管理')).toBeVisible({ timeout: 10_000 });
-    // 三个状态过滤按钮
     await expect(page.getByRole('button', { name: '全部' })).toBeVisible();
     await expect(page.getByRole('button', { name: '活跃' })).toBeVisible();
     await expect(page.getByRole('button', { name: '已归档' })).toBeVisible();
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 观修管理页 · 列表加载', async ({ page }) => {
+  test('Admin 观修管理页 · 列表加载', async ({ loggedInPage: page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/meditations');
     await page.waitForLoadState('networkidle');
@@ -85,7 +129,7 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 总览 dashboard · 渲染', async ({ page }) => {
+  test('Admin 总览 dashboard · 渲染', async ({ loggedInPage: page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin');
     await page.waitForLoadState('networkidle');
@@ -93,18 +137,16 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('学员侧 · 法本目录页 · 课时行', async ({ page }) => {
+  test('学员侧 · 法本目录页 · 渲染', async ({ loggedInPage: page }) => {
     const errors = attachConsoleAssert(page);
-    // dev_user 应该已加入至少 1 个法本 · 用 /courses 开始
     await page.goto('/app/courses');
     await page.waitForLoadState('networkidle');
-    // 应能看到法本卡片或空态文案
     const ok = await page.locator('main, [role="main"], .scroll-area').first().isVisible().catch(() => false);
     expect(ok).toBeTruthy();
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('Admin 题目审核页 · 列表 / 空态', async ({ page }) => {
+  test('Admin 题目审核页 · 列表 / 空态', async ({ loggedInPage: page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/review');
     await page.waitForLoadState('networkidle');
@@ -114,32 +156,26 @@ test.describe('Smoke · 关键页面无 console error + 关键元素可见', () 
 });
 
 test.describe('UI · 关键交互', () => {
-  test('班级详情抽屉 · 编辑按钮可见（活跃班级）', async ({ page }) => {
+  test('班级详情抽屉 · 编辑按钮可见（活跃班级）', async ({ loggedInPage: page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/classes');
     await page.waitForLoadState('networkidle');
-    // 切到「活跃」过滤
     await page.getByRole('button', { name: '活跃' }).click();
-    // 找第一个班级卡片 · 点开
     const firstCard = page.locator('[class*="glass-card"]').filter({ hasText: /[一-龥]/ }).nth(1);
     if (await firstCard.count() > 0) {
       await firstCard.click();
-      // 抽屉应打开 · 「编辑」按钮可见
       await expect(page.getByRole('button', { name: '编辑' }).first()).toBeVisible({ timeout: 5_000 });
     }
-    // 班级数据 0 时不报错也算通过
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);
   });
 
-  test('用户管理抽屉 · 重置密码按钮可见', async ({ page }) => {
+  test('用户管理抽屉 · 重置密码按钮可见', async ({ loggedInPage: page }) => {
     const errors = attachConsoleAssert(page);
     await page.goto('/app/admin/users');
     await page.waitForLoadState('networkidle');
-    // 点第一行用户
     const firstRow = page.locator('tbody tr, [role="row"]').first();
     if (await firstRow.count() > 0) {
       await firstRow.click();
-      // 抽屉应包含「重置密码」按钮
       await expect(page.getByRole('button', { name: /重置密码/ })).toBeVisible({ timeout: 5_000 });
     }
     expect(errors, 'console errors:\n' + errors.join('\n')).toEqual([]);

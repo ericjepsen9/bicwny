@@ -109,14 +109,20 @@ https://juexue.caughtalert.com/dev/__test-report__/
 
 ## auth · 怎么登录的
 
-测试假定后端 `.env` 里有：
-```
-DEV_FAKE_USER_ID=user_admin_001
+测试需要 admin 凭证 · 写到 `juexue-v2/.env.test`（已 gitignored · 不会提交）：
+
+```bash
+cd /home/ubuntu/projects/juexue/juexue-v2
+cat > .env.test <<EOF
+TEST_ADMIN_EMAIL=你的admin邮箱
+TEST_ADMIN_PASSWORD=你的admin密码
+EOF
+chmod 600 .env.test
 ```
 
-后端无 token 的请求会自动绑定到该用户。如果你这条没设置 / 或 ID 是 student 角色 · 大部分测试会因为 admin 守卫拒绝而失败。
+测试启动时会自动调 `/api/auth/login` 拿真 access token · 写到浏览器 localStorage 模拟登录态。
 
-**确认你 .env 这一行存在 + 是 admin 角色用户的 id**。
+**注意**：不要把这个文件提交到 git · `.gitignore` 已忽略。
 
 ---
 
