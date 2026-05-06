@@ -25,7 +25,7 @@ import {
 } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
-const SIMPLE_TYPES: QuestionType[] = ['single', 'multi', 'fill', 'sort', 'open'];
+const SIMPLE_TYPES: QuestionType[] = ['single', 'multi', 'fill', 'sort', 'open', 'match', 'flip'];
 
 // ── 课时行下的副行 ──────────────────────────────────────────
 export function LessonQuestionsSlot({ courseId, chapterId, lessonId }: {
@@ -328,7 +328,7 @@ function QuestionEditForm({
               {s('题型', '題型', 'Type')}
             </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {(['single', 'multi', 'fill', 'sort', 'open'] as QuestionType[]).map((t) => (
+              {(['single', 'multi', 'fill', 'sort', 'open', 'match', 'flip'] as QuestionType[]).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -433,6 +433,8 @@ function typeLabel(t: QuestionType, s: (sc: string, tc: string, en: string) => s
     case 'fill':   return s('填空', '填空', 'Fill');
     case 'sort':   return s('排序', '排序', 'Sort');
     case 'open':   return s('问答', '問答', 'Open');
+    case 'match':  return s('配对', '配對', 'Match');
+    case 'flip':   return s('速记卡', '速記卡', 'Flip');
     default: return t;
   }
 }
@@ -449,9 +451,51 @@ function PayloadEditor({ type, value, onChange }: { type: QuestionType; value: R
       return <SortEditor value={value} onChange={onChange} />;
     case 'open':
       return <OpenEditor value={value} onChange={onChange} />;
+    case 'match':
+      return <MatchEditor value={value} onChange={onChange} />;
+    case 'flip':
+      return <FlipEditor value={value} onChange={onChange} />;
     default:
       return null;
   }
+}
+
+function MatchEditor({ value, onChange }: { value: Record<string, unknown>; onChange: (v: Record<string, unknown>) => void }) {
+  const { s } = useLang();
+  const pairsText = (value.pairsText as string) ?? '';
+  return (
+    <div>
+      <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+        {s('配对项（每行一对 · 用 = 分隔 · 至少 2 对）', '配對項', 'Pairs (one per line · A = B · ≥2)')}
+      </label>
+      <textarea
+        value={pairsText}
+        onChange={(e) => onChange({ pairsText: e.target.value })}
+        rows={5}
+        placeholder={s('菩提心 = 觉悟之心\n空性 = 缘起之理\n慈悲 = 利他之愿', '菩提心 = 覺悟之心', 'A1 = B1\nA2 = B2')}
+        style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink)', resize: 'vertical', minHeight: 100, boxSizing: 'border-box', fontFamily: 'var(--font-mono, monospace)' }}
+      />
+    </div>
+  );
+}
+
+function FlipEditor({ value, onChange }: { value: Record<string, unknown>; onChange: (v: Record<string, unknown>) => void }) {
+  const { s } = useLang();
+  const front = (value.front as string) ?? '';
+  const frontSub = (value.frontSub as string) ?? '';
+  const back = (value.back as string) ?? '';
+  const backExample = (value.backExample as string) ?? '';
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginBottom: 4 }}>
+        {s('速记卡 · 不计分 · 用于背诵 / 复习', '速記卡', 'Flashcard (no scoring · for review)')}
+      </p>
+      <Field label={s('正面（必填）', '正面', 'Front')} value={front} onChange={(v) => onChange({ ...value, front: v })} maxLength={200} />
+      <Field label={s('正面副文（可选）', '正面副文', 'Front sub (opt)')} value={frontSub} onChange={(v) => onChange({ ...value, frontSub: v })} maxLength={200} />
+      <Field label={s('反面（必填 · 答案）', '反面', 'Back (answer)')} value={back} onChange={(v) => onChange({ ...value, back: v })} maxLength={500} />
+      <Field label={s('反面例句（可选）', '反面例句', 'Back example (opt)')} value={backExample} onChange={(v) => onChange({ ...value, backExample: v })} maxLength={500} />
+    </div>
+  );
 }
 
 function ChoiceEditor({ multi, value, onChange }: { multi: boolean; value: Record<string, unknown>; onChange: (v: Record<string, unknown>) => void }) {
@@ -637,6 +681,10 @@ function emptyPayload(t: QuestionType): Record<string, unknown> {
       return { itemsText: '' };
     case 'open':
       return { referenceAnswer: '', keyPoints: [{ point: '', signals: '' }], minLength: 80, maxLength: 400 };
+    case 'match':
+      return { pairsText: '' };
+    case 'flip':
+      return { front: '', frontSub: '', back: '', backExample: '' };
     default:
       return {};
   }
@@ -665,6 +713,12 @@ function validatePayload(t: QuestionType, p: Record<string, unknown>): boolean {
       const kps = (p.keyPoints as { point: string }[]) ?? [];
       return (p.referenceAnswer as string).trim().length >= 10 && kps.filter((k) => k.point.trim()).length >= 1;
     }
+    case 'match': {
+      const lines = ((p.pairsText as string) ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+      return lines.length >= 2 && lines.every((l) => l.includes('='));
+    }
+    case 'flip':
+      return (p.front as string).trim().length > 0 && (p.back as string).trim().length > 0;
     default:
       return false;
   }
@@ -707,6 +761,25 @@ function normalizePayload(t: QuestionType, p: Record<string, unknown>): Record<s
         minLength: p.minLength,
         maxLength: p.maxLength,
       };
+    case 'match': {
+      const lines = ((p.pairsText as string) ?? '').split('\n').map((l) => l.trim()).filter((l) => l && l.includes('='));
+      const left: { id: string; text: string }[] = [];
+      const right: { id: string; text: string; match: string }[] = [];
+      lines.forEach((line, i) => {
+        const [l, r] = line.split('=').map((x) => x.trim());
+        const id = 'p' + (i + 1);
+        left.push({ id, text: l ?? '' });
+        right.push({ id: 'r' + (i + 1), text: r ?? '', match: id });
+      });
+      return { left, right };
+    }
+    case 'flip': {
+      const front: { text: string; subText?: string } = { text: (p.front as string).trim() };
+      if ((p.frontSub as string).trim()) front.subText = (p.frontSub as string).trim();
+      const back: { text: string; example?: string } = { text: (p.back as string).trim() };
+      if ((p.backExample as string).trim()) back.example = (p.backExample as string).trim();
+      return { front, back, noScoring: true };
+    }
     default:
       return p;
   }
