@@ -11,8 +11,12 @@ import { defineConfig } from 'vite';
 //   .env.native.local 内 VITE_API_BASE=https://juexue.app
 export default defineConfig(({ mode }) => {
   const isNative = mode === 'native';
+  // dev 通过反向代理（nginx /dev/）访问时 · base 必须是 /dev/app/
+  // 因为 vite 生成的资源 URL 用 base 作绝对路径前缀
+  // 命令行：VITE_DEV_BASE=/dev/app/ npm run dev -- --host 0.0.0.0 --port 5173
+  const devBase = process.env.VITE_DEV_BASE;
   return {
-    base: isNative ? '/' : '/app/',
+    base: isNative ? '/' : (devBase || '/app/'),
     plugins: [react()],
     resolve: {
       alias: {
