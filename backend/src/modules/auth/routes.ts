@@ -84,6 +84,8 @@ const updateMeBody = z
     // IANA 时区名或 zh-Hans/zh-Hant 这类 BCP-47 取值；长度上限保守给到 64
     timezone: z.string().min(1).max(64).optional(),
     locale: z.string().min(2).max(16).optional(),
+    // 是否对班级可见观修排行（默认 true · 可关闭）
+    meditationVisibleToClass: z.boolean().optional(),
   })
   .refine((p) => Object.keys(p).length > 0, { message: 'patch 不能为空' });
 

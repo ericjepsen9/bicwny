@@ -127,6 +127,7 @@ export interface UpdateMeInput {
   avatar?: string | null;
   timezone?: string;
   locale?: string;
+  meditationVisibleToClass?: boolean;
 }
 
 export async function updateMe(
@@ -138,6 +139,7 @@ export async function updateMe(
   if (patch.avatar !== undefined)     data.avatar     = patch.avatar || null;
   if (patch.timezone !== undefined)   data.timezone   = patch.timezone;
   if (patch.locale !== undefined)     data.locale     = patch.locale;
+  if (patch.meditationVisibleToClass !== undefined) data.meditationVisibleToClass = patch.meditationVisibleToClass;
   if (Object.keys(data).length === 0) {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     return stripPassword(user);
