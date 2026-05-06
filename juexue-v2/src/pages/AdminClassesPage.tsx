@@ -556,6 +556,18 @@ function MemberRow({ m, classId, top }: { m: { id: string; role: 'coach' | 'stud
     onError: (e) => toast.error((e as ApiError).message),
   });
 
+  const swapRole = useMutation({
+    mutationFn: (newRole: 'coach' | 'student') => api.patch(
+      `/api/admin/classes/${encodeURIComponent(classId)}/members/${encodeURIComponent(m.user.id)}/role`,
+      { role: newRole },
+    ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/admin/classes', classId, 'members'] });
+      toast.ok(s('角色已更新', '角色已更新', 'Role updated'));
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)', borderTop: top ? 'none' : '1px solid var(--border-light)' }}>
       <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.75rem' }}>
@@ -568,6 +580,20 @@ function MemberRow({ m, classId, top }: { m: { id: string; role: 'coach' | 'stud
       <span style={{ padding: '2px 8px', borderRadius: 'var(--r-pill)', background: m.role === 'coach' ? 'var(--gold-pale)' : 'var(--saffron-pale)', color: m.role === 'coach' ? 'var(--gold-dark)' : 'var(--saffron-dark)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1 }}>
         {m.role}
       </span>
+      <button
+        type="button"
+        onClick={async () => {
+          const next = m.role === 'coach' ? 'student' : 'coach';
+          if (!(await confirmAsync({ title: s(`切到 ${next}？`, `切到 ${next}？`, `Switch to ${next}?`) }))) return;
+          swapRole.mutate(next);
+        }}
+        disabled={swapRole.isPending}
+        title={s('切换角色（coach ↔ student）', '切換角色', 'Switch role')}
+        aria-label={s('切换角色', '切換角色', 'Switch role')}
+        style={{ background: 'transparent', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', padding: 4, font: 'var(--text-caption)' }}
+      >
+        ⇄
+      </button>
       <button
         type="button"
         onClick={async () => { (await confirmAsync({ title: s('移除该成员？', '移除該成員？', 'Remove?') })) && kick.mutate(); }}

@@ -5,7 +5,7 @@
 // 学员自助 join/leave（student 路由）不传 actorAdminId 则不污染 admin 审计。
 import { randomBytes } from 'node:crypto';
 import { type Class, type ClassMember, type ClassMemberRole, Prisma } from '@prisma/client';
-import { Forbidden, Internal, NotFound } from '../../lib/errors.js';
+import { Conflict, Forbidden, Internal, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 
 // 班级列表 / 详情 / 写操作返回时统一带的 course 选段
@@ -187,6 +187,60 @@ export async function addMember(
       });
     }
     return member;
+  });
+}
+
+/**
+ * 切换班级成员角色（coach ↔ student）· admin only
+ *  - 已退班 / 已禁用账户 → 不能改
+ *  - 必须保留至少 1 个 coach（防班级成 0 coach 无人辅导）
+ */
+export async function setMemberRole(
+  classId: string,
+  userId: string,
+  role: ClassMemberRole,
+  opts: { actorAdminId?: string } = {},
+): Promise<ClassMember> {
+  return prisma.$transaction(async (tx) => {
+    const before = await tx.classMember.findUnique({
+      where: { classId_userId: { classId, userId } },
+    });
+    if (!before || before.removedAt) throw NotFound('该成员不在班级中');
+    if (before.role === role) return before;
+
+    // 防：从 coach 降级 student 时 · 班里得至少留 1 个 coach
+    if (before.role === 'coach' && role === 'student') {
+      const otherCoachCount = await tx.classMember.count({
+        where: {
+          classId,
+          role: 'coach',
+          removedAt: null,
+          userId: { not: userId },
+          user: { isActive: true },
+        },
+      });
+      if (otherCoachCount === 0) {
+        throw Conflict('班级至少保留 1 名 coach · 请先添加另一位 coach 再降级');
+      }
+    }
+
+    const updated = await tx.classMember.update({
+      where: { classId_userId: { classId, userId } },
+      data: { role },
+    });
+    if (opts.actorAdminId) {
+      await tx.auditLog.create({
+        data: {
+          adminId: opts.actorAdminId,
+          action: 'class.member',
+          targetType: 'class',
+          targetId: classId,
+          before: { userId, role: before.role } as Prisma.InputJsonValue,
+          after: { userId, role } as Prisma.InputJsonValue,
+        },
+      });
+    }
+    return updated;
   });
 }
 

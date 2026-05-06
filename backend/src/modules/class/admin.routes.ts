@@ -17,6 +17,7 @@ import {
   getClass,
   listMembers,
   removeMember,
+  setMemberRole,
   updateClass,
 } from './service.js';
 
@@ -151,6 +152,24 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
       });
       reply.code(201);
       return { data: member };
+    },
+  );
+
+  // 切换成员角色（coach ↔ student）· 不删除成员
+  app.patch(
+    '/api/admin/classes/:id/members/:userId/role',
+    {
+      preHandler: adminGuard,
+      schema: { tags: TAGS, summary: '切换成员角色（防降级到 0 coach）', security: SEC },
+    },
+    async (req) => {
+      const pp = memberParams.safeParse(req.params);
+      if (!pp.success) throw BadRequest('路径参数不合法');
+      const pb = z.object({ role: z.enum(['coach', 'student']) }).safeParse(req.body);
+      if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
+      const adminId = requireUserId(req);
+      const m = await setMemberRole(pp.data.id, pp.data.userId, pb.data.role, { actorAdminId: adminId });
+      return { data: m };
     },
   );
 
