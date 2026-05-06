@@ -31,7 +31,7 @@ export default function MistakesPage() {
   const [filter, setFilter] = useState<MistakeFilter>('all');
   const [practiceLimit, setPracticeLimit] = useState<PracticeLimit>(10);
 
-  const all = data ?? [];
+  const all = useMemo(() => data ?? [], [data]);
   const todayCount = useMemo(() => all.filter((m) => isToday(m.lastWrongAt)).length, [all]);
   const filtered = useMemo(() => filter === 'today' ? all.filter((m) => isToday(m.lastWrongAt)) : all, [all, filter]);
 

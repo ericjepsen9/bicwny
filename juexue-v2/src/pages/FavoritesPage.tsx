@@ -20,7 +20,7 @@ export default function FavoritesPage() {
   const qc = useQueryClient();
   const [courseId, setCourseId] = useState<string>('');
 
-  const all = data ?? [];
+  const all = useMemo(() => data ?? [], [data]);
   const filtered = useMemo(() => {
     if (!courseId) return all;
     return all.filter((f) => f.question?.courseId === courseId);

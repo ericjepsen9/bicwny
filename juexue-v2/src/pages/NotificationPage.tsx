@@ -50,7 +50,7 @@ export default function NotificationPage() {
     onError: (e) => toast.error((e as ApiError).message),
   });
 
-  const data = list.data ?? [];
+  const data = useMemo(() => list.data ?? [], [list.data]);
   const hasUnread = data.some((n) => !n.read);
 
   const filtered = useMemo(() => {

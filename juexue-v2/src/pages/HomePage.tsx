@@ -82,7 +82,10 @@ export default function HomePage() {
   // 拉法本详情（章节树）· 用来算 totalLessons + 找 currentLesson 元数据
   // 首页只看 TOC 和进度 · 不显示原文 · 用 lite 省几 MB payload
   const currentCourseDetail = useCourseDetail(currentCourse?.slug, { lite: true });
-  const completedSet = new Set(firstEnrollment?.lessonsCompleted ?? []);
+  const completedSet = useMemo(
+    () => new Set(firstEnrollment?.lessonsCompleted ?? []),
+    [firstEnrollment?.lessonsCompleted],
+  );
   const completedCount = firstEnrollment?.lessonsCompleted.length ?? 0;
   const totalLessons = (currentCourseDetail.data?.chapters ?? []).reduce(
     (sum, ch) => sum + (ch.lessons?.length ?? 0),
@@ -478,6 +481,7 @@ export default function HomePage() {
             </>
           ) : (
             <div style={{ textAlign: 'center', padding: 'var(--sp-5)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: 'var(--sp-2)' }}>📚</div>
               <p style={{ color: 'var(--ink-3)', font: 'var(--text-caption)', marginBottom: 8 }}>
                 {s('尚未选修法本', '尚未選修法本', 'No enrollment yet')}
               </p>
