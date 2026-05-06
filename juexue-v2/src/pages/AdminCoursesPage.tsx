@@ -303,7 +303,7 @@ function CoverEditor({ courseId, url, emoji }: { courseId: string; url: string |
       return api.post(`/api/admin/courses/${encodeURIComponent(courseId)}/cover`, fd);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['/api/admin/courses', courseId] });
+      // ['/api/admin/courses'] 按 prefix 匹配 · 已覆盖所有 detail · 不需要再单独 invalidate
       qc.invalidateQueries({ queryKey: ['/api/admin/courses'] });
       qc.invalidateQueries({ queryKey: ['/api/courses'] });
       toast.ok(s('封面已上传', '封面已上傳', 'Uploaded'));
@@ -314,7 +314,6 @@ function CoverEditor({ courseId, url, emoji }: { courseId: string; url: string |
   const remove = useMutation({
     mutationFn: () => api.del(`/api/admin/courses/${encodeURIComponent(courseId)}/cover`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['/api/admin/courses', courseId] });
       qc.invalidateQueries({ queryKey: ['/api/admin/courses'] });
       qc.invalidateQueries({ queryKey: ['/api/courses'] });
       toast.ok(s('封面已移除', '封面已移除', 'Removed'));
@@ -395,7 +394,6 @@ function AddChapterButton({ courseId, nextOrder }: { courseId: string; nextOrder
         <ChapterForm
           submit={(body) => api.post(`/api/admin/courses/${encodeURIComponent(courseId)}/chapters`, body)}
           initial={{ title: '', titleTraditional: '', order: nextOrder }}
-          courseId={courseId}
           onDone={() => setOpen(false)}
         />
       </Dialog>
@@ -488,7 +486,6 @@ function ChapterCard({ ch, courseId }: { ch: AdminChapter; courseId: string }) {
         <ChapterForm
           submit={(body) => api.patch(`/api/admin/chapters/${encodeURIComponent(ch.id)}`, body)}
           initial={{ title: ch.title, titleTraditional: ch.titleTraditional ?? '', order: ch.order }}
-          courseId={null}
           onDone={() => setEditOpen(false)}
         />
       </Dialog>
@@ -653,10 +650,9 @@ function LessonRow({ l, courseId, chapterId }: { l: AdminLesson; courseId: strin
 
 // ── 共用 Chapter form
 type ChapterBody = { title: string; titleTraditional: string | null; order: number; [k: string]: unknown };
-function ChapterForm({ submit, initial, courseId, onDone }: {
+function ChapterForm({ submit, initial, onDone }: {
   submit: (body: ChapterBody) => Promise<unknown>;
   initial: { title: string; titleTraditional: string; order: number };
-  courseId: string | null;
   onDone: () => void;
 }) {
   const { s } = useLang();
@@ -680,8 +676,8 @@ function ChapterForm({ submit, initial, courseId, onDone }: {
       order,
     }),
     onSuccess: () => {
+      // prefix 匹配已覆盖 [..., courseId] · 不要重复 invalidate（会取消上一个 refetch）
       qc.invalidateQueries({ queryKey: ['/api/admin/courses'] });
-      if (courseId) qc.invalidateQueries({ queryKey: ['/api/admin/courses', courseId] });
       toast.ok(s('已保存', '已保存', 'Saved'));
       onDone();
     },
