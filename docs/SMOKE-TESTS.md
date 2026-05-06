@@ -41,8 +41,20 @@ EOF
 ```bash
 cd /home/ubuntu/projects/juexue/juexue-v2
 
-# 完整流程：拉新代码 + 跑测试
+# 完整流程：拉新代码 + 跑测试（不含 visual · 默认）
 npm run verify
+
+# 仅跑 smoke + 交互（52 tests · 不含 visual）
+npm run test:smoke
+
+# 仅跑 visual 回归（5 tests · 与 baseline 比对）
+npm run test:visual
+
+# 视觉变化预期 / 首次设置 baseline · 更新 snapshot
+npm run test:visual:update
+
+# 全跑（含 visual · 57 tests）
+npm run test:all
 ```
 
 **预期输出**：
@@ -80,17 +92,33 @@ https://juexue.caughtalert.com/dev/__test-report__/
 
 ## 测试覆盖范围
 
-当前 smoke 测试覆盖：
-1. 首页路由
-2. Admin 法本管理页
-3. Admin 用户管理页 · total 显示
-4. Admin 班级管理页 · 过滤按钮
-5. Admin 观修管理页
-6. Admin 总览 dashboard
-7. Admin 题目审核页
-8. 学员法本目录页
-9. 班级详情抽屉 · 编辑按钮（P2.2 验证）
-10. 用户管理抽屉 · 重置密码按钮（P2.3 验证）
+按文件划分（共 57 tests · 6 spec 文件）：
+
+**`smoke.spec.ts`** · 10 个核心 admin smoke
+- 首页 · admin 总览 / 法本 / 用户 / 班级 / 观修 / 题目审核 · 学员法本目录
+- 班级抽屉编辑按钮 · 用户抽屉重置密码
+
+**`student.spec.ts`** · 19 个学员端静态路由
+- HomePage / CoursesPage / QuizCenterPage / ProfilePage / ScriptureDetailPage
+- QuizPage(practice) / MistakesPage / FavoritesPage / Sm2ReviewPage
+- NotificationPage / AchievementPage / SettingsPage / DevicesPage
+- AboutPage / JoinClassPage / ProfileEditPage / HelpPage / TermsPage / PrivacyPage
+
+**`student-flow.spec.ts`** · 6 个学员端动态 ID 路由
+- /class/:id · /class/:id/meditations · /meditation/:id
+- /read/:slug/:lessonId · /quiz/:lessonId · /mistake/:questionId
+- 先调 API 拿真实 ID · 没数据 test.skip
+
+**`admin-coach.spec.ts`** · 11 个 admin/coach 补全
+- Admin: LLM / Reports / Audit / Logs
+- Coach: Dashboard / Students / Questions / QuestionNew / QuestionImport / QuestionGenerate / Courses
+
+**`interaction.spec.ts`** · 6 个交互流（仅 UI 状态机 · 不写入数据）
+- 新建法本 dialog 开/关 · 法本编辑器进入 · 用户抽屉打开
+- 班级过滤切换 · 观修编辑器进入 · 法本目录 → 详情 navigation
+
+**`visual.spec.ts`** · 5 个视觉回归（默认不跑 · `npm run test:visual` 显式触发）
+- HomePage / AdminCoursesPage / AdminClassesPage / AdminUsersPage / ProfilePage
 
 **所有测试都做的事**：
 - 加载页面
