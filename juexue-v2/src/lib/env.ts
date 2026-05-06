@@ -22,9 +22,16 @@ export const platform = (): 'ios' | 'android' | 'web' => {
 /**
  * Router basename：
  *   - 原生壳：根 '/'（IPA/APK bundle 内只有一个 SPA）
- *   - Web：'/app'（与 nginx try_files 对齐）
+ *   - Web：从 vite base 推导（'/app/' 或 dev 反代时 '/dev/app/'）
+ *     · 末尾斜杠剥掉 · BrowserRouter 期望不带尾随斜杠
+ *     · import.meta.env.BASE_URL 是 vite 构建时注入 · 反映 vite.config.ts 的 base
  */
-export const ROUTER_BASENAME = isNative() ? '/' : '/app';
+function deriveBasename(): string {
+  if (isNative()) return '/';
+  const baseUrl = import.meta.env.BASE_URL || '/app/';
+  return baseUrl.replace(/\/+$/, '') || '/';
+}
+export const ROUTER_BASENAME = deriveBasename();
 
 /**
  * API base URL：
