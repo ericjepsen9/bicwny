@@ -23,6 +23,14 @@ export async function getLessonMeditation(lessonId: string): Promise<Meditation 
   });
 }
 
+/** 法本下所有已发布观修（目录页批量用） */
+export async function getCourseMeditations(courseId: string): Promise<Meditation[]> {
+  return prisma.meditation.findMany({
+    where: { courseId, isPublished: true, archivedAt: null },
+    orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+}
+
 /** 观修详情 + 该用户的最新 session（如有）· 用于播放页 boot */
 export interface MeditationDetailResp {
   meditation: Meditation;

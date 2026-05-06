@@ -23,7 +23,7 @@ import { api, ApiError } from '@/lib/api';
 import { notification } from '@/lib/haptics';
 import { useLang } from '@/lib/i18n';
 import { setMainCourseId, useMainCourseId } from '@/lib/mainCourse';
-import { useCourseDetail, useEnrollments } from '@/lib/queries';
+import { useCourseDetail, useCourseMeditations, useEnrollments } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 export default function ScriptureDetailPage() {
@@ -37,6 +37,15 @@ export default function ScriptureDetailPage() {
   // 详情页只显示 TOC + 章节 · 不渲染原文 · 用 lite 省几 MB payload
   const course = useCourseDetail(slug, { lite: true });
   const enrollments = useEnrollments();
+  // 该法本下所有已发布观修 · 用于课时行展示 🧘 入口
+  const meditations = useCourseMeditations(course.data?.id ?? null);
+  const meditationByLesson = useMemo(() => {
+    const m = new Map<string, { id: string; title: string; videoDurationSec: number }>();
+    (meditations.data ?? []).forEach((med) => {
+      if (med.lessonId) m.set(med.lessonId, { id: med.id, title: med.title, videoDurationSec: med.videoDurationSec });
+    });
+    return m;
+  }, [meditations.data]);
 
   const enrollment = useMemo(
     () => (enrollments.data ?? []).find((e) => e.courseId === course.data?.id),
@@ -537,58 +546,101 @@ export default function ScriptureDetailPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 'var(--sp-3)' }}>
                   {lessons.map((l) => {
                     const done = completedSet.has(l.id);
+                    const lessonMed = meditationByLesson.get(l.id);
+                    const mainHref = mode === 'quiz'
+                      ? `/quiz/${l.id}?courseId=${c.id}&slug=${encodeURIComponent(c.slug)}&from=detail`
+                      : `/read/${c.slug}/${l.id}`;
                     return (
-                      <Link
+                      <div
                         key={l.id}
-                        to={
-                          mode === 'quiz'
-                            ? `/quiz/${l.id}?courseId=${c.id}&slug=${encodeURIComponent(c.slug)}&from=detail`
-                            : `/read/${c.slug}/${l.id}`
-                        }
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: 'var(--sp-3)',
+                          gap: 'var(--sp-2)',
                           padding: '10px 12px',
                           borderRadius: 'var(--r-sm)',
-                          textDecoration: 'none',
-                          color: 'inherit',
                           background: done ? 'var(--sage-light)' : 'var(--glass)',
                           border: '1px solid ' + (done ? 'var(--sage)' : 'var(--glass-border)'),
-                          cursor: 'pointer',
                         }}
                       >
-                        <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontWeight: 700, minWidth: 24 }}>
-                          {l.order}
-                        </span>
-                        <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)' }}>
-                          {l.title}
-                        </span>
-                        {done ? (
-                          <span style={{ fontSize: 14, color: 'var(--sage-dark)', fontWeight: 700 }}>✓ {s('已学', '已學', 'Done')}</span>
-                        ) : (
-                          <span
+                        <Link
+                          to={mainHref}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 'var(--sp-3)',
+                            textDecoration: 'none',
+                            color: 'inherit',
+                            minWidth: 0,
+                          }}
+                        >
+                          <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontWeight: 700, minWidth: 24 }}>
+                            {l.order}
+                          </span>
+                          <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {l.title}
+                          </span>
+                          {done ? (
+                            <span style={{ fontSize: 14, color: 'var(--sage-dark)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                              ✓ {s('已学', '已學', 'Done')}
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                padding: '5px 12px',
+                                borderRadius: 'var(--r-lg)',
+                                background: 'var(--saffron-pale)',
+                                color: 'var(--saffron-dark)',
+                                border: '1px solid var(--saffron-light)',
+                                font: 'var(--text-caption)',
+                                fontWeight: 700,
+                                letterSpacing: 1,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {mode === 'quiz' ? s('答题', '答題', 'Quiz') : s('阅读', '閱讀', 'Read')}
+                              <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" viewBox="0 0 24 24">
+                                <polyline points="9 6 15 12 9 18" />
+                              </svg>
+                            </span>
+                          )}
+                        </Link>
+
+                        {/* 🧘 观修副入口（如该课时有发布观修） */}
+                        {lessonMed && (
+                          <Link
+                            to={`/meditation/${lessonMed.id}`}
+                            aria-label={s('进入观修', '進入觀修', 'Meditation')}
+                            title={lessonMed.title}
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 4,
-                              padding: '5px 12px',
+                              padding: '5px 10px',
                               borderRadius: 'var(--r-lg)',
-                              background: 'var(--saffron-pale)',
-                              color: 'var(--saffron-dark)',
-                              border: '1px solid var(--saffron-light)',
+                              background: 'var(--saffron)',
+                              color: '#fff',
+                              border: '1px solid var(--saffron-dark)',
                               font: 'var(--text-caption)',
                               fontWeight: 700,
                               letterSpacing: 1,
+                              textDecoration: 'none',
+                              whiteSpace: 'nowrap',
                             }}
                           >
-                            {s('阅读', '閱讀', 'Read')}
-                            <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" viewBox="0 0 24 24">
-                              <polyline points="9 6 15 12 9 18" />
-                            </svg>
-                          </span>
+                            🧘
+                            {lessonMed.videoDurationSec > 0 && (
+                              <span style={{ fontSize: 11, opacity: 0.9 }}>
+                                {Math.floor(lessonMed.videoDurationSec / 60)}m
+                              </span>
+                            )}
+                          </Link>
                         )}
-                      </Link>
+                      </div>
                     );
                   })}
                 </div>

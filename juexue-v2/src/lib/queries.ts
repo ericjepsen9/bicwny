@@ -1102,3 +1102,12 @@ export function useMeditationDetail(meditationId: string | null | undefined) {
     queryFn: ({ signal }) => api.get<MeditationDetailResp>(`/api/meditations/${encodeURIComponent(meditationId!)}`, { signal }),
   });
 }
+
+/** 法本下所有已发布观修（目录页批量用） · key: lessonId → meditation */
+export function useCourseMeditations(courseId: string | null | undefined) {
+  return useQuery({
+    enabled: !!courseId,
+    queryKey: ['/api/courses', courseId, 'meditations'],
+    queryFn: ({ signal }) => api.get<StudentMeditation[]>(`/api/courses/${encodeURIComponent(courseId!)}/meditations`, { signal }),
+  });
+}

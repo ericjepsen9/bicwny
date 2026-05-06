@@ -1,6 +1,7 @@
 // 观修学员 routes
 //
 //   GET  /api/lessons/:id/meditation                         本课观修（如有）
+//   GET  /api/courses/:id/meditations                        法本所有观修（目录页批量用）
 //   GET  /api/meditations/:id                                观修详情 + 我的进度
 //   POST /api/meditations/:id/sessions                       开始 session
 //   PATCH /api/meditations/:id/sessions/:sid                 上报进度（每 10s）
@@ -11,6 +12,7 @@ import { z } from 'zod';
 import { requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import {
+  getCourseMeditations,
   getLessonMeditation,
   getMeditationDetail,
   manualComplete,
@@ -40,6 +42,17 @@ export const studentMeditationRoutes: FastifyPluginAsync = async (app) => {
     if (!pp.success) throw BadRequest('参数不合法');
     requireUserId(req);
     const data = await getLessonMeditation(pp.data.id);
+    return { data };
+  });
+
+  // ── GET 法本下所有观修（目录页批量用）────────────────────
+  app.get('/api/courses/:id/meditations', {
+    schema: { tags: TAGS, summary: '某法本下所有已发布观修', security: SEC },
+  }, async (req) => {
+    const pp = lessonIdParam.safeParse(req.params);
+    if (!pp.success) throw BadRequest('参数不合法');
+    requireUserId(req);
+    const data = await getCourseMeditations(pp.data.id);
     return { data };
   });
 
