@@ -122,7 +122,7 @@ export default function CourseCover({
     const base = m[1];
     return (
       <div className={className} style={containerStyle}>
-        <picture>
+        <picture style={{ display: 'block', width: '100%', height: '100%' }}>
           <source
             type="image/webp"
             srcSet={`${base}-320.webp 320w, ${base}-640.webp 640w, ${base}-1024.webp 1024w`}
@@ -133,7 +133,7 @@ export default function CourseCover({
             alt={alt ?? course.title}
             loading="lazy"
             decoding="async"
-            style={{ width: '100%', height: '100%', objectFit: fit }}
+            style={{ width: '100%', height: '100%', objectFit: fit, display: 'block' }}
           />
         </picture>
       </div>
