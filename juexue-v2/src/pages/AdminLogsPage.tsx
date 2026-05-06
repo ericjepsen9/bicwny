@@ -28,7 +28,11 @@ export default function AdminLogsPage() {
       <div className="top-bar">
         <div>
           <h1 className="page-title">{s('运行日志', '運行日誌', 'Logs')}</h1>
-          <p className="page-sub">{s('错误 · 慢请求 · 慢查询', '錯誤 · 慢請求 · 慢查詢', 'Errors · slow requests · slow queries')}</p>
+          <p className="page-sub">
+            {s('错误 · 慢请求（>1s）· 慢查询（>100ms）',
+              '錯誤 · 慢請求（>1s）· 慢查詢（>100ms）',
+              'Errors · slow requests (>1s) · slow queries (>100ms)')}
+          </p>
         </div>
       </div>
 

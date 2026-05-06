@@ -37,11 +37,13 @@ export default function AdminMeditationsPage() {
       </div>
 
       <div className="glass-card-thick" style={{ padding: 'var(--sp-3)', marginBottom: 'var(--sp-4)', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1 }}>
-        {s(
-          '💡 观修创建入口已整合到「法本管理」· 进入对应课时点「+ 添加观修」即可。本页用于浏览 / 编辑已有观修。',
-          '💡 觀修創建入口已整合到「法本管理」',
-          '💡 Creation moved to /admin/courses · expand a lesson and click "+ Add meditation". This page is for browse / edit only.',
-        )}
+        💡 {s('观修创建入口已整合到', '觀修創建入口已整合到', 'Creation moved to ')}
+        <Link to="/admin/courses" style={{ color: 'var(--saffron-dark)', textDecoration: 'underline' }}>
+          {s('法本管理', '法本管理', '/admin/courses')}
+        </Link>
+        {s(' · 进入对应课时点「+ 添加观修」即可。本页用于浏览 / 编辑已有观修。',
+          ' · 進入課時點「+ 添加觀修」',
+          ' · expand a lesson and click "+ Add meditation". This page is for browse / edit only.')}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 'var(--sp-5)' }}>

@@ -216,15 +216,18 @@ function ReviewDrawer({ q, onDone }: { q: AdminPendingQuestion; onDone: () => vo
         {rejectMode ? (
           <>
             <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-2)' }}>
-              {s('驳回理由（≥ 5 字）', '駁回理由（≥ 5 字）', 'Rejection reason (≥ 5 chars)')}
+              {s('驳回理由（≥ 5 字符）', '駁回理由（≥ 5 字符）', 'Rejection reason (≥ 5 characters)')}
             </h3>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
               required
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink)', font: 'var(--text-body)', outline: 'none', resize: 'vertical', marginBottom: 'var(--sp-3)' }}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink)', font: 'var(--text-body)', outline: 'none', resize: 'vertical', marginBottom: 6 }}
             />
+            <div style={{ font: 'var(--text-caption)', color: reason.trim().length < 5 ? 'var(--crimson)' : 'var(--ink-3)', marginBottom: 'var(--sp-3)', textAlign: 'right' }}>
+              {reason.trim().length} / 500
+            </div>
             <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
               <button type="button" onClick={() => setRejectMode(false)} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}>
                 {s('取消', '取消', 'Cancel')}

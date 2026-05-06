@@ -401,7 +401,7 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
 
 function LearningSection({ userId }: { userId: string }) {
   const { s } = useLang();
-  const { data, isLoading, isError, error } = useAdminUserLearning(userId);
+  const { data, isLoading, isError, error, refetch } = useAdminUserLearning(userId);
 
   return (
     <>
@@ -414,8 +414,16 @@ function LearningSection({ userId }: { userId: string }) {
           <Skeleton.Card />
         </div>
       ) : isError || !data ? (
-        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', color: 'var(--crimson)' }}>
-          {(error as ApiError | undefined)?.message ?? s('加载失败', '載入失敗', 'Failed')}
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', color: 'var(--crimson)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
+          <span>{(error as ApiError | undefined)?.message ?? s('加载失败', '載入失敗', 'Failed')}</span>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="btn btn-pill"
+            style={{ padding: '4px 12px', font: 'var(--text-caption)', fontWeight: 600, background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)' }}
+          >
+            {s('重试', '重試', 'Retry')}
+          </button>
         </div>
       ) : (
         <>

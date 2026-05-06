@@ -6,16 +6,33 @@ import { useLang } from '@/lib/i18n';
 import { useAdminAudit } from '@/lib/queries';
 
 const ACTION_PRESETS: { v: string; sc: string; tc: string; en: string }[] = [
-  { v: '',                sc: '全部',     tc: '全部',     en: 'All' },
-  { v: 'user.create',     sc: '新建用户', tc: '新建用戶', en: 'User · create' },
-  { v: 'user.role',       sc: '改角色',   tc: '改角色',   en: 'User · role' },
-  { v: 'user.active',     sc: '改激活',   tc: '改激活',   en: 'User · active' },
-  { v: 'class.create',    sc: '新建班级', tc: '新建班級', en: 'Class · create' },
-  { v: 'class.member',    sc: '班级成员', tc: '班級成員', en: 'Class · member' },
-  { v: 'class.archive',   sc: '归档班级', tc: '歸檔班級', en: 'Class · archive' },
-  { v: 'question.review', sc: '题目审核', tc: '題目審核', en: 'Question · review' },
-  { v: 'report.handle',   sc: '举报处理', tc: '舉報處理', en: 'Report · handle' },
+  { v: '',                       sc: '全部',         tc: '全部',         en: 'All' },
+  { v: 'user.create',            sc: '新建用户',     tc: '新建用戶',     en: 'User · create' },
+  { v: 'user.role',              sc: '改角色',       tc: '改角色',       en: 'User · role' },
+  { v: 'user.active',            sc: '改激活',       tc: '改激活',       en: 'User · active' },
+  { v: 'user.deactivate',        sc: '停用用户',     tc: '停用用戶',     en: 'User · deactivate' },
+  { v: 'user.reactivate',        sc: '启用用户',     tc: '啟用用戶',     en: 'User · reactivate' },
+  { v: 'user.reset_password',    sc: '重置密码',     tc: '重置密碼',     en: 'User · reset password' },
+  { v: 'class.create',           sc: '新建班级',     tc: '新建班級',     en: 'Class · create' },
+  { v: 'class.update',           sc: '编辑班级',     tc: '編輯班級',     en: 'Class · update' },
+  { v: 'class.member',           sc: '班级成员',     tc: '班級成員',     en: 'Class · member' },
+  { v: 'class.archive',          sc: '归档班级',     tc: '歸檔班級',     en: 'Class · archive' },
+  { v: 'course.create',          sc: '新建法本',     tc: '新建法本',     en: 'Course · create' },
+  { v: 'course.update',          sc: '编辑法本',     tc: '編輯法本',     en: 'Course · update' },
+  { v: 'course.archive',         sc: '归档法本',     tc: '歸檔法本',     en: 'Course · archive' },
+  { v: 'chapter.create',         sc: '新建章节',     tc: '新建章節',     en: 'Chapter · create' },
+  { v: 'chapter.update',         sc: '编辑章节',     tc: '編輯章節',     en: 'Chapter · update' },
+  { v: 'chapter.delete',         sc: '删除章节',     tc: '刪除章節',     en: 'Chapter · delete' },
+  { v: 'lesson.create',          sc: '新建课时',     tc: '新建課時',     en: 'Lesson · create' },
+  { v: 'lesson.update',          sc: '编辑课时',     tc: '編輯課時',     en: 'Lesson · update' },
+  { v: 'lesson.delete',          sc: '删除课时',     tc: '刪除課時',     en: 'Lesson · delete' },
+  { v: 'meditation.create',      sc: '新建观修',     tc: '新建觀修',     en: 'Meditation · create' },
+  { v: 'meditation.update',      sc: '编辑观修',     tc: '編輯觀修',     en: 'Meditation · update' },
+  { v: 'meditation.archive',     sc: '归档观修',     tc: '歸檔觀修',     en: 'Meditation · archive' },
+  { v: 'question.review',        sc: '题目审核',     tc: '題目審核',     en: 'Question · review' },
+  { v: 'report.handle',          sc: '举报处理',     tc: '舉報處理',     en: 'Report · handle' },
 ];
+
 
 export default function AdminAuditPage() {
   const { s } = useLang();
@@ -102,8 +119,14 @@ export default function AdminAuditPage() {
                   <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 110 }}>
                     {new Date(entry.createdAt).toLocaleString()}
                   </span>
-                  <span style={{ padding: '2px 8px', borderRadius: 'var(--r-pill)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1, minWidth: 110, textAlign: 'center' }}>
-                    {entry.action}
+                  <span
+                    title={entry.action}
+                    style={{ padding: '2px 8px', borderRadius: 'var(--r-pill)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1, minWidth: 110, textAlign: 'center' }}
+                  >
+                    {(() => {
+                      const preset = ACTION_PRESETS.find((p) => p.v === entry.action);
+                      return preset ? s(preset.sc, preset.tc, preset.en) : entry.action;
+                    })()}
                   </span>
                   <span style={{ flex: 1, minWidth: 0, font: 'var(--text-caption)', color: 'var(--ink)' }}>
                     {entry.targetType} · <code style={{ color: 'var(--ink-3)' }}>{entry.targetId.slice(0, 12)}</code>

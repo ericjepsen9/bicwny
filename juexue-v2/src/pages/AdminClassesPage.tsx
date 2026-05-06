@@ -226,9 +226,14 @@ function CreateClassForm({ onDone }: { onDone: () => void }) {
           value={courseId}
           onChange={(e) => setCourseId(e.target.value)}
           required
-          style={{ width: '100%', padding: '12px 14px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink)', font: 'var(--text-body)', outline: 'none' }}
+          disabled={courses.isLoading}
+          style={{ width: '100%', padding: '12px 14px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink)', font: 'var(--text-body)', outline: 'none', opacity: courses.isLoading ? 0.6 : 1 }}
         >
-          <option value="">{s('— 请选 —', '— 請選 —', '— pick —')}</option>
+          <option value="">
+            {courses.isLoading
+              ? s('加载中…', '載入中…', 'Loading…')
+              : s('— 请选 —', '— 請選 —', '— pick —')}
+          </option>
           {(courses.data ?? []).map((c) => (
             <option key={c.id} value={c.id}>{c.coverEmoji} {c.title}</option>
           ))}
