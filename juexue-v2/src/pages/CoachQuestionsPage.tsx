@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import QuestionRenderer from '@/components/quiz';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
@@ -368,9 +369,12 @@ function ViewQuestion({ q, onEdit, onDeleted }: { q: CoachQuestion; onEdit: () =
         <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, marginBottom: 'var(--sp-2)' }}>
           {q.source || '—'} · {s('难度', '難度', 'Diff')} {q.difficulty}
         </div>
-        <div style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', letterSpacing: 1.2, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+        <div style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', letterSpacing: 1.2, lineHeight: 1.8, whiteSpace: 'pre-wrap', marginBottom: 'var(--sp-3)' }}>
           {q.questionText}
         </div>
+        {/* 复用学员答题组件 · confirmed=true 显示题目结构 + 正确答案高亮 */}
+        {/* fill 显示 verseLines + options · sort 显示 items · match 显示左右配对 etc */}
+        <QuestionRenderer question={q} value={null} onChange={() => {}} confirmed={true} />
       </div>
 
       {q.correctText && (
