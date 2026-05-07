@@ -4,7 +4,7 @@
 //     - chapter · 整章批量 · 串行队列 + 进度（每课时一次 POST，避免后端打爆）
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -100,13 +100,14 @@ export default function CoachQuestionGeneratePage() {
   }, [scope, chapter]);
 
   // 单次（lesson）mutation
+  // LLM 生成 thinking 模型可能 60s+ · 后端 timeout 90s · 前端给 95s 兜底
   const generate = useMutation({
     mutationFn: () => api.post<GenerateResult>('/api/coach/questions/generate', {
       courseId, chapterId, lessonId,
       passage: passage.trim(),
       type, count, difficulty,
       visibility: 'public',
-    }),
+    }, { timeoutMs: 95_000 }),
     onSuccess: (r) => {
       setLessonResult(r);
       qc.invalidateQueries({ queryKey: ['/api/coach/questions'] });
@@ -151,7 +152,7 @@ export default function CoachQuestionGeneratePage() {
           passage: (lessonObj.referenceText || '').trim(),
           type, count, difficulty,
           visibility: 'public',
-        });
+        }, { timeoutMs: 95_000 });
         totalGen += r.succeeded;
         if (r.failed > 0) totalErr += r.failed;
         setBatch((cur) => cur && cur.map((b, idx) => idx === i ? { ...b, status: 'ok', generated: r.succeeded } : b));
@@ -393,16 +394,28 @@ function LessonResult({ r, onClear, onBack }: { r: GenerateResult; onClear: () =
       </div>
 
       {r.questions.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 'var(--sp-3)' }}>
-          {r.questions.map((q, i) => (
-            <div key={q.id} style={{ display: 'flex', gap: 'var(--sp-3)', padding: '6px 10px', background: 'rgba(125,154,108,.08)', borderRadius: 'var(--r-sm)', borderLeft: '3px solid var(--sage-dark)' }}>
-              <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 28 }}>#{i + 1}</span>
-              <span style={{ flex: 1, font: 'var(--text-caption)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {q.questionText}
-              </span>
-            </div>
-          ))}
-        </div>
+        <>
+          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 'var(--sp-2)' }}>
+            {s('点「编辑」可对生成内容做二次修改 · 保存后进入待审', '點「編輯」可對生成內容做二次修改 · 儲存後進入待審', 'Click Edit to refine before review')}
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 'var(--sp-3)' }}>
+            {r.questions.map((q, i) => (
+              <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: '8px 10px', background: 'rgba(125,154,108,.08)', borderRadius: 'var(--r-sm)', borderLeft: '3px solid var(--sage-dark)' }}>
+                <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 28 }}>#{i + 1}</span>
+                <span style={{ flex: 1, font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                  {q.questionText}
+                </span>
+                <Link
+                  to={`/coach/questions?id=${encodeURIComponent(q.id)}`}
+                  className="btn btn-pill"
+                  style={{ padding: '4px 12px', font: 'var(--text-caption)', background: 'transparent', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-dark)', textDecoration: 'none', flexShrink: 0 }}
+                >
+                  {s('编辑', '編輯', 'Edit')}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {r.skipped.length > 0 && (

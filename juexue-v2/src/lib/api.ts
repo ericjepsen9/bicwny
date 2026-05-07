@@ -34,6 +34,8 @@ export interface RequestOpts {
   fresh?: boolean;
   /** 跳过自动加 Authorization · 例如 /api/auth/* 公开接口 */
   noAuth?: boolean;
+  /** 单次请求超时 ms · 默认 15s · LLM 生成等长任务可设 90000 */
+  timeoutMs?: number;
   /** 内部用：标记已重试 401 · 防 refresh 死循环 */
   _retried?: boolean;
 }
@@ -111,7 +113,7 @@ async function request<T = unknown>(
 
   // timeout · 用 AbortController 与 opts.signal 合并
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(new Error('timeout')), TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(new Error('timeout')), opts.timeoutMs ?? TIMEOUT_MS);
   if (opts.signal) {
     if (opts.signal.aborted) ctrl.abort(opts.signal.reason);
     else opts.signal.addEventListener('abort', () => ctrl.abort(opts.signal!.reason));
