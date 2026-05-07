@@ -24,11 +24,18 @@ interface GenQuestion {
   // 各题型 payload 结构不同：
   //   single/multi: options = [{text, correct}]
   //   fill: options = string[] · verseLines = string[] · correctWord = string
-  //   其他题型可能有别的字段 · 用 unknown 兜底
+  //   open: referenceAnswer = string · keyPoints = [{point}]
+  //   sort: items = [{text, order}]（order 即正确顺序）
+  //   match: left = [{id, text}] · right = [{id, text, match?}]
   payload?: {
     options?: Array<{ text: string; correct: boolean }> | string[];
     verseLines?: string[];
     correctWord?: string;
+    referenceAnswer?: string;
+    keyPoints?: Array<{ point: string }>;
+    items?: Array<{ text: string; order: number }>;
+    left?: Array<{ id: string; text: string }>;
+    right?: Array<{ id: string; text: string; match?: string }>;
     [k: string]: unknown;
   };
 }
@@ -473,6 +480,11 @@ function GenQuestionRow({ q, idx }: { q: GenQuestion; idx: number }) {
     typeof o === 'string' ? { text: o, correct: o === correctWord } : o,
   );
   const verseLines = q.payload?.verseLines ?? [];
+  const refAnswer = q.payload?.referenceAnswer;
+  const keyPoints = q.payload?.keyPoints ?? [];
+  const sortItems = q.payload?.items ?? [];
+  const matchLeft = q.payload?.left ?? [];
+  const matchRight = q.payload?.right ?? [];
 
   return (
     <div style={{ background: 'rgba(125,154,108,.08)', borderRadius: 'var(--r-sm)', borderLeft: '3px solid var(--sage-dark)' }}>
@@ -528,6 +540,72 @@ function GenQuestionRow({ q, idx }: { q: GenQuestion; idx: number }) {
                   <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, font: 'var(--text-caption)', color: opt.correct ? 'var(--sage-dark)' : 'var(--ink-3)' }}>
                     <span style={{ minWidth: 16, fontWeight: opt.correct ? 700 : 400 }}>{opt.correct ? '✓' : '·'}</span>
                     <span style={{ flex: 1, lineHeight: 1.5 }}>{opt.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* sort 题：items 按 order 排正确顺序 */}
+          {sortItems.length > 0 && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 4 }}>
+                {s('正确顺序', '正確順序', 'Correct order')}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {[...sortItems].sort((a, b) => a.order - b.order).map((it, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, font: 'var(--text-caption)', color: 'var(--ink)' }}>
+                    <span style={{ minWidth: 20, color: 'var(--gold-dark)', fontWeight: 700 }}>{j + 1}.</span>
+                    <span style={{ flex: 1, lineHeight: 1.5 }}>{it.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* match 题：左右配对 */}
+          {(matchLeft.length > 0 || matchRight.length > 0) && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 4 }}>
+                {s('配对', '配對', 'Pairs')}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {matchLeft.map((l, j) => {
+                  const r = matchRight.find((x) => x.match === l.id);
+                  return (
+                    <div key={l.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, font: 'var(--text-caption)', color: 'var(--ink)' }}>
+                      <span style={{ minWidth: 20, color: 'var(--ink-4)' }}>{j + 1}.</span>
+                      <span style={{ flex: 1, lineHeight: 1.5 }}>{l.text}</span>
+                      <span style={{ color: 'var(--ink-4)' }}>→</span>
+                      <span style={{ flex: 1, lineHeight: 1.5, color: r ? 'var(--sage-dark)' : 'var(--crimson)' }}>{r?.text ?? '?'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* open 题：参考答案 + 关键点 */}
+          {refAnswer && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 2 }}>
+                {s('参考答案', '參考答案', 'Reference')}
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                {refAnswer}
+              </div>
+            </div>
+          )}
+          {keyPoints.length > 0 && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 4 }}>
+                {s('关键点', '關鍵點', 'Key points')}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {keyPoints.map((kp, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, font: 'var(--text-caption)', color: 'var(--ink)' }}>
+                    <span style={{ minWidth: 16, color: 'var(--gold-dark)' }}>·</span>
+                    <span style={{ flex: 1, lineHeight: 1.5 }}>{kp.point}</span>
                   </div>
                 ))}
               </div>
