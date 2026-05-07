@@ -35,6 +35,10 @@ const envSchema = z
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default('claude-haiku-4-5'),
 
+  // MiniMax M2.7（Token Plan）—— 走 Anthropic 兼容 endpoint
+  // platform.minimax.io 海外版 · sk-cp- 前缀 · endpoint: api.minimax.io/anthropic
+  MINIMAX_M27_API_KEY: z.string().optional(),
+
   // LLM Gateway 阈值（DB 配置优先，env 仅兜底默认）
   LLM_YEARLY_RESERVE_PERCENT: z.coerce.number().min(0).max(100).default(5),
   LLM_FALLBACK_MONTHLY_BUDGET_USD: z.coerce.number().min(0).default(200),

@@ -3,11 +3,13 @@
 // 新增 provider 只需在此表加一行。
 import { Internal } from '../../../lib/errors.js';
 import { claudeProvider } from './claude.js';
+import { minimaxM27Provider } from './minimax-m27.js';
 import { minimaxProvider } from './minimax.js';
 import type { ChatProvider } from './types.js';
 
 export const PROVIDERS: Readonly<Record<string, ChatProvider>> = Object.freeze({
   minimax: minimaxProvider,
+  'minimax-m27': minimaxM27Provider,
   claude: claudeProvider,
 });
 
