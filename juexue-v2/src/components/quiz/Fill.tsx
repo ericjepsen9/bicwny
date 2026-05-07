@@ -1,11 +1,12 @@
 // 填空题 · 两种模式
-//   choice (默认 · 老 LLM 数据): payload { verseLines, options:[字], correctWord, verseSource }
-//     答案：{ selectedOption: number } 选 options 中的某个
-//
-//   typing (新 · payload.mode === 'typing'): payload { verseLines, correctWord, acceptableAnswers? }
-//     答案：{ value: string } 用户手动输入
+//   typing (默认 · 用户手动输入): payload { verseLines, correctWord, acceptableAnswers? }
+//     答案：{ value: string }
 //     后端 gradeFill 归一化：trim · 全角→半角 · 去标点 · lowercase
 //     可选 acceptableAnswers 接受多种合法变体（简繁 / 异写 / 简称）
+//
+//   choice (opt-in · payload.mode === 'choice'): payload { verseLines, options:[字], correctWord, verseSource }
+//     答案：{ selectedOption: number } 选 options 中的某个
+//     用于已有的「选词填空」题目 · 显式标 mode='choice' 才走此路
 //
 // verseLines 下划线规范：4 个 ____ 但 LLM 实际生成 1-N 不等 · 用 regex 兼容
 import { useEffect, useState } from 'react';
@@ -17,12 +18,13 @@ const BLANK_RE = /[_＿]{2,}|（_+）/;
 export default function Fill({ question, value, onChange, confirmed }: QuestionRendererProps) {
   const verseLines = (question.payload.verseLines as string[] | undefined) ?? [];
   const correctWord = (question.payload.correctWord as string | undefined) ?? '';
-  const mode = (question.payload.mode as string | undefined) === 'typing' ? 'typing' : 'choice';
+  // 默认 typing · 显式 'choice' 才走选词模式（向后兼容老的「选词填空」题）
+  const mode = (question.payload.mode as string | undefined) === 'choice' ? 'choice' : 'typing';
 
-  if (mode === 'typing') {
-    return <TypingFill verseLines={verseLines} correctWord={correctWord} value={value} onChange={onChange} confirmed={confirmed} />;
+  if (mode === 'choice') {
+    return <ChoiceFill question={question} verseLines={verseLines} correctWord={correctWord} value={value} onChange={onChange} confirmed={confirmed} />;
   }
-  return <ChoiceFill question={question} verseLines={verseLines} correctWord={correctWord} value={value} onChange={onChange} confirmed={confirmed} />;
+  return <TypingFill verseLines={verseLines} correctWord={correctWord} value={value} onChange={onChange} confirmed={confirmed} />;
 }
 
 // ── choice 模式 · 选词填空 ──
