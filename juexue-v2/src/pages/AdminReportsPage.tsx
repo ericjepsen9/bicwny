@@ -6,6 +6,7 @@ import Skeleton from '@/components/Skeleton';
 import QuestionRenderer from '@/components/quiz';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
+import { displayQuestionText } from '@/lib/questionText';
 import { type AdminReport, type ReportReason, useAdminReports } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
@@ -104,7 +105,7 @@ function ReportCard({ r }: { r: AdminReport }) {
             {r.question.source && <span>· {r.question.source}</span>}
           </div>
           <div style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', lineHeight: 1.7, letterSpacing: 1.2, marginBottom: 'var(--sp-3)' }}>
-            {r.question.questionText}
+            {displayQuestionText(r.question, s)}
           </div>
           {/* 复用学员答题组件 · confirmed=true 显示完整题目结构（fill verseLines / sort 顺序 / match 配对 etc） */}
           <QuestionRenderer question={r.question} value={null} onChange={() => {}} confirmed={true} />

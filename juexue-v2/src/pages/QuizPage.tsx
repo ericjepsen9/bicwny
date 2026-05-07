@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import QuestionRenderer, { canSubmit } from '@/components/quiz';
+import { displayQuestionText } from '@/lib/questionText';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import Skeleton from '@/components/Skeleton';
@@ -395,7 +396,7 @@ export default function QuizPage() {
           </span>
           <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginBottom: 'var(--sp-2)' }}>Q{qi + 1}</div>
           <div style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', lineHeight: 1.7 }}>
-            {current.questionText}
+            {displayQuestionText(current, s)}
           </div>
         </div>
 

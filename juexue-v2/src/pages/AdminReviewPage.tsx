@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import QuestionRenderer from '@/components/quiz';
 import { api, ApiError } from '@/lib/api';
+import { displayQuestionText } from '@/lib/questionText';
 import { useLang } from '@/lib/i18n';
 import { type AdminPendingQuestion, useAdminPendingQuestions, useCourses } from '@/lib/queries';
 import { relTime } from '@/lib/relTime';
@@ -189,7 +190,7 @@ function ReviewDrawer({ q, onDone }: { q: AdminPendingQuestion; onDone: () => vo
             <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, marginBottom: 'var(--sp-2)' }}>{q.source}</div>
           )}
           <div style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', letterSpacing: 1.2, lineHeight: 1.8, whiteSpace: 'pre-wrap', marginBottom: 'var(--sp-3)' }}>
-            {q.questionText}
+            {displayQuestionText(q, s)}
           </div>
           {/* 复用学员答题 UI · confirmed=true 显示题目结构 + 正确答案高亮 */}
           <QuestionRenderer question={q} value={null} onChange={() => {}} confirmed={true} />

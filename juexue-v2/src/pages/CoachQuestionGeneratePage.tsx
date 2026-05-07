@@ -9,6 +9,7 @@ import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
+import { displayQuestionText } from '@/lib/questionText';
 import { type QuestionType, useCourseDetail, useCourses } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
@@ -515,7 +516,7 @@ function GenQuestionRow({ q, idx }: { q: GenQuestion; idx: number }) {
           flex: 1, font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.5,
           ...(open ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }),
         }}>
-          {q.questionText}
+          {open ? displayQuestionText(q, s) : q.questionText}
         </span>
         <Link
           to={`/coach/questions?id=${encodeURIComponent(q.id)}`}

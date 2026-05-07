@@ -17,6 +17,7 @@ import Field from './Field';
 import QuestionRenderer from './quiz';
 import Skeleton from './Skeleton';
 import { confirmAsync } from './ConfirmDialog';
+import { displayQuestionText } from '@/lib/questionText';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import {
@@ -200,7 +201,7 @@ function QuestionRow({
           onClick={() => setOpen((v) => !v)}
           style={{ flex: 1, color: 'var(--ink)', font: 'var(--text-caption)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: open ? 'normal' : 'nowrap' }}
         >
-          {q.questionText}
+          {open && detail.data ? displayQuestionText(detail.data, s) : q.questionText}
         </span>
         <button
           type="button"

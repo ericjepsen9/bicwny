@@ -7,6 +7,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import QuestionRenderer from '@/components/quiz';
 import { confirmAsync } from '@/components/ConfirmDialog';
+import { displayQuestionText } from '@/lib/questionText';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import {
@@ -370,7 +371,7 @@ function ViewQuestion({ q, onEdit, onDeleted }: { q: CoachQuestion; onEdit: () =
           {q.source || '—'} · {s('难度', '難度', 'Diff')} {q.difficulty}
         </div>
         <div style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', letterSpacing: 1.2, lineHeight: 1.8, whiteSpace: 'pre-wrap', marginBottom: 'var(--sp-3)' }}>
-          {q.questionText}
+          {displayQuestionText(q, s)}
         </div>
         {/* 复用学员答题组件 · confirmed=true 显示题目结构 + 正确答案高亮 */}
         {/* fill 显示 verseLines + options · sort 显示 items · match 显示左右配对 etc */}
