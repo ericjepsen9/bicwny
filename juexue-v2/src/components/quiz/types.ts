@@ -17,7 +17,7 @@ export type AnswerValue =
   | { selectedIndexes: number[] }
   | { selectedOption: number }
   | { text: string }
-  | { items: Array<{ text: string; order: number }> }
+  | { order: number[] }    // sort 题：用户排名顺序的原 items 下标
   | { pairs: Record<string, string> }
   | { __placeholder: true }
   | null;

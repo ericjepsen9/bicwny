@@ -40,8 +40,8 @@ export function canSubmit(type: string, value: unknown): boolean {
     return typeof t === 'string' && t.trim().length >= 2;
   }
   if (type === 'sort') {
-    const items = (value as { items?: unknown }).items;
-    return Array.isArray(items) && items.length >= 2;
+    const ord = (value as { order?: unknown }).order;
+    return Array.isArray(ord) && ord.length >= 2;
   }
   if (type === 'match') {
     const p = (value as { pairs?: Record<string, unknown> }).pairs;

@@ -1,13 +1,27 @@
-// 排序题 · payload { items:[{text,order}] · order 是正确顺序 }
-//   答题时给用户打乱后的顺序 · 用户用 ↑↓ 调位置
-//   答案：{ items: [{text, order}] } · 用户提交时的当前顺序
-import { useEffect, useState } from 'react';
+// 排序题 · payload { items:[{text,order}] · order 是正确顺序 1-based }
+//
+// 交互：click-to-rank
+//   1. 用户看到打乱后的固定列表（位置不变）
+//   2. 点击未排序的项 → 自动标当前序号（已选数 + 1）
+//   3. 点击已排序的项 → 取消该序号 · 后续项序号自动减 1
+//   4. 全部排完 → 可提交
+//
+// 提交格式：{ order: number[] }
+//   order[i] = 用户认为应排第 i+1 位的原始 item 索引
+//   后端 gradeSort 用此格式评分（grading.objective.ts）
+//
+// confirmed 后渲染：
+//   - 用户排名 vs 正确排名 (从 payload.items[].order 读 · publicView 在 grade 后会
+//     把完整 payload 回填进 displayQuestion · order 字段可用)
+//   - 正确：✓ 绿色
+//   - 错误：✗ 红色 + '应排第 N 位'
+import { useEffect, useMemo, useState } from 'react';
 import type { QuestionRendererProps } from './types';
 
-interface Item { text: string; order: number }
+interface OrigItem { text: string; order?: number }
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
+function shuffleIdx(n: number): number[] {
+  const a = Array.from({ length: n }, (_, i) => i);
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [a[i], a[j]] = [a[j]!, a[i]!];
@@ -16,87 +30,158 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 export default function Sort({ question, value, onChange, confirmed }: QuestionRendererProps) {
-  const original = (question.payload.items as Item[] | undefined) ?? [];
-  const [order, setOrder] = useState<Item[]>(() => {
-    const v = (value as { items?: Item[] } | null)?.items;
-    return v && v.length === original.length ? v : shuffle(original);
-  });
+  const items = (question.payload.items as OrigItem[] | undefined) ?? [];
 
-  // 同步初始 value
+  // 打乱后的显示顺序 · 一旦生成不再变（unless items 数变）· 保存的是原 items 的下标
+  const shuffledOrigIdx = useMemo(() => shuffleIdx(items.length), [items.length]);
+
+  // ranks: shuffled 显示位置 → 用户给的排名 (1-based · 0 = 未排)
+  // value.order = 用户排名顺序的原 items 下标数组（提交给后端用的格式）
+  const initialRanks = useMemo<number[]>(() => {
+    const ord = (value as { order?: number[] } | null)?.order;
+    if (!Array.isArray(ord) || ord.length === 0) return new Array(items.length).fill(0);
+    // 反推 ranks · ord[r-1] = origIdx · 找 origIdx 在 shuffled 的位置
+    const ranks = new Array(items.length).fill(0);
+    ord.forEach((origIdx, r) => {
+      const pos = shuffledOrigIdx.indexOf(origIdx);
+      if (pos >= 0) ranks[pos] = r + 1;
+    });
+    return ranks;
+  }, [items.length, shuffledOrigIdx, value]);
+
+  const [ranks, setRanks] = useState<number[]>(initialRanks);
+
+  // ranks 改变时同步 onChange
   useEffect(() => {
-    if (!(value as { items?: Item[] } | null)?.items) {
-      onChange({ items: order });
-    }
+    // ord[r-1] = 排第 r 位的原 items 下标
+    const assigned = ranks
+      .map((rank, displayPos) => ({ rank, origIdx: shuffledOrigIdx[displayPos]! }))
+      .filter((x) => x.rank > 0)
+      .sort((a, b) => a.rank - b.rank)
+      .map((x) => x.origIdx);
+    onChange({ order: assigned });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ranks]);
 
-  function move(i: number, dir: -1 | 1) {
+  function clickItem(displayPos: number) {
     if (confirmed) return;
-    const j = i + dir;
-    if (j < 0 || j >= order.length) return;
-    const next = [...order];
-    [next[i], next[j]] = [next[j]!, next[i]!];
-    setOrder(next);
-    onChange({ items: next });
+    const cur = ranks[displayPos]!;
+    const next = [...ranks];
+    if (cur > 0) {
+      // 取消该项排名 · 后续 > cur 的项排名 -1
+      next[displayPos] = 0;
+      for (let i = 0; i < next.length; i++) {
+        if (i !== displayPos && next[i]! > cur) next[i] = next[i]! - 1;
+      }
+    } else {
+      // 新增排名 = 当前已排数 + 1
+      const used = ranks.filter((r) => r > 0).length;
+      next[displayPos] = used + 1;
+    }
+    setRanks(next);
+  }
+
+  function clearAll() {
+    if (confirmed) return;
+    setRanks(new Array(items.length).fill(0));
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-      {order.map((it, i) => {
-        const correctPos = it.order === i + 1; // 假设 order 1-based
-        const showFx = confirmed;
+      {shuffledOrigIdx.map((origIdx, displayPos) => {
+        const it = items[origIdx]!;
+        const userRank = ranks[displayPos]!;
+        const correctOrder = it.order; // confirmed 后从完整 payload 拿
+        const isCorrect = confirmed && userRank > 0 && correctOrder !== undefined && userRank === correctOrder;
+        const isWrong = confirmed && userRank > 0 && correctOrder !== undefined && userRank !== correctOrder;
+
         return (
-          <div
-            key={`${it.text}-${i}`}
-            className="glass-card"
+          <button
+            type="button"
+            key={`${it.text}-${origIdx}`}
+            onClick={() => clickItem(displayPos)}
+            disabled={confirmed}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 'var(--sp-3)',
               padding: 'var(--sp-3) var(--sp-4)',
-              background: showFx
-                ? correctPos ? 'var(--sage-light)' : 'var(--crimson-light)'
-                : 'var(--glass-thick)',
-              border: '1px solid ' + (showFx
-                ? correctPos ? 'var(--sage)' : 'var(--crimson)'
-                : 'var(--glass-border)'),
+              background: confirmed
+                ? isCorrect ? 'rgba(125,154,108,.12)' : isWrong ? 'rgba(192,57,43,.08)' : 'var(--glass-thick)'
+                : userRank > 0 ? 'var(--saffron-pale)' : 'var(--glass-thick)',
+              border: '1px solid ' + (confirmed
+                ? isCorrect ? 'var(--sage-dark)' : isWrong ? 'var(--crimson)' : 'var(--glass-border)'
+                : userRank > 0 ? 'var(--saffron-light)' : 'var(--glass-border)'),
               borderRadius: 'var(--r-lg)',
+              cursor: confirmed ? 'default' : 'pointer',
+              textAlign: 'left',
+              width: '100%',
+              transition: 'all .15s var(--ease)',
             }}
           >
-            <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink-3)', minWidth: 24 }}>
-              {i + 1}.
+            {/* 序号圈 · 未点空圆 · 点了显示数字 · 答错显示用户的数字（红） */}
+            <span
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'var(--font-serif)',
+                fontWeight: 700,
+                fontSize: '0.95rem',
+                background: userRank > 0
+                  ? (confirmed
+                      ? isCorrect ? 'var(--sage-dark)' : 'var(--crimson)'
+                      : 'var(--saffron-dark)')
+                  : 'transparent',
+                color: userRank > 0 ? '#fff' : 'var(--ink-4)',
+                border: userRank > 0 ? 'none' : '1px dashed var(--ink-4)',
+                flexShrink: 0,
+              }}
+            >
+              {userRank > 0 ? userRank : ''}
             </span>
-            <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)' }}>
+
+            <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)', lineHeight: 1.6 }}>
               {it.text}
             </span>
-            {!confirmed && (
-              <div style={{ display: 'flex', gap: 4 }}>
-                <button
-                  type="button"
-                  onClick={() => move(i, -1)}
-                  disabled={i === 0}
-                  className="btn-pill"
-                  style={{ width: 32, height: 32, padding: 0, background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: 'none', cursor: 'pointer', borderRadius: '50%' }}
-                  aria-label="上移"
-                >↑</button>
-                <button
-                  type="button"
-                  onClick={() => move(i, 1)}
-                  disabled={i === order.length - 1}
-                  className="btn-pill"
-                  style={{ width: 32, height: 32, padding: 0, background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: 'none', cursor: 'pointer', borderRadius: '50%' }}
-                  aria-label="下移"
-                >↓</button>
-              </div>
-            )}
-            {confirmed && (
-              <span style={{ fontSize: 14, color: correctPos ? 'var(--sage-dark)' : 'var(--crimson)' }}>
-                {correctPos ? '✓' : `→ ${it.order}`}
+
+            {/* confirmed 错误时显示正确顺序 */}
+            {confirmed && isWrong && correctOrder !== undefined && (
+              <span style={{ font: 'var(--text-caption)', color: 'var(--crimson)', fontWeight: 600 }}>
+                {`应排第 ${correctOrder} 位`}
               </span>
             )}
-          </div>
+            {confirmed && isCorrect && (
+              <span style={{ font: 'var(--text-caption)', color: 'var(--sage-dark)', fontWeight: 700 }}>
+                ✓
+              </span>
+            )}
+          </button>
         );
       })}
+
+      {/* 编辑模式 · 清除按钮 */}
+      {!confirmed && ranks.some((r) => r > 0) && (
+        <button
+          type="button"
+          onClick={clearAll}
+          style={{
+            alignSelf: 'flex-end',
+            padding: '6px 14px',
+            background: 'transparent',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--r-pill)',
+            color: 'var(--ink-3)',
+            font: 'var(--text-caption)',
+            cursor: 'pointer',
+          }}
+        >
+          清除排序
+        </button>
+      )}
     </div>
   );
 }
