@@ -498,22 +498,34 @@ function EditForm({ q, onCancel, onSaved }: { q: CoachQuestion; onCancel: () => 
   const [source, setSource] = useState(q.source);
   const [difficulty, setDiff] = useState(q.difficulty);
   const [tags, setTags] = useState((q.tags ?? []).join(', '));
+  // payload 用 JSON 文本编辑 · 各题型字段不同（fill 的 verseLines / sort 的 items / etc）·
+  // 用富编辑器需要每类型一个组件 · 先用 raw JSON 解锁排序题等编辑能力
+  const [payloadJson, setPayloadJson] = useState(() => JSON.stringify(q.payload ?? {}, null, 2));
   const [err, setErr] = useState('');
 
   const save = useMutation({
-    mutationFn: () => api.patch(`/api/coach/questions/${encodeURIComponent(q.id)}`, {
-      questionText: questionText.trim(),
-      correctText: correctText.trim(),
-      wrongText: wrongText.trim(),
-      source: source.trim(),
-      difficulty,
-      tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-    }),
+    mutationFn: () => {
+      let payload: unknown;
+      try {
+        payload = JSON.parse(payloadJson);
+      } catch (e) {
+        throw new Error('payload JSON 格式错误：' + (e as Error).message);
+      }
+      return api.patch(`/api/coach/questions/${encodeURIComponent(q.id)}`, {
+        questionText: questionText.trim(),
+        correctText: correctText.trim(),
+        wrongText: wrongText.trim(),
+        source: source.trim(),
+        difficulty,
+        tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+        payload,
+      });
+    },
     onSuccess: () => {
       toast.ok(s('已保存 · 待重新审核', '已儲存 · 待重新審核', 'Saved · pending review'));
       onSaved();
     },
-    onError: (e) => setErr((e as ApiError).message),
+    onError: (e) => setErr((e as Error).message),
   });
 
   const isDirty =
@@ -522,7 +534,8 @@ function EditForm({ q, onCancel, onSaved }: { q: CoachQuestion; onCancel: () => 
     wrongText !== q.wrongText ||
     source !== q.source ||
     difficulty !== q.difficulty ||
-    tags !== (q.tags ?? []).join(', ');
+    tags !== (q.tags ?? []).join(', ') ||
+    payloadJson !== JSON.stringify(q.payload ?? {}, null, 2);
 
   async function handleCancel() {
     if (isDirty) {
@@ -550,6 +563,44 @@ function EditForm({ q, onCancel, onSaved }: { q: CoachQuestion; onCancel: () => 
         <Field label={s('难度 (1-5)', '難度 (1-5)', 'Difficulty')} value={String(difficulty)} onChange={(v) => setDiff(Math.max(1, Math.min(5, Number(v) || 1)))} type="number" />
       </div>
       <Field label={s('标签（逗号分隔）', '標籤（逗號分隔）', 'Tags (comma)')} value={tags} onChange={setTags} />
+
+      {/* payload (JSON) · 编辑题型相关数据：
+            sort: { items: [{text, order:1-based}, ...] }
+            fill: { verseLines: ["..."], correctWord, options?, mode?, acceptableAnswers? }
+            single/multi: { options: [{text, correct}, ...] }
+            match: { left:[{id,text}], right:[{id,text,match}] }
+            open: { referenceAnswer, keyPoints:[{point,signals}], minLength, maxLength } */}
+      <details open={q.type !== 'single' && q.type !== 'multi'} style={{ marginTop: 'var(--sp-2)' }}>
+        <summary style={{ cursor: 'pointer', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+          {s('题型数据 (payload JSON)', '題型資料 (payload JSON)', 'Type data (payload JSON)')}
+          <span style={{ marginLeft: 8, color: 'var(--ink-4)', fontWeight: 400 }}>
+            {q.type === 'sort' && s('· items 数组顺序即正确顺序 · order 字段 1-based', '', '· items order is the correct sequence')}
+            {q.type === 'fill' && s('· verseLines 含 ____ 占位 · correctWord 是答案', '', '· verseLines with ____ · correctWord is answer')}
+            {q.type === 'match' && s('· left/right 用 match 字段配对 left.id', '', '')}
+          </span>
+        </summary>
+        <textarea
+          value={payloadJson}
+          onChange={(e) => setPayloadJson(e.target.value)}
+          rows={Math.min(20, payloadJson.split('\n').length + 1)}
+          spellCheck={false}
+          style={{
+            width: '100%',
+            marginTop: 6,
+            padding: 'var(--sp-3)',
+            borderRadius: 'var(--r)',
+            border: '1px solid var(--border)',
+            background: 'var(--bg-input)',
+            color: 'var(--ink)',
+            font: 'var(--text-caption)',
+            fontFamily: 'var(--font-mono, ui-monospace, "SF Mono", monospace)',
+            resize: 'vertical',
+            minHeight: 120,
+            boxSizing: 'border-box',
+            outline: 'none',
+          }}
+        />
+      </details>
 
       {err && <p style={{ color: 'var(--crimson)', font: 'var(--text-caption)' }}>{err}</p>}
       <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
