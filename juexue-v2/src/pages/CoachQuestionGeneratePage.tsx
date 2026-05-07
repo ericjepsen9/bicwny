@@ -21,7 +21,16 @@ interface GenQuestion {
   source: string;
   difficulty: number;
   tags: string[] | null;
-  payload?: { options?: Array<{ text: string; correct: boolean }> };
+  // 各题型 payload 结构不同：
+  //   single/multi: options = [{text, correct}]
+  //   fill: options = string[] · verseLines = string[] · correctWord = string
+  //   其他题型可能有别的字段 · 用 unknown 兜底
+  payload?: {
+    options?: Array<{ text: string; correct: boolean }> | string[];
+    verseLines?: string[];
+    correctWord?: string;
+    [k: string]: unknown;
+  };
 }
 
 interface GenerateResult {
@@ -455,7 +464,15 @@ function LessonResult({ r, onClear, onBack }: { r: GenerateResult; onClear: () =
 function GenQuestionRow({ q, idx }: { q: GenQuestion; idx: number }) {
   const { s } = useLang();
   const [open, setOpen] = useState(false);
-  const options = q.payload?.options ?? [];
+  // 各题型 options 结构不同 · 统一成 {text, correct} 渲染
+  // - single/multi: [{text, correct}] 直接用
+  // - fill: string[] · correct 字段在 correctWord（或 correctText）
+  const rawOptions = q.payload?.options ?? [];
+  const correctWord = (q.payload?.correctWord as string | undefined) ?? q.correctText;
+  const options: Array<{ text: string; correct: boolean }> = rawOptions.map((o) =>
+    typeof o === 'string' ? { text: o, correct: o === correctWord } : o,
+  );
+  const verseLines = q.payload?.verseLines ?? [];
 
   return (
     <div style={{ background: 'rgba(125,154,108,.08)', borderRadius: 'var(--r-sm)', borderLeft: '3px solid var(--sage-dark)' }}>
@@ -486,6 +503,21 @@ function GenQuestionRow({ q, idx }: { q: GenQuestion; idx: number }) {
 
       {open && (
         <div style={{ padding: '0 14px 12px 50px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {verseLines.length > 0 && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 4 }}>
+                {s('原文 / 句子', '原文 / 句子', 'Verse / sentence')}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {verseLines.map((line, j) => (
+                  <div key={j} style={{ font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.6, fontFamily: 'var(--font-serif)' }}>
+                    {line}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {options.length > 0 && (
             <div>
               <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 4 }}>
