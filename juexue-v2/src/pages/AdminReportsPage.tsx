@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Skeleton from '@/components/Skeleton';
+import QuestionRenderer from '@/components/quiz';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
-import { type ReportReason, useAdminReports } from '@/lib/queries';
+import { type AdminReport, type ReportReason, useAdminReports } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 const REASON_LABELS: Record<ReportReason | 'all', [string, string, string]> = {
@@ -68,7 +69,7 @@ export default function AdminReportsPage() {
   );
 }
 
-function ReportCard({ r }: { r: { id: string; questionId: string; reason: ReportReason; details: string | null; reportedByUserId: string; createdAt: string; question?: { id: string; questionText: string } } }) {
+function ReportCard({ r }: { r: AdminReport }) {
   const { s } = useLang();
   const qc = useQueryClient();
   const [note, setNote] = useState('');
@@ -96,12 +97,17 @@ function ReportCard({ r }: { r: { id: string; questionId: string; reason: Report
 
       {r.question && (
         <div style={{ padding: 'var(--sp-3) var(--sp-4)', borderRadius: 'var(--r)', background: 'var(--glass)', marginBottom: 'var(--sp-3)' }}>
-          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, marginBottom: 6 }}>
-            {s('被举报题目', '被舉報題目', 'Question')} <code>{r.question.id.slice(0, 8)}</code>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, marginBottom: 6 }}>
+            <span>{s('被举报题目', '被舉報題目', 'Question')}</span>
+            <code>{r.question.id.slice(0, 8)}</code>
+            <span>· {r.question.type}</span>
+            {r.question.source && <span>· {r.question.source}</span>}
           </div>
-          <div style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', lineHeight: 1.7, letterSpacing: 1.2 }}>
+          <div style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', lineHeight: 1.7, letterSpacing: 1.2, marginBottom: 'var(--sp-3)' }}>
             {r.question.questionText}
           </div>
+          {/* 复用学员答题组件 · confirmed=true 显示完整题目结构（fill verseLines / sort 顺序 / match 配对 etc） */}
+          <QuestionRenderer question={r.question} value={null} onChange={() => {}} confirmed={true} />
         </div>
       )}
 

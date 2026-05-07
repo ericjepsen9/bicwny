@@ -57,7 +57,12 @@ export interface PendingReportItem {
     id: string;
     type: string;
     questionText: string;
+    correctText: string;
+    wrongText: string;
     source: string;
+    difficulty: number;
+    tags: string[];
+    payload: unknown;
     courseId: string;
     chapterId: string;
     lessonId: string;
@@ -104,7 +109,12 @@ export async function listPendingReports(opts: ListPendingOpts = {}): Promise<Pe
           id: i.question.id,
           type: i.question.type,
           questionText: i.question.questionText,
+          correctText: i.question.correctText,
+          wrongText: i.question.wrongText,
           source: i.question.source,
+          difficulty: i.question.difficulty,
+          tags: i.question.tags,
+          payload: i.question.payload,
           courseId: i.question.courseId,
           chapterId: i.question.chapterId,
           lessonId: i.question.lessonId,

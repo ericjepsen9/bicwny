@@ -746,7 +746,21 @@ export interface AdminReport {
   details: string | null;
   reportedByUserId: string;
   createdAt: string;
-  question?: { id: string; questionText: string };
+  question?: {
+    id: string;
+    type: QuestionType;
+    questionText: string;
+    correctText: string;
+    wrongText: string;
+    source: string;
+    difficulty: number;
+    tags: string[];
+    payload: Record<string, unknown>;
+    courseId: string;
+    chapterId: string;
+    lessonId: string;
+    reviewStatus: string;
+  };
 }
 export function useAdminReports(opts?: { limit?: number; reason?: ReportReason }) {
   const q: string[] = [];

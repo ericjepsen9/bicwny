@@ -14,6 +14,8 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Dialog from './Dialog';
 import Field from './Field';
+import QuestionRenderer from './quiz';
+import Skeleton from './Skeleton';
 import { confirmAsync } from './ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
@@ -134,31 +136,16 @@ function QuestionListDialog({ open, onClose, questions, lessonId }: {
             </p>
           ) : (
             questions.map((q) => (
-              <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', padding: 'var(--sp-2) var(--sp-3)', background: 'var(--glass)', borderRadius: 'var(--r-sm)' }}>
-                <TypePill type={q.type} />
-                <ReviewPill status={q.reviewStatus} />
-                <span style={{ flex: 1, color: 'var(--ink)', font: 'var(--text-caption)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {q.questionText}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditingId(q.id)}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--saffron-dark)', cursor: 'pointer', font: 'var(--text-caption)' }}
-                >
-                  {s('编辑', '編輯', 'Edit')}
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (!(await confirmAsync({ title: s('删除此题？（如果有学员答过会失败）', '刪除此題？', 'Delete? (fails if any user answered)') }))) return;
-                    del.mutate(q.id);
-                  }}
-                  disabled={del.isPending}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)' }}
-                >
-                  {s('删除', '刪除', 'Delete')}
-                </button>
-              </div>
+              <QuestionRow
+                key={q.id}
+                q={q}
+                onEdit={() => setEditingId(q.id)}
+                onDelete={async () => {
+                  if (!(await confirmAsync({ title: s('删除此题？（如果有学员答过会失败）', '刪除此題？', 'Delete? (fails if any user answered)') }))) return;
+                  del.mutate(q.id);
+                }}
+                deleting={del.isPending}
+              />
             ))
           )}
         </div>
@@ -176,6 +163,76 @@ function QuestionListDialog({ open, onClose, questions, lessonId }: {
         />
       )}
     </>
+  );
+}
+
+// 题目列表行 · 默认折叠 · 点击展开看完整题目内容（用学员答题组件 confirmed=true 渲染）
+// detail 懒加载 · 用 useAdminQuestionDetail（首次展开才请求 · 不一次拉全所有题 payload）
+function QuestionRow({
+  q,
+  onEdit,
+  onDelete,
+  deleting,
+}: {
+  q: AdminLessonQuestion;
+  onEdit: () => void;
+  onDelete: () => void;
+  deleting: boolean;
+}) {
+  const { s } = useLang();
+  const [open, setOpen] = useState(false);
+  const detail = useAdminQuestionDetail(open ? q.id : null);
+
+  return (
+    <div style={{ background: 'var(--glass)', borderRadius: 'var(--r-sm)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', padding: 'var(--sp-2) var(--sp-3)' }}>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-label={open ? s('收起', '收起', 'Collapse') : s('展开', '展開', 'Expand')}
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', font: 'var(--text-caption)', minWidth: 14 }}
+        >
+          {open ? '▾' : '▸'}
+        </button>
+        <TypePill type={q.type} />
+        <ReviewPill status={q.reviewStatus} />
+        <span
+          onClick={() => setOpen((v) => !v)}
+          style={{ flex: 1, color: 'var(--ink)', font: 'var(--text-caption)', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: open ? 'normal' : 'nowrap' }}
+        >
+          {q.questionText}
+        </span>
+        <button
+          type="button"
+          onClick={onEdit}
+          style={{ background: 'transparent', border: 'none', color: 'var(--saffron-dark)', cursor: 'pointer', font: 'var(--text-caption)' }}
+        >
+          {s('编辑', '編輯', 'Edit')}
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={deleting}
+          style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)' }}
+        >
+          {s('删除', '刪除', 'Delete')}
+        </button>
+      </div>
+
+      {open && (
+        <div style={{ padding: 'var(--sp-2) var(--sp-3) var(--sp-3) 30px', borderTop: '1px solid var(--border-light)' }}>
+          {detail.isLoading ? (
+            <Skeleton.Card />
+          ) : detail.data ? (
+            <QuestionRenderer question={detail.data} value={null} onChange={() => {}} confirmed={true} />
+          ) : (
+            <p style={{ font: 'var(--text-caption)', color: 'var(--crimson)' }}>
+              {s('加载失败', '載入失敗', 'Load failed')}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
