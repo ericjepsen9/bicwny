@@ -34,7 +34,11 @@ export function canSubmit(type: string, value: unknown): boolean {
     const a = (value as { selectedIndexes?: unknown }).selectedIndexes;
     return Array.isArray(a) && a.length > 0;
   }
-  if (type === 'fill') return typeof (value as { selectedOption?: unknown }).selectedOption === 'number';
+  if (type === 'fill') {
+    const v = value as { selectedOption?: unknown; value?: unknown };
+    return typeof v.selectedOption === 'number'
+      || (typeof v.value === 'string' && v.value.trim().length > 0);
+  }
   if (type === 'open') {
     const t = (value as { text?: unknown }).text;
     return typeof t === 'string' && t.trim().length >= 2;

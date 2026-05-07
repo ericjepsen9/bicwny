@@ -59,17 +59,43 @@ function gradeSingle(p: P, a: unknown): GradeResult {
 // payload: { correctWord, options: string[] }
 // answer:  { value?: string } 或 { selectedOption?: number }
 function gradeFill(p: P, a: unknown): GradeResult {
-  const correct = String(p.correctWord ?? '').trim();
+  const correct = String(p.correctWord ?? '');
   const ans = (a ?? {}) as { value?: string; selectedOption?: number };
   let picked = '';
   if (typeof ans.value === 'string') {
-    picked = ans.value.trim();
+    picked = ans.value;
   } else if (typeof ans.selectedOption === 'number') {
     const opts = (p.options ?? []) as string[];
-    picked = (opts[ans.selectedOption] ?? '').trim();
+    picked = opts[ans.selectedOption] ?? '';
   }
-  const isCorrect = picked !== '' && picked === correct;
-  return { isCorrect, score: isCorrect ? 100 : 0 };
+  const correctNorm = normalizeFillAnswer(correct);
+  const pickedNorm = normalizeFillAnswer(picked);
+  // 接受多种合法答案（payload.acceptableAnswers · 兼容简繁体 / 异写 / 简称）
+  const accepts = ((p.acceptableAnswers as string[] | undefined) ?? [correct])
+    .map(normalizeFillAnswer)
+    .filter((s) => s.length > 0);
+  if (accepts.length === 0) accepts.push(correctNorm);
+  const isCorrect = pickedNorm.length > 0 && accepts.includes(pickedNorm);
+  return {
+    isCorrect,
+    score: isCorrect ? 100 : 0,
+    feedback: isCorrect ? undefined : `正确答案：${correct}`,
+  };
+}
+
+// 填空判分归一化 · 统一去差异 · 防止「无垢光尊者。」vs「无垢光尊者」误判
+//   - trim + 去全部空白（含全角空格）
+//   - 全角字母/数字 → 半角
+//   - 去常见中英标点
+//   - 小写
+// 不做：简繁体转换（含义可能不同 · 应在 acceptableAnswers 里多列变体）
+function normalizeFillAnswer(s: string): string {
+  return s
+    .trim()
+    .replace(/[\s　]+/g, '')
+    .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[，。！？、：；""''「」『』《》〈〉,.!?;:"'()<>·\-—_]/g, '')
+    .toLowerCase();
 }
 
 // ───── multi ─────

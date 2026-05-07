@@ -15,9 +15,10 @@ export interface QuestionRendererProps {
 export type AnswerValue =
   | { selectedIndex: number }
   | { selectedIndexes: number[] }
-  | { selectedOption: number }
+  | { selectedOption: number }    // fill 题 choice 模式
+  | { value: string }              // fill 题 typing 模式
   | { text: string }
-  | { order: number[] }    // sort 题：用户排名顺序的原 items 下标
+  | { order: number[] }            // sort 题：用户排名顺序的原 items 下标
   | { pairs: Record<string, string> }
   | { __placeholder: true }
   | null;
