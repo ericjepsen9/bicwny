@@ -401,6 +401,7 @@ export default function QuizPage() {
         </div>
 
         <QuestionRenderer
+          key={current.id}
           question={displayQuestion}
           value={answers[qi] ?? null}
           onChange={(v) => setAnswers((a) => ({ ...a, [qi]: v }))}
