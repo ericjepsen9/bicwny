@@ -131,9 +131,10 @@ export async function chat(
 
   // 用户/客户端可见的错误体不带 provider 名 / skipReasons —— 防泄漏基础设施配置
   // 完整 tried+skipReasons 已写到 LlmCallLog (writeLog above)，admin 后台可查
-  // 加机器可读 code 让前端区分"AI 评分暂不可用"vs"网络错"展示不同 UI
-  throw UpstreamError('AI 评分暂不可用，请稍后再试或选普通题作答', {
+  // 加机器可读 code 让前端区分 LLM 故障 vs 网络错 展示不同 UI
+  throw UpstreamError('AI 服务暂不可用，请稍后再试', {
     code: 'LLM_ALL_PROVIDERS_DOWN',
+    scenario,
     triedCount: tried.length,
   });
 }
