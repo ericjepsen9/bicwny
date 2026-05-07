@@ -31,7 +31,13 @@ export interface ChatContext {
   timeoutMs?: number;
 }
 
+// 默认 15s · 答题评分场景够用
+// thinking 模型（MiniMax-M2.7 / Claude extended thinking）输出长 · 题目生成等场景需要 60s+
+// 调用方传 ctx.timeoutMs 覆盖
 const DEFAULT_LLM_TIMEOUT_MS = 15_000;
+const LONG_TIMEOUT_SCENARIOS: Record<string, number> = {
+  question_generation: 90_000,
+};
 
 export async function chat(
   scenario: string,
@@ -70,7 +76,7 @@ export async function chat(
         temperature: ctx.temperature ?? scenarioCfg.temperature,
         maxTokens: ctx.maxTokens ?? scenarioCfg.maxTokens,
         requestId,
-        timeoutMs: ctx.timeoutMs ?? DEFAULT_LLM_TIMEOUT_MS,
+        timeoutMs: ctx.timeoutMs ?? LONG_TIMEOUT_SCENARIOS[scenario] ?? DEFAULT_LLM_TIMEOUT_MS,
       });
       const cost = computeCost(cfg, resp);
       await Promise.all([
