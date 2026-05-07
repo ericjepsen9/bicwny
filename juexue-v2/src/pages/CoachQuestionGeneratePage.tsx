@@ -12,11 +12,23 @@ import { useLang } from '@/lib/i18n';
 import { type QuestionType, useCourseDetail, useCourses } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
+interface GenQuestion {
+  id: string;
+  type: string;
+  questionText: string;
+  correctText: string;
+  wrongText: string;
+  source: string;
+  difficulty: number;
+  tags: string[] | null;
+  payload?: { options?: Array<{ text: string; correct: boolean }> };
+}
+
 interface GenerateResult {
   succeeded: number;
   failed: number;
   total: number;
-  questions: Array<{ id: string; questionText: string; type: string }>;
+  questions: GenQuestion[];
   skipped: Array<{ index: number; reason: string }>;
 }
 
@@ -125,6 +137,18 @@ export default function CoachQuestionGeneratePage() {
       }
     },
   });
+
+  // 思考中的已耗时（秒）· 给用户「还在跑 / 没卡死」的反馈
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    if (!generate.isPending && !batchRunning) {
+      setElapsedSec(0);
+      return;
+    }
+    const start = Date.now();
+    const t = setInterval(() => setElapsedSec(Math.floor((Date.now() - start) / 1000)), 500);
+    return () => clearInterval(t);
+  }, [generate.isPending, batchRunning]);
 
   // 批量（chapter）串行队列
   async function runBatch() {
@@ -351,7 +375,7 @@ export default function CoachQuestionGeneratePage() {
               style={{ flex: 2, padding: 12, justifyContent: 'center', opacity: lessonValid ? 1 : 0.5 }}
             >
               {generate.isPending
-                ? s('LLM 思考中…（10-30 秒）', 'LLM 思考中…（10-30 秒）', 'LLM thinking… (10-30s)')
+                ? s(`LLM 思考中… ${elapsedSec}s（通常 30-60s）`, `LLM 思考中… ${elapsedSec}s（通常 30-60s）`, `LLM thinking… ${elapsedSec}s (usually 30-60s)`)
                 : s(`⚡ 生成 ${count} 道`, `⚡ 生成 ${count} 道`, `⚡ Generate ${count}`)}
             </button>
           ) : (
@@ -396,24 +420,10 @@ function LessonResult({ r, onClear, onBack }: { r: GenerateResult; onClear: () =
       {r.questions.length > 0 && (
         <>
           <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 'var(--sp-2)' }}>
-            {s('点「编辑」可对生成内容做二次修改 · 保存后进入待审', '點「編輯」可對生成內容做二次修改 · 儲存後進入待審', 'Click Edit to refine before review')}
+            {s('点题目展开看完整内容 · 点「编辑」可二次修改 · 保存后进入待审', '點題目展開看完整內容 · 點「編輯」可二次修改 · 儲存後進入待審', 'Click row to expand · Edit to refine · enters pending review')}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 'var(--sp-3)' }}>
-            {r.questions.map((q, i) => (
-              <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: '8px 10px', background: 'rgba(125,154,108,.08)', borderRadius: 'var(--r-sm)', borderLeft: '3px solid var(--sage-dark)' }}>
-                <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 28 }}>#{i + 1}</span>
-                <span style={{ flex: 1, font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.5, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                  {q.questionText}
-                </span>
-                <Link
-                  to={`/coach/questions?id=${encodeURIComponent(q.id)}`}
-                  className="btn btn-pill"
-                  style={{ padding: '4px 12px', font: 'var(--text-caption)', background: 'transparent', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-dark)', textDecoration: 'none', flexShrink: 0 }}
-                >
-                  {s('编辑', '編輯', 'Edit')}
-                </Link>
-              </div>
-            ))}
+            {r.questions.map((q, i) => <GenQuestionRow key={q.id} q={q} idx={i} />)}
           </div>
         </>
       )}
@@ -438,6 +448,91 @@ function LessonResult({ r, onClear, onBack }: { r: GenerateResult; onClear: () =
         </button>
       </div>
     </Section>
+  );
+}
+
+// 单条生成题目 · 默认折叠 · 点击展开看完整内容（题干 / 选项 / 正确答案 / 易错点）
+function GenQuestionRow({ q, idx }: { q: GenQuestion; idx: number }) {
+  const { s } = useLang();
+  const [open, setOpen] = useState(false);
+  const options = q.payload?.options ?? [];
+
+  return (
+    <div style={{ background: 'rgba(125,154,108,.08)', borderRadius: 'var(--r-sm)', borderLeft: '3px solid var(--sage-dark)' }}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen((v) => !v); } }}
+        style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: '8px 10px', cursor: 'pointer', userSelect: 'none' }}
+      >
+        <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 28 }}>#{idx + 1}</span>
+        <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 14 }}>{open ? '▾' : '▸'}</span>
+        <span style={{
+          flex: 1, font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.5,
+          ...(open ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }),
+        }}>
+          {q.questionText}
+        </span>
+        <Link
+          to={`/coach/questions?id=${encodeURIComponent(q.id)}`}
+          onClick={(e) => e.stopPropagation()}
+          className="btn btn-pill"
+          style={{ padding: '4px 12px', font: 'var(--text-caption)', background: 'transparent', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-dark)', textDecoration: 'none', flexShrink: 0 }}
+        >
+          {s('编辑', '編輯', 'Edit')}
+        </Link>
+      </div>
+
+      {open && (
+        <div style={{ padding: '0 14px 12px 50px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {options.length > 0 && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 4 }}>
+                {s('选项', '選項', 'Options')}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {options.map((opt, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, font: 'var(--text-caption)', color: opt.correct ? 'var(--sage-dark)' : 'var(--ink-3)' }}>
+                    <span style={{ minWidth: 16, fontWeight: opt.correct ? 700 : 400 }}>{opt.correct ? '✓' : '·'}</span>
+                    <span style={{ flex: 1, lineHeight: 1.5 }}>{opt.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {q.correctText && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 2 }}>
+                {s('正确答案 / 解析', '正確答案 / 解析', 'Correct')}
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                {q.correctText}
+              </div>
+            </div>
+          )}
+
+          {q.wrongText && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 2 }}>
+                {s('易错点', '易錯點', 'Wrong notes')}
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                {q.wrongText}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 12, font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+            <span>{s('难度', '難度', 'Difficulty')}: {q.difficulty}</span>
+            {q.tags && q.tags.length > 0 && (
+              <span>{s('标签', '標籤', 'Tags')}: {q.tags.join(' · ')}</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
