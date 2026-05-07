@@ -1,12 +1,12 @@
 // 题目编辑
 // 权限：
-//   coach → 只能改自己创建的题
-//   admin → 任意题
-// 状态锁：
-//   approved + public → coach 禁改（会影响在学学员，改需走 admin 或重新提审）
-//   其它状态（draft/pending/rejected/class_private）→ 可自由改
-// 特殊规则：
-//   coach 改 public 题后，状态回 pending（需要复审）
+//   coach → 只能改自己创建的题（含自己自审通过的）· 改后状态回 pending 复审
+//   admin → 任意题 · 不影响状态
+// 设计：coach 自审是「初审 · 表达对自己 LLM/手写产物的自信」· 不锁死编辑
+//   · 后续发现错字仍能改 · 改完自动回 pending 让 coach 再审或 admin 把关
+//   · 防滥用：可在 audit log 看到改动记录
+// 旧版本曾锁 coach 改 approved+public 题（导致自审通过后改不了 · 用户卡死）·
+// 现已放开 · 因为 coach 永远只能改自己创建的（line 35 owner check 已防越权）
 import type { Prisma, Question, QuestionType } from '@prisma/client';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
@@ -33,13 +33,6 @@ export async function updateQuestion(
 
   if (role !== 'admin' && q.createdByUserId !== userId) {
     throw Forbidden('非本人创建的题目');
-  }
-  if (
-    role !== 'admin' &&
-    q.visibility === 'public' &&
-    q.reviewStatus === 'approved'
-  ) {
-    throw Forbidden('已审核通过的公开题不可编辑，请联系管理员或重新提交新题');
   }
   if (Object.keys(patch).length === 0) {
     throw BadRequest('patch 不能为空');

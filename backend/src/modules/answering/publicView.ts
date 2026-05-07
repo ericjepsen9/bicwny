@@ -42,10 +42,13 @@ function stripAnswers(type: QuestionType, payload: unknown): P {
         options: ((p.options ?? []) as Array<{ text: string }>).map((o) => ({ text: o.text })),
       };
     case 'fill':
+      // mode 字段必须传给前端 · Fill.tsx 据此走 typing/choice 分支
+      // typing 模式下 options 可空 · choice 模式下 options 必传
       return {
         verseLines: p.verseLines,
         options: p.options,
         verseSource: p.verseSource,
+        mode: p.mode,
       };
     case 'sort':
       return {

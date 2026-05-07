@@ -332,7 +332,7 @@ function QuestionEditForm({
   const [visibility, setVisibility] = useState<'public' | 'class_private'>(
     (initial?.visibility === 'class_private' ? 'class_private' : 'public'),
   );
-  const [payload, setPayload] = useState<Record<string, unknown>>(() => initial ? initial.payload : emptyPayload('single'));
+  const [payload, setPayload] = useState<Record<string, unknown>>(() => initial ? denormalizePayload(initial.type, initial.payload) : emptyPayload('single'));
 
   // 类型切换 · 只在新建模式开放
   function pickType(t: QuestionType) {
@@ -742,7 +742,7 @@ function emptyPayload(t: QuestionType): Record<string, unknown> {
     case 'multi':
       return { options: [{ text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }] };
     case 'fill':
-      return { verseLines: [''], correctWord: '', options: ['', '', '', ''], verseSource: '' };
+      return { verseLines: [''], correctWord: '', options: ['', '', '', ''], verseSource: '', mode: 'typing' };
     case 'sort':
       return { itemsText: '' };
     case 'open':
@@ -769,7 +769,12 @@ function validatePayload(t: QuestionType, p: Record<string, unknown>): boolean {
     case 'fill': {
       const lines = (p.verseLines as string[]) ?? [];
       const opts = (p.options as string[]) ?? [];
-      return lines.some((l) => l.includes('___')) && (p.correctWord as string).trim().length > 0 && opts.filter((o) => o.trim()).length >= 2;
+      const correctWord = (p.correctWord as string).trim();
+      const hasBlank = lines.some((l) => l.includes('___')) || lines.some((l) => l.includes(correctWord));
+      const mode = (p.mode as string | undefined) === 'choice' ? 'choice' : 'typing';
+      if (!hasBlank || correctWord.length === 0) return false;
+      if (mode === 'choice') return opts.filter((o) => o.trim()).length >= 2;
+      return true;
     }
     case 'sort': {
       const lines = ((p.itemsText as string) ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
@@ -790,6 +795,37 @@ function validatePayload(t: QuestionType, p: Record<string, unknown>): boolean {
   }
 }
 
+// DB 的 payload shape 转回编辑器需要的中间状态 shape · 用于编辑已有题
+//   sort: items[] → itemsText (\n 分隔)
+//   match: left[]/right[] → pairsText (每行 「left = right」)
+//   其他题型：DB shape 即编辑器 shape · 直接传
+// 与 normalizePayload 是反函数（除 sort items.order 信息：denormalize 不保留 ·
+// 因为 itemsText 行序即新 order · 用户编辑后 normalize 重新赋值 order）
+function denormalizePayload(t: QuestionType, p: unknown): Record<string, unknown> {
+  const payload = (p ?? {}) as Record<string, unknown>;
+  switch (t) {
+    case 'sort': {
+      const items = (payload.items as Array<{ text: string; order?: number }> | undefined) ?? [];
+      // 按 order 升序 · 没 order 的保持原序
+      const sorted = [...items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      return { itemsText: sorted.map((it) => it.text).join('\n') };
+    }
+    case 'match': {
+      const left = (payload.left as Array<{ id: string; text: string }> | undefined) ?? [];
+      const right = (payload.right as Array<{ id: string; text: string; match?: string }> | undefined) ?? [];
+      // 按 left.id 在 right.match 找配对 · 重组为 'A = B' 行
+      const lines = left.map((l) => {
+        const r = right.find((x) => x.match === l.id);
+        return r ? `${l.text} = ${r.text}` : l.text;
+      });
+      return { pairsText: lines.join('\n') };
+    }
+    default:
+      // single / multi / fill / open / flip · DB shape 直接复用
+      return payload;
+  }
+}
+
 function normalizePayload(t: QuestionType, p: Record<string, unknown>): Record<string, unknown> {
   switch (t) {
     case 'single':
@@ -803,11 +839,13 @@ function normalizePayload(t: QuestionType, p: Record<string, unknown>): Record<s
     case 'fill': {
       const lines = ((p.verseLines as string[]) ?? []).map((l) => l.trim()).filter(Boolean);
       const opts = ((p.options as string[]) ?? []).map((o) => o.trim()).filter(Boolean);
+      const mode = (p.mode as string | undefined) === 'choice' ? 'choice' : 'typing';
       const out: Record<string, unknown> = {
         verseLines: lines,
         correctWord: (p.correctWord as string).trim(),
-        options: opts,
+        mode,
       };
+      if (mode === 'choice') out.options = opts;
       if ((p.verseSource as string).trim()) out.verseSource = (p.verseSource as string).trim();
       return out;
     }

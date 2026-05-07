@@ -569,7 +569,8 @@ model Sm2Card {
   status       Sm2Status @default(new)
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  question Question @relation(fields: [questionId], references: [id])
+  // Cascade：题目删除时 · SM-2 卡自动清 · 防止 sm2-review 拿到死引用
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   course   Course   @relation(fields: [courseId], references: [id])
 
   @@unique([userId, questionId])

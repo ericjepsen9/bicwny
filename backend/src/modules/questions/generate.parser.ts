@@ -70,11 +70,21 @@ export function validateGenerated(item: RawQuestion, type: QuestionType): Check 
       }
       return { ok: true };
     }
-    case 'fill':
+    case 'fill': {
       if (!Array.isArray(p.verseLines) || !p.correctWord) {
         return { ok: false, reason: 'fill 缺 verseLines/correctWord' };
       }
+      // typing 模式（默认）只需 verseLines + correctWord
+      // choice 模式需 ≥ 2 个 options
+      const mode = (p as { mode?: string }).mode === 'choice' ? 'choice' : 'typing';
+      if (mode === 'choice') {
+        const opts = (p as { options?: unknown[] }).options;
+        if (!Array.isArray(opts) || opts.length < 2) {
+          return { ok: false, reason: 'fill choice 模式需要 ≥2 个 options' };
+        }
+      }
       return { ok: true };
+    }
     case 'sort':
       if (!Array.isArray(p.items) || p.items.length < 2) {
         return { ok: false, reason: 'sort.items 至少 2' };

@@ -241,7 +241,9 @@ function emptyPayload(t: QuestionType): Record<string, unknown> {
     case 'multi':
       return { options: [{ text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }] };
     case 'fill':
-      return { verseLines: [''], correctWord: '', options: ['', '', '', ''], verseSource: '' };
+      // 默认 typing 模式 · options 留空（不参与 typing 校验）
+      // 用户切到 choice 模式时手动填 options
+      return { verseLines: [''], correctWord: '', options: ['', '', '', ''], verseSource: '', mode: 'typing' };
     case 'open':
       return { referenceAnswer: '', keyPoints: [{ point: '', signals: '' }], minLength: 80, maxLength: 400 };
     case 'sort':
@@ -268,7 +270,14 @@ function validatePayload(t: QuestionType, p: Record<string, unknown>): boolean {
     case 'fill': {
       const lines = (p.verseLines as string[]) ?? [];
       const opts = (p.options as string[]) ?? [];
-      return lines.some((l) => l.includes('___')) && (p.correctWord as string).trim().length > 0 && opts.filter((o) => o.trim()).length >= 2;
+      const correctWord = (p.correctWord as string).trim();
+      const hasBlank = lines.some((l) => l.includes('___')) || lines.some((l) => l.includes(correctWord));
+      const mode = (p.mode as string | undefined) === 'choice' ? 'choice' : 'typing';
+      // typing 默认：仅需 verse + correctWord（自动 fallback ___ 标记）
+      // choice：还需 ≥2 选项（含正确答案）
+      if (!hasBlank || correctWord.length === 0) return false;
+      if (mode === 'choice') return opts.filter((o) => o.trim()).length >= 2;
+      return true;
     }
     case 'open': {
       const kps = (p.keyPoints as { point: string }[]) ?? [];
@@ -297,15 +306,21 @@ function normalizePayload(t: QuestionType, p: Record<string, unknown>): Record<s
         options: ((p.options as { text: string; correct: boolean }[]) ?? [])
           .filter((o) => o.text.trim())
           .map((o) => ({ text: o.text.trim(), correct: !!o.correct })),
+        // 后端 gradeMulti 默认 strict · 我们规定多选用 partial 给部分分（与 QuestionAdminInline 一致）
+        scoringMode: 'partial',
       };
     case 'fill': {
       const lines = ((p.verseLines as string[]) ?? []).map((l) => l.trim()).filter(Boolean);
       const opts = ((p.options as string[]) ?? []).map((o) => o.trim()).filter(Boolean);
+      // mode: typing (默认 · 自由输入 · 仅需 correctWord) | choice (选词 · 需要 ≥2 options)
+      // 从表单 p.mode 读 · 没设按 typing 默认（与 Fill.tsx 默认一致）
+      const mode = (p.mode as string | undefined) === 'choice' ? 'choice' : 'typing';
       const out: Record<string, unknown> = {
         verseLines: lines,
         correctWord: (p.correctWord as string).trim(),
-        options: opts,
+        mode,
       };
+      if (mode === 'choice') out.options = opts;
       if ((p.verseSource as string).trim()) out.verseSource = (p.verseSource as string).trim();
       return out;
     }
