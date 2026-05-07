@@ -143,6 +143,7 @@ export default function CoachQuestionsPage() {
                 <Th>{s('状态', '狀態', 'Status')}</Th>
                 <Th>{s('可见', '可見', 'Visibility')}</Th>
                 <Th>{s('更新', '更新', 'Updated')}</Th>
+                <Th>{s('操作', '操作', 'Actions')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -168,6 +169,9 @@ export default function CoachQuestionsPage() {
                     <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
                       {new Date(q.updatedAt).toLocaleDateString()}
                     </span>
+                  </Td>
+                  <Td>
+                    {q.reviewStatus === 'pending' && <ReviewActions q={q} />}
                   </Td>
                 </tr>
               ))}
@@ -196,6 +200,44 @@ function Th({ children }: { children: React.ReactNode }) {
 }
 function Td({ children }: { children: React.ReactNode }) {
   return <td style={{ padding: 'var(--sp-3) var(--sp-4)' }}>{children}</td>;
+}
+
+// pending 行内联「✓ 通过」按钮 · 自审 own 题快速发布
+// 自审场景下「驳回」少见（自己的题不满意直接编辑 / 删除）· 内联只放 approve
+// 阻止行点击冒泡到 setSp · 否则点按钮就同时打开 drawer
+function ReviewActions({ q }: { q: CoachQuestion }) {
+  const { s } = useLang();
+  const qc = useQueryClient();
+
+  const approve = useMutation({
+    mutationFn: () => api.post(`/api/coach/questions/${encodeURIComponent(q.id)}/review`, { decision: 'approve' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/coach/questions'] });
+      toast.ok(s('已通过 · 学员可见', '已通過 · 學員可見', 'Approved · published'));
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        disabled={approve.isPending}
+        onClick={async () => {
+          const ok = await confirmAsync({
+            title: s('通过这题？', '通過這題？', 'Approve?'),
+            body: s('通过后学员立即可见 · 请确认题目内容正确无误。', '通過後學員立即可見 · 請確認題目內容正確無誤。', 'Will be visible to students. Please confirm content is correct.'),
+            okLabel: s('通过', '通過', 'Approve'),
+          });
+          if (ok) approve.mutate();
+        }}
+        className="btn btn-pill"
+        style={{ padding: '4px 12px', font: 'var(--text-caption)', fontWeight: 600, background: 'var(--sage-pale)', color: 'var(--sage-dark)', border: '1px solid var(--sage-light)' }}
+      >
+        ✓ {s('通过', '通過', 'Approve')}
+      </button>
+    </div>
+  );
 }
 
 function TypeBadge({ t }: { t: QuestionType }) {
@@ -288,11 +330,26 @@ function QuestionDrawer({ id, onClose, onChanged }: { id: string; onClose: () =>
 
 function ViewQuestion({ q, onEdit, onDeleted }: { q: CoachQuestion; onEdit: () => void; onDeleted: () => void }) {
   const { s } = useLang();
+  const qc = useQueryClient();
   const del = useMutation({
     mutationFn: () => api.del(`/api/coach/questions/${encodeURIComponent(q.id)}`),
     onSuccess: () => {
       toast.ok(s('已删除', '已刪除', 'Deleted'));
       onDeleted();
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
+  const review = useMutation({
+    mutationFn: (decision: 'approve' | 'reject') =>
+      api.post(
+        `/api/coach/questions/${encodeURIComponent(q.id)}/review`,
+        decision === 'approve' ? { decision } : { decision, reason: '内容质量不达标' },
+      ),
+    onSuccess: (_d, decision) => {
+      qc.invalidateQueries({ queryKey: ['/api/coach/questions'] });
+      qc.invalidateQueries({ queryKey: ['/api/coach/questions', q.id] });
+      toast.ok(decision === 'approve' ? s('已通过 · 学员可见', '已通過 · 學員可見', 'Approved · published') : s('已驳回', '已駁回', 'Rejected'));
     },
     onError: (e) => toast.error((e as ApiError).message),
   });
@@ -330,6 +387,45 @@ function ViewQuestion({ q, onEdit, onDeleted }: { q: CoachQuestion; onEdit: () =
               # {t}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* pending 题 · 抽屉里也提供 通过/驳回 入口（reject 走 confirm · 不需 reason 输入） */}
+      {q.reviewStatus === 'pending' && (
+        <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
+          <button
+            type="button"
+            disabled={review.isPending}
+            onClick={async () => {
+              const ok = await confirmAsync({
+                title: s('通过这题？', '通過這題？', 'Approve?'),
+                body: s('通过后学员立即可见 · 请确认题目内容正确无误。', '通過後學員立即可見 · 請確認題目內容正確無誤。', 'Will be visible to students. Please confirm content is correct.'),
+                okLabel: s('通过', '通過', 'Approve'),
+              });
+              if (ok) review.mutate('approve');
+            }}
+            className="btn btn-pill"
+            style={{ flex: 1, padding: 10, background: 'var(--sage-pale)', color: 'var(--sage-dark)', border: '1px solid var(--sage-light)', justifyContent: 'center', fontWeight: 600 }}
+          >
+            ✓ {s('通过', '通過', 'Approve')}
+          </button>
+          <button
+            type="button"
+            disabled={review.isPending}
+            onClick={async () => {
+              const ok = await confirmAsync({
+                title: s('驳回这题？', '駁回這題？', 'Reject?'),
+                body: s('驳回后题目不再发布 · 联动清除已存在的错题 / 收藏 / 复习记录。', '駁回後題目不再發布 · 聯動清除已存在的錯題 / 收藏 / 複習記錄。', 'Will be hidden. Cascade-removes related mistakes / favorites / SM2 cards.'),
+                okLabel: s('驳回', '駁回', 'Reject'),
+                danger: true,
+              });
+              if (ok) review.mutate('reject');
+            }}
+            className="btn btn-pill"
+            style={{ flex: 1, padding: 10, background: 'transparent', color: 'var(--crimson)', border: '1px solid rgba(192,57,43,.3)', justifyContent: 'center' }}
+          >
+            ✗ {s('驳回', '駁回', 'Reject')}
+          </button>
         </div>
       )}
 

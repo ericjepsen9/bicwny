@@ -14,6 +14,7 @@ import { batchCreateQuestions } from './batch.service.js';
 import { createQuestion, listCoachQuestions } from './create.service.js';
 import { deleteQuestion } from './delete.service.js';
 import { generateQuestions } from './generate.service.js';
+import { reviewQuestion } from './review.service.js';
 import { updateQuestion } from './update.service.js';
 
 const coachGuard = requireRole('coach', 'admin');
@@ -73,10 +74,16 @@ const generateBody = z.object({
 
 const listQuery = z.object({
   classId: z.string().optional(),
+  status: z.enum(['pending', 'approved', 'rejected', 'all']).optional(),
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
 const idParam = z.object({ id: z.string().min(1) });
+
+const reviewBody = z.discriminatedUnion('decision', [
+  z.object({ decision: z.literal('approve') }),
+  z.object({ decision: z.literal('reject'), reason: z.string().min(5).max(500) }),
+]);
 
 const TAGS = ['Coach'];
 const SEC = [{ bearerAuth: [] as string[] }];
@@ -133,6 +140,35 @@ export const coachQuestionRoutes: FastifyPluginAsync = async (app) => {
         throw Forbidden('非本人创建的题目');
       }
       return { data: q };
+    },
+  );
+
+  // coach 自审：审自己创建的 pending 题（admin 也可调 · 超权）
+  // 通过 → reviewStatus=approved · 学员可见
+  // 驳回 → reviewStatus=rejected · 联动清错题/收藏/SM2（见 reviewQuestion 实现）
+  app.post(
+    '/api/coach/questions/:id/review',
+    {
+      preHandler: coachGuard,
+      schema: { tags: TAGS, summary: '自审 own pending 题 · approve/reject', security: SEC },
+    },
+    async (req) => {
+      const pp = idParam.safeParse(req.params);
+      if (!pp.success) throw BadRequest('路径参数不合法');
+      const pb = reviewBody.safeParse(req.body);
+      if (!pb.success) throw BadRequest('参数不合法', pb.error.flatten());
+
+      const userId = requireUserId(req);
+      const q = await prisma.question.findUnique({ where: { id: pp.data.id } });
+      if (!q) throw NotFound('题目不存在');
+      // 非 admin 只能审自己的题
+      if (getUserRole(req) !== 'admin' && q.createdByUserId !== userId) {
+        throw Forbidden('只能审核自己创建的题目');
+      }
+
+      const reason = pb.data.decision === 'reject' ? pb.data.reason : undefined;
+      const updated = await reviewQuestion(pp.data.id, userId, pb.data.decision, reason);
+      return { data: updated };
     },
   );
 

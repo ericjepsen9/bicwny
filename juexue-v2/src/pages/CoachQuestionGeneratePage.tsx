@@ -411,7 +411,7 @@ export default function CoachQuestionGeneratePage() {
 
         {/* 结果（lesson） */}
         {scope === 'lesson' && lessonResult && (
-          <LessonResult r={lessonResult} onClear={() => setLessonResult(null)} onBack={() => nav('/coach/questions')} />
+          <LessonResult r={lessonResult} onClear={() => setLessonResult(null)} />
         )}
 
         {/* 结果（chapter 进度） */}
@@ -423,7 +423,7 @@ export default function CoachQuestionGeneratePage() {
   );
 }
 
-function LessonResult({ r, onClear, onBack }: { r: GenerateResult; onClear: () => void; onBack: () => void }) {
+function LessonResult({ r, onClear }: { r: GenerateResult; onClear: () => void }) {
   const { s } = useLang();
   return (
     <Section title={s('结果', '結果', 'Result')}>
@@ -431,12 +431,26 @@ function LessonResult({ r, onClear, onBack }: { r: GenerateResult; onClear: () =
         <span style={{ font: 'var(--text-caption)', color: 'var(--sage-dark)', fontWeight: 700 }}>✓ {r.succeeded}</span>
         {r.failed > 0 && <span style={{ font: 'var(--text-caption)', color: 'var(--crimson)', fontWeight: 700 }}>✗ {r.failed} 跳过</span>}
         <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>· {s('共', '共', 'total')} {r.total}</span>
+        <span style={{ marginLeft: 'auto', padding: '2px 10px', borderRadius: 'var(--r-pill)', background: 'rgba(236,180,86,.18)', color: 'var(--gold-dark)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1 }}>
+          🟡 {s('待审 · 未发布', '待審 · 未發布', 'Pending · unpublished')}
+        </span>
       </div>
+
+      {r.succeeded > 0 && (
+        <div style={{ padding: 'var(--sp-3) var(--sp-4)', background: 'rgba(236,180,86,.08)', border: '1px solid rgba(236,180,86,.3)', borderRadius: 'var(--r)', marginBottom: 'var(--sp-3)' }}>
+          <div style={{ font: 'var(--text-body)', color: 'var(--ink)', fontWeight: 600, marginBottom: 4 }}>
+            ⚠️ {s('请逐题审核后发布', '請逐題審核後發布', 'Review each question before publishing')}
+          </div>
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', lineHeight: 1.6 }}>
+            {s('LLM 生成结果不一定准确 · 题目 / 答案 / 选项可能与原文有出入。点开下方每条核对 · 必要时点「编辑」修改 · 确认无误后再「通过」发布给学员。', 'LLM 生成結果不一定準確 · 題目 / 答案 / 選項可能與原文有出入。點開下方每條核對 · 必要時點「編輯」修改 · 確認無誤後再「通過」發布給學員。', 'LLM may produce inaccurate content. Expand each item to verify · Edit if needed · then Approve to publish.')}
+          </div>
+        </div>
+      )}
 
       {r.questions.length > 0 && (
         <>
           <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 'var(--sp-2)' }}>
-            {s('点题目展开看完整内容 · 点「编辑」可二次修改 · 保存后进入待审', '點題目展開看完整內容 · 點「編輯」可二次修改 · 儲存後進入待審', 'Click row to expand · Edit to refine · enters pending review')}
+            {s('点题目展开 · 点「编辑」改 · 在题库列表点「✓ 通过」发布', '點題目展開 · 點「編輯」改 · 在題庫列表點「✓ 通過」發布', 'Click to expand · Edit to refine · Approve in list to publish')}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 'var(--sp-3)' }}>
             {r.questions.map((q, i) => <GenQuestionRow key={q.id} q={q} idx={i} />)}
@@ -456,9 +470,9 @@ function LessonResult({ r, onClear, onBack }: { r: GenerateResult; onClear: () =
       )}
 
       <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
-        <button type="button" onClick={onBack} className="btn btn-primary btn-pill" style={{ flex: 1, padding: 10, justifyContent: 'center' }}>
-          {s('返回题库', '返回題庫', 'Back to questions')}
-        </button>
+        <Link to="/coach/questions?status=pending" className="btn btn-primary btn-pill" style={{ flex: 1, padding: 10, justifyContent: 'center', textDecoration: 'none' }}>
+          {s('去审核（' + r.succeeded + '）', '去審核（' + r.succeeded + '）', 'Review (' + r.succeeded + ')')}
+        </Link>
         <button type="button" onClick={onClear} className="btn btn-pill" style={{ flex: 1, padding: 10, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}>
           {s('再生成一批', '再生成一批', 'Generate again')}
         </button>

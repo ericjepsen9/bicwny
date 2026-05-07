@@ -77,15 +77,17 @@ export async function createQuestion(
   });
 }
 
-/** coach 查看自己创建的题目（可选按 ownerClassId 过滤） */
+/** coach 查看自己创建的题目（可选按 classId / status 过滤） */
 export async function listCoachQuestions(
   coachUserId: string,
-  opts: { classId?: string; limit?: number } = {},
+  opts: { classId?: string; status?: 'pending' | 'approved' | 'rejected' | 'all'; limit?: number } = {},
 ) {
+  const status = opts.status ?? 'all';
   return prisma.question.findMany({
     where: {
       createdByUserId: coachUserId,
       ...(opts.classId ? { ownerClassId: opts.classId } : {}),
+      ...(status !== 'all' ? { reviewStatus: status } : {}),
     },
     orderBy: { createdAt: 'desc' },
     take: opts.limit ?? 100,
