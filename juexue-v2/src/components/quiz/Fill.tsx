@@ -16,8 +16,11 @@ const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 const BLANK_RE = /[_＿]{2,}|（_+）/;
 
 export default function Fill({ question, value, onChange, confirmed }: QuestionRendererProps) {
-  const verseLines = (question.payload.verseLines as string[] | undefined) ?? [];
+  const rawVerseLines = (question.payload.verseLines as string[] | undefined) ?? [];
   const correctWord = (question.payload.correctWord as string | undefined) ?? '';
+  // Fallback：LLM 经常忘记标 ____ · 把答案直接写进 verseLines · 这里检测并自动
+  // 把 correctWord 替换为 ____ · 用户和组件就都能识别空位
+  const verseLines = ensureBlankMarked(rawVerseLines, correctWord);
   // 默认 typing · 显式 'choice' 才走选词模式（向后兼容老的「选词填空」题）
   const mode = (question.payload.mode as string | undefined) === 'choice' ? 'choice' : 'typing';
 
@@ -25,6 +28,24 @@ export default function Fill({ question, value, onChange, confirmed }: QuestionR
     return <ChoiceFill question={question} verseLines={verseLines} correctWord={correctWord} value={value} onChange={onChange} confirmed={confirmed} />;
   }
   return <TypingFill verseLines={verseLines} correctWord={correctWord} value={value} onChange={onChange} confirmed={confirmed} />;
+}
+
+// LLM 兜底：verseLines 没标 ____ 时 · 用 correctWord 在原文里的位置反推
+//   - 如果任一行已有 ____ / ＿ / （___）→ 原样返回
+//   - 否则在第一处出现 correctWord 的行替换为 ____ · 后续 occurrence 不替换
+//     避免 verse 里多处同名词（如「往生法」「正行」「加行」前后都有）误标
+function ensureBlankMarked(lines: string[], correctWord: string): string[] {
+  if (lines.length === 0 || !correctWord) return lines;
+  if (lines.some((l) => BLANK_RE.test(l))) return lines;
+  let replaced = false;
+  return lines.map((line) => {
+    if (replaced) return line;
+    if (line.includes(correctWord)) {
+      replaced = true;
+      return line.replace(correctWord, '____');
+    }
+    return line;
+  });
 }
 
 // ── choice 模式 · 选词填空 ──
