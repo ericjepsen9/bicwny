@@ -119,7 +119,7 @@ export default function CoachQuestionGeneratePage() {
       passage: passage.trim(),
       type, count, difficulty,
       visibility: 'public',
-    }, { timeoutMs: 95_000 }),
+    }, { timeoutMs: 185_000 }),
     onSuccess: (r) => {
       setLessonResult(r);
       qc.invalidateQueries({ queryKey: ['/api/coach/questions'] });
@@ -176,7 +176,7 @@ export default function CoachQuestionGeneratePage() {
           passage: (lessonObj.referenceText || '').trim(),
           type, count, difficulty,
           visibility: 'public',
-        }, { timeoutMs: 95_000 });
+        }, { timeoutMs: 185_000 });
         totalGen += r.succeeded;
         if (r.failed > 0) totalErr += r.failed;
         setBatch((cur) => cur && cur.map((b, idx) => idx === i ? { ...b, status: 'ok', generated: r.succeeded } : b));
@@ -375,7 +375,7 @@ export default function CoachQuestionGeneratePage() {
               style={{ flex: 2, padding: 12, justifyContent: 'center', opacity: lessonValid ? 1 : 0.5 }}
             >
               {generate.isPending
-                ? s(`LLM 思考中… ${elapsedSec}s（通常 30-60s）`, `LLM 思考中… ${elapsedSec}s（通常 30-60s）`, `LLM thinking… ${elapsedSec}s (usually 30-60s)`)
+                ? s(`LLM 思考中… ${elapsedSec}s（长原文最多 3 分钟）`, `LLM 思考中… ${elapsedSec}s（長原文最多 3 分鐘）`, `LLM thinking… ${elapsedSec}s (up to 3min for long input)`)
                 : s(`⚡ 生成 ${count} 道`, `⚡ 生成 ${count} 道`, `⚡ Generate ${count}`)}
             </button>
           ) : (
