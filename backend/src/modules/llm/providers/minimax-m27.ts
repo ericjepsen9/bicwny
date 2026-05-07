@@ -67,7 +67,12 @@ export class MinimaxM27Provider implements ChatProvider {
       .map((p) => p.text)
       .join('');
     if (!content) {
-      throw UpstreamError('MiniMax M2.7 返回内容为空', { raw: resp });
+      // 诊断信息 · 排查 thinking 吃光 max_tokens / 拒答 / format 错
+      const blockTypes = (resp.content ?? []).map((p) => `${p.type}:${(p.text || '').length}`).join(',');
+      throw UpstreamError(
+        `MiniMax M2.7 返回内容为空 (stop_reason=${resp.stop_reason ?? 'unknown'}, blocks=[${blockTypes}])`,
+        { raw: resp },
+      );
     }
 
     return {
