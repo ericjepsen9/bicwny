@@ -142,6 +142,17 @@ function gradeMulti(p: P, a: unknown): GradeResult {
 // ───── sort ─────
 // payload: { items: [{text, order}] }  order 为正确位次（1-based）
 // answer:  { order: number[] }         用户的排列，值为 items 的索引
+// Sort 题答案约定（前后端必须一致 · 修改前看 components/quiz/Sort.tsx 注释）：
+//   payload.items: [{ text, order }] · order 1-based 是正确顺序（i.e. order=1 应排第 1 位）
+//   answer.order: number[] · 用户的排序 · order[i] = 排第 i+1 位的「原始 items 索引」
+//   评分：items[answer.order[i]].order === i + 1 → 该位正确 · 全对得 100
+//
+// 例：payload.items = [A(order=2), B(order=1), C(order=3)]
+//     正确顺序：B → A → C
+//     用户提交 answer.order = [1, 0, 2]（B在原数组下标1 · A在0 · C在2）
+//     items[1].order=1 === 1 ✓
+//     items[0].order=2 === 2 ✓
+//     items[2].order=3 === 3 ✓ · 100分
 function gradeSort(p: P, a: unknown): GradeResult {
   const items = (p.items ?? []) as Array<{ text: string; order: number }>;
   const userOrder = ((a as { order?: number[] })?.order ?? []).filter(

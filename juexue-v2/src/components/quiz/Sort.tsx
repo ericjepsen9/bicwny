@@ -6,9 +6,11 @@
 //   3. 点击已排序的项 → 取消该序号 · 后续项序号自动减 1
 //   4. 全部排完 → 可提交
 //
-// 提交格式：{ order: number[] }
-//   order[i] = 用户认为应排第 i+1 位的原始 item 索引
-//   后端 gradeSort 用此格式评分（grading.objective.ts）
+// 提交格式：{ order: number[] }（与 backend grading.objective.ts gradeSort 严格一致）
+//   - order[i] = 用户认为应排第 i+1 位的「原始 items 数组下标」（不是 shuffled 下标！）
+//   - 例：原 items = [A(order=2), B(order=1), C(order=3)]
+//     用户排 B → A → C（正确）· 提交 { order: [1, 0, 2] }（B 在原数组 idx=1, A=0, C=2）
+//   - 后端 items[order[i]].order === i+1 全成立得 100
 //
 // confirmed 后渲染：
 //   - 用户排名 vs 正确排名 (从 payload.items[].order 读 · publicView 在 grade 后会

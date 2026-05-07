@@ -8,6 +8,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
+import { emptyPayload, normalizePayload, validatePayload } from '@/lib/payloadHelpers';
 import { type QuestionType, useCourseDetail, useCourses } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
@@ -232,137 +233,6 @@ export default function CoachQuestionNewPage() {
   );
 }
 
-// ─────────────────────────────────────────────
-// 各题型 payload 工厂 / 校验 / 归一化
-// ─────────────────────────────────────────────
-function emptyPayload(t: QuestionType): Record<string, unknown> {
-  switch (t) {
-    case 'single':
-    case 'multi':
-      return { options: [{ text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }, { text: '', correct: false }] };
-    case 'fill':
-      // 默认 typing 模式 · options 留空（不参与 typing 校验）
-      // 用户切到 choice 模式时手动填 options
-      return { verseLines: [''], correctWord: '', options: ['', '', '', ''], verseSource: '', mode: 'typing' };
-    case 'open':
-      return { referenceAnswer: '', keyPoints: [{ point: '', signals: '' }], minLength: 80, maxLength: 400 };
-    case 'sort':
-      return { itemsText: '' }; // 用单一 textarea 暂存
-    case 'match':
-      return { pairsText: '' };
-    case 'flip':
-      return { front: '', frontSub: '', back: '', backExample: '' };
-    default:
-      return {};
-  }
-}
-
-function validatePayload(t: QuestionType, p: Record<string, unknown>): boolean {
-  switch (t) {
-    case 'single': {
-      const opts = (p.options as { text: string; correct: boolean }[]) ?? [];
-      return opts.filter((o) => o.text.trim()).length >= 2 && opts.filter((o) => o.correct && o.text.trim()).length === 1;
-    }
-    case 'multi': {
-      const opts = (p.options as { text: string; correct: boolean }[]) ?? [];
-      return opts.filter((o) => o.text.trim()).length >= 3 && opts.filter((o) => o.correct && o.text.trim()).length >= 2;
-    }
-    case 'fill': {
-      const lines = (p.verseLines as string[]) ?? [];
-      const opts = (p.options as string[]) ?? [];
-      const correctWord = (p.correctWord as string).trim();
-      const hasBlank = lines.some((l) => l.includes('___')) || lines.some((l) => l.includes(correctWord));
-      const mode = (p.mode as string | undefined) === 'choice' ? 'choice' : 'typing';
-      // typing 默认：仅需 verse + correctWord（自动 fallback ___ 标记）
-      // choice：还需 ≥2 选项（含正确答案）
-      if (!hasBlank || correctWord.length === 0) return false;
-      if (mode === 'choice') return opts.filter((o) => o.trim()).length >= 2;
-      return true;
-    }
-    case 'open': {
-      const kps = (p.keyPoints as { point: string }[]) ?? [];
-      return (p.referenceAnswer as string).trim().length >= 10 && kps.filter((k) => k.point.trim()).length >= 1;
-    }
-    case 'sort': {
-      const lines = ((p.itemsText as string) ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
-      return lines.length >= 2;
-    }
-    case 'match': {
-      const lines = ((p.pairsText as string) ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
-      return lines.length >= 2 && lines.every((l) => l.includes('='));
-    }
-    case 'flip':
-      return (p.front as string).trim().length > 0 && (p.back as string).trim().length > 0;
-    default:
-      return false;
-  }
-}
-
-function normalizePayload(t: QuestionType, p: Record<string, unknown>): Record<string, unknown> {
-  switch (t) {
-    case 'single':
-    case 'multi':
-      return {
-        options: ((p.options as { text: string; correct: boolean }[]) ?? [])
-          .filter((o) => o.text.trim())
-          .map((o) => ({ text: o.text.trim(), correct: !!o.correct })),
-        // 后端 gradeMulti 默认 strict · 我们规定多选用 partial 给部分分（与 QuestionAdminInline 一致）
-        scoringMode: 'partial',
-      };
-    case 'fill': {
-      const lines = ((p.verseLines as string[]) ?? []).map((l) => l.trim()).filter(Boolean);
-      const opts = ((p.options as string[]) ?? []).map((o) => o.trim()).filter(Boolean);
-      // mode: typing (默认 · 自由输入 · 仅需 correctWord) | choice (选词 · 需要 ≥2 options)
-      // 从表单 p.mode 读 · 没设按 typing 默认（与 Fill.tsx 默认一致）
-      const mode = (p.mode as string | undefined) === 'choice' ? 'choice' : 'typing';
-      const out: Record<string, unknown> = {
-        verseLines: lines,
-        correctWord: (p.correctWord as string).trim(),
-        mode,
-      };
-      if (mode === 'choice') out.options = opts;
-      if ((p.verseSource as string).trim()) out.verseSource = (p.verseSource as string).trim();
-      return out;
-    }
-    case 'open':
-      return {
-        referenceAnswer: (p.referenceAnswer as string).trim(),
-        keyPoints: ((p.keyPoints as { point: string; signals: string }[]) ?? [])
-          .filter((k) => k.point.trim())
-          .map((k) => ({
-            point: k.point.trim(),
-            signals: k.signals.split(',').map((x) => x.trim()).filter(Boolean),
-          })),
-        minLength: p.minLength,
-        maxLength: p.maxLength,
-      };
-    case 'sort': {
-      const lines = ((p.itemsText as string) ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
-      return { items: lines.map((text, i) => ({ text, order: i + 1 })) };
-    }
-    case 'match': {
-      const lines = ((p.pairsText as string) ?? '').split('\n').map((l) => l.trim()).filter((l) => l && l.includes('='));
-      const left: { id: string; text: string }[] = [];
-      const right: { id: string; text: string; match: string }[] = [];
-      lines.forEach((line, i) => {
-        const [l, r] = line.split('=').map((x) => x.trim());
-        const id = 'p' + (i + 1);
-        left.push({ id, text: l ?? '' });
-        right.push({ id: 'r' + (i + 1), text: r ?? '', match: id });
-      });
-      return { left, right };
-    }
-    case 'flip': {
-      const front: { text: string; subText?: string } = { text: (p.front as string).trim() };
-      if ((p.frontSub as string).trim()) front.subText = (p.frontSub as string).trim();
-      const back: { text: string; example?: string } = { text: (p.back as string).trim() };
-      if ((p.backExample as string).trim()) back.example = (p.backExample as string).trim();
-      return { front, back, noScoring: true };
-    }
-    default:
-      return {};
-  }
-}
 
 // ─────────────────────────────────────────────
 // PayloadEditor 分发

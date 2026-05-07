@@ -150,7 +150,10 @@ const QUESTION_GENERATION_PROMPT = `你是觉学佛法题库的出题助手，�
 【各题型 payload 形状约定】
 - single  : { options: [{ text: string, correct: boolean }] }   // 恰有 1 个 correct=true
 - multi   : { options: [{ text: string, correct: boolean }], scoringMode: "partial" }  // 至少 2 个 correct=true
-- fill    : { verseLines: string[], correctWord: string, options: string[], verseSource: string }
+- fill    : { verseLines: string[], correctWord: string, mode: "typing" | "choice", options?: string[], verseSource: string }
+              // 关键：verseLines 必须用 ____（4 个下划线）标记空位 · 不要把 correctWord 写在原文里
+              // mode='typing' (默认 · 自由输入) options 可省略
+              // mode='choice' (选词填空) options 必填 · 正好 4 个 · 第 1 个就是 correctWord
 - sort    : { items: [{ text: string, order: number }] }        // order 从 1 起
 - match   : { left: [{ id, text }], right: [{ id, text, match }] }  // match 指向 left.id
 - open    : { referenceAnswer: string, keyPoints: [{ point: string, signals: string[] }], minLength: 80, maxLength: 400 }
