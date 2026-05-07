@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
 import { type QuestionType, useCourseDetail, useCourses } from '@/lib/queries';
 import { toast } from '@/lib/toast';
@@ -45,7 +46,9 @@ export default function CoachQuestionGeneratePage() {
   const { s } = useLang();
   const nav = useNavigate();
   const qc = useQueryClient();
+  const { user } = useAuth();
   const [sp] = useSearchParams();
+  const [llmDown, setLlmDown] = useState(false);
 
   const [scope, setScope] = useState<Scope>('lesson');
   const [courseId, setCourseId] = useState(sp.get('courseId') ?? '');
@@ -111,7 +114,15 @@ export default function CoachQuestionGeneratePage() {
       if (r.failed === 0) toast.ok(s(`已生成 ${r.succeeded} 道`, `已生成 ${r.succeeded} 道`, `Generated ${r.succeeded}`));
       else toast.warn(s(`生成 ${r.succeeded} · 跳过 ${r.failed}`, `生成 ${r.succeeded} · 跳過 ${r.failed}`, `${r.succeeded} ok · ${r.failed} skipped`));
     },
-    onError: (e) => toast.error((e as ApiError).message),
+    onError: (e) => {
+      const err = e as ApiError;
+      // 502 + UPSTREAM_ERROR → LLM 全部 provider 挂了 · 显示 banner 而不是单 toast
+      if (err.status === 502 && (err.payload as { error?: string })?.error === 'UPSTREAM_ERROR') {
+        setLlmDown(true);
+      } else {
+        toast.error(err.message);
+      }
+    },
   });
 
   // 批量（chapter）串行队列
@@ -146,8 +157,14 @@ export default function CoachQuestionGeneratePage() {
         setBatch((cur) => cur && cur.map((b, idx) => idx === i ? { ...b, status: 'ok', generated: r.succeeded } : b));
       } catch (e) {
         totalErr += 1;
-        const msg = (e as ApiError).message || 'unknown';
+        const err = e as ApiError;
+        const msg = err.message || 'unknown';
         setBatch((cur) => cur && cur.map((b, idx) => idx === i ? { ...b, status: 'err', reason: msg } : b));
+        // 第一次 502 + UPSTREAM_ERROR → 全 LLM 挂 · 后面继续也是徒劳 · 中断 + 显示 banner
+        if (err.status === 502 && (err.payload as { error?: string })?.error === 'UPSTREAM_ERROR') {
+          setLlmDown(true);
+          break;
+        }
         // continue · 不抛出
       }
     }
@@ -175,6 +192,47 @@ export default function CoachQuestionGeneratePage() {
           </button>
         </div>
       </div>
+
+      {llmDown && (
+        <div
+          role="alert"
+          style={{
+            background: 'rgba(192,57,43,.08)',
+            border: '1px solid rgba(192,57,43,.3)',
+            borderRadius: 'var(--r)',
+            padding: 'var(--sp-3) var(--sp-4)',
+            marginBottom: 'var(--sp-4)',
+            color: 'var(--ink)',
+            font: 'var(--text-body)',
+            lineHeight: 1.6,
+            maxWidth: 880,
+          }}
+        >
+          <strong style={{ color: 'var(--crimson)' }}>
+            {s('AI 服务暂不可用', 'AI 服務暫不可用', 'AI service unavailable')}
+          </strong>
+          <div style={{ marginTop: 6, font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
+            {s('所有 LLM 通路均失败 · 请稍后再试。', '所有 LLM 通路均失敗 · 請稍後再試。', 'All LLM providers failed · please retry later.')}
+          </div>
+          {user?.role === 'admin' && (
+            <div style={{ marginTop: 8, font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
+              {s('提示（admin）：检查 ', '提示（admin）：檢查 ', 'Admin hint: check ')}
+              <a href="/app/admin/llm" style={{ color: 'var(--saffron-dark)' }}>
+                {s('LLM provider 配置', 'LLM provider 配置', 'LLM provider config')}
+              </a>
+              {s(' · API key 是否过期 / 余额。', ' · API key 是否過期 / 餘額。', ' · API key validity / quota.')}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setLlmDown(false)}
+            className="btn btn-pill"
+            style={{ marginTop: 10, padding: '6px 14px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--ink-3)', font: 'var(--text-caption)' }}
+          >
+            {s('关闭', '關閉', 'Dismiss')}
+          </button>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--sp-4)', maxWidth: 880 }}>
         {/* Scope 切换 */}
