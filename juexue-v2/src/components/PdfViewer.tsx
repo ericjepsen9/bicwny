@@ -1,14 +1,13 @@
-// PdfViewer · 幻灯片观修浏览器（仿相册/幻灯片体验）
+// PdfViewer · 幻灯片观修浏览器（仿相册体验）
 //
 // 设计：
-//   - 横向滑动翻页（CSS scroll-snap · 不是上下滚）· 像看相册
-//   - 每页全屏显示 · 默认 fit-screen
-//   - 双指 pinch zoom（浏览器原生 · 在 inline 里用 transform · modal 里直接靠 viewport）
-//   - 极简 UI：右上角 ⤢/✕ · 底部页码 1/N（auto-hide）
-//   - 加载进度条
-//
-// 不再有：上一页/下一页按钮 · 缩放按钮 · 工具栏
-import { useEffect, useRef, useState } from 'react';
+//   - 横向滑动翻页（CSS scroll-snap）· 像看相册
+//   - 每页 fit-screen 完整显示（不裁不溢）· 短边 fit
+//   - 全屏按钮常驻右上角 · 不 auto-hide
+//   - 横屏自动全屏（matchMedia orientation 监听）
+//   - 单页内可双指放大 / 滚动看大图
+//   - 加载进度
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { useLang } from '@/lib/i18n';
@@ -25,6 +24,8 @@ export interface PdfViewerProps {
   onClose?: () => void;
 }
 
+interface PageDim { w: number; h: number }
+
 export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerProps) {
   const { s } = useLang();
   const [numPages, setNumPages] = useState(0);
@@ -32,27 +33,44 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
   const [loadProgress, setLoadProgress] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [containerSize, setContainerSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+  const [pageDim, setPageDim] = useState<PageDim | null>(null);
   const [internalFullscreen, setInternalFullscreen] = useState(false);
-  const [showHud, setShowHud] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
-  const hudHideRef = useRef<number | null>(null);
 
   const isFullscreen = mode === 'modal' || internalFullscreen;
 
-  // 容器尺寸（根据 fullscreen 自适应）
-  useEffect(() => {
-    function update() {
-      const el = containerRef.current;
-      if (el) {
-        setContainerSize({ w: el.clientWidth, h: el.clientHeight });
-      }
-    }
+  // 容器尺寸 · 用 ResizeObserver 实时跟踪
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setContainerSize({ w: el.clientWidth, h: el.clientHeight });
     update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, [isFullscreen]);
 
-  // 当前页 · 监听 scroll snap 切换
+  // 页比例（首页加载后获取 · 假设所有页同尺寸）
+  // react-pdf Page 的 onLoadSuccess 给原始 view{width,height}
+  // 然后我们计算 fit 容器的渲染尺寸
+  const renderSize: PageDim | null = pageDim && containerSize.w > 0 && containerSize.h > 0
+    ? fitInside(pageDim, containerSize.w, containerSize.h)
+    : null;
+
+  // 横屏自动全屏
+  useEffect(() => {
+    if (mode === 'modal') return; // modal 已经全屏 · 不需自动
+    const mq = window.matchMedia('(orientation: landscape)');
+    function onChange(e: MediaQueryListEvent | MediaQueryList) {
+      // 横屏 + 用户在 inline 模式 · 自动进全屏
+      if (e.matches) setInternalFullscreen(true);
+    }
+    onChange(mq); // 初始检测
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [mode]);
+
+  // 当前页 · scroll snap 监听
   useEffect(() => {
     const el = containerRef.current;
     if (!el || numPages === 0) return;
@@ -66,7 +84,7 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
     return () => el.removeEventListener('scroll', onScroll);
   }, [numPages]);
 
-  // ESC 退全屏
+  // ESC 退全屏 · 左右翻页
   useEffect(() => {
     if (!isFullscreen) return;
     function onKey(e: KeyboardEvent) {
@@ -77,8 +95,7 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         const el = containerRef.current;
         if (!el) return;
-        const dir = e.key === 'ArrowRight' ? 1 : -1;
-        el.scrollBy({ left: el.clientWidth * dir, behavior: 'smooth' });
+        el.scrollBy({ left: el.clientWidth * (e.key === 'ArrowRight' ? 1 : -1), behavior: 'smooth' });
       }
     }
     document.addEventListener('keydown', onKey);
@@ -93,25 +110,13 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
     return () => { document.body.style.overflow = prev; };
   }, [isFullscreen]);
 
-  // HUD 自动隐藏（点击容器复现）
-  function flashHud() {
-    setShowHud(true);
-    if (hudHideRef.current) window.clearTimeout(hudHideRef.current);
-    hudHideRef.current = window.setTimeout(() => setShowHud(false), 2200);
-  }
-  useEffect(() => {
-    flashHud();
-    return () => { if (hudHideRef.current) window.clearTimeout(hudHideRef.current); };
-  }, [currentPage]);
-
   function handleFullscreenToggle() {
     if (mode === 'modal') onClose?.();
     else setInternalFullscreen((v) => !v);
   }
 
-  // 单页渲染：fit 容器（保留比例 · 一般 PDF 是竖版 A4 · 配 60-70vh 容器高度刚好）
-  // PDF 页比例宽高 = 实际比例 · react-pdf 用 width 自动算高
-  const pageRender = (n: number) => (
+  // 渲染单页
+  const renderPage = (n: number) => (
     <div
       key={n}
       style={{
@@ -119,38 +124,33 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
         scrollSnapAlign: 'center',
         height: '100%',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        overflow: 'auto', // 单页内可双指放大滚动
+        overflow: 'auto',
         WebkitOverflowScrolling: 'touch',
       }}
-      onClick={flashHud}
     >
       <Page
         pageNumber={n}
-        width={containerSize.w || undefined}
+        width={renderSize?.w}
+        height={renderSize?.h}
         renderTextLayer={false}
         renderAnnotationLayer={false}
         loading={null}
+        onLoadSuccess={n === 1 ? (page) => {
+          // 首页加载后 · 拿原始页面尺寸（PDF 内部坐标 · 1pt = 1/72 inch）
+          setPageDim({ w: page.width, h: page.height });
+        } : undefined}
       />
     </div>
   );
 
   const errorEl = loadError ? (
-    <div style={{
-      position: 'absolute', inset: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#fff', textAlign: 'center', padding: 'var(--sp-4)',
-    }}>
+    <div style={absCenter('#fff')}>
       ⚠️ {s('加载失败', '載入失敗', 'Failed')}: {loadError}
     </div>
   ) : null;
 
   const loadingEl = numPages === 0 && !loadError ? (
-    <div style={{
-      position: 'absolute', inset: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      flexDirection: 'column', gap: 12,
-      color: '#fff',
-    }}>
+    <div style={absCenterCol('#fff')}>
       <div style={{ font: 'var(--text-body)' }}>{loadProgress}%</div>
       <div style={{ width: 160, height: 3, borderRadius: 2, background: 'rgba(255,255,255,.15)', overflow: 'hidden' }}>
         <div style={{ height: '100%', width: loadProgress + '%', background: 'var(--saffron-dark)', transition: 'width .15s' }} />
@@ -158,6 +158,7 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
     </div>
   ) : null;
 
+  // 全屏按钮 · 常驻 · 不 auto-hide
   const fsBtn = (
     <button
       type="button"
@@ -172,31 +173,25 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
         border: 'none', color: '#fff', fontSize: 18,
         cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        opacity: showHud ? 1 : 0,
-        transition: 'opacity .25s',
-        pointerEvents: showHud ? 'auto' : 'none',
       }}
     >
       {isFullscreen ? '✕' : '⤢'}
     </button>
   );
 
-  const pageHud = numPages > 0 && !loadError ? (
-    <div
-      style={{
-        position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
-        zIndex: 10,
-        padding: '6px 16px', borderRadius: 'var(--r-pill)',
-        background: 'rgba(0,0,0,.55)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        color: '#fff',
-        font: 'var(--text-caption)', letterSpacing: 1.5, fontWeight: 600,
-        opacity: showHud ? 1 : 0,
-        transition: 'opacity .25s',
-        pointerEvents: 'none',
-      }}
-    >
+  // 页码 · 常驻底部
+  const pageHud = numPages > 1 && !loadError ? (
+    <div style={{
+      position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 10,
+      padding: '6px 16px', borderRadius: 'var(--r-pill)',
+      background: 'rgba(0,0,0,.55)',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      color: '#fff',
+      font: 'var(--text-caption)', letterSpacing: 1.5, fontWeight: 600,
+      pointerEvents: 'none',
+    }}>
       {currentPage} / {numPages}
     </div>
   ) : null;
@@ -219,15 +214,13 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
           overflowX: 'auto', overflowY: 'hidden',
           scrollSnapType: 'x mandatory',
           WebkitOverflowScrolling: 'touch',
-          background: '#000',
         }}
       >
-        {Array.from({ length: numPages }, (_, i) => pageRender(i + 1))}
+        {Array.from({ length: numPages }, (_, i) => renderPage(i + 1))}
       </div>
     </Document>
   );
 
-  // ── inline 嵌入页面 ──
   if (!isFullscreen) {
     return (
       <div style={{
@@ -246,16 +239,10 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
     );
   }
 
-  // ── 全屏 ──
   return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: '#000',
-      }}
-    >
+    <div role="dialog" aria-modal="true" style={{
+      position: 'fixed', inset: 0, zIndex: 9999, background: '#000',
+    }}>
       {fsBtn}
       {pageHud}
       {errorEl}
@@ -264,4 +251,27 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
     </div>,
     document.body,
   );
+}
+
+// 计算 fit-inside 渲染尺寸：保留 PDF 原始比例 · 短边 fit 容器
+function fitInside(page: PageDim, cw: number, ch: number): PageDim {
+  if (cw <= 0 || ch <= 0) return page;
+  const ratio = Math.min(cw / page.w, ch / page.h);
+  return { w: page.w * ratio, h: page.h * ratio };
+}
+
+function absCenter(color: string): React.CSSProperties {
+  return {
+    position: 'absolute', inset: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color, textAlign: 'center', padding: 'var(--sp-4)',
+  };
+}
+
+function absCenterCol(color: string): React.CSSProperties {
+  return {
+    position: 'absolute', inset: 0,
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    gap: 12, color,
+  };
 }
