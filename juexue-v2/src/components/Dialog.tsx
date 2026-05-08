@@ -28,6 +28,8 @@ interface DialogProps {
   variant?: 'sheet' | 'overlay' | 'centered';
   /** 隐藏关闭按钮（少用 · 一般要给用户出口） */
   hideClose?: boolean;
+  /** centered 模式宽度（默认 560 · 内容密集详情用 720 / 880） */
+  width?: number;
 }
 
 export default function Dialog({
@@ -39,6 +41,7 @@ export default function Dialog({
   children,
   variant = 'sheet',
   hideClose = false,
+  width = 560,
 }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -77,7 +80,7 @@ export default function Dialog({
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: 'min(560px, calc(100vw - 32px))',
+          width: `min(${width}px, calc(100vw - 32px))`,
           background: 'var(--bg-card)',
           borderRadius: 'var(--r-md)',
           padding: 16,
@@ -125,7 +128,7 @@ export default function Dialog({
         style={variant === 'centered'
           ? {
               position: 'relative',
-              width: 'min(560px, 100%)',
+              width: `min(${width}px, 100%)`,
               background: 'var(--bg-card)',
               borderRadius: 'var(--r-md)',
               padding: 16,

@@ -303,27 +303,8 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
   });
 
   return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(43,34,24,.35)', zIndex: 200 }} />
-      <aside
-        role="dialog"
-        aria-modal="true"
-        style={{
-          position: 'fixed', top: 0, right: 0, bottom: 0,
-          width: 'min(560px, 100vw)',
-          background: 'var(--bg-scene)',
-          borderLeft: '1px solid var(--glass-border)',
-          boxShadow: '-12px 0 32px rgba(43,34,24,.18)',
-          zIndex: 201, overflowY: 'auto', padding: 'var(--sp-5)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--sp-4)' }}>
-          <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.125rem', color: 'var(--ink)', letterSpacing: 2 }}>
-            {s('班级详情', '班級詳情', 'Class')}
-          </h2>
-          <button type="button" onClick={onClose} aria-label={s('关闭', '關閉', 'Close')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: '1.4rem', lineHeight: 1 }}>✕</button>
-        </div>
-
+    <Dialog open onClose={onClose} title={s('班级详情', '班級詳情', 'Class')} variant="centered" width={720}>
+      <div>
         {hiddenByFilter && (
           <div style={{
             padding: 'var(--sp-3) var(--sp-4)',
@@ -462,8 +443,8 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
             {archive.isPending ? '…' : s('归档班级', '歸檔班級', 'Archive class')}
           </button>
         )}
-      </aside>
-    </>
+      </div>
+    </Dialog>
   );
 }
 

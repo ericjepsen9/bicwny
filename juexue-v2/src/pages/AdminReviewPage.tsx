@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
+import Dialog from '@/components/Dialog';
 import Skeleton from '@/components/Skeleton';
 import QuestionRenderer from '@/components/quiz';
 import { api, ApiError } from '@/lib/api';
@@ -158,27 +159,8 @@ function ReviewDrawer({ q, onDone }: { q: AdminPendingQuestion; onDone: () => vo
   });
 
   return (
-    <>
-      <div onClick={onDone} style={{ position: 'fixed', inset: 0, background: 'rgba(43,34,24,.35)', zIndex: 200 }} />
-      <aside
-        role="dialog"
-        aria-modal="true"
-        style={{
-          position: 'fixed', top: 0, right: 0, bottom: 0,
-          width: 'min(620px, 100vw)',
-          background: 'var(--bg-scene)',
-          borderLeft: '1px solid var(--glass-border)',
-          boxShadow: '-12px 0 32px rgba(43,34,24,.18)',
-          zIndex: 201, overflowY: 'auto', padding: 'var(--sp-5)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--sp-4)' }}>
-          <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.125rem', color: 'var(--ink)', letterSpacing: 2 }}>
-            {s('审核', '審核', 'Review')}
-          </h2>
-          <button type="button" onClick={onDone} aria-label={s('关闭', '關閉', 'Close')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: '1.4rem', lineHeight: 1 }}>✕</button>
-        </div>
-
+    <Dialog open onClose={onDone} title={s('审核', '審核', 'Review')} variant="centered" width={720}>
+      <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--sp-3)' }}>
           <span style={{ padding: '2px 8px', borderRadius: 'var(--r-pill)', background: 'var(--glass-thick)', color: 'var(--ink-2)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1 }}>{q.type}</span>
           <span style={{ padding: '2px 8px', borderRadius: 'var(--r-pill)', background: 'var(--gold-pale)', color: 'var(--gold-dark)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1 }}>{s('待审', '待審', 'Pending')}</span>
@@ -270,8 +252,8 @@ function ReviewDrawer({ q, onDone }: { q: AdminPendingQuestion; onDone: () => vo
             </button>
           </div>
         )}
-      </aside>
-    </>
+      </div>
+    </Dialog>
   );
 }
 

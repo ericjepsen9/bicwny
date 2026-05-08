@@ -285,27 +285,8 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
   }
 
   return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(43,34,24,.35)', zIndex: 200 }} />
-      <aside
-        role="dialog"
-        aria-modal="true"
-        style={{
-          position: 'fixed', top: 0, right: 0, bottom: 0,
-          width: 'min(520px, 100vw)',
-          background: 'var(--bg-scene)',
-          borderLeft: '1px solid var(--glass-border)',
-          boxShadow: '-12px 0 32px rgba(43,34,24,.18)',
-          zIndex: 201, overflowY: 'auto', padding: 'var(--sp-5)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--sp-4)' }}>
-          <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.125rem', color: 'var(--ink)', letterSpacing: 2 }}>
-            {s('用户详情', '用戶詳情', 'User')}
-          </h2>
-          <button type="button" onClick={onClose} aria-label={s('关闭', '關閉', 'Close')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--ink-3)', fontSize: '1.4rem', lineHeight: 1 }}>✕</button>
-        </div>
-
+    <Dialog open onClose={onClose} title={s('用户详情', '用戶詳情', 'User')} variant="centered" width={720}>
+      <div>
         <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
           <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem' }}>
             {(user.dharmaName || user.email).slice(0, 1)}
@@ -403,8 +384,8 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
         </div>
 
         <LearningSection userId={user.id} />
-      </aside>
-    </>
+      </div>
+    </Dialog>
   );
 }
 
