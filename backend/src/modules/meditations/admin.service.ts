@@ -329,7 +329,8 @@ export async function uploadVideo(
 // ─────────────────────── PDF 上传 ───────────────────────
 
 export interface UploadSlidesResult {
-  slidesPdfUrl: string;
+  slideImageUrls: string[];
+  slidesPdfUrl: string | null;
 }
 
 // 接受 pdf / ppt / pptx · ppt/pptx 用 libreoffice headless 自动转 PDF
@@ -400,14 +401,65 @@ export async function uploadSlides(
       await rename(rawPath, pdfPath);
     }
 
-    const ossKey = `meditations/slides/${meditationId}.pdf`;
-    const url = await uploadToOss(pdfPath, ossKey);
+    // PDF → WebP 每页一张 · 用 pdftoppm（poppler-utils）
+    // 服务器需安装 poppler-utils：sudo apt install poppler-utils
+    const imagesDir = path.join(TMP_DIR, `${meditationId}-${random}-imgs`);
+    await mkdir(imagesDir, { recursive: true });
+    let pageCount = 0;
+    try {
+      // -png: 输出 PNG · -r 150: 150dpi（移动端足够清晰 · 文件适中）
+      // pdftoppm input.pdf prefix → prefix-1.png prefix-2.png ...
+      await execFileAsync(
+        'pdftoppm',
+        ['-png', '-r', '150', pdfPath, path.join(imagesDir, 'page')],
+        { timeout: 120_000 },
+      );
+      // 列出生成的 PNG · 按页号排序
+      const { readdir } = await import('node:fs/promises');
+      const files = (await readdir(imagesDir))
+        .filter((f) => f.endsWith('.png'))
+        .sort((a, b) => {
+          // pdftoppm 命名 page-1.png · page-10.png 等 · 用页号数字排
+          const ai = parseInt(a.match(/-(\d+)\.png$/)?.[1] ?? '0', 10);
+          const bi = parseInt(b.match(/-(\d+)\.png$/)?.[1] ?? '0', 10);
+          return ai - bi;
+        });
+      pageCount = files.length;
+      if (pageCount === 0) throw new Error('pdftoppm 没生成任何页面');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('ENOENT')) {
+        throw BadRequest('服务器未安装 poppler-utils · sudo apt install poppler-utils');
+      }
+      throw BadRequest(`PDF 转图片失败: ${msg.slice(0, 200)}`);
+    }
 
-    const oldUrl = m.slidesPdfUrl;
+    // PNG → WebP（quality=80 · 体积小约 60%）· 上传 OSS
+    const sharp = (await import('sharp')).default;
+    const slideImageUrls: string[] = [];
+    const pad = (n: number) => String(n).padStart(3, '0');
+    for (let i = 1; i <= pageCount; i++) {
+      const pngPath = path.join(imagesDir, `page-${i}.png`);
+      const webpPath = path.join(imagesDir, `page-${pad(i)}.webp`);
+      await sharp(pngPath).webp({ quality: 80 }).toFile(webpPath);
+      const ossKey = `meditations/slides/${meditationId}/page-${pad(i)}.webp`;
+      const url = await uploadToOss(webpPath, ossKey);
+      slideImageUrls.push(url);
+    }
+
+    // 仍然保留 PDF 上传 · 给老前端 fallback（v1 兼容）
+    const pdfOssKey = `meditations/slides/${meditationId}.pdf`;
+    const pdfUrl = await uploadToOss(pdfPath, pdfOssKey);
+
+    const oldImageUrls = (m.slideImageUrls as string[] | null) ?? [];
+    const oldPdfUrl = m.slidesPdfUrl;
     await prisma.$transaction(async (tx) => {
       await tx.meditation.update({
         where: { id: meditationId },
-        data: { slidesPdfUrl: url },
+        data: {
+          slideImageUrls: slideImageUrls as Prisma.InputJsonValue,
+          slidesPdfUrl: pdfUrl,
+        },
       });
       await tx.auditLog.create({
         data: {
@@ -415,35 +467,48 @@ export async function uploadSlides(
           action: 'meditation.slides.upload',
           targetType: 'meditation',
           targetId: meditationId,
-          before: { slidesPdfUrl: oldUrl } as Prisma.InputJsonValue,
-          after: { slidesPdfUrl: url } as Prisma.InputJsonValue,
+          before: { slideImageUrls: oldImageUrls, slidesPdfUrl: oldPdfUrl } as Prisma.InputJsonValue,
+          after: { slideImageUrls, slidesPdfUrl: pdfUrl, pageCount } as Prisma.InputJsonValue,
         },
       });
     });
 
-    if (oldUrl && oldUrl !== url) {
+    // 清理老的图片 OSS（重新上传场景）
+    for (const oldUrl of oldImageUrls) {
       const oldKey = ossKeyFromUrl(oldUrl);
-      if (oldKey && oldKey !== ossKey) {
+      if (oldKey && !slideImageUrls.includes(oldUrl)) {
+        deleteFromOss(oldKey).catch(() => undefined);
+      }
+    }
+    if (oldPdfUrl && oldPdfUrl !== pdfUrl) {
+      const oldKey = ossKeyFromUrl(oldPdfUrl);
+      if (oldKey && oldKey !== pdfOssKey) {
         deleteFromOss(oldKey).catch(() => undefined);
       }
     }
 
-    return { slidesPdfUrl: url };
+    return { slideImageUrls, slidesPdfUrl: pdfUrl };
   } finally {
     await safeUnlink(rawPath);
     await safeUnlink(pdfPath);
+    // 清理 imagesDir
+    try {
+      const { rm } = await import('node:fs/promises');
+      await rm(path.join(TMP_DIR, `${meditationId}-${random}-imgs`), { recursive: true, force: true });
+    } catch { /* ignore */ }
   }
 }
 
 export async function removeSlides(adminId: string, meditationId: string): Promise<void> {
   const m = await getMeditation(meditationId);
-  if (!m.slidesPdfUrl) return;
+  const imageUrls = (m.slideImageUrls as string[] | null) ?? [];
+  if (!m.slidesPdfUrl && imageUrls.length === 0) return;
 
   const oldUrl = m.slidesPdfUrl;
   await prisma.$transaction(async (tx) => {
     await tx.meditation.update({
       where: { id: meditationId },
-      data: { slidesPdfUrl: null },
+      data: { slidesPdfUrl: null, slideImageUrls: [] as Prisma.InputJsonValue },
     });
     await tx.auditLog.create({
       data: {
@@ -451,12 +516,18 @@ export async function removeSlides(adminId: string, meditationId: string): Promi
         action: 'meditation.slides.remove',
         targetType: 'meditation',
         targetId: meditationId,
-        before: { slidesPdfUrl: oldUrl } as Prisma.InputJsonValue,
-        after: { slidesPdfUrl: null } as Prisma.InputJsonValue,
+        before: { slidesPdfUrl: oldUrl, slideImageUrls: imageUrls } as Prisma.InputJsonValue,
+        after: { slidesPdfUrl: null, slideImageUrls: [] } as Prisma.InputJsonValue,
       },
     });
   });
 
-  const key = ossKeyFromUrl(oldUrl);
-  if (key) deleteFromOss(key).catch(() => undefined);
+  if (oldUrl) {
+    const key = ossKeyFromUrl(oldUrl);
+    if (key) deleteFromOss(key).catch(() => undefined);
+  }
+  for (const url of imageUrls) {
+    const key = ossKeyFromUrl(url);
+    if (key) deleteFromOss(key).catch(() => undefined);
+  }
 }

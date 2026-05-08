@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import PdfViewer from '@/components/PdfViewer';
+import SlideViewer from '@/components/SlideViewer';
 import Skeleton from '@/components/Skeleton';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
@@ -177,7 +177,7 @@ export default function MeditationPlayerPage() {
       </div>
 
       {/* 内容 tab · 视频 / 讲义 同位置切换 · 不离开 app */}
-      {meditation.slidesPdfUrl && (
+      {(meditation.slideImageUrls?.length || meditation.slidesPdfUrl) && (
         <div style={{
           display: 'flex', gap: 4, marginBottom: 'var(--sp-3)',
           padding: 4, borderRadius: 'var(--r-pill)',
@@ -226,13 +226,30 @@ export default function MeditationPlayerPage() {
         )
       )}
 
-      {/* 讲义 PDF (tab=pdf) · inline 渲染 · 不弹窗 */}
-      {activeTab === 'pdf' && meditation.slidesPdfUrl && (
-        <PdfViewer
-          url={meditation.slidesPdfUrl}
+      {/* 讲义 PPT (tab=pdf) · 图片 inline · 不跳出 app */}
+      {activeTab === 'pdf' && meditation.slideImageUrls && meditation.slideImageUrls.length > 0 && (
+        <SlideViewer
+          imageUrls={meditation.slideImageUrls}
           title={meditation.title}
           mode="inline"
         />
+      )}
+      {/* v1 兼容 fallback · 老数据没图片 · 用 PDF 链接（学员临时离开 app）*/}
+      {activeTab === 'pdf' && (!meditation.slideImageUrls || meditation.slideImageUrls.length === 0) && meditation.slidesPdfUrl && (
+        <a
+          href={meditation.slidesPdfUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="btn btn-pill"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 'var(--sp-4)', background: 'var(--glass-thick)',
+            color: 'var(--ink-2)', border: '1px solid var(--glass-border)',
+            textDecoration: 'none', letterSpacing: 1,
+          }}
+        >
+          📄 {s('打开 PDF（旧数据 · 请重新上传以使用 inline 显示）', '打開 PDF', 'Open PDF')}
+        </a>
       )}
 
       {/* 元信息 · 时长 + 讲者 */}

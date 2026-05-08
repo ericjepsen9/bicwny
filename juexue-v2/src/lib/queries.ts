@@ -999,6 +999,9 @@ export interface AdminMeditation {
   authorName: string | null;
   videoUrl: string;
   videoDurationSec: number;
+  /** v2 · 转换后的图片 URL 数组 · 学员侧主用 */
+  slideImageUrls: string[] | null;
+  /** v1 兼容 · PDF 原文件 · 老前端 fallback */
   slidesPdfUrl: string | null;
   isPublished: boolean;
   displayOrder: number;
@@ -1079,6 +1082,7 @@ export interface StudentMeditation {
   authorName: string | null;
   videoUrl: string;
   videoDurationSec: number;
+  slideImageUrls: string[] | null;
   slidesPdfUrl: string | null;
   isPublished: boolean;
   displayOrder: number;

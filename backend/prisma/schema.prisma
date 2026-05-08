@@ -362,8 +362,12 @@ model Meditation {
   videoUrl         String
   videoDurationSec Int
 
-  // PPT（可选）· https://media.../slides/<id>.pdf
-  slidesPdfUrl String?
+  // PPT/讲义图片化存储（v2 主 · 学员侧用）
+  // 上传时把 PDF/PPT 每页转 WebP · 存 OSS · 数组按页序
+  // ['https://media.../slides/<id>/page-001.webp', 'page-002.webp', ...]
+  slideImageUrls Json?
+  // PDF 原文件（v1 兼容 · 老数据回退渲染 · v2 上传不存）
+  slidesPdfUrl   String?
 
   // v2 预留（v1 不读不写 · 提前建表避免后续迁库）
   chapters      Json? // 章节标注数组
