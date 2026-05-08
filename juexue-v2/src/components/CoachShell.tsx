@@ -67,6 +67,7 @@ export default function CoachShell() {
           <CoachNav to="/coach/students"   label={s('班级学员', '班級學員', 'Students')} icon={IconUsers} />
           <CoachNav to="/coach/questions"  label={s('题库', '題庫', 'Questions')} icon={IconBook} />
           <CoachNav to="/coach/courses"    label={s('法本浏览', '法本瀏覽', 'Texts')} icon={IconText} />
+          <CoachNav to="/coach/meditations" label={s('观修管理', '觀修管理', 'Meditations')} icon={IconText} />
         </div>
 
         <div className="nav-section" style={{ marginTop: 'auto' }}>{s('其他', '其他', 'Other')}</div>

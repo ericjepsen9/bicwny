@@ -173,6 +173,8 @@ function CoachAppShell() {
               <Route path="/questions/import" element={<CoachQuestionImportPage />} />
               <Route path="/questions/generate" element={<CoachQuestionGeneratePage />} />
               <Route path="/courses" element={<CoachCoursesPage />} />
+              {/* 观修管理 · 复用 admin 页 · 后端权限已放权 coach */}
+              <Route path="/meditations" element={<AdminMeditationsPage />} />
               <Route path="*" element={<Navigate to="/coach" replace />} />
             </Route>
           </Route>

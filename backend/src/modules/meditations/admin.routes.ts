@@ -27,7 +27,9 @@ import {
   uploadVideo,
 } from './admin.service.js';
 
-const adminGuard = requireRole('admin');
+// coach 也能管观修 · 可创建 / 上传 / 编辑 · 不限制 owner（小平台 · 所有
+// coach 都是 vetted · 后续要按班级隔离再加 ownerClassId 字段）
+const adminGuard = requireRole('coach', 'admin');
 const TAGS = ['Admin · Meditation'];
 const SEC = [{ bearerAuth: [] as string[] }];
 
