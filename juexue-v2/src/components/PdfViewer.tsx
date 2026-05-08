@@ -1,11 +1,13 @@
-// PdfViewer · in-app PDF 阅读器（仿 Chrome 内置 viewer · 连续滚动 + 极简）
+// PdfViewer · 幻灯片观修浏览器（仿相册/幻灯片体验）
 //
 // 设计：
-//   - 连续滚动：所有页竖向堆叠 · 像浏览器原生 · 不再点 上一页/下一页
-//   - 不要工具栏：清爽 · 用户专注内容
-//   - 浏览器原生 pinch-zoom（PWA viewport 支持时）
-//   - 加载进度条：让用户知道大文件还在拉
-//   - 仅一个全屏按钮 · 移动端建议横屏看
+//   - 横向滑动翻页（CSS scroll-snap · 不是上下滚）· 像看相册
+//   - 每页全屏显示 · 默认 fit-screen
+//   - 双指 pinch zoom（浏览器原生 · 在 inline 里用 transform · modal 里直接靠 viewport）
+//   - 极简 UI：右上角 ⤢/✕ · 底部页码 1/N（auto-hide）
+//   - 加载进度条
+//
+// 不再有：上一页/下一页按钮 · 缩放按钮 · 工具栏
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -19,7 +21,6 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 export interface PdfViewerProps {
   url: string;
   title?: string;
-  /** inline 嵌入页面 · modal 全屏 · 默认 inline */
   mode?: 'modal' | 'inline';
   onClose?: () => void;
 }
@@ -29,27 +30,41 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
   const [numPages, setNumPages] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadProgress, setLoadProgress] = useState(0);
-  const [containerW, setContainerW] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [containerSize, setContainerSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [internalFullscreen, setInternalFullscreen] = useState(false);
+  const [showHud, setShowHud] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hudHideRef = useRef<number | null>(null);
 
   const isFullscreen = mode === 'modal' || internalFullscreen;
 
-  // 容器宽度自适应
+  // 容器尺寸（根据 fullscreen 自适应）
   useEffect(() => {
     function update() {
       const el = containerRef.current;
       if (el) {
-        setContainerW(el.clientWidth - 16); // 留点边距
-      } else {
-        const w = window.innerWidth;
-        setContainerW(Math.min(w - 16, isFullscreen ? 1200 : 800));
+        setContainerSize({ w: el.clientWidth, h: el.clientHeight });
       }
     }
     update();
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
   }, [isFullscreen]);
+
+  // 当前页 · 监听 scroll snap 切换
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || numPages === 0) return;
+    function onScroll() {
+      const w = el!.clientWidth;
+      if (w === 0) return;
+      const idx = Math.round(el!.scrollLeft / w);
+      setCurrentPage(idx + 1);
+    }
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [numPages]);
 
   // ESC 退全屏
   useEffect(() => {
@@ -58,6 +73,12 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
       if (e.key === 'Escape') {
         if (mode === 'modal') onClose?.();
         else setInternalFullscreen(false);
+      }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        const el = containerRef.current;
+        if (!el) return;
+        const dir = e.key === 'ArrowRight' ? 1 : -1;
+        el.scrollBy({ left: el.clientWidth * dir, behavior: 'smooth' });
       }
     }
     document.addEventListener('keydown', onKey);
@@ -72,79 +93,113 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
     return () => { document.body.style.overflow = prev; };
   }, [isFullscreen]);
 
-  // 渲染所有页（连续滚动）
-  const pagesEl = numPages > 0 && !loadError ? (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-      {Array.from({ length: numPages }, (_, i) => (
-        <Page
-          key={i + 1}
-          pageNumber={i + 1}
-          width={containerW || undefined}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-          loading={null}
-        />
-      ))}
+  // HUD 自动隐藏（点击容器复现）
+  function flashHud() {
+    setShowHud(true);
+    if (hudHideRef.current) window.clearTimeout(hudHideRef.current);
+    hudHideRef.current = window.setTimeout(() => setShowHud(false), 2200);
+  }
+  useEffect(() => {
+    flashHud();
+    return () => { if (hudHideRef.current) window.clearTimeout(hudHideRef.current); };
+  }, [currentPage]);
+
+  function handleFullscreenToggle() {
+    if (mode === 'modal') onClose?.();
+    else setInternalFullscreen((v) => !v);
+  }
+
+  // 单页渲染：fit 容器（保留比例 · 一般 PDF 是竖版 A4 · 配 60-70vh 容器高度刚好）
+  // PDF 页比例宽高 = 实际比例 · react-pdf 用 width 自动算高
+  const pageRender = (n: number) => (
+    <div
+      key={n}
+      style={{
+        flex: '0 0 100%',
+        scrollSnapAlign: 'center',
+        height: '100%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'auto', // 单页内可双指放大滚动
+        WebkitOverflowScrolling: 'touch',
+      }}
+      onClick={flashHud}
+    >
+      <Page
+        pageNumber={n}
+        width={containerSize.w || undefined}
+        renderTextLayer={false}
+        renderAnnotationLayer={false}
+        loading={null}
+      />
     </div>
-  ) : null;
+  );
 
   const errorEl = loadError ? (
     <div style={{
-      color: isFullscreen ? '#fff' : 'var(--crimson)',
-      textAlign: 'center', padding: 'var(--sp-5)', font: 'var(--text-body)',
+      position: 'absolute', inset: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: '#fff', textAlign: 'center', padding: 'var(--sp-4)',
     }}>
-      ⚠️ {s('PDF 加载失败', 'PDF 載入失敗', 'PDF load failed')}: {loadError}
+      ⚠️ {s('加载失败', '載入失敗', 'Failed')}: {loadError}
     </div>
   ) : null;
 
   const loadingEl = numPages === 0 && !loadError ? (
     <div style={{
-      padding: 'var(--sp-5)',
-      color: isFullscreen ? '#fff' : 'var(--ink-3)',
-      textAlign: 'center', minHeight: 200,
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      gap: 'var(--sp-3)',
+      position: 'absolute', inset: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'column', gap: 12,
+      color: '#fff',
     }}>
-      <div style={{ font: 'var(--text-body)' }}>
-        {s('加载中', '載入中', 'Loading')} · {loadProgress}%
-      </div>
-      <div style={{
-        width: 200, height: 4, borderRadius: 2,
-        background: isFullscreen ? 'rgba(255,255,255,.2)' : 'var(--glass)',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          height: '100%', width: loadProgress + '%',
-          background: 'var(--saffron-dark)',
-          transition: 'width .15s',
-        }} />
+      <div style={{ font: 'var(--text-body)' }}>{loadProgress}%</div>
+      <div style={{ width: 160, height: 3, borderRadius: 2, background: 'rgba(255,255,255,.15)', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: loadProgress + '%', background: 'var(--saffron-dark)', transition: 'width .15s' }} />
       </div>
     </div>
   ) : null;
 
-  // 极简右上角按钮：全屏 / 退出
   const fsBtn = (
     <button
       type="button"
-      onClick={() => {
-        if (mode === 'modal') onClose?.();
-        else setInternalFullscreen((v) => !v);
-      }}
-      aria-label={isFullscreen ? s('退出全屏', '退出全屏', 'Exit') : s('全屏', '全屏', 'Fullscreen')}
+      onClick={handleFullscreenToggle}
+      aria-label={isFullscreen ? s('退出', '退出', 'Exit') : s('全屏', '全屏', 'Fullscreen')}
       style={{
-        position: 'absolute', top: 8, right: 8, zIndex: 10,
-        width: 36, height: 36, borderRadius: '50%',
-        background: 'rgba(0,0,0,.4)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
-        border: 'none',
-        color: '#fff', fontSize: 18, cursor: 'pointer',
+        position: 'absolute', top: 12, right: 12, zIndex: 10,
+        width: 38, height: 38, borderRadius: '50%',
+        background: 'rgba(0,0,0,.55)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        border: 'none', color: '#fff', fontSize: 18,
+        cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        opacity: showHud ? 1 : 0,
+        transition: 'opacity .25s',
+        pointerEvents: showHud ? 'auto' : 'none',
       }}
     >
       {isFullscreen ? '✕' : '⤢'}
     </button>
   );
+
+  const pageHud = numPages > 0 && !loadError ? (
+    <div
+      style={{
+        position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+        zIndex: 10,
+        padding: '6px 16px', borderRadius: 'var(--r-pill)',
+        background: 'rgba(0,0,0,.55)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        color: '#fff',
+        font: 'var(--text-caption)', letterSpacing: 1.5, fontWeight: 600,
+        opacity: showHud ? 1 : 0,
+        transition: 'opacity .25s',
+        pointerEvents: 'none',
+      }}
+    >
+      {currentPage} / {numPages}
+    </div>
+  ) : null;
 
   const docEl = (
     <Document
@@ -156,48 +211,42 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
       onLoadError={(e) => setLoadError(e.message)}
       loading={null}
     >
-      {pagesEl}
-    </Document>
-  );
-
-  const inner = (
-    <>
-      {fsBtn}
       <div
         ref={containerRef}
         style={{
-          flex: 1,
-          overflow: 'auto',
-          background: isFullscreen ? '#1a1410' : '#f5f5f0',
-          padding: '12px 8px',
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'row',
+          overflowX: 'auto', overflowY: 'hidden',
+          scrollSnapType: 'x mandatory',
           WebkitOverflowScrolling: 'touch',
-          minHeight: isFullscreen ? 0 : 500,
+          background: '#000',
         }}
       >
-        {errorEl}
-        {loadingEl}
-        {!loadError && docEl}
+        {Array.from({ length: numPages }, (_, i) => pageRender(i + 1))}
       </div>
-    </>
+    </Document>
   );
 
-  // inline 卡片
+  // ── inline 嵌入页面 ──
   if (!isFullscreen) {
     return (
       <div style={{
         position: 'relative',
-        borderRadius: 'var(--r)',
-        border: '1px solid var(--border-light)',
-        overflow: 'hidden',
-        display: 'flex', flexDirection: 'column',
         height: '70vh',
+        borderRadius: 'var(--r)',
+        overflow: 'hidden',
+        background: '#000',
       }}>
-        {inner}
+        {fsBtn}
+        {pageHud}
+        {errorEl}
+        {loadingEl}
+        {!loadError && docEl}
       </div>
     );
   }
 
-  // 全屏
+  // ── 全屏 ──
   return createPortal(
     <div
       role="dialog"
@@ -205,10 +254,13 @@ export default function PdfViewer({ url, mode = 'modal', onClose }: PdfViewerPro
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
         background: '#000',
-        display: 'flex', flexDirection: 'column',
       }}
     >
-      {inner}
+      {fsBtn}
+      {pageHud}
+      {errorEl}
+      {loadingEl}
+      {!loadError && docEl}
     </div>,
     document.body,
   );
