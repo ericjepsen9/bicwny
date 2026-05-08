@@ -174,10 +174,10 @@ export default function AdminLlmPage() {
         </div>
       )}
 
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s('新增供应商', '新增供應商', 'New provider')}>
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s('新增供应商', '新增供應商', 'New provider')} variant="centered" width={720}>
         <ProviderForm onDone={() => setCreateOpen(false)} mode="create" />
       </Dialog>
-      <Dialog open={!!editing} onClose={() => setEditingId(null)} title={s('编辑供应商', '編輯供應商', 'Edit provider')}>
+      <Dialog open={!!editing} onClose={() => setEditingId(null)} title={s('编辑供应商', '編輯供應商', 'Edit provider')} variant="centered" width={720}>
         {editing && <ProviderForm onDone={() => setEditingId(null)} mode="edit" initial={editing} />}
       </Dialog>
     </>

@@ -1,11 +1,10 @@
 // AdminUsersPage · /admin/users
-//   role 过滤 + search + 列表 + 新建 modal + 详情 drawer（改 role / 切活跃）
+//   role 过滤 + search + 列表 + 详情居中 Dialog（决策 4）· 新建独立页 /admin/users/new（决策 5）
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import DailyBarChart from '@/components/DailyBarChart';
 import Dialog from '@/components/Dialog';
-import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
@@ -22,7 +21,6 @@ export default function AdminUsersPage() {
   const [sp, setSp] = useSearchParams();
   const [role, setRole] = useState<RoleFilter>('all');
   const [search, setSearch] = useState('');
-  const [createOpen, setCreateOpen] = useState(false);
 
   const list = useAdminUsers({
     limit: 50,
@@ -50,9 +48,9 @@ export default function AdminUsersPage() {
           </p>
         </div>
         <div className="top-actions">
-          <button type="button" onClick={() => setCreateOpen(true)} className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
+          <Link to="/admin/users/new" className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
             + {s('新建用户', '新建用戶', 'New user')}
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -125,10 +123,6 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s('新建用户', '新建用戶', 'New user')}>
-        <CreateForm onDone={() => setCreateOpen(false)} />
-      </Dialog>
-
       {openId && items.find((u) => u.id === openId) && (
         <UserDrawer
           user={items.find((u) => u.id === openId)!}
@@ -164,70 +158,6 @@ function StatusPill({ active }: { active: boolean }) {
     <span style={{ padding: '2px 8px', borderRadius: 'var(--r-pill)', background: active ? 'rgba(125,154,108,.15)' : 'var(--crimson-light)', color: active ? 'var(--sage-dark)' : 'var(--crimson)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1 }}>
       {active ? '✓ active' : '✗ inactive'}
     </span>
-  );
-}
-
-function CreateForm({ onDone }: { onDone: () => void }) {
-  const { s } = useLang();
-  const qc = useQueryClient();
-  const [email, setEmail] = useState('');
-  const [pw, setPw] = useState('');
-  const [name, setName] = useState('');
-  const [role, setRole] = useState<'student' | 'coach' | 'admin'>('student');
-  const [err, setErr] = useState('');
-
-  const create = useMutation({
-    mutationFn: () => api.post('/api/admin/users', { email, password: pw, role, dharmaName: name || undefined }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['/api/admin/users'] });
-      qc.invalidateQueries({ queryKey: ['/api/admin/platform-stats'] });
-      toast.ok(s('已创建', '已創建', 'Created'));
-      onDone();
-    },
-    onError: (e) => setErr((e as ApiError).message),
-  });
-
-  return (
-    <form
-      onSubmit={(e) => { e.preventDefault(); setErr(''); if (pw.length < 6) { setErr(s('密码至少 6 位', '密碼至少 6 位', 'Password ≥ 6')); return; } create.mutate(); }}
-      style={{ padding: 'var(--sp-2) 0 var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}
-    >
-      <Field label={s('邮箱', '郵箱', 'Email')} type="email" value={email} onChange={setEmail} required />
-      <Field label={s('密码（≥ 6 位）', '密碼（≥ 6 位）', 'Password (≥6)')} type="password" value={pw} onChange={setPw} required />
-      <Field label={s('法名（可选）', '法名（可選）', 'Dharma name (optional)')} value={name} onChange={setName} />
-      <div>
-        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, fontWeight: 600, marginBottom: 6 }}>
-          {s('角色', '角色', 'Role')}
-        </label>
-        <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
-          {(['student', 'coach', 'admin'] as const).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setRole(r)}
-              style={{
-                flex: 1, padding: '10px 6px', borderRadius: 'var(--r-pill)',
-                background: role === r ? 'var(--saffron-pale)' : 'var(--glass-thick)',
-                color: role === r ? 'var(--saffron-dark)' : 'var(--ink-3)',
-                border: '1px solid ' + (role === r ? 'var(--saffron-light)' : 'var(--glass-border)'),
-                font: 'var(--text-caption)', fontWeight: 600, letterSpacing: 1, cursor: 'pointer',
-              }}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
-      </div>
-      {err && <p style={{ color: 'var(--crimson)', font: 'var(--text-caption)' }}>{err}</p>}
-      <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
-        <button type="button" onClick={onDone} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}>
-          {s('取消', '取消', 'Cancel')}
-        </button>
-        <button type="submit" disabled={create.isPending} className="btn btn-primary btn-pill" style={{ flex: 1, padding: 12, justifyContent: 'center' }}>
-          {create.isPending ? '…' : s('创建', '創建', 'Create')}
-        </button>
-      </div>
-    </form>
   );
 }
 

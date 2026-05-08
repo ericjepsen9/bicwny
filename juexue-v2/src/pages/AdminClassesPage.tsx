@@ -1,8 +1,8 @@
-// AdminClassesPage · /admin/classes
-//   状态过滤 + 搜索 + 列表 + 新建 modal + 详情 drawer（成员 CRUD + 归档）
+// AdminClassesPage · /admin/classes · /coach/classes
+//   状态过滤 + 搜索 + 列表 + 详情居中 Dialog（决策 4）· 新建走独立页 /admin/classes/new（决策 5）
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
@@ -14,7 +14,6 @@ import {
   type AdminUsersResp,
   useAdminClasses,
   useAdminClassMembers,
-  useCourses,
 } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
@@ -26,7 +25,8 @@ export default function AdminClassesPage() {
   const list = useAdminClasses();
   const [status, setStatus] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
-  const [createOpen, setCreateOpen] = useState(false);
+  const { pathname } = useLocation();
+  const base = pathname.startsWith('/admin') ? '/admin/classes' : '/coach/classes';
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -69,9 +69,9 @@ export default function AdminClassesPage() {
           </p>
         </div>
         <div className="top-actions">
-          <button type="button" onClick={() => setCreateOpen(true)} className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
+          <Link to={`${base}/new`} className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
             + {s('新建班级', '新建班級', 'New class')}
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -164,10 +164,6 @@ export default function AdminClassesPage() {
         </div>
       )}
 
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s('新建班级', '新建班級', 'New class')}>
-        <CreateClassForm onDone={() => setCreateOpen(false)} />
-      </Dialog>
-
       {openClass && (
         <ClassDrawer
           cls={openClass}
@@ -185,75 +181,6 @@ function Th({ children }: { children: React.ReactNode }) {
 }
 function Td({ children }: { children: React.ReactNode }) {
   return <td style={{ padding: 'var(--sp-3) var(--sp-4)' }}>{children}</td>;
-}
-
-function CreateClassForm({ onDone }: { onDone: () => void }) {
-  const { s } = useLang();
-  const courses = useCourses();
-  const qc = useQueryClient();
-  const [name, setName] = useState('');
-  const [courseId, setCourseId] = useState('');
-  const [emoji, setEmoji] = useState('📚');
-  const [desc, setDesc] = useState('');
-  const [err, setErr] = useState('');
-
-  const create = useMutation({
-    mutationFn: () => api.post('/api/admin/classes', {
-      name: name.trim(),
-      courseId,
-      coverEmoji: emoji.trim() || undefined,
-      description: desc.trim() || undefined,
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['/api/admin/classes'] });
-      toast.ok(s('已创建', '已創建', 'Created'));
-      onDone();
-    },
-    onError: (e) => setErr((e as ApiError).message),
-  });
-
-  return (
-    <form
-      onSubmit={(e) => { e.preventDefault(); setErr(''); if (!courseId) { setErr(s('请选法本', '請選法本', 'Pick a course')); return; } create.mutate(); }}
-      style={{ padding: 'var(--sp-2) 0 var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}
-    >
-      <Field label={s('班级名', '班級名', 'Name')} value={name} onChange={setName} required maxLength={64} />
-      <div>
-        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, fontWeight: 600, marginBottom: 6 }}>
-          {s('法本', '法本', 'Course')}
-        </label>
-        <select
-          value={courseId}
-          onChange={(e) => setCourseId(e.target.value)}
-          required
-          disabled={courses.isLoading}
-          style={{ width: '100%', padding: '12px 14px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--ink)', font: 'var(--text-body)', outline: 'none', opacity: courses.isLoading ? 0.6 : 1 }}
-        >
-          <option value="">
-            {courses.isLoading
-              ? s('加载中…', '載入中…', 'Loading…')
-              : s('— 请选 —', '— 請選 —', '— pick —')}
-          </option>
-          {(courses.data ?? []).map((c) => (
-            <option key={c.id} value={c.id}>{c.coverEmoji} {c.title}</option>
-          ))}
-        </select>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 4fr', gap: 'var(--sp-3)' }}>
-        <Field label={s('图标', '圖示', 'Emoji')} value={emoji} onChange={setEmoji} maxLength={2} />
-        <Field label={s('简介（可选）', '簡介（可選）', 'Description (opt)')} value={desc} onChange={setDesc} />
-      </div>
-      {err && <p style={{ color: 'var(--crimson)', font: 'var(--text-caption)' }}>{err}</p>}
-      <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
-        <button type="button" onClick={onDone} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}>
-          {s('取消', '取消', 'Cancel')}
-        </button>
-        <button type="submit" disabled={create.isPending} className="btn btn-primary btn-pill" style={{ flex: 1, padding: 12, justifyContent: 'center' }}>
-          {create.isPending ? '…' : s('创建', '創建', 'Create')}
-        </button>
-      </div>
-    </form>
-  );
 }
 
 function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
