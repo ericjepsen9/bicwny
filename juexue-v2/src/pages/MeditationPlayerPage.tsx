@@ -186,7 +186,7 @@ export default function MeditationPlayerPage() {
         }}>
           {([
             { v: 'video' as const, sc: '📹 视频', tc: '📹 視頻', en: '📹 Video' },
-            { v: 'pdf' as const, sc: '📄 讲义', tc: '📄 講義', en: '📄 Slides' },
+            { v: 'pdf' as const, sc: '📄 PPT', tc: '📄 PPT', en: '📄 PPT' },
           ]).map((t) => (
             <button
               key={t.v}
