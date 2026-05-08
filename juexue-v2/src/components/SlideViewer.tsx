@@ -23,10 +23,26 @@ export default function SlideViewer({ imageUrls, mode = 'inline', onClose }: Sli
   const [currentPage, setCurrentPage] = useState(1);
   const [internalFullscreen, setInternalFullscreen] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null); // w / h
+  const [hudVisible, setHudVisible] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hudHideRef = useRef<number | null>(null);
 
   const isFullscreen = mode === 'modal' || internalFullscreen;
   const numPages = imageUrls.length;
+
+  // HUD 自动隐藏（2.5s 无交互后淡出）· 任何 interaction 复现
+  function flashHud() {
+    setHudVisible(true);
+    if (hudHideRef.current) window.clearTimeout(hudHideRef.current);
+    hudHideRef.current = window.setTimeout(() => setHudVisible(false), 2500);
+  }
+  useEffect(() => {
+    flashHud();
+    return () => { if (hudHideRef.current) window.clearTimeout(hudHideRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // 翻页时也复现 HUD
+  useEffect(() => { flashHud(); /* eslint-disable-next-line */ }, [currentPage]);
 
   // scroll snap 跟当前页
   useEffect(() => {
@@ -139,11 +155,11 @@ export default function SlideViewer({ imageUrls, mode = 'inline', onClose }: Sli
     );
   }
 
-  // 全屏按钮 · 带文字「全屏 / 退出」· 显眼
+  // 全屏按钮 · 带文字「全屏 / 退出」· 显眼 · auto-hide
   const fsBtn = (
     <button
       type="button"
-      onClick={handleFullscreenToggle}
+      onClick={(e) => { e.stopPropagation(); handleFullscreenToggle(); }}
       style={{
         position: 'absolute', top: 12, right: 12, zIndex: 10,
         height: 36, padding: '0 14px',
@@ -158,6 +174,9 @@ export default function SlideViewer({ imageUrls, mode = 'inline', onClose }: Sli
         letterSpacing: 1,
         cursor: 'pointer',
         display: 'flex', alignItems: 'center', gap: 6,
+        opacity: hudVisible ? 1 : 0,
+        pointerEvents: hudVisible ? 'auto' : 'none',
+        transition: 'opacity .25s',
       }}
     >
       <span style={{ fontSize: 16 }}>{isFullscreen ? '✕' : '⤢'}</span>
@@ -176,6 +195,8 @@ export default function SlideViewer({ imageUrls, mode = 'inline', onClose }: Sli
       color: '#fff',
       font: 'var(--text-caption)', letterSpacing: 1.5, fontWeight: 600,
       pointerEvents: 'none',
+      opacity: hudVisible ? 1 : 0,
+      transition: 'opacity .25s',
     }}>
       {currentPage} / {numPages}
     </div>
@@ -187,6 +208,8 @@ export default function SlideViewer({ imageUrls, mode = 'inline', onClose }: Sli
       {pageHud}
       <div
         ref={containerRef}
+        onClick={flashHud}
+        onTouchStart={flashHud}
         style={{
           position: 'absolute', inset: 0,
           display: 'flex', flexDirection: 'row',
