@@ -1,16 +1,17 @@
-// SlideViewer · 幻灯片观修浏览器（图片版 · 性能秒杀 PDF.js）
+// SlideViewer · 幻灯片观修浏览器（图片版）
 //
 // 设计：
-//   - 直接 <img> · 浏览器原生渲染 · 没有 JS 解析 PDF 的开销
-//   - 单页 50KB · 横滑翻页 · 懒加载 + 邻页预加载
-//   - object-fit: contain · 永远完整显示一页（黑边可接受）
-//   - 全屏按钮常驻 · 横屏自动全屏 · 双指 pinch-zoom 浏览器原生
+//   - 直接 <img> 渲染 · 浏览器原生 · 性能秒杀 PDF.js
+//   - 容器自适应 slide 比例：首图加载后 · 测出 ratio · 设置 aspect-ratio CSS
+//     竖屏看 16:9 PPT 时 · 容器变成扁的 · 不留大黑边
+//   - 全屏按钮带「全屏」文字 · 显眼
+//   - 横屏自动全屏（matchMedia orientation）
+//   - 单页内可双指 pinch-zoom（浏览器原生）
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLang } from '@/lib/i18n';
 
 export interface SlideViewerProps {
-  /** 图片 URL 数组 · 按页序 */
   imageUrls: string[];
   title?: string;
   mode?: 'modal' | 'inline';
@@ -21,6 +22,7 @@ export default function SlideViewer({ imageUrls, mode = 'inline', onClose }: Sli
   const { s } = useLang();
   const [currentPage, setCurrentPage] = useState(1);
   const [internalFullscreen, setInternalFullscreen] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null); // w / h
   const containerRef = useRef<HTMLDivElement>(null);
 
   const isFullscreen = mode === 'modal' || internalFullscreen;
@@ -83,44 +85,7 @@ export default function SlideViewer({ imageUrls, mode = 'inline', onClose }: Sli
     else setInternalFullscreen((v) => !v);
   }
 
-  const fsBtn = (
-    <button
-      type="button"
-      onClick={handleFullscreenToggle}
-      aria-label={isFullscreen ? s('退出', '退出', 'Exit') : s('全屏', '全屏', 'Fullscreen')}
-      style={{
-        position: 'absolute', top: 12, right: 12, zIndex: 10,
-        width: 38, height: 38, borderRadius: '50%',
-        background: 'rgba(0,0,0,.55)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)',
-        border: 'none', color: '#fff', fontSize: 18,
-        cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-    >
-      {isFullscreen ? '✕' : '⤢'}
-    </button>
-  );
-
-  const pageHud = numPages > 1 ? (
-    <div style={{
-      position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
-      zIndex: 10,
-      padding: '6px 16px', borderRadius: 'var(--r-pill)',
-      background: 'rgba(0,0,0,.55)',
-      backdropFilter: 'blur(10px)',
-      WebkitBackdropFilter: 'blur(10px)',
-      color: '#fff',
-      font: 'var(--text-caption)', letterSpacing: 1.5, fontWeight: 600,
-      pointerEvents: 'none',
-    }}>
-      {currentPage} / {numPages}
-    </div>
-  ) : null;
-
-  // 邻页预加载策略：当前页 ± 2 页 eager · 其他 lazy
-  // 让翻页瞬间无白屏 · 不预先全部下载
+  // 邻页预加载
   const slides = imageUrls.map((src, i) => {
     const distance = Math.abs(i + 1 - currentPage);
     const eager = distance <= 2;
@@ -142,8 +107,14 @@ export default function SlideViewer({ imageUrls, mode = 'inline', onClose }: Sli
           loading={eager ? 'eager' : 'lazy'}
           decoding="async"
           draggable={false}
+          onLoad={i === 0 ? (e) => {
+            // 首图加载后 · 测原始比例 · 设容器 aspect-ratio
+            const img = e.currentTarget;
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+              setAspectRatio(img.naturalWidth / img.naturalHeight);
+            }
+          } : undefined}
           style={{
-            // 关键：竖屏完整显示 · 用 max-* 不超容器
             maxWidth: '100%',
             maxHeight: '100%',
             objectFit: 'contain',
@@ -168,6 +139,48 @@ export default function SlideViewer({ imageUrls, mode = 'inline', onClose }: Sli
     );
   }
 
+  // 全屏按钮 · 带文字「全屏 / 退出」· 显眼
+  const fsBtn = (
+    <button
+      type="button"
+      onClick={handleFullscreenToggle}
+      style={{
+        position: 'absolute', top: 12, right: 12, zIndex: 10,
+        height: 36, padding: '0 14px',
+        borderRadius: 'var(--r-pill)',
+        background: 'rgba(0,0,0,.7)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,.2)',
+        color: '#fff',
+        font: 'var(--text-caption)',
+        fontWeight: 600,
+        letterSpacing: 1,
+        cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}
+    >
+      <span style={{ fontSize: 16 }}>{isFullscreen ? '✕' : '⤢'}</span>
+      <span>{isFullscreen ? s('退出', '退出', 'Exit') : s('全屏', '全屏', 'Fullscreen')}</span>
+    </button>
+  );
+
+  const pageHud = numPages > 1 ? (
+    <div style={{
+      position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)',
+      zIndex: 10,
+      padding: '6px 16px', borderRadius: 'var(--r-pill)',
+      background: 'rgba(0,0,0,.7)',
+      backdropFilter: 'blur(10px)',
+      WebkitBackdropFilter: 'blur(10px)',
+      color: '#fff',
+      font: 'var(--text-caption)', letterSpacing: 1.5, fontWeight: 600,
+      pointerEvents: 'none',
+    }}>
+      {currentPage} / {numPages}
+    </div>
+  ) : null;
+
   const inner = (
     <>
       {fsBtn}
@@ -188,10 +201,19 @@ export default function SlideViewer({ imageUrls, mode = 'inline', onClose }: Sli
   );
 
   if (!isFullscreen) {
+    // inline 模式：容器 aspect-ratio 跟首图同比例 · 消除大黑边
+    // 加 maxHeight 防超长（罕见的窄高比例 PPT 把屏幕撑爆）
+    const containerStyle: React.CSSProperties = aspectRatio
+      ? {
+          aspectRatio: String(aspectRatio),
+          maxHeight: '70vh',
+          width: '100%',
+        }
+      : { height: '50vh' }; // 加载中默认 · 不太占
     return (
       <div style={{
         position: 'relative',
-        height: '70vh',
+        ...containerStyle,
         borderRadius: 'var(--r)',
         overflow: 'hidden',
         background: '#000',
