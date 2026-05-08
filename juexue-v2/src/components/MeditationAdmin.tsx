@@ -223,33 +223,42 @@ export function SlidesUploadCard({ m }: { m: AdminMeditation }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
+  // 阶段：upload 上传到服务器 / processing 服务器转换中（libreoffice + pdftoppm）
+  const [phase, setPhase] = useState<'upload' | 'processing'>('upload');
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    if (file.size > 30 * 1024 * 1024) {
-      toast.error(s('PDF 超过 30 MB 上限', 'PDF > 30 MB', 'PDF > 30 MB'));
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error(s('文件超过 100 MB 上限', '檔案超過 100 MB 上限', 'File > 100 MB'));
       return;
     }
-    if (!/\.pdf$/i.test(file.name)) {
-      toast.error(s('请选择 PDF 文件', '請選擇 PDF', 'Please select PDF'));
+    if (!/\.(pdf|ppt|pptx|key|odp)$/i.test(file.name)) {
+      toast.error(s('请选择 PDF / PPT / PPTX / KEY / ODP 文件', '請選擇 PDF / PPT 檔案', 'Please select PDF/PPT'));
       return;
     }
     setUploading(true);
+    setPhase('upload');
     setProgress(0);
     try {
       await uploadWithProgress(`/api/admin/meditations/${encodeURIComponent(m.id)}/upload-slides`, file, {
         fieldName: 'file',
-        onProgress: (loaded, total) => setProgress(Math.round((loaded / total) * 100)),
+        onProgress: (loaded, total) => {
+          const pct = Math.round((loaded / total) * 100);
+          setProgress(pct);
+          // 上传到 100% · 服务器还在做 PPT→PDF→images 转换 · 切到 processing 阶段
+          if (pct >= 100) setPhase('processing');
+        },
       });
       qc.invalidateQueries({ queryKey: ['/api/admin/meditations'] });
-      toast.ok(s('PDF 已上传', 'PDF 已上傳', 'Uploaded'));
+      toast.ok(s('讲义已上传 · 学员可见', '講義已上傳 · 學員可見', 'Slides uploaded · visible to students'));
     } catch (err) {
-      toast.error((err as ApiError).message);
+      toast.error((err as ApiError).message || s('上传失败', '上傳失敗', 'Upload failed'));
     } finally {
       setUploading(false);
       setProgress(null);
+      setPhase('upload');
     }
   }
 
@@ -257,7 +266,7 @@ export function SlidesUploadCard({ m }: { m: AdminMeditation }) {
     mutationFn: () => api.del(`/api/admin/meditations/${encodeURIComponent(m.id)}/slides`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/admin/meditations'] });
-      toast.ok(s('PDF 已删除', 'PDF 已刪除', 'Deleted'));
+      toast.ok(s('讲义已删除', '講義已刪除', 'Deleted'));
     },
     onError: (e) => toast.error((e as ApiError).message),
   });
@@ -278,10 +287,18 @@ export function SlidesUploadCard({ m }: { m: AdminMeditation }) {
       {uploading ? (
         <div style={{ padding: 'var(--sp-3)', background: 'var(--saffron-pale)', borderRadius: 'var(--r)' }}>
           <div style={{ font: 'var(--text-caption)', color: 'var(--ink-2)', marginBottom: 6 }}>
-            {s(`上传中… ${progress ?? 0}%`, `上傳中… ${progress ?? 0}%`, `Uploading… ${progress ?? 0}%`)}
+            {phase === 'upload'
+              ? s(`上传中… ${progress ?? 0}%`, `上傳中… ${progress ?? 0}%`, `Uploading… ${progress ?? 0}%`)
+              : s('服务器处理中… 转换 PDF / 生成图片（10-60s）', '伺服器處理中…', 'Processing on server… (10-60s)')}
           </div>
           <div style={{ height: 8, background: 'var(--border-light)', borderRadius: 'var(--r-pill)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${progress ?? 0}%`, background: 'var(--saffron)', transition: 'width 200ms' }} />
+            <div style={{
+              height: '100%',
+              width: phase === 'upload' ? `${progress ?? 0}%` : '100%',
+              background: 'var(--saffron)',
+              transition: 'width 200ms',
+              animation: phase === 'processing' ? 'pulse 1.4s ease-in-out infinite' : undefined,
+            }} />
           </div>
         </div>
       ) : (
