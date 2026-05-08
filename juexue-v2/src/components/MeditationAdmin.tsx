@@ -1,7 +1,7 @@
 // 观修管理共享组件
 //   - MeditationMetaForm · 元数据表单（无 LessonPicker · 由调用方控制 lessonId 上下文）
 //   - VideoUploadCard / SlidesUploadCard · 上传 + 进度 + 替换 / 删除
-//   - MeditationFullEditor · 三件套组合（在 AdminCoursesPage 课时插槽 / AdminMeditationsPage 详情都用）
+//   - MeditationFullEditor · 三件套组合（在 AdminCoursesPage 课时插槽 / MeditationsPage 详情都用）
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Field from './Field';

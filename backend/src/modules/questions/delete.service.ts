@@ -1,10 +1,10 @@
 // 题目删除
-// 权限：
-//   coach → 只能删自己创建的题，且仅限未审通过的（draft/pending/rejected/class_private）
+// 权限（用户决策 10：coach 完整编辑管理权限）：
+//   coach → 只能删自己创建的题（任意状态 · 含 approved public）
 //   admin → 任意题
 // 级联：
 //   UserAnswer / Sm2Card 外键 onDelete 未显式设为 Cascade，若题被删则 Prisma 会拒绝。
-//   为避免误伤学习记录，这里采用「强制要求 admin 审核 + 确认无答题记录」的策略：
+//   为避免误伤学习记录，这里采用「确认无答题记录」的策略：
 //     有 UserAnswer / Sm2Card 引用时 → 建议改走 reject 通道；本接口直接拒绝
 // 写 AuditLog。
 import type { Prisma } from '@prisma/client';
@@ -21,13 +21,6 @@ export async function deleteQuestion(
 
   if (role !== 'admin' && q.createdByUserId !== userId) {
     throw Forbidden('非本人创建的题目');
-  }
-  if (
-    role !== 'admin' &&
-    q.visibility === 'public' &&
-    q.reviewStatus === 'approved'
-  ) {
-    throw Forbidden('已审核通过的公开题不可删除，请联系管理员');
   }
 
   const [answerCount, cardCount] = await Promise.all([

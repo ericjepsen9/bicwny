@@ -1,10 +1,10 @@
-// CoachQuestionGeneratePage · /coach/questions/generate
+// CoachQuestionGeneratePage · /coach/questions/generate · /admin/questions/generate（决策 11）
 //   两种 scope：
 //     - lesson  · 单课时 · 直接 POST 一次
 //     - chapter · 整章批量 · 串行队列 + 进度（每课时一次 POST，避免后端打爆）
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -77,6 +77,8 @@ export default function CoachQuestionGeneratePage() {
   const qc = useQueryClient();
   const { user } = useAuth();
   const [sp] = useSearchParams();
+  const { pathname } = useLocation();
+  const base = pathname.startsWith('/admin') ? '/admin/questions' : '/coach/questions';
   const [llmDown, setLlmDown] = useState(false);
 
   const [scope, setScope] = useState<Scope>('lesson');
@@ -229,7 +231,7 @@ export default function CoachQuestionGeneratePage() {
           <p className="page-sub">{s('AI 根据原文自动出题 · 提交后进入待审', 'AI 根據原文自動出題 · 提交後進入待審', 'AI generates from passage · pending review')}</p>
         </div>
         <div className="top-actions">
-          <button type="button" onClick={() => nav('/coach/questions')} className="btn btn-pill" style={{ padding: '8px 14px', background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)' }}>
+          <button type="button" onClick={() => nav(base)} className="btn btn-pill" style={{ padding: '8px 14px', background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)' }}>
             {s('返回', '返回', 'Back')}
           </button>
         </div>
@@ -380,7 +382,7 @@ export default function CoachQuestionGeneratePage() {
 
         {/* submit */}
         <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
-          <button type="button" onClick={() => nav('/coach/questions')} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }} disabled={batchRunning}>
+          <button type="button" onClick={() => nav(base)} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }} disabled={batchRunning}>
             {s('取消', '取消', 'Cancel')}
           </button>
           {scope === 'lesson' ? (
@@ -417,7 +419,7 @@ export default function CoachQuestionGeneratePage() {
 
         {/* 结果（chapter 进度） */}
         {scope === 'chapter' && batch && (
-          <BatchProgress batch={batch} running={batchRunning} onClear={() => setBatch(null)} onBack={() => nav('/coach/questions')} />
+          <BatchProgress batch={batch} running={batchRunning} onClear={() => setBatch(null)} onBack={() => nav(base)} />
         )}
       </div>
     </>
@@ -426,6 +428,8 @@ export default function CoachQuestionGeneratePage() {
 
 function LessonResult({ r, onClear }: { r: GenerateResult; onClear: () => void }) {
   const { s } = useLang();
+  const { pathname } = useLocation();
+  const base = pathname.startsWith('/admin') ? '/admin/questions' : '/coach/questions';
   return (
     <Section title={s('结果', '結果', 'Result')}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-3)', marginBottom: 'var(--sp-3)' }}>
@@ -471,7 +475,7 @@ function LessonResult({ r, onClear }: { r: GenerateResult; onClear: () => void }
       )}
 
       <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
-        <Link to="/coach/questions?status=pending" className="btn btn-primary btn-pill" style={{ flex: 1, padding: 10, justifyContent: 'center', textDecoration: 'none' }}>
+        <Link to={`${base}?status=pending`} className="btn btn-primary btn-pill" style={{ flex: 1, padding: 10, justifyContent: 'center', textDecoration: 'none' }}>
           {s('去审核（' + r.succeeded + '）', '去審核（' + r.succeeded + '）', 'Review (' + r.succeeded + ')')}
         </Link>
         <button type="button" onClick={onClear} className="btn btn-pill" style={{ flex: 1, padding: 10, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}>
@@ -486,6 +490,8 @@ function LessonResult({ r, onClear }: { r: GenerateResult; onClear: () => void }
 function GenQuestionRow({ q, idx }: { q: GenQuestion; idx: number }) {
   const { s } = useLang();
   const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
+  const base = pathname.startsWith('/admin') ? '/admin/questions' : '/coach/questions';
   // 各题型 options 结构不同 · 统一成 {text, correct} 渲染
   // - single/multi: [{text, correct}] 直接用
   // - fill: string[] · correct 字段在 correctWord（或 correctText）
@@ -519,7 +525,7 @@ function GenQuestionRow({ q, idx }: { q: GenQuestion; idx: number }) {
           {open ? displayQuestionText(q, s) : q.questionText}
         </span>
         <Link
-          to={`/coach/questions?id=${encodeURIComponent(q.id)}`}
+          to={`${base}?id=${encodeURIComponent(q.id)}`}
           onClick={(e) => e.stopPropagation()}
           className="btn btn-pill"
           style={{ padding: '4px 12px', font: 'var(--text-caption)', background: 'transparent', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-dark)', textDecoration: 'none', flexShrink: 0 }}

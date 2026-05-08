@@ -1,6 +1,6 @@
-// AdminMeditationsPage · /admin/meditations
-//   全局观修浏览页（列表 · 详情 · 编辑）· v2 重构：
-//     - 创建入口已迁到法本管理（`/admin/courses` 课时插槽）· 此页不再支持新建
+// MeditationsPage · /admin/meditations · /coach/meditations
+//   全局观修浏览页（列表 · 详情 · 编辑）· admin / coach 共用：
+//     - 创建入口在法本管理（课时插槽）· 此页不再支持新建
 //     - 元数据 / 上传 / 归档复用 components/MeditationAdmin.tsx
 //     - 主要用于：审阅独立观修（无 lessonId）· 跨法本浏览 · 排查
 import { useSearchParams, Link } from 'react-router-dom';
@@ -10,7 +10,7 @@ import { useLang } from '@/lib/i18n';
 import { useAdminMeditationDetail, useAdminMeditations } from '@/lib/queries';
 import { MeditationFullEditor } from '@/components/MeditationAdmin';
 
-export default function AdminMeditationsPage() {
+export default function MeditationsPage() {
   const { s } = useLang();
   const [sp, setSp] = useSearchParams();
   const list = useAdminMeditations({ includeArchived: false });

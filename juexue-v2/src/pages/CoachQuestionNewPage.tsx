@@ -1,10 +1,10 @@
-// CoachQuestionNewPage · /coach/questions/new
+// CoachQuestionNewPage · /coach/questions/new · /admin/questions/new（决策 11）
 //   完整 7 题型创建表单（手动）· 替代老 prototypes/desktop/coach-questions.html?action=new
 //   课程级联：Course → Chapter → Lesson
 //   每题型独立 payload 编辑器
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
@@ -29,6 +29,8 @@ export default function CoachQuestionNewPage() {
   const nav = useNavigate();
   const qc = useQueryClient();
   const [sp] = useSearchParams();
+  const { pathname } = useLocation();
+  const base = pathname.startsWith('/admin') ? '/admin/questions' : '/coach/questions';
 
   // 通用元数据
   const [type, setType] = useState<QuestionType>('single');
@@ -89,7 +91,7 @@ export default function CoachQuestionNewPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/coach/questions'] });
       toast.ok(s('已创建', '已創建', 'Created'));
-      nav('/coach/questions');
+      nav(base);
     },
     onError: (e) => toast.error((e as ApiError).message),
   });
@@ -104,7 +106,7 @@ export default function CoachQuestionNewPage() {
           <p className="page-sub">{s('支持 7 种题型', '支持 7 種題型', '7 question types')}</p>
         </div>
         <div className="top-actions">
-          <button type="button" onClick={() => nav('/coach/questions')} className="btn btn-pill" style={{ padding: '8px 14px', background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)' }}>
+          <button type="button" onClick={() => nav(base)} className="btn btn-pill" style={{ padding: '8px 14px', background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)' }}>
             {s('返回', '返回', 'Back')}
           </button>
         </div>
@@ -213,7 +215,7 @@ export default function CoachQuestionNewPage() {
 
         {/* submit */}
         <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
-          <button type="button" onClick={() => nav('/coach/questions')} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}>
+          <button type="button" onClick={() => nav(base)} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}>
             {s('取消', '取消', 'Cancel')}
           </button>
           <button

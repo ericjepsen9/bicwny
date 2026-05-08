@@ -1,8 +1,8 @@
-// CoachQuestionImportPage · /coach/questions/import
+// CoachQuestionImportPage · /coach/questions/import · /admin/questions/import（决策 6+11）
 //   JSON 粘贴批量导入 ≤ 200 条 · partial 模式（单条失败不中断整批）
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { toast } from '@/lib/toast';
@@ -46,6 +46,8 @@ export default function CoachQuestionImportPage() {
   const { s } = useLang();
   const nav = useNavigate();
   const qc = useQueryClient();
+  const { pathname } = useLocation();
+  const base = pathname.startsWith('/admin') ? '/admin/questions' : '/coach/questions';
 
   const [text, setText] = useState('');
   const [partial, setPartial] = useState(true);
@@ -90,7 +92,7 @@ export default function CoachQuestionImportPage() {
           <p className="page-sub">{s('粘贴 JSON · 一次最多 200 条', '貼上 JSON · 一次最多 200 條', 'Paste JSON · ≤ 200 items')}</p>
         </div>
         <div className="top-actions">
-          <button type="button" onClick={() => nav('/coach/questions')} className="btn btn-pill" style={{ padding: '8px 14px', background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)' }}>
+          <button type="button" onClick={() => nav(base)} className="btn btn-pill" style={{ padding: '8px 14px', background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)' }}>
             {s('返回', '返回', 'Back')}
           </button>
         </div>
@@ -139,7 +141,7 @@ export default function CoachQuestionImportPage() {
         </div>
 
         <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
-          <button type="button" onClick={() => nav('/coach/questions')} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}>
+          <button type="button" onClick={() => nav(base)} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}>
             {s('取消', '取消', 'Cancel')}
           </button>
           <button
@@ -182,7 +184,7 @@ export default function CoachQuestionImportPage() {
             )}
 
             <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
-              <button type="button" onClick={() => nav('/coach/questions')} className="btn btn-primary btn-pill" style={{ flex: 1, padding: 10, justifyContent: 'center' }}>
+              <button type="button" onClick={() => nav(base)} className="btn btn-primary btn-pill" style={{ flex: 1, padding: 10, justifyContent: 'center' }}>
                 {s('返回题库', '返回題庫', 'Back to questions')}
               </button>
               {result.failed > 0 && (

@@ -60,7 +60,7 @@ const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const AdminClassesPage = lazy(() => import('./pages/AdminClassesPage'));
 const AdminCoursesPage = lazy(() => import('./pages/AdminCoursesPage'));
-const AdminMeditationsPage = lazy(() => import('./pages/AdminMeditationsPage'));
+const MeditationsPage = lazy(() => import('./pages/MeditationsPage'));
 const AdminReviewPage = lazy(() => import('./pages/AdminReviewPage'));
 const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage'));
 const AdminLogsPage = lazy(() => import('./pages/AdminLogsPage'));
@@ -180,7 +180,7 @@ function CoachAppShell() {
               {/* 题目审核 · coach 也能进审核队列（决策 2） */}
               <Route path="/review" element={<AdminReviewPage />} />
               {/* 观修管理 · 复用 admin 页 · 后端权限已放权 coach */}
-              <Route path="/meditations" element={<AdminMeditationsPage />} />
+              <Route path="/meditations" element={<MeditationsPage />} />
               <Route path="*" element={<Navigate to="/coach" replace />} />
             </Route>
           </Route>
@@ -207,7 +207,12 @@ function AdminAppShell() {
               <Route path="/users" element={<AdminUsersPage />} />
               <Route path="/classes" element={<AdminClassesPage />} />
               <Route path="/courses" element={<AdminCoursesPage />} />
-              <Route path="/meditations" element={<AdminMeditationsPage />} />
+              <Route path="/meditations" element={<MeditationsPage />} />
+              {/* 题库 · 决策 11 a+b · admin 用自己账号 + 跨 shell 复用 Coach* 页面（页面 base 自动适配） */}
+              <Route path="/questions" element={<CoachQuestionsPage />} />
+              <Route path="/questions/new" element={<CoachQuestionNewPage />} />
+              <Route path="/questions/import" element={<CoachQuestionImportPage />} />
+              <Route path="/questions/generate" element={<CoachQuestionGeneratePage />} />
               <Route path="/review" element={<AdminReviewPage />} />
               <Route path="/reports" element={<AdminReportsPage />} />
               <Route path="/audit" element={<AdminAuditPage />} />

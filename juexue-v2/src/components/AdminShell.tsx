@@ -55,8 +55,9 @@ export default function AdminShell() {
           <AdminNav to="/admin"          end label={s('总览', '總覽', 'Overview')} icon={IconGrid} />
           <AdminNav to="/admin/users"    label={s('用户管理', '用戶管理', 'Users')} icon={IconUsers} />
           <AdminNav to="/admin/classes"  label={s('班级管理', '班級管理', 'Classes')} icon={IconBook} />
-          <AdminNav to="/admin/courses"  label={s('法本管理', '法本管理', 'Texts')} icon={IconText} />
+          <AdminNav to="/admin/courses"  label={s('法本', '法本', 'Texts')} icon={IconText} />
           <AdminNav to="/admin/meditations" label={s('观修管理', '觀修管理', 'Meditations')} icon={IconMeditation} />
+          <AdminNav to="/admin/questions" label={s('题库', '題庫', 'Questions')} icon={IconBook} />
           <AdminNav to="/admin/review"   label={s('题目审核', '題目審核', 'Review')} icon={IconCheck} />
           <AdminNav to="/admin/reports"  label={s('举报处理', '舉報處理', 'Reports')} icon={IconFlag} />
           <AdminNav to="/admin/audit"    label={s('审计日志', '審計日誌', 'Audit')} icon={IconClock} />

@@ -1,9 +1,9 @@
-// CoachQuestionsPage · /coach/questions
+// CoachQuestionsPage · /coach/questions · /admin/questions（决策 11）
 //   列表 + 过滤（status/type/search）+ 详情 drawer + 文本编辑 + 删除
 //   创建 / LLM 生成 / 批量导入：暂跳老 prototypes 兜底（Phase 11 完整迁移）
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import QuestionRenderer from '@/components/quiz';
 import { confirmAsync } from '@/components/ConfirmDialog';
@@ -43,6 +43,9 @@ export default function CoachQuestionsPage() {
   const [sp, setSp] = useSearchParams();
   const list = useCoachQuestions(200);
   const qc = useQueryClient();
+  const { pathname } = useLocation();
+  // 决策 11：admin 也用此页 · 子页路径跟随 shell（/admin/questions/* 或 /coach/questions/*）
+  const base = pathname.startsWith('/admin') ? '/admin/questions' : '/coach/questions';
 
   const [status, setStatus] = useState<StatusFilter>('all');
   const [type, setType] = useState<'' | QuestionType>('');
@@ -68,17 +71,17 @@ export default function CoachQuestionsPage() {
           <p className="page-sub">{s('我创建的题目 · 共 ' + (list.data?.length ?? 0), '我創建的題目 · 共 ' + (list.data?.length ?? 0), 'My questions · ' + (list.data?.length ?? 0))}</p>
         </div>
         <div className="top-actions" style={{ display: 'flex', gap: 'var(--sp-2)' }}>
-          <Link to="/coach/questions/import" className="btn btn-pill" style={{ padding: '8px 14px', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }}>
+          <Link to={`${base}/import`} className="btn btn-pill" style={{ padding: '8px 14px', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }}>
             📥 {s('批量导入', '批量匯入', 'Batch')}
           </Link>
           <Link
-            to="/coach/questions/generate"
+            to={`${base}/generate`}
             className="btn btn-pill"
             style={{ padding: '8px 14px', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }}
           >
             ⚡ {s('LLM 生成', 'LLM 生成', 'LLM')}
           </Link>
-          <Link to="/coach/questions/new" className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
+          <Link to={`${base}/new`} className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
             + {s('新建', '新建', 'New')}
           </Link>
         </div>

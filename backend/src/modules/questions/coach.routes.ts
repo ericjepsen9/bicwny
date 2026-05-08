@@ -3,7 +3,7 @@
 //   GET    /api/coach/questions         自己创建的题目（?classId 过滤）
 //   GET    /api/coach/questions/:id     详情（仅自己创建的；admin 超权）
 //   PATCH  /api/coach/questions/:id     编辑（已 approved 的 public 题禁改）
-//   DELETE /api/coach/questions/:id     删除（已 approved 的 public 题禁删；有答题记录禁删）
+//   DELETE /api/coach/questions/:id     删除（仅本人创建；有答题记录禁删 · 决策10：放权 approved public）
 //   POST   /api/coach/questions/batch   批量导入
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
@@ -194,7 +194,7 @@ export const coachQuestionRoutes: FastifyPluginAsync = async (app) => {
     '/api/coach/questions/:id',
     {
       preHandler: coachGuard,
-      schema: { tags: TAGS, summary: '删除题目（有答题记录或 approved public 禁删）', security: SEC },
+      schema: { tags: TAGS, summary: '删除题目（仅本人；有答题记录禁删 · 走驳回）', security: SEC },
     },
     async (req) => {
       const pp = idParam.safeParse(req.params);
