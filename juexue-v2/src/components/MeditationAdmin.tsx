@@ -292,7 +292,7 @@ export function SlidesUploadCard({ m }: { m: AdminMeditation }) {
             className="btn btn-pill"
             style={{ padding: '8px 16px', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }}
           >
-            {m.slidesPdfUrl ? s('替换 PDF', '替換 PDF', 'Replace') : s('上传 PDF', '上傳 PDF', 'Upload')}
+            {m.slidesPdfUrl ? s('替换讲义', '替換講義', 'Replace') : s('上传讲义 (PDF/PPT)', '上傳講義 (PDF/PPT)', 'Upload (PDF/PPT)')}
           </button>
           {m.slidesPdfUrl && (
             <button
@@ -307,7 +307,13 @@ export function SlidesUploadCard({ m }: { m: AdminMeditation }) {
               {s('删除', '刪除', 'Delete')}
             </button>
           )}
-          <input ref={fileRef} type="file" accept="application/pdf,.pdf" onChange={handleFile} style={{ display: 'none' }} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/pdf,.pdf,.ppt,.pptx,.key,.odp,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            onChange={handleFile}
+            style={{ display: 'none' }}
+          />
         </div>
       )}
     </div>

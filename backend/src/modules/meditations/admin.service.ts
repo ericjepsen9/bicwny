@@ -332,34 +332,76 @@ export interface UploadSlidesResult {
   slidesPdfUrl: string;
 }
 
+// 接受 pdf / ppt / pptx · ppt/pptx 用 libreoffice headless 自动转 PDF
+// 服务器需安装 libreoffice：sudo apt install libreoffice
+const ALLOWED_SLIDE_EXTS = ['.pdf', '.ppt', '.pptx', '.key', '.odp'] as const;
+
 export async function uploadSlides(
   adminId: string,
   meditationId: string,
   fileStream: Readable,
   filename: string,
 ): Promise<UploadSlidesResult> {
-  if (!filename.toLowerCase().endsWith('.pdf')) {
-    throw BadRequest('仅支持 pdf 文件');
+  const lower = filename.toLowerCase();
+  const ext = ALLOWED_SLIDE_EXTS.find((e) => lower.endsWith(e));
+  if (!ext) {
+    throw BadRequest('仅支持 pdf / ppt / pptx / key / odp 文件');
   }
+  const isPdf = ext === '.pdf';
   const m = await getMeditation(meditationId);
 
   await ensureTmpDir();
   const random = randomBytes(8).toString('hex');
-  const tempPath = path.join(TMP_DIR, `${meditationId}-${random}.pdf`);
+  // 原始文件路径（含后缀 · libreoffice 靠后缀识别格式）
+  const rawPath = path.join(TMP_DIR, `${meditationId}-${random}${ext}`);
+  // 转换后 / 上传 OSS 的 PDF 路径
+  const pdfPath = path.join(TMP_DIR, `${meditationId}-${random}.pdf`);
 
   try {
-    await pipeline(fileStream, createWriteStream(tempPath));
+    await pipeline(fileStream, createWriteStream(rawPath));
 
-    const st = await stat(tempPath);
+    const st = await stat(rawPath);
     if (st.size > MAX_PDF_BYTES) {
-      throw BadRequest(`PDF 过大 ${(st.size / 1024 / 1024).toFixed(1)} MB · 上限 30 MB`);
+      throw BadRequest(`文件过大 ${(st.size / 1024 / 1024).toFixed(1)} MB · 上限 30 MB`);
     }
     if (st.size < 100) {
-      throw BadRequest('PDF 文件异常');
+      throw BadRequest('文件异常');
+    }
+
+    // PPT/PPTX/KEY/ODP → PDF（libreoffice headless · 30s 上限）
+    if (!isPdf) {
+      try {
+        await execFileAsync(
+          'libreoffice',
+          [
+            '--headless',
+            '--convert-to', 'pdf',
+            '--outdir', TMP_DIR,
+            rawPath,
+          ],
+          { timeout: 60_000 },
+        );
+        // libreoffice 输出文件名 = rawPath 的 basename + .pdf
+        const expectedPdf = path.join(TMP_DIR, path.basename(rawPath, ext) + '.pdf');
+        await stat(expectedPdf); // 确认输出存在
+        // 用 fs.rename 把输出文件移到 pdfPath（同目录 · 应该即时）
+        const { rename } = await import('node:fs/promises');
+        await rename(expectedPdf, pdfPath);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('ENOENT') || msg.includes('not found')) {
+          throw BadRequest('服务器未安装 libreoffice · 请联系管理员（sudo apt install libreoffice）');
+        }
+        throw BadRequest(`PPT 转 PDF 失败: ${msg.slice(0, 200)}`);
+      }
+    } else {
+      // pdf 直接用 · 简单 rename 到 pdfPath（保持后续 ossKey 命名一致）
+      const { rename } = await import('node:fs/promises');
+      await rename(rawPath, pdfPath);
     }
 
     const ossKey = `meditations/slides/${meditationId}.pdf`;
-    const url = await uploadToOss(tempPath, ossKey);
+    const url = await uploadToOss(pdfPath, ossKey);
 
     const oldUrl = m.slidesPdfUrl;
     await prisma.$transaction(async (tx) => {
@@ -388,7 +430,8 @@ export async function uploadSlides(
 
     return { slidesPdfUrl: url };
   } finally {
-    await safeUnlink(tempPath);
+    await safeUnlink(rawPath);
+    await safeUnlink(pdfPath);
   }
 }
 
