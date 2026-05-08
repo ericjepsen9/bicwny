@@ -405,27 +405,29 @@ export async function uploadSlides(
     // 服务器需安装 poppler-utils：sudo apt install poppler-utils
     const imagesDir = path.join(TMP_DIR, `${meditationId}-${random}-imgs`);
     await mkdir(imagesDir, { recursive: true });
-    let pageCount = 0;
+    let pngFiles: string[] = [];
     try {
       // -png: 输出 PNG · -r 150: 150dpi（移动端足够清晰 · 文件适中）
-      // pdftoppm input.pdf prefix → prefix-1.png prefix-2.png ...
+      // pdftoppm 命名规律：
+      //   多页 PDF → prefix-1.png · prefix-2.png · ... (从 1 起 · 不补 0)
+      //   单页 PDF → 也是 prefix-1.png（强制加 -f 1 时）
+      // 用 -f 1 强制从第 1 页开始 · 保证命名一致带页号
       await execFileAsync(
         'pdftoppm',
-        ['-png', '-r', '150', pdfPath, path.join(imagesDir, 'page')],
+        ['-png', '-r', '150', '-f', '1', pdfPath, path.join(imagesDir, 'page')],
         { timeout: 120_000 },
       );
       // 列出生成的 PNG · 按页号排序
       const { readdir } = await import('node:fs/promises');
-      const files = (await readdir(imagesDir))
+      pngFiles = (await readdir(imagesDir))
         .filter((f) => f.endsWith('.png'))
         .sort((a, b) => {
-          // pdftoppm 命名 page-1.png · page-10.png 等 · 用页号数字排
+          // 提取页号 · 没数字的（如 page.png）排在最前
           const ai = parseInt(a.match(/-(\d+)\.png$/)?.[1] ?? '0', 10);
           const bi = parseInt(b.match(/-(\d+)\.png$/)?.[1] ?? '0', 10);
           return ai - bi;
         });
-      pageCount = files.length;
-      if (pageCount === 0) throw new Error('pdftoppm 没生成任何页面');
+      if (pngFiles.length === 0) throw new Error('pdftoppm 没生成任何页面');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes('ENOENT')) {
@@ -434,18 +436,20 @@ export async function uploadSlides(
       throw BadRequest(`PDF 转图片失败: ${msg.slice(0, 200)}`);
     }
 
-    // PNG → WebP（quality=80 · 体积小约 60%）· 上传 OSS
+    // PNG → WebP（quality=80 · 体积小约 60%）· 上传 OSS · 直接遍历真实文件列表
     const sharp = (await import('sharp')).default;
     const slideImageUrls: string[] = [];
     const pad = (n: number) => String(n).padStart(3, '0');
-    for (let i = 1; i <= pageCount; i++) {
-      const pngPath = path.join(imagesDir, `page-${i}.png`);
-      const webpPath = path.join(imagesDir, `page-${pad(i)}.webp`);
+    for (let i = 0; i < pngFiles.length; i++) {
+      const pngPath = path.join(imagesDir, pngFiles[i]!);
+      const idx = i + 1;
+      const webpPath = path.join(imagesDir, `page-${pad(idx)}.webp`);
       await sharp(pngPath).webp({ quality: 80 }).toFile(webpPath);
-      const ossKey = `meditations/slides/${meditationId}/page-${pad(i)}.webp`;
+      const ossKey = `meditations/slides/${meditationId}/page-${pad(idx)}.webp`;
       const url = await uploadToOss(webpPath, ossKey);
       slideImageUrls.push(url);
     }
+    const pageCount = slideImageUrls.length;
 
     // 仍然保留 PDF 上传 · 给老前端 fallback（v1 兼容）
     const pdfOssKey = `meditations/slides/${meditationId}.pdf`;
