@@ -21,7 +21,7 @@ import {
   commitImport,
 } from './import.service.js';
 
-const adminGuard = requireRole('admin');
+const adminGuard = requireRole('coach', 'admin');
 
 /**
  * 上传文件名清洗：取 basename + 去路径穿越前缀 / 控制字符 / shell 元字符；

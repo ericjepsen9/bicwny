@@ -172,7 +172,13 @@ function CoachAppShell() {
               <Route path="/questions/new" element={<CoachQuestionNewPage />} />
               <Route path="/questions/import" element={<CoachQuestionImportPage />} />
               <Route path="/questions/generate" element={<CoachQuestionGeneratePage />} />
-              <Route path="/courses" element={<CoachCoursesPage />} />
+              {/* 法本管理 · 复用 admin 页 · coach 也能 CRUD（决策 1 · 后端 coachGuard 已开） */}
+              <Route path="/courses" element={<AdminCoursesPage />} />
+              <Route path="/courses/browse" element={<CoachCoursesPage />} />
+              {/* 班级管理 · coach 给自己班加/移除学员（决策 3） */}
+              <Route path="/classes" element={<AdminClassesPage />} />
+              {/* 题目审核 · coach 也能进审核队列（决策 2） */}
+              <Route path="/review" element={<AdminReviewPage />} />
               {/* 观修管理 · 复用 admin 页 · 后端权限已放权 coach */}
               <Route path="/meditations" element={<AdminMeditationsPage />} />
               <Route path="*" element={<Navigate to="/coach" replace />} />

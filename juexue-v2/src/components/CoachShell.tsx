@@ -64,9 +64,11 @@ export default function CoachShell() {
 
         <div className="nav-list">
           <CoachNav to="/coach"            end label={s('总览', '總覽', 'Overview')} icon={IconGrid} />
+          <CoachNav to="/coach/classes"    label={s('班级管理', '班級管理', 'Classes')} icon={IconUsers} />
           <CoachNav to="/coach/students"   label={s('班级学员', '班級學員', 'Students')} icon={IconUsers} />
+          <CoachNav to="/coach/courses"    label={s('法本管理', '法本管理', 'Texts')} icon={IconText} />
           <CoachNav to="/coach/questions"  label={s('题库', '題庫', 'Questions')} icon={IconBook} />
-          <CoachNav to="/coach/courses"    label={s('法本浏览', '法本瀏覽', 'Texts')} icon={IconText} />
+          <CoachNav to="/coach/review"     label={s('题目审核', '題目審核', 'Review')} icon={IconBook} />
           <CoachNav to="/coach/meditations" label={s('观修管理', '觀修管理', 'Meditations')} icon={IconText} />
         </div>
 

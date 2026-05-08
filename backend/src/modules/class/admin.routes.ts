@@ -21,7 +21,8 @@ import {
   updateClass,
 } from './service.js';
 
-const adminGuard = requireRole('admin');
+// coach 也能管班级 + 成员（用户决策 · 放权 coach 给自己班加/移除学员）
+const adminGuard = requireRole('coach', 'admin');
 
 const idParam = z.object({ id: z.string().min(1) });
 const memberParams = z.object({

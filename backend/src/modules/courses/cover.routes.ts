@@ -7,7 +7,7 @@ import { requireRole, requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import { removeCourseCover, uploadCourseCover } from './cover.service.js';
 
-const adminGuard = requireRole('admin');
+const adminGuard = requireRole('coach', 'admin');
 const idParam = z.object({ id: z.string().min(1) });
 const TAGS = ['Admin'];
 const SEC = [{ bearerAuth: [] as string[] }];

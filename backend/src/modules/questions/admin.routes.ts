@@ -9,7 +9,8 @@ import { BadRequest, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { listPending, reviewQuestion } from './review.service.js';
 
-const adminGuard = requireRole('admin');
+// coach 也能进审核队列（用户决策 · coach 自审 + 跨人审）· 看 pending + approve/reject
+const adminGuard = requireRole('coach', 'admin');
 
 const pendingQuery = z.object({
   courseId: z.string().optional(),

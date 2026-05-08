@@ -36,7 +36,9 @@ import {
   updateLesson,
 } from './admin.service.js';
 
-const adminGuard = requireRole('admin');
+// coach 也能管法本（用户决策 2026-05-08 · 放权 coach CRUD 法本/章/课时）
+// 小平台所有 coach 都是 vetted · 不做 owner 校验
+const adminGuard = requireRole('coach', 'admin');
 
 const idParam   = z.object({ id: z.string().min(1) });
 const cidParam  = z.object({ cid: z.string().min(1) });
