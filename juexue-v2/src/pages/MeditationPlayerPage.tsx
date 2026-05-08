@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
+import PdfViewer from '@/components/PdfViewer';
 import Skeleton from '@/components/Skeleton';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
@@ -33,6 +34,7 @@ export default function MeditationPlayerPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'video' | 'pdf'>('video');
   const initRef = useRef(false);              // 防 effect 重复 init
   const lastReportedSec = useRef(0);
 
@@ -174,22 +176,63 @@ export default function MeditationPlayerPage() {
         </div>
       </div>
 
-      {/* 视频 */}
-      {meditation.videoUrl ? (
-        <div style={{ position: 'relative', borderRadius: 'var(--r)', overflow: 'hidden', background: '#000' }}>
-          <video
-            ref={videoRef}
-            src={meditation.videoUrl}
-            controls
-            playsInline
-            preload="metadata"
-            style={{ width: '100%', maxHeight: '60vh', display: 'block', background: '#000' }}
-          />
+      {/* 内容 tab · 视频 / 讲义 同位置切换 · 不离开 app */}
+      {meditation.slidesPdfUrl && (
+        <div style={{
+          display: 'flex', gap: 4, marginBottom: 'var(--sp-3)',
+          padding: 4, borderRadius: 'var(--r-pill)',
+          background: 'var(--glass)', border: '1px solid var(--border-light)',
+          width: 'fit-content',
+        }}>
+          {([
+            { v: 'video' as const, sc: '📹 视频', tc: '📹 視頻', en: '📹 Video' },
+            { v: 'pdf' as const, sc: '📄 讲义', tc: '📄 講義', en: '📄 Slides' },
+          ]).map((t) => (
+            <button
+              key={t.v}
+              type="button"
+              onClick={() => setActiveTab(t.v)}
+              style={{
+                padding: '6px 16px', borderRadius: 'var(--r-pill)',
+                border: 'none', cursor: 'pointer',
+                font: 'var(--text-caption)', letterSpacing: 1, fontWeight: 600,
+                background: activeTab === t.v ? 'var(--saffron-pale)' : 'transparent',
+                color: activeTab === t.v ? 'var(--saffron-dark)' : 'var(--ink-3)',
+              }}
+            >
+              {s(t.sc, t.tc, t.en)}
+            </button>
+          ))}
         </div>
-      ) : (
-        <div className="glass-card-thick" style={{ padding: 'var(--sp-5)', textAlign: 'center', color: 'var(--ink-3)' }}>
-          {s('（暂无视频）', '（暫無視頻）', '(no video)')}
-        </div>
+      )}
+
+      {/* 视频 (tab=video) */}
+      {activeTab === 'video' && (
+        meditation.videoUrl ? (
+          <div style={{ position: 'relative', borderRadius: 'var(--r)', overflow: 'hidden', background: '#000' }}>
+            <video
+              ref={videoRef}
+              src={meditation.videoUrl}
+              controls
+              playsInline
+              preload="metadata"
+              style={{ width: '100%', maxHeight: '60vh', display: 'block', background: '#000' }}
+            />
+          </div>
+        ) : (
+          <div className="glass-card-thick" style={{ padding: 'var(--sp-5)', textAlign: 'center', color: 'var(--ink-3)' }}>
+            {s('（暂无视频）', '（暫無視頻）', '(no video)')}
+          </div>
+        )
+      )}
+
+      {/* 讲义 PDF (tab=pdf) · inline 渲染 · 不弹窗 */}
+      {activeTab === 'pdf' && meditation.slidesPdfUrl && (
+        <PdfViewer
+          url={meditation.slidesPdfUrl}
+          title={meditation.title}
+          mode="inline"
+        />
       )}
 
       {/* 元信息 · 时长 + 讲者 */}
@@ -215,23 +258,6 @@ export default function MeditationPlayerPage() {
         </p>
       )}
 
-      {/* PDF 入口 */}
-      {meditation.slidesPdfUrl && (
-        <a
-          href={meditation.slidesPdfUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="btn btn-pill"
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginTop: 'var(--sp-4)', padding: '10px 16px',
-            background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)',
-            textDecoration: 'none', letterSpacing: 1,
-          }}
-        >
-          📄 {s('查看讲义 PDF', '查看講義 PDF', 'View slides (PDF)')}
-        </a>
-      )}
 
       {/* 手动完成按钮 */}
       {!isCompleted && (
