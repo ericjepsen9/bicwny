@@ -65,6 +65,7 @@ model User {
   practiceEntries        PracticeEntry[]
   practiceDailySummaries PracticeDailySummary[]
   practiceGoals          PracticeGoal[]
+  readingProgress        LessonReadingProgress[]
 
   @@index([role])
 }
@@ -321,9 +322,10 @@ model Lesson {
   referenceText    String?
   teachingSummary  String?
 
-  chapter     Chapter      @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  questions   Question[]
-  meditations Meditation[]
+  chapter         Chapter                 @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  questions       Question[]
+  meditations     Meditation[]
+  readingProgress LessonReadingProgress[]
 
   @@unique([chapterId, order])
 }
@@ -1177,4 +1179,29 @@ model ClassAnnouncement {
 
   @@index([classId, archivedAt, pinnedAt, createdAt])
   @@index([authorId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 法本阅读进度 · 综合策略判定（滚动到底 / 停留+滚动 / 答题）
+// 心跳每 10s 上报 · 满足完成条件后同步 UserCourseEnrollment.lessonsCompleted
+// ═══════════════════════════════════════════════════════════════
+
+model LessonReadingProgress {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId      String
+  lesson        Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  courseId      String // 冗余 · 跨课程聚合用
+  scrollPercent Int       @default(0) // 0-100 · max 滚动深度
+  totalSeconds  Int       @default(0) // 累计前台阅读秒数
+  isCompleted   Boolean   @default(false)
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  lastReadAt    DateTime  @default(now())
+
+  @@unique([userId, lessonId])
+  @@index([userId, lastReadAt])
+  @@index([userId, courseId])
+  @@index([userId, isCompleted])
 }

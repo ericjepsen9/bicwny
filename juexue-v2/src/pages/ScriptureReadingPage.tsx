@@ -8,6 +8,7 @@ import Dialog from '@/components/Dialog';
 import { useFontScale } from '@/lib/fontSize';
 import { useLang } from '@/lib/i18n';
 import { useCourseDetail, useEnrollments, useLessonMeditation, useUpdateEnrollmentProgress } from '@/lib/queries';
+import { useReadingTracker } from '@/lib/readingTracker';
 import { toast } from '@/lib/toast';
 
 interface FlatLesson {
@@ -22,6 +23,8 @@ export default function ScriptureReadingPage() {
   const slug = params.slug || '';
   const lessonId = params.lessonId || '';
   const nav = useNavigate();
+  // 阅读追踪：scroll + 心跳 + visibility · 满足条件自动标已读
+  useReadingTracker(lessonId || null);
   const location = useLocation();
   const { step } = useFontScale();
 
