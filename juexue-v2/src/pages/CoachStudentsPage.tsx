@@ -1,7 +1,7 @@
 // CoachStudentsPage · /coach/students[?classId=...&uid=...]
 //   班级选择 chips + 成员表 + 学员详情居中 Dialog（决策 4）
 import { useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import DailyBarChart from '@/components/DailyBarChart';
 import Dialog from '@/components/Dialog';
 import Skeleton from '@/components/Skeleton';
@@ -154,7 +154,7 @@ export default function CoachStudentsPage() {
 
       {/* 学员详情 drawer */}
       {uidParam && (
-        <Drawer onClose={closeDrawer} loading={student.isLoading} data={student.data} />
+        <Drawer onClose={closeDrawer} loading={student.isLoading} data={student.data} classId={classId ?? ''} uid={uidParam} />
       )}
     </>
   );
@@ -171,11 +171,21 @@ function Td({ children }: { children: React.ReactNode }) {
   return <td style={{ padding: 'var(--sp-3) var(--sp-4)' }}>{children}</td>;
 }
 
-function Drawer({ onClose, loading, data }: { onClose: () => void; loading: boolean; data: ReturnType<typeof useCoachStudent>['data'] }) {
+function Drawer({ onClose, loading, data, classId, uid }: { onClose: () => void; loading: boolean; data: ReturnType<typeof useCoachStudent>['data']; classId: string; uid: string }) {
   const { s } = useLang();
   return (
     <Dialog open onClose={onClose} title={s('学员详情', '學員詳情', 'Student detail')} variant="centered" width={720}>
       <div>
+        {classId && uid && (
+          <Link
+            to={`/coach/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(uid)}/stats`}
+            onClick={onClose}
+            className="btn btn-pill"
+            style={{ display: 'inline-flex', padding: '6px 14px', font: 'var(--text-caption)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)', textDecoration: 'none', marginBottom: 'var(--sp-3)' }}
+          >
+            📊 {s('完整学修档案', '完整學修檔案', 'Full dossier')} ›
+          </Link>
+        )}
         {loading ? (
           <Skeleton.Card />
         ) : !data ? (

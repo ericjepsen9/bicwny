@@ -217,6 +217,14 @@ function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void })
   return (
     <Dialog open onClose={onClose} title={s('用户详情', '用戶詳情', 'User')} variant="centered" width={720}>
       <div>
+        <Link
+          to={`/admin/users/${encodeURIComponent(user.id)}/stats`}
+          onClick={onClose}
+          className="btn btn-pill"
+          style={{ display: 'inline-flex', padding: '6px 14px', font: 'var(--text-caption)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)', textDecoration: 'none', marginBottom: 'var(--sp-3)' }}
+        >
+          📊 {s('完整学修档案', '完整學修檔案', 'Full dossier')} ›
+        </Link>
         <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
           <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem' }}>
             {(user.dharmaName || user.email).slice(0, 1)}

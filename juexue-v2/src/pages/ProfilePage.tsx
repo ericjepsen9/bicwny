@@ -149,8 +149,7 @@ export default function ProfilePage() {
         {(role === 'coach' || role === 'admin') && (
           <MenuRow to="/coach" emoji="🎓" iconBg="var(--gold-pale)" labels={['辅导员后台', '輔導員後台', 'Coach']} />
         )}
-        <MenuRow to="/achievement" emoji="📊" iconBg="var(--sage-light)" labels={['学习统计', '學習統計', 'Stats']} />
-        <MenuRow to="/me/meditations" emoji="🧘" iconBg="var(--saffron-pale)" labels={['我的观修', '我的觀修', 'My meditations']} />
+        <MenuRow to="/me/stats" emoji="📊" iconBg="var(--sage-light)" labels={['学修档案', '學修檔案', 'Dossier']} />
         {firstClass ? (
           <MenuRow to={`/class/${encodeURIComponent(firstClass.classId)}`} emoji="📚" iconBg="var(--saffron-pale)" labels={['我的班级', '我的班級', 'My Class']} />
         ) : (

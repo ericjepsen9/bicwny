@@ -23,6 +23,7 @@ const PracticeCategoryPage = lazy(() => import('./pages/PracticeCategoryPage'));
 const PracticeProjectPage = lazy(() => import('./pages/PracticeProjectPage'));
 const PracticeHistoryPage = lazy(() => import('./pages/PracticeHistoryPage'));
 const MyMeditationsPage = lazy(() => import('./pages/MyMeditationsPage'));
+const DossierPage = lazy(() => import('./pages/DossierPage'));
 const CoachClassPracticePage = lazy(() => import('./pages/CoachClassPracticePage'));
 const CoachClassAnnouncementsPage = lazy(() => import('./pages/CoachClassAnnouncementsPage'));
 const AdminPracticePage = lazy(() => import('./pages/AdminPracticePage'));
@@ -140,6 +141,7 @@ function AppShell() {
                 <Route path="/practice" element={<PracticePage />} />
                 <Route path="/practice/history" element={<PracticeHistoryPage />} />
                 <Route path="/me/meditations" element={<MyMeditationsPage />} />
+                <Route path="/me/stats" element={<DossierPage />} />
                 <Route path="/practice/project/:id" element={<PracticeProjectPage />} />
                 <Route path="/practice/:categoryKey" element={<PracticeCategoryPage />} />
                 <Route path="/notifications" element={<NotificationPage />} />
@@ -183,6 +185,7 @@ function CoachAppShell() {
             <Route element={<CoachShell />}>
               <Route path="/" element={<CoachDashboardPage />} />
               <Route path="/students" element={<CoachStudentsPage />} />
+              <Route path="/classes/:id/students/:uid/stats" element={<DossierPage />} />
               <Route path="/questions" element={<CoachQuestionsPage />} />
               <Route path="/questions/new" element={<CoachQuestionNewPage />} />
               <Route path="/questions/import" element={<CoachQuestionImportPage />} />
@@ -223,6 +226,7 @@ function AdminAppShell() {
             <Route element={<AdminShell />}>
               <Route path="/" element={<AdminDashboardPage />} />
               <Route path="/users" element={<AdminUsersPage />} />
+              <Route path="/users/:uid/stats" element={<DossierPage />} />
               <Route path="/users/new" element={<AdminUserNewPage />} />
               <Route path="/classes" element={<AdminClassesPage />} />
               <Route path="/classes/new" element={<ClassNewPage />} />
