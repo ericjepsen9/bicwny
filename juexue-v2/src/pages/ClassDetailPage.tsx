@@ -9,8 +9,20 @@ import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
-import { useClassDetail, useClasses } from '@/lib/queries';
+import { useClassDetail, useClasses, usePracticeProjects, usePracticeTasks } from '@/lib/queries';
 import { toast } from '@/lib/toast';
+import { useQuery } from '@tanstack/react-query';
+
+interface AnnouncementSummary {
+  id: string;
+  classId: string;
+  authorId: string;
+  title: string;
+  body: string;
+  imageUrls: string[] | null;
+  pinnedAt: string | null;
+  createdAt: string;
+}
 
 export default function ClassDetailPage() {
   const { s } = useLang();
@@ -234,26 +246,24 @@ export default function ClassDetailPage() {
           )}
         </div>
 
-        {/* 班级公告 placeholder · 后端尚未实现公告字段 · 给空态 */}
-        <SectionHead label={s('班级公告', '班級公告', 'Announcements')} />
-        <div
-          className="glass-card"
-          style={{
-            padding: 'var(--sp-4)',
-            background: 'var(--glass)',
-            border: '1px solid var(--glass-border)',
-            borderLeft: '3px solid var(--saffron-light)',
-            borderRadius: 'var(--r-lg)',
-            marginBottom: 'var(--sp-5)',
-            textAlign: 'center',
-          }}
-        >
-          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1.5, lineHeight: 1.6 }}>
-            {myRole === 'coach'
-              ? s('班级公告功能即将开放', '班級公告功能即將開放', 'Announcements coming soon')
-              : s('暂无公告 · 辅导员发布后将出现在此', '暫無公告 · 輔導員發佈後將出現在此', 'No announcements yet')}
-          </p>
+        {/* 班级修学任务（教师下达的 PracticeTask scope=class） */}
+        <ClassPracticeTasksSection classId={cid} />
+
+        {/* 本班专修咒种（class-scope PracticeProject） */}
+        <ClassPracticeProjectsSection classId={cid} />
+
+        {/* 班级排行入口 */}
+        <SectionHead label={s('排行', '排行', 'Ranking')} />
+        <div className="glass-card-thick" style={{ padding: 0, marginBottom: 'var(--sp-4)', overflow: 'hidden' }}>
+          <Link to={`/class/${encodeURIComponent(cid)}/meditations`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--sp-3) var(--sp-4)', borderBottom: '1px solid var(--border-light)', textDecoration: 'none', color: 'var(--ink)' }}>
+            <span style={{ font: 'var(--text-body)' }}>🧘 {s('观修排行', '觀修排行', 'Meditation ranking')}</span>
+            <span style={{ color: 'var(--ink-3)' }}>›</span>
+          </Link>
         </div>
+
+        {/* 班级公告 */}
+        <SectionHead label={s('班级公告', '班級公告', 'Announcements')} />
+        <ClassAnnouncementsSection classId={cid} myRole={myRole} />
 
         <button
           type="button"
@@ -382,6 +392,130 @@ function MemberRow({
         >
           {s('辅导员', '輔導員', 'Coach')}
         </span>
+      )}
+    </div>
+  );
+}
+
+// 班级修学任务 section · 学员视角（来自 usePracticeTasks 过滤 scope=class && classId）
+function ClassPracticeTasksSection({ classId }: { classId: string }) {
+  const { s } = useLang();
+  const tasks = usePracticeTasks();
+  const classTasks = (tasks.data ?? []).filter((t) => t.scope === 'class' && t.class?.id === classId);
+  if (tasks.isLoading || classTasks.length === 0) return null;
+  return (
+    <>
+      <SectionHead label={s('班级修学任务', '班級修學任務', 'Practice tasks')} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', marginBottom: 'var(--sp-4)' }}>
+        {classTasks.map((t) => {
+          const pct = Math.min(100, Math.round((t.progress / t.target) * 100));
+          return (
+            <Link key={t.id} to={`/practice/project/${encodeURIComponent(t.project.id)}`} style={{ textDecoration: 'none' }}>
+              <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', letterSpacing: 1.2 }}>
+                    {t.title || `${t.project.emoji ?? ''} ${t.project.name}`}
+                  </span>
+                  {t.isDone && <span style={{ font: 'var(--text-caption)', color: 'var(--sage-dark)', fontWeight: 700 }}>✓</span>}
+                </div>
+                <div style={{ height: 6, borderRadius: 3, background: 'var(--glass)', overflow: 'hidden', marginBottom: 4 }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: t.isDone ? 'var(--sage-dark)' : 'linear-gradient(90deg, var(--saffron) 0%, var(--saffron-dark) 100%)' }} />
+                </div>
+                <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+                  {t.progress} / {t.target} · {pct}%
+                  {t.endAt && ` · ${s('截止', '截止', 'due')} ${new Date(t.endAt).toLocaleDateString()}`}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+// 本班专修咒种 section
+function ClassPracticeProjectsSection({ classId }: { classId: string }) {
+  const { s } = useLang();
+  const projects = usePracticeProjects();
+  const classProjects = (projects.data ?? []).filter((p) => p.scope === 'class' && p.classId === classId);
+  if (projects.isLoading || classProjects.length === 0) return null;
+  return (
+    <>
+      <SectionHead label={s('本班专修', '本班專修', 'Class focus')} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 'var(--sp-4)' }}>
+        {classProjects.map((p) => (
+          <Link key={p.id} to={`/practice/project/${encodeURIComponent(p.id)}`} style={{ textDecoration: 'none' }}>
+            <div className="glass-card-thick" style={{ padding: 'var(--sp-2) var(--sp-3)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+              <span style={{ fontSize: '1.2rem' }}>{p.emoji ?? '📿'}</span>
+              <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)' }}>{p.name}</span>
+              <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+                {p.totalCount > 0 ? `${p.totalCount}` : '——'}
+              </span>
+              <span style={{ color: 'var(--ink-3)' }}>›</span>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// 班级公告 section · 学员视角
+function ClassAnnouncementsSection({ classId, myRole }: { classId: string; myRole?: 'coach' | 'student' }) {
+  const { s } = useLang();
+  const list = useQuery({
+    queryKey: ['/api/classes', classId, 'announcements'],
+    queryFn: ({ signal }) => api.get<AnnouncementSummary[]>(`/api/classes/${encodeURIComponent(classId)}/announcements`, { signal }),
+  });
+  if (list.isLoading) return <Skeleton.List />;
+  const items = list.data ?? [];
+  return (
+    <>
+      {myRole === 'coach' && (
+        <Link to={`/coach/classes/${encodeURIComponent(classId)}/announcements`} style={{ display: 'inline-block', font: 'var(--text-caption)', color: 'var(--saffron-dark)', textDecoration: 'none', marginBottom: 'var(--sp-2)' }}>
+          + {s('发新公告', '發新公告', 'New announcement')}
+        </Link>
+      )}
+      {items.length === 0 ? (
+        <div className="glass-card" style={{ padding: 'var(--sp-4)', textAlign: 'center', borderLeft: '3px solid var(--saffron-light)', borderRadius: 'var(--r-lg)', marginBottom: 'var(--sp-4)' }}>
+          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+            {s('暂无公告 · 辅导员发布后将出现在此', '暫無公告', 'No announcements yet')}
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', marginBottom: 'var(--sp-4)' }}>
+          {items.map((a) => <AnnouncementCard key={a.id} a={a} />)}
+        </div>
+      )}
+    </>
+  );
+}
+
+function AnnouncementCard({ a }: { a: AnnouncementSummary }) {
+  const imgs = a.imageUrls ?? [];
+  return (
+    <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+        {a.pinnedAt && <span style={{ color: 'var(--saffron-dark)' }}>📌</span>}
+        <h3 style={{ flex: 1, fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 1.5, fontSize: '1rem' }}>
+          {a.title}
+        </h3>
+      </div>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginBottom: 6 }}>
+        {new Date(a.createdAt).toLocaleString()}
+      </div>
+      <div style={{ font: 'var(--text-body)', color: 'var(--ink-2)', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+        {a.body}
+      </div>
+      {imgs.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+          {imgs.map((u, i) => (
+            <a key={i} href={u} target="_blank" rel="noopener noreferrer">
+              <img src={u} alt="" style={{ maxWidth: 160, maxHeight: 160, objectFit: 'cover', borderRadius: 'var(--r-sm)', border: '1px solid var(--glass-border)' }} />
+            </a>
+          ))}
+        </div>
       )}
     </div>
   );

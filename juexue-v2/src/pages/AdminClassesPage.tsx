@@ -234,14 +234,24 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
   return (
     <Dialog open onClose={onClose} title={s('班级详情', '班級詳情', 'Class')} variant="centered" width={720}>
       <div>
-        <Link
-          to={`${baseClass}/classes/${encodeURIComponent(cls.id)}/practice`}
-          onClick={onClose}
-          className="btn btn-pill"
-          style={{ display: 'inline-flex', padding: '6px 14px', font: 'var(--text-caption)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)', textDecoration: 'none', marginBottom: 'var(--sp-3)' }}
-        >
-          📿 {s('班级修学', '班級修學', 'Class practice')} ›
-        </Link>
+        <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-3)', flexWrap: 'wrap' }}>
+          <Link
+            to={`${baseClass}/classes/${encodeURIComponent(cls.id)}/practice`}
+            onClick={onClose}
+            className="btn btn-pill"
+            style={{ display: 'inline-flex', padding: '6px 14px', font: 'var(--text-caption)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)', textDecoration: 'none' }}
+          >
+            📿 {s('班级修学', '班級修學', 'Practice')} ›
+          </Link>
+          <Link
+            to={`${baseClass}/classes/${encodeURIComponent(cls.id)}/announcements`}
+            onClick={onClose}
+            className="btn btn-pill"
+            style={{ display: 'inline-flex', padding: '6px 14px', font: 'var(--text-caption)', background: 'var(--gold-pale)', color: 'var(--gold-dark)', border: '1px solid var(--gold-light)', textDecoration: 'none' }}
+          >
+            📢 {s('班级公告', '班級公告', 'Announcements')} ›
+          </Link>
+        </div>
         {hiddenByFilter && (
           <div style={{
             padding: 'var(--sp-3) var(--sp-4)',

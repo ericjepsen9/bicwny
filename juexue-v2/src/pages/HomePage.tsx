@@ -22,6 +22,7 @@ import { usePullToRefresh } from '@/lib/pullToRefresh';
 import { toast } from '@/lib/toast';
 import {
   useClasses,
+  usePracticeTasks,
   useCourseDetail,
   useCourses,
   useEnrollments,
@@ -119,6 +120,11 @@ export default function HomePage() {
   }, [flatLessons, firstEnrollment?.currentLessonId, completedSet]);
 
   const firstClass = classes.data?.[0];
+  // 班级 hero 引导：进行中的班级修学任务数（未完成 · scope=class · 当前班）
+  const tasks = usePracticeTasks();
+  const myClassActiveTasks = firstClass
+    ? (tasks.data ?? []).filter((t) => t.scope === 'class' && t.class?.id === firstClass.classId && !t.isDone).length
+    : 0;
 
   // 智能练习题量 · localStorage 持久化 · 默认 20
   const [practiceLimit, setPracticeLimit] = usePracticeLimit();
@@ -291,7 +297,9 @@ export default function HomePage() {
                 {firstClass.class.name}
               </div>
               <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 2 }}>
-                {s('我的班级', '我的班級', 'My class')}
+                {myClassActiveTasks > 0
+                  ? s(`📌 ${myClassActiveTasks} 个进行中任务`, `📌 ${myClassActiveTasks} 個進行中任務`, `📌 ${myClassActiveTasks} task(s) active`)
+                  : s('我的班级', '我的班級', 'My class')}
               </div>
             </div>
             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--ink-4)' }}>
