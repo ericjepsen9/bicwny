@@ -199,3 +199,42 @@ async function markCourseEnrollmentMeditationDone(
     },
   });
 }
+
+/** 我的观修历史 · 列出该用户完成过的所有观修（按 completedAt desc · 跨课程） */
+export async function listMyCompletedMeditations(userId: string) {
+  // 取该 user 所有已完成 sessions · 按 meditationId 去重（取最早的 completedAt 作为完成时间）
+  const sessions = await prisma.meditationSession.findMany({
+    where: { userId, isCompleted: true },
+    orderBy: { completedAt: 'desc' },
+    select: {
+      id: true,
+      meditationId: true,
+      videoWatchedSec: true,
+      completedAt: true,
+      meditation: {
+        select: {
+          id: true,
+          title: true,
+          titleTraditional: true,
+          videoDurationSec: true,
+          courseId: true,
+          lessonId: true,
+          archivedAt: true,
+          course: { select: { id: true, slug: true, title: true, coverEmoji: true } },
+          lesson: { select: { id: true, title: true } },
+        },
+      },
+    },
+  });
+
+  // 同 meditation 多 session 取最早完成的（用户首次完成时间）
+  const seen = new Set<string>();
+  const unique: typeof sessions = [];
+  for (const s of sessions) {
+    if (seen.has(s.meditationId)) continue;
+    if (s.meditation.archivedAt) continue; // 归档观修不展示
+    seen.add(s.meditationId);
+    unique.push(s);
+  }
+  return unique;
+}

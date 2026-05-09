@@ -274,6 +274,51 @@ function Drawer({ onClose, loading, data }: { onClose: () => void; loading: bool
               </div>
             )}
 
+            {/* 修学计数 · 4 大类（隐藏观修） */}
+            {data.practice && (
+              <>
+                <SectionLabel>
+                  {s('修学计数', '修學計數', 'Practice')}
+                  {data.practice.streak > 0 && (
+                    <span style={{ marginLeft: 8, font: 'var(--text-caption)', color: 'var(--gold-dark)', fontWeight: 700 }}>
+                      🔥 {data.practice.streak}天
+                    </span>
+                  )}
+                </SectionLabel>
+                <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--sp-3)' }}>
+                  {data.practice.categories.map((c) => (
+                    <div key={c.categoryId} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '1.4rem' }}>{c.emoji}</div>
+                      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1rem', color: c.totalCount > 0 ? 'var(--ink)' : 'var(--ink-4)' }}>
+                        {c.totalCount}
+                      </div>
+                      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>{c.categoryName}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* 观修完成（本班课程范围） */}
+            {data.meditations && data.meditations.length > 0 && (
+              <>
+                <SectionLabel>{s('观修完成', '觀修完成', 'Meditations')} · {data.meditations.length}</SectionLabel>
+                <div className="glass-card-thick" style={{ padding: 0, marginBottom: 'var(--sp-4)' }}>
+                  {data.meditations.slice(0, 8).map((m, i) => (
+                    <div key={m.meditationId + m.completedAt} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)', borderTop: i === 0 ? 'none' : '1px solid var(--border-light)' }}>
+                      <span style={{ flex: 1, font: 'var(--text-caption)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        🧘 {m.title}
+                      </span>
+                      <span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>{Math.round(m.videoWatchedSec / 60)} min</span>
+                      <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+                        {relTime(m.completedAt, s)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
             {/* 已选法本 */}
             <SectionLabel>{s('已选法本', '已選法本', 'Enrollments')}</SectionLabel>
             {data.enrollments.length === 0 ? (

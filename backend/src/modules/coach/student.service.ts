@@ -66,6 +66,7 @@ export async function studentDetail(
   const dailyWindowStart = new Date(Date.now() - DAILY_WINDOW * 86_400_000);
   dailyWindowStart.setHours(0, 0, 0, 0);
 
+  const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD（与 PracticeDailySummary 一致）
   const [
     totalAnswers,
     correctAnswers,
@@ -76,6 +77,10 @@ export async function studentDetail(
     sm2,
     enrollmentsRaw,
     dailyRaw,
+    practiceCategories,
+    practiceTotalsByCat,
+    practiceTodayByCat,
+    meditationsRaw,
   ] = await Promise.all([
     prisma.userAnswer.count({ where: { userId, question: { courseId } } }),
     prisma.userAnswer.count({
@@ -121,6 +126,37 @@ export async function studentDetail(
       where: { userId, question: { courseId }, answeredAt: { gte: dailyWindowStart } },
       select: { answeredAt: true, isCorrect: true },
     }),
+    // 修学计数 · 4 大类（隐藏 meditation）· 该学员的累计 + 今日
+    prisma.practiceCategory.findMany({
+      where: { key: { not: 'meditation' } },
+      orderBy: { displayOrder: 'asc' },
+    }),
+    prisma.practiceDailySummary.groupBy({
+      by: ['categoryId'],
+      where: { userId },
+      _sum: { count: true },
+    }),
+    prisma.practiceDailySummary.groupBy({
+      by: ['categoryId'],
+      where: { userId, date: today },
+      _sum: { count: true },
+    }),
+    // 观修完成（仅本班 courseId · 跨课程数据由学员自己的 /me/meditations 看）
+    prisma.meditationSession.findMany({
+      where: {
+        userId,
+        isCompleted: true,
+        meditation: { courseId },
+      },
+      orderBy: { completedAt: 'desc' },
+      take: 50,
+      select: {
+        meditationId: true,
+        videoWatchedSec: true,
+        completedAt: true,
+        meditation: { select: { title: true } },
+      },
+    }),
   ]);
 
   // 填充每日柱状（缺位以 0 填）
@@ -137,6 +173,37 @@ export async function studentDetail(
 
   // UserMistakeBook 未建 Question 关系，需单独取 questionText
   const qLookup = await loadMistakeQuestionTexts(mistakesRaw.map((m) => m.questionId));
+
+  // 修学计数聚合（4 大类）
+  const totalsMap = new Map(practiceTotalsByCat.map((r) => [r.categoryId, r._sum.count ?? 0]));
+  const todaysMap = new Map(practiceTodayByCat.map((r) => [r.categoryId, r._sum.count ?? 0]));
+  const practiceCategoriesView = practiceCategories.map((c) => ({
+    categoryId: c.id,
+    categoryKey: c.key,
+    categoryName: c.name,
+    emoji: c.emoji,
+    totalCount: totalsMap.get(c.id) ?? 0,
+    todayCount: todaysMap.get(c.id) ?? 0,
+  }));
+  const practiceTotal = practiceCategoriesView.reduce((acc, c) => acc + c.totalCount, 0);
+  // streak（复用算法 · 简化为同步内联）
+  const dates90: string[] = [];
+  const todayDate = new Date(); todayDate.setUTCHours(0, 0, 0, 0);
+  for (let i = 89; i >= 0; i--) {
+    const d = new Date(todayDate); d.setUTCDate(todayDate.getUTCDate() - i);
+    dates90.push(d.toISOString().slice(0, 10));
+  }
+  const streakRows = await prisma.practiceDailySummary.groupBy({
+    by: ['date'],
+    where: { userId, date: { in: dates90 }, count: { gt: 0 } },
+    _sum: { count: true },
+  });
+  const streakSet = new Set(streakRows.map((r) => r.date));
+  let practiceStreak = 0;
+  for (let i = dates90.length - 1; i >= 0; i--) {
+    if (streakSet.has(dates90[i]!)) practiceStreak++;
+    else break;
+  }
 
   return {
     user,
@@ -166,6 +233,17 @@ export async function studentDetail(
       title: e.course.title,
       lastStudiedAt: e.lastStudiedAt,
       completedAt: e.completedAt,
+    })),
+    practice: {
+      streak: practiceStreak,
+      totalCount: practiceTotal,
+      categories: practiceCategoriesView,
+    },
+    meditations: meditationsRaw.map((m) => ({
+      meditationId: m.meditationId,
+      title: m.meditation.title,
+      videoWatchedSec: m.videoWatchedSec,
+      completedAt: m.completedAt!,
     })),
   };
 }

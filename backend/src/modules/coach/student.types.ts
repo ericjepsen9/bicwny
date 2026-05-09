@@ -23,6 +23,22 @@ export interface EnrollmentItem {
   completedAt: Date | null;
 }
 
+export interface PracticeSummaryItem {
+  categoryId: string;
+  categoryKey: string;
+  categoryName: string;
+  emoji: string;
+  totalCount: number;
+  todayCount: number;
+}
+
+export interface MeditationItem {
+  meditationId: string;
+  title: string;
+  videoWatchedSec: number;
+  completedAt: Date;
+}
+
 export interface StudentSummary {
   totalAnswers: number;
   correctRate: number;
@@ -58,4 +74,12 @@ export interface StudentDetail {
     total: number;
   };
   enrollments: EnrollmentItem[];
+  /** 修学计数（按 4 大类聚合 · 隐藏「观修」大类） */
+  practice: {
+    streak: number;
+    totalCount: number; // 全平台累计
+    categories: PracticeSummaryItem[];
+  };
+  /** 该学员在本班课程下的已完成观修（不跨班 · 仅 class.courseId） */
+  meditations: MeditationItem[];
 }

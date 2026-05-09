@@ -32,7 +32,11 @@ export const practiceAdminRoutes: FastifyPluginAsync = async (app) => {
     preHandler: adminGuard,
     schema: { tags: TAGS, summary: '平台预置子项 + 各大类汇总', security: SEC },
   }, async () => {
-    const cats = await prisma.practiceCategory.findMany({ orderBy: { displayOrder: 'asc' } });
+    // 「观修」大类已隐藏 · admin 端也不再可管理
+    const cats = await prisma.practiceCategory.findMany({
+      where: { key: { not: 'meditation' } },
+      orderBy: { displayOrder: 'asc' },
+    });
     const projects = await prisma.practiceProject.findMany({
       where: { scope: 'user', ownerId: null, isBuiltin: true },
       orderBy: [{ categoryId: 'asc' }, { displayOrder: 'asc' }],

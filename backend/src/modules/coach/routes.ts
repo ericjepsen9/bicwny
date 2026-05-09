@@ -124,6 +124,8 @@ export const coachStatsRoutes: FastifyPluginAsync = async (app) => {
           status: e.completedAt ? 'completed' : (e.lastStudiedAt ? 'in_progress' : 'idle'),
           lastStudiedAt: e.lastStudiedAt,
         })),
+        practice: detail.practice,
+        meditations: detail.meditations,
       };
       return { data };
     },

@@ -17,7 +17,12 @@ interface BatchEntryItem {
 }
 
 export async function listCategories(prisma: PrismaClient) {
-  return prisma.practiceCategory.findMany({ orderBy: { displayOrder: 'asc' } });
+  // 「观修」大类已隐藏（用户决定 · 观修单独走观修模块 · 不混进学修计数）
+  // 数据保留 · UI 不返回
+  return prisma.practiceCategory.findMany({
+    where: { key: { not: 'meditation' } },
+    orderBy: { displayOrder: 'asc' },
+  });
 }
 
 /**
@@ -35,9 +40,17 @@ export async function listProjects(prisma: PrismaClient, userId: string) {
   });
   const classIds = myClasses.map((m) => m.classId);
 
+  // 「观修」大类已隐藏 · 拿到隐藏大类 ID 列表用作过滤
+  const hiddenCats = await prisma.practiceCategory.findMany({
+    where: { key: 'meditation' },
+    select: { id: true },
+  });
+  const hiddenCatIds = hiddenCats.map((c) => c.id);
+
   const projects = await prisma.practiceProject.findMany({
     where: {
       archivedAt: null,
+      ...(hiddenCatIds.length > 0 ? { categoryId: { notIn: hiddenCatIds } } : {}),
       OR: [
         { scope: 'user', ownerId: null, isBuiltin: true },         // 平台预置
         { scope: 'user', ownerId: userId },                         // 我自建

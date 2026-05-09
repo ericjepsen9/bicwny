@@ -390,20 +390,15 @@ model Meditation {
   updatedAt    DateTime  @updatedAt
   archivedAt   DateTime?
 
-  // 修学计数联动（admin 绑定）· 完成此观修时自动给该项目 +practiceCount
-  // 仅支持绑定平台预置项目（PracticeProject scope=user · ownerId=null · isBuiltin=true）
-  // 不绑定（null）= 不联动 · 学员手动登记
-  practiceProjectId String?
-  practiceCount     Int     @default(1) // 完成 1 次观修等于「+N 座」· admin 可调
+  // 修学计数联动 · 已撤销（用户决定观修不做计数 · 学修不含观修大类）
+  // 旧字段 practiceProjectId / practiceCount / practiceProject 已移除
 
-  course          Course?             @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  lesson          Lesson?             @relation(fields: [lessonId], references: [id], onDelete: SetNull)
-  sessions        MeditationSession[]
-  practiceProject PracticeProject?    @relation("MeditationPracticeBinding", fields: [practiceProjectId], references: [id], onDelete: SetNull)
+  course   Course?             @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  lesson   Lesson?             @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  sessions MeditationSession[]
 
   @@index([lessonId])
   @@index([courseId])
-  @@index([practiceProjectId])
 }
 
 model MeditationSession {
@@ -1077,13 +1072,12 @@ model PracticeProject {
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
-  class       Class?                 @relation(fields: [classId], references: [id], onDelete: SetNull)
-  owner       User?                  @relation("PracticeProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  entries     PracticeEntry[]
-  goals       PracticeGoal[]
-  tasks       PracticeTask[]
-  daily       PracticeDailySummary[]
-  meditations Meditation[]           @relation("MeditationPracticeBinding")
+  class   Class?                 @relation(fields: [classId], references: [id], onDelete: SetNull)
+  owner   User?                  @relation("PracticeProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  entries PracticeEntry[]
+  goals   PracticeGoal[]
+  tasks   PracticeTask[]
+  daily   PracticeDailySummary[]
 
   @@index([scope, classId])
   @@index([scope, ownerId])

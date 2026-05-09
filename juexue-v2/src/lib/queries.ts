@@ -507,6 +507,26 @@ export interface CoachStudentDetail {
     status: string;
     lastStudiedAt: string | null;
   }>;
+  /** 修学计数（4 大类 · 隐藏观修）· 后端可选 · 老前端兼容 */
+  practice?: {
+    streak: number;
+    totalCount: number;
+    categories: Array<{
+      categoryId: string;
+      categoryKey: string;
+      categoryName: string;
+      emoji: string;
+      totalCount: number;
+      todayCount: number;
+    }>;
+  };
+  /** 该班课程下完成的观修（≤ 50 条 · 倒序） */
+  meditations?: Array<{
+    meditationId: string;
+    title: string;
+    videoWatchedSec: number;
+    completedAt: string;
+  }>;
 }
 export function useCoachStudent(
   classId: string | null | undefined,

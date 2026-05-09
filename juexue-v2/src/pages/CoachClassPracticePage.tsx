@@ -400,13 +400,19 @@ function RankingTab({ classId }: { classId: string }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {(list.data ?? []).map((r, i) => (
-            <div key={r.userId} className="glass-card-thick" style={{ padding: 'var(--sp-2) var(--sp-3)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+            <Link
+              key={r.userId}
+              to={`/coach/students?classId=${encodeURIComponent(classId)}&uid=${encodeURIComponent(r.userId)}`}
+              className="glass-card-thick"
+              style={{ padding: 'var(--sp-2) var(--sp-3)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', textDecoration: 'none', color: 'inherit' }}
+            >
               <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 24, textAlign: 'center', fontWeight: 700 }}>
                 {i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}
               </span>
               <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)' }}>{r.dharmaName ?? r.userId.slice(0, 6)}</span>
               <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--saffron-dark)' }}>{r.total}</span>
-            </div>
+              <span style={{ color: 'var(--ink-4)' }}>›</span>
+            </Link>
           ))}
         </div>
       )}

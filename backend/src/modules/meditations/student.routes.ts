@@ -15,6 +15,7 @@ import {
   getCourseMeditations,
   getLessonMeditation,
   getMeditationDetail,
+  listMyCompletedMeditations,
   manualComplete,
   startSession,
   updateSessionProgress,
@@ -34,6 +35,15 @@ const progressBody = z.object({
 });
 
 export const studentMeditationRoutes: FastifyPluginAsync = async (app) => {
+  // ── GET 我的观修历史（跨课程 · 已完成的） ──────────────
+  app.get('/api/me/meditations', {
+    schema: { tags: TAGS, summary: '我已完成的观修列表（按完成时间倒序）', security: SEC },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const data = await listMyCompletedMeditations(userId);
+    return { data };
+  });
+
   // ── GET 本课观修 ──────────────────────────────────
   app.get('/api/lessons/:id/meditation', {
     schema: { tags: TAGS, summary: '获取本课关联的观修（如无返回 null）', security: SEC },
