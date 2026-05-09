@@ -130,7 +130,7 @@ function Kpi({ value, label, color, sub, loading }: { value: string; label: stri
     <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', minHeight: 110, display: 'flex', flexDirection: 'column' }}>
       <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, marginBottom: 6 }}>{label}</div>
       {loading ? <Skeleton.Title style={{ width: 60 }} /> : (
-        <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.625rem', color: color ?? 'var(--ink)', letterSpacing: 1, lineHeight: 1.1 }}>{value}</div>
+        <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.6rem', color: color ?? 'var(--ink)', letterSpacing: 1, lineHeight: 1.1 }}>{value}</div>
       )}
       {sub && <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 'auto', letterSpacing: 1 }}>{sub}</div>}
     </div>

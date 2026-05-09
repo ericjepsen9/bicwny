@@ -121,9 +121,9 @@ function ProjectCard({ p }: { p: PracticeProject }) {
 
 function Kpi({ value, label, color }: { value: string; label: string; color?: string }) {
   return (
-    <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)', minHeight: 90 }}>
+    <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', minHeight: 110, display: 'flex', flexDirection: 'column' }}>
       <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.4rem', color: color ?? 'var(--ink)', letterSpacing: 1 }}>{value}</div>
+      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.6rem', color: color ?? 'var(--ink)', letterSpacing: 1, lineHeight: 1.1 }}>{value}</div>
     </div>
   );
 }

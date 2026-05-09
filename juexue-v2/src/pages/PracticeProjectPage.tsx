@@ -5,10 +5,11 @@
 //   - 右上⋯设置：摇一摇 / 改名 / 归档 / 设目标
 import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
+import TopNav from '@/components/TopNav';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
@@ -104,29 +105,24 @@ export default function PracticeProjectPage() {
   const dailyPct = dailyProgress > 0 ? Math.min(100, Math.round((todayWithPending / dailyProgress) * 100)) : 0;
 
   return (
-    <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-      {/* 顶栏 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Link to={catKey ? `/practice/${catKey}` : '/practice'} style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-          ← {s('返回', '返回', 'Back')}
-        </Link>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          aria-label={s('设置', '設置', 'Settings')}
-          style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', color: 'var(--ink-3)', cursor: 'pointer' }}
-        >⋯</button>
-      </div>
-
-      {/* hero · 累计数字大字醒目 */}
+    <>
+      <TopNav
+        titles={[proj.name, proj.name, proj.name]}
+        backTo={catKey ? `/practice/${catKey}` : '/practice'}
+        right={(
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            aria-label={s('设置', '設置', 'Settings')}
+            style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', color: 'var(--ink-3)', cursor: 'pointer', padding: '4px 10px' }}
+          >⋯</button>
+        )}
+      />
+      <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+      {/* hero · 大累计数字（标题在 TopNav 已显示 · 不重复） */}
       <div className="glass-card-thick" style={{ padding: 'var(--sp-5) var(--sp-4)', textAlign: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: '1.6rem' }}>{proj.emoji ?? '📿'}</span>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.1rem', letterSpacing: 2, color: 'var(--ink-2)', margin: 0 }}>
-            {proj.name}
-          </h1>
-        </div>
-        <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '2.6rem', color: 'var(--saffron-dark)', letterSpacing: 1, lineHeight: 1.1, marginTop: 6 }}>
+        <div style={{ fontSize: '2rem', marginBottom: 4 }}>{proj.emoji ?? '📿'}</div>
+        <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '2.6rem', color: 'var(--saffron-dark)', letterSpacing: 1, lineHeight: 1.1 }}>
           {fmtBig(totalWithPending)}
         </div>
         <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginTop: 4 }}>
@@ -251,7 +247,8 @@ export default function PracticeProjectPage() {
           onArchived={() => nav('/practice')}
         />
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }
 
