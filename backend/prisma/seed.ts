@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client';
 import { seedAccounts } from './seed/accounts.js';
 import { seedContent } from './seed/content.js';
 import { seedLlm } from './seed/llm.js';
+import { seedPracticeCategories } from './seed/practice.js';
 import { seedQuestions } from './seed/questions/index.js';
 
 const prisma = new PrismaClient();
@@ -17,6 +18,7 @@ async function main() {
   await seedAccounts(prisma);
   await seedQuestions(prisma);
   await seedLlm(prisma);
+  await seedPracticeCategories(prisma);
   console.log('\n✅ Seed done');
 }
 

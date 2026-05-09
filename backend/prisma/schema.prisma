@@ -40,25 +40,31 @@ model User {
   // 观修记录（量化数据 · 不含 reflection）对班级同学/辅导员/管理员是否可见
   // 默认 true · settings 关闭后排行不再显示自己
   meditationVisibleToClass Boolean   @default(true)
+  // 修学计数对班级是否可见（同上）
+  practiceVisibleToClass   Boolean   @default(false)
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 
-  answers            UserAnswer[]
-  sm2Cards           Sm2Card[]
-  favorites          UserFavorite[]
-  mistakes           UserMistakeBook[]
-  reports            QuestionReport[]
-  enrollments        UserCourseEnrollment[]
-  memberships        ClassMember[]
-  sessions           AuthSession[]
-  createdQuestions   Question[]               @relation("CreatedQuestions")
-  resetTokens        PasswordResetToken[]
-  emailVerifyTokens  EmailVerificationToken[]
-  notifications      Notification[]
-  pushSubscriptions  PushSubscription[]
-  feedback           Feedback[]               @relation("UserFeedback")
-  handledFeedback    Feedback[]               @relation("HandledFeedback")
-  meditationSessions MeditationSession[]
+  answers                UserAnswer[]
+  sm2Cards               Sm2Card[]
+  favorites              UserFavorite[]
+  mistakes               UserMistakeBook[]
+  reports                QuestionReport[]
+  enrollments            UserCourseEnrollment[]
+  memberships            ClassMember[]
+  sessions               AuthSession[]
+  createdQuestions       Question[]               @relation("CreatedQuestions")
+  resetTokens            PasswordResetToken[]
+  emailVerifyTokens      EmailVerificationToken[]
+  notifications          Notification[]
+  pushSubscriptions      PushSubscription[]
+  feedback               Feedback[]               @relation("UserFeedback")
+  handledFeedback        Feedback[]               @relation("HandledFeedback")
+  meditationSessions     MeditationSession[]
+  practiceProjects       PracticeProject[]        @relation("PracticeProjectOwner")
+  practiceEntries        PracticeEntry[]
+  practiceDailySummaries PracticeDailySummary[]
+  practiceGoals          PracticeGoal[]
 
   @@index([role])
 }
@@ -84,10 +90,12 @@ model Class {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  course         Course        @relation(fields: [courseId], references: [id])
-  members        ClassMember[]
-  ownedQuestions Question[]    @relation("ClassOwnedQuestions")
-  userAnswers    UserAnswer[]
+  course           Course            @relation(fields: [courseId], references: [id])
+  members          ClassMember[]
+  ownedQuestions   Question[]        @relation("ClassOwnedQuestions")
+  userAnswers      UserAnswer[]
+  practiceProjects PracticeProject[]
+  practiceTasks    PracticeTask[]
 
   @@index([courseId])
 }
@@ -1011,4 +1019,134 @@ model Feedback {
   @@index([status, createdAt])
   @@index([userId, createdAt])
   @@index([kind, createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 修学计数（持咒 / 礼拜 / 诵经 / 供曼扎 / 观修）
+// 设计：5 大类（PracticeCategory · 平台预置）+ 子项（PracticeProject ·
+//   user/class scope · 用户或教师建）+ 明细（PracticeEntry · 30s
+//   batching）+ 日聚合（PracticeDailySummary · 双记账：子项 / 大类）
+// ═══════════════════════════════════════════════════════════════
+
+enum PracticeProjectScope {
+  user // 学员私建 · 仅自己可见
+  class // 教师在班级里建 · 班里学员可用
+}
+
+enum PracticeTaskScope {
+  self // 学员自定目标
+  class // 教师下达班级任务
+}
+
+enum PracticeTaskMode {
+  daily // 每日重复（target 是每日目标）
+  fixed // 一次性时间窗（target 是期间总目标）
+}
+
+model PracticeCategory {
+  id           String @id @default(cuid())
+  key          String @unique // 'mantra' | 'prostration' | 'recite' | 'mandala' | 'meditation'
+  name         String // 持咒 / 礼拜 / 诵经 / 供曼扎 / 观修
+  emoji        String // 📿 🙏 📖 🪷 🧘
+  displayOrder Int    @default(0)
+
+  projects PracticeProject[]
+}
+
+model PracticeProject {
+  id           String               @id @default(cuid())
+  categoryId   String
+  category     PracticeCategory     @relation(fields: [categoryId], references: [id])
+  name         String // 「百字明」「金刚萨埵心咒」
+  emoji        String? // 可选 · 默认走 category emoji
+  scope        PracticeProjectScope
+  classId      String? // scope=class
+  ownerId      String? // scope=user
+  isBuiltin    Boolean              @default(false) // 平台预置（admin 管理 · 不可删）
+  archivedAt   DateTime?
+  displayOrder Int                  @default(0)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  class   Class?                 @relation(fields: [classId], references: [id], onDelete: SetNull)
+  owner   User?                  @relation("PracticeProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  entries PracticeEntry[]
+  goals   PracticeGoal[]
+  tasks   PracticeTask[]
+  daily   PracticeDailySummary[]
+
+  @@index([scope, classId])
+  @@index([scope, ownerId])
+  @@index([categoryId, scope])
+}
+
+// 每次（或每批）计数明细
+model PracticeEntry {
+  id         String          @id @default(cuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String // 冗余 · 查询大类总数省 join
+  projectId  String
+  project    PracticeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  count      Int // +N（点 1 下=1 · +10 模式=10 · 摇一摇=1）
+  source     String // 'tap' | 'shake' | 'bulk'
+  createdAt  DateTime        @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, projectId, createdAt])
+  @@index([userId, categoryId, createdAt])
+}
+
+// 日聚合（O(1) 查当日 / streak / 排行 · upsert on entry write）
+model PracticeDailySummary {
+  id         String          @id @default(cuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String
+  projectId  String
+  project    PracticeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  date       String // YYYY-MM-DD（用户 tz 锁定 · 暂用 UTC · 后期切 user.timezone）
+  count      Int
+
+  @@unique([userId, projectId, date])
+  @@index([userId, date])
+  @@index([userId, categoryId, date])
+}
+
+// 每日目标（项目级 · 学员自设 · daily 模式简化）
+model PracticeGoal {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId   String
+  project     PracticeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dailyTarget Int // 每日目标数（0 = 取消目标）
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([userId, projectId])
+}
+
+// 任务（个人或班级 · 周期或时间窗）
+model PracticeTask {
+  id         String            @id @default(cuid())
+  scope      PracticeTaskScope
+  mode       PracticeTaskMode
+  ownerId    String // self 时 = userId · class 时 = coach userId
+  classId    String? // class 必填
+  userId     String? // self 必填（任务归属学员）
+  projectId  String
+  project    PracticeProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title      String? // 「本周持金刚萨埵心咒 1000 遍」· 可空（mode/target 自动生成）
+  target     Int // daily = 每日 N · fixed = 期间累计 N
+  startAt    DateTime
+  endAt      DateTime? // daily 可空 · fixed 必填
+  archivedAt DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  class Class? @relation(fields: [classId], references: [id], onDelete: SetNull)
+
+  @@index([scope, classId, archivedAt])
+  @@index([scope, userId, archivedAt])
 }
