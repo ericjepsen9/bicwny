@@ -5,6 +5,7 @@
 //   - 5 大类列表 · 点进入大类页
 import { Link } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import TopNav from '@/components/TopNav';
 import { useLang } from '@/lib/i18n';
 import {
   usePracticeCategories,
@@ -21,17 +22,17 @@ export default function PracticePage() {
   const goals = usePracticeGoals();
 
   return (
-    <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-      {/* 顶栏 */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.4rem', letterSpacing: 3 }}>
-          {s('修学', '修學', 'Practice')}
-        </h1>
-        <Link to="/practice/history" style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', textDecoration: 'none' }}>
-          📊 {s('历史', '歷史', 'History')}
-        </Link>
-      </div>
-
+    <>
+      <TopNav
+        titles={['修学计数', '修學計數', 'Practice']}
+        backTo="/"
+        right={(
+          <Link to="/practice/history" style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', textDecoration: 'none' }}>
+            📊 {s('历史', '歷史', 'History')}
+          </Link>
+        )}
+      />
+      <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
       {/* hero · streak + 今日各大类 */}
       {summary.isLoading ? <Skeleton.Card /> : summary.data && (
         <div className="glass-card-thick" style={{ padding: 'var(--sp-4)' }}>
@@ -118,7 +119,8 @@ export default function PracticePage() {
           );
         })}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
