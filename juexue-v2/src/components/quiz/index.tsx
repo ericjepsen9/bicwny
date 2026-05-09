@@ -8,6 +8,7 @@ import Sort from './Sort';
 import Match from './Match';
 import Flip from './Flip';
 import Verse from './Verse';
+import Chain from './Chain';
 
 export default function QuestionRenderer(props: QuestionRendererProps) {
   switch (props.question.type) {
@@ -19,6 +20,7 @@ export default function QuestionRenderer(props: QuestionRendererProps) {
     case 'match':    return <Match {...props} />;
     case 'flip':     return <Flip {...props} />;
     case 'verse':    return <Verse {...props} />;
+    case 'chain':    return <Chain {...props} />;
     default:
       return (
         <div className="glass-card" style={{ padding: 'var(--sp-4)', color: 'var(--ink-3)', textAlign: 'center' }}>
@@ -59,6 +61,10 @@ export function canSubmit(type: string, value: unknown): boolean {
   if (type === 'verse') {
     const t = (value as { tokens?: unknown }).tokens;
     return Array.isArray(t) && t.length >= 2;
+  }
+  if (type === 'chain') {
+    const ls = (value as { lines?: unknown }).lines;
+    return Array.isArray(ls) && ls.some((l) => typeof l === 'string' && l.trim().length > 0);
   }
   return false;
 }

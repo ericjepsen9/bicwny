@@ -38,6 +38,7 @@ const TYPE_OPTS: { v: '' | QuestionType; label: string }[] = [
   { v: 'match',    label: '匹配' },
   { v: 'flip',     label: '速记卡' },
   { v: 'verse',    label: '颂词组句' },
+  { v: 'chain',    label: '颂词续接' },
 ];
 
 export default function CoachQuestionsPage() {
@@ -250,7 +251,7 @@ function ReviewActions({ q }: { q: CoachQuestion }) {
 function TypeBadge({ t }: { t: QuestionType }) {
   const labels: Partial<Record<QuestionType, string>> = {
     single: '单选', multi: '多选', fill: '填空', open: '问答',
-    sort: '排序', match: '匹配', flip: '速记卡', verse: '颂词组句',
+    sort: '排序', match: '匹配', flip: '速记卡', verse: '颂词组句', chain: '颂词续接',
     image: '图识', listen: '听颂', flow: '流程', guided: '引导', scenario: '情境',
   };
   return (

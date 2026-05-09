@@ -21,5 +21,6 @@ export type AnswerValue =
   | { order: number[] }            // sort 题：用户排名顺序的原 items 下标
   | { pairs: Record<string, string> }
   | { tokens: string[] }           // verse 题：用户拼词顺序
+  | { lines: string[] }            // chain 题：续接每行用户输入
   | { __placeholder: true }
   | null;

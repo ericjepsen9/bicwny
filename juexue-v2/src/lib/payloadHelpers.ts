@@ -14,6 +14,7 @@
 //   open: { referenceAnswer, keyPoints: [{point, signals}], minLength, maxLength }
 //   flip: { front, frontSub, back, backExample }
 //   verse: { tokens: string[], distractors?: string[], hintText?: string }（DB shape）
+//   chain: { previousLine, nextLines: string[], matchMode, minMatchLength }（DB shape）
 //
 // 编辑器中间状态 shape（仅用于 UI 控件 · normalize 时转 DB shape）：
 //   sort: { itemsText: '行1\n行2' }  ← 单 textarea 编辑
@@ -42,6 +43,8 @@ export function emptyPayload(t: QuestionType): Record<string, unknown> {
       return { front: '', frontSub: '', back: '', backExample: '' };
     case 'verse':
       return { tokensText: '', distractorsText: '', hintText: '' };
+    case 'chain':
+      return { previousLine: '', nextLinesText: '', matchMode: 'startsWith', minMatchLength: 4 };
     default:
       return {};
   }
@@ -88,9 +91,20 @@ export function validatePayload(t: QuestionType, p: Record<string, unknown>): bo
       // 至少 2 词 · 上限 30（颂词 UI 一屏上限）
       return tokens.length >= 2 && tokens.length <= 30;
     }
+    case 'chain': {
+      const prev = ((p.previousLine as string) ?? '').trim();
+      const lines = parseChainLines((p.nextLinesText as string) ?? '');
+      // 上一句必填（提示） · 下一句 1-10 行（防过长一题）
+      return prev.length > 0 && lines.length >= 1 && lines.length <= 10;
+    }
     default:
       return false;
   }
+}
+
+/** chain 题 nextLines 解析 · 按换行分隔 · 保留行内标点 */
+function parseChainLines(text: string): string[] {
+  return text.split(/[\n\r]+/).map((l) => l.trim()).filter(Boolean);
 }
 
 /** 颂词词块切分 · 支持 · / 中点 / 换行 / 顿号 / 多个空格 多种分隔 */
@@ -176,6 +190,13 @@ export function normalizePayload(t: QuestionType, p: Record<string, unknown>): R
       if (hintText) out.hintText = hintText;
       return out;
     }
+    case 'chain': {
+      const previousLine = ((p.previousLine as string) ?? '').trim();
+      const nextLines = parseChainLines((p.nextLinesText as string) ?? '');
+      const matchMode = (p.matchMode as string) === 'full' ? 'full' : 'startsWith';
+      const minMatchLength = Math.max(1, Math.min(50, Number(p.minMatchLength) || 4));
+      return { previousLine, nextLines, matchMode, minMatchLength };
+    }
     default:
       return p;
   }
@@ -206,6 +227,15 @@ export function denormalizePayload(t: QuestionType, p: unknown): Record<string, 
         tokensText: tokens.join(' · '),
         distractorsText: distractors.join(' · '),
         hintText: (payload.hintText as string | undefined) ?? '',
+      };
+    }
+    case 'chain': {
+      const nextLines = (payload.nextLines as string[] | undefined) ?? [];
+      return {
+        previousLine: (payload.previousLine as string | undefined) ?? '',
+        nextLinesText: nextLines.join('\n'),
+        matchMode: (payload.matchMode as string | undefined) === 'full' ? 'full' : 'startsWith',
+        minMatchLength: Number(payload.minMatchLength) || 4,
       };
     }
     default:

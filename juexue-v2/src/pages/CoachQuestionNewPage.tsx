@@ -23,6 +23,7 @@ const TYPES: { v: QuestionType; sc: string; tc: string; en: string }[] = [
   { v: 'match',  sc: '匹配', tc: '匹配', en: 'Match' },
   { v: 'flip',   sc: '速记卡', tc: '速記卡', en: 'Flip' },
   { v: 'verse',  sc: '颂词组句', tc: '頌詞組句', en: 'Verse' },
+  { v: 'chain',  sc: '颂词续接', tc: '頌詞續接', en: 'Chain' },
 ];
 
 export default function CoachQuestionNewPage() {
@@ -261,6 +262,8 @@ function PayloadEditor({ type, value, onChange }: {
       return <FlipEditor value={value} onChange={onChange} />;
     case 'verse':
       return <VerseEditor value={value} onChange={onChange} />;
+    case 'chain':
+      return <ChainEditor value={value} onChange={onChange} />;
     default:
       return <p>不支持的题型 {type}</p>;
   }
@@ -500,6 +503,103 @@ function VerseEditor({ value, onChange }: { value: Record<string, unknown>; onCh
               }}>{t}</span>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChainEditor({ value, onChange }: { value: Record<string, unknown>; onChange: (v: Record<string, unknown>) => void }) {
+  const { s } = useLang();
+  const previousLine = (value.previousLine as string) ?? '';
+  const nextLinesText = (value.nextLinesText as string) ?? '';
+  const matchMode = ((value.matchMode as string) === 'full' ? 'full' : 'startsWith') as 'full' | 'startsWith';
+  const minMatchLength = Number(value.minMatchLength) || 4;
+  const lines = nextLinesText.split(/[\n\r]+/).map((l) => l.trim()).filter(Boolean);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+      <div>
+        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+          {s('上一句（题目展示给学员看 · 不参与评分）', '上一句（題目展示）', 'Previous line (shown to student)')}
+        </label>
+        <Inp label="" value={previousLine} onChange={(v) => onChange({ ...value, previousLine: v })} placeholder={s('如：众生无边誓愿度，', '如：眾生無邊誓願度，', 'e.g. Sentient beings are limitless, I vow to liberate them all,')} />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+          {s('下一句 / 多句（每行一句 · 1-10 句）', '下一句 / 多句（每行一句）', 'Next line(s) (one per line · 1-10)')}
+        </label>
+        <TextArea
+          value={nextLinesText}
+          onChange={(v) => onChange({ ...value, nextLinesText: v })}
+          rows={4}
+          placeholder={s('烦恼无尽誓愿断，\n法门无量誓愿学，\n佛道无上誓愿成。', '煩惱無盡誓願斷，\n法門無量誓願學，\n佛道無上誓願成。', 'next line 1\nnext line 2\n...')}
+        />
+        <div style={{ font: 'var(--text-caption)', color: lines.length < 1 || lines.length > 10 ? 'var(--crimson)' : 'var(--ink-3)', marginTop: 4 }}>
+          {lines.length} {s('句', '句', 'lines')}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-3)' }}>
+        <div>
+          <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+            {s('匹配模式', '匹配模式', 'Match mode')}
+          </label>
+          <select
+            value={matchMode}
+            onChange={(e) => onChange({ ...value, matchMode: e.target.value })}
+            style={inputStyle}
+          >
+            <option value="startsWith">{s('开头匹配（学员输前 N 字即可）', '開頭匹配', 'startsWith (input first N chars)')}</option>
+            <option value="full">{s('完整匹配（学员输完整下一句）', '完整匹配', 'full (input full line)')}</option>
+          </select>
+        </div>
+        {matchMode === 'startsWith' && (
+          <div>
+            <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+              {s('最少匹配字数', '最少匹配字數', 'Min match length')}
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={minMatchLength}
+              onChange={(e) => onChange({ ...value, minMatchLength: Number(e.target.value) || 4 })}
+              style={inputStyle}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* 学员视角预览 */}
+      {previousLine && lines.length >= 1 && (
+        <div style={{ padding: 'var(--sp-3)', background: 'var(--glass)', border: '1px dashed var(--glass-border)', borderRadius: 'var(--r-sm)' }}>
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, marginBottom: 6 }}>
+            {s('学员视角预览', '學員視角預覽', 'Student preview')}
+          </div>
+          <div style={{
+            padding: '8px 12px',
+            background: 'var(--saffron-pale)',
+            border: '1px solid var(--saffron-light)',
+            borderLeft: '4px solid var(--saffron)',
+            borderRadius: 'var(--r)',
+            fontFamily: 'var(--font-serif)',
+            fontSize: '0.95rem',
+            color: 'var(--ink)',
+            letterSpacing: 1.2,
+            marginBottom: 8,
+          }}>
+            {previousLine}
+          </div>
+          {lines.map((_l, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 20 }}>{i + 2}.</span>
+              <div style={{ flex: 1, padding: '6px 12px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 'var(--r)', font: 'var(--text-caption)', color: 'var(--ink-4)', fontStyle: 'italic' }}>
+                {s(`输入第 ${i + 2} 句…`, `輸入第 ${i + 2} 句…`, `enter line ${i + 2}…`)}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

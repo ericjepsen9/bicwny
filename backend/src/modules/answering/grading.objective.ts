@@ -38,9 +38,51 @@ export function gradeObjective(q: Question, answer: unknown): GradeResult {
       return gradeFlow(payload, answer);
     case 'verse':
       return gradeVerse(payload, answer);
+    case 'chain':
+      return gradeChain(payload, answer);
     default:
       throw BadRequest(`gradeObjective 不支持题型: ${q.type}`);
   }
+}
+
+// ───── chain · 颂词续接 ─────
+// payload: {
+//   previousLine: string;      // 上一句（仅展示）
+//   nextLines: string[];       // 1-N 句标准答案
+//   matchMode?: 'full' | 'startsWith';   // 默认 startsWith
+//   minMatchLength?: number;   // startsWith 模式下每行最少字数（默认 4）
+// }
+// answer: { lines: string[] }   // 学员逐行输入
+// 评分：每行 hits/total · 全对 100 / 部分对按比例 · normalize 去标点空白
+function gradeChain(p: P, a: unknown): GradeResult {
+  const nextLines = ((p.nextLines as string[] | undefined) ?? []).map((l) => String(l ?? ''));
+  const userLines = ((a as { lines?: string[] })?.lines ?? []).map((l) => String(l ?? ''));
+  const mode = (p.matchMode as string) === 'full' ? 'full' : 'startsWith';
+  const minLen = Number(p.minMatchLength) > 0 ? Number(p.minMatchLength) : 4;
+
+  if (nextLines.length === 0) {
+    throw BadRequest('payload.nextLines 缺失');
+  }
+
+  let hits = 0;
+  for (let i = 0; i < nextLines.length; i++) {
+    const refNorm = normalizeFillAnswer(nextLines[i]!);
+    const userNorm = normalizeFillAnswer(userLines[i] ?? '');
+    if (userNorm.length === 0) continue;
+    if (mode === 'full') {
+      if (userNorm === refNorm) hits++;
+    } else {
+      // startsWith：必达 minLen · 且 ref 以 user 开头
+      if (userNorm.length >= minLen && refNorm.startsWith(userNorm)) hits++;
+    }
+  }
+  const score = Math.round((hits / nextLines.length) * 100);
+  const exact = hits === nextLines.length;
+  return {
+    isCorrect: exact,
+    score,
+    feedback: exact ? undefined : `部分正确：${hits} / ${nextLines.length}`,
+  };
 }
 
 // ───── verse · 颂词组句 ─────
@@ -287,7 +329,7 @@ function gradeFlow(p: P, a: unknown): GradeResult {
 }
 
 export const objectiveStrategy: GradingStrategy = {
-  types: ['single', 'fill', 'multi', 'sort', 'match', 'image', 'listen', 'scenario', 'flow', 'verse'],
+  types: ['single', 'fill', 'multi', 'sort', 'match', 'image', 'listen', 'scenario', 'flow', 'verse', 'chain'],
   async grade(q, answer) {
     const r = gradeObjective(q, answer);
     return { ...r, source: 'objective' };

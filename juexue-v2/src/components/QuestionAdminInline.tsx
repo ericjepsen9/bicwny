@@ -29,7 +29,7 @@ import {
 } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
-const SIMPLE_TYPES: QuestionType[] = ['single', 'multi', 'fill', 'sort', 'open', 'match', 'flip'];
+const SIMPLE_TYPES: QuestionType[] = ['single', 'multi', 'fill', 'sort', 'open', 'match', 'flip', 'verse', 'chain'];
 
 // ── 课时行下的副行 ──────────────────────────────────────────
 export function LessonQuestionsSlot({ courseId, chapterId, lessonId }: {
@@ -241,7 +241,7 @@ function QuestionRow({
 function TypePill({ type }: { type: QuestionType }) {
   const labels: Record<QuestionType, string> = {
     single: '单选', multi: '多选', fill: '填空', open: '问答',
-    sort: '排序', match: '匹配', flip: '速记', verse: '颂词',
+    sort: '排序', match: '匹配', flip: '速记', verse: '颂词', chain: '续接',
     image: '图片', listen: '听力', flow: '流程', guided: '引导', scenario: '情境',
   };
   return (
@@ -502,6 +502,8 @@ function typeLabel(t: QuestionType, s: (sc: string, tc: string, en: string) => s
     case 'open':   return s('问答', '問答', 'Open');
     case 'match':  return s('配对', '配對', 'Match');
     case 'flip':   return s('速记卡', '速記卡', 'Flip');
+    case 'verse':  return s('颂词组句', '頌詞組句', 'Verse');
+    case 'chain':  return s('颂词续接', '頌詞續接', 'Chain');
     default: return t;
   }
 }
@@ -522,6 +524,10 @@ function PayloadEditor({ type, value, onChange }: { type: QuestionType; value: R
       return <MatchEditor value={value} onChange={onChange} />;
     case 'flip':
       return <FlipEditor value={value} onChange={onChange} />;
+    case 'verse':
+      return <VerseInlineEditor value={value} onChange={onChange} />;
+    case 'chain':
+      return <ChainInlineEditor value={value} onChange={onChange} />;
     default:
       return null;
   }
@@ -561,6 +567,101 @@ function FlipEditor({ value, onChange }: { value: Record<string, unknown>; onCha
       <Field label={s('正面副文（可选）', '正面副文', 'Front sub (opt)')} value={frontSub} onChange={(v) => onChange({ ...value, frontSub: v })} maxLength={200} />
       <Field label={s('反面（必填 · 答案）', '反面', 'Back (answer)')} value={back} onChange={(v) => onChange({ ...value, back: v })} maxLength={500} />
       <Field label={s('反面例句（可选）', '反面例句', 'Back example (opt)')} value={backExample} onChange={(v) => onChange({ ...value, backExample: v })} maxLength={500} />
+    </div>
+  );
+}
+
+function VerseInlineEditor({ value, onChange }: { value: Record<string, unknown>; onChange: (v: Record<string, unknown>) => void }) {
+  const { s } = useLang();
+  const tokensText = (value.tokensText as string) ?? '';
+  const distractorsText = (value.distractorsText as string) ?? '';
+  const hintText = (value.hintText as string) ?? '';
+  const tokens = tokensText.split(/[·•、\n\r]+|\s{2,}/).map((t) => t.trim()).filter(Boolean);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginBottom: 4 }}>
+        {s('颂词组句 · 词块按正确顺序拼回（学员看到打乱）', '頌詞組句', 'Verse · tokens to assemble in order')}
+      </p>
+      <Field label={s('提示文本（可选 · 题干上下文）', '提示文本', 'Hint (optional)')} value={hintText} onChange={(v) => onChange({ ...value, hintText: v })} maxLength={200} />
+      <div>
+        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+          {s('词块（按正确顺序 · 用 · 或换行分隔 · 2-30 个）', '詞塊', 'Tokens (· or newline · 2-30)')}
+        </label>
+        <textarea
+          rows={3}
+          value={tokensText}
+          onChange={(e) => onChange({ ...value, tokensText: e.target.value })}
+          placeholder={s('菩提之妙宝 · 未生愿生起 · 已生勿衰退 · 辗转更增长', '菩提之妙寶 · ...', 'token1 · token2 · token3')}
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', background: 'var(--bg-input)', font: 'var(--text-body)', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-serif)' }}
+        />
+        <div style={{ font: 'var(--text-caption)', color: tokens.length < 2 || tokens.length > 30 ? 'var(--crimson)' : 'var(--ink-3)', marginTop: 2 }}>
+          {tokens.length} {s('词块', '詞塊', 'tokens')}
+        </div>
+      </div>
+      <div>
+        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+          {s('干扰词（可选）', '干擾詞', 'Distractors (opt)')}
+        </label>
+        <textarea
+          rows={2}
+          value={distractorsText}
+          onChange={(e) => onChange({ ...value, distractorsText: e.target.value })}
+          placeholder={s('菩提心 · 勿衰', '菩提心 · 勿衰', 'd1 · d2')}
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', background: 'var(--bg-input)', font: 'var(--text-body)', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-serif)' }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ChainInlineEditor({ value, onChange }: { value: Record<string, unknown>; onChange: (v: Record<string, unknown>) => void }) {
+  const { s } = useLang();
+  const previousLine = (value.previousLine as string) ?? '';
+  const nextLinesText = (value.nextLinesText as string) ?? '';
+  const matchMode = ((value.matchMode as string) === 'full' ? 'full' : 'startsWith') as 'full' | 'startsWith';
+  const minMatchLength = Number(value.minMatchLength) || 4;
+  const lines = nextLinesText.split(/[\n\r]+/).map((l) => l.trim()).filter(Boolean);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginBottom: 4 }}>
+        {s('颂词续接 · 学员看上一句 · 输入下文', '頌詞續接', 'Chain · student sees prev, types next')}
+      </p>
+      <Field label={s('上一句（题目展示）', '上一句', 'Previous line')} value={previousLine} onChange={(v) => onChange({ ...value, previousLine: v })} maxLength={200} />
+      <div>
+        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+          {s('下一句 / 多句（每行一句 · 1-10 句）', '下一句', 'Next lines (1-10)')}
+        </label>
+        <textarea
+          rows={4}
+          value={nextLinesText}
+          onChange={(e) => onChange({ ...value, nextLinesText: e.target.value })}
+          placeholder={s('烦恼无尽誓愿断，\n法门无量誓愿学，\n佛道无上誓愿成。', '...', 'next 1\nnext 2\n...')}
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', background: 'var(--bg-input)', font: 'var(--text-body)', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-serif)' }}
+        />
+        <div style={{ font: 'var(--text-caption)', color: lines.length < 1 || lines.length > 10 ? 'var(--crimson)' : 'var(--ink-3)', marginTop: 2 }}>
+          {lines.length} {s('句', '句', 'lines')}
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div>
+          <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+            {s('匹配模式', '匹配模式', 'Match')}
+          </label>
+          <select
+            value={matchMode}
+            onChange={(e) => onChange({ ...value, matchMode: e.target.value })}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', background: 'var(--bg-input)', font: 'var(--text-body)', outline: 'none' }}
+          >
+            <option value="startsWith">{s('开头匹配', '開頭匹配', 'startsWith')}</option>
+            <option value="full">{s('完整匹配', '完整匹配', 'full')}</option>
+          </select>
+        </div>
+        {matchMode === 'startsWith' && (
+          <Field label={s('最少字数', '最少字數', 'Min len')} value={String(minMatchLength)} onChange={(v) => onChange({ ...value, minMatchLength: Number(v) || 4 })} type="number" />
+        )}
+      </div>
     </div>
   );
 }
@@ -753,6 +854,10 @@ function validationHint(t: QuestionType, s: (sc: string, tc: string, en: string)
       return s('配对：至少 2 行 · 每行用 = 分隔', '配對：≥2 行 · 用 = 分隔', 'Match: ≥2 lines · A = B');
     case 'flip':
       return s('速记卡：正面和反面都不能空', '速記卡：正反面必填', 'Flip: front + back required');
+    case 'verse':
+      return s('颂词组句：词块 2-30 个', '頌詞組句：詞塊 2-30 個', 'Verse: 2-30 tokens');
+    case 'chain':
+      return s('颂词续接：上一句必填 · 下一句 1-10 行', '頌詞續接：上一句必填 · 下一句 1-10 行', 'Chain: prev required · next 1-10 lines');
     default:
       return s('payload 未填全', 'payload 未填全', 'payload incomplete');
   }

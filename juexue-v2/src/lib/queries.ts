@@ -181,7 +181,7 @@ export function useFavoriteCount() {
 
 export type QuestionType =
   | 'single' | 'multi' | 'fill' | 'open'
-  | 'sort' | 'match' | 'flip' | 'verse'
+  | 'sort' | 'match' | 'flip' | 'verse' | 'chain'
   | 'image' | 'listen' | 'flow' | 'guided' | 'scenario';
 
 export interface QuestionPublic {
