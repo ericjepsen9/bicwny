@@ -82,10 +82,11 @@ export default function SettingsPage() {
           <HapticsToggle />
         </div>
 
-        {/* 隐私 · 观修班级可见性 */}
+        {/* 隐私 · 观修班级可见性 + 修学计数班级可见性 */}
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('隐私', '隱私', 'Privacy')}</SectionLabel>
         <div className="menu-card">
           <MeditationVisibleToggle />
+          <PracticeVisibleToggle />
         </div>
 
         {/* 存储 · 清缓存 + 导出数据 */}
@@ -269,6 +270,42 @@ function PushToggle() {
       checked={on}
       disabled={disabled}
       onChange={toggle}
+    />
+  );
+}
+
+function PracticeVisibleToggle() {
+  const { s } = useLang();
+  const { user, refreshUser } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const on = user?.practiceVisibleToClass ?? false;
+
+  async function toggle() {
+    if (busy) return;
+    const next = !on;
+    setBusy(true);
+    try {
+      await api.patch('/api/practice/me', { practiceVisibleToClass: next });
+      await refreshUser();
+      toast.ok(next
+        ? s('已对班级开放修学计数', '已對班級開放修學計數', 'Practice visible to class')
+        : s('已对班级隐藏修学计数', '已對班級隱藏修學計數', 'Practice hidden from class'),
+      );
+    } catch (e) {
+      toast.error((e as ApiError).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ToggleRow
+      icon="📿"
+      label={s('对班级开放修学计数', '對班級開放修學計數', 'Practice visible to class')}
+      sub={s('默认关 · 开启后你的修学次数才会出现在班级排行', '默認關 · 開啟後才出現在班級排行', 'Off by default · enable to appear in class ranking')}
+      checked={on}
+      onChange={toggle}
+      disabled={busy}
     />
   );
 }

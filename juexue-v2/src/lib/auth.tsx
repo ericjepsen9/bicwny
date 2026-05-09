@@ -35,6 +35,7 @@ export interface AuthUser {
   hasOnboarded: boolean;
   contentCohort: string | null;
   meditationVisibleToClass: boolean;
+  practiceVisibleToClass: boolean;
 }
 
 interface AuthCtx {

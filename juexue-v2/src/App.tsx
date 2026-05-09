@@ -21,6 +21,8 @@ const HomePage = lazy(() => import('./pages/HomePage'));
 const PracticePage = lazy(() => import('./pages/PracticePage'));
 const PracticeCategoryPage = lazy(() => import('./pages/PracticeCategoryPage'));
 const PracticeProjectPage = lazy(() => import('./pages/PracticeProjectPage'));
+const CoachClassPracticePage = lazy(() => import('./pages/CoachClassPracticePage'));
+const AdminPracticePage = lazy(() => import('./pages/AdminPracticePage'));
 const CoursesPage = lazy(() => import('./pages/CoursesPage'));
 const QuizCenterPage = lazy(() => import('./pages/QuizCenterPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
@@ -186,6 +188,7 @@ function CoachAppShell() {
               {/* 班级管理 · coach 给自己班加/移除学员（决策 3） */}
               <Route path="/classes" element={<AdminClassesPage />} />
               <Route path="/classes/new" element={<ClassNewPage />} />
+              <Route path="/classes/:id/practice" element={<CoachClassPracticePage />} />
               {/* 题目审核 · coach 也能进审核队列（决策 2） */}
               <Route path="/review" element={<AdminReviewPage />} />
               {/* 观修管理 · 复用 admin 页 · 后端权限已放权 coach */}
@@ -217,8 +220,10 @@ function AdminAppShell() {
               <Route path="/users/new" element={<AdminUserNewPage />} />
               <Route path="/classes" element={<AdminClassesPage />} />
               <Route path="/classes/new" element={<ClassNewPage />} />
+              <Route path="/classes/:id/practice" element={<CoachClassPracticePage />} />
               <Route path="/courses" element={<AdminCoursesPage />} />
               <Route path="/meditations" element={<MeditationsPage />} />
+              <Route path="/practice" element={<AdminPracticePage />} />
               {/* 题库 · 决策 11 a+b · admin 用自己账号 + 跨 shell 复用 Coach* 页面（页面 base 自动适配） */}
               <Route path="/questions" element={<CoachQuestionsPage />} />
               <Route path="/questions/new" element={<CoachQuestionNewPage />} />
