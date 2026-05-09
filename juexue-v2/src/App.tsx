@@ -18,6 +18,9 @@ import { useAuth } from './lib/auth';
 
 // lazy 切分 · 进各页才加载对应代码
 const HomePage = lazy(() => import('./pages/HomePage'));
+const PracticePage = lazy(() => import('./pages/PracticePage'));
+const PracticeCategoryPage = lazy(() => import('./pages/PracticeCategoryPage'));
+const PracticeProjectPage = lazy(() => import('./pages/PracticeProjectPage'));
 const CoursesPage = lazy(() => import('./pages/CoursesPage'));
 const QuizCenterPage = lazy(() => import('./pages/QuizCenterPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
@@ -129,6 +132,9 @@ function AppShell() {
                 <Route path="/mistakes" element={<MistakesPage />} />
                 <Route path="/favorites" element={<FavoritesPage />} />
                 <Route path="/sm2-review" element={<Sm2ReviewPage />} />
+                <Route path="/practice" element={<PracticePage />} />
+                <Route path="/practice/project/:id" element={<PracticeProjectPage />} />
+                <Route path="/practice/:categoryKey" element={<PracticeCategoryPage />} />
                 <Route path="/notifications" element={<NotificationPage />} />
                 <Route path="/achievement" element={<AchievementPage />} />
                 <Route path="/settings" element={<SettingsPage />} />

@@ -8,7 +8,7 @@ import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
-import { useClasses } from '@/lib/queries';
+import { useClasses, usePracticeSummary } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 export default function ProfilePage() {
@@ -138,6 +138,9 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* 修学计数统计卡 · 简版（streak + 各大类累计）· 详细数据走 /practice/history */}
+      <PracticeStatsCard />
+
       {/* 功能列表 · canonical .menu-card / .menu-item · 与 HomePage 同规范 */}
       <div className="menu-card" style={{ margin: '0 var(--sp-5) var(--sp-5)' }}>
         {role === 'admin' && (
@@ -181,6 +184,42 @@ export default function ProfilePage() {
         觉学 v2 · alpha
       </p>
     </div>
+  );
+}
+
+function PracticeStatsCard() {
+  const { s } = useLang();
+  const summary = usePracticeSummary();
+  if (!summary.data) return null;
+  const total = summary.data.categories.reduce((acc, c) => acc + c.totalCount, 0);
+  const todayTotal = summary.data.categories.reduce((acc, c) => acc + c.todayCount, 0);
+  if (total === 0 && todayTotal === 0 && summary.data.streak === 0) return null;
+  return (
+    <Link to="/practice" style={{ textDecoration: 'none', display: 'block', margin: '0 var(--sp-5) var(--sp-4)' }}>
+      <div className="glass-card-thick" style={{ padding: 'var(--sp-4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5 }}>
+            📿 {s('修学计数', '修學計數', 'Practice')}
+            {summary.data.streak > 0 && (
+              <span style={{ marginLeft: 8, color: 'var(--gold-dark)', fontWeight: 700 }}>🔥 {summary.data.streak}天</span>
+            )}
+          </div>
+          <span style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)' }}>
+            {s('查看 ›', '查看 ›', 'View ›')}
+          </span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 'var(--sp-2)' }}>
+          {summary.data.categories.map((c) => (
+            <div key={c.id} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '1.2rem' }}>{c.emoji}</div>
+              <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.95rem', color: c.totalCount > 0 ? 'var(--ink)' : 'var(--ink-4)' }}>
+                {c.totalCount}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Link>
   );
 }
 

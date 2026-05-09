@@ -1161,3 +1161,115 @@ export async function fetchChapterDependencies(chapterId: string): Promise<Chapt
 export async function fetchLessonDependencies(lessonId: string): Promise<LessonDependencies> {
   return api.get<LessonDependencies>(`/api/admin/lessons/${encodeURIComponent(lessonId)}/dependencies`);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 修学计数（持咒 / 礼拜 / 诵经 / 供曼扎 / 观修）
+// ═══════════════════════════════════════════════════════════════
+
+export interface PracticeCategory {
+  id: string;
+  key: string;
+  name: string;
+  emoji: string;
+  displayOrder: number;
+}
+
+export interface PracticeProject {
+  id: string;
+  categoryId: string;
+  name: string;
+  emoji: string | null;
+  scope: 'user' | 'class';
+  classId: string | null;
+  className: string | null;
+  ownerId: string | null;
+  isBuiltin: boolean;
+  isMine: boolean;
+  totalCount: number;
+  todayCount: number;
+}
+
+export interface PracticeSummary {
+  streak: number;
+  today: string;
+  categories: Array<{
+    id: string;
+    key: string;
+    name: string;
+    emoji: string;
+    todayCount: number;
+    totalCount: number;
+  }>;
+}
+
+export interface PracticeHistory {
+  dailySeries: Array<{ date: string; count: number }>;
+  projectsSummary: Array<{
+    projectId: string;
+    projectName: string;
+    projectEmoji: string | null;
+    categoryId: string;
+    totalCount: number;
+  }>;
+}
+
+export interface PracticeGoal {
+  id: string;
+  projectId: string;
+  dailyTarget: number;
+  project: { id: string; name: string; emoji: string | null; categoryId: string };
+}
+
+export interface PracticeTask {
+  id: string;
+  scope: 'self' | 'class';
+  mode: 'daily' | 'fixed';
+  project: { id: string; name: string; emoji: string | null; categoryId: string };
+  class: { id: string; name: string } | null;
+  title: string | null;
+  target: number;
+  progress: number;
+  startAt: string;
+  endAt: string | null;
+  isDone: boolean;
+}
+
+export function usePracticeCategories() {
+  return useQuery({
+    queryKey: ['/api/practice/categories'],
+    queryFn: ({ signal }) => api.get<PracticeCategory[]>('/api/practice/categories', { signal }),
+  });
+}
+export function usePracticeProjects() {
+  return useQuery({
+    queryKey: ['/api/practice/projects'],
+    queryFn: ({ signal }) => api.get<PracticeProject[]>('/api/practice/projects', { signal }),
+  });
+}
+export function usePracticeSummary() {
+  return useQuery({
+    queryKey: ['/api/practice/summary'],
+    queryFn: ({ signal }) => api.get<PracticeSummary>('/api/practice/summary', { signal }),
+  });
+}
+export function usePracticeHistory(projectId?: string) {
+  return useQuery({
+    queryKey: ['/api/practice/history', projectId ?? null],
+    queryFn: ({ signal }) => api.get<PracticeHistory>(
+      '/api/practice/history' + (projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''),
+      { signal },
+    ),
+  });
+}
+export function usePracticeGoals() {
+  return useQuery({
+    queryKey: ['/api/practice/goals'],
+    queryFn: ({ signal }) => api.get<PracticeGoal[]>('/api/practice/goals', { signal }),
+  });
+}
+export function usePracticeTasks() {
+  return useQuery({
+    queryKey: ['/api/practice/tasks'],
+    queryFn: ({ signal }) => api.get<PracticeTask[]>('/api/practice/tasks', { signal }),
+  });
+}

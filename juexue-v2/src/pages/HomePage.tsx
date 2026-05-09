@@ -559,7 +559,7 @@ export default function HomePage() {
           <IconTile to="/sm2-review" icon="🔁" label={s('SM-2', 'SM-2', 'SM-2')} badge={sm2.data?.totalDue} />
           <IconTile to="/mistakes" icon="❌" label={s('错题', '錯題', 'Mistakes')} badge={mistakes.data} />
           <IconTile to="/favorites" icon="⭐" label={s('收藏', '收藏', 'Favorites')} />
-          <IconTile to="/settings" icon="⚙️" label={s('设置', '設定', 'Settings')} />
+          <IconTile to="/practice" icon="📿" label={s('修学', '修學', 'Practice')} />
         </div>
       </div>
 
