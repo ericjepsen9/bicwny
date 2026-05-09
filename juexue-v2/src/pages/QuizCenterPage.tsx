@@ -131,7 +131,7 @@ export default function QuizCenterPage() {
           courseList.map((c) => (
             <Link
               key={c.id}
-              to={`/practice?courseId=${encodeURIComponent(c.id)}&limit=10`}
+              to={`/quiz-practice?courseId=${encodeURIComponent(c.id)}&limit=10`}
               className="glass-card-thick"
               style={{
                 display: 'flex',

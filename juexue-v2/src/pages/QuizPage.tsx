@@ -48,8 +48,8 @@ export default function QuizPage() {
   const location = useLocation();
   const qc = useQueryClient();
 
-  // 智能练习模式 · /practice 路由（无 lessonId）· 题集来自 smart-practice 后端
-  const isPractice = location.pathname === '/practice';
+  // 智能练习模式 · /quiz-practice 路由（无 lessonId）· 题集来自 smart-practice 后端
+  const isPractice = location.pathname === '/quiz-practice';
   const practiceLimit = Math.max(1, Math.min(50, Number(search.get('limit')) || 10));
   const practiceCourseId = search.get('courseId') || undefined;
   const practiceOnlyMistakes = search.get('onlyMistakes') === '1' || search.get('onlyMistakes') === 'true';

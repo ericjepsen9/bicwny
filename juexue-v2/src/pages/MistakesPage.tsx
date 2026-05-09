@@ -106,7 +106,7 @@ export default function MistakesPage() {
             })}
           </div>
           <Link
-            to={`/practice?onlyMistakes=1&limit=${ctaLimit}`}
+            to={`/quiz-practice?onlyMistakes=1&limit=${ctaLimit}`}
             className="btn btn-pill btn-full"
             style={{
               padding: 11,
@@ -255,7 +255,7 @@ export default function MistakesPage() {
                         {s('详情', '詳情', 'Details')}
                       </Link>
                       <Link
-                        to={`/practice?questionId=${encodeURIComponent(m.questionId)}`}
+                        to={`/quiz-practice?questionId=${encodeURIComponent(m.questionId)}`}
                         style={{
                           font: 'var(--text-caption)',
                           fontWeight: 700,

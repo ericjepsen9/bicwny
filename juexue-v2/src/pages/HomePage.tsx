@@ -542,7 +542,7 @@ export default function HomePage() {
         {/* 智能练习 CTA · saffron 描边 + pale 底色（次主）
             一屏一个 primary 原则：法本卡的"继续阅读"才是主 · 这里是次 */}
         <Link
-          to={`/practice?limit=${practiceLimit}`}
+          to={`/quiz-practice?limit=${practiceLimit}`}
           className="btn btn-pill btn-full"
           style={{
             padding: 14,

@@ -128,8 +128,8 @@ function AppShell() {
                 <Route path="/read/:slug/:lessonId" element={<ScriptureReadingPage />} />
                 <Route path="/meditation/:id" element={<MeditationPlayerPage />} />
                 <Route path="/class/:id/meditations" element={<ClassMeditationRankingPage />} />
-                {/* 注意顺序：/practice 在 /quiz/:lessonId 之前 · 否则 "practice" 被当成 lessonId */}
-                <Route path="/practice" element={<QuizPage />} />
+                {/* /quiz-practice = 智能练习（QuizPage）· 与修学计数 /practice 区分 */}
+                <Route path="/quiz-practice" element={<QuizPage />} />
                 <Route path="/quiz/:lessonId" element={<QuizPage />} />
                 <Route path="/mistake/:questionId" element={<MistakeDetailPage />} />
                 <Route path="/mistakes" element={<MistakesPage />} />

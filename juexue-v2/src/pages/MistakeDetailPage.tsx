@@ -131,9 +131,9 @@ export default function MistakeDetailPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-              {/* 主：再练这一道（单题模式 · /practice?questionId=...）*/}
+              {/* 主：再练这一道（单题模式 · /quiz-practice?questionId=...）*/}
               <Link
-                to={`/practice?questionId=${encodeURIComponent(qid)}`}
+                to={`/quiz-practice?questionId=${encodeURIComponent(qid)}`}
                 className="btn btn-primary btn-pill btn-full"
                 style={{ padding: 12, justifyContent: 'center' }}
               >
