@@ -43,6 +43,7 @@ export default function PracticeProjectPage() {
   });
   const [shakeOn, setShakeOn] = useState(() => localStorage.getItem(SHAKE_KEY) === '1');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const { tap, undoLast, localPending, flush } = usePracticeBatch(id ?? '');
   // 摇一摇激活
@@ -117,14 +118,19 @@ export default function PracticeProjectPage() {
         >⋯</button>
       </div>
 
-      {/* hero */}
-      <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', textAlign: 'center' }}>
-        <div style={{ fontSize: '2.4rem' }}>{proj.emoji ?? '📿'}</div>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.3rem', letterSpacing: 2, marginTop: 4 }}>
-          {proj.name}
-        </h1>
-        <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 4 }}>
-          {s(`累计 ${totalWithPending}`, `累計 ${totalWithPending}`, `Total ${totalWithPending}`)}
+      {/* hero · 累计数字大字醒目 */}
+      <div className="glass-card-thick" style={{ padding: 'var(--sp-5) var(--sp-4)', textAlign: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 4 }}>
+          <span style={{ fontSize: '1.6rem' }}>{proj.emoji ?? '📿'}</span>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.1rem', letterSpacing: 2, color: 'var(--ink-2)', margin: 0 }}>
+            {proj.name}
+          </h1>
+        </div>
+        <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '2.6rem', color: 'var(--saffron-dark)', letterSpacing: 1, lineHeight: 1.1, marginTop: 6 }}>
+          {fmtBig(totalWithPending)}
+        </div>
+        <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginTop: 4 }}>
+          {s(`累计 · 今日 +${todayWithPending}`, `累計 · 今日 +${todayWithPending}`, `Total · Today +${todayWithPending}`)}
         </div>
       </div>
 
@@ -142,8 +148,8 @@ export default function PracticeProjectPage() {
         </div>
       )}
 
-      {/* 单位切换 */}
-      <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+      {/* 单位切换 + 自定义 */}
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
         {([1, 10] as const).map((u) => (
           <button
             key={u}
@@ -151,16 +157,33 @@ export default function PracticeProjectPage() {
             onClick={() => changeUnit(u)}
             className="btn btn-pill"
             style={{
-              padding: '6px 18px',
+              padding: '8px 20px',
+              minWidth: 64,
               background: unit === u ? 'var(--saffron-pale)' : 'transparent',
               border: '1px solid ' + (unit === u ? 'var(--saffron-light)' : 'var(--border)'),
               color: unit === u ? 'var(--saffron-dark)' : 'var(--ink-3)',
               fontWeight: 600,
+              fontSize: '0.95rem',
             }}
           >
             +{u}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setBulkOpen(true)}
+          className="btn btn-pill"
+          style={{
+            padding: '8px 16px',
+            background: 'transparent',
+            border: '1px dashed var(--saffron-light)',
+            color: 'var(--saffron-dark)',
+            fontWeight: 600,
+            fontSize: '0.95rem',
+          }}
+        >
+          ✏ {s('自定', '自定', 'Custom')}
+        </button>
       </div>
 
       {/* 大圆按钮 */}
@@ -207,6 +230,13 @@ export default function PracticeProjectPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={bulkOpen} onClose={() => setBulkOpen(false)} title={s('自定义计数', '自定義計數', 'Custom count')} variant="centered">
+        <BulkAddForm
+          onSubmit={(n) => { tap(n, 'tap'); setBulkOpen(false); showUndoToast(); }}
+          onCancel={() => setBulkOpen(false)}
+        />
+      </Dialog>
 
       <Dialog open={settingsOpen} onClose={() => { void flush(); setSettingsOpen(false); }} title={s('设置', '設置', 'Settings')} variant="centered">
         <SettingsPanel
@@ -368,5 +398,72 @@ function SettingRow({
       <span>{label}</span>
       <span>{right}</span>
     </Tag>
+  );
+}
+
+// 大数字格式化（>=10000 → 缩写）· 但保留全数显示在 hero
+function fmtBig(n: number): string {
+  if (n >= 100_000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
+}
+
+// 自定义计数表单 · 输入任意数 + 常用 chips（参考智能答题数量选择）
+function BulkAddForm({ onSubmit, onCancel }: { onSubmit: (n: number) => void; onCancel: () => void }) {
+  const { s } = useLang();
+  const [val, setVal] = useState<string>('');
+  const PRESETS = [7, 21, 49, 108, 1080];
+  const n = Number(val);
+  const valid = Number.isInteger(n) && n > 0 && n <= 10000;
+
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); if (valid) onSubmit(n); }}
+      style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', padding: 'var(--sp-2) 0' }}
+    >
+      <div>
+        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 6 }}>
+          {s('数量（1-10000）', '數量（1-10000）', 'Count (1-10000)')}
+        </label>
+        <input
+          type="number"
+          min={1}
+          max={10000}
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          placeholder={s('如 108', '如 108', 'e.g. 108')}
+          autoFocus
+          style={{ width: '100%', padding: '12px 14px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', font: 'var(--text-body-serif)', fontSize: '1.2rem', textAlign: 'center', outline: 'none', letterSpacing: 2 }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+        {PRESETS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => setVal(String(p))}
+            className="btn btn-pill"
+            style={{
+              padding: '8px 16px', minWidth: 64,
+              background: Number(val) === p ? 'var(--saffron-pale)' : 'transparent',
+              border: '1px solid ' + (Number(val) === p ? 'var(--saffron-light)' : 'var(--border)'),
+              color: Number(val) === p ? 'var(--saffron-dark)' : 'var(--ink-3)',
+              fontWeight: 600,
+            }}
+          >
+            +{p}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-2)' }}>
+        <button type="button" onClick={onCancel} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', border: '1px solid var(--border)', color: 'var(--ink-3)', justifyContent: 'center' }}>
+          {s('取消', '取消', 'Cancel')}
+        </button>
+        <button type="submit" disabled={!valid} className="btn btn-primary btn-pill" style={{ flex: 1, padding: 12, justifyContent: 'center' }}>
+          {valid ? s(`+${n}`, `+${n}`, `+${n}`) : s('确认', '確認', 'OK')}
+        </button>
+      </div>
+    </form>
   );
 }

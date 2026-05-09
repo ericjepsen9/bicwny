@@ -103,6 +103,10 @@ const SHAKE_THRESHOLD = 18; // m/s²
 const SHAKE_COOLDOWN_MS = 1000;
 
 export function useShakeToTap(enabled: boolean, onShake: () => void) {
+  // ref 锁住最新 onShake · 否则 listener 闭包旧的 unit 值 → 永远 +1 bug
+  const onShakeRef = useRef(onShake);
+  onShakeRef.current = onShake;
+
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return;
     let lastTriggerAt = 0;
@@ -112,11 +116,10 @@ export function useShakeToTap(enabled: boolean, onShake: () => void) {
       const mag = Math.sqrt((a.x ?? 0) ** 2 + (a.y ?? 0) ** 2 + (a.z ?? 0) ** 2);
       if (mag > SHAKE_THRESHOLD && Date.now() - lastTriggerAt > SHAKE_COOLDOWN_MS) {
         lastTriggerAt = Date.now();
-        onShake();
+        onShakeRef.current();
       }
     }
     window.addEventListener('devicemotion', handler);
     return () => window.removeEventListener('devicemotion', handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled]);
 }
