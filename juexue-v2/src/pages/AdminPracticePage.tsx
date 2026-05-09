@@ -54,10 +54,10 @@ export default function AdminPracticePage() {
               + {s('加', '加', 'Add')}
             </button>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {g.projects.filter((p) => !p.archivedAt).map((p) => <PresetRow key={p.id} project={p} />)}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 'var(--sp-3)' }}>
+            {g.projects.filter((p) => !p.archivedAt).map((p) => <PresetCard key={p.id} project={p} />)}
             {g.projects.filter((p) => !p.archivedAt).length === 0 && (
-              <span style={{ color: 'var(--ink-4)', font: 'var(--text-caption)' }}>{s('（暂无）', '（暫無）', '(none)')}</span>
+              <span style={{ color: 'var(--ink-4)', font: 'var(--text-caption)', gridColumn: '1 / -1' }}>{s('（暂无）', '（暫無）', '(none)')}</span>
             )}
           </div>
         </div>
@@ -72,7 +72,7 @@ export default function AdminPracticePage() {
   );
 }
 
-function PresetRow({ project }: { project: AdminPracticeProject }) {
+function PresetCard({ project }: { project: AdminPracticeProject }) {
   const { s } = useLang();
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -85,23 +85,35 @@ function PresetRow({ project }: { project: AdminPracticeProject }) {
     onError: (e) => toast.error((e as ApiError).message),
   });
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-2) var(--sp-3)', background: 'var(--glass)', border: '1px solid var(--glass-border)', borderRadius: 'var(--r-sm)' }}>
-      <span style={{ fontSize: '1.1rem' }}>{project.emoji ?? '📿'}</span>
-      <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)' }}>{project.name}</span>
-      <button type="button" onClick={() => setEditing(true)} style={{ background: 'transparent', border: 'none', color: 'var(--saffron-dark)', font: 'var(--text-caption)', cursor: 'pointer' }}>
-        {s('编辑', '編輯', 'Edit')}
-      </button>
-      <button
-        type="button"
-        onClick={async () => {
-          const ok = await confirmAsync({ title: s(`归档「${project.name}」？`, `歸檔「${project.name}」？`, `Archive?`), danger: true });
-          if (ok) archive.mutate();
-        }}
-        disabled={archive.isPending}
-        style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', font: 'var(--text-caption)', cursor: 'pointer' }}
-      >
-        {s('归档', '歸檔', 'Archive')}
-      </button>
+    <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)', display: 'flex', flexDirection: 'column', minHeight: 100, gap: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: '1.4rem' }}>{project.emoji ?? '📿'}</span>
+        <span style={{ flex: 1, fontFamily: 'var(--font-serif)', fontWeight: 600, color: 'var(--ink)', letterSpacing: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {project.name}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 'auto', justifyContent: 'flex-end' }}>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="btn btn-pill"
+          style={{ padding: '4px 10px', font: 'var(--text-caption)', background: 'transparent', border: '1px solid var(--saffron-light)', color: 'var(--saffron-dark)' }}
+        >
+          {s('编辑', '編輯', 'Edit')}
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            const ok = await confirmAsync({ title: s(`归档「${project.name}」？`, `歸檔「${project.name}」？`, `Archive?`), danger: true, okLabel: s('归档', '歸檔', 'Archive') });
+            if (ok) archive.mutate();
+          }}
+          disabled={archive.isPending}
+          className="btn btn-pill"
+          style={{ padding: '4px 10px', font: 'var(--text-caption)', background: 'transparent', border: '1px solid rgba(192,57,43,.3)', color: 'var(--crimson)' }}
+        >
+          {s('归档', '歸檔', 'Archive')}
+        </button>
+      </div>
       {editing && (
         <Dialog open onClose={() => setEditing(false)} title={s('编辑预置', '編輯預置', 'Edit preset')} variant="centered">
           <EditForm project={project} onDone={() => setEditing(false)} />

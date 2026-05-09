@@ -1,12 +1,15 @@
 // 修学计数 · 大类页 /practice/:categoryKey
-//   - 三组子项：平台预置 / 班级专修 / 我的
-//   - 学员加我的子项（Dialog）
+//   参照 admin dashboard 风格：
+//   - KPI 3 卡（累计 / 今日 / 子项数）· KPI hero
+//   - 子项 2 列网格 · 三组合并 · 角标区分来源
+//   - + 加我的子项（顶栏 right slot）
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
+import TopNav from '@/components/TopNav';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import {
@@ -24,99 +27,111 @@ export default function PracticeCategoryPage() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const cat = cats.data?.find((c) => c.key === categoryKey);
-  const all = (projects.data ?? []).filter((p) => p.categoryId === cat?.id);
+  const all = useMemo(
+    () => (projects.data ?? []).filter((p) => p.categoryId === cat?.id),
+    [projects.data, cat?.id],
+  );
 
-  const grouped = useMemo(() => ({
-    builtin: all.filter((p) => p.isBuiltin),
-    className: all.filter((p) => p.scope === 'class'),
-    mine: all.filter((p) => p.scope === 'user' && !p.isBuiltin),
-  }), [all]);
-
-  const totalCount = all.reduce((s, p) => s + p.totalCount, 0);
-  const todayCount = all.reduce((s, p) => s + p.todayCount, 0);
+  const totalCount = all.reduce((acc, p) => acc + p.totalCount, 0);
+  const todayCount = all.reduce((acc, p) => acc + p.todayCount, 0);
 
   if (!cat) {
-    return cats.isLoading ? <Skeleton.Card /> : <p style={{ color: 'var(--crimson)', padding: 'var(--sp-4)' }}>{s('大类不存在', '大類不存在', 'Category not found')}</p>;
+    return cats.isLoading
+      ? <div style={{ padding: 'var(--sp-4)' }}><Skeleton.Card /></div>
+      : <p style={{ color: 'var(--crimson)', padding: 'var(--sp-4)' }}>{s('大类不存在', '大類不存在', 'Category not found')}</p>;
   }
 
   return (
-    <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-      <Link to="/practice" style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-        ← {s('返回', '返回', 'Back')}
-      </Link>
+    <>
+      <TopNav
+        titles={[`${cat.emoji} ${cat.name}`, `${cat.emoji} ${cat.name}`, `${cat.emoji} ${cat.name}`]}
+        backTo="/practice"
+        right={(
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            aria-label={s('加我的', '加我的', 'Add')}
+            style={{ background: 'var(--saffron-pale)', border: '1px solid var(--saffron-light)', color: 'var(--saffron-dark)', borderRadius: 'var(--r-pill)', padding: '4px 12px', font: 'var(--text-caption)', fontWeight: 700, cursor: 'pointer' }}
+          >
+            + {s('加', '加', 'Add')}
+          </button>
+        )}
+      />
+      <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
 
-      <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', textAlign: 'center' }}>
-        <div style={{ fontSize: '2.4rem' }}>{cat.emoji}</div>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.4rem', letterSpacing: 3, marginTop: 4 }}>
-          {cat.name}
-        </h1>
-        <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 6 }}>
-          {s(`累计 ${totalCount} · 今日 ${todayCount}`, `累計 ${totalCount} · 今日 ${todayCount}`, `Total ${totalCount} · Today ${todayCount}`)}
+        {/* KPI 3 · admin dashboard 风 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)' }}>
+          <Kpi value={String(todayCount)} label={s('今日', '今日', 'Today')} color="var(--saffron-dark)" />
+          <Kpi value={fmt(totalCount)} label={s('累计', '累計', 'Total')} color="var(--sage-dark)" />
+          <Kpi value={String(all.length)} label={s('子项', '子項', 'Items')} />
         </div>
+
+        {/* 子项 2 列网格 · 三组合并 · 角标区分来源 */}
+        {projects.isLoading ? <Skeleton.List /> : all.length === 0 ? (
+          <p style={{ color: 'var(--ink-4)', font: 'var(--text-caption)', textAlign: 'center', padding: 'var(--sp-5) 0' }}>
+            {s('暂无子项 · 点右上「加」自建', '暫無子項', 'No items · tap + to add')}
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--sp-3)' }}>
+            {all.map((p) => <ProjectCard key={p.id} p={p} />)}
+          </div>
+        )}
       </div>
-
-      {projects.isLoading ? <Skeleton.List /> : (
-        <>
-          {grouped.builtin.length > 0 && (
-            <ProjectGroup title={s('平台常用', '平台常用', 'Platform')} list={grouped.builtin} />
-          )}
-          {grouped.className.length > 0 && (
-            <ProjectGroup title={s('班级专修', '班級專修', 'Class focus')} list={grouped.className} />
-          )}
-          {grouped.mine.length > 0 && (
-            <ProjectGroup title={s('我的', '我的', 'Mine')} list={grouped.mine} />
-          )}
-          {grouped.builtin.length === 0 && grouped.className.length === 0 && grouped.mine.length === 0 && (
-            <p style={{ color: 'var(--ink-4)', font: 'var(--text-caption)', textAlign: 'center', padding: 'var(--sp-5) 0' }}>
-              {s('暂无子项 · 点下方加我的', '暫無子項', 'No projects · add yours')}
-            </p>
-          )}
-        </>
-      )}
-
-      <button
-        type="button"
-        onClick={() => setCreateOpen(true)}
-        className="btn btn-pill"
-        style={{ padding: '12px 16px', background: 'var(--glass-thick)', color: 'var(--saffron-dark)', border: '1px dashed var(--saffron-light)', justifyContent: 'center' }}
-      >
-        + {s(`加我的${cat.name === '持咒' ? '咒种' : cat.name === '诵经' ? '经名' : cat.name === '观修' ? '题目' : '项目'}`, '加我的項目', 'Add mine')}
-      </button>
 
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s(`新增「${cat.name}」子项`, `新增「${cat.name}」子項`, `New ${cat.name}`)} variant="centered">
         <CreateProjectForm categoryId={cat.id} onDone={() => setCreateOpen(false)} />
       </Dialog>
+    </>
+  );
+}
+
+function ProjectCard({ p }: { p: PracticeProject }) {
+  const sourceLabel = p.isBuiltin ? '🌐' : p.scope === 'class' ? '📚' : '⭐';
+  const today = p.todayCount > 0;
+  return (
+    <Link
+      to={`/practice/project/${p.id}`}
+      className="glass-card-thick"
+      style={{
+        padding: 'var(--sp-4)',
+        textDecoration: 'none', color: 'inherit',
+        display: 'flex', flexDirection: 'column',
+        minHeight: 110,
+        border: today ? '1px solid var(--saffron)' : '1px solid var(--glass-border)',
+        background: today ? 'var(--saffron-pale)' : 'var(--glass-thick)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <span style={{ fontSize: '1.4rem' }}>{p.emoji ?? '📿'}</span>
+        <span style={{ marginLeft: 'auto', font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={p.scope === 'class' ? p.className ?? '' : ''}>
+          {sourceLabel}
+        </span>
+      </div>
+      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 1.5, fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 6 }}>
+        {p.name}
+      </div>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 'auto' }}>
+        {p.totalCount > 0
+          ? `${p.totalCount}${p.todayCount > 0 ? ` · 今日 +${p.todayCount}` : ''}`
+          : '——'}
+      </div>
+    </Link>
+  );
+}
+
+function Kpi({ value, label, color }: { value: string; label: string; color?: string }) {
+  return (
+    <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)', minHeight: 90 }}>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.4rem', color: color ?? 'var(--ink)', letterSpacing: 1 }}>{value}</div>
     </div>
   );
 }
 
-function ProjectGroup({ title, list }: { title: string; list: PracticeProject[] }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5 }}>
-        {title}
-      </div>
-      {list.map((p) => (
-        <Link key={p.id} to={`/practice/project/${p.id}`} style={{ textDecoration: 'none' }}>
-          <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
-            <span style={{ fontSize: '1.4rem' }}>{p.emoji ?? '📿'}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600, color: 'var(--ink)', letterSpacing: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {p.name}
-                {p.scope === 'class' && p.className && (
-                  <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginLeft: 6 }}>· {p.className}</span>
-                )}
-              </div>
-              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
-                {p.totalCount > 0 ? `累计 ${p.totalCount} · 今日 ${p.todayCount}` : '——'}
-              </div>
-            </div>
-            <span style={{ color: 'var(--ink-3)' }}>›</span>
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
+function fmt(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 10_000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
 }
 
 function CreateProjectForm({ categoryId, onDone }: { categoryId: string; onDone: () => void }) {
