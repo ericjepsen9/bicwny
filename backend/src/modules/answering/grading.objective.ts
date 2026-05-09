@@ -36,9 +36,44 @@ export function gradeObjective(q: Question, answer: unknown): GradeResult {
       return gradeScenario(payload, answer);
     case 'flow':
       return gradeFlow(payload, answer);
+    case 'verse':
+      return gradeVerse(payload, answer);
     default:
       throw BadRequest(`gradeObjective 不支持题型: ${q.type}`);
   }
+}
+
+// ───── verse · 颂词组句 ─────
+// payload: { tokens: string[]; distractors?: string[]; hintText?: string }
+// answer:  { tokens: string[] }   按用户点击顺序的词块
+// 评分：长度 + 每位都对 = 100；否则按正确位数比例给分（部分得分鼓励重答）
+function gradeVerse(p: P, a: unknown): GradeResult {
+  const correct = ((p.tokens as string[] | undefined) ?? []).map(normalizeVerseToken);
+  const userTokens = ((a as { tokens?: string[] })?.tokens ?? []).map(normalizeVerseToken);
+  if (correct.length === 0) {
+    throw BadRequest('payload.tokens 缺失');
+  }
+  if (userTokens.length === 0) {
+    return { isCorrect: false, score: 0, feedback: '未拼词' };
+  }
+  // 长度不一致：错位评分（保护提交流程，但 isCorrect=false）
+  let hits = 0;
+  const len = Math.min(correct.length, userTokens.length);
+  for (let i = 0; i < len; i++) {
+    if (correct[i] === userTokens[i]) hits++;
+  }
+  const score = Math.round((hits / correct.length) * 100);
+  const exact = correct.length === userTokens.length && hits === correct.length;
+  return {
+    isCorrect: exact,
+    score,
+    feedback: exact ? undefined : `部分正确：${hits} / ${correct.length}`,
+  };
+}
+
+// 颂词词块对比归一化 · trim + 去全角空格 · 不动标点（颂词内标点是节奏标记）
+function normalizeVerseToken(s: string): string {
+  return String(s ?? '').trim().replace(/[\s　]+/g, '');
 }
 
 // ───── single ─────
@@ -252,7 +287,7 @@ function gradeFlow(p: P, a: unknown): GradeResult {
 }
 
 export const objectiveStrategy: GradingStrategy = {
-  types: ['single', 'fill', 'multi', 'sort', 'match', 'image', 'listen', 'scenario', 'flow'],
+  types: ['single', 'fill', 'multi', 'sort', 'match', 'image', 'listen', 'scenario', 'flow', 'verse'],
   async grade(q, answer) {
     const r = gradeObjective(q, answer);
     return { ...r, source: 'objective' };

@@ -20,7 +20,7 @@ import { updateQuestion } from './update.service.js';
 const coachGuard = requireRole('coach', 'admin');
 
 const questionTypeEnum = z.enum([
-  'single', 'fill', 'multi', 'open', 'sort', 'match',
+  'single', 'fill', 'multi', 'open', 'sort', 'match', 'verse',
   // v2.0：前端尚未上线，后端允许创建
   'flip', 'image', 'listen', 'flow', 'guided', 'scenario',
 ]);

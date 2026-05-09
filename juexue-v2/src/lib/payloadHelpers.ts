@@ -13,10 +13,12 @@
 //   match: { left: [{id,text}], right: [{id,text,match}] }（DB shape）
 //   open: { referenceAnswer, keyPoints: [{point, signals}], minLength, maxLength }
 //   flip: { front, frontSub, back, backExample }
+//   verse: { tokens: string[], distractors?: string[], hintText?: string }（DB shape）
 //
 // 编辑器中间状态 shape（仅用于 UI 控件 · normalize 时转 DB shape）：
 //   sort: { itemsText: '行1\n行2' }  ← 单 textarea 编辑
 //   match: { pairsText: 'A = B\nC = D' } ← 单 textarea 编辑
+//   verse: { tokensText: '词1·词2·词3', distractorsText: '干扰1·干扰2', hintText: '...' } ← · 分隔
 //   其他题型：编辑状态 = DB shape
 
 import type { QuestionType } from './queries';
@@ -38,6 +40,8 @@ export function emptyPayload(t: QuestionType): Record<string, unknown> {
       return { pairsText: '' };
     case 'flip':
       return { front: '', frontSub: '', back: '', backExample: '' };
+    case 'verse':
+      return { tokensText: '', distractorsText: '', hintText: '' };
     default:
       return {};
   }
@@ -79,9 +83,22 @@ export function validatePayload(t: QuestionType, p: Record<string, unknown>): bo
     case 'flip': {
       return (p.front as string).trim().length > 0 && (p.back as string).trim().length > 0;
     }
+    case 'verse': {
+      const tokens = parseVerseTokens((p.tokensText as string) ?? '');
+      // 至少 2 词 · 上限 30（颂词 UI 一屏上限）
+      return tokens.length >= 2 && tokens.length <= 30;
+    }
     default:
       return false;
   }
+}
+
+/** 颂词词块切分 · 支持 · / 中点 / 换行 / 顿号 / 多个空格 多种分隔 */
+function parseVerseTokens(text: string): string[] {
+  return text
+    .split(/[·•、\n\r]+|\s{2,}/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 /** 编辑器状态 → DB 入库 shape · 提交前调 */
@@ -150,6 +167,15 @@ export function normalizePayload(t: QuestionType, p: Record<string, unknown>): R
         back: (p.back as string).trim(),
         backExample: (p.backExample as string).trim(),
       };
+    case 'verse': {
+      const tokens = parseVerseTokens((p.tokensText as string) ?? '');
+      const distractors = parseVerseTokens((p.distractorsText as string) ?? '');
+      const hintText = (p.hintText as string | undefined ?? '').trim();
+      const out: Record<string, unknown> = { tokens };
+      if (distractors.length > 0) out.distractors = distractors;
+      if (hintText) out.hintText = hintText;
+      return out;
+    }
     default:
       return p;
   }
@@ -172,6 +198,15 @@ export function denormalizePayload(t: QuestionType, p: unknown): Record<string, 
         return r ? `${l.text} = ${r.text}` : l.text;
       });
       return { pairsText: lines.join('\n') };
+    }
+    case 'verse': {
+      const tokens = (payload.tokens as string[] | undefined) ?? [];
+      const distractors = (payload.distractors as string[] | undefined) ?? [];
+      return {
+        tokensText: tokens.join(' · '),
+        distractorsText: distractors.join(' · '),
+        hintText: (payload.hintText as string | undefined) ?? '',
+      };
     }
     default:
       // single / multi / fill / open / flip · DB shape 即编辑器 shape

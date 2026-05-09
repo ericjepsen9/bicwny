@@ -22,6 +22,7 @@ const TYPES: { v: QuestionType; sc: string; tc: string; en: string }[] = [
   { v: 'sort',   sc: '排序', tc: '排序', en: 'Sort' },
   { v: 'match',  sc: '匹配', tc: '匹配', en: 'Match' },
   { v: 'flip',   sc: '速记卡', tc: '速記卡', en: 'Flip' },
+  { v: 'verse',  sc: '颂词组句', tc: '頌詞組句', en: 'Verse' },
 ];
 
 export default function CoachQuestionNewPage() {
@@ -258,6 +259,8 @@ function PayloadEditor({ type, value, onChange }: {
       return <MatchEditor value={value} onChange={onChange} />;
     case 'flip':
       return <FlipEditor value={value} onChange={onChange} />;
+    case 'verse':
+      return <VerseEditor value={value} onChange={onChange} />;
     default:
       return <p>不支持的题型 {type}</p>;
   }
@@ -426,6 +429,79 @@ function FlipEditor({ value, onChange }: { value: Record<string, unknown>; onCha
       <Inp label={s('正面 · 副文（可选）', '正面 · 副文（可選）', 'Front · sub (opt)')} value={(value.frontSub as string) ?? ''} onChange={(v) => onChange({ ...value, frontSub: v })} />
       <Inp label={s('背面 · 主文', '背面 · 主文', 'Back · main')} value={(value.back as string) ?? ''} onChange={(v) => onChange({ ...value, back: v })} />
       <Inp label={s('背面 · 例句（可选）', '背面 · 例句（可選）', 'Back · example (opt)')} value={(value.backExample as string) ?? ''} onChange={(v) => onChange({ ...value, backExample: v })} />
+    </div>
+  );
+}
+
+function VerseEditor({ value, onChange }: { value: Record<string, unknown>; onChange: (v: Record<string, unknown>) => void }) {
+  const { s } = useLang();
+  const tokensText = (value.tokensText as string) ?? '';
+  const distractorsText = (value.distractorsText as string) ?? '';
+  const tokens = tokensText.split(/[·•、\n\r]+|\s{2,}/).map((t) => t.trim()).filter(Boolean);
+  const distractors = distractorsText.split(/[·•、\n\r]+|\s{2,}/).map((t) => t.trim()).filter(Boolean);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+      <div>
+        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+          {s('提示文本（可选 · 显示在题干上方 · 给学员上下文）', '提示文本（可選）', 'Hint text (optional · shown above puzzle)')}
+        </label>
+        <Inp label="" value={(value.hintText as string) ?? ''} onChange={(v) => onChange({ ...value, hintText: v })} placeholder={s('如：补全下一句颂词', '如：補全下一句頌詞', 'e.g. Complete the next verse')} />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+          {s('颂词词块（按顺序 · 用 · 或换行分隔 · 2-30 个）', '頌詞詞塊（按順序 · 用 · 或換行分隔）', 'Verse tokens (in order · split by · or newline · 2-30)')}
+        </label>
+        <TextArea
+          value={tokensText}
+          onChange={(v) => onChange({ ...value, tokensText: v })}
+          rows={3}
+          placeholder={s('菩提之妙宝 · 未生愿生起 · 已生勿衰退 · 辗转更增长', '菩提之妙寶 · 未生願生起 · 已生勿衰退 · 輾轉更增長', 'Bodhi-jewel · arise-where-not · diminish-not-where-arisen · grow-onward')}
+        />
+        <div style={{ font: 'var(--text-caption)', color: tokens.length < 2 || tokens.length > 30 ? 'var(--crimson)' : 'var(--ink-3)', marginTop: 4 }}>
+          {tokens.length} {s('个词块', '個詞塊', 'tokens')}
+        </div>
+      </div>
+
+      <div>
+        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+          {s('干扰词（可选 · 加进词池增加难度）', '干擾詞（可選）', 'Distractors (optional)')}
+        </label>
+        <TextArea
+          value={distractorsText}
+          onChange={(v) => onChange({ ...value, distractorsText: v })}
+          rows={2}
+          placeholder={s('菩提心 · 勿衰 · 辗转', '菩提心 · 勿衰 · 輾轉', 'distractor1 · distractor2')}
+        />
+        {distractors.length > 0 && (
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 4 }}>
+            {distractors.length} {s('个干扰词', '個干擾詞', 'distractors')}
+          </div>
+        )}
+      </div>
+
+      {/* 学员视角预览 */}
+      {tokens.length >= 2 && tokens.length <= 30 && (
+        <div style={{ padding: 'var(--sp-3)', background: 'var(--glass)', border: '1px dashed var(--glass-border)', borderRadius: 'var(--r-sm)' }}>
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, marginBottom: 6 }}>
+            {s('词池预览（学员看到的打乱顺序）', '詞池預覽', 'Pool preview (shuffled order)')}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {[...tokens, ...distractors].map((t, i) => (
+              <span key={i} style={{
+                padding: '4px 10px',
+                borderRadius: 'var(--r)',
+                background: 'var(--glass-thick)',
+                border: '1px solid var(--glass-border)',
+                font: 'var(--text-caption)',
+                color: distractors.includes(t) ? 'var(--ink-4)' : 'var(--ink-2)',
+                fontStyle: distractors.includes(t) ? 'italic' : 'normal',
+              }}>{t}</span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

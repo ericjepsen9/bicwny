@@ -20,5 +20,6 @@ export type AnswerValue =
   | { text: string }
   | { order: number[] }            // sort 题：用户排名顺序的原 items 下标
   | { pairs: Record<string, string> }
+  | { tokens: string[] }           // verse 题：用户拼词顺序
   | { __placeholder: true }
   | null;

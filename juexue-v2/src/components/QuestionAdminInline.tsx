@@ -241,7 +241,7 @@ function QuestionRow({
 function TypePill({ type }: { type: QuestionType }) {
   const labels: Record<QuestionType, string> = {
     single: '单选', multi: '多选', fill: '填空', open: '问答',
-    sort: '排序', match: '匹配', flip: '速记',
+    sort: '排序', match: '匹配', flip: '速记', verse: '颂词',
     image: '图片', listen: '听力', flow: '流程', guided: '引导', scenario: '情境',
   };
   return (

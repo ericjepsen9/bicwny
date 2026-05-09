@@ -7,6 +7,7 @@ import Open from './Open';
 import Sort from './Sort';
 import Match from './Match';
 import Flip from './Flip';
+import Verse from './Verse';
 
 export default function QuestionRenderer(props: QuestionRendererProps) {
   switch (props.question.type) {
@@ -17,6 +18,7 @@ export default function QuestionRenderer(props: QuestionRendererProps) {
     case 'sort':     return <Sort {...props} />;
     case 'match':    return <Match {...props} />;
     case 'flip':     return <Flip {...props} />;
+    case 'verse':    return <Verse {...props} />;
     default:
       return (
         <div className="glass-card" style={{ padding: 'var(--sp-4)', color: 'var(--ink-3)', textAlign: 'center' }}>
@@ -53,6 +55,10 @@ export function canSubmit(type: string, value: unknown): boolean {
   }
   if (type === 'flip') {
     return !!(value as { __placeholder?: unknown }).__placeholder;
+  }
+  if (type === 'verse') {
+    const t = (value as { tokens?: unknown }).tokens;
+    return Array.isArray(t) && t.length >= 2;
   }
   return false;
 }

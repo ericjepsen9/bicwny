@@ -426,6 +426,8 @@ enum QuestionType {
   open
   sort
   match
+  // 颂词组句 · 词块按正确顺序拼回 · 含可选干扰词（参考 Duolingo 拼句）
+  verse
   // v2.0 题型：前端尚未上线，后端 schema + 评分就位
   flip // 速记卡片 · 无对错，用户自评驱动 SM-2
   image // 图片辨识 · 基于 imageUrl 的单选
