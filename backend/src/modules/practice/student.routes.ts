@@ -57,6 +57,8 @@ const entriesBody = z.object({
     projectId: z.string().min(1),
     count: z.number().int().min(1).max(10000),
     source: z.string().max(20).optional(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    note: z.string().max(50).optional(),
   })).min(1).max(200),
 });
 

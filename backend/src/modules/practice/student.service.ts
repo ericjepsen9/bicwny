@@ -12,8 +12,8 @@ interface BatchEntryItem {
   projectId: string;
   count: number;       // 单次 ≥ 1（+1 / +10 / 摇一摇 / 批量上报）
   source?: string;     // 'tap' | 'shake' | 'bulk'
-  // 客户端时间戳 · 当前不用 · 后期用于精确还原念诵时刻
-  // clientTimestamp?: number;
+  date?: string;       // YYYY-MM-DD 回填历史日期（默认今天 · 不能未来 · 仅 bulk 用）
+  note?: string;       // 备注（≤ 50 字 · 仅 bulk 用）
 }
 
 export async function listCategories(prisma: PrismaClient) {
@@ -188,31 +188,44 @@ export async function submitEntries(
   }
   const projectMeta = new Map(projects.map((p) => [p.id, p]));
 
-  // 按 (projectId, date) 聚合
+  // 按 (projectId, date) 聚合 · 支持用户回填历史日期
   const aggregateByDate = new Map<string, { projectId: string; categoryId: string; date: string; count: number }>();
   const today = dateKey();
+  // 解析每个 item 的有效日期（默认今天 · 不能未来）
+  function resolveDate(it: BatchEntryItem): string {
+    if (!it.date) return today;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(it.date)) throw BadRequest('date 格式应为 YYYY-MM-DD');
+    if (it.date > today) throw BadRequest('不能登记未来日期');
+    return it.date;
+  }
   for (const it of items) {
     if (!Number.isInteger(it.count) || it.count <= 0 || it.count > 10000) {
       throw BadRequest('count 无效');
     }
+    if (it.note && it.note.length > 50) throw BadRequest('备注 ≤ 50 字');
     const m = projectMeta.get(it.projectId)!;
-    const key = `${it.projectId}|${today}`; // 暂全部按今天聚合 · 后期支持回填
-    const cur = aggregateByDate.get(key) ?? { projectId: it.projectId, categoryId: m.categoryId, date: today, count: 0 };
+    const d = resolveDate(it);
+    const key = `${it.projectId}|${d}`;
+    const cur = aggregateByDate.get(key) ?? { projectId: it.projectId, categoryId: m.categoryId, date: d, count: 0 };
     cur.count += it.count;
     aggregateByDate.set(key, cur);
   }
 
   await prisma.$transaction(async (tx) => {
-    // 写明细
+    // 写明细 · createdAt 用回填日期 UTC noon（避开 timezone 边界）
     await tx.practiceEntry.createMany({
       data: items.map((it) => {
         const m = projectMeta.get(it.projectId)!;
+        const d = resolveDate(it);
+        const createdAt = d === today ? new Date() : new Date(`${d}T12:00:00Z`);
         return {
           userId,
           categoryId: m.categoryId,
           projectId: it.projectId,
           count: it.count,
           source: it.source ?? 'tap',
+          note: it.note?.trim() || null,
+          createdAt,
         };
       }),
     });

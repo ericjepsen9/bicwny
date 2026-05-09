@@ -10,7 +10,7 @@ import { toast } from './toast';
 
 const FLUSH_DELAY_MS = 30_000;
 
-interface BatchEntry { projectId: string; count: number; source: string }
+interface BatchEntry { projectId: string; count: number; source: string; date?: string; note?: string }
 
 export function usePracticeBatch(projectId: string) {
   const qc = useQueryClient();
@@ -63,8 +63,30 @@ export function usePracticeBatch(projectId: string) {
     }
   }
 
-  function tap(count: number, source: 'tap' | 'shake' = 'tap') {
+  function tap(count: number, source: 'tap' | 'shake' | 'bulk' = 'tap', opts?: { date?: string; note?: string }) {
     if (count <= 0) return;
+    // bulk 录入立即 flush（不进 30s 队列 · 用户主动行为应该即时反馈）
+    if (source === 'bulk') {
+      // 直接走 API · 不进 batch
+      const items = [{ projectId, count, source, date: opts?.date, note: opts?.note }];
+      api.post('/api/practice/entries', { items })
+        .then(() => {
+          qc.invalidateQueries({ queryKey: ['/api/practice/projects'] });
+          qc.invalidateQueries({ queryKey: ['/api/practice/summary'] });
+          qc.invalidateQueries({ queryKey: ['/api/practice/history'] });
+          qc.invalidateQueries({ queryKey: ['/api/practice/tasks'] });
+        })
+        .catch((e) => {
+          toast.error('登记失败：' + ((e as ApiError).message ?? ''));
+        });
+      // 乐观更新 UI：立即 +N 到 localPending（如果是今天）· 历史回填不更新今日
+      if (!opts?.date || opts.date === new Date().toISOString().slice(0, 10)) {
+        setLocalPending((p) => p + count);
+        // 1.5 秒后清掉 · 避免与服务端 refetch 双计
+        setTimeout(() => setLocalPending((p) => Math.max(0, p - count)), 1500);
+      }
+      return;
+    }
     pendingRef.current.push({ projectId, count, source });
     setLocalPending((p) => p + count);
     schedule();

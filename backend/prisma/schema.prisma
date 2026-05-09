@@ -1089,9 +1089,10 @@ model PracticeEntry {
   categoryId String // 冗余 · 查询大类总数省 join
   projectId  String
   project    PracticeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  count      Int // +N（点 1 下=1 · +10 模式=10 · 摇一摇=1）
+  count      Int // +N（点 1 下=1 · +10 模式=10 · 摇一摇=1 · bulk=N）
   source     String // 'tap' | 'shake' | 'bulk'
-  createdAt  DateTime        @default(now())
+  note       String? // 可选备注（修行心得 · ≤ 50 字 · 仅 bulk 录入支持）
+  createdAt  DateTime        @default(now()) // 用户回填历史日期时显式覆盖（UTC noon 那天）
 
   @@index([userId, createdAt])
   @@index([userId, projectId, createdAt])

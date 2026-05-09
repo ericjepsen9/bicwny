@@ -52,6 +52,10 @@ export default function PracticeProjectPage() {
 
   function doTap(source: 'tap' | 'shake' = 'tap') {
     if (!id) return;
+    // 触觉反馈 · 10ms 短震 · 用户在大圆按钮区随便点都会震
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      try { navigator.vibrate(source === 'shake' ? 30 : 12); } catch { /* ignore */ }
+    }
     tap(unit, source);
     showUndoToast();
   }
@@ -182,30 +186,46 @@ export default function PracticeProjectPage() {
         </button>
       </div>
 
-      {/* 大圆按钮 */}
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--sp-4) 0' }}>
-        <button
-          type="button"
-          onClick={() => doTap('tap')}
-          aria-label={s(`+${unit} 计数`, `+${unit} 計數`, `+${unit} count`)}
+      {/* 大圆按钮 · 整个外框可点 · 比按钮本身大一圈（更易命中）· 触觉震动 */}
+      <button
+        type="button"
+        onClick={() => doTap('tap')}
+        aria-label={s(`+${unit} 计数`, `+${unit} 計數`, `+${unit} count`)}
+        style={{
+          alignSelf: 'center',
+          padding: 'var(--sp-5)',
+          minHeight: 320,
+          width: '100%',
+          maxWidth: 360,
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        onTouchStart={(e) => { const c = e.currentTarget.querySelector<HTMLDivElement>('.big-disc'); if (c) c.style.transform = 'scale(.96)'; }}
+        onTouchEnd={(e) => { const c = e.currentTarget.querySelector<HTMLDivElement>('.big-disc'); if (c) c.style.transform = 'scale(1)'; }}
+        onMouseDown={(e) => { const c = e.currentTarget.querySelector<HTMLDivElement>('.big-disc'); if (c) c.style.transform = 'scale(.96)'; }}
+        onMouseUp={(e) => { const c = e.currentTarget.querySelector<HTMLDivElement>('.big-disc'); if (c) c.style.transform = 'scale(1)'; }}
+      >
+        <div
+          className="big-disc"
           style={{
-            width: 220, height: 220, borderRadius: '50%',
+            width: 240, height: 240, borderRadius: '50%',
             background: 'linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%)',
-            color: '#fff', border: 'none', cursor: 'pointer',
+            color: '#fff',
             boxShadow: '0 12px 40px rgba(224,120,86,.45)',
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             transition: 'transform .1s var(--ease)',
             fontFamily: 'var(--font-serif)',
+            pointerEvents: 'none', // 让外框接收事件
           }}
-          onTouchStart={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(.96)'; }}
-          onTouchEnd={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
-          onMouseDown={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(.96)'; }}
-          onMouseUp={(e) => { (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)'; }}
         >
           <div style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: 1 }}>+{unit}</div>
           <div style={{ fontSize: '1rem', marginTop: 4, opacity: 0.9 }}>{proj.emoji ?? '📿'} {todayWithPending}</div>
-        </button>
-      </div>
+        </div>
+      </button>
 
       <div style={{ textAlign: 'center', font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1 }}>
         {s('点击 +', '點擊 +', 'Tap +')}{unit}
@@ -227,9 +247,9 @@ export default function PracticeProjectPage() {
         </div>
       )}
 
-      <Dialog open={bulkOpen} onClose={() => setBulkOpen(false)} title={s('自定义计数', '自定義計數', 'Custom count')} variant="centered">
+      <Dialog open={bulkOpen} onClose={() => setBulkOpen(false)} title={s('登记修量', '登記修量', 'Log practice')} variant="centered">
         <BulkAddForm
-          onSubmit={(n) => { tap(n, 'tap'); setBulkOpen(false); showUndoToast(); }}
+          onSubmit={(n, date, note) => { tap(n, 'bulk', { date, note }); setBulkOpen(false); toast.ok(s(`已登记 +${n}`, `已登記 +${n}`, `Logged +${n}`)); }}
           onCancel={() => setBulkOpen(false)}
         />
       </Dialog>
@@ -404,17 +424,24 @@ function fmtBig(n: number): string {
   return String(n);
 }
 
-// 自定义计数表单 · 输入任意数 + 常用 chips（参考智能答题数量选择）
-function BulkAddForm({ onSubmit, onCancel }: { onSubmit: (n: number) => void; onCancel: () => void }) {
+// 登记表单 · 数量 + 日期（可回填）+ 备注
+function BulkAddForm({ onSubmit, onCancel }: { onSubmit: (n: number, date?: string, note?: string) => void; onCancel: () => void }) {
   const { s } = useLang();
+  const today = new Date().toISOString().slice(0, 10);
   const [val, setVal] = useState<string>('');
+  const [date, setDate] = useState<string>(today);
+  const [note, setNote] = useState<string>('');
   const PRESETS = [7, 21, 49, 108, 1080];
   const n = Number(val);
   const valid = Number.isInteger(n) && n > 0 && n <= 10000;
 
   return (
     <form
-      onSubmit={(e) => { e.preventDefault(); if (valid) onSubmit(n); }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!valid) return;
+        onSubmit(n, date === today ? undefined : date, note.trim() || undefined);
+      }}
       style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', padding: 'var(--sp-2) 0' }}
     >
       <div>
@@ -453,12 +480,40 @@ function BulkAddForm({ onSubmit, onCancel }: { onSubmit: (n: number) => void; on
         ))}
       </div>
 
+      <div>
+        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 6 }}>
+          {s('日期（默认今天 · 可回填历史）', '日期（默認今天 · 可回填）', 'Date (default today · backfill OK)')}
+        </label>
+        <input
+          type="date"
+          value={date}
+          max={today}
+          onChange={(e) => setDate(e.target.value)}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', font: 'var(--text-body)', outline: 'none' }}
+        />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 6 }}>
+          {s('备注（可选 · 修行心得 · ≤ 50 字）', '備註（可選）', 'Note (opt · ≤50 chars)')}
+        </label>
+        <input
+          type="text"
+          value={note}
+          onChange={(e) => setNote(e.target.value.slice(0, 50))}
+          maxLength={50}
+          placeholder={s('如：观想清净', '如：觀想清淨', 'e.g. clear visualization')}
+          style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', font: 'var(--text-body)', outline: 'none' }}
+        />
+        <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', textAlign: 'right', marginTop: 2 }}>{note.length} / 50</div>
+      </div>
+
       <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-2)' }}>
         <button type="button" onClick={onCancel} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', border: '1px solid var(--border)', color: 'var(--ink-3)', justifyContent: 'center' }}>
           {s('取消', '取消', 'Cancel')}
         </button>
         <button type="submit" disabled={!valid} className="btn btn-primary btn-pill" style={{ flex: 1, padding: 12, justifyContent: 'center' }}>
-          {valid ? s(`+${n}`, `+${n}`, `+${n}`) : s('确认', '確認', 'OK')}
+          {valid ? s(`登记 +${n}`, `登記 +${n}`, `Log +${n}`) : s('确认', '確認', 'OK')}
         </button>
       </div>
     </form>
