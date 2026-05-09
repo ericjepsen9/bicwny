@@ -10,6 +10,7 @@ import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
+import WheelPicker from '@/components/WheelPicker';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
@@ -424,65 +425,38 @@ function fmtBig(n: number): string {
   return String(n);
 }
 
-// 登记表单 · 数量 + 日期（可回填）+ 备注
+// 登记表单 · WheelPicker 选数量（常用咒数）+ 日期 + 备注
+// 常用咒数：参考修行习惯 · 1/3/7/21/49 是小座 · 108/216/540/1080 是大座
+const COUNT_PRESETS = [1, 3, 7, 21, 49, 108, 216, 540, 1080] as const;
+
 function BulkAddForm({ onSubmit, onCancel }: { onSubmit: (n: number, date?: string, note?: string) => void; onCancel: () => void }) {
   const { s } = useLang();
   const today = new Date().toISOString().slice(0, 10);
-  const [val, setVal] = useState<string>('');
+  const [count, setCount] = useState<number>(108); // 默认 108
   const [date, setDate] = useState<string>(today);
   const [note, setNote] = useState<string>('');
-  const PRESETS = [7, 21, 49, 108, 1080];
-  const n = Number(val);
-  const valid = Number.isInteger(n) && n > 0 && n <= 10000;
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (!valid) return;
-        onSubmit(n, date === today ? undefined : date, note.trim() || undefined);
+        onSubmit(count, date === today ? undefined : date, note.trim() || undefined);
       }}
       style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', padding: 'var(--sp-2) 0' }}
     >
-      <div>
-        <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 6 }}>
-          {s('数量（1-10000）', '數量（1-10000）', 'Count (1-10000)')}
-        </label>
-        <input
-          type="number"
-          min={1}
-          max={10000}
-          value={val}
-          onChange={(e) => setVal(e.target.value)}
-          placeholder={s('如 108', '如 108', 'e.g. 108')}
-          autoFocus
-          style={{ width: '100%', padding: '12px 14px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', font: 'var(--text-body-serif)', fontSize: '1.2rem', textAlign: 'center', outline: 'none', letterSpacing: 2 }}
-        />
-      </div>
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-        {PRESETS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => setVal(String(p))}
-            className="btn btn-pill"
-            style={{
-              padding: '8px 16px', minWidth: 64,
-              background: Number(val) === p ? 'var(--saffron-pale)' : 'transparent',
-              border: '1px solid ' + (Number(val) === p ? 'var(--saffron-light)' : 'var(--border)'),
-              color: Number(val) === p ? 'var(--saffron-dark)' : 'var(--ink-3)',
-              fontWeight: 600,
-            }}
-          >
-            +{p}
-          </button>
-        ))}
-      </div>
+      <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, textAlign: 'center', margin: 0 }}>
+        {s('滑动选择数量', '滑動選擇數量', 'Slide to pick count')}
+      </p>
+      <WheelPicker
+        value={count}
+        options={COUNT_PRESETS}
+        onChange={(v) => setCount(v as number)}
+        unit={s('遍', '遍', 'rep')}
+      />
 
       <div>
         <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 6 }}>
-          {s('日期（默认今天 · 可回填历史）', '日期（默認今天 · 可回填）', 'Date (default today · backfill OK)')}
+          {s('日期（默认今天 · 可回填）', '日期（默認今天 · 可回填）', 'Date (default today · backfill OK)')}
         </label>
         <input
           type="date"
@@ -495,7 +469,7 @@ function BulkAddForm({ onSubmit, onCancel }: { onSubmit: (n: number, date?: stri
 
       <div>
         <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 6 }}>
-          {s('备注（可选 · 修行心得 · ≤ 50 字）', '備註（可選）', 'Note (opt · ≤50 chars)')}
+          {s('备注（可选 · ≤ 50 字）', '備註（可選）', 'Note (opt · ≤50)')}
         </label>
         <input
           type="text"
@@ -512,8 +486,8 @@ function BulkAddForm({ onSubmit, onCancel }: { onSubmit: (n: number, date?: stri
         <button type="button" onClick={onCancel} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', border: '1px solid var(--border)', color: 'var(--ink-3)', justifyContent: 'center' }}>
           {s('取消', '取消', 'Cancel')}
         </button>
-        <button type="submit" disabled={!valid} className="btn btn-primary btn-pill" style={{ flex: 1, padding: 12, justifyContent: 'center' }}>
-          {valid ? s(`登记 +${n}`, `登記 +${n}`, `Log +${n}`) : s('确认', '確認', 'OK')}
+        <button type="submit" className="btn btn-primary btn-pill" style={{ flex: 1, padding: 12, justifyContent: 'center' }}>
+          {s(`登记 +${count}`, `登記 +${count}`, `Log +${count}`)}
         </button>
       </div>
     </form>
