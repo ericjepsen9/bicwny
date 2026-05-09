@@ -53,7 +53,7 @@ export default function AdminLlmPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--sp-4)', marginBottom: 'var(--sp-5)' }}>
         <Kpi loading={usage.isLoading} value={fmtNum(totals?.requestCount)} label={s('本月请求', '本月請求', 'Requests · m')} />
         <Kpi loading={usage.isLoading} value={fmtNum(totals?.tokenCount)} label={s('本月 tokens', '本月 tokens', 'Tokens · m')} color="var(--saffron)" />
-        <Kpi loading={usage.isLoading} value={'$' + (totals?.cost ?? 0).toFixed(2)} label={s('本月成本', '本月成本', 'Cost · m')} color="var(--gold-dark)" />
+        <Kpi loading={usage.isLoading} value={'$' + Number(totals?.cost ?? 0).toFixed(2)} label={s('本月成本', '本月成本', 'Cost · m')} color="var(--gold-dark)" />
         <Kpi
           loading={usage.isLoading}
           value={(totals && totals.requestCount > 0 ? Math.round((totals.errorCount / totals.requestCount) * 100) : 0) + '%'}
@@ -165,7 +165,7 @@ export default function AdminLlmPage() {
                     </span>
                   </Td>
                   <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textAlign: 'right' }}>{l.inputTokens + l.outputTokens}</span></Td>
-                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>${l.cost.toFixed(4)}</span></Td>
+                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>${Number(l.cost).toFixed(4)}</span></Td>
                   <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>{l.latencyMs}ms</span></Td>
                 </tr>
               ))}
@@ -266,8 +266,8 @@ function ProviderRow({ p, onEdit }: { p: LlmProvider; onEdit: () => void }) {
       </Td>
       <Td>
         <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
-          in ${p.inputCostPer1k.toFixed(4)}<br />
-          out ${p.outputCostPer1k.toFixed(4)}
+          in ${Number(p.inputCostPer1k).toFixed(4)}<br />
+          out ${Number(p.outputCostPer1k).toFixed(4)}
         </div>
       </Td>
       <Td>
