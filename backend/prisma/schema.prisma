@@ -90,12 +90,13 @@ model Class {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  course           Course            @relation(fields: [courseId], references: [id])
+  course           Course              @relation(fields: [courseId], references: [id])
   members          ClassMember[]
-  ownedQuestions   Question[]        @relation("ClassOwnedQuestions")
+  ownedQuestions   Question[]          @relation("ClassOwnedQuestions")
   userAnswers      UserAnswer[]
   practiceProjects PracticeProject[]
   practiceTasks    PracticeTask[]
+  announcements    ClassAnnouncement[]
 
   @@index([courseId])
 }
@@ -1149,4 +1150,27 @@ model PracticeTask {
 
   @@index([scope, classId, archivedAt])
   @@index([scope, userId, archivedAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 班级公告（图文 · 教师/admin 发布 · 触发学员通知）
+// ═══════════════════════════════════════════════════════════════
+
+model ClassAnnouncement {
+  id         String    @id @default(cuid())
+  classId    String
+  class      Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  authorId   String
+  title      String // ≤ 80 字
+  body       String // 简单 markdown · ≤ 5000 字
+  imageUrls  Json? // string[] · ≤ 6 张 OSS 路径
+  pinnedAt   DateTime? // 置顶时刻 · null 不置顶
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // 已读状态分散在 Notification 表（type=class_announcement · link=/class/:id · userId=每个学员）
+
+  @@index([classId, archivedAt, pinnedAt, createdAt])
+  @@index([authorId])
 }

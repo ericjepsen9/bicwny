@@ -43,6 +43,7 @@ import { meditationRankingRoutes } from './modules/meditations/ranking.routes.js
 import { practiceStudentRoutes } from './modules/practice/student.routes.js';
 import { practiceCoachRoutes } from './modules/practice/coach.routes.js';
 import { practiceAdminRoutes } from './modules/practice/admin.routes.js';
+import { announcementCoachRoutes, announcementStudentRoutes } from './modules/announcements/routes.js';
 import { studentMeditationRoutes } from './modules/meditations/student.routes.js';
 import { achievementsRoutes } from './modules/achievements/routes.js';
 import { notificationsRoutes } from './modules/notifications/routes.js';
@@ -332,6 +333,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(practiceStudentRoutes);
   await app.register(practiceCoachRoutes);
   await app.register(practiceAdminRoutes);
+  await app.register(announcementCoachRoutes);
+  await app.register(announcementStudentRoutes);
   await app.register(learningRoutes);
   await app.register(favoritesRoutes);
   await app.register(answeringRoutes);
