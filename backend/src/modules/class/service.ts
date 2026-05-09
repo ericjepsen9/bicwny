@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { type Class, type ClassMember, type ClassMemberRole, Prisma } from '@prisma/client';
 import { Conflict, Forbidden, Internal, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { migratePracticeOnLeave } from '../practice/migration.js';
 
 // 班级列表 / 详情 / 写操作返回时统一带的 course 选段
 // admin 列表页 + 详情抽屉 + coach.html / class-detail.html 都依赖 c.course.{title|coverEmoji|...}
@@ -285,6 +286,9 @@ async function _removeMemberInTx(
     where: { classId, userId, removedAt: null },
     data: { removedAt: new Date() },
   });
+
+  // 学修计数：班级专修子项 → user-scope 副本（数据保留 · 退班后仍可计数）
+  await migratePracticeOnLeave(tx, classId, userId);
 
   // 处理通过本班带来的 enrollment（批量化避免 N+1）
   //   C3 语义：source 是'本源关系'，永不退化
