@@ -5,6 +5,7 @@
 //   - 窄屏汉堡菜单：CSS media query 已处理 · 这里加 toggle state
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import SideNavSettings from './SideNavSettings';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
 
@@ -69,7 +70,6 @@ export default function CoachShell() {
           <CoachNav to="/coach/courses"    label={s('法本', '法本', 'Texts')} icon={IconText} />
           <CoachNav to="/coach/questions"  label={s('题库', '題庫', 'Questions')} icon={IconBook} />
           <CoachNav to="/coach/review"     label={s('题目审核', '題目審核', 'Review')} icon={IconBook} />
-          <CoachNav to="/coach/meditations" label={s('观修管理', '觀修管理', 'Meditations')} icon={IconText} />
         </div>
 
         <div className="nav-section" style={{ marginTop: 'auto' }}>{s('其他', '其他', 'Other')}</div>
@@ -77,6 +77,7 @@ export default function CoachShell() {
           <IconHome />
           {s('回学员视图', '回學員視圖', 'Student view')}
         </Link>
+        <SideNavSettings />
       </aside>
 
       <main className="main">

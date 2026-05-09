@@ -121,7 +121,7 @@ export default function AdminCoursesPage() {
         </section>
       </div>
 
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s("新建法本", "新建法本", "New text")} variant="centered">
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s("新建法本 · 填基础信息后再添加章节", "新建法本 · 填基礎信息後再添加章節", "New text · fill basics then add chapters")} variant="centered">
         <CreateCourseForm
           onCreated={(id) => { setCreateOpen(false); setSp({ id }); }}
           onCancel={() => setCreateOpen(false)}
@@ -172,6 +172,7 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
   const c = { ...cIn, chapters: cIn.chapters ?? [] };
 
   // metadata 状态（受控 · 用 key 重置）
+  const [metaExpanded, setMetaExpanded] = useState(false);
   const [slug, setSlug] = useState(c.slug);
   const [title, setTitle] = useState(c.title);
   const [titleTC, setTitleTC] = useState(c.titleTraditional ?? '');
@@ -215,21 +216,29 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
 
   return (
     <>
-      {/* metadata card */}
+      {/* metadata card · 默认折叠 · 点 hero 行展开（决策 B · 减少同屏可见 primary 按钮） */}
       <div className="glass-card-thick" style={{ padding: 'var(--sp-5)', marginBottom: 'var(--sp-4)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-4)' }}>
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: metaExpanded ? 'var(--sp-4)' : 0, cursor: 'pointer' }}
+          onClick={() => setMetaExpanded((v) => !v)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMetaExpanded((v) => !v); } }}
+        >
           <CoverEditor courseId={c.id} url={c.coverImageUrl} emoji={c.coverEmoji} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5 }}>
-              {s('元数据', '元數據', 'Metadata')}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5 }}>
+              <span>{s('元数据', '元數據', 'Metadata')}</span>
+              <PubPill published={published} />
             </div>
             <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.25rem', color: 'var(--ink)', letterSpacing: 2, marginTop: 2 }}>
               {title || s('（无标题）', '（無標題）', '(no title)')}
             </h2>
           </div>
+          <span style={{ color: 'var(--ink-3)', fontSize: '1.1rem' }}>{metaExpanded ? '▾' : '▸'}</span>
         </div>
 
-        <form
+        {metaExpanded && <form
           onSubmit={(e) => { e.preventDefault(); save.mutate(); }}
           style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--sp-3)' }}
         >
@@ -270,7 +279,7 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
               {save.isPending ? '…' : s('保存元数据', '保存元數據', 'Save metadata')}
             </button>
           </div>
-        </form>
+        </form>}
       </div>
 
       {/* 章节区 */}
@@ -278,7 +287,7 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
         <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1rem', color: 'var(--ink)', letterSpacing: 2 }}>
           {s('章节', '章節', 'Chapters')} ({c.chapters.length})
         </h2>
-        <AddChapterButton courseId={c.id} nextOrder={(c.chapters.at(-1)?.order ?? 0) + 1} />
+        <AddChapterButton courseId={c.id} nextOrder={(c.chapters.at(-1)?.order ?? 0) + 1} courseTitle={c.title} />
       </div>
 
       {c.chapters.length === 0 ? (
@@ -324,7 +333,10 @@ function CoverEditor({ courseId, url, emoji }: { courseId: string; url: string |
   });
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+    <div
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
         type="button"
         onClick={() => fileRef.current?.click()}
@@ -384,7 +396,7 @@ function CoverEditor({ courseId, url, emoji }: { courseId: string; url: string |
 }
 
 // ── 新建章节按钮 + inline modal
-function AddChapterButton({ courseId, nextOrder }: { courseId: string; nextOrder: number }) {
+function AddChapterButton({ courseId, nextOrder, courseTitle }: { courseId: string; nextOrder: number; courseTitle: string }) {
   const { s } = useLang();
   const [open, setOpen] = useState(false);
   return (
@@ -392,11 +404,12 @@ function AddChapterButton({ courseId, nextOrder }: { courseId: string; nextOrder
       <button type="button" onClick={() => setOpen(true)} className="btn btn-primary btn-pill" style={{ padding: '6px 14px', font: 'var(--text-caption)' }}>
         + {s('新章节', '新章節', 'Chapter')}
       </button>
-      <Dialog open={open} onClose={() => setOpen(false)} title={s("新章节", "新章節", "New chapter")} variant="centered">
+      <Dialog open={open} onClose={() => setOpen(false)} title={s(`在「${courseTitle}」下新建章节`, `在「${courseTitle}」下新建章節`, `New chapter under "${courseTitle}"`)} variant="centered">
         <ChapterForm
           submit={(body) => api.post(`/api/admin/courses/${encodeURIComponent(courseId)}/chapters`, body)}
           initial={{ title: '', titleTraditional: '', order: nextOrder }}
           onDone={() => setOpen(false)}
+          confirmLabel={['创建章节', '創建章節', 'Create chapter']}
         />
       </Dialog>
     </>
@@ -407,7 +420,9 @@ function AddChapterButton({ courseId, nextOrder }: { courseId: string; nextOrder
 function ChapterCard({ ch, courseId }: { ch: AdminChapter; courseId: string }) {
   const { s } = useLang();
   const qc = useQueryClient();
-  const [expanded, setExpanded] = useState(true);
+  // 决策 B · 默认折叠 · 减少同屏可见操作
+  const [expanded, setExpanded] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addLessonOpen, setAddLessonOpen] = useState(false);
 
@@ -445,40 +460,64 @@ function ChapterCard({ ch, courseId }: { ch: AdminChapter; courseId: string }) {
             )}
           </div>
           <span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>{ch.lessons.length} 课</span>
-          <button type="button" onClick={() => setEditOpen(true)} style={{ background: 'transparent', border: 'none', color: 'var(--saffron-dark)', cursor: 'pointer', font: 'var(--text-caption)' }}>
-            {s('编辑', '編輯', 'Edit')}
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              // 删除前查依赖 · 给用户具体的阻塞原因
-              try {
-                const deps = await fetchChapterDependencies(ch.id);
-                if (deps.questionCount > 0) {
-                  toast.error(s(
-                    `本章关联 ${deps.questionCount} 道题 · 请先删除这些题再归档`,
-                    `本章關聯 ${deps.questionCount} 道題`,
-                    `${deps.questionCount} question(s) reference this chapter · remove them first`,
-                  ));
-                  return;
-                }
-                const ok = await confirmAsync({
-                  title: s(
-                    `删除此章节（含 ${deps.lessonCount} 课时）？此操作不可恢复。`,
-                    `刪除此章節（含 ${deps.lessonCount} 課時）？`,
-                    `Delete this chapter (with ${deps.lessonCount} lessons)? Cannot undo.`,
-                  ),
-                });
-                if (ok) del.mutate();
-              } catch (e) {
-                toast.error((e as ApiError).message);
-              }
-            }}
-            disabled={del.isPending}
-            style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)' }}
-          >
-            {del.isPending ? '…' : s('删除', '刪除', 'Delete')}
-          </button>
+          {/* ⋯ 菜单 · 收起编辑/删除 · 默认 collapsed 减少视觉噪音 */}
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
+              aria-label={s('更多', '更多', 'More')}
+              style={{ background: 'transparent', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', fontSize: '1.2rem', padding: '4px 8px', borderRadius: 4 }}
+            >
+              ⋯
+            </button>
+            {menuOpen && (
+              <>
+                <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+                <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 51, background: 'var(--bg-card)', border: '1px solid var(--glass-border)', borderRadius: 'var(--r-sm)', boxShadow: '0 6px 20px rgba(43,34,24,.18)', minWidth: 120 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); setEditOpen(true); }}
+                    style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'transparent', border: 'none', textAlign: 'left', color: 'var(--ink-2)', font: 'var(--text-caption)', cursor: 'pointer' }}
+                  >
+                    {s('编辑章节', '編輯章節', 'Edit chapter')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      try {
+                        const deps = await fetchChapterDependencies(ch.id);
+                        if (deps.questionCount > 0) {
+                          toast.error(s(
+                            `本章关联 ${deps.questionCount} 道题 · 请先删除这些题再归档`,
+                            `本章關聯 ${deps.questionCount} 道題`,
+                            `${deps.questionCount} question(s) reference this chapter · remove them first`,
+                          ));
+                          return;
+                        }
+                        const ok = await confirmAsync({
+                          title: s(
+                            `删除「${ch.order}. ${ch.title}」（含 ${deps.lessonCount} 课时）？此操作不可恢复。`,
+                            `刪除「${ch.order}. ${ch.title}」（含 ${deps.lessonCount} 課時）？`,
+                            `Delete "${ch.order}. ${ch.title}" (with ${deps.lessonCount} lessons)? Cannot undo.`,
+                          ),
+                          danger: true,
+                          okLabel: s('删除', '刪除', 'Delete'),
+                        });
+                        if (ok) del.mutate();
+                      } catch (e) {
+                        toast.error((e as ApiError).message);
+                      }
+                    }}
+                    disabled={del.isPending}
+                    style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'transparent', border: 'none', borderTop: '1px solid var(--border-light)', textAlign: 'left', color: 'var(--crimson)', font: 'var(--text-caption)', cursor: 'pointer' }}
+                  >
+                    {del.isPending ? '…' : s('删除章节', '刪除章節', 'Delete chapter')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {expanded && (
@@ -507,19 +546,21 @@ function ChapterCard({ ch, courseId }: { ch: AdminChapter; courseId: string }) {
         )}
       </div>
 
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={s("编辑章节", "編輯章節", "Edit chapter")} variant="centered">
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={s(`编辑章节 · ${ch.order}. ${ch.title}`, `編輯章節 · ${ch.order}. ${ch.title}`, `Edit chapter · ${ch.order}. ${ch.title}`)} variant="centered">
         <ChapterForm
           submit={(body) => api.patch(`/api/admin/chapters/${encodeURIComponent(ch.id)}`, body)}
           initial={{ title: ch.title, titleTraditional: ch.titleTraditional ?? '', order: ch.order }}
           onDone={() => setEditOpen(false)}
+          confirmLabel={['保存章节', '保存章節', 'Save chapter']}
         />
       </Dialog>
 
-      <Dialog open={addLessonOpen} onClose={() => setAddLessonOpen(false)} title={s("新课时", "新課時", "New lesson")} variant="centered">
+      <Dialog open={addLessonOpen} onClose={() => setAddLessonOpen(false)} title={s(`在「${ch.order}. ${ch.title}」下新建课时`, `在「${ch.order}. ${ch.title}」下新建課時`, `New lesson under "${ch.order}. ${ch.title}"`)} variant="centered">
         <LessonForm
           submit={(body) => api.post(`/api/admin/chapters/${encodeURIComponent(ch.id)}/lessons`, body)}
           initial={{ title: '', titleTraditional: '', order: nextOrder, referenceText: '', teachingSummary: '' }}
           onDone={() => setAddLessonOpen(false)}
+          confirmLabel={['创建课时', '創建課時', 'Create lesson']}
         />
       </Dialog>
     </>
@@ -530,6 +571,7 @@ function LessonRow({ l, courseId, chapterId }: { l: AdminLesson; courseId: strin
   const { s } = useLang();
   const qc = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [medExpanded, setMedExpanded] = useState(false);
   const refLen = l.referenceText?.length ?? 0;
   const sumLen = l.teachingSummary?.length ?? 0;
@@ -574,43 +616,67 @@ function LessonRow({ l, courseId, chapterId }: { l: AdminLesson; courseId: strin
           <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', whiteSpace: 'nowrap' }}>
             {refLen > 0 ? refLen + '字原文' : '（空）'} · {sumLen > 0 ? sumLen + '字讲记' : '（空）'}
           </span>
-          <button type="button" onClick={() => setEditOpen(true)} style={{ background: 'transparent', border: 'none', color: 'var(--saffron-dark)', cursor: 'pointer', font: 'var(--text-caption)' }}>
-            {s('编辑', '編輯', 'Edit')}
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const deps = await fetchLessonDependencies(l.id);
-                if (deps.questionCount > 0) {
-                  toast.error(s(
-                    `本课时关联 ${deps.questionCount} 道题 · 请先删除这些题`,
-                    `本課時關聯 ${deps.questionCount} 道題`,
-                    `${deps.questionCount} question(s) reference this lesson · remove them first`,
-                  ));
-                  return;
-                }
-                if (deps.meditationCount > 0) {
-                  toast.error(s(
-                    `本课时关联 ${deps.meditationCount} 个观修 · 请先归档`,
-                    `本課時關聯 ${deps.meditationCount} 個觀修`,
-                    `${deps.meditationCount} meditation(s) linked · archive them first`,
-                  ));
-                  return;
-                }
-                const ok = await confirmAsync({
-                  title: s('删除此课时？此操作不可恢复。', '刪除此課時？此操作不可恢復。', 'Delete this lesson? Cannot undo.'),
-                });
-                if (ok) del.mutate();
-              } catch (e) {
-                toast.error((e as ApiError).message);
-              }
-            }}
-            disabled={del.isPending}
-            style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)' }}
-          >
-            {del.isPending ? '…' : s('删除', '刪除', 'Delete')}
-          </button>
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
+              aria-label={s('更多', '更多', 'More')}
+              style={{ background: 'transparent', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', fontSize: '1.1rem', padding: '2px 6px', borderRadius: 4 }}
+            >
+              ⋯
+            </button>
+            {menuOpen && (
+              <>
+                <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+                <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 51, background: 'var(--bg-card)', border: '1px solid var(--glass-border)', borderRadius: 'var(--r-sm)', boxShadow: '0 6px 20px rgba(43,34,24,.18)', minWidth: 120 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); setEditOpen(true); }}
+                    style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'transparent', border: 'none', textAlign: 'left', color: 'var(--ink-2)', font: 'var(--text-caption)', cursor: 'pointer' }}
+                  >
+                    {s('编辑课时', '編輯課時', 'Edit lesson')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      try {
+                        const deps = await fetchLessonDependencies(l.id);
+                        if (deps.questionCount > 0) {
+                          toast.error(s(
+                            `本课时关联 ${deps.questionCount} 道题 · 请先删除这些题`,
+                            `本課時關聯 ${deps.questionCount} 道題`,
+                            `${deps.questionCount} question(s) reference this lesson · remove them first`,
+                          ));
+                          return;
+                        }
+                        if (deps.meditationCount > 0) {
+                          toast.error(s(
+                            `本课时关联 ${deps.meditationCount} 个观修 · 请先归档`,
+                            `本課時關聯 ${deps.meditationCount} 個觀修`,
+                            `${deps.meditationCount} meditation(s) linked · archive them first`,
+                          ));
+                          return;
+                        }
+                        const ok = await confirmAsync({
+                          title: s(`删除「${l.order}. ${l.title}」？此操作不可恢复。`, `刪除「${l.order}. ${l.title}」？此操作不可恢復。`, `Delete "${l.order}. ${l.title}"? Cannot undo.`),
+                          danger: true,
+                          okLabel: s('删除', '刪除', 'Delete'),
+                        });
+                        if (ok) del.mutate();
+                      } catch (e) {
+                        toast.error((e as ApiError).message);
+                      }
+                    }}
+                    disabled={del.isPending}
+                    style={{ display: 'block', width: '100%', padding: '8px 14px', background: 'transparent', border: 'none', borderTop: '1px solid var(--border-light)', textAlign: 'left', color: 'var(--crimson)', font: 'var(--text-caption)', cursor: 'pointer' }}
+                  >
+                    {del.isPending ? '…' : s('删除课时', '刪除課時', 'Delete lesson')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* 观修副行 · 缩进 */}
@@ -682,7 +748,7 @@ function LessonRow({ l, courseId, chapterId }: { l: AdminLesson; courseId: strin
         <LessonQuestionsSlot courseId={courseId} chapterId={chapterId} lessonId={l.id} />
       </div>
 
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={s('编辑课时', '編輯課時', 'Edit lesson')} variant="centered">
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={s(`编辑课时 · ${l.order}. ${l.title}`, `編輯課時 · ${l.order}. ${l.title}`, `Edit lesson · ${l.order}. ${l.title}`)} variant="centered">
         <LessonForm
           submit={(body) => api.patch(`/api/admin/lessons/${encodeURIComponent(l.id)}`, body)}
           initial={{
@@ -693,6 +759,7 @@ function LessonRow({ l, courseId, chapterId }: { l: AdminLesson; courseId: strin
             teachingSummary: l.teachingSummary ?? '',
           }}
           onDone={() => setEditOpen(false)}
+          confirmLabel={['保存课时', '保存課時', 'Save lesson']}
         />
       </Dialog>
     </>
@@ -701,10 +768,11 @@ function LessonRow({ l, courseId, chapterId }: { l: AdminLesson; courseId: strin
 
 // ── 共用 Chapter form
 type ChapterBody = { title: string; titleTraditional: string | null; order: number; [k: string]: unknown };
-function ChapterForm({ submit, initial, onDone }: {
+function ChapterForm({ submit, initial, onDone, confirmLabel }: {
   submit: (body: ChapterBody) => Promise<unknown>;
   initial: { title: string; titleTraditional: string; order: number };
   onDone: () => void;
+  confirmLabel?: [string, string, string];
 }) {
   const { s } = useLang();
   const qc = useQueryClient();
@@ -744,7 +812,7 @@ function ChapterForm({ submit, initial, onDone }: {
       <Field label={s('标题（繁）', '標題（繁）', 'Title (TC)')} value={titleTC} onChange={setTitleTC} maxLength={200} />
       <Field label={s('章节序号', '章節序號', 'Order')} value={String(order)} onChange={(v) => setOrder(Number(v) || 1)} type="number" />
       {err && <p style={{ color: 'var(--crimson)', font: 'var(--text-caption)' }}>{err}</p>}
-      <FormButtons cancel={onDone} pending={m.isPending} />
+      <FormButtons cancel={onDone} pending={m.isPending} confirmLabel={confirmLabel} />
     </form>
   );
 }
@@ -758,10 +826,11 @@ type LessonBody = {
   teachingSummary: string | null;
   [k: string]: unknown;
 };
-function LessonForm({ submit, initial, onDone }: {
+function LessonForm({ submit, initial, onDone, confirmLabel }: {
   submit: (body: LessonBody) => Promise<unknown>;
   initial: { title: string; titleTraditional: string; order: number; referenceText: string; teachingSummary: string };
   onDone: () => void;
+  confirmLabel?: [string, string, string];
 }) {
   const { s } = useLang();
   const qc = useQueryClient();
@@ -821,7 +890,7 @@ function LessonForm({ submit, initial, onDone }: {
         hint={summary.length + ' / 10000'}
       />
       {err && <p style={{ color: 'var(--crimson)', font: 'var(--text-caption)' }}>{err}</p>}
-      <FormButtons cancel={onDone} pending={m.isPending} />
+      <FormButtons cancel={onDone} pending={m.isPending} confirmLabel={confirmLabel} />
     </form>
   );
 }
