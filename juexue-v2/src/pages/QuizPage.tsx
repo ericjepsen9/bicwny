@@ -84,8 +84,19 @@ export default function QuizPage() {
   const [done, setDone] = useState(false);
 
   const list = questions.data ?? [];
-  const total = list.length;
-  const current = list[qi];
+  // 错题立即重练 · playQueue 是 list 索引序列 · 默认顺序播放
+  // 答错时把当前题索引插到 qi+3 位置（再次复习），答对时不动
+  // 同一题第二次出现 · grades/answers 按 qi 计 · 状态自然分离
+  const [playQueue, setPlayQueue] = useState<number[]>([]);
+  // queue 跟随 list 重置（新课时/新练习集）
+  useEffect(() => {
+    setPlayQueue(list.map((_, i) => i));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list.length, lessonId, isPractice, practiceCourseId, practiceLimit, practiceOnlyMistakes, practiceSingleQid]);
+  const total = playQueue.length;
+  const current = list[playQueue[qi] ?? -1];
+  // 当前题是否「重练插入」(qi 之前已经出现过同一题)
+  const isRetry = playQueue.slice(0, qi).includes(playQueue[qi] ?? -1);
 
   // 当用户切到新课时 · 或新练习集 · 重置
   useEffect(() => {
@@ -133,7 +144,24 @@ export default function QuizPage() {
       }
       const ok = data.grade.isCorrect;
       if (ok === true) notification('success');
-      else if (ok === false) notification('error');
+      else if (ok === false) {
+        notification('error');
+        // 错题立即重练 · 把当前题索引塞进 qi+3 位置（一题缓冲再现）
+        // 多邻国式：让答错的题在短记忆里再过一遍
+        // 注意：第二次答错会再次插入 · 直到答对为止 · 上限 5 次保护
+        const baseIdx = playQueue[qi];
+        if (baseIdx !== undefined) {
+          const repeats = playQueue.filter((i) => i === baseIdx).length;
+          if (repeats < 5) {
+            const insertAt = Math.min(qi + 3, playQueue.length);
+            setPlayQueue((q) => {
+              const next = [...q];
+              next.splice(insertAt, 0, baseIdx);
+              return next;
+            });
+          }
+        }
+      }
     },
     onError: (e) => {
       toast.error(e.message);
@@ -394,7 +422,14 @@ export default function QuizPage() {
           >
             {typeLabel(current.type)}
           </span>
-          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginBottom: 'var(--sp-2)' }}>Q{qi + 1}</div>
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginBottom: 'var(--sp-2)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>Q{qi + 1}</span>
+            {isRetry && (
+              <span style={{ padding: '1px 8px', borderRadius: 'var(--r-pill)', background: 'var(--gold-pale)', color: 'var(--gold-dark)', fontWeight: 700, letterSpacing: 1 }}>
+                ↺ {s('重练', '重練', 'Retry')}
+              </span>
+            )}
+          </div>
           <div style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', lineHeight: 1.7 }}>
             {displayQuestionText(current, s)}
           </div>
