@@ -30,7 +30,15 @@ export default function PracticePage() {
 
   return (
     <>
-      <TopNav titles={['修学计数', '修學計數', 'Practice']} backTo="/" />
+      <TopNav
+        titles={['修学计数', '修學計數', 'Practice']}
+        backTo="/"
+        right={(
+          <Link to="/practice/history" style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', textDecoration: 'none', padding: '4px 10px' }}>
+            📊 {s('历史', '歷史', 'History')}
+          </Link>
+        )}
+      />
       <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
 
         {/* KPI 4 · 2x2 网格 · 参 admin dashboard */}
