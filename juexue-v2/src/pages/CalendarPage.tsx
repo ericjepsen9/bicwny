@@ -110,12 +110,14 @@ export default function CalendarPage() {
         <button type="button" onClick={() => shiftMonth(1)} className="btn btn-pill" style={{ padding: '6px 12px' }}>›</button>
       </div>
 
-      {/* 数据空态：seed 未灌库 / 当月未编辑 */}
-      {!data.isLoading && (data.data?.length ?? 0) === 0 && (
+      {/* 数据空态：seed 未灌库 / API 失败 / 当月未编辑 */}
+      {!data.isLoading && (data.isError || (data.data?.length ?? 0) === 0) && (
         <div className="glass-card" style={{ padding: 'var(--sp-4)', textAlign: 'center', color: 'var(--ink-3)' }}>
           <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>📿</div>
           <p style={{ font: 'var(--text-body)', margin: 0 }}>
-            {s('当月暂无藏历数据', '當月暫無藏曆數據', 'No calendar data this month')}
+            {data.isError
+              ? s('藏历数据未就绪', '藏曆數據未就緒', 'Calendar data not ready')
+              : s('当月暂无藏历数据', '當月暫無藏曆數據', 'No calendar data this month')}
           </p>
           <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 4 }}>
             {s('请联系管理员录入', '請聯繫管理員錄入', 'Contact admin to populate')}
