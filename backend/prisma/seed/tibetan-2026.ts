@@ -523,6 +523,508 @@ export const DAYS: DaySpec[] = [
     lunar: '二月十三', tibetan: '二月十四', tibetanMonth: '苦行月',
     events: ['理发吉日：财物增多'],
   },
+
+  // ── 2026 年 4 月 · 禅心 · 苦行月(1-17) / 具香月(18+) ──────────────────────
+  {
+    date: '2026-04-01',
+    lunar: '二月十四', tibetan: '二月十五', tibetanMonth: '苦行月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['阿弥陀佛加持日,作何善恶成百万倍', '理发吉日：福报增上'],
+  },
+  {
+    date: '2026-04-02',
+    lunar: '二月十五', tibetan: '二月十六', tibetanMonth: '苦行月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['释迦牟尼佛涅槃日(汉)'],
+  },
+  {
+    date: '2026-04-03',
+    lunar: '二月十六', tibetan: '二月十七', tibetanMonth: '苦行月',
+  },
+  {
+    date: '2026-04-04',
+    lunar: '二月十七', tibetan: '二月闰十七', tibetanMonth: '苦行月',
+    isIntercalary: true,
+  },
+  {
+    date: '2026-04-05',
+    lunar: '二月十八', tibetan: '二月十八', tibetanMonth: '苦行月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['观世音菩萨加持日,作何善恶成千万倍'],
+    publicHoliday: '清明节',
+  },
+  {
+    date: '2026-04-06',
+    lunar: '二月十九', tibetan: '二月十九', tibetanMonth: '苦行月',
+    tags: ['飞幡日'], auspicious: true,
+    events: ['观世音菩萨圣诞日(汉)', '理发吉日：增胜善法'],
+  },
+  {
+    date: '2026-04-07',
+    lunar: '二月二十', tibetan: '二月二十', tibetanMonth: '苦行月',
+  },
+  {
+    date: '2026-04-08',
+    lunar: '二月廿一', tibetan: '二月廿一', tibetanMonth: '苦行月',
+    auspicious: true,
+    events: ['地藏菩萨加持日,作何善恶成亿倍', '普贤菩萨圣诞日(汉)'],
+  },
+  {
+    date: '2026-04-09',
+    lunar: '二月廿二', tibetan: '二月廿二', tibetanMonth: '苦行月',
+    tags: ['八吉同聚'],
+  },
+  {
+    date: '2026-04-10',
+    lunar: '二月廿三', tibetan: '二月廿三', tibetanMonth: '苦行月',
+    tags: ['十斋日'],
+    events: ['理发吉日：增上财富'],
+  },
+  {
+    date: '2026-04-11',
+    lunar: '二月廿四', tibetan: '二月廿四', tibetanMonth: '苦行月',
+    tags: ['十斋日'],
+  },
+  {
+    date: '2026-04-12',
+    lunar: '二月廿五', tibetan: '二月廿五', tibetanMonth: '苦行月',
+    auspicious: true,
+    events: ['空行母荟供日,作何善恶成十万倍'],
+  },
+  {
+    date: '2026-04-13',
+    lunar: '二月廿六', tibetan: '二月廿六', tibetanMonth: '苦行月',
+    events: ['理发吉日：增上安乐'],
+  },
+  {
+    date: '2026-04-14',
+    lunar: '二月廿七', tibetan: '二月廿七', tibetanMonth: '苦行月',
+    events: ['理发吉日：诸事吉祥'],
+  },
+  {
+    date: '2026-04-15',
+    lunar: '二月廿八', tibetan: '二月廿八', tibetanMonth: '苦行月',
+    tags: ['十斋日'],
+  },
+  {
+    date: '2026-04-16',
+    lunar: '二月廿九', tibetan: '二月廿九', tibetanMonth: '苦行月',
+    tags: ['十斋日'],
+  },
+  {
+    date: '2026-04-17',
+    lunar: '三月初一', tibetan: '二月三十', tibetanMonth: '苦行月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['释迦牟尼佛加持日,作何善恶成九亿倍'],
+  },
+  {
+    date: '2026-04-18',
+    lunar: '三月初二', tibetan: '三月初一', tibetanMonth: '具香月',
+    auspicious: true,
+    events: ['时轮金刚新年', '禅定胜王佛加持日,作何善恶成百倍'],
+  },
+  {
+    date: '2026-04-19',
+    lunar: '三月初三', tibetan: '三月初二', tibetanMonth: '具香月',
+    auspicious: true,
+    events: ['布袋和尚坐化日(汉)'],
+  },
+  {
+    date: '2026-04-20',
+    lunar: '三月初四', tibetan: '三月初三', tibetanMonth: '具香月',
+    events: ['理发吉日：家族增长财富'],
+    publicHoliday: '谷雨',
+  },
+  {
+    date: '2026-04-21',
+    lunar: '三月初五', tibetan: '三月初四', tibetanMonth: '具香月',
+    tags: ['飞幡日'],
+    events: ['理发吉日：怀业增上，容光焕发'],
+  },
+  {
+    date: '2026-04-22',
+    lunar: '三月初六', tibetan: '三月初六', tibetanMonth: '具香月',
+  },
+  {
+    date: '2026-04-23',
+    lunar: '三月初七', tibetan: '三月初七', tibetanMonth: '具香月',
+  },
+  {
+    date: '2026-04-24',
+    lunar: '三月初八', tibetan: '三月初八', tibetanMonth: '具香月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['药师佛加持日,作何善恶成千倍', '理发吉日：长寿'],
+  },
+  {
+    date: '2026-04-25',
+    lunar: '三月初九', tibetan: '三月初九', tibetanMonth: '具香月',
+    tags: ['九凶同聚'],
+    events: ['理发吉日：易遇佳人'],
+  },
+  {
+    date: '2026-04-26',
+    lunar: '三月初十', tibetan: '三月初十', tibetanMonth: '具香月',
+    auspicious: true,
+    events: ['莲师荟供日,作何善恶成十万倍', '理发吉日：增上欢喜'],
+  },
+  {
+    date: '2026-04-27',
+    lunar: '三月十一', tibetan: '三月十一', tibetanMonth: '具香月',
+    events: ['理发吉日：增上智慧和世聪'],
+  },
+  {
+    date: '2026-04-28',
+    lunar: '三月十二', tibetan: '三月十二', tibetanMonth: '具香月',
+  },
+  {
+    date: '2026-04-29',
+    lunar: '三月十三', tibetan: '三月十三', tibetanMonth: '具香月',
+    events: ['理发吉日：精进于佛法修持，最上'],
+  },
+  {
+    date: '2026-04-30',
+    lunar: '三月十四', tibetan: '三月十四', tibetanMonth: '具香月',
+    tags: ['十斋日'],
+    events: ['理发吉日：财物增多'],
+  },
+
+  // ── 2026 年 5 月 · 自在 · 具香月(1-16) / 萨嘎月(17+) ──────────────────────
+  {
+    date: '2026-05-01',
+    lunar: '三月十五', tibetan: '三月十五', tibetanMonth: '具香月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['释迦牟尼佛转时轮金刚法轮', '阿弥陀佛加持日,作何善恶成百万倍', '理发吉日：福报增上'],
+    publicHoliday: '劳动节',
+  },
+  {
+    date: '2026-05-02',
+    lunar: '三月十六', tibetan: '三月十六', tibetanMonth: '具香月',
+    tags: ['飞幡日'], auspicious: true,
+    events: ['准提菩萨圣诞日(汉)', '禅宗二祖慧可大师圆寂日(汉)'],
+  },
+  {
+    date: '2026-05-03',
+    lunar: '三月十七', tibetan: '三月十七', tibetanMonth: '具香月',
+    tags: ['八吉同聚'],
+  },
+  {
+    date: '2026-05-04',
+    lunar: '三月十八', tibetan: '三月十八', tibetanMonth: '具香月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['观世音菩萨加持日,作何善恶成千万倍'],
+    publicHoliday: '青年节',
+  },
+  {
+    date: '2026-05-05',
+    lunar: '三月十九', tibetan: '三月十九', tibetanMonth: '具香月',
+    events: ['理发吉日：增胜善法'],
+    publicHoliday: '立夏',
+  },
+  {
+    date: '2026-05-06',
+    lunar: '三月二十', tibetan: '三月二十', tibetanMonth: '具香月',
+  },
+  {
+    date: '2026-05-07',
+    lunar: '三月廿一', tibetan: '三月廿一', tibetanMonth: '具香月',
+    auspicious: true,
+    events: ['地藏菩萨加持日,作何善恶成亿倍'],
+  },
+  {
+    date: '2026-05-08',
+    lunar: '三月廿二', tibetan: '三月廿二', tibetanMonth: '具香月',
+  },
+  {
+    date: '2026-05-09',
+    lunar: '三月廿三', tibetan: '三月闰廿二', tibetanMonth: '具香月',
+    isIntercalary: true,
+    tags: ['十斋日'],
+  },
+  {
+    date: '2026-05-10',
+    lunar: '三月廿四', tibetan: '三月廿三', tibetanMonth: '具香月',
+    tags: ['十斋日'],
+    events: ['理发吉日：增上财富'],
+    publicHoliday: '母亲节',
+  },
+  {
+    date: '2026-05-11',
+    lunar: '三月廿五', tibetan: '三月廿四', tibetanMonth: '具香月',
+  },
+  {
+    date: '2026-05-12',
+    lunar: '三月廿六', tibetan: '三月廿五', tibetanMonth: '具香月',
+    auspicious: true,
+    events: ['空行母荟供日,作何善恶成十万倍'],
+  },
+  {
+    date: '2026-05-13',
+    lunar: '三月廿七', tibetan: '三月廿六', tibetanMonth: '具香月',
+    events: ['理发吉日：增上安乐'],
+  },
+  {
+    date: '2026-05-14',
+    lunar: '三月廿八', tibetan: '三月廿七', tibetanMonth: '具香月',
+    tags: ['十斋日'],
+    events: ['理发吉日：诸事吉祥'],
+  },
+  {
+    date: '2026-05-15',
+    lunar: '三月廿九', tibetan: '三月廿八', tibetanMonth: '具香月',
+    tags: ['十斋日'],
+  },
+  {
+    date: '2026-05-16',
+    lunar: '三月三十', tibetan: '三月三十', tibetanMonth: '具香月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['释迦牟尼佛加持日,作何善恶成九亿倍'],
+  },
+  {
+    date: '2026-05-17',
+    lunar: '四月初一', tibetan: '四月初一', tibetanMonth: '萨嘎月',
+    tags: ['十斋日', '飞幡日'], auspicious: true,
+    events: ['禅定胜王佛加持日,作何善恶成百倍'],
+  },
+  {
+    date: '2026-05-18',
+    lunar: '四月初二', tibetan: '四月初二', tibetanMonth: '萨嘎月',
+  },
+  {
+    date: '2026-05-19',
+    lunar: '四月初三', tibetan: '四月初三', tibetanMonth: '萨嘎月',
+    events: ['理发吉日：家族增长财富'],
+  },
+  {
+    date: '2026-05-20',
+    lunar: '四月初四', tibetan: '四月初四', tibetanMonth: '萨嘎月',
+    auspicious: true,
+    events: ['文殊菩萨圣诞日(汉)', '理发吉日：怀业增上，容光焕发'],
+  },
+  {
+    date: '2026-05-21',
+    lunar: '四月初五', tibetan: '四月初五', tibetanMonth: '萨嘎月',
+    events: ['理发吉日：聚集广大财富'],
+    publicHoliday: '小满',
+  },
+  {
+    date: '2026-05-22',
+    lunar: '四月初六', tibetan: '四月初六', tibetanMonth: '萨嘎月',
+  },
+  {
+    date: '2026-05-23',
+    lunar: '四月初七', tibetan: '四月初七', tibetanMonth: '萨嘎月',
+    tags: ['九凶同聚'], auspicious: true,
+  },
+  {
+    date: '2026-05-24',
+    lunar: '四月初八', tibetan: '四月初八', tibetanMonth: '萨嘎月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['释迦牟尼佛诞辰日', '金刚萨埵法会开始', '药师佛加持日,作何善恶成千倍', '释迦牟尼佛圣诞日(汉)', '道宣律师诞辰日(汉)', '理发吉日：长寿'],
+    publicHoliday: '浴佛节',
+  },
+  {
+    date: '2026-05-25',
+    lunar: '四月初九', tibetan: '四月初九', tibetanMonth: '萨嘎月',
+    events: ['金刚萨埵法会', '理发吉日：易遇佳人'],
+  },
+  {
+    date: '2026-05-26',
+    lunar: '四月初十', tibetan: '四月初十', tibetanMonth: '萨嘎月',
+    auspicious: true,
+    events: ['金刚萨埵法会', '莲师荟供日,作何善恶成十万倍', '理发吉日：增上欢喜'],
+  },
+  {
+    date: '2026-05-27',
+    lunar: '四月十一', tibetan: '四月十一', tibetanMonth: '萨嘎月',
+    events: ['金刚萨埵法会', '理发吉日：增上智慧和世聪'],
+  },
+  {
+    date: '2026-05-28',
+    lunar: '四月十二', tibetan: '四月十二', tibetanMonth: '萨嘎月',
+    tags: ['八吉同聚'],
+    events: ['金刚萨埵法会'],
+  },
+  {
+    date: '2026-05-29',
+    lunar: '四月十三', tibetan: '四月十三', tibetanMonth: '萨嘎月',
+    tags: ['飞幡日'], auspicious: true,
+    events: ['金刚萨埵法会', '理发吉日：精进于佛法修持，最上'],
+  },
+  {
+    date: '2026-05-30',
+    lunar: '四月十四', tibetan: '四月十四', tibetanMonth: '萨嘎月',
+    tags: ['十斋日'],
+    events: ['金刚萨埵法会结束', '理发吉日：财物增多'],
+  },
+  {
+    date: '2026-05-31',
+    lunar: '四月十五', tibetan: '四月十五', tibetanMonth: '萨嘎月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['释迦牟尼佛成道日涅槃日,作何善恶成百万倍', '阿弥陀佛加持日,作何善恶成百万倍', '理发吉日：福报增上'],
+    publicHoliday: '卫塞节',
+  },
+
+  // ── 2026 年 6 月 · 利他 · 萨嘎月(1-15) / 作净月(16+) ──────────────────────
+  {
+    date: '2026-06-01',
+    lunar: '四月十六', tibetan: '四月十六', tibetanMonth: '萨嘎月',
+    publicHoliday: '儿童节',
+  },
+  {
+    date: '2026-06-02',
+    lunar: '四月十七', tibetan: '四月十七', tibetanMonth: '萨嘎月',
+  },
+  {
+    date: '2026-06-03',
+    lunar: '四月十八', tibetan: '四月十八', tibetanMonth: '萨嘎月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['观世音菩萨加持日,作何善恶成千万倍'],
+  },
+  {
+    date: '2026-06-04',
+    lunar: '四月十九', tibetan: '四月十九', tibetanMonth: '萨嘎月',
+    events: ['理发吉日：增胜善法'],
+  },
+  {
+    date: '2026-06-05',
+    lunar: '四月二十', tibetan: '四月二十', tibetanMonth: '萨嘎月',
+  },
+  {
+    date: '2026-06-06',
+    lunar: '四月廿一', tibetan: '四月廿一', tibetanMonth: '萨嘎月',
+    auspicious: true,
+    events: ['地藏菩萨加持日,作何善恶成亿倍'],
+  },
+  {
+    date: '2026-06-07',
+    lunar: '四月廿二', tibetan: '四月廿二', tibetanMonth: '萨嘎月',
+  },
+  {
+    date: '2026-06-08',
+    lunar: '四月廿三', tibetan: '四月廿三', tibetanMonth: '萨嘎月',
+    tags: ['十斋日'],
+    events: ['理发吉日：增上财富'],
+  },
+  {
+    date: '2026-06-09',
+    lunar: '四月廿四', tibetan: '四月廿四', tibetanMonth: '萨嘎月',
+    tags: ['八吉同聚', '十斋日'],
+  },
+  {
+    date: '2026-06-10',
+    lunar: '四月廿五', tibetan: '四月廿五', tibetanMonth: '萨嘎月',
+    auspicious: true,
+    events: ['空行母荟供日,作何善恶成十万倍'],
+  },
+  {
+    date: '2026-06-11',
+    lunar: '四月廿六', tibetan: '四月廿六', tibetanMonth: '萨嘎月',
+    events: ['理发吉日：增上安乐'],
+  },
+  {
+    date: '2026-06-12',
+    lunar: '四月廿七', tibetan: '四月廿七', tibetanMonth: '萨嘎月',
+    events: ['理发吉日：诸事吉祥'],
+  },
+  {
+    date: '2026-06-13',
+    lunar: '四月廿八', tibetan: '四月廿八', tibetanMonth: '萨嘎月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['药王菩萨圣诞日(汉)'],
+  },
+  {
+    date: '2026-06-14',
+    lunar: '四月廿九', tibetan: '四月廿九', tibetanMonth: '萨嘎月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['全知麦彭尊者圆寂纪念日'],
+  },
+  {
+    date: '2026-06-15',
+    lunar: '五月初一', tibetan: '四月三十', tibetanMonth: '萨嘎月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['释迦牟尼佛加持日,作何善恶成九亿倍'],
+  },
+  {
+    date: '2026-06-16',
+    lunar: '五月初二', tibetan: '五月初一', tibetanMonth: '作净月',
+    auspicious: true,
+    events: ['禅定胜王佛加持日,作何善恶成百倍'],
+  },
+  {
+    date: '2026-06-17',
+    lunar: '五月初三', tibetan: '五月初三', tibetanMonth: '作净月',
+    events: ['理发吉日：家族增长财富'],
+  },
+  {
+    date: '2026-06-18',
+    lunar: '五月初四', tibetan: '五月初四', tibetanMonth: '作净月',
+    events: ['理发吉日：怀业增上，容光焕发'],
+  },
+  {
+    date: '2026-06-19',
+    lunar: '五月初五', tibetan: '五月初五', tibetanMonth: '作净月',
+    tags: ['九凶同聚'],
+    events: ['理发吉日：聚集广大财富'],
+    publicHoliday: '端午节',
+  },
+  {
+    date: '2026-06-20',
+    lunar: '五月初六', tibetan: '五月初六', tibetanMonth: '作净月',
+  },
+  {
+    date: '2026-06-21',
+    lunar: '五月初七', tibetan: '五月初七', tibetanMonth: '作净月',
+    tags: ['八吉同聚'],
+    publicHoliday: '夏至·父亲节',
+  },
+  {
+    date: '2026-06-22',
+    lunar: '五月初八', tibetan: '五月初八', tibetanMonth: '作净月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['药师佛加持日,作何善恶成千倍', '理发吉日：长寿'],
+  },
+  {
+    date: '2026-06-23',
+    lunar: '五月初九', tibetan: '五月初九', tibetanMonth: '作净月',
+    events: ['理发吉日：易遇佳人'],
+  },
+  {
+    date: '2026-06-24',
+    lunar: '五月初十', tibetan: '五月初十', tibetanMonth: '作净月',
+    tags: ['飞幡日'], auspicious: true,
+    events: ['莲花生大师诞辰日', '莲师荟供日,作何善恶成十万倍', '理发吉日：增上欢喜'],
+  },
+  {
+    date: '2026-06-25',
+    lunar: '五月十一', tibetan: '五月十一', tibetanMonth: '作净月',
+    events: ['理发吉日：增上智慧和世聪'],
+  },
+  {
+    date: '2026-06-26',
+    lunar: '五月十二', tibetan: '五月十二', tibetanMonth: '作净月',
+  },
+  {
+    date: '2026-06-27',
+    lunar: '五月十三', tibetan: '五月十三', tibetanMonth: '作净月',
+    auspicious: true,
+    events: ['伽蓝菩萨圣诞日(汉)', '理发吉日：精进于佛法修持，最上'],
+  },
+  {
+    date: '2026-06-28',
+    lunar: '五月十四', tibetan: '五月十四', tibetanMonth: '作净月',
+    tags: ['十斋日'],
+    events: ['理发吉日：财物增多'],
+  },
+  {
+    date: '2026-06-29',
+    lunar: '五月十五', tibetan: '五月十五', tibetanMonth: '作净月',
+    tags: ['十斋日'], auspicious: true,
+    events: ['阿弥陀佛加持日,作何善恶成百万倍', '理发吉日：福报增上'],
+  },
+  {
+    date: '2026-06-30',
+    lunar: '五月十六', tibetan: '五月十六', tibetanMonth: '作净月',
+  },
 ];
 
 export async function seedTibetan2026(prisma: PrismaClient) {
