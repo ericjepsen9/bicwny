@@ -16,6 +16,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
+    "tibetan:dump-json": "tsx scripts/dump-tibetan-json.ts",
     "content:seed": "tsx scripts/content-seed-runner.ts",
     "db:search:setup": "tsx scripts/setup-search-indexes.ts"
   },
