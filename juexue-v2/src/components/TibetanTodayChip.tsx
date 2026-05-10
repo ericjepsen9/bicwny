@@ -1,7 +1,7 @@
-// 首页用 · 今日藏历紧凑 pill
-//   - 全宽 saffron-pale 背景 pill · 明确「藏历」标签 + 月名/日 + 主标注 + ›
+// 首页用 · 紧凑日期 chip
+//   - 📅 公历日 + 节日 / 加持日 等单条显眼标注
+//   - 无背景无边框 · inline 文字样式
 //   - 点击跳 /calendar
-//   - 数据未加载 / 空 → 仍显示「藏历 · 5月10日」可点击 · 不消失
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
@@ -26,50 +26,39 @@ export default function TibetanTodayChip() {
   });
 
   const day = data.data;
-  const mainEvent = day?.events?.find((e) => !e.startsWith('理发吉日')) ?? null;
   const now = new Date();
-  const fallback = `${now.getMonth() + 1}月${now.getDate()}日`;
+  const dateLabel = `${now.getMonth() + 1}月${now.getDate()}日`;
+  // 优先级：法定节日 > 第一条非理发吉日 event
+  const firstEvent = day?.events?.find((e) => !e.startsWith('理发吉日')) ?? null;
+  const headline = day?.publicHoliday ?? firstEvent ?? null;
 
   return (
     <Link
       to="/calendar"
-      aria-label="今日藏历 · 点击查看月历"
+      aria-label="日历"
       style={{
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
-        gap: 8,
-        padding: '6px 12px',
-        borderRadius: 'var(--r-pill)',
-        background: 'var(--saffron-pale)',
-        border: '1px solid var(--saffron-light)',
-        color: 'var(--saffron-dark)',
+        gap: 6,
         font: 'var(--text-caption)',
+        color: 'var(--ink-3)',
         textDecoration: 'none',
-        marginBottom: 6,
-        maxWidth: 'fit-content',
+        letterSpacing: 1,
+        marginBottom: 4,
+        maxWidth: '100%',
       }}
     >
-      <span style={{ fontWeight: 700 }}>📿 藏历</span>
-      <span style={{ color: 'var(--ink-2)' }}>·</span>
-      {day ? (
+      <span aria-hidden style={{ fontSize: '0.95rem' }}>📅</span>
+      <span style={{ color: 'var(--ink-2)' }}>{dateLabel}</span>
+      {day?.auspicious && <span aria-hidden>🌺</span>}
+      {headline && (
         <>
-          <span style={{ color: 'var(--ink-2)' }}>
-            {day.tibetanMonth}{day.isIntercalary ? '·闰' : ''}{day.tibetan}
+          <span style={{ color: 'var(--ink-4)' }}>·</span>
+          <span style={{ color: day?.publicHoliday ? 'var(--crimson)' : 'var(--ink-2)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+            {headline}
           </span>
-          {day.auspicious && <span aria-hidden>🌺</span>}
-          {day.publicHoliday && (
-            <span style={{ color: 'var(--crimson)', fontWeight: 600 }}>{day.publicHoliday}</span>
-          )}
-          {mainEvent && (
-            <span style={{ color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
-              {mainEvent}
-            </span>
-          )}
         </>
-      ) : (
-        <span style={{ color: 'var(--ink-3)' }}>{fallback}</span>
       )}
-      <span style={{ color: 'var(--ink-4)', fontSize: '0.75rem', marginLeft: 'auto' }}>›</span>
     </Link>
   );
 }
