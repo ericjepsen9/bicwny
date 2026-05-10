@@ -37,24 +37,26 @@ export default function TibetanTodayChip() {
       to="/calendar"
       aria-label="日历"
       style={{
-        display: 'inline-flex',
+        display: 'flex',
         alignItems: 'center',
         gap: 6,
         font: 'var(--text-caption)',
         color: 'var(--ink-3)',
         textDecoration: 'none',
         letterSpacing: 1,
-        marginBottom: 4,
+        padding: '8px 4px',
+        margin: '-8px -4px 0',
+        minHeight: 36,
         maxWidth: '100%',
       }}
     >
-      <span aria-hidden style={{ fontSize: '0.95rem' }}>📅</span>
+      <span aria-hidden style={{ fontSize: '1rem' }}>📅</span>
       <span style={{ color: 'var(--ink-2)' }}>{dateLabel}</span>
       {day?.auspicious && <span aria-hidden>🌺</span>}
       {headline && (
         <>
           <span style={{ color: 'var(--ink-4)' }}>·</span>
-          <span style={{ color: day?.publicHoliday ? 'var(--crimson)' : 'var(--ink-2)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+          <span style={{ color: day?.publicHoliday ? 'var(--crimson)' : 'var(--ink-2)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
             {headline}
           </span>
         </>
