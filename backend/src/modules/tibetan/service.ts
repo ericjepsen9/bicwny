@@ -26,6 +26,11 @@ function rowToDto(row: {
   };
 }
 
+// 检查 client 是否含 TibetanDay model（生产 prisma generate 没跑时为 undefined）
+function modelReady(prisma: PrismaClient): boolean {
+  return typeof (prisma as { tibetanDay?: { findMany?: unknown } }).tibetanDay?.findMany === 'function';
+}
+
 // 表未创建时（生产 db push 没跑）静默降级 · 否则正常抛错
 function isTableMissing(e: unknown): boolean {
   if (!e || typeof e !== 'object') return false;
@@ -39,6 +44,7 @@ function isTableMissing(e: unknown): boolean {
 export async function listMonth(prisma: PrismaClient, ym: string): Promise<TibetanDayDto[]> {
   const [y, m] = ym.split('-').map(Number);
   if (!y || !m || m < 1 || m > 12) return [];
+  if (!modelReady(prisma)) return [];
   const start = new Date(Date.UTC(y, m - 1, 1));
   const end = new Date(Date.UTC(y, m, 1));
   try {
@@ -57,6 +63,7 @@ export async function listMonth(prisma: PrismaClient, ym: string): Promise<Tibet
 export async function getDay(prisma: PrismaClient, date: string): Promise<TibetanDayDto | null> {
   const d = new Date(`${date}T00:00:00.000Z`);
   if (Number.isNaN(d.getTime())) return null;
+  if (!modelReady(prisma)) return null;
   try {
     const row = await prisma.tibetanDay.findUnique({ where: { date: d } });
     return row ? rowToDto(row) : null;
@@ -75,6 +82,7 @@ export async function getToday(prisma: PrismaClient): Promise<TibetanDayDto | nu
 
 /** 取「今日 + 未来 N 天」窗口（首页 widget） */
 export async function getUpcoming(prisma: PrismaClient, days = 7): Promise<TibetanDayDto[]> {
+  if (!modelReady(prisma)) return [];
   const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
   const end = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
   try {
