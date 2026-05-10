@@ -9,6 +9,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
+import TibetanPracticeBanner from '@/components/TibetanPracticeBanner';
 import TopNav from '@/components/TopNav';
 import WheelPicker from '@/components/WheelPicker';
 import { confirmAsync } from '@/components/ConfirmDialog';
@@ -124,6 +125,7 @@ export default function PracticeProjectPage() {
         )}
       />
       <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+      <TibetanPracticeBanner />
       {/* hero · 大累计数字（标题在 TopNav 已显示 · 不重复） */}
       <div className="glass-card-thick" style={{ padding: 'var(--sp-5) var(--sp-4)', textAlign: 'center' }}>
         <div style={{ fontSize: '2rem', marginBottom: 4 }}>{proj.emoji ?? '📿'}</div>

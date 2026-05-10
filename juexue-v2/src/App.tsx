@@ -203,6 +203,7 @@ function CoachAppShell() {
               <Route path="/classes/:id/practice" element={<CoachClassPracticePage />} />
               <Route path="/classes/:id/announcements" element={<CoachClassAnnouncementsPage />} />
               <Route path="/classes/:id/dashboard" element={<CoachClassDashboardPage />} />
+              <Route path="/calendar" element={<CalendarPage />} />
               {/* 题目审核 · coach 也能进审核队列（决策 2） */}
               <Route path="/review" element={<AdminReviewPage />} />
               {/* 观修管理 · 复用 admin 页 · 后端权限已放权 coach */}

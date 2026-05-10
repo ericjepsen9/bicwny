@@ -13,6 +13,7 @@ import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
+import TibetanTodayChip from '@/components/TibetanTodayChip';
 import WheelPicker from '@/components/WheelPicker';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
@@ -33,16 +34,6 @@ import {
 } from '@/lib/queries';
 import Skeleton from '@/components/Skeleton';
 
-function greetingHour(h: number, sLang: (sc: string, tc: string, en?: string) => string) {
-  if (h < 5)  return sLang('深夜', '深夜', 'Late night');
-  if (h < 9)  return sLang('早安', '早安', 'Good morning');
-  if (h < 12) return sLang('上午好', '上午好', 'Good morning');
-  if (h < 14) return sLang('午安', '午安', 'Good afternoon');
-  if (h < 18) return sLang('下午好', '下午好', 'Good afternoon');
-  if (h < 22) return sLang('晚安', '晚安', 'Good evening');
-  return sLang('夜深了', '夜深了', 'Late evening');
-}
-
 export default function HomePage() {
   const { user } = useAuth();
   const { s } = useLang();
@@ -56,12 +47,6 @@ export default function HomePage() {
   const unreadNotifQ = useUnreadNotifCount();
   const unreadNotifs = unreadNotifQ.data ?? 0;
 
-  const now = new Date();
-  const hour = now.getHours();
-  const greet = greetingHour(hour, s);
-  const month = now.getMonth() + 1;
-  const day = now.getDate();
-  const dateLabel = s(`${month} 月 ${day} 日`, `${month} 月 ${day} 日`, `${month}/${day}`);
   const dharmaName = user?.dharmaName || s('师兄', '師兄', 'Friend');
   const streak = progress.data?.streakDays ?? 0;
 
@@ -155,9 +140,7 @@ export default function HomePage() {
         }}
       >
         <div>
-          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 4 }}>
-            {greet} · {dateLabel}
-          </p>
+          <TibetanTodayChip />
           <p className="t-h2" style={{ color: 'var(--ink)' }}>
             {dharmaName}
           </p>

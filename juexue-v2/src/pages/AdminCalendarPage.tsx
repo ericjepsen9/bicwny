@@ -2,11 +2,12 @@
 //   - 月份切换 · 网格列出该月所有日
 //   - 点格 → 弹编辑表单（lunar / tibetan / tibetanMonth / isIntercalary / tags / auspicious / events / publicHoliday）
 //   - 保存 PUT /api/admin/calendar/:date · 删除 DELETE
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 
 interface TibetanDay {
   date: string;
@@ -41,6 +42,43 @@ export default function AdminCalendarPage() {
   }, [data.data]);
 
   const grid = useMemo(() => buildMonthGrid(year, month), [year, month]);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function exportJson() {
+    const rows = data.data ?? [];
+    if (rows.length === 0) { toast.error('当月无数据'); return; }
+    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `tibetan-${ym}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+
+  async function importJson(file: File) {
+    try {
+      const text = await file.text();
+      const arr = JSON.parse(text);
+      if (!Array.isArray(arr)) throw new Error('JSON 必须是数组');
+      if (!confirm(`将 upsert ${arr.length} 天数据 · 已存在的会被覆盖 · 确定？`)) return;
+      let ok = 0, fail = 0;
+      for (const d of arr) {
+        try {
+          await api.put(`/api/admin/calendar/${d.date}`, {
+            lunar: d.lunar, tibetan: d.tibetan, tibetanMonth: d.tibetanMonth,
+            isIntercalary: d.isIntercalary ?? false,
+            tags: d.tags ?? [], auspicious: d.auspicious ?? false,
+            events: d.events ?? [], publicHoliday: d.publicHoliday ?? null,
+          });
+          ok += 1;
+        } catch { fail += 1; }
+      }
+      toast.ok(`✅ ${ok} 条成功 · ❌ ${fail} 条失败`);
+      qc.invalidateQueries({ queryKey: ['/api/calendar/month', ym] });
+    } catch (e) {
+      toast.error('导入失败: ' + (e as Error).message);
+    }
+  }
 
   function shiftMonth(delta: number) {
     let y = year, m = month + delta;
@@ -63,6 +101,26 @@ export default function AdminCalendarPage() {
           📿 藏历管理 · {year} · {String(month).padStart(2, '0')}
         </h1>
         <button type="button" onClick={() => shiftMonth(1)} className="btn btn-pill" style={{ padding: '6px 12px' }}>›</button>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button type="button" onClick={exportJson} className="btn btn-pill" style={{ padding: '4px 14px', font: 'var(--text-caption)', background: 'var(--surface)', border: '1px solid var(--border-light)' }}>
+          📥 导出本月 JSON
+        </button>
+        <button type="button" onClick={() => fileRef.current?.click()} className="btn btn-pill" style={{ padding: '4px 14px', font: 'var(--text-caption)', background: 'var(--surface)', border: '1px solid var(--border-light)' }}>
+          📤 导入 JSON 覆盖
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) importJson(f);
+            if (fileRef.current) fileRef.current.value = '';
+          }}
+        />
       </div>
 
       <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', textAlign: 'center', margin: 0 }}>

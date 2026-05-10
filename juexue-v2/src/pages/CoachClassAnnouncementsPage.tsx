@@ -1,9 +1,9 @@
 // 班级公告管理 · admin/coach 共用 /coach/classes/:id/announcements · /admin/classes/:id/announcements
 //   - 列表（含归档）+ 新建/编辑/归档 + 图文（多图 ≤ 6 · 上传单图返回 URL）
 //   - 简单 markdown body（textarea 直存 · 学员侧渲染换行）
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
@@ -33,6 +33,21 @@ export default function CoachClassAnnouncementsPage() {
   const back = pathname.startsWith('/admin') ? '/admin/classes' : '/coach/classes';
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const prefillTitle = searchParams.get('title') ?? '';
+  const prefillBody = searchParams.get('body') ?? '';
+
+  // ?compose=1&title=xxx&body=yyy → 自动打开 composer
+  useEffect(() => {
+    if (searchParams.get('compose') === '1') {
+      setCreateOpen(true);
+      // 清掉 compose 标记 · 关闭 dialog 后不要再次自动打开
+      const next = new URLSearchParams(searchParams);
+      next.delete('compose');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const list = useQuery({
     enabled: !!classId,
@@ -66,7 +81,7 @@ export default function CoachClassAnnouncementsPage() {
 
       {createOpen && classId && (
         <Dialog open onClose={() => setCreateOpen(false)} title={s('发新公告', '發新公告', 'New announcement')} variant="centered" width={720}>
-          <Editor classId={classId} onDone={() => setCreateOpen(false)} />
+          <Editor classId={classId} onDone={() => setCreateOpen(false)} initialTitle={prefillTitle} initialBody={prefillBody} />
         </Dialog>
       )}
 
@@ -147,11 +162,11 @@ function Row({ a, onEdit, classId }: { a: Announcement; onEdit: () => void; clas
   );
 }
 
-function Editor({ classId, initial, onDone }: { classId: string; initial?: Announcement; onDone: () => void }) {
+function Editor({ classId, initial, onDone, initialTitle, initialBody }: { classId: string; initial?: Announcement; onDone: () => void; initialTitle?: string; initialBody?: string }) {
   const { s } = useLang();
   const qc = useQueryClient();
-  const [title, setTitle] = useState(initial?.title ?? '');
-  const [body, setBody] = useState(initial?.body ?? '');
+  const [title, setTitle] = useState(initial?.title ?? initialTitle ?? '');
+  const [body, setBody] = useState(initial?.body ?? initialBody ?? '');
   const [imageUrls, setImageUrls] = useState<string[]>(initial?.imageUrls ?? []);
   const [pinned, setPinned] = useState(!!initial?.pinnedAt);
   const [err, setErr] = useState('');
