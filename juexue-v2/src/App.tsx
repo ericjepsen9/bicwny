@@ -24,6 +24,7 @@ const PracticeProjectPage = lazy(() => import('./pages/PracticeProjectPage'));
 const PracticeHistoryPage = lazy(() => import('./pages/PracticeHistoryPage'));
 const MyMeditationsPage = lazy(() => import('./pages/MyMeditationsPage'));
 const DossierPage = lazy(() => import('./pages/DossierPage'));
+const CalendarPage = lazy(() => import('./pages/CalendarPage'));
 const CoachClassPracticePage = lazy(() => import('./pages/CoachClassPracticePage'));
 const CoachClassAnnouncementsPage = lazy(() => import('./pages/CoachClassAnnouncementsPage'));
 const CoachClassDashboardPage = lazy(() => import('./pages/CoachClassDashboardPage'));
@@ -78,6 +79,7 @@ const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage'));
 const AdminLogsPage = lazy(() => import('./pages/AdminLogsPage'));
 const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
 const AdminLlmPage = lazy(() => import('./pages/AdminLlmPage'));
+const AdminCalendarPage = lazy(() => import('./pages/AdminCalendarPage'));
 
 function PageFallback() {
   return (
@@ -143,6 +145,7 @@ function AppShell() {
                 <Route path="/practice/history" element={<PracticeHistoryPage />} />
                 <Route path="/me/meditations" element={<MyMeditationsPage />} />
                 <Route path="/me/stats" element={<DossierPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/practice/project/:id" element={<PracticeProjectPage />} />
                 <Route path="/practice/:categoryKey" element={<PracticeCategoryPage />} />
                 <Route path="/notifications" element={<NotificationPage />} />
@@ -248,6 +251,7 @@ function AdminAppShell() {
               <Route path="/audit" element={<AdminAuditPage />} />
               <Route path="/logs" element={<AdminLogsPage />} />
               <Route path="/llm" element={<AdminLlmPage />} />
+              <Route path="/calendar" element={<AdminCalendarPage />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>
           </Route>
