@@ -4,8 +4,9 @@
 //   - 点格 → 弹底部 sheet 显示当日完整信息
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import TopNav from '@/components/TopNav';
 import { api } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { useCoachClasses } from '@/lib/queries';
@@ -88,10 +89,17 @@ export default function CalendarPage() {
   }
 
   return (
-    <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-      <Link to="/" style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-        ← {s('返回首页', '返回首頁', 'Home')}
-      </Link>
+    <>
+      <TopNav
+        titles={['藏历', '藏曆', 'Calendar']}
+        backTo={isCoach ? '/coach' : '/'}
+        right={(
+          <button type="button" onClick={jumpToToday} style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', background: 'transparent', border: 'none', padding: '4px 10px', cursor: 'pointer' }}>
+            {s('今日', '今日', 'Today')}
+          </button>
+        )}
+      />
+      <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
 
       {/* 月份导航 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -101,9 +109,19 @@ export default function CalendarPage() {
         </h1>
         <button type="button" onClick={() => shiftMonth(1)} className="btn btn-pill" style={{ padding: '6px 12px' }}>›</button>
       </div>
-      <button type="button" onClick={jumpToToday} className="btn btn-pill" style={{ alignSelf: 'center', padding: '4px 14px', font: 'var(--text-caption)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)' }}>
-        {s('回到今日', '回到今日', 'Today')}
-      </button>
+
+      {/* 数据空态：seed 未灌库 / 当月未编辑 */}
+      {!data.isLoading && (data.data?.length ?? 0) === 0 && (
+        <div className="glass-card" style={{ padding: 'var(--sp-4)', textAlign: 'center', color: 'var(--ink-3)' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>📿</div>
+          <p style={{ font: 'var(--text-body)', margin: 0 }}>
+            {s('当月暂无藏历数据', '當月暫無藏曆數據', 'No calendar data this month')}
+          </p>
+          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 4 }}>
+            {s('请联系管理员录入', '請聯繫管理員錄入', 'Contact admin to populate')}
+          </p>
+        </div>
+      )}
 
       {/* 本月概览 · 藏历月名 + 功德日 / 十斋日 / 主法会 */}
       {!data.isLoading && (data.data?.length ?? 0) > 0 && (
@@ -184,6 +202,7 @@ export default function CalendarPage() {
         <div>● {s('当日有圣诞 / 加持日 / 法会等', '當日有聖誕 / 加持日 / 法會等', 'Has events')}</div>
       </div>
     </div>
+    </>
   );
 }
 

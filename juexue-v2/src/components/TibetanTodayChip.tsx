@@ -1,7 +1,7 @@
-// 首页 / 其他页面用的 · 今日藏历紧凑 chip
-//   - 1 行显示：📿 藏历月名+日 · 主要事件（最多 1 条）· 🌺
+// 首页用 · 今日藏历紧凑 pill
+//   - 全宽 saffron-pale 背景 pill · 明确「藏历」标签 + 月名/日 + 主标注 + ›
 //   - 点击跳 /calendar
-//   - 数据无 → 显示「藏历」+ 公历 fallback · 不影响布局
+//   - 数据未加载 / 空 → 仍显示「藏历 · 5月10日」可点击 · 不消失
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
@@ -22,30 +22,35 @@ export default function TibetanTodayChip() {
   const data = useQuery({
     queryKey: ['/api/calendar/today'],
     queryFn: ({ signal }) => api.get<TibetanDay | null>('/api/calendar/today', { signal }),
-    staleTime: 60 * 60 * 1000, // 1h
+    staleTime: 60 * 60 * 1000,
   });
 
   const day = data.data;
-  // 取最显眼的一条事件（去掉理发吉日开头的批注 · 它太啰嗦不适合 chip）
   const mainEvent = day?.events?.find((e) => !e.startsWith('理发吉日')) ?? null;
+  const now = new Date();
+  const fallback = `${now.getMonth() + 1}月${now.getDate()}日`;
 
   return (
     <Link
       to="/calendar"
+      aria-label="今日藏历 · 点击查看月历"
       style={{
-        display: 'inline-flex',
+        display: 'flex',
         alignItems: 'center',
-        gap: 6,
+        gap: 8,
+        padding: '6px 12px',
+        borderRadius: 'var(--r-pill)',
+        background: 'var(--saffron-pale)',
+        border: '1px solid var(--saffron-light)',
+        color: 'var(--saffron-dark)',
         font: 'var(--text-caption)',
-        color: 'var(--ink-3)',
         textDecoration: 'none',
-        letterSpacing: 1,
-        marginBottom: 4,
-        maxWidth: '100%',
+        marginBottom: 6,
+        maxWidth: 'fit-content',
       }}
-      aria-label="今日藏历"
     >
-      <span style={{ color: 'var(--saffron-dark)', fontWeight: 700 }}>📿</span>
+      <span style={{ fontWeight: 700 }}>📿 藏历</span>
+      <span style={{ color: 'var(--ink-2)' }}>·</span>
       {day ? (
         <>
           <span style={{ color: 'var(--ink-2)' }}>
@@ -53,17 +58,18 @@ export default function TibetanTodayChip() {
           </span>
           {day.auspicious && <span aria-hidden>🌺</span>}
           {day.publicHoliday && (
-            <span style={{ color: 'var(--crimson)', fontWeight: 600 }}>· {day.publicHoliday}</span>
+            <span style={{ color: 'var(--crimson)', fontWeight: 600 }}>{day.publicHoliday}</span>
           )}
           {mainEvent && (
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              · {mainEvent}
+            <span style={{ color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
+              {mainEvent}
             </span>
           )}
         </>
       ) : (
-        <span>{new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}</span>
+        <span style={{ color: 'var(--ink-3)' }}>{fallback}</span>
       )}
+      <span style={{ color: 'var(--ink-4)', fontSize: '0.75rem', marginLeft: 'auto' }}>›</span>
     </Link>
   );
 }
