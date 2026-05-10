@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import TibetanClassWeekStrip from '@/components/TibetanClassWeekStrip';
 import TopNav from '@/components/TopNav';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
@@ -120,6 +121,8 @@ export default function ClassDetailPage() {
             />
           </div>
         </div>
+
+        <TibetanClassWeekStrip />
 
         {/* 主修法本卡 */}
         {c.course && (

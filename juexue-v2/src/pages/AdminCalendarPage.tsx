@@ -4,7 +4,7 @@
 //   - 保存 PUT /api/admin/calendar/:date · 删除 DELETE
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import TibetanYearTransitionBanner from '@/components/TibetanYearTransitionBanner';
 import { api } from '@/lib/api';
@@ -25,8 +25,23 @@ interface TibetanDay {
 const TAG_OPTIONS = ['十斋日', '飞幡日', '八吉同聚', '九凶同聚'] as const;
 
 export default function AdminCalendarPage() {
-  const [year, setYear] = useState<number>(() => new Date().getFullYear());
-  const [month, setMonth] = useState<number>(() => new Date().getMonth() + 1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const ymParam = searchParams.get('ym');
+  const initial = ymParam && /^\d{4}-\d{2}$/.test(ymParam)
+    ? { y: Number(ymParam.slice(0, 4)), m: Number(ymParam.slice(5, 7)) }
+    : { y: new Date().getFullYear(), m: new Date().getMonth() + 1 };
+  const [year, setYear] = useState<number>(initial.y);
+  const [month, setMonth] = useState<number>(initial.m);
+
+  // 切月时同步 URL · 方便分享 / 后退
+  useEffect(() => {
+    const ym = `${year}-${String(month).padStart(2, '0')}`;
+    if (searchParams.get('ym') !== ym) {
+      const next = new URLSearchParams(searchParams);
+      next.set('ym', ym);
+      setSearchParams(next, { replace: true });
+    }
+  }, [year, month]); // eslint-disable-line react-hooks/exhaustive-deps
   const [editing, setEditing] = useState<string | null>(null);
   const ym = `${year}-${String(month).padStart(2, '0')}`;
   const qc = useQueryClient();
@@ -92,9 +107,14 @@ export default function AdminCalendarPage() {
 
   return (
     <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-      <Link to="/admin" style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-        ← 返回 admin
-      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Link to="/admin" style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
+          ← 返回 admin
+        </Link>
+        <Link to={`/admin/calendar/year/${year}`} style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', textDecoration: 'none' }}>
+          📅 年视图 →
+        </Link>
+      </div>
 
       <TibetanYearTransitionBanner />
 
