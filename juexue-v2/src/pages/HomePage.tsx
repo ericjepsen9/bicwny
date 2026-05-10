@@ -141,25 +141,16 @@ export default function HomePage() {
       >
         <div>
           <TibetanTodayChip />
-          <p className="t-h2" style={{ color: 'var(--ink)' }}>
-            {dharmaName}
-          </p>
-          {streak > 0 && (
-            <span
-              style={{
-                display: 'inline-block',
-                marginTop: 6,
-                padding: '3px 10px',
-                borderRadius: 'var(--r-pill)',
-                background: 'var(--gold-pale)',
-                color: 'var(--gold-dark)',
-                font: 'var(--text-caption)',
-                fontWeight: 700,
-                letterSpacing: 1,
-              }}
-            >
-              🔥 {s(`连续 ${streak} 天`, `連續 ${streak} 天`, `${streak}-day streak`)}
-            </span>
+          {streak > 0 ? (
+            <p className="t-h2" style={{ color: 'var(--gold-dark)', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span>🔥</span>
+              <span>{s(`连续 ${streak} 天`, `連續 ${streak} 天`, `${streak}-day streak`)}</span>
+            </p>
+          ) : (
+            <p className="t-h2" style={{ color: 'var(--ink)', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span>🌱</span>
+              <span>{s('今日开始修学', '今日開始修學', 'Begin today')}</span>
+            </p>
           )}
         </div>
         <div style={{ display: 'flex', gap: 'var(--sp-3)', alignItems: 'center', paddingTop: 4 }}>
@@ -212,7 +203,8 @@ export default function HomePage() {
           </Link>
           <Link
             to="/profile"
-            aria-label={s('个人资料', '個人資料', 'Profile')}
+            aria-label={dharmaName + ' · ' + s('个人资料', '個人資料', 'Profile')}
+            title={dharmaName}
             style={{
               width: 36,
               height: 36,
