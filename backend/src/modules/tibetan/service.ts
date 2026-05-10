@@ -26,25 +26,44 @@ function rowToDto(row: {
   };
 }
 
+// 表未创建时（生产 db push 没跑）静默降级 · 否则正常抛错
+function isTableMissing(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false;
+  const code = (e as { code?: string }).code;
+  const msg = (e as { message?: string }).message ?? '';
+  // Prisma P2021 = table not found · Postgres 42P01 = relation does not exist
+  return code === 'P2021' || /TibetanDay|relation .* does not exist/i.test(msg);
+}
+
 /** 按 YYYY-MM 取月内全部日 */
 export async function listMonth(prisma: PrismaClient, ym: string): Promise<TibetanDayDto[]> {
   const [y, m] = ym.split('-').map(Number);
   if (!y || !m || m < 1 || m > 12) return [];
   const start = new Date(Date.UTC(y, m - 1, 1));
   const end = new Date(Date.UTC(y, m, 1));
-  const rows = await prisma.tibetanDay.findMany({
-    where: { date: { gte: start, lt: end } },
-    orderBy: { date: 'asc' },
-  });
-  return rows.map(rowToDto);
+  try {
+    const rows = await prisma.tibetanDay.findMany({
+      where: { date: { gte: start, lt: end } },
+      orderBy: { date: 'asc' },
+    });
+    return rows.map(rowToDto);
+  } catch (e) {
+    if (isTableMissing(e)) return [];
+    throw e;
+  }
 }
 
 /** 取某一天 */
 export async function getDay(prisma: PrismaClient, date: string): Promise<TibetanDayDto | null> {
   const d = new Date(`${date}T00:00:00.000Z`);
   if (Number.isNaN(d.getTime())) return null;
-  const row = await prisma.tibetanDay.findUnique({ where: { date: d } });
-  return row ? rowToDto(row) : null;
+  try {
+    const row = await prisma.tibetanDay.findUnique({ where: { date: d } });
+    return row ? rowToDto(row) : null;
+  } catch (e) {
+    if (isTableMissing(e)) return null;
+    throw e;
+  }
 }
 
 /** 取「今天」（UTC · 与 seed 一致） */
@@ -58,11 +77,16 @@ export async function getToday(prisma: PrismaClient): Promise<TibetanDayDto | nu
 export async function getUpcoming(prisma: PrismaClient, days = 7): Promise<TibetanDayDto[]> {
   const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
   const end = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
-  const rows = await prisma.tibetanDay.findMany({
-    where: { date: { gte: today, lt: end } },
-    orderBy: { date: 'asc' },
-  });
-  return rows.map(rowToDto);
+  try {
+    const rows = await prisma.tibetanDay.findMany({
+      where: { date: { gte: today, lt: end } },
+      orderBy: { date: 'asc' },
+    });
+    return rows.map(rowToDto);
+  } catch (e) {
+    if (isTableMissing(e)) return [];
+    throw e;
+  }
 }
 
 export interface UpsertTibetanInput {
