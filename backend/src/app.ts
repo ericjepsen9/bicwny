@@ -46,6 +46,7 @@ import { practiceAdminRoutes } from './modules/practice/admin.routes.js';
 import { announcementCoachRoutes, announcementStudentRoutes } from './modules/announcements/routes.js';
 import { readingRoutes } from './modules/reading/routes.js';
 import { dossierRoutes } from './modules/dossier/routes.js';
+import { tibetanRoutes } from './modules/tibetan/routes.js';
 import { studentMeditationRoutes } from './modules/meditations/student.routes.js';
 import { achievementsRoutes } from './modules/achievements/routes.js';
 import { notificationsRoutes } from './modules/notifications/routes.js';
@@ -339,6 +340,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(announcementStudentRoutes);
   await app.register(readingRoutes);
   await app.register(dossierRoutes);
+  await app.register(tibetanRoutes);
   await app.register(learningRoutes);
   await app.register(favoritesRoutes);
   await app.register(answeringRoutes);

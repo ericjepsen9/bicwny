@@ -1205,3 +1205,26 @@ model LessonReadingProgress {
   @@index([userId, courseId])
   @@index([userId, isCompleted])
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 藏历 · 公历 / 农历 / 藏历对照 · 节日 / 法会 / 修法功德日
+// 静态数据 · admin 可编辑 · 学员只读
+// ═══════════════════════════════════════════════════════════════
+
+model TibetanDay {
+  id            String   @id @default(cuid())
+  date          DateTime @unique // 公历日 00:00 UTC
+  lunar         String // 农历 e.g. '三月廿五'
+  tibetan       String // 藏历 e.g. '二月廿四'
+  tibetanMonth  String // '萨嘎月' / '苦行月' / '具香月' / '作净月' …
+  isIntercalary Boolean  @default(false) // 藏历闰日
+  tags          Json     @default("[]") // ('十斋日'|'飞幡日'|'八吉同聚'|'九凶同聚')[]
+  auspicious    Boolean  @default(false) // 🌺 修法功德日 · 公农藏共认特殊日
+  events        Json     @default("[]") // string[] · 圣诞 / 法会 / 加持日 / 理发吉日
+  publicHoliday String? // '清明节' / '劳动节' / '儿童节'
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([date])
+  @@index([auspicious])
+}

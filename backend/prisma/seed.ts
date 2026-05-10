@@ -9,6 +9,7 @@ import { seedContent } from './seed/content.js';
 import { seedLlm } from './seed/llm.js';
 import { seedPracticeCategories } from './seed/practice.js';
 import { seedQuestions } from './seed/questions/index.js';
+import { seedTibetan2026 } from './seed/tibetan-2026.js';
 
 const prisma = new PrismaClient();
 
@@ -19,6 +20,7 @@ async function main() {
   await seedQuestions(prisma);
   await seedLlm(prisma);
   await seedPracticeCategories(prisma);
+  await seedTibetan2026(prisma);
   console.log('\n✅ Seed done');
 }
 
