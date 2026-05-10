@@ -158,6 +158,8 @@ export default function CalendarPage() {
             const isToday = cell.ymd === today;
             const isSelected = selected === cell.ymd;
             const hasEvent = (day?.events?.length ?? 0) > 0 || day?.auspicious;
+            const isCeremony = !!day?.events.some((e) => e.includes('法会'));
+            const bg = isToday ? 'var(--saffron-pale)' : isCeremony ? 'var(--crimson-pale)' : 'var(--surface)';
             return (
               <button
                 key={cell.ymd}
@@ -165,9 +167,9 @@ export default function CalendarPage() {
                 onClick={() => setSelected(isSelected ? null : cell.ymd)}
                 style={{
                   aspectRatio: '1',
-                  border: isSelected ? '2px solid var(--saffron-dark)' : '1px solid var(--border-light)',
+                  border: isSelected ? '2px solid var(--saffron-dark)' : isCeremony ? '1px solid var(--crimson-light)' : '1px solid var(--border-light)',
                   borderRadius: 6,
-                  background: isToday ? 'var(--saffron-pale)' : 'var(--surface)',
+                  background: bg,
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -186,7 +188,10 @@ export default function CalendarPage() {
                 {day?.auspicious && (
                   <div style={{ position: 'absolute', top: 2, right: 4, fontSize: '0.7rem' }}>🌺</div>
                 )}
-                {!day?.auspicious && hasEvent && (
+                {isCeremony && (
+                  <div style={{ position: 'absolute', bottom: 2, left: 0, right: 0, fontSize: '0.55rem', color: 'var(--crimson)', textAlign: 'center', lineHeight: 1, fontWeight: 700 }}>📜</div>
+                )}
+                {!day?.auspicious && !isCeremony && hasEvent && (
                   <div style={{ position: 'absolute', top: 4, right: 4, width: 6, height: 6, borderRadius: '50%', background: 'var(--saffron-dark)' }} />
                 )}
               </button>
@@ -201,6 +206,7 @@ export default function CalendarPage() {
       {/* 图例 */}
       <div className="glass-card" style={{ padding: 'var(--sp-3)', font: 'var(--text-caption)', color: 'var(--ink-3)', display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div>🌺 {s('修法功德日 · 公农藏共认特殊日', '修法功德日 · 公農藏共認特殊日', 'Auspicious day')}</div>
+        <div><span style={{ display: 'inline-block', width: 12, height: 12, background: 'var(--crimson-pale)', border: '1px solid var(--crimson-light)', borderRadius: 3, verticalAlign: 'middle', marginRight: 6 }} />📜 {s('法会期', '法會期', 'Ceremony days')}</div>
         <div>● {s('当日有圣诞 / 加持日 / 法会等', '當日有聖誕 / 加持日 / 法會等', 'Has events')}</div>
       </div>
     </div>
