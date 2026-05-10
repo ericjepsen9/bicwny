@@ -54,6 +54,7 @@ interface DossierStats {
     streakDays: number;
     sm2: { new: number; learning: number; review: number; mastered: number; due: number; total: number };
     mistakeCount: number;
+    dailySeries: Array<{ date: string; count: number; correct: number }>;
     recentMistakes: Array<{ questionId: string; questionText: string; wrongCount: number; lastWrongAt: string }>;
   };
   classTasks: Array<{
@@ -253,17 +254,30 @@ export default function DossierPage() {
                   <span style={{ marginLeft: 6, color: 'var(--gold-dark)', fontWeight: 700 }}>· {stats.data.quiz.sm2.due} {s('待复习', '待複習', 'due')}</span>
                 )}
               </div>
+              {stats.data.quiz.dailySeries.length > 0 && (
+                <div style={{ marginBottom: 'var(--sp-3)' }}>
+                  <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginBottom: 4 }}>{s('30 天答题', '30 天答題', '30d quiz')}</div>
+                  <DailyMiniChart series={stats.data.quiz.dailySeries.map((d) => ({ date: d.date, count: d.count }))} color="var(--sage-dark)" />
+                </div>
+              )}
               {stats.data.quiz.recentMistakes.length > 0 && (
                 <>
                   <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginBottom: 6 }}>{s('最近错题', '最近錯題', 'Recent mistakes')}</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {stats.data.quiz.recentMistakes.map((m) => (
-                      <div key={m.questionId} style={{ display: 'flex', gap: 8, padding: '4px 0', borderTop: '1px solid var(--border-light)', font: 'var(--text-caption)', color: 'var(--ink-2)' }}>
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.questionText}</span>
-                        <span style={{ color: 'var(--crimson)', fontWeight: 700 }}>×{m.wrongCount}</span>
-                        <span style={{ color: 'var(--ink-4)' }}>{relTime(m.lastWrongAt, s)}</span>
-                      </div>
-                    ))}
+                    {stats.data.quiz.recentMistakes.map((m) => {
+                      const row = (
+                        <div style={{ display: 'flex', gap: 8, padding: '4px 0', borderTop: '1px solid var(--border-light)', font: 'var(--text-caption)', color: 'var(--ink-2)' }}>
+                          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.questionText}</span>
+                          <span style={{ color: 'var(--crimson)', fontWeight: 700 }}>×{m.wrongCount}</span>
+                          <span style={{ color: 'var(--ink-4)' }}>{relTime(m.lastWrongAt, s)}</span>
+                        </div>
+                      );
+                      return isViewingSelf ? (
+                        <Link key={m.questionId} to={`/mistake/${encodeURIComponent(m.questionId)}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                          {row}
+                        </Link>
+                      ) : <div key={m.questionId}>{row}</div>;
+                    })}
                   </div>
                 </>
               )}

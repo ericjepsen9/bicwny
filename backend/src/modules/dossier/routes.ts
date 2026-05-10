@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { getUserRole, requireRole, requireUserId } from '../../lib/auth.js';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { dashboardToCsv, getClassDashboard } from './dashboard.service.js';
 import { getDossierStats } from './service.js';
 
 const TAGS = ['Dossier'];
@@ -36,6 +37,49 @@ export const dossierRoutes: FastifyPluginAsync = async (app) => {
     if (!u) throw NotFound('用户不存在');
     const data = await getDossierStats(prisma, pp.data.uid);
     return { data };
+  });
+
+  // 班级 dashboard · 所有学员对比表
+  app.get('/api/coach/classes/:id/dashboard', {
+    preHandler: requireRole('coach', 'admin'),
+    schema: { tags: TAGS, summary: '班级所有学员核心进度对比表', security: SEC },
+  }, async (req) => {
+    const pp = idParam.safeParse(req.params);
+    if (!pp.success) throw BadRequest('路径参数不合法');
+    const actorId = requireUserId(req);
+    const role = getUserRole(req);
+    if (role !== 'admin') {
+      const m = await prisma.classMember.findFirst({
+        where: { classId: pp.data.id, userId: actorId, role: 'coach', removedAt: null },
+      });
+      if (!m) throw Forbidden('非该班 coach');
+    }
+    const data = await getClassDashboard(prisma, pp.data.id);
+    return { data };
+  });
+
+  // CSV 导出
+  app.get('/api/coach/classes/:id/dashboard.csv', {
+    preHandler: requireRole('coach', 'admin'),
+    schema: { tags: TAGS, summary: '班级 dashboard CSV 导出', security: SEC },
+  }, async (req, reply) => {
+    const pp = idParam.safeParse(req.params);
+    if (!pp.success) throw BadRequest('路径参数不合法');
+    const actorId = requireUserId(req);
+    const role = getUserRole(req);
+    if (role !== 'admin') {
+      const m = await prisma.classMember.findFirst({
+        where: { classId: pp.data.id, userId: actorId, role: 'coach', removedAt: null },
+      });
+      if (!m) throw Forbidden('非该班 coach');
+    }
+    const cls = await prisma.class.findUnique({ where: { id: pp.data.id }, select: { name: true } });
+    const { taskCount, rows } = await getClassDashboard(prisma, pp.data.id);
+    const csv = dashboardToCsv(taskCount, rows);
+    const fname = encodeURIComponent(`${cls?.name ?? '班级'}-学修档案-${new Date().toISOString().slice(0, 10)}.csv`);
+    reply.header('Content-Type', 'text/csv; charset=utf-8');
+    reply.header('Content-Disposition', `attachment; filename*=UTF-8''${fname}`);
+    return csv;
   });
 
   // coach 看本班学员（admin 超权放行）

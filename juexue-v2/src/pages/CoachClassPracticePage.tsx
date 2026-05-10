@@ -402,7 +402,7 @@ function RankingTab({ classId }: { classId: string }) {
           {(list.data ?? []).map((r, i) => (
             <Link
               key={r.userId}
-              to={`/coach/students?classId=${encodeURIComponent(classId)}&uid=${encodeURIComponent(r.userId)}`}
+              to={`/coach/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(r.userId)}/stats`}
               className="glass-card-thick"
               style={{ padding: 'var(--sp-2) var(--sp-3)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', textDecoration: 'none', color: 'inherit' }}
             >

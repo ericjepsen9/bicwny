@@ -64,6 +64,7 @@ export interface DossierStats {
     streakDays: number;
     sm2: { new: number; learning: number; review: number; mastered: number; due: number; total: number };
     mistakeCount: number;
+    dailySeries: Array<{ date: string; count: number; correct: number }>; // 30 天每日答题
     recentMistakes: Array<{
       questionId: string;
       questionText: string;
@@ -286,19 +287,30 @@ export async function getDossierStats(prisma: PrismaClient, userId: string): Pro
     total: sm2Cards.length,
   };
 
-  // 答题 streak
+  // 答题 streak + 30 天柱图（一次取 90 天 · streak 用 90 · 柱图用 last30）
   const ninetyDays = lastNDates(90);
   const dayBoundaries = new Date(`${ninetyDays[0]}T00:00:00Z`);
   const dailyAnswers = await prisma.userAnswer.findMany({
     where: { userId, answeredAt: { gte: dayBoundaries } },
-    select: { answeredAt: true },
+    select: { answeredAt: true, isCorrect: true },
   });
-  const daySet = new Set(dailyAnswers.map((a) => a.answeredAt.toISOString().slice(0, 10)));
+  const dayCountMap = new Map<string, { count: number; correct: number }>();
+  for (const a of dailyAnswers) {
+    const key = a.answeredAt.toISOString().slice(0, 10);
+    const cur = dayCountMap.get(key) ?? { count: 0, correct: 0 };
+    cur.count++;
+    if (a.isCorrect === true) cur.correct++;
+    dayCountMap.set(key, cur);
+  }
   let streakDays = 0;
   for (let i = ninetyDays.length - 1; i >= 0; i--) {
-    if (daySet.has(ninetyDays[i]!)) streakDays++;
+    if (dayCountMap.has(ninetyDays[i]!)) streakDays++;
     else break;
   }
+  const quizDailySeries = last30.map((d) => {
+    const v = dayCountMap.get(d) ?? { count: 0, correct: 0 };
+    return { date: d, count: v.count, correct: v.correct };
+  });
 
   // 错题 + question text 解决（n+1 防止）
   const mistakeQuestionIds = recentMistakesRaw.map((m) => m.questionId);
@@ -394,6 +406,7 @@ export async function getDossierStats(prisma: PrismaClient, userId: string): Pro
       streakDays,
       sm2,
       mistakeCount,
+      dailySeries: quizDailySeries,
       recentMistakes: recentMistakesRaw.map((m) => ({
         questionId: m.questionId,
         questionText: qMap.get(m.questionId) ?? '(题目已删除)',
