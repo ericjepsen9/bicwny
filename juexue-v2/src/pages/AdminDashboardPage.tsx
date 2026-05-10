@@ -2,6 +2,7 @@
 //   平台 KPI + 用户/题目/LLM 分布 + 最近用户表
 import { Link } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import TibetanYearTransitionBanner from '@/components/TibetanYearTransitionBanner';
 import { useLang } from '@/lib/i18n';
 import { useAdminPlatformStats, useAdminUsers, useCourses } from '@/lib/queries';
 import { relTime } from '@/lib/relTime';
@@ -30,6 +31,8 @@ export default function AdminDashboardPage() {
           <p className="page-sub">{s('近 7 天平台数据', '近 7 天平台數據', 'Platform · 7d window')}</p>
         </div>
       </div>
+
+      <TibetanYearTransitionBanner />
 
       {/* KPI 4 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--sp-4)', marginBottom: 'var(--sp-6)' }}>

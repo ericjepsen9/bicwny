@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import TibetanYearTransitionBanner from '@/components/TibetanYearTransitionBanner';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 
@@ -94,6 +95,8 @@ export default function AdminCalendarPage() {
       <Link to="/admin" style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
         ← 返回 admin
       </Link>
+
+      <TibetanYearTransitionBanner />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button type="button" onClick={() => shiftMonth(-1)} className="btn btn-pill" style={{ padding: '6px 12px' }}>‹</button>
