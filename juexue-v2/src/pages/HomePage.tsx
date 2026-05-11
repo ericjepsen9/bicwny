@@ -162,81 +162,96 @@ export default function HomePage() {
           textDecoration: 'none',
           display: 'flex',
           flexDirection: 'column',
-          textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+          textShadow: '0 1px 3px rgba(0,0,0,0.35)',
         }}
       >
-        {/* 顶部 overlay · 头像 + 通知 · 浮在画报上 */}
+        {/* 顶部 overlay · 头像 + 日期(中)+ 通知 · 同一行 */}
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: 'env(safe-area-inset-top, var(--sp-3)) var(--sp-4) 0',
+            alignItems: 'flex-start',
+            gap: 8,
+            padding: 'var(--sp-4)',
             paddingTop: 'calc(env(safe-area-inset-top, 0) + var(--sp-3))',
           }}
         >
-          <ProfileAvatar dharmaName={dharmaName} unread={unreadNotifs} />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <ProfileAvatar dharmaName={dharmaName} unread={unreadNotifs} />
+            {/* 日期 + 藏历 + 事件 · 紧凑左对齐小字 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 2 }}>
+              <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.05rem', letterSpacing: 1, lineHeight: 1.1 }}>
+                {MONTH_SC[m - 1]}{d}日 · 周{dow}
+              </div>
+              {day && (
+                <div style={{ font: 'var(--text-caption)', letterSpacing: 1, opacity: 0.95, fontSize: '0.7rem' }}>
+                  {day.tibetanMonth}{day.isIntercalary ? '·闰' : ''}{day.tibetan}
+                </div>
+              )}
+              {(day?.auspicious || headline) && (
+                <div style={{ display: 'flex', gap: 4, marginTop: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {day?.auspicious && (
+                    <span style={{ padding: '1px 7px', borderRadius: 'var(--r-pill)', background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: 0 }}>
+                      🌺
+                    </span>
+                  )}
+                  {headline && (
+                    <span style={{ padding: '1px 7px', borderRadius: 'var(--r-pill)', background: day?.publicHoliday ? 'rgba(220,80,80,0.75)' : 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: 0 }}>
+                      {headline.length > 12 ? headline.slice(0, 12) + '…' : headline}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
           <NotificationBell unread={unreadNotifs} />
         </div>
 
-        {/* 中部叠加 · 公历大字 + 周 + 藏历 + 事件 */}
+        {/* 中间空 · 让画报本身呼吸 */}
+        <div style={{ flex: 1 }} />
+
+        {/* 画报右下角 · streak + caption */}
         <div
           style={{
-            flex: 1,
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 'var(--sp-5)',
-            textAlign: 'center',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            padding: 'var(--sp-4)',
             gap: 8,
           }}
         >
-          <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '3.2rem', letterSpacing: 4, lineHeight: 1 }}>
-            {MONTH_SC[m - 1]}{d}日
+          <div>
+            {poster.data?.caption && (
+              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '0.95rem', opacity: 0.75, letterSpacing: 6, fontWeight: 700 }}>
+                {poster.data.caption}
+              </div>
+            )}
           </div>
-          <div style={{ font: 'var(--text-caption)', letterSpacing: 4, fontSize: '0.9rem' }}>
-            {s('周' + dow, '週' + dow, dow)}
-          </div>
-          {day && (
-            <div style={{ font: 'var(--text-caption)', letterSpacing: 2, opacity: 0.95, marginTop: 4 }}>
-              {day.tibetanMonth}{day.isIntercalary ? '·闰' : ''}{day.tibetan} · {day.lunar}
-            </div>
-          )}
-          {(day?.auspicious || headline) && (
-            <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-              {day?.auspicious && (
-                <span style={{ padding: '3px 10px', borderRadius: 'var(--r-pill)', background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', font: 'var(--text-caption)', fontWeight: 600 }}>
-                  🌺 修法功德日
-                </span>
-              )}
-              {headline && (
-                <span style={{ padding: '3px 10px', borderRadius: 'var(--r-pill)', background: day?.publicHoliday ? 'rgba(220,80,80,0.7)' : 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', font: 'var(--text-caption)', fontWeight: 600 }}>
-                  {headline.slice(0, 30)}
-                </span>
-              )}
-            </div>
-          )}
           {streak > 0 && (
-            <div style={{ marginTop: 12, font: 'var(--text-caption)', letterSpacing: 2, opacity: 0.9 }}>
-              🔥 {s(`连续 ${streak} 天`, `連續 ${streak} 天`, `${streak}-day streak`)}
-            </div>
-          )}
-          {poster.data?.caption && (
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '0.85rem', opacity: 0.7, marginTop: 16, letterSpacing: 6 }}>
-              {poster.data.caption}
+            <div
+              style={{
+                padding: '3px 10px',
+                borderRadius: 'var(--r-pill)',
+                background: 'rgba(255,255,255,0.22)',
+                backdropFilter: 'blur(8px)',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                letterSpacing: 1,
+              }}
+            >
+              🔥 {streak} 天
             </div>
           )}
         </div>
       </Link>
 
-      {/* 底部 4 大卡 · flex row · 等宽 · 半透明白底 */}
+      {/* 底部 4 大卡 · 2×2 grid · 半透明白底 */}
       <div
         style={{
-          padding: 'var(--sp-3) var(--sp-3) var(--sp-4)',
+          padding: 'var(--sp-3) var(--sp-4) var(--sp-4)',
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 8,
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: 10,
         }}
       >
         <BigCard

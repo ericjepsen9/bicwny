@@ -50,8 +50,35 @@ export default function ProfilePage() {
 
   return (
     <div>
-      {/* 头部头像区 · 整块可点 → /profile/edit
-          padding-top 含 safe-area-inset-top · 防止 notch 顶头 */}
+      {/* 返回首页箭头 · v2 后 /profile 不再是 tab · 必须有显式返回 */}
+      <button
+        type="button"
+        onClick={() => nav('/')}
+        aria-label={s('返回首页', '返回首頁', 'Back')}
+        style={{
+          position: 'absolute',
+          top: 'calc(env(safe-area-inset-top, 0px) + var(--sp-3))',
+          left: 'var(--sp-3)',
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          border: 'none',
+          background: 'var(--glass-thick)',
+          backdropFilter: 'var(--blur)',
+          color: 'var(--ink-2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          zIndex: 10,
+        }}
+      >
+        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+      </button>
+
+      {/* 头部头像区 · 整块可点 → /profile/edit */}
       <Link
         to="/profile/edit"
         style={{

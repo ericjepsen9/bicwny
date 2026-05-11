@@ -46,7 +46,7 @@ export default function TabBar() {
   const { pathname } = useLocation();
   if (!shouldShowTabBar(pathname)) return null;
   return (
-    <nav className="tab-bar" aria-label="主导航">
+    <nav className="tab-bar tab-bar-icons-only" aria-label="主导航">
       {TABS.map((t) => (
         <NavLink
           key={t.to}
@@ -54,13 +54,9 @@ export default function TabBar() {
           end={t.to === '/'}
           className={({ isActive }) => 'tab-item' + (isActive ? ' active' : '')}
           aria-label={t.label.sc}
+          title={t.label.sc}
         >
           <span style={{ display: 'inline-flex' }}>{t.icon}</span>
-          <span>
-            <span className="sc">{t.label.sc}</span>
-            <span className="tc">{t.label.tc}</span>
-            <span className="en">{t.label.en}</span>
-          </span>
         </NavLink>
       ))}
     </nav>
