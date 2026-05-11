@@ -146,24 +146,22 @@ export default function HomePage() {
   const headline = day?.publicHoliday ?? firstEvent ?? null;
 
   return (
-    <div style={{ position: 'relative', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', height: '100dvh', overflow: 'hidden' }}>
       {pullIndicator}
 
-      {/* 画报区 · flex:1 自动占满剩余空间 · 点击跳 /calendar */}
+      {/* 画报区 · 绝对定位 · 占满全屏 · 卡片悬浮在它上方 */}
       <Link
         to="/calendar"
         aria-label={s('今日藏历', '今日藏曆', "Today's calendar")}
         style={{
-          position: 'relative',
-          flex: 1,
-          width: '100%',
+          position: 'absolute',
+          inset: 0,
           background: bgFallback,
           color: '#fff',
           textDecoration: 'none',
           display: 'flex',
           flexDirection: 'column',
           textShadow: '0 1px 3px rgba(0,0,0,0.35)',
-          minHeight: 0,
         }}
       >
         {/* 顶部 overlay · 头像 + 日期(中)+ 通知 · 同一行 */}
@@ -246,15 +244,18 @@ export default function HomePage() {
         </div>
       </Link>
 
-      {/* 底部 4 大卡 · 2×2 紧凑 · margin-bottom 让出 tab bar */}
+      {/* 底部 4 大卡 · 绝对定位悬浮在画报上方 · 距底 90px 让出 tab bar */}
       <div
         style={{
-          padding: 'var(--sp-3) var(--sp-4)',
-          marginBottom: 'calc(72px + env(safe-area-inset-bottom, 12px))',
+          position: 'absolute',
+          bottom: 'calc(90px + env(safe-area-inset-bottom, 0px))',
+          left: 0,
+          right: 0,
+          padding: '0 var(--sp-4)',
           display: 'grid',
           gridTemplateColumns: 'repeat(2, 1fr)',
           gap: 10,
-          flexShrink: 0,
+          zIndex: 10,
         }}
       >
         <BigCard
