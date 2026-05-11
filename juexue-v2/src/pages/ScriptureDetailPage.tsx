@@ -311,156 +311,152 @@ export default function ScriptureDetailPage() {
         </button>
       </div>
 
-      {/* Hero · 紧凑 · 缩小封面让目录早展示 */}
+      {/* Hero · 左封面 + 右标题/作者/CTA · 统计 3 卡在下方 */}
       <div
         style={{
           position: 'relative',
           zIndex: 1,
           padding: 'var(--sp-2) var(--sp-5) var(--sp-4)',
-          textAlign: 'center',
         }}
       >
-        {/* 封面 · 144×192 · 视觉主体更突出
-            用 CourseCover 复用 list 页同套逻辑：
-            有图 → 直接渲染原图（保留原宽高比 · 不裁切不留白）
-            无图 → 144×192 设计封面（标题 + 书脊 + emoji）*/}
-        {c.coverImageUrl ? (
-          <img
-            src={c.coverImageUrl}
-            alt={c.title}
-            style={{
-              display: 'block',
-              maxWidth: 160,
-              maxHeight: 240,
-              width: 'auto',
-              height: 'auto',
-              margin: '0 auto var(--sp-4)',
-              borderRadius: 'var(--r-md)',
-              boxShadow: '0 16px 38px rgba(43,34,24,.32)',
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 144,
-              height: 192,
-              margin: '0 auto var(--sp-4)',
-              borderRadius: 'var(--r-md)',
-              overflow: 'hidden',
-              boxShadow: '0 16px 38px rgba(43,34,24,.32)',
-            }}
-          >
-            <CourseCover course={c} width="100%" height="100%" />
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 'var(--sp-4)', alignItems: 'flex-start' }}>
+          {/* 封面 · 左 · 120×160 紧凑 */}
+          {c.coverImageUrl ? (
+            <img
+              src={c.coverImageUrl}
+              alt={c.title}
+              style={{
+                width: 120,
+                height: 160,
+                objectFit: 'cover',
+                borderRadius: 'var(--r-md)',
+                boxShadow: '0 12px 28px rgba(43,34,24,.28)',
+                flexShrink: 0,
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 120,
+                height: 160,
+                borderRadius: 'var(--r-md)',
+                overflow: 'hidden',
+                boxShadow: '0 12px 28px rgba(43,34,24,.28)',
+                flexShrink: 0,
+              }}
+            >
+              <CourseCover course={c} width="100%" height="100%" />
+            </div>
+          )}
 
-        <h1
-          style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: '1.375rem',
-            fontWeight: 700,
-            color: 'var(--ink)',
-            letterSpacing: 4,
-            marginBottom: 4,
-          }}
-        >
-          {c.title}
-        </h1>
-        {c.author && (
-          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-4)' }}>
-            {c.author}
-          </p>
-        )}
-        {!c.author && <div style={{ height: 'var(--sp-4)' }} />}
+          {/* 右 · 标题 + 作者 + CTA */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+            <h1
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: '1.4rem',
+                fontWeight: 700,
+                color: 'var(--ink)',
+                letterSpacing: 3,
+                margin: 0,
+                lineHeight: 1.3,
+              }}
+            >
+              {c.title}
+            </h1>
+            {c.author && (
+              <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, margin: 0 }}>
+                {c.author}
+              </p>
+            )}
 
-        {/* 统计 + 「阅读」按钮整合卡 · 4 列同一行 · 圆角矩形 */}
-        <div
-          className="glass-card-thick"
-          style={{
-            maxWidth: 380,
-            margin: '0 auto',
-            padding: 'var(--sp-3) var(--sp-3)',
-            borderRadius: 'var(--r-lg)',
-          }}
-        >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1px 1fr 1px 1fr auto',
-              alignItems: 'center',
-              gap: 'var(--sp-2)',
-            }}
-          >
-            <Stat num={chapters.length} label={s('章', '章', 'Ch')} />
-            <Sep />
-            <Stat num={totalLessons} label={s('课', '課', 'Le')} />
-            <Sep />
-            <Stat num={pct + '%'} label={s('已学', '已學', 'Done')} color="var(--sage-dark)" />
+            {/* 主 CTA · 标题正下方 */}
             {continueLesson ? (
               <Link
                 to={`/read/${c.slug}/${continueLesson.id}`}
                 className="btn btn-primary"
                 style={{
-                  padding: '10px 18px',
-                  borderRadius: 'var(--r-lg)',
+                  alignSelf: 'flex-start',
+                  marginTop: 4,
+                  padding: '10px 22px',
+                  borderRadius: 'var(--r-pill)',
                   fontFamily: 'var(--font-serif)',
                   fontWeight: 600,
-                  fontSize: '0.875rem',
+                  fontSize: '0.95rem',
                   letterSpacing: 2,
                   whiteSpace: 'nowrap',
-                  marginLeft: 'var(--sp-2)',
                 }}
               >
                 {hasReadHistory
-                  ? s('继续阅读', '繼續閱讀', 'Continue')
-                  : s('开始阅读', '開始閱讀', 'Start')}
+                  ? s('继续阅读 →', '繼續閱讀 →', 'Continue →')
+                  : s('开始阅读 →', '開始閱讀 →', 'Start →')}
               </Link>
             ) : (
               <span
                 aria-disabled
                 style={{
-                  padding: '10px 18px',
-                  borderRadius: 'var(--r-lg)',
+                  alignSelf: 'flex-start',
+                  marginTop: 4,
+                  padding: '10px 22px',
+                  borderRadius: 'var(--r-pill)',
                   fontFamily: 'var(--font-serif)',
                   fontWeight: 600,
-                  fontSize: '0.875rem',
+                  fontSize: '0.95rem',
                   letterSpacing: 2,
                   background: 'var(--glass-thick)',
                   color: 'var(--ink-4)',
                   border: '1px solid var(--glass-border)',
                   cursor: 'not-allowed',
-                  marginLeft: 'var(--sp-2)',
-                  whiteSpace: 'nowrap',
                 }}
               >
                 —
               </span>
             )}
+
+            {/* 未加入时 · 加入学习副 CTA */}
+            {!enrollment && firstLesson && (
+              <button
+                type="button"
+                onClick={() => enroll.mutate()}
+                disabled={enroll.isPending}
+                style={{
+                  alignSelf: 'flex-start',
+                  padding: '5px 12px',
+                  borderRadius: 'var(--r-pill)',
+                  background: 'var(--saffron-pale)',
+                  color: 'var(--saffron-dark)',
+                  border: '1px solid var(--saffron-light)',
+                  font: 'var(--text-caption)',
+                  fontWeight: 700,
+                  letterSpacing: 1,
+                  cursor: enroll.isPending ? 'default' : 'pointer',
+                }}
+              >
+                {enroll.isPending ? '…' : '+ ' + s('加入学习', '加入學習', 'Join')}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* 未加入时 · 在卡下方加一个小提示链 · 不再用大按钮 */}
-        {!enrollment && firstLesson && (
-          <button
-            type="button"
-            onClick={() => enroll.mutate()}
-            disabled={enroll.isPending}
-            style={{
-              marginTop: 'var(--sp-3)',
-              padding: '6px 14px',
-              borderRadius: 'var(--r-pill)',
-              background: 'var(--saffron-pale)',
-              color: 'var(--saffron-dark)',
-              border: '1px solid var(--saffron-light)',
-              font: 'var(--text-caption)',
-              fontWeight: 700,
-              letterSpacing: 1,
-              cursor: enroll.isPending ? 'default' : 'pointer',
-            }}
-          >
-            {enroll.isPending ? '…' : '+ ' + s('加入学习同步进度', '加入學習同步進度', 'Join to sync progress')}
-          </button>
-        )}
+        {/* 统计 3 卡 · Hero 下方 */}
+        <div
+          className="glass-card"
+          style={{
+            marginTop: 'var(--sp-4)',
+            padding: 'var(--sp-3)',
+            borderRadius: 'var(--r-lg)',
+            display: 'grid',
+            gridTemplateColumns: '1fr 1px 1fr 1px 1fr',
+            alignItems: 'center',
+            gap: 'var(--sp-2)',
+          }}
+        >
+          <Stat num={chapters.length} label={s('章', '章', 'Ch')} />
+          <Sep />
+          <Stat num={totalLessons} label={s('课', '課', 'Le')} />
+          <Sep />
+          <Stat num={pct + '%'} label={s('已学', '已學', 'Done')} color="var(--sage-dark)" />
+        </div>
 
         {c.description && (
           <p
@@ -469,9 +465,7 @@ export default function ScriptureDetailPage() {
               color: 'var(--ink-2)',
               letterSpacing: 1,
               lineHeight: 1.7,
-              maxWidth: 380,
-              margin: 'var(--sp-3) auto 0',
-              padding: '0 var(--sp-2)',
+              margin: 'var(--sp-4) 0 0',
             }}
           >
             {c.description}
