@@ -155,27 +155,21 @@ export default function HomePage() {
 
   return (
     <div style={{
-      // body.home-fullbleed 重写 .phone height 100vh
-      // 这里 position:relative 100% · 内部用 absolute 精准定位 picture 和 cards
-      // 不依赖 flex 算 · 避免浏览器 dvh / dpr 不一致导致分配错乱
+      // 普通文档流 · picture 是 block + background-image · 不绝对定位
+      // body.home-fullbleed 已让 .phone 100vh + overflow hidden · 总高严格限定
       position: 'relative',
-      height: '100%',
     }}>
       {pullIndicator}
 
-      {/* 画报区 · 绝对定位 · 顶部 0 · 底部留出 cards 区域（自适应内容高度）*/}
+      {/* 画报区 · block 元素 + background-image · minHeight 自动撑高度 */}
       <Link
         to="/calendar"
         aria-label={s('今日藏历', '今日藏曆', "Today's calendar")}
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          // 底部留出 4 卡 + tab bar：cards ~200px + tab bar ~70px + safe-area
-          bottom: 'calc(200px + 90px + env(safe-area-inset-bottom, 12px))',
           display: 'flex',
           flexDirection: 'column',
+          // 100vh 减去 cards 区域（~200）和 tab bar（~90 + safe-area）
+          minHeight: 'calc(100vh - 200px - 90px - env(safe-area-inset-bottom, 12px))',
           background: bgFallback,
           color: '#fff',
           textDecoration: 'none',
@@ -262,15 +256,11 @@ export default function HomePage() {
         </div>
       </Link>
 
-      {/* 底部 4 大卡 · absolute · 钉在 tab bar 上方 · 自适应内容高度
-          bottom 加足 cushion · 防止移动浏览器底部 chrome 压住 */}
+      {/* 底部 4 大卡 · 普通块级 · 自动跟在 picture 下面
+          padding-bottom 给 tab bar 让位（90+safe-area） */}
       <div
         style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 'calc(90px + env(safe-area-inset-bottom, 12px))',
-          padding: 'var(--sp-3) var(--sp-4)',
+          padding: 'var(--sp-3) var(--sp-4) calc(90px + env(safe-area-inset-bottom, 12px))',
           display: 'grid',
           gridTemplateColumns: 'repeat(2, 1fr)',
           gap: 10,
