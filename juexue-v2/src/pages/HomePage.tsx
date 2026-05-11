@@ -168,8 +168,9 @@ export default function HomePage() {
         style={{
           display: 'flex',
           flexDirection: 'column',
-          // 100vh 减去 cards 区域（~200）和 tab bar（~90 + safe-area）
-          minHeight: 'calc(100vh - 200px - 90px - env(safe-area-inset-bottom, 12px))',
+          // 100dvh = 当前可视视口（iOS Safari 含 chrome 时比 100vh 小 200px）
+          // tab bar fixed bottom:0 跟可视视口对齐 · 必须用 dvh 才能一致
+          minHeight: 'calc(100dvh - 200px - 90px - env(safe-area-inset-bottom, 12px))',
           background: bgFallback,
           color: '#fff',
           textDecoration: 'none',

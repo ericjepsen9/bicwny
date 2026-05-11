@@ -109,8 +109,9 @@ body.prototype-frame .phone { padding-top: 0; overflow: hidden; }
    - .page-enter / HomePage outer height 100% 链式继承 */
 body.home-fullbleed .phone {
   padding-top: 0;
-  min-height: 100vh;
-  height: 100vh;
+  /* 100dvh = 动态可视视口 · iOS Safari 含 chrome 时比 100vh 小 200px · 与 tab bar fixed 对齐 */
+  min-height: 100dvh;
+  height: 100dvh;
   overflow: hidden;
 }
 body.home-fullbleed .scroll-area {
