@@ -146,7 +146,7 @@ export default function HomePage() {
   const headline = day?.publicHoliday ?? firstEvent ?? null;
 
   return (
-    <div style={{ position: 'relative', height: '100dvh', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
       {pullIndicator}
 
       {/* 画报区 · 绝对定位 · 占满全屏 · 卡片悬浮在它上方 */}
@@ -429,9 +429,12 @@ function BigCard({ to, onClick, icon, title, sub }: {
     gap: 4,
     padding: '10px 14px',
     borderRadius: 'var(--r-md)',
-    background: 'var(--surface)',
-    border: '1px solid var(--border-light)',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    // 磨砂玻璃 · 半透明白底 + backdrop blur
+    background: 'rgba(255, 255, 255, 0.55)',
+    backdropFilter: 'blur(16px) saturate(140%)',
+    WebkitBackdropFilter: 'blur(16px) saturate(140%)',
+    border: '1px solid rgba(255, 255, 255, 0.4)',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
     color: 'var(--ink)',
     textDecoration: 'none',
     cursor: 'pointer',
