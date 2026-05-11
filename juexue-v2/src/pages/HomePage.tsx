@@ -172,8 +172,8 @@ export default function HomePage() {
           top: 0,
           left: 0,
           right: 0,
-          // 底部留出 4 卡 + tab bar：cards 大约 170px + tab bar 80px + safe-area
-          bottom: 'calc(170px + 80px + env(safe-area-inset-bottom, 12px))',
+          // 底部留出 4 卡 + tab bar：cards ~200px + tab bar ~70px + safe-area
+          bottom: 'calc(200px + 90px + env(safe-area-inset-bottom, 12px))',
           display: 'flex',
           flexDirection: 'column',
           background: bgFallback,
@@ -262,14 +262,14 @@ export default function HomePage() {
         </div>
       </Link>
 
-      {/* 底部 4 大卡 · absolute · 钉在 tab bar 上方 · 自适应内容高度 */}
+      {/* 底部 4 大卡 · absolute · 钉在 tab bar 上方 · 自适应内容高度
+          bottom 加足 cushion · 防止移动浏览器底部 chrome 压住 */}
       <div
         style={{
           position: 'absolute',
           left: 0,
           right: 0,
-          // 卡片底部到视口底部 = tab bar 高 (≈80px) + safe-area
-          bottom: 'calc(80px + env(safe-area-inset-bottom, 12px))',
+          bottom: 'calc(90px + env(safe-area-inset-bottom, 12px))',
           padding: 'var(--sp-3) var(--sp-4)',
           display: 'grid',
           gridTemplateColumns: 'repeat(2, 1fr)',
