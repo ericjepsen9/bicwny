@@ -255,7 +255,13 @@ body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
 .tab-item.active svg  { stroke: var(--saffron); }
 .tab-item.active span { color: var(--saffron); font-weight: 600; }
 
-/* 仅图标模式 · 去掉 label · icon 居中 + 大一圈 */
+/* 仅图标模式 · 去掉背景 + 边框 + 阴影 · 只剩漂浮图标 */
+.tab-bar-icons-only {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-top: none;
+}
 .tab-bar-icons-only .tab-item {
   padding: var(--sp-2) 0;
   justify-content: center;
