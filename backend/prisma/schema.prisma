@@ -66,6 +66,7 @@ model User {
   practiceDailySummaries PracticeDailySummary[]
   practiceGoals          PracticeGoal[]
   readingProgress        LessonReadingProgress[]
+  notes                  Note[]
 
   @@index([role])
 }
@@ -326,6 +327,7 @@ model Lesson {
   questions       Question[]
   meditations     Meditation[]
   readingProgress LessonReadingProgress[]
+  notes           Note[]
 
   @@unique([chapterId, order])
 }
@@ -1227,4 +1229,31 @@ model TibetanDay {
 
   @@index([date])
   @@index([auspicious])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 笔记 · 学员自由记录 · 可挂课时 · 可班级共享
+// 1.0 LLM 增强：润色 / 摘要 / tag / 标题 / 段落骨架（不解释法义）
+// ═══════════════════════════════════════════════════════════════
+
+model Note {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId   String? // 可选 · 挂课时
+  lesson     Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  courseId   String? // 冗余 · 跨课程查找用
+  title      String // ≤ 80
+  body       String    @db.Text // markdown · ≤ 10000
+  tags       Json      @default("[]") // string[] 自定义
+  visibility String    @default("private") // 'private' | 'class'
+  pinnedAt   DateTime?
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId, updatedAt])
+  @@index([userId, lessonId])
+  @@index([userId, archivedAt])
+  @@index([visibility, updatedAt])
 }

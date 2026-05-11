@@ -27,3 +27,7 @@ export const PROMPT_TEMPLATE_ID = 'prompt_open_grading_v3_1';
 // question_generation · LLM 辅助造题
 export const QGEN_SCENARIO_ID = 'scenario_question_generation';
 export const QGEN_PROMPT_TEMPLATE_ID = 'prompt_question_generation_v1_0';
+
+// notes-assist · 笔记 LLM 增强（润色 / 摘要 / tag / 标题 / 段落骨架）
+// 不带 promptTemplate · prompt 在代码里按 action 拼
+export const NOTES_ASSIST_SCENARIO_ID = 'scenario_notes_assist';

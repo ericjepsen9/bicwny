@@ -448,6 +448,36 @@ export default function ScriptureReadingPage() {
         document.body,
       )}
 
+      {/* 笔记 FAB · 浮于右下 · 仅当 lessonId 有效时显示 */}
+      {lessonId && (
+        <Link
+          to={`/notes/new?lessonId=${encodeURIComponent(lessonId)}`}
+          aria-label={s('为本课写笔记', '為本課寫筆記', 'Note for this lesson')}
+          style={{
+            position: 'fixed',
+            right: 16,
+            bottom: 96,
+            width: 48,
+            height: 48,
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            textDecoration: 'none',
+            fontSize: '1.3rem',
+            zIndex: 50,
+            opacity: chromeVisible ? 1 : 0,
+            pointerEvents: chromeVisible ? 'auto' : 'none',
+            transition: 'opacity .25s var(--ease)',
+          }}
+        >
+          📝
+        </Link>
+      )}
+
       {/* 目录 sheet · 当前课时高亮 · 点击直跳 */}
       <Dialog open={tocOpen} onClose={() => setTocOpen(false)} title={s('目录', '目錄', 'Catalog')}>
         <div style={{ maxHeight: '60vh', overflowY: 'auto', padding: 'var(--sp-2) 0' }}>

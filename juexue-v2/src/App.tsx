@@ -25,6 +25,8 @@ const PracticeHistoryPage = lazy(() => import('./pages/PracticeHistoryPage'));
 const MyMeditationsPage = lazy(() => import('./pages/MyMeditationsPage'));
 const DossierPage = lazy(() => import('./pages/DossierPage'));
 const CalendarPage = lazy(() => import('./pages/CalendarPage'));
+const NotesPage = lazy(() => import('./pages/NotesPage'));
+const NoteEditPage = lazy(() => import('./pages/NoteEditPage'));
 const CoachClassPracticePage = lazy(() => import('./pages/CoachClassPracticePage'));
 const CoachClassAnnouncementsPage = lazy(() => import('./pages/CoachClassAnnouncementsPage'));
 const CoachClassDashboardPage = lazy(() => import('./pages/CoachClassDashboardPage'));
@@ -147,6 +149,9 @@ function AppShell() {
                 <Route path="/me/meditations" element={<MyMeditationsPage />} />
                 <Route path="/me/stats" element={<DossierPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/notes" element={<NotesPage />} />
+                <Route path="/notes/new" element={<NoteEditPage />} />
+                <Route path="/notes/:id" element={<NoteEditPage />} />
                 <Route path="/practice/project/:id" element={<PracticeProjectPage />} />
                 <Route path="/practice/:categoryKey" element={<PracticeCategoryPage />} />
                 <Route path="/notifications" element={<NotificationPage />} />

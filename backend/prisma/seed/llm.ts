@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client';
 import {
+  NOTES_ASSIST_SCENARIO_ID,
   PROMPT_TEMPLATE_ID,
   PROVIDER_IDS,
   QGEN_PROMPT_TEMPLATE_ID,
@@ -212,10 +213,31 @@ export async function seedLlmQuestionGenScenario(prisma: PrismaClient) {
   console.log('  ✓ 1 scenario config (question_generation)');
 }
 
+export async function seedLlmNotesAssistScenario(prisma: PrismaClient) {
+  await prisma.llmScenarioConfig.upsert({
+    where: { scenario: 'notes_assist' },
+    update: {},
+    create: {
+      id: NOTES_ASSIST_SCENARIO_ID,
+      scenario: 'notes_assist',
+      primaryProviderId: PROVIDER_IDS.minimax,
+      primaryModel: 'abab6.5s-chat',
+      fallbackProviderId: PROVIDER_IDS.claude,
+      fallbackModel: 'claude-haiku-4-5',
+      temperature: 0.4, // 偏稳 · 不发挥
+      maxTokens: 2000,
+      promptTemplateId: null, // prompt 在代码 byAction 拼
+      estimatedTokensPerCall: 800,
+    },
+  });
+  console.log('  ✓ 1 scenario config (notes_assist)');
+}
+
 export async function seedLlm(prisma: PrismaClient) {
   await seedLlmProviders(prisma);
   await seedLlmPromptTemplate(prisma);
   await seedLlmScenario(prisma);
   await seedLlmQuestionGenPrompt(prisma);
   await seedLlmQuestionGenScenario(prisma);
+  await seedLlmNotesAssistScenario(prisma);
 }

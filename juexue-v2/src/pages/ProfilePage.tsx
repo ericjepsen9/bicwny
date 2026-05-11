@@ -150,6 +150,7 @@ export default function ProfilePage() {
           <MenuRow to="/coach" emoji="🎓" iconBg="var(--gold-pale)" labels={['辅导员后台', '輔導員後台', 'Coach']} />
         )}
         <MenuRow to="/me/stats" emoji="📊" iconBg="var(--sage-light)" labels={['学修档案', '學修檔案', 'Dossier']} />
+        <MenuRow to="/notes" emoji="📝" iconBg="var(--gold-pale)" labels={['我的笔记', '我的筆記', 'Notes']} />
         {firstClass ? (
           <MenuRow to={`/class/${encodeURIComponent(firstClass.classId)}`} emoji="📚" iconBg="var(--saffron-pale)" labels={['我的班级', '我的班級', 'My Class']} />
         ) : (
