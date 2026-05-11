@@ -146,7 +146,14 @@ export default function HomePage() {
   const headline = day?.publicHoliday ?? firstEvent ?? null;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
+    <div style={{
+      position: 'relative',
+      height: '100dvh',
+      overflow: 'hidden',
+      // 抵消 .phone 父容器的 padding-top: max(safe-area-inset-top, 16px)
+      // 让画报真正铺满视口（CLAUDE.md 第 1 条：祖先 transform 让 fixed 失效 · 这里用 negative margin 兜底）
+      marginTop: 'calc(-1 * max(env(safe-area-inset-top, 16px), 16px))',
+    }}>
       {pullIndicator}
 
       {/* 画报区 · 绝对定位 · 占满全屏 · 卡片悬浮在它上方 */}
