@@ -1,0 +1,733 @@
+// HomePage 备份 · 2026-05 v1 版本 · 保留作回退参考
+// 这个文件不挂路由 · 只是档案
+// 当前生效的首页在 HomePage.tsx · 重大改版前先备份此文件
+// 回退方式：cp HomePage.v1.tsx HomePage.tsx
+//
+// v1 功能清单（重要 · 改版时全部保留）：
+// 1. greeting 行 → TibetanTodayChip (iOS 日历图标 + 节日)
+// 2. dharmaName 已迁到右上头像 hover title
+// 3. 🔥 streak headline (H2 gold-dark)
+// 4. 通知铃铛 + 未读 badge
+// 5. 头像入口 (saffron 渐变 / 跳 /profile)
+// 6. 加入班级引导卡 / 班级卡（加入后）
+// 7. 主修法本卡 · 含「继续阅读」CTA + 切换/目录
+// 8. 智能练习卡 · 题量 picker + 「开始练习」
+// 9. 4 个图标行 · SM-2 / 错题 / 收藏 / 修学（错题红点 badge）
+// 10. 下拉刷新
+
+// HomePage · 学习仪表盘
+//   1. greeting · 时段问候 + dharmaName + 🔥 streak + 通知铃铛 + 头像
+//   2. class-card · 当前班级 / 加入班级引导
+//   3. course-card · 当前法本（进度 + 当前学到第 N 课 + 阅读 / 目录 / 切换主修）
+//   4. ⚡ smart-practice card · 题量 chip + 开始练习（secondary）
+//   5. icon-grid · SM-2 / 错题 / 收藏 / 设置（错题/SM-2 红点提醒）
+// 已删：
+//   · 邮箱未验证 banner（移到 ProfilePage 单点）
+//   · 错题大 banner（与 IconTile 重复）
+//   · 章级棋盘格（与当前法本卡的进度数字重复 · 145 章铺满后视觉噪音）
+//     ChapterProgressGrid 组件保留 · 后续可能放法本详情页 hero 区
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import Dialog from '@/components/Dialog';
+import TibetanTodayChip from '@/components/TibetanTodayChip';
+import WheelPicker from '@/components/WheelPicker';
+import { useAuth } from '@/lib/auth';
+import { useLang } from '@/lib/i18n';
+import { setMainCourseId, useMainCourseId } from '@/lib/mainCourse';
+import { PRACTICE_LIMIT_OPTIONS, usePracticeLimit } from '@/lib/practiceLimit';
+import { usePullToRefresh } from '@/lib/pullToRefresh';
+import { toast } from '@/lib/toast';
+import {
+  useClasses,
+  usePracticeTasks,
+  useCourseDetail,
+  useCourses,
+  useEnrollments,
+  useMistakeCount,
+  useProgress,
+  useSm2Stats,
+  useUnreadNotifCount,
+} from '@/lib/queries';
+import Skeleton from '@/components/Skeleton';
+
+export default function HomePage() {
+  const { user } = useAuth();
+  const { s } = useLang();
+
+  const enrollments = useEnrollments();
+  const courses = useCourses();
+  const classes = useClasses();
+  const sm2 = useSm2Stats();
+  const mistakes = useMistakeCount();
+  const progress = useProgress();
+  const unreadNotifQ = useUnreadNotifCount();
+  const unreadNotifs = unreadNotifQ.data ?? 0;
+
+  const dharmaName = user?.dharmaName || s('师兄', '師兄', 'Friend');
+  const streak = progress.data?.streakDays ?? 0;
+
+  // 找当前要显示的法本：
+  //   优先用户在法本详情页设的"主修"（localStorage）·
+  //   否则首本 enrollment（兜底）
+  const mainCourseId = useMainCourseId();
+  const enrollList = enrollments.data ?? [];
+  const courseList = courses.data ?? [];
+  const firstEnrollment =
+    (mainCourseId ? enrollList.find((e) => e.courseId === mainCourseId) : null) ??
+    enrollList[0];
+  const currentCourse =
+    firstEnrollment &&
+    courseList.find(
+      (c) => c.id === firstEnrollment.courseId,
+    );
+
+  // 拉法本详情（章节树）· 用来算 totalLessons + 找 currentLesson 元数据
+  // 首页只看 TOC 和进度 · 不显示原文 · 用 lite 省几 MB payload
+  const currentCourseDetail = useCourseDetail(currentCourse?.slug, { lite: true });
+  const completedSet = useMemo(
+    () => new Set(firstEnrollment?.lessonsCompleted ?? []),
+    [firstEnrollment?.lessonsCompleted],
+  );
+  const completedCount = firstEnrollment?.lessonsCompleted.length ?? 0;
+  const totalLessons = (currentCourseDetail.data?.chapters ?? []).reduce(
+    (sum, ch) => sum + (ch.lessons?.length ?? 0),
+    0,
+  );
+  const pct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+
+  // 找"继续阅读"目标 lesson:
+  //   1. 有 currentLessonId 且该课未读完 → 回到该课
+  //   2. 有 currentLessonId 且该课已读完 → 跳到下一课（推动学习）
+  //   3. 已是最后一课且读完 → 留在最后一课（让用户复读）
+  //   4. 无 currentLessonId → 首个未完成 → 兜底首课时
+  // memo 化避免每次 render 都 flatMap + findIndex（章节多时 O(n²) 浪费）
+  const flatLessons = useMemo(
+    () => (currentCourseDetail.data?.chapters ?? []).flatMap((ch) =>
+      (ch.lessons ?? []).map((l) => ({ chapter: ch, lesson: l })),
+    ),
+    [currentCourseDetail.data?.chapters],
+  );
+  const continueTarget = useMemo(() => {
+    if (flatLessons.length === 0) return null;
+    const savedIdx = flatLessons.findIndex((f) => f.lesson.id === firstEnrollment?.currentLessonId);
+    if (savedIdx >= 0) {
+      const saved = flatLessons[savedIdx]!;
+      if (completedSet.has(saved.lesson.id) && savedIdx < flatLessons.length - 1) {
+        return flatLessons[savedIdx + 1]!;
+      }
+      return saved;
+    }
+    return flatLessons.find((f) => !completedSet.has(f.lesson.id)) ?? flatLessons[0] ?? null;
+  }, [flatLessons, firstEnrollment?.currentLessonId, completedSet]);
+
+  const firstClass = classes.data?.[0];
+  // 班级 hero 引导：进行中的班级修学任务数（未完成 · scope=class · 当前班）
+  const tasks = usePracticeTasks();
+  const myClassActiveTasks = firstClass
+    ? (tasks.data ?? []).filter((t) => t.scope === 'class' && t.class?.id === firstClass.classId && !t.isDone).length
+    : 0;
+
+  // 智能练习题量 · localStorage 持久化 · 默认 20
+  const [practiceLimit, setPracticeLimit] = usePracticeLimit();
+  const [limitSheetOpen, setLimitSheetOpen] = useState(false);
+  // 主修法本切换 sheet（仅多本时启用）
+  const [switchOpen, setSwitchOpen] = useState(false);
+  // 已加入的法本（带 course meta）· 给 sheet 列表用
+  const enrolledCourseList = enrollList
+    .map((e) => courseList.find((c) => c.id === e.courseId))
+    .filter((c): c is NonNullable<typeof c> => !!c);
+
+  // 下拉刷新 · 重拉所有当前活跃 query
+  const qc = useQueryClient();
+  const { indicator: pullIndicator } = usePullToRefresh(() =>
+    qc.refetchQueries({ type: 'active' }),
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {pullIndicator}
+      {/* Header */}
+      <div
+        style={{
+          padding: 'var(--sp-2) var(--sp-5) var(--sp-5)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+        }}
+      >
+        <div>
+          <TibetanTodayChip />
+          {streak > 0 ? (
+            <p className="t-h2" style={{ color: 'var(--gold-dark)', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span>🔥</span>
+              <span>{s(`连续 ${streak} 天`, `連續 ${streak} 天`, `${streak}-day streak`)}</span>
+            </p>
+          ) : (
+            <p className="t-h2" style={{ color: 'var(--ink)', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span>🌱</span>
+              <span>{s('今日开始修学', '今日開始修學', 'Begin today')}</span>
+            </p>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 'var(--sp-3)', alignItems: 'center', paddingTop: 4 }}>
+          {/* 通知铃铛 · 含未读 badge */}
+          <Link
+            to="/notifications"
+            aria-label={s('通知', '通知', 'Notifications') + (unreadNotifs > 0 ? ` · ${unreadNotifs} 条未读` : '')}
+            style={{
+              position: 'relative',
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              background: 'var(--glass-thick)',
+              border: '1px solid var(--glass-border)',
+              color: 'var(--ink-2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {unreadNotifs > 0 && (
+              <span
+                aria-hidden
+                style={{
+                  position: 'absolute',
+                  top: 4,
+                  right: 4,
+                  minWidth: 14,
+                  height: 14,
+                  padding: '0 4px',
+                  borderRadius: 999,
+                  background: 'var(--crimson)',
+                  border: '2px solid var(--bg)',
+                  color: '#fff',
+                  fontSize: 9,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {unreadNotifs > 9 ? '9+' : unreadNotifs}
+              </span>
+            )}
+          </Link>
+          <Link
+            to="/profile"
+            aria-label={dharmaName + ' · ' + s('个人资料', '個人資料', 'Profile')}
+            title={dharmaName}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: 'var(--font-serif)',
+              fontWeight: 700,
+              fontSize: '0.875rem',
+            }}
+          >
+            {(user?.avatar || dharmaName).slice(0, 1)}
+          </Link>
+        </div>
+      </div>
+
+      {/* Sections */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', padding: '0 var(--sp-5)' }}>
+        {/* 班级卡 · 已加入显示班级，未加入显示"加入班级"引导卡 */}
+        {firstClass ? (
+          <Link
+            to={`/class/${encodeURIComponent(firstClass.classId)}`}
+            className="glass-card-thick"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--sp-3)',
+              padding: '10px var(--sp-4)',
+              cursor: 'pointer',
+              textDecoration: 'none',
+              color: 'inherit',
+            }}
+          >
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 'var(--r-sm)',
+                background: 'var(--saffron-pale)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                fontSize: '1rem',
+              }}
+            >
+              {firstClass.class.coverEmoji}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontWeight: 700,
+                  color: 'var(--ink)',
+                  fontSize: '0.8125rem',
+                  letterSpacing: 2,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {firstClass.class.name}
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 2 }}>
+                {myClassActiveTasks > 0
+                  ? s(`📌 ${myClassActiveTasks} 个进行中任务`, `📌 ${myClassActiveTasks} 個進行中任務`, `📌 ${myClassActiveTasks} task(s) active`)
+                  : s('我的班级', '我的班級', 'My class')}
+              </div>
+            </div>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--ink-4)' }}>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </Link>
+        ) : (
+          // 未加入班级 · 老 prototype home.html 第 254-269 行的引导卡
+          <Link
+            to="/join-class"
+            className="glass-card-thick"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'var(--sp-3)',
+              padding: '10px var(--sp-4)',
+              cursor: 'pointer',
+              textDecoration: 'none',
+              color: 'inherit',
+              borderLeft: '3px solid var(--saffron)',
+            }}
+          >
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 'var(--r-sm)',
+                background: 'var(--saffron-pale)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                color: 'var(--saffron-dark)',
+              }}
+            >
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontWeight: 700,
+                  color: 'var(--ink)',
+                  fontSize: '0.8125rem',
+                  letterSpacing: 2,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {s('加入班级', '加入班級', 'Join a class')}
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 2 }}>
+                {s('输入辅导员提供的 6 位邀请码', '輸入輔導員提供的 6 位邀請碼', 'Enter your coach\'s 6-digit code')}
+              </div>
+            </div>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--ink-4)' }}>
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </Link>
+        )}
+
+        {/* 当前法本卡 */}
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-5)', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-2)' }}>
+            <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2 }}>
+              {s('当前法本', '當前法本', 'Current text')}
+            </p>
+            {enrolledCourseList.length > 1 ? (
+              <button
+                type="button"
+                onClick={() => setSwitchOpen(true)}
+                style={{
+                  font: 'var(--text-caption)',
+                  color: 'var(--saffron-dark)',
+                  letterSpacing: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+                title={s('切换主修法本', '切換主修法本', 'Switch main text')}
+              >
+                {s('切换 →', '切換 →', 'Switch →')}
+              </button>
+            ) : (
+              <Link
+                to="/courses"
+                style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1 }}
+              >
+                {s('全部 →', '全部 →', 'All →')}
+              </Link>
+            )}
+          </div>
+
+          {enrollments.isLoading || courses.isLoading ? (
+            <Skeleton.Title style={{ marginBottom: 12 }} />
+          ) : currentCourse ? (
+            <>
+              <p
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: '1.125rem',
+                  fontWeight: 700,
+                  color: 'var(--ink)',
+                  letterSpacing: 3,
+                  marginBottom: 'var(--sp-2)',
+                }}
+              >
+                {currentCourse.coverEmoji} {currentCourse.title}
+              </p>
+
+              {/* 当前学到哪里 · 章 + 课名 */}
+              {currentCourseDetail.isLoading ? (
+                <div style={{ marginBottom: 'var(--sp-3)' }}>
+                  <Skeleton.LineSm style={{ width: '60%' }} />
+                </div>
+              ) : continueTarget ? (
+                <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 'var(--sp-3)', lineHeight: 1.6 }}>
+                  📍 {continueTarget.chapter.title}
+                  <span style={{ color: 'var(--ink-4)', marginLeft: 6 }}>·</span>{' '}
+                  <span style={{ color: 'var(--saffron-dark)', fontWeight: 600 }}>
+                    {s('第 ' + continueTarget.lesson.order + ' 课', '第 ' + continueTarget.lesson.order + ' 課', 'Lesson ' + continueTarget.lesson.order)}
+                  </span>{' '}
+                  {continueTarget.lesson.title}
+                </p>
+              ) : null}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-2)' }}>
+                <span className="t-caption t-ink-3">{s('学习进度', '學習進度', 'Progress')}</span>
+                {currentCourseDetail.isLoading ? (
+                  <Skeleton.LineSm style={{ width: 80 }} />
+                ) : (
+                  <span className="t-meta" style={{ color: 'var(--saffron-dark)', fontWeight: 700 }}>
+                    {totalLessons > 0 ? `${completedCount} / ${totalLessons} · ${pct}%` : '—'}
+                  </span>
+                )}
+              </div>
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: pct + '%' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-4)' }}>
+                {continueTarget ? (
+                  <Link
+                    to={`/read/${currentCourse.slug}/${continueTarget.lesson.id}`}
+                    className="btn btn-primary btn-pill"
+                    style={{ flex: 1, padding: 12, justifyContent: 'center' }}
+                  >
+                    {(firstEnrollment?.currentLessonId || completedCount > 0)
+                      ? s('继续阅读', '繼續閱讀', 'Continue')
+                      : s('开始阅读', '開始閱讀', 'Start')}
+                  </Link>
+                ) : (
+                  <span
+                    className="btn btn-pill"
+                    aria-disabled
+                    style={{
+                      flex: 1,
+                      padding: 12,
+                      justifyContent: 'center',
+                      background: 'var(--glass-thick)',
+                      color: 'var(--ink-4)',
+                      border: '1px solid var(--glass-border)',
+                      cursor: 'not-allowed',
+                    }}
+                  >
+                    {s('暂无课时', '暫無課時', 'No lessons')}
+                  </span>
+                )}
+                <Link
+                  to={`/scripture-detail?slug=${encodeURIComponent(currentCourse.slug)}`}
+                  className="btn btn-pill"
+                  style={{
+                    padding: '12px 18px',
+                    background: 'var(--glass-thick)',
+                    color: 'var(--ink-2)',
+                    border: '1px solid var(--glass-border)',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {s('目录', '目錄', 'Catalog')}
+                </Link>
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: 'var(--sp-5)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: 'var(--sp-2)' }}>📚</div>
+              <p style={{ color: 'var(--ink-3)', font: 'var(--text-caption)', marginBottom: 8 }}>
+                {s('尚未选修法本', '尚未選修法本', 'No enrollment yet')}
+              </p>
+              <Link to="/courses" className="btn btn-primary btn-pill" style={{ padding: '8px 18px', display: 'inline-block' }}>
+                {s('去选修法本', '去選修法本', 'Browse texts')}
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* 二级 section header · 「智能练习」从卡内标题升格为功能区分隔
+            上方留 sp-3 额外间距 · 让"当前法本"和"智能练习"两个功能区视觉分开 */}
+        <div style={{ marginTop: 'var(--sp-3)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
+          <div style={{ minWidth: 0 }}>
+            <h2 className="t-section" style={{ color: 'var(--ink)' }}>
+              {s('智能练习', '智能練習', 'Smart practice')}
+            </h2>
+            <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+              {s('待复习 + 错题 + 已学课时混合', '待複習 + 錯題 + 已學課時混合', 'SM-2 + mistakes + studied')}
+            </p>
+          </div>
+          {/* 题数 chip · 点击呼出滚轮 sheet */}
+          <button
+            type="button"
+            onClick={() => setLimitSheetOpen(true)}
+            aria-label={s(`题数 ${practiceLimit}`, `題數 ${practiceLimit}`, `${practiceLimit} questions`)}
+            style={{
+              flexShrink: 0,
+              padding: '5px 12px',
+              borderRadius: 'var(--r-pill)',
+              background: 'var(--saffron-pale)',
+              border: '1px solid var(--saffron-light)',
+              color: 'var(--saffron-dark)',
+              font: 'var(--text-caption)',
+              fontWeight: 700,
+              letterSpacing: 1,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            {practiceLimit} {s('题', '題', 'Q')}
+            <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 智能练习 CTA · saffron 描边 + pale 底色（次主）
+            一屏一个 primary 原则：法本卡的"继续阅读"才是主 · 这里是次 */}
+        <Link
+          to={`/quiz-practice?limit=${practiceLimit}`}
+          className="btn btn-pill btn-full"
+          style={{
+            padding: 14,
+            justifyContent: 'center',
+            background: 'var(--saffron-pale)',
+            color: 'var(--saffron-dark)',
+            border: '1.5px solid var(--saffron)',
+            fontFamily: 'var(--font-serif)',
+            fontWeight: 700,
+            fontSize: '0.9375rem',
+            letterSpacing: 2,
+          }}
+        >
+          {s('开始练习', '開始練習', 'Start practice')} →
+        </Link>
+
+        {/* 错题提醒 banner 已删除 · 由下方 IconTile "❌ 错题" badge 承担红点提醒 */}
+
+        {/* 快速入口 · 与智能练习按钮拉开间距（容器默认 sp-4 + 额外 sp-3 = ~28px）·
+            形成"主功能区 → 速入口区"的清晰断点 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--sp-3)', marginTop: 'var(--sp-3)' }}>
+          <IconTile to="/sm2-review" icon="🔁" label={s('SM-2', 'SM-2', 'SM-2')} badge={sm2.data?.totalDue} />
+          <IconTile to="/mistakes" icon="❌" label={s('错题', '錯題', 'Mistakes')} badge={mistakes.data} />
+          <IconTile to="/favorites" icon="⭐" label={s('收藏', '收藏', 'Favorites')} />
+          <IconTile to="/practice" icon="📿" label={s('修学', '修學', 'Practice')} />
+        </div>
+      </div>
+
+      <div style={{ height: 'var(--sp-8)' }} />
+
+      {/* 智能练习题数 sheet · 滚轮选择 · 持久化到 localStorage */}
+      <Dialog
+        open={limitSheetOpen}
+        onClose={() => setLimitSheetOpen(false)}
+        title={s('每次练习题数', '每次練習題數', 'Questions per session')}
+      >
+        <div style={{ padding: 'var(--sp-3) 0 var(--sp-2)' }}>
+          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, textAlign: 'center', marginBottom: 'var(--sp-3)' }}>
+            {s('滑动选择 · 自动保存', '滑動選擇 · 自動保存', 'Slide to pick · auto-saved')}
+          </p>
+          <WheelPicker
+            value={practiceLimit}
+            options={PRACTICE_LIMIT_OPTIONS}
+            onChange={(v) => setPracticeLimit(v)}
+            unit={s('题', '題', 'Q')}
+          />
+          <button
+            type="button"
+            onClick={() => setLimitSheetOpen(false)}
+            className="btn btn-primary btn-pill btn-full"
+            style={{ padding: 12, justifyContent: 'center', marginTop: 'var(--sp-4)' }}
+          >
+            {s('完成', '完成', 'Done')}
+          </button>
+        </div>
+      </Dialog>
+
+      {/* 主修法本切换 sheet · 仅多本时弹 */}
+      <Dialog
+        open={switchOpen}
+        onClose={() => setSwitchOpen(false)}
+        title={s('切换主修法本', '切換主修法本', 'Switch main text')}
+      >
+        <div className="menu-card" style={{ marginTop: 'var(--sp-2)' }}>
+          {enrolledCourseList.map((c) => {
+            const isCur = currentCourse?.id === c.id;
+            const en = enrollList.find((e) => e.courseId === c.id);
+            const done = en?.lessonsCompleted.length ?? 0;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  if (!isCur) {
+                    setMainCourseId(c.id);
+                    toast.ok(s('已切换主修法本', '已切換主修法本', 'Switched'));
+                  }
+                  setSwitchOpen(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--sp-3)',
+                  width: '100%',
+                  padding: 'var(--sp-3) var(--sp-4)',
+                  background: isCur ? 'var(--saffron-pale)' : 'transparent',
+                  border: 'none',
+                  borderLeft: isCur ? '3px solid var(--saffron)' : '3px solid transparent',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  color: 'inherit',
+                }}
+              >
+                <span
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 'var(--r-sm)',
+                    background: 'var(--glass)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.4rem',
+                    flexShrink: 0,
+                  }}
+                >
+                  {c.coverEmoji || '🪷'}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontWeight: 700,
+                      color: 'var(--ink)',
+                      fontSize: '0.9375rem',
+                      letterSpacing: 1.5,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {c.title}
+                  </div>
+                  <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+                    {s(`已学 ${done} 课`, `已學 ${done} 課`, `${done} done`)}
+                    {isCur && (
+                      <span style={{ marginLeft: 6, color: 'var(--saffron-dark)', fontWeight: 700 }}>
+                        · {s('当前', '當前', 'Current')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {isCur && (
+                  <span style={{ color: 'var(--saffron-dark)', fontWeight: 700, fontSize: 14 }}>✓</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ padding: 'var(--sp-3) var(--sp-4) 0', textAlign: 'center' }}>
+          <Link
+            to="/courses?filter=available"
+            onClick={() => setSwitchOpen(false)}
+            style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1, textDecoration: 'none' }}
+          >
+            + {s('选修新法本', '選修新法本', 'Enroll new text')}
+          </Link>
+        </div>
+      </Dialog>
+    </div>
+  );
+}
+
+function IconTile({ to, icon, label, badge }: { to: string; icon: string; label: string; badge?: number }) {
+  return (
+    <Link
+      to={to}
+      className="glass-card-thick"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 4,
+        padding: 'var(--sp-3)',
+        textDecoration: 'none',
+        color: 'inherit',
+        position: 'relative',
+      }}
+    >
+      <div style={{ fontSize: '1.4rem' }}>{icon}</div>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1 }}>{label}</div>
+      {badge !== undefined && badge > 0 && (
+        <span
+          style={{
+            position: 'absolute',
+            top: 6,
+            right: 6,
+            background: 'var(--crimson)',
+            color: '#fff',
+            fontSize: 9,
+            fontWeight: 700,
+            minWidth: 16,
+            height: 16,
+            borderRadius: 8,
+            padding: '0 4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
+    </Link>
+  );
+}
