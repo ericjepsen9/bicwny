@@ -5,7 +5,7 @@
 //   - 整个画报区域可点 → /calendar
 //   - 底部 4 大卡（半透明白底）：法本 · 班级 · 智能练习 · 修学
 //   - 3 个 TabBar tab（首页/法本/复习）
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
@@ -129,6 +129,14 @@ export default function HomePage() {
     ]),
   );
 
+  // body 加 class · CSS 重写 .phone 让首页严格 100vh 不滚动
+  useEffect(() => {
+    document.body.classList.add('home-fullbleed');
+    return () => {
+      document.body.classList.remove('home-fullbleed');
+    };
+  }, []);
+
   // 日期
   const now = new Date();
   const m = now.getMonth() + 1;
@@ -147,13 +155,11 @@ export default function HomePage() {
 
   return (
     <div style={{
-      // flex column · 严格 100vh · picture flex:1 自动占剩余空间 · 不滚动
-      // marginTop 负值抵消 .phone 父容器 padding-top（safe-area 或 16px）
-      // 让画报真正铺到屏幕顶部 · 没有顶部空白
+      // body.home-fullbleed 已重写 .phone padding/height/overflow
+      // 这里只用普通 flex column · height 100% 跟 .phone 同高
       display: 'flex',
       flexDirection: 'column',
-      height: '100vh',
-      marginTop: 'calc(-1 * max(env(safe-area-inset-top, 16px), 16px))',
+      height: '100%',
     }}>
       {pullIndicator}
 

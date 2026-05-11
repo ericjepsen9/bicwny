@@ -101,6 +101,20 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 body.prototype-frame .phone { padding-top: 0; overflow: hidden; }
 .status-bar { display: none; }
 
+/* 首页画报全屏模式 · HomePage 挂载时 body 加 .home-fullbleed
+   - .phone padding-top → 0 · 让画报到顶
+   - height 严格 100vh · overflow hidden · 不滚动
+   - .page-enter / 子 div height 100% · 可继承 */
+body.home-fullbleed .phone {
+  padding-top: 0;
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+body.home-fullbleed .page-enter {
+  height: 100%;
+}
+
 /* ── Prototype Frame（可选 · body.prototype-frame 激活） ── */
 body.prototype-frame .phone-wrap {
   align-items: flex-start;
