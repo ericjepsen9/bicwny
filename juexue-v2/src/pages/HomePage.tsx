@@ -146,16 +146,16 @@ export default function HomePage() {
   const headline = day?.publicHoliday ?? firstEvent ?? null;
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {pullIndicator}
 
-      {/* 画报区 · 全宽 · 高 60vh · 点击跳 /calendar */}
+      {/* 画报区 · flex:1 自动占满剩余空间 · 点击跳 /calendar */}
       <Link
         to="/calendar"
         aria-label={s('今日藏历', '今日藏曆', "Today's calendar")}
         style={{
           position: 'relative',
-          minHeight: '60vh',
+          flex: 1,
           width: '100%',
           background: bgFallback,
           color: '#fff',
@@ -163,6 +163,7 @@ export default function HomePage() {
           display: 'flex',
           flexDirection: 'column',
           textShadow: '0 1px 3px rgba(0,0,0,0.35)',
+          minHeight: 0,
         }}
       >
         {/* 顶部 overlay · 头像 + 日期(中)+ 通知 · 同一行 */}
@@ -245,13 +246,14 @@ export default function HomePage() {
         </div>
       </Link>
 
-      {/* 底部 4 大卡 · 2×2 grid · 半透明白底 */}
+      {/* 底部 4 大卡 · 2×2 紧凑 · 留出 tab bar 空间 */}
       <div
         style={{
-          padding: 'var(--sp-3) var(--sp-4) var(--sp-4)',
+          padding: 'var(--sp-3) var(--sp-4) calc(70px + env(safe-area-inset-bottom, 0px))',
           display: 'grid',
           gridTemplateColumns: 'repeat(2, 1fr)',
           gap: 10,
+          flexShrink: 0,
         }}
       >
         <BigCard
@@ -420,10 +422,10 @@ function BigCard({ to, onClick, icon, title, sub }: {
   const baseStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
     gap: 4,
-    padding: '14px 6px',
+    padding: '10px 14px',
     borderRadius: 'var(--r-md)',
     background: 'var(--surface)',
     border: '1px solid var(--border-light)',
@@ -433,14 +435,20 @@ function BigCard({ to, onClick, icon, title, sub }: {
     cursor: 'pointer',
     fontFamily: 'inherit',
     fontSize: 'inherit',
+    textAlign: 'left',
+    minHeight: 64,
   };
   const content = (
     <>
-      <span style={{ color: 'var(--ink-2)' }}>{icon}</span>
-      <span style={{ font: 'var(--text-body)', fontWeight: 600, letterSpacing: 1, fontSize: '0.85rem' }}>
-        {title}
-      </span>
-      <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.7rem' }}>
+      {/* row 1: icon + 标题 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ color: 'var(--ink-2)', display: 'inline-flex' }}>{icon}</span>
+        <span style={{ font: 'var(--text-body)', fontWeight: 700, letterSpacing: 2, fontSize: '0.95rem' }}>
+          {title}
+        </span>
+      </div>
+      {/* row 2: 小灰字 · 与 row 1 标题左对齐（含 icon 宽度 + gap） */}
+      <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.72rem', paddingLeft: 30, letterSpacing: 1 }}>
         {sub}
       </span>
     </>
