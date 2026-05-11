@@ -147,27 +147,26 @@ export default function HomePage() {
 
   return (
     <div style={{
-      position: 'relative',
-      height: '100dvh',
-      overflow: 'hidden',
-      // 抵消 .phone 父容器的 padding-top: max(safe-area-inset-top, 16px)
-      // 让画报真正铺满视口（CLAUDE.md 第 1 条：祖先 transform 让 fixed 失效 · 这里用 negative margin 兜底）
-      marginTop: 'calc(-1 * max(env(safe-area-inset-top, 16px), 16px))',
+      // 普通文档流 · 不依赖 dvh / fixed / overflow / 负 margin
+      // 容器根据内容自动撑高 · 画报固定 60vh · 卡片自然在下方
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: '100vh',
     }}>
       {pullIndicator}
 
-      {/* 画报区 · 绝对定位 · 占满全屏 · 卡片悬浮在它上方 */}
+      {/* 画报区 · 普通块级元素 · 用 minHeight 控制高度 · 不绝对定位 */}
       <Link
         to="/calendar"
         aria-label={s('今日藏历', '今日藏曆', "Today's calendar")}
         style={{
-          position: 'absolute',
-          inset: 0,
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: '60vh',
           background: bgFallback,
           color: '#fff',
           textDecoration: 'none',
-          display: 'flex',
-          flexDirection: 'column',
           textShadow: '0 1px 3px rgba(0,0,0,0.35)',
         }}
       >
@@ -251,18 +250,14 @@ export default function HomePage() {
         </div>
       </Link>
 
-      {/* 底部 4 大卡 · 绝对定位悬浮在画报上方 · 距底 90px 让出 tab bar */}
+      {/* 底部 4 大卡 · 普通文档流 · 在画报正下方 · padding-bottom 让出 tab bar */}
       <div
         style={{
-          position: 'absolute',
-          bottom: 'calc(90px + env(safe-area-inset-bottom, 0px))',
-          left: 0,
-          right: 0,
-          padding: '0 var(--sp-4)',
+          padding: 'var(--sp-3) var(--sp-4) calc(90px + env(safe-area-inset-bottom, 12px))',
           display: 'grid',
           gridTemplateColumns: 'repeat(2, 1fr)',
           gap: 10,
-          zIndex: 10,
+          background: 'var(--bg-scene)',
         }}
       >
         <BigCard
