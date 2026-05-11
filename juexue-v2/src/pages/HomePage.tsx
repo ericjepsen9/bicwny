@@ -147,15 +147,17 @@ export default function HomePage() {
 
   return (
     <div style={{
-      // 普通文档流 · 不依赖 dvh / fixed / overflow / 负 margin
-      // 容器根据内容自动撑高 · 画报固定 60vh · 卡片自然在下方
+      // flex column · 严格 100vh · picture flex:1 自动占剩余空间 · 不滚动
+      // marginTop 负值抵消 .phone 父容器 padding-top（safe-area 或 16px）
+      // 让画报真正铺到屏幕顶部 · 没有顶部空白
       display: 'flex',
       flexDirection: 'column',
-      minHeight: '100vh',
+      height: '100vh',
+      marginTop: 'calc(-1 * max(env(safe-area-inset-top, 16px), 16px))',
     }}>
       {pullIndicator}
 
-      {/* 画报区 · 普通块级元素 · 用 minHeight 控制高度 · 不绝对定位 */}
+      {/* 画报区 · flex:1 自动撑满剩余高度 · minHeight:0 防止 flex 子项溢出 */}
       <Link
         to="/calendar"
         aria-label={s('今日藏历', '今日藏曆', "Today's calendar")}
@@ -163,7 +165,8 @@ export default function HomePage() {
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
-          minHeight: '60vh',
+          flex: 1,
+          minHeight: 0,
           background: bgFallback,
           color: '#fff',
           textDecoration: 'none',
@@ -250,9 +253,10 @@ export default function HomePage() {
         </div>
       </Link>
 
-      {/* 底部 4 大卡 · 普通文档流 · 在画报正下方 · padding-bottom 让出 tab bar */}
+      {/* 底部 4 大卡 · flex-shrink:0 不被压缩 · padding-bottom 让出 tab bar */}
       <div
         style={{
+          flexShrink: 0,
           padding: 'var(--sp-3) var(--sp-4) calc(90px + env(safe-area-inset-bottom, 12px))',
           display: 'grid',
           gridTemplateColumns: 'repeat(2, 1fr)',
