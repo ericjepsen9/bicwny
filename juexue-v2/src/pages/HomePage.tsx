@@ -146,7 +146,7 @@ export default function HomePage() {
   const headline = day?.publicHoliday ?? firstEvent ?? null;
 
   return (
-    <div style={{ position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ position: 'relative', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {pullIndicator}
 
       {/* 画报区 · flex:1 自动占满剩余空间 · 点击跳 /calendar */}
@@ -246,10 +246,11 @@ export default function HomePage() {
         </div>
       </Link>
 
-      {/* 底部 4 大卡 · 2×2 紧凑 · 留出 tab bar 空间 */}
+      {/* 底部 4 大卡 · 2×2 紧凑 · margin-bottom 让出 tab bar */}
       <div
         style={{
-          padding: 'var(--sp-3) var(--sp-4) calc(70px + env(safe-area-inset-bottom, 0px))',
+          padding: 'var(--sp-3) var(--sp-4)',
+          marginBottom: 'calc(72px + env(safe-area-inset-bottom, 12px))',
           display: 'grid',
           gridTemplateColumns: 'repeat(2, 1fr)',
           gap: 10,
