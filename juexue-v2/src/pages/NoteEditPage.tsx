@@ -19,6 +19,8 @@ interface Note {
   body: string;
   tags: string[];
   visibility: 'private' | 'class';
+  anchorText: string | null;
+  anchorIndex: number | null;
   pinnedAt: string | null;
   archivedAt: string | null;
 }
@@ -34,6 +36,27 @@ export default function NoteEditPage() {
   const isNew = !id || id === 'new';
   const prefillLessonId = searchParams.get('lessonId');
   const prefillBody = searchParams.get('body') ?? '';
+  const fromDraft = searchParams.get('fromDraft') === '1';
+
+  // 从 sessionStorage 读 reading 页选段 / 全文草稿
+  const sessionDraft = useMemo(() => {
+    if (!fromDraft) return null;
+    try {
+      const raw = sessionStorage.getItem('note-draft');
+      if (!raw) return null;
+      sessionStorage.removeItem('note-draft');
+      return JSON.parse(raw) as {
+        lessonId?: string;
+        body: string;
+        anchorText?: string | null;
+        anchorIndex?: number | null;
+        autoDraft?: boolean;
+      };
+    } catch { return null; }
+  }, [fromDraft]);
+
+  const [anchorText, setAnchorText] = useState<string | null>(sessionDraft?.anchorText ?? null);
+  const [anchorIndex, setAnchorIndex] = useState<number | null>(sessionDraft?.anchorIndex ?? null);
 
   const existing = useQuery({
     enabled: !isNew,
@@ -42,7 +65,7 @@ export default function NoteEditPage() {
   });
 
   const [title, setTitle] = useState('');
-  const [body, setBody] = useState(prefillBody);
+  const [body, setBody] = useState(sessionDraft?.body ?? prefillBody);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [visibility, setVisibility] = useState<'private' | 'class'>('private');
@@ -57,19 +80,42 @@ export default function NoteEditPage() {
       setTags(existing.data.tags);
       setVisibility(existing.data.visibility);
       setPinned(!!existing.data.pinnedAt);
+      setAnchorText(existing.data.anchorText ?? null);
+      setAnchorIndex(existing.data.anchorIndex ?? null);
     }
   }, [existing.data]);
+
+  // 选段进入时自动调一次 draft（仅新建场景 · 仅当 sessionDraft.autoDraft）
+  const [autoDraftDone, setAutoDraftDone] = useState(false);
+  useEffect(() => {
+    if (!isNew || !sessionDraft?.autoDraft || autoDraftDone) return;
+    setAutoDraftDone(true);
+    (async () => {
+      setLlmLoading('draft');
+      try {
+        const data = await api.post<{ result: string }>('/api/notes/llm-assist', { action: 'draft', text: sessionDraft.body });
+        setBody(String(data.result));
+        toast.ok('✓ AI 骨架已生成');
+      } catch (e) {
+        toast.error('AI 失败: ' + (e as ApiError).message);
+      } finally {
+        setLlmLoading(null);
+      }
+    })();
+  }, [isNew, sessionDraft, autoDraftDone]);
 
   // 新建保存 / 编辑保存
   const save = useMutation({
     mutationFn: async () => {
       if (isNew) {
         return api.post<Note>('/api/notes', {
-          lessonId: prefillLessonId || null,
+          lessonId: prefillLessonId || sessionDraft?.lessonId || null,
           title: title.trim() || '无标题',
           body,
           tags,
           visibility,
+          anchorText,
+          anchorIndex,
         });
       }
       return api.patch<Note>(`/api/notes/${id}`, {

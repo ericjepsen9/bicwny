@@ -11,6 +11,8 @@ export interface NoteDto {
   body: string;
   tags: string[];
   visibility: 'private' | 'class';
+  anchorText: string | null;
+  anchorIndex: number | null;
   pinnedAt: string | null;
   archivedAt: string | null;
   createdAt: string;
@@ -29,6 +31,8 @@ interface Row {
   body: string;
   tags: Prisma.JsonValue;
   visibility: string;
+  anchorText: string | null;
+  anchorIndex: number | null;
   pinnedAt: Date | null;
   archivedAt: Date | null;
   createdAt: Date;
@@ -45,6 +49,8 @@ function rowToDto(r: Row): NoteDto {
     body: r.body,
     tags: Array.isArray(r.tags) ? (r.tags as string[]) : [],
     visibility: (r.visibility === 'class' ? 'class' : 'private'),
+    anchorText: r.anchorText,
+    anchorIndex: r.anchorIndex,
     pinnedAt: r.pinnedAt?.toISOString() ?? null,
     archivedAt: r.archivedAt?.toISOString() ?? null,
     createdAt: r.createdAt.toISOString(),
@@ -148,6 +154,8 @@ export interface CreateInput {
   body: string;
   tags?: string[];
   visibility?: 'private' | 'class';
+  anchorText?: string | null;
+  anchorIndex?: number | null;
 }
 
 export async function createNote(prisma: PrismaClient, userId: string, input: CreateInput): Promise<NoteDto> {
@@ -171,6 +179,8 @@ export async function createNote(prisma: PrismaClient, userId: string, input: Cr
       body: input.body,
       tags: (input.tags ?? []) as Prisma.InputJsonValue,
       visibility: input.visibility === 'class' ? 'class' : 'private',
+      anchorText: input.anchorText?.slice(0, 80) ?? null,
+      anchorIndex: input.anchorIndex ?? null,
     },
   });
   return rowToDto(r);

@@ -1,15 +1,26 @@
 // ScriptureReadingPage · /read/:slug/:lessonId
 //   Apple 图书风沉浸阅读 · 进入显示工具栏 → 滚一屏后自动隐 → 点正文呼出/收起
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import Dialog from '@/components/Dialog';
+import NotesDrawer from '@/components/NotesDrawer';
+import { api } from '@/lib/api';
 import { useFontScale } from '@/lib/fontSize';
 import { useLang } from '@/lib/i18n';
 import { useCourseDetail, useEnrollments, useLessonMeditation, useUpdateEnrollmentProgress } from '@/lib/queries';
 import { useReadingTracker } from '@/lib/readingTracker';
 import { toast } from '@/lib/toast';
+
+interface LessonNote {
+  id: string;
+  title: string;
+  anchorText: string | null;
+  anchorIndex: number | null;
+  body: string;
+}
 
 interface FlatLesson {
   chapterId: string;
@@ -96,6 +107,67 @@ export default function ScriptureReadingPage() {
     window.scrollTo({ top: 0, behavior: 'auto' });
     setChromeVisible(true);
   }, [lessonId]);
+
+  // 笔记 · 抽屉 / 本课笔记列表 / 选段气泡
+  const [notesOpen, setNotesOpen] = useState(false);
+  const lessonNotes = useQuery({
+    enabled: !!lessonId,
+    queryKey: ['/api/notes', { lessonId }],
+    queryFn: ({ signal }) => api.get<LessonNote[]>(`/api/notes?lessonId=${encodeURIComponent(lessonId)}`, { signal }),
+  });
+  const notesByAnchor = useMemo(() => {
+    const map = new Map<number, LessonNote[]>();
+    (lessonNotes.data ?? []).forEach((n) => {
+      if (n.anchorIndex == null) return;
+      const list = map.get(n.anchorIndex) ?? [];
+      list.push(n);
+      map.set(n.anchorIndex, list);
+    });
+    return map;
+  }, [lessonNotes.data]);
+
+  // 选段气泡
+  const articleRef = useRef<HTMLElement>(null);
+  const [bubble, setBubble] = useState<{ top: number; left: number; text: string; index: number; anchor: string } | null>(null);
+  useEffect(() => {
+    function onSelectionChange() {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !articleRef.current) { setBubble(null); return; }
+      const anchorNode = sel.anchorNode;
+      if (!anchorNode || !articleRef.current.contains(anchorNode)) { setBubble(null); return; }
+      const text = sel.toString().trim();
+      if (text.length < 4) { setBubble(null); return; }
+      // 找 paragraph index：往上找有 data-paragraph-index 的祖先
+      let el: Node | null = anchorNode;
+      while (el && (el as Element).getAttribute?.('data-paragraph-index') == null) el = (el as Element).parentNode ?? null;
+      const idx = el ? Number((el as Element).getAttribute('data-paragraph-index')) : -1;
+      const paraText = el ? ((el as Element).textContent ?? '') : text;
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      setBubble({
+        top: Math.max(60, rect.top - 44 + window.scrollY),
+        left: Math.min(window.innerWidth - 180, rect.left + window.scrollX + rect.width / 2 - 90),
+        text,
+        index: idx >= 0 ? idx : 0,
+        anchor: paraText.slice(0, 80),
+      });
+    }
+    document.addEventListener('selectionchange', onSelectionChange);
+    return () => document.removeEventListener('selectionchange', onSelectionChange);
+  }, []);
+
+  function addNoteFromSelection() {
+    if (!bubble) return;
+    sessionStorage.setItem('note-draft', JSON.stringify({
+      lessonId,
+      body: bubble.text,
+      anchorText: bubble.anchor,
+      anchorIndex: bubble.index,
+      autoDraft: true, // 自动调 LLM action=draft
+    }));
+    setBubble(null);
+    nav('/notes/new?fromDraft=1');
+  }
 
   // 向下滚 → 隐藏工具栏；向上滚 → 显示
   // 顶部 60px 内强制显示（避免顶端就给隐了 · 视觉断层）
@@ -311,8 +383,9 @@ export default function ScriptureReadingPage() {
           {lesson.title}
         </h1>
 
-        {/* 原文 · 无白色矩形 · 直接铺在页面背景上（参考 Apple 图书阅读视图） */}
+        {/* 原文 · 按段落拆 · 段落旁显示笔记 💬 · 选段弹「加笔记」气泡 */}
         <article
+          ref={articleRef}
           style={{
             padding: 'var(--sp-2) 0 var(--sp-3)',
             font: 'var(--text-body-serif)',
@@ -320,12 +393,82 @@ export default function ScriptureReadingPage() {
             lineHeight: 1.9,
             letterSpacing: 1,
             color: 'var(--ink)',
-            whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
           }}
         >
-          {lesson.referenceText || s('（本课时尚无原文）', '（本課時尚無原文）', '(No reference text yet)')}
+          {(lesson.referenceText ?? '').trim() ? (
+            splitParagraphs(lesson.referenceText!).map((para, idx) => {
+              const notes = notesByAnchor.get(idx) ?? [];
+              return (
+                <p
+                  key={idx}
+                  data-paragraph-index={idx}
+                  style={{
+                    margin: '0 0 var(--sp-3)',
+                    whiteSpace: 'pre-wrap',
+                    position: 'relative',
+                    paddingRight: notes.length > 0 ? 28 : 0,
+                  }}
+                >
+                  {para}
+                  {notes.length > 0 && (
+                    <Link
+                      to={`/notes/${notes[0]!.id}`}
+                      aria-label={`本段有 ${notes.length} 条笔记`}
+                      title={notes.map((n) => n.title || '(无标题)').join(' · ')}
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 0,
+                        fontSize: '0.95rem',
+                        color: 'var(--saffron-dark)',
+                        textDecoration: 'none',
+                        background: 'var(--saffron-pale)',
+                        borderRadius: '50%',
+                        width: 22,
+                        height: 22,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                      }}
+                    >
+                      💬{notes.length > 1 ? notes.length : ''}
+                    </Link>
+                  )}
+                </p>
+              );
+            })
+          ) : (
+            <p>{s('（本课时尚无原文）', '（本課時尚無原文）', '(No reference text yet)')}</p>
+          )}
         </article>
+
+        {/* 选段气泡 · 「📝 用此段加笔记」 */}
+        {bubble && (
+          <button
+            type="button"
+            onClick={addNoteFromSelection}
+            style={{
+              position: 'absolute',
+              top: bubble.top,
+              left: bubble.left,
+              padding: '6px 12px',
+              borderRadius: 'var(--r-pill)',
+              background: 'var(--ink)',
+              color: '#fff',
+              border: 'none',
+              font: 'var(--text-caption)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              zIndex: 90,
+              letterSpacing: 1,
+            }}
+          >
+            📝 加笔记（含原文 + AI 骨架）
+          </button>
+        )}
       </div>
 
       {/* 观修 + 工具栏走 createPortal · 渲到 document.body 避免被 .page-enter 的
@@ -448,11 +591,12 @@ export default function ScriptureReadingPage() {
         document.body,
       )}
 
-      {/* 笔记 FAB · 浮于右下 · 仅当 lessonId 有效时显示 */}
+      {/* 笔记 FAB · 浮于右下 · 仅当 lessonId 有效时显示 · 点击开抽屉不跳页 */}
       {lessonId && (
-        <Link
-          to={`/notes/new?lessonId=${encodeURIComponent(lessonId)}`}
-          aria-label={s('为本课写笔记', '為本課寫筆記', 'Note for this lesson')}
+        <button
+          type="button"
+          onClick={() => setNotesOpen(true)}
+          aria-label={s('本课笔记', '本課筆記', 'Lesson notes')}
           style={{
             position: 'fixed',
             right: 16,
@@ -466,7 +610,8 @@ export default function ScriptureReadingPage() {
             alignItems: 'center',
             justifyContent: 'center',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            textDecoration: 'none',
+            border: 'none',
+            cursor: 'pointer',
             fontSize: '1.3rem',
             zIndex: 50,
             opacity: chromeVisible ? 1 : 0,
@@ -475,7 +620,42 @@ export default function ScriptureReadingPage() {
           }}
         >
           📝
-        </Link>
+          {(lessonNotes.data?.length ?? 0) > 0 && (
+            <span
+              aria-hidden
+              style={{
+                position: 'absolute',
+                top: -4,
+                right: -4,
+                minWidth: 18,
+                height: 18,
+                padding: '0 5px',
+                borderRadius: 999,
+                background: 'var(--crimson)',
+                border: '2px solid var(--bg)',
+                color: '#fff',
+                fontSize: 10,
+                fontWeight: 700,
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {(lessonNotes.data!.length) > 9 ? '9+' : lessonNotes.data!.length}
+            </span>
+          )}
+        </button>
+      )}
+
+      {/* 抽屉 · 本课笔记列表 + 新建按钮 */}
+      {lessonId && (
+        <NotesDrawer
+          open={notesOpen}
+          onClose={() => setNotesOpen(false)}
+          lessonId={lessonId}
+          lessonText={lesson.referenceText ?? ''}
+        />
       )}
 
       {/* 目录 sheet · 当前课时高亮 · 点击直跳 */}
@@ -537,4 +717,13 @@ export default function ScriptureReadingPage() {
       </Dialog>
     </div>
   );
+}
+
+// 把法本原文按段落切 · 优先双换行 · 兜底单换行
+function splitParagraphs(text: string): string[] {
+  const byDouble = text.split(/\n{2,}/g).map((p) => p.trim()).filter(Boolean);
+  if (byDouble.length > 1) return byDouble;
+  // 单 \n 兜底 · 但每段至少 8 字防止把短行单独成段
+  const bySingle = text.split(/\n/g).map((p) => p.trim()).filter((p) => p.length > 0);
+  return bySingle.length > 1 ? bySingle : [text.trim()];
 }

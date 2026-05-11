@@ -1237,23 +1237,27 @@ model TibetanDay {
 // ═══════════════════════════════════════════════════════════════
 
 model Note {
-  id         String    @id @default(cuid())
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lessonId   String? // 可选 · 挂课时
-  lesson     Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
-  courseId   String? // 冗余 · 跨课程查找用
-  title      String // ≤ 80
-  body       String    @db.Text // markdown · ≤ 10000
-  tags       Json      @default("[]") // string[] 自定义
-  visibility String    @default("private") // 'private' | 'class'
-  pinnedAt   DateTime?
-  archivedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId      String? // 可选 · 挂课时
+  lesson        Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  courseId      String? // 冗余 · 跨课程查找用
+  title         String // ≤ 80
+  body          String    @db.Text // markdown · ≤ 10000
+  tags          Json      @default("[]") // string[] 自定义
+  visibility    String    @default("private") // 'private' | 'class'
+  // 段落级锚点（来自阅读页选段加笔记）· 让重读时在段落旁显示 💬
+  anchorText    String? // 段落前 ≤ 80 字 · 用于显示和模糊匹配
+  anchorIndex   Int? // 段落在 lesson 中的顺序索引 · 0 起 · 编辑法本后可能失效
+  pinnedAt      DateTime?
+  archivedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([userId, updatedAt])
   @@index([userId, lessonId])
   @@index([userId, archivedAt])
   @@index([visibility, updatedAt])
+  @@index([lessonId, anchorIndex])
 }

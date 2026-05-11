@@ -32,6 +32,8 @@ const createBody = z.object({
   body: z.string().max(10000),
   tags: z.array(z.string().max(20)).max(10).optional(),
   visibility: visibilityEnum.optional(),
+  anchorText: z.string().max(80).nullable().optional(),
+  anchorIndex: z.number().int().min(0).nullable().optional(),
 });
 
 const updateBody = z.object({
