@@ -1,89 +1,88 @@
-// HomePage 备份 · 2026-05 v1 版本 · 保留作回退参考
-// 这个文件不挂路由 · 只是档案
-// 当前生效的首页在 HomePage.tsx · 重大改版前先备份此文件
-// 回退方式：cp HomePage.v1.tsx HomePage.tsx
-//
-// v1 功能清单（重要 · 改版时全部保留）：
-// 1. greeting 行 → TibetanTodayChip (iOS 日历图标 + 节日)
-// 2. dharmaName 已迁到右上头像 hover title
-// 3. 🔥 streak headline (H2 gold-dark)
-// 4. 通知铃铛 + 未读 badge
-// 5. 头像入口 (saffron 渐变 / 跳 /profile)
-// 6. 加入班级引导卡 / 班级卡（加入后）
-// 7. 主修法本卡 · 含「继续阅读」CTA + 切换/目录
-// 8. 智能练习卡 · 题量 picker + 「开始练习」
-// 9. 4 个图标行 · SM-2 / 错题 / 收藏 / 修学（错题红点 badge）
-// 10. 下拉刷新
-
-// HomePage · 学习仪表盘
-//   1. greeting · 时段问候 + dharmaName + 🔥 streak + 通知铃铛 + 头像
-//   2. class-card · 当前班级 / 加入班级引导
-//   3. course-card · 当前法本（进度 + 当前学到第 N 课 + 阅读 / 目录 / 切换主修）
-//   4. ⚡ smart-practice card · 题量 chip + 开始练习（secondary）
-//   5. icon-grid · SM-2 / 错题 / 收藏 / 设置（错题/SM-2 红点提醒）
-// 已删：
-//   · 邮箱未验证 banner（移到 ProfilePage 单点）
-//   · 错题大 banner（与 IconTile 重复）
-//   · 章级棋盘格（与当前法本卡的进度数字重复 · 145 章铺满后视觉噪音）
-//     ChapterProgressGrid 组件保留 · 后续可能放法本详情页 hero 区
+// HomePage v2 · 画报日历风 · 2026-05
+//   - 全屏画报背景（admin 上传月度图 · 失败则浅色渐变兜底）
+//   - 顶部 overlay：左上头像（→ /profile）· 右上通知（→ /notifications）
+//   - 画报中部叠加：公历大字 + 周X + 藏历 + 节日/事件徽章
+//   - 整个画报区域可点 → /calendar
+//   - 底部 4 大卡（半透明白底）：法本 · 班级 · 智能练习 · 修学
+//   - 3 个 TabBar tab（首页/法本/复习）
 import { useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
-import TibetanTodayChip from '@/components/TibetanTodayChip';
 import WheelPicker from '@/components/WheelPicker';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
-import { setMainCourseId, useMainCourseId } from '@/lib/mainCourse';
-import { PRACTICE_LIMIT_OPTIONS, usePracticeLimit } from '@/lib/practiceLimit';
+import { useMainCourseId } from '@/lib/mainCourse';
+import { api } from '@/lib/api';
+import { PRACTICE_LIMIT_OPTIONS, usePracticeLimit, type PracticeLimit } from '@/lib/practiceLimit';
 import { usePullToRefresh } from '@/lib/pullToRefresh';
-import { toast } from '@/lib/toast';
 import {
   useClasses,
-  usePracticeTasks,
   useCourseDetail,
   useCourses,
   useEnrollments,
-  useMistakeCount,
   useProgress,
-  useSm2Stats,
   useUnreadNotifCount,
 } from '@/lib/queries';
-import Skeleton from '@/components/Skeleton';
+
+const MONTH_SC = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
+
+interface Poster {
+  id: string;
+  year: number;
+  month: number;
+  imageUrl: string;
+  caption: string | null;
+}
+
+interface TibetanDay {
+  date: string;
+  lunar: string;
+  tibetan: string;
+  tibetanMonth: string;
+  isIntercalary: boolean;
+  tags: string[];
+  auspicious: boolean;
+  events: string[];
+  publicHoliday: string | null;
+}
 
 export default function HomePage() {
-  const { user } = useAuth();
   const { s } = useLang();
+  const { user } = useAuth();
+  const qc = useQueryClient();
 
   const enrollments = useEnrollments();
   const courses = useCourses();
   const classes = useClasses();
-  const sm2 = useSm2Stats();
-  const mistakes = useMistakeCount();
   const progress = useProgress();
   const unreadNotifQ = useUnreadNotifCount();
   const unreadNotifs = unreadNotifQ.data ?? 0;
-
-  const dharmaName = user?.dharmaName || s('师兄', '師兄', 'Friend');
   const streak = progress.data?.streakDays ?? 0;
+  const dharmaName = user?.dharmaName || s('师兄', '師兄', 'Friend');
 
-  // 找当前要显示的法本：
-  //   优先用户在法本详情页设的"主修"（localStorage）·
-  //   否则首本 enrollment（兜底）
+  // 画报
+  const poster = useQuery({
+    queryKey: ['/api/posters/current'],
+    queryFn: ({ signal }) => api.get<Poster | null>('/api/posters/current', { signal }),
+    staleTime: 60 * 60 * 1000,
+  });
+
+  // 今日藏历
+  const tibToday = useQuery({
+    queryKey: ['/api/calendar/today'],
+    queryFn: ({ signal }) => api.get<TibetanDay | null>('/api/calendar/today', { signal }),
+    staleTime: 60 * 60 * 1000,
+  });
+
+  // 主修法本
   const mainCourseId = useMainCourseId();
   const enrollList = enrollments.data ?? [];
   const courseList = courses.data ?? [];
   const firstEnrollment =
-    (mainCourseId ? enrollList.find((e) => e.courseId === mainCourseId) : null) ??
-    enrollList[0];
-  const currentCourse =
-    firstEnrollment &&
-    courseList.find(
-      (c) => c.id === firstEnrollment.courseId,
-    );
-
-  // 拉法本详情（章节树）· 用来算 totalLessons + 找 currentLesson 元数据
-  // 首页只看 TOC 和进度 · 不显示原文 · 用 lite 省几 MB payload
+    (mainCourseId ? enrollList.find((e) => e.courseId === mainCourseId) : null) ?? enrollList[0];
+  const currentCourse = firstEnrollment && courseList.find((c) => c.id === firstEnrollment.courseId);
   const currentCourseDetail = useCourseDetail(currentCourse?.slug, { lite: true });
   const completedSet = useMemo(
     () => new Set(firstEnrollment?.lessonsCompleted ?? []),
@@ -95,13 +94,6 @@ export default function HomePage() {
     0,
   );
   const pct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
-
-  // 找"继续阅读"目标 lesson:
-  //   1. 有 currentLessonId 且该课未读完 → 回到该课
-  //   2. 有 currentLessonId 且该课已读完 → 跳到下一课（推动学习）
-  //   3. 已是最后一课且读完 → 留在最后一课（让用户复读）
-  //   4. 无 currentLessonId → 首个未完成 → 兜底首课时
-  // memo 化避免每次 render 都 flatMap + findIndex（章节多时 O(n²) 浪费）
   const flatLessons = useMemo(
     () => (currentCourseDetail.data?.chapters ?? []).flatMap((ch) =>
       (ch.lessons ?? []).map((l) => ({ chapter: ch, lesson: l })),
@@ -122,565 +114,198 @@ export default function HomePage() {
   }, [flatLessons, firstEnrollment?.currentLessonId, completedSet]);
 
   const firstClass = classes.data?.[0];
-  // 班级 hero 引导：进行中的班级修学任务数（未完成 · scope=class · 当前班）
-  const tasks = usePracticeTasks();
-  const myClassActiveTasks = firstClass
-    ? (tasks.data ?? []).filter((t) => t.scope === 'class' && t.class?.id === firstClass.classId && !t.isDone).length
-    : 0;
 
-  // 智能练习题量 · localStorage 持久化 · 默认 20
+  // 智能练习题量
   const [practiceLimit, setPracticeLimit] = usePracticeLimit();
-  const [limitSheetOpen, setLimitSheetOpen] = useState(false);
-  // 主修法本切换 sheet（仅多本时启用）
-  const [switchOpen, setSwitchOpen] = useState(false);
-  // 已加入的法本（带 course meta）· 给 sheet 列表用
-  const enrolledCourseList = enrollList
-    .map((e) => courseList.find((c) => c.id === e.courseId))
-    .filter((c): c is NonNullable<typeof c> => !!c);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  // 下拉刷新 · 重拉所有当前活跃 query
-  const qc = useQueryClient();
+  // 下拉刷新
   const { indicator: pullIndicator } = usePullToRefresh(() =>
-    qc.refetchQueries({ type: 'active' }),
+    Promise.all([
+      qc.invalidateQueries({ queryKey: ['/api/enrollments'] }),
+      qc.invalidateQueries({ queryKey: ['/api/progress'] }),
+      qc.invalidateQueries({ queryKey: ['/api/posters/current'] }),
+      qc.invalidateQueries({ queryKey: ['/api/calendar/today'] }),
+    ]),
   );
 
+  // 日期
+  const now = new Date();
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  const dow = WEEKDAY[now.getDay()]!;
+
+  // 画报兜底色（无图时）· 按月份变浅色调
+  const bgFallback = poster.data?.imageUrl
+    ? `url(${poster.data.imageUrl}) center/cover no-repeat`
+    : 'linear-gradient(180deg, var(--saffron-pale) 0%, var(--gold-pale) 50%, var(--surface) 100%)';
+
+  // 主标注（节日 > 第一条事件）
+  const day = tibToday.data;
+  const firstEvent = day?.events?.find((e) => !e.startsWith('理发吉日')) ?? null;
+  const headline = day?.publicHoliday ?? firstEvent ?? null;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+    <div style={{
+      position: 'relative',
+      height: '100dvh',
+      overflow: 'hidden',
+      // 抵消 .phone 父容器的 padding-top: max(safe-area-inset-top, 16px)
+      // 让画报真正铺满视口（CLAUDE.md 第 1 条：祖先 transform 让 fixed 失效 · 这里用 negative margin 兜底）
+      marginTop: 'calc(-1 * max(env(safe-area-inset-top, 16px), 16px))',
+    }}>
       {pullIndicator}
-      {/* Header */}
-      <div
+
+      {/* 画报区 · 绝对定位 · 占满全屏 · 卡片悬浮在它上方 */}
+      <Link
+        to="/calendar"
+        aria-label={s('今日藏历', '今日藏曆', "Today's calendar")}
         style={{
-          padding: 'var(--sp-2) var(--sp-5) var(--sp-5)',
+          position: 'absolute',
+          inset: 0,
+          background: bgFallback,
+          color: '#fff',
+          textDecoration: 'none',
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
+          flexDirection: 'column',
+          textShadow: '0 1px 3px rgba(0,0,0,0.35)',
         }}
       >
-        <div>
-          <TibetanTodayChip />
-          {streak > 0 ? (
-            <p className="t-h2" style={{ color: 'var(--gold-dark)', display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span>🔥</span>
-              <span>{s(`连续 ${streak} 天`, `連續 ${streak} 天`, `${streak}-day streak`)}</span>
-            </p>
-          ) : (
-            <p className="t-h2" style={{ color: 'var(--ink)', display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span>🌱</span>
-              <span>{s('今日开始修学', '今日開始修學', 'Begin today')}</span>
-            </p>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--sp-3)', alignItems: 'center', paddingTop: 4 }}>
-          {/* 通知铃铛 · 含未读 badge */}
-          <Link
-            to="/notifications"
-            aria-label={s('通知', '通知', 'Notifications') + (unreadNotifs > 0 ? ` · ${unreadNotifs} 条未读` : '')}
-            style={{
-              position: 'relative',
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              background: 'var(--glass-thick)',
-              border: '1px solid var(--glass-border)',
-              color: 'var(--ink-2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            {unreadNotifs > 0 && (
-              <span
-                aria-hidden
-                style={{
-                  position: 'absolute',
-                  top: 4,
-                  right: 4,
-                  minWidth: 14,
-                  height: 14,
-                  padding: '0 4px',
-                  borderRadius: 999,
-                  background: 'var(--crimson)',
-                  border: '2px solid var(--bg)',
-                  color: '#fff',
-                  fontSize: 9,
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {unreadNotifs > 9 ? '9+' : unreadNotifs}
-              </span>
-            )}
-          </Link>
-          <Link
-            to="/profile"
-            aria-label={dharmaName + ' · ' + s('个人资料', '個人資料', 'Profile')}
-            title={dharmaName}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontFamily: 'var(--font-serif)',
-              fontWeight: 700,
-              fontSize: '0.875rem',
-            }}
-          >
-            {(user?.avatar || dharmaName).slice(0, 1)}
-          </Link>
-        </div>
-      </div>
-
-      {/* Sections */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', padding: '0 var(--sp-5)' }}>
-        {/* 班级卡 · 已加入显示班级，未加入显示"加入班级"引导卡 */}
-        {firstClass ? (
-          <Link
-            to={`/class/${encodeURIComponent(firstClass.classId)}`}
-            className="glass-card-thick"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--sp-3)',
-              padding: '10px var(--sp-4)',
-              cursor: 'pointer',
-              textDecoration: 'none',
-              color: 'inherit',
-            }}
-          >
-            <div
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 'var(--r-sm)',
-                background: 'var(--saffron-pale)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                fontSize: '1rem',
-              }}
-            >
-              {firstClass.class.coverEmoji}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontWeight: 700,
-                  color: 'var(--ink)',
-                  fontSize: '0.8125rem',
-                  letterSpacing: 2,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {firstClass.class.name}
-              </div>
-              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 2 }}>
-                {myClassActiveTasks > 0
-                  ? s(`📌 ${myClassActiveTasks} 个进行中任务`, `📌 ${myClassActiveTasks} 個進行中任務`, `📌 ${myClassActiveTasks} task(s) active`)
-                  : s('我的班级', '我的班級', 'My class')}
-              </div>
-            </div>
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--ink-4)' }}>
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </Link>
-        ) : (
-          // 未加入班级 · 老 prototype home.html 第 254-269 行的引导卡
-          <Link
-            to="/join-class"
-            className="glass-card-thick"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--sp-3)',
-              padding: '10px var(--sp-4)',
-              cursor: 'pointer',
-              textDecoration: 'none',
-              color: 'inherit',
-              borderLeft: '3px solid var(--saffron)',
-            }}
-          >
-            <div
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: 'var(--r-sm)',
-                background: 'var(--saffron-pale)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                color: 'var(--saffron-dark)',
-              }}
-            >
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontWeight: 700,
-                  color: 'var(--ink)',
-                  fontSize: '0.8125rem',
-                  letterSpacing: 2,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {s('加入班级', '加入班級', 'Join a class')}
-              </div>
-              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 2 }}>
-                {s('输入辅导员提供的 6 位邀请码', '輸入輔導員提供的 6 位邀請碼', 'Enter your coach\'s 6-digit code')}
-              </div>
-            </div>
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--ink-4)' }}>
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </Link>
-        )}
-
-        {/* 当前法本卡 */}
-        <div className="glass-card-thick" style={{ padding: 'var(--sp-5)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-2)' }}>
-            <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2 }}>
-              {s('当前法本', '當前法本', 'Current text')}
-            </p>
-            {enrolledCourseList.length > 1 ? (
-              <button
-                type="button"
-                onClick={() => setSwitchOpen(true)}
-                style={{
-                  font: 'var(--text-caption)',
-                  color: 'var(--saffron-dark)',
-                  letterSpacing: 1,
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
-                title={s('切换主修法本', '切換主修法本', 'Switch main text')}
-              >
-                {s('切换 →', '切換 →', 'Switch →')}
-              </button>
-            ) : (
-              <Link
-                to="/courses"
-                style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1 }}
-              >
-                {s('全部 →', '全部 →', 'All →')}
-              </Link>
-            )}
-          </div>
-
-          {enrollments.isLoading || courses.isLoading ? (
-            <Skeleton.Title style={{ marginBottom: 12 }} />
-          ) : currentCourse ? (
-            <>
-              <p
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: '1.125rem',
-                  fontWeight: 700,
-                  color: 'var(--ink)',
-                  letterSpacing: 3,
-                  marginBottom: 'var(--sp-2)',
-                }}
-              >
-                {currentCourse.coverEmoji} {currentCourse.title}
-              </p>
-
-              {/* 当前学到哪里 · 章 + 课名 */}
-              {currentCourseDetail.isLoading ? (
-                <div style={{ marginBottom: 'var(--sp-3)' }}>
-                  <Skeleton.LineSm style={{ width: '60%' }} />
-                </div>
-              ) : continueTarget ? (
-                <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 'var(--sp-3)', lineHeight: 1.6 }}>
-                  📍 {continueTarget.chapter.title}
-                  <span style={{ color: 'var(--ink-4)', marginLeft: 6 }}>·</span>{' '}
-                  <span style={{ color: 'var(--saffron-dark)', fontWeight: 600 }}>
-                    {s('第 ' + continueTarget.lesson.order + ' 课', '第 ' + continueTarget.lesson.order + ' 課', 'Lesson ' + continueTarget.lesson.order)}
-                  </span>{' '}
-                  {continueTarget.lesson.title}
-                </p>
-              ) : null}
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-2)' }}>
-                <span className="t-caption t-ink-3">{s('学习进度', '學習進度', 'Progress')}</span>
-                {currentCourseDetail.isLoading ? (
-                  <Skeleton.LineSm style={{ width: 80 }} />
-                ) : (
-                  <span className="t-meta" style={{ color: 'var(--saffron-dark)', fontWeight: 700 }}>
-                    {totalLessons > 0 ? `${completedCount} / ${totalLessons} · ${pct}%` : '—'}
-                  </span>
-                )}
-              </div>
-              <div className="progress-track">
-                <div className="progress-fill" style={{ width: pct + '%' }} />
-              </div>
-              <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-4)' }}>
-                {continueTarget ? (
-                  <Link
-                    to={`/read/${currentCourse.slug}/${continueTarget.lesson.id}`}
-                    className="btn btn-primary btn-pill"
-                    style={{ flex: 1, padding: 12, justifyContent: 'center' }}
-                  >
-                    {(firstEnrollment?.currentLessonId || completedCount > 0)
-                      ? s('继续阅读', '繼續閱讀', 'Continue')
-                      : s('开始阅读', '開始閱讀', 'Start')}
-                  </Link>
-                ) : (
-                  <span
-                    className="btn btn-pill"
-                    aria-disabled
-                    style={{
-                      flex: 1,
-                      padding: 12,
-                      justifyContent: 'center',
-                      background: 'var(--glass-thick)',
-                      color: 'var(--ink-4)',
-                      border: '1px solid var(--glass-border)',
-                      cursor: 'not-allowed',
-                    }}
-                  >
-                    {s('暂无课时', '暫無課時', 'No lessons')}
-                  </span>
-                )}
-                <Link
-                  to={`/scripture-detail?slug=${encodeURIComponent(currentCourse.slug)}`}
-                  className="btn btn-pill"
-                  style={{
-                    padding: '12px 18px',
-                    background: 'var(--glass-thick)',
-                    color: 'var(--ink-2)',
-                    border: '1px solid var(--glass-border)',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {s('目录', '目錄', 'Catalog')}
-                </Link>
-              </div>
-            </>
-          ) : (
-            <div style={{ textAlign: 'center', padding: 'var(--sp-5)' }}>
-              <div style={{ fontSize: '2rem', marginBottom: 'var(--sp-2)' }}>📚</div>
-              <p style={{ color: 'var(--ink-3)', font: 'var(--text-caption)', marginBottom: 8 }}>
-                {s('尚未选修法本', '尚未選修法本', 'No enrollment yet')}
-              </p>
-              <Link to="/courses" className="btn btn-primary btn-pill" style={{ padding: '8px 18px', display: 'inline-block' }}>
-                {s('去选修法本', '去選修法本', 'Browse texts')}
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* 二级 section header · 「智能练习」从卡内标题升格为功能区分隔
-            上方留 sp-3 额外间距 · 让"当前法本"和"智能练习"两个功能区视觉分开 */}
-        <div style={{ marginTop: 'var(--sp-3)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
-          <div style={{ minWidth: 0 }}>
-            <h2 className="t-section" style={{ color: 'var(--ink)' }}>
-              {s('智能练习', '智能練習', 'Smart practice')}
-            </h2>
-            <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
-              {s('待复习 + 错题 + 已学课时混合', '待複習 + 錯題 + 已學課時混合', 'SM-2 + mistakes + studied')}
-            </p>
-          </div>
-          {/* 题数 chip · 点击呼出滚轮 sheet */}
-          <button
-            type="button"
-            onClick={() => setLimitSheetOpen(true)}
-            aria-label={s(`题数 ${practiceLimit}`, `題數 ${practiceLimit}`, `${practiceLimit} questions`)}
-            style={{
-              flexShrink: 0,
-              padding: '5px 12px',
-              borderRadius: 'var(--r-pill)',
-              background: 'var(--saffron-pale)',
-              border: '1px solid var(--saffron-light)',
-              color: 'var(--saffron-dark)',
-              font: 'var(--text-caption)',
-              fontWeight: 700,
-              letterSpacing: 1,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
-          >
-            {practiceLimit} {s('题', '題', 'Q')}
-            <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24">
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </button>
-        </div>
-
-        {/* 智能练习 CTA · saffron 描边 + pale 底色（次主）
-            一屏一个 primary 原则：法本卡的"继续阅读"才是主 · 这里是次 */}
-        <Link
-          to={`/quiz-practice?limit=${practiceLimit}`}
-          className="btn btn-pill btn-full"
+        {/* 顶部 overlay · 头像 + 日期(中)+ 通知 · 同一行 */}
+        <div
           style={{
-            padding: 14,
-            justifyContent: 'center',
-            background: 'var(--saffron-pale)',
-            color: 'var(--saffron-dark)',
-            border: '1.5px solid var(--saffron)',
-            fontFamily: 'var(--font-serif)',
-            fontWeight: 700,
-            fontSize: '0.9375rem',
-            letterSpacing: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 8,
+            padding: 'var(--sp-4)',
+            paddingTop: 'calc(env(safe-area-inset-top, 0) + var(--sp-3))',
           }}
         >
-          {s('开始练习', '開始練習', 'Start practice')} →
-        </Link>
-
-        {/* 错题提醒 banner 已删除 · 由下方 IconTile "❌ 错题" badge 承担红点提醒 */}
-
-        {/* 快速入口 · 与智能练习按钮拉开间距（容器默认 sp-4 + 额外 sp-3 = ~28px）·
-            形成"主功能区 → 速入口区"的清晰断点 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--sp-3)', marginTop: 'var(--sp-3)' }}>
-          <IconTile to="/sm2-review" icon="🔁" label={s('SM-2', 'SM-2', 'SM-2')} badge={sm2.data?.totalDue} />
-          <IconTile to="/mistakes" icon="❌" label={s('错题', '錯題', 'Mistakes')} badge={mistakes.data} />
-          <IconTile to="/favorites" icon="⭐" label={s('收藏', '收藏', 'Favorites')} />
-          <IconTile to="/practice" icon="📿" label={s('修学', '修學', 'Practice')} />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <ProfileAvatar dharmaName={dharmaName} unread={unreadNotifs} />
+            {/* 日期 + 藏历 + 事件 · 紧凑左对齐小字 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 2 }}>
+              <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.05rem', letterSpacing: 1, lineHeight: 1.1 }}>
+                {MONTH_SC[m - 1]}{d}日 · 周{dow}
+              </div>
+              {day && (
+                <div style={{ font: 'var(--text-caption)', letterSpacing: 1, opacity: 0.95, fontSize: '0.7rem' }}>
+                  {day.tibetanMonth}{day.isIntercalary ? '·闰' : ''}{day.tibetan}
+                </div>
+              )}
+              {(day?.auspicious || headline) && (
+                <div style={{ display: 'flex', gap: 4, marginTop: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {day?.auspicious && (
+                    <span style={{ padding: '1px 7px', borderRadius: 'var(--r-pill)', background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: 0 }}>
+                      🌺
+                    </span>
+                  )}
+                  {headline && (
+                    <span style={{ padding: '1px 7px', borderRadius: 'var(--r-pill)', background: day?.publicHoliday ? 'rgba(220,80,80,0.75)' : 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: 0 }}>
+                      {headline.length > 12 ? headline.slice(0, 12) + '…' : headline}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          <NotificationBell unread={unreadNotifs} />
         </div>
+
+        {/* 中间空 · 让画报本身呼吸 */}
+        <div style={{ flex: 1 }} />
+
+        {/* 画报右下角 · streak + caption */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            padding: 'var(--sp-4)',
+            gap: 8,
+          }}
+        >
+          <div>
+            {poster.data?.caption && (
+              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '0.95rem', opacity: 0.75, letterSpacing: 6, fontWeight: 700 }}>
+                {poster.data.caption}
+              </div>
+            )}
+          </div>
+          {streak > 0 && (
+            <div
+              style={{
+                padding: '3px 10px',
+                borderRadius: 'var(--r-pill)',
+                background: 'rgba(255,255,255,0.22)',
+                backdropFilter: 'blur(8px)',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                letterSpacing: 1,
+              }}
+            >
+              🔥 {streak} 天
+            </div>
+          )}
+        </div>
+      </Link>
+
+      {/* 底部 4 大卡 · 绝对定位悬浮在画报上方 · 距底 90px 让出 tab bar */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 'calc(90px + env(safe-area-inset-bottom, 0px))',
+          left: 0,
+          right: 0,
+          padding: '0 var(--sp-4)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: 10,
+          zIndex: 10,
+        }}
+      >
+        <BigCard
+          to={continueTarget && currentCourse ? `/read/${currentCourse.slug}/${continueTarget.lesson.id}` : '/courses'}
+          icon={<IconBook />}
+          title={s('法本', '法本', 'Texts')}
+          sub={currentCourse ? `${pct}%` : s('选择', '選擇', 'Pick')}
+        />
+        <BigCard
+          to={firstClass ? `/class/${encodeURIComponent(firstClass.classId)}` : '/join-class'}
+          icon={<IconGraduation />}
+          title={s('班级', '班級', 'Class')}
+          sub={firstClass ? firstClass.class.name.slice(0, 4) : s('加入', '加入', 'Join')}
+        />
+        <BigCard
+          onClick={() => setPickerOpen(true)}
+          icon={<IconQuiz />}
+          title={s('练习', '練習', 'Practice')}
+          sub={practiceLimit + s('题', '題', 'q')}
+        />
+        <BigCard
+          to="/practice"
+          icon={<IconBeads />}
+          title={s('修学', '修學', 'Mantra')}
+          sub={s('计数', '計數', 'Count')}
+        />
       </div>
 
-      <div style={{ height: 'var(--sp-8)' }} />
-
-      {/* 智能练习题数 sheet · 滚轮选择 · 持久化到 localStorage */}
-      <Dialog
-        open={limitSheetOpen}
-        onClose={() => setLimitSheetOpen(false)}
-        title={s('每次练习题数', '每次練習題數', 'Questions per session')}
-      >
-        <div style={{ padding: 'var(--sp-3) 0 var(--sp-2)' }}>
-          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, textAlign: 'center', marginBottom: 'var(--sp-3)' }}>
-            {s('滑动选择 · 自动保存', '滑動選擇 · 自動保存', 'Slide to pick · auto-saved')}
-          </p>
-          <WheelPicker
-            value={practiceLimit}
-            options={PRACTICE_LIMIT_OPTIONS}
-            onChange={(v) => setPracticeLimit(v)}
-            unit={s('题', '題', 'Q')}
-          />
-          <button
-            type="button"
-            onClick={() => setLimitSheetOpen(false)}
-            className="btn btn-primary btn-pill btn-full"
-            style={{ padding: 12, justifyContent: 'center', marginTop: 'var(--sp-4)' }}
-          >
-            {s('完成', '完成', 'Done')}
-          </button>
-        </div>
-      </Dialog>
-
-      {/* 主修法本切换 sheet · 仅多本时弹 */}
-      <Dialog
-        open={switchOpen}
-        onClose={() => setSwitchOpen(false)}
-        title={s('切换主修法本', '切換主修法本', 'Switch main text')}
-      >
-        <div className="menu-card" style={{ marginTop: 'var(--sp-2)' }}>
-          {enrolledCourseList.map((c) => {
-            const isCur = currentCourse?.id === c.id;
-            const en = enrollList.find((e) => e.courseId === c.id);
-            const done = en?.lessonsCompleted.length ?? 0;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  if (!isCur) {
-                    setMainCourseId(c.id);
-                    toast.ok(s('已切换主修法本', '已切換主修法本', 'Switched'));
-                  }
-                  setSwitchOpen(false);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--sp-3)',
-                  width: '100%',
-                  padding: 'var(--sp-3) var(--sp-4)',
-                  background: isCur ? 'var(--saffron-pale)' : 'transparent',
-                  border: 'none',
-                  borderLeft: isCur ? '3px solid var(--saffron)' : '3px solid transparent',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  color: 'inherit',
-                }}
-              >
-                <span
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 'var(--r-sm)',
-                    background: 'var(--glass)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.4rem',
-                    flexShrink: 0,
-                  }}
-                >
-                  {c.coverEmoji || '🪷'}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontFamily: 'var(--font-serif)',
-                      fontWeight: 700,
-                      color: 'var(--ink)',
-                      fontSize: '0.9375rem',
-                      letterSpacing: 1.5,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {c.title}
-                  </div>
-                  <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
-                    {s(`已学 ${done} 课`, `已學 ${done} 課`, `${done} done`)}
-                    {isCur && (
-                      <span style={{ marginLeft: 6, color: 'var(--saffron-dark)', fontWeight: 700 }}>
-                        · {s('当前', '當前', 'Current')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {isCur && (
-                  <span style={{ color: 'var(--saffron-dark)', fontWeight: 700, fontSize: 14 }}>✓</span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-        <div style={{ padding: 'var(--sp-3) var(--sp-4) 0', textAlign: 'center' }}>
+      {/* 题量 picker */}
+      <Dialog open={pickerOpen} onClose={() => setPickerOpen(false)} title={s('题量', '題量', 'Question count')}>
+        <WheelPicker
+          options={PRACTICE_LIMIT_OPTIONS}
+          value={practiceLimit}
+          onChange={(v) => setPracticeLimit(v as PracticeLimit)}
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 'var(--sp-3)', justifyContent: 'flex-end' }}>
           <Link
-            to="/courses?filter=available"
-            onClick={() => setSwitchOpen(false)}
-            style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1, textDecoration: 'none' }}
+            to="/quiz-practice"
+            onClick={() => setPickerOpen(false)}
+            className="btn btn-primary btn-pill"
+            style={{ padding: '8px 18px' }}
           >
-            + {s('选修新法本', '選修新法本', 'Enroll new text')}
+            {s('开始 →', '開始 →', 'Start →')}
           </Link>
         </div>
       </Dialog>
@@ -688,46 +313,199 @@ export default function HomePage() {
   );
 }
 
-function IconTile({ to, icon, label, badge }: { to: string; icon: string; label: string; badge?: number }) {
+function ProfileAvatar({ dharmaName, unread }: { dharmaName: string; unread: number }) {
   return (
     <Link
-      to={to}
-      className="glass-card-thick"
+      to="/profile"
+      aria-label={dharmaName + ' · 我的'}
+      title={dharmaName}
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 4,
-        padding: 'var(--sp-3)',
-        textDecoration: 'none',
-        color: 'inherit',
         position: 'relative',
+        width: 38,
+        height: 38,
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))',
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: 'var(--font-serif)',
+        fontWeight: 700,
+        fontSize: '0.95rem',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+        textDecoration: 'none',
+        textShadow: 'none',
       }}
     >
-      <div style={{ fontSize: '1.4rem' }}>{icon}</div>
-      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1 }}>{label}</div>
-      {badge !== undefined && badge > 0 && (
+      {dharmaName.slice(0, 1)}
+      {unread > 0 && (
         <span
+          aria-hidden
           style={{
             position: 'absolute',
-            top: 6,
-            right: 6,
+            top: -2,
+            right: -2,
+            minWidth: 16,
+            height: 16,
+            padding: '0 5px',
+            borderRadius: 999,
             background: 'var(--crimson)',
+            border: '2px solid #fff',
             color: '#fff',
             fontSize: 9,
             fontWeight: 700,
-            minWidth: 16,
-            height: 16,
-            borderRadius: 8,
-            padding: '0 4px',
+            lineHeight: 1,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          {badge > 99 ? '99+' : badge}
+          {unread > 9 ? '9+' : unread}
         </span>
       )}
     </Link>
+  );
+}
+
+function NotificationBell({ unread }: { unread: number }) {
+  return (
+    <Link
+      to="/notifications"
+      aria-label={'通知' + (unread > 0 ? ` · ${unread} 条未读` : '')}
+      style={{
+        position: 'relative',
+        width: 38,
+        height: 38,
+        borderRadius: '50%',
+        background: 'rgba(255,255,255,0.2)',
+        backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(255,255,255,0.3)',
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textDecoration: 'none',
+        textShadow: 'none',
+      }}
+    >
+      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </svg>
+      {unread > 0 && (
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: 2,
+            right: 2,
+            minWidth: 14,
+            height: 14,
+            padding: '0 4px',
+            borderRadius: 999,
+            background: 'var(--crimson)',
+            border: '2px solid rgba(255,255,255,0.4)',
+            color: '#fff',
+            fontSize: 9,
+            fontWeight: 700,
+            lineHeight: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {unread > 9 ? '9+' : unread}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function BigCard({ to, onClick, icon, title, sub }: {
+  to?: string;
+  onClick?: () => void;
+  icon: React.ReactNode;
+  title: string;
+  sub: string;
+}) {
+  const baseStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: 4,
+    padding: '10px 14px',
+    borderRadius: 'var(--r-md)',
+    // 磨砂玻璃 · 半透明白底 + backdrop blur
+    background: 'rgba(255, 255, 255, 0.55)',
+    backdropFilter: 'blur(16px) saturate(140%)',
+    WebkitBackdropFilter: 'blur(16px) saturate(140%)',
+    border: '1px solid rgba(255, 255, 255, 0.4)',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+    color: 'var(--ink)',
+    textDecoration: 'none',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    fontSize: 'inherit',
+    textAlign: 'left',
+    minHeight: 64,
+  };
+  const content = (
+    <>
+      {/* row 1: icon + 标题 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ color: 'var(--ink-2)', display: 'inline-flex' }}>{icon}</span>
+        <span style={{ font: 'var(--text-body)', fontWeight: 700, letterSpacing: 2, fontSize: '0.95rem' }}>
+          {title}
+        </span>
+      </div>
+      {/* row 2: 小灰字 · 与 row 1 标题左对齐（含 icon 宽度 + gap） */}
+      <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.72rem', paddingLeft: 30, letterSpacing: 1 }}>
+        {sub}
+      </span>
+    </>
+  );
+  if (to) {
+    return <Link to={to} style={baseStyle}>{content}</Link>;
+  }
+  return <button type="button" onClick={onClick} style={baseStyle}>{content}</button>;
+}
+
+// 4 个线性图标 · 统一 ink-2 色（CSS currentColor）· 22×22
+function IconBook() {
+  return (
+    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+  );
+}
+function IconGraduation() {
+  return (
+    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+      <path d="M6 12v5c3 3 9 3 12 0v-5" />
+    </svg>
+  );
+}
+function IconQuiz() {
+  return (
+    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  );
+}
+function IconBeads() {
+  return (
+    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+      <circle cx="12" cy="6" r="2" />
+      <circle cx="18" cy="10" r="1.5" />
+      <circle cx="18" cy="14" r="1.5" />
+      <circle cx="15" cy="18" r="1.5" />
+      <circle cx="9" cy="18" r="1.5" />
+      <circle cx="6" cy="14" r="1.5" />
+      <circle cx="6" cy="10" r="1.5" />
+    </svg>
   );
 }
