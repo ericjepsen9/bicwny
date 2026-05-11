@@ -155,24 +155,27 @@ export default function HomePage() {
 
   return (
     <div style={{
-      // body.home-fullbleed 已重写 .phone padding/height/overflow
-      // 这里只用普通 flex column · height 100% 跟 .phone 同高
-      display: 'flex',
-      flexDirection: 'column',
+      // body.home-fullbleed 重写 .phone height 100vh
+      // 这里 position:relative 100% · 内部用 absolute 精准定位 picture 和 cards
+      // 不依赖 flex 算 · 避免浏览器 dvh / dpr 不一致导致分配错乱
+      position: 'relative',
       height: '100%',
     }}>
       {pullIndicator}
 
-      {/* 画报区 · flex:1 自动撑满剩余高度 · minHeight:0 防止 flex 子项溢出 */}
+      {/* 画报区 · 绝对定位 · 顶部 0 · 底部留出 cards 区域（自适应内容高度）*/}
       <Link
         to="/calendar"
         aria-label={s('今日藏历', '今日藏曆', "Today's calendar")}
         style={{
-          position: 'relative',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          // 底部留出 4 卡 + tab bar：cards 大约 170px + tab bar 80px + safe-area
+          bottom: 'calc(170px + 80px + env(safe-area-inset-bottom, 12px))',
           display: 'flex',
           flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
           background: bgFallback,
           color: '#fff',
           textDecoration: 'none',
@@ -259,11 +262,15 @@ export default function HomePage() {
         </div>
       </Link>
 
-      {/* 底部 4 大卡 · flex-shrink:0 不被压缩 · padding-bottom 让出 tab bar */}
+      {/* 底部 4 大卡 · absolute · 钉在 tab bar 上方 · 自适应内容高度 */}
       <div
         style={{
-          flexShrink: 0,
-          padding: 'var(--sp-3) var(--sp-4) calc(90px + env(safe-area-inset-bottom, 12px))',
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          // 卡片底部到视口底部 = tab bar 高 (≈80px) + safe-area
+          bottom: 'calc(80px + env(safe-area-inset-bottom, 12px))',
+          padding: 'var(--sp-3) var(--sp-4)',
           display: 'grid',
           gridTemplateColumns: 'repeat(2, 1fr)',
           gap: 10,
