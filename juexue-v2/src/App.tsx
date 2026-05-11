@@ -83,6 +83,7 @@ const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
 const AdminLlmPage = lazy(() => import('./pages/AdminLlmPage'));
 const AdminCalendarPage = lazy(() => import('./pages/AdminCalendarPage'));
 const AdminCalendarYearPage = lazy(() => import('./pages/AdminCalendarYearPage'));
+const AdminPostersPage = lazy(() => import('./pages/AdminPostersPage'));
 
 function PageFallback() {
   return (
@@ -260,6 +261,7 @@ function AdminAppShell() {
               <Route path="/llm" element={<AdminLlmPage />} />
               <Route path="/calendar" element={<AdminCalendarPage />} />
               <Route path="/calendar/year/:year" element={<AdminCalendarYearPage />} />
+              <Route path="/posters" element={<AdminPostersPage />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>
           </Route>

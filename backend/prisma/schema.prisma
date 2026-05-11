@@ -1261,3 +1261,20 @@ model Note {
   @@index([visibility, updatedAt])
   @@index([lessonId, anchorIndex])
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 首页画报 · admin 上传每月一张壁纸 · 学员首页全屏背景
+// ═══════════════════════════════════════════════════════════════
+
+model HomePoster {
+  id        String   @id @default(cuid())
+  year      Int
+  month     Int // 1-12
+  imageUrl  String // OSS / 静态资源 URL
+  caption   String? // 可选 · 显示在画报上的副标（书法字 / 月份诗句）
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([year, month])
+  @@index([year, month])
+}

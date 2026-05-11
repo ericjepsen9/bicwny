@@ -1,11 +1,8 @@
-// TabBar · 4 个 tab root 切换
-//   - NavLink 自带 active 状态（aria-current=page 由 a11y 友好版自动加）
-//   - 切 tab 走 React Router · 不触发浏览器导航 · 不显示进度条
-//   - 视觉沿用 prototypes/shared/components.css 里的 .tab-bar / .tab-item
-//   - 仅 4 个 tab root（/, /courses, /quiz, /profile）显示 · 二级及以下隐藏
-//     （app 沉浸式体验：阅读 / 答题 / 详情等不被打断）
+// TabBar · 3 个 tab root 切换（v2 · 我的 改成首页左上头像入口）
+//   - NavLink 自带 active 状态
+//   - 切 tab 走 React Router · 不触发浏览器导航
+//   - 仅 3 个 tab root（/, /courses, /quiz）显示 · 二级及以下隐藏
 import { NavLink, useLocation } from 'react-router-dom';
-import { useUnreadNotifCount } from '@/lib/queries';
 
 interface TabDef {
   to: string;
@@ -32,18 +29,10 @@ const QuizIcon = (
     <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 );
-const ProfileIcon = (
-  <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </svg>
-);
-
 const TABS: TabDef[] = [
   { to: '/',        label: { sc: '首页', tc: '首頁', en: 'Home' },     icon: HomeIcon },
   { to: '/courses', label: { sc: '法本', tc: '法本', en: 'Texts' },    icon: CoursesIcon },
   { to: '/quiz',    label: { sc: '复习', tc: '複習', en: 'Review' },   icon: QuizIcon },
-  { to: '/profile', label: { sc: '我的', tc: '我的', en: 'Profile' },  icon: ProfileIcon },
 ];
 
 const ROOT_PATHS = new Set(TABS.map((t) => t.to));
@@ -55,59 +44,25 @@ export function shouldShowTabBar(pathname: string): boolean {
 
 export default function TabBar() {
   const { pathname } = useLocation();
-  const unreadNotif = useUnreadNotifCount();
-  const unread = unreadNotif.data ?? 0;
   if (!shouldShowTabBar(pathname)) return null;
   return (
     <nav className="tab-bar" aria-label="主导航">
-      {TABS.map((t) => {
-        const isProfile = t.to === '/profile';
-        const showDot = isProfile && unread > 0;
-        return (
-          <NavLink
-            key={t.to}
-            to={t.to}
-            end={t.to === '/'}
-            className={({ isActive }) => 'tab-item' + (isActive ? ' active' : '')}
-            aria-label={t.label.sc + (showDot ? ` · ${unread} 条未读` : '')}
-            style={{ position: 'relative' }}
-          >
-            <span style={{ position: 'relative', display: 'inline-flex' }}>
-              {t.icon}
-              {showDot && (
-                <span
-                  aria-hidden
-                  style={{
-                    position: 'absolute',
-                    top: -2,
-                    right: -4,
-                    minWidth: 8,
-                    height: 8,
-                    padding: unread > 9 ? '0 4px' : 0,
-                    borderRadius: 999,
-                    background: 'var(--crimson)',
-                    border: '2px solid var(--bg)',
-                    color: '#fff',
-                    fontSize: 9,
-                    fontWeight: 700,
-                    lineHeight: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {unread > 9 ? '9+' : ''}
-                </span>
-              )}
-            </span>
-            <span>
-              <span className="sc">{t.label.sc}</span>
-              <span className="tc">{t.label.tc}</span>
-              <span className="en">{t.label.en}</span>
-            </span>
-          </NavLink>
-        );
-      })}
+      {TABS.map((t) => (
+        <NavLink
+          key={t.to}
+          to={t.to}
+          end={t.to === '/'}
+          className={({ isActive }) => 'tab-item' + (isActive ? ' active' : '')}
+          aria-label={t.label.sc}
+        >
+          <span style={{ display: 'inline-flex' }}>{t.icon}</span>
+          <span>
+            <span className="sc">{t.label.sc}</span>
+            <span className="tc">{t.label.tc}</span>
+            <span className="en">{t.label.en}</span>
+          </span>
+        </NavLink>
+      ))}
     </nav>
   );
 }
