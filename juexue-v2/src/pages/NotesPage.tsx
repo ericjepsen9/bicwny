@@ -25,7 +25,7 @@ interface Note {
   lessonTitle?: string | null;
 }
 
-type Tab = 'mine' | 'shared';
+type Tab = 'mine' | 'shared' | 'archived';
 
 export default function NotesPage() {
   const { s } = useLang();
@@ -51,8 +51,19 @@ export default function NotesPage() {
     ),
   });
 
-  const list = tab === 'mine' ? mine.data ?? [] : shared.data ?? [];
-  const isLoading = tab === 'mine' ? mine.isLoading : shared.isLoading;
+  const archived = useQuery({
+    enabled: tab === 'archived',
+    queryKey: ['/api/notes', { q, archived: true }],
+    queryFn: ({ signal }) => {
+      const params = new URLSearchParams({ archived: '1' });
+      if (q) params.set('q', q);
+      return api.get<Note[]>(`/api/notes?${params.toString()}`, { signal });
+    },
+  });
+
+  const currentQ = tab === 'mine' ? mine : tab === 'shared' ? shared : archived;
+  const list = currentQ.data ?? [];
+  const isLoading = currentQ.isLoading;
 
   // 所有 tag 聚合
   const allTags = useMemo(() => {
@@ -76,9 +87,9 @@ export default function NotesPage() {
       />
       <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
 
-        {/* Tab 切换 */}
+        {/* Tab 切换 · 归档 tab 字号略弱 · 暗示是次要入口 */}
         <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border-light)' }}>
-          {(['mine', 'shared'] as Tab[]).map((t) => (
+          {(['mine', 'shared', 'archived'] as Tab[]).map((t) => (
             <button
               key={t}
               type="button"
@@ -96,7 +107,11 @@ export default function NotesPage() {
                 font: 'var(--text-body)',
               }}
             >
-              {t === 'mine' ? s('我的', '我的', 'Mine') : s('班级共享', '班級共享', 'Shared')}
+              {t === 'mine'
+                ? s('我的', '我的', 'Mine')
+                : t === 'shared'
+                ? s('班级共享', '班級共享', 'Shared')
+                : s('归档', '歸檔', 'Archived')}
             </button>
           ))}
         </div>
@@ -142,7 +157,11 @@ export default function NotesPage() {
           <div className="glass-card" style={{ padding: 'var(--sp-5)', textAlign: 'center', color: 'var(--ink-3)' }}>
             <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>📝</div>
             <p style={{ font: 'var(--text-body)', margin: 0 }}>
-              {tab === 'mine' ? s('还没有笔记 · 点右上「＋ 新建」开始', '還沒有筆記 · 點右上「＋ 新建」開始', 'No notes yet') : s('班级里还没有人共享笔记', '班級裡還沒有人共享筆記', 'No shared notes')}
+              {tab === 'mine'
+                ? s('还没有笔记 · 点右上「＋ 新建」开始', '還沒有筆記 · 點右上「＋ 新建」開始', 'No notes yet')
+                : tab === 'shared'
+                ? s('班级里还没有人共享笔记', '班級裡還沒有人共享筆記', 'No shared notes')
+                : s('暂无已归档笔记', '暫無已歸檔筆記', 'No archived notes')}
             </p>
           </div>
         ) : (

@@ -153,6 +153,17 @@ export default function NoteEditPage() {
     },
   });
 
+  const isArchived = !!existing.data?.archivedAt;
+  const archiveMut = useMutation({
+    mutationFn: () => api.patch(`/api/notes/${id}`, { archive: !isArchived }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/notes'] });
+      qc.invalidateQueries({ queryKey: ['/api/notes', id] });
+      toast.ok(isArchived ? '✓ 已取消归档' : '✓ 已归档');
+    },
+    onError: (e) => toast.error('归档失败: ' + (e as ApiError).message),
+  });
+
   async function callLlm(action: LlmAction) {
     if (!body.trim() && action !== 'draft') {
       toast.error('请先写一些内容');
@@ -311,19 +322,32 @@ export default function NoteEditPage() {
                 📌 {s('置顶', '置頂', 'Pin')}
               </label>
 
-              <button
-                type="button"
-                onClick={async () => {
-                  if (await confirmAsync({ title: s(`删除「${title}」？`, `刪除「${title}」？`, `Delete?`), danger: true, okLabel: '删除' })) {
-                    removeMut.mutate();
-                  }
-                }}
-                disabled={removeMut.isPending}
-                className="btn btn-pill"
-                style={{ marginTop: 6, padding: '6px 14px', background: 'transparent', border: '1px solid var(--crimson)', color: 'var(--crimson)', alignSelf: 'flex-start' }}
-              >
-                🗑️ {removeMut.isPending ? '删除中…' : '删除笔记'}
-              </button>
+              <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 6, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => archiveMut.mutate()}
+                  disabled={archiveMut.isPending}
+                  className="btn btn-pill"
+                  style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--ink-3)', color: 'var(--ink-2)' }}
+                >
+                  {isArchived
+                    ? '↩️ ' + (archiveMut.isPending ? '处理中…' : s('取消归档', '取消歸檔', 'Unarchive'))
+                    : '🗄️ ' + (archiveMut.isPending ? '处理中…' : s('归档', '歸檔', 'Archive'))}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (await confirmAsync({ title: s(`删除「${title}」？`, `刪除「${title}」？`, `Delete?`), danger: true, okLabel: '删除' })) {
+                      removeMut.mutate();
+                    }
+                  }}
+                  disabled={removeMut.isPending}
+                  className="btn btn-pill"
+                  style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--crimson)', color: 'var(--crimson)' }}
+                >
+                  🗑️ {removeMut.isPending ? '删除中…' : '删除笔记'}
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -365,9 +389,10 @@ function mdToHtml(md: string): string {
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
   // 链接
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
-  // 列表
+  // 列表 · 先把 - 行转 <li> · 然后把连续 <li>（含中间空白）整体包 <ul>
+  // 原 /s flag + 单次 replace 在多组列表场景下会贪婪吃中间非列表内容 · 改为 /g + 非贪婪并要求连续
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+  html = html.replace(/(?:<li>.*?<\/li>\s*)+/g, (m) => '<ul>' + m.trim() + '</ul>');
   // 引用
   html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
   return html;
