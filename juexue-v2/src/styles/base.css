@@ -101,6 +101,27 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 body.prototype-frame .phone { padding-top: 0; overflow: hidden; }
 .status-bar { display: none; }
 
+/* 首页画报全屏模式 · HomePage 挂载时 body 加 .home-fullbleed
+   - .phone 严格 100vh · overflow hidden · 不滚动
+   - .scroll-area 必须 height 100% 才能让 .page-enter 继承高度
+   - .scroll-area 默认有 inline paddingBottom: 80px+safe-area 让位 tab bar
+     · HomePage 自己 cards padding-bottom 处理 tab bar · 这里要 !important 抵消
+   - .page-enter / HomePage outer height 100% 链式继承 */
+body.home-fullbleed .phone {
+  padding-top: 0;
+  /* 100dvh = 动态可视视口 · iOS Safari 含 chrome 时比 100vh 小 200px · 与 tab bar fixed 对齐 */
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+}
+body.home-fullbleed .scroll-area {
+  height: 100%;
+  padding-bottom: 0 !important;
+}
+body.home-fullbleed .page-enter {
+  height: 100%;
+}
+
 /* ── Prototype Frame（可选 · body.prototype-frame 激活） ── */
 body.prototype-frame .phone-wrap {
   align-items: flex-start;
