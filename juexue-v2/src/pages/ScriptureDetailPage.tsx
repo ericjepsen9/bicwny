@@ -332,7 +332,7 @@ export default function ScriptureDetailPage() {
           padding: 'var(--sp-4) var(--sp-5) var(--sp-6)',
         }}
       >
-        <div style={{ display: 'flex', gap: 'var(--sp-4)', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 'var(--sp-5)', alignItems: 'center' }}>
           {/* 封面 · 左 · 120×160 紧凑 */}
           {c.coverImageUrl ? (
             <img
