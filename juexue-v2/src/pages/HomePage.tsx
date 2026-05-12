@@ -155,81 +155,76 @@ export default function HomePage() {
 
   return (
     <div style={{
-      // 普通文档流 · picture 是 block + background-image · 不绝对定位
-      // body.home-fullbleed 已让 .phone 100vh + overflow hidden · 总高严格限定
+      // 画报作为整页背景 · 全屏铺满 · 所有 UI 浮在上面
       position: 'relative',
+      height: '100%',
+      background: bgFallback,
+      color: '#fff',
+      textShadow: '0 1px 3px rgba(0,0,0,0.35)',
+      overflow: 'hidden',
     }}>
       {pullIndicator}
 
-      {/* 画报区 · block 元素 + background-image · minHeight 自动撑高度 */}
-      <Link
-        to="/calendar"
-        aria-label={s('今日藏历', '今日藏曆', "Today's calendar")}
+      {/* 顶部 overlay · 头像 + 日期(可点跳/calendar) + 通知 · 浮在画报上 */}
+      <div
         style={{
+          position: 'absolute',
+          top: 'calc(env(safe-area-inset-top, 0) + var(--sp-3))',
+          left: 0,
+          right: 0,
+          padding: '0 var(--sp-4)',
           display: 'flex',
-          flexDirection: 'column',
-          // 100dvh = 当前可视视口（iOS Safari 含 chrome 时比 100vh 小 200px）
-          // tab bar fixed bottom:0 跟可视视口对齐 · 必须用 dvh 才能一致
-          minHeight: 'calc(100dvh - 200px - 90px - env(safe-area-inset-bottom, 12px))',
-          background: bgFallback,
-          color: '#fff',
-          textDecoration: 'none',
-          textShadow: '0 1px 3px rgba(0,0,0,0.35)',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 8,
+          zIndex: 3,
         }}
       >
-        {/* 顶部 overlay · 头像 + 日期(中)+ 通知 · 同一行 */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: 8,
-            padding: 'var(--sp-4)',
-            paddingTop: 'calc(env(safe-area-inset-top, 0) + var(--sp-3))',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <ProfileAvatar dharmaName={dharmaName} unread={unreadNotifs} />
-            {/* 日期 + 藏历 + 事件 · 紧凑左对齐小字 */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 2 }}>
-              <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.05rem', letterSpacing: 1, lineHeight: 1.1 }}>
-                {MONTH_SC[m - 1]}{d}日 · 周{dow}
-              </div>
-              {day && (
-                <div style={{ font: 'var(--text-caption)', letterSpacing: 1, opacity: 0.95, fontSize: '0.7rem' }}>
-                  {day.tibetanMonth}{day.isIntercalary ? '·闰' : ''}{day.tibetan}
-                </div>
-              )}
-              {(day?.auspicious || headline) && (
-                <div style={{ display: 'flex', gap: 4, marginTop: 3, alignItems: 'center', flexWrap: 'wrap' }}>
-                  {day?.auspicious && (
-                    <span style={{ padding: '1px 7px', borderRadius: 'var(--r-pill)', background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: 0 }}>
-                      🌺
-                    </span>
-                  )}
-                  {headline && (
-                    <span style={{ padding: '1px 7px', borderRadius: 'var(--r-pill)', background: day?.publicHoliday ? 'rgba(220,80,80,0.75)' : 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: 0 }}>
-                      {headline.length > 12 ? headline.slice(0, 12) + '…' : headline}
-                    </span>
-                  )}
-                </div>
-              )}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1, minWidth: 0 }}>
+          <ProfileAvatar dharmaName={dharmaName} unread={unreadNotifs} />
+          <Link
+            to="/calendar"
+            aria-label={s('今日藏历', '今日藏曆', "Today's calendar")}
+            style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 2, color: 'inherit', textDecoration: 'none', flex: 1, minWidth: 0 }}
+          >
+            <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.05rem', letterSpacing: 1, lineHeight: 1.1 }}>
+              {MONTH_SC[m - 1]}{d}日 · 周{dow}
             </div>
-          </div>
-          <NotificationBell unread={unreadNotifs} />
+            {day && (
+              <div style={{ font: 'var(--text-caption)', letterSpacing: 1, opacity: 0.95, fontSize: '0.7rem' }}>
+                {day.tibetanMonth}{day.isIntercalary ? '·闰' : ''}{day.tibetan}
+              </div>
+            )}
+            {(day?.auspicious || headline) && (
+              <div style={{ display: 'flex', gap: 4, marginTop: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+                {day?.auspicious && (
+                  <span style={{ padding: '1px 7px', borderRadius: 'var(--r-pill)', background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: 0 }}>🌺</span>
+                )}
+                {headline && (
+                  <span style={{ padding: '1px 7px', borderRadius: 'var(--r-pill)', background: day?.publicHoliday ? 'rgba(220,80,80,0.75)' : 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)', fontSize: '0.65rem', fontWeight: 600, letterSpacing: 0 }}>
+                    {headline.length > 12 ? headline.slice(0, 12) + '…' : headline}
+                  </span>
+                )}
+              </div>
+            )}
+          </Link>
         </div>
+        <NotificationBell unread={unreadNotifs} />
+      </div>
 
-        {/* 中间空 · 让画报本身呼吸 */}
-        <div style={{ flex: 1 }} />
-
-        {/* 画报右下角 · streak + caption */}
+      {/* streak + caption · 右下浮在画报上 */}
+      {(streak > 0 || poster.data?.caption) && (
         <div
           style={{
+            position: 'absolute',
+            bottom: 'calc(200px + 90px + env(safe-area-inset-bottom, 12px))',
+            left: 0,
+            right: 0,
+            padding: '0 var(--sp-4)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-end',
-            padding: 'var(--sp-4)',
-            gap: 8,
+            zIndex: 3,
           }}
         >
           <div>
@@ -240,32 +235,25 @@ export default function HomePage() {
             )}
           </div>
           {streak > 0 && (
-            <div
-              style={{
-                padding: '3px 10px',
-                borderRadius: 'var(--r-pill)',
-                background: 'rgba(255,255,255,0.22)',
-                backdropFilter: 'blur(8px)',
-                fontSize: '0.7rem',
-                fontWeight: 600,
-                letterSpacing: 1,
-              }}
-            >
+            <div style={{ padding: '3px 10px', borderRadius: 'var(--r-pill)', background: 'rgba(255,255,255,0.22)', backdropFilter: 'blur(8px)', fontSize: '0.7rem', fontWeight: 600, letterSpacing: 1 }}>
               🔥 {streak} 天
             </div>
           )}
         </div>
-      </Link>
+      )}
 
-      {/* 底部 4 大卡 · 普通块级 · 自动跟在 picture 下面
-          padding-bottom 给 tab bar 让位（90+safe-area） */}
+      {/* 底部 4 大卡 · absolute 浮在画报上 · 磨砂玻璃 · 不挡图 */}
       <div
         style={{
-          padding: 'var(--sp-3) var(--sp-4) calc(90px + env(safe-area-inset-bottom, 12px))',
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 'calc(90px + env(safe-area-inset-bottom, 12px))',
+          padding: '0 var(--sp-4)',
           display: 'grid',
           gridTemplateColumns: 'repeat(2, 1fr)',
           gap: 10,
-          background: 'var(--bg-scene)',
+          zIndex: 3,
         }}
       >
         <BigCard
