@@ -1296,3 +1296,24 @@ export function usePracticeTasks() {
     queryFn: ({ signal }) => api.get<PracticeTask[]>('/api/practice/tasks', { signal }),
   });
 }
+
+// ── 文本高亮 / 标记 ──────────────────────────
+export type HighlightColor = 'yellow' | 'green' | 'blue' | 'pink';
+export interface Highlight {
+  id: string;
+  lessonId: string;
+  paragraphIndex: number;
+  textStart: number;
+  textEnd: number;
+  anchorText: string;
+  color: HighlightColor;
+  createdAt: string;
+}
+export function useLessonHighlights(lessonId: string | null | undefined) {
+  return useQuery({
+    enabled: !!lessonId,
+    queryKey: ['/api/lessons', lessonId, 'highlights'],
+    queryFn: ({ signal }) => api.get<Highlight[]>(`/api/lessons/${encodeURIComponent(lessonId!)}/highlights`, { signal }),
+  });
+}
+

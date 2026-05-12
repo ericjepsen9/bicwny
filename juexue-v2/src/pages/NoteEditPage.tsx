@@ -47,6 +47,7 @@ export default function NoteEditPage() {
       sessionStorage.removeItem('note-draft');
       return JSON.parse(raw) as {
         lessonId?: string;
+        lessonSlug?: string;
         body: string;
         anchorText?: string | null;
         anchorIndex?: number | null;
@@ -54,6 +55,14 @@ export default function NoteEditPage() {
       };
     } catch { return null; }
   }, [fromDraft]);
+
+  // 返回路径 · 从阅读页选段进来 → 返回该阅读页 · 否则回 /notes 列表
+  const backTo = useMemo(() => {
+    if (sessionDraft?.lessonSlug && sessionDraft?.lessonId) {
+      return `/read/${sessionDraft.lessonSlug}/${sessionDraft.lessonId}`;
+    }
+    return '/notes';
+  }, [sessionDraft]);
 
   const [anchorText, setAnchorText] = useState<string | null>(sessionDraft?.anchorText ?? null);
   const [anchorIndex, setAnchorIndex] = useState<number | null>(sessionDraft?.anchorIndex ?? null);
@@ -192,7 +201,7 @@ export default function NoteEditPage() {
     <>
       <TopNav
         titles={[isNew ? '新建笔记' : '编辑笔记', isNew ? '新建筆記' : '編輯筆記', isNew ? 'New note' : 'Edit']}
-        backTo="/notes"
+        backTo={backTo}
         right={(
           <button
             type="button"

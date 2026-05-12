@@ -67,6 +67,7 @@ model User {
   practiceGoals          PracticeGoal[]
   readingProgress        LessonReadingProgress[]
   notes                  Note[]
+  highlights             Highlight[]
 
   @@index([role])
 }
@@ -331,6 +332,7 @@ model Lesson {
   meditations     Meditation[]
   readingProgress LessonReadingProgress[]
   notes           Note[]
+  highlights      Highlight[]
 
   @@unique([chapterId, order])
 }
@@ -1263,6 +1265,30 @@ model Note {
   @@index([userId, archivedAt])
   @@index([visibility, updatedAt])
   @@index([lessonId, anchorIndex])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 文本高亮 / 标记（Highlight）· 学员在 lesson 原文上画线
+// 4 色：yellow / green / blue / pink · admin 不参与 · 仅个人可见
+// 锚点：lessonId + paragraphIndex + textStart/textEnd 位置 + 文本快照
+// 法本内容变动后 anchorText 可用于模糊定位 · 索引失效就丢失高亮
+// ═══════════════════════════════════════════════════════════════
+
+model Highlight {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId       String
+  lesson         Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  paragraphIndex Int       // 段落索引 · 0 起
+  textStart      Int       // 段落内字符起点
+  textEnd        Int       // 段落内字符终点（不含）
+  anchorText     String    // 高亮文本快照 · 用于法本变更后模糊定位
+  color          String    @default("yellow") // 'yellow' | 'green' | 'blue' | 'pink'
+  createdAt      DateTime  @default(now())
+
+  @@index([userId, lessonId])
+  @@index([lessonId, paragraphIndex])
 }
 
 // ═══════════════════════════════════════════════════════════════

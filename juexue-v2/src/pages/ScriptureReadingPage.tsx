@@ -2,15 +2,15 @@
 //   Apple 图书风沉浸阅读 · 进入显示工具栏 → 滚一屏后自动隐 → 点正文呼出/收起
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import Dialog from '@/components/Dialog';
 import NotesDrawer from '@/components/NotesDrawer';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { useFontScale } from '@/lib/fontSize';
 import { useLang } from '@/lib/i18n';
-import { useCourseDetail, useEnrollments, useLessonMeditation, useUpdateEnrollmentProgress } from '@/lib/queries';
+import { type Highlight, type HighlightColor, useCourseDetail, useEnrollments, useLessonHighlights, useLessonMeditation, useUpdateEnrollmentProgress } from '@/lib/queries';
 import { useReadingTracker } from '@/lib/readingTracker';
 import { toast } from '@/lib/toast';
 
@@ -126,47 +126,136 @@ export default function ScriptureReadingPage() {
     return map;
   }, [lessonNotes.data]);
 
-  // 选段气泡
+  // 选段状态 · 不再悬浮气泡（与 iOS 原生 callout 冲突）· 改成视口底部固定工具栏
+  // selection 计算字段：
+  //   paragraphIndex · 段落索引（DOM data-paragraph-index）
+  //   textStart / textEnd · 在该段 textContent 中的字符偏移（高亮 anchor 必需）
+  //   text · 选中的文本（笔记 body）
+  //   anchorText · 段落前 80 字快照（笔记 anchorText）
   const articleRef = useRef<HTMLElement>(null);
-  const [bubble, setBubble] = useState<{ top: number; left: number; text: string; index: number; anchor: string } | null>(null);
+  const [selection, setSelection] = useState<{
+    paragraphIndex: number;
+    textStart: number;
+    textEnd: number;
+    text: string;
+    anchorText: string;
+  } | null>(null);
+
+  // 计算 node + offset 在 root 内的文本字符偏移
+  function textOffsetWithin(root: Element, container: Node, offset: number): number {
+    let sum = 0;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n: Node | null = walker.nextNode();
+    while (n) {
+      if (n === container) return sum + offset;
+      sum += (n.textContent ?? '').length;
+      n = walker.nextNode();
+    }
+    return sum;
+  }
+
   useEffect(() => {
     function onSelectionChange() {
       const sel = window.getSelection();
-      if (!sel || sel.isCollapsed || !articleRef.current) { setBubble(null); return; }
+      if (!sel || sel.isCollapsed || !articleRef.current) { setSelection(null); return; }
       const anchorNode = sel.anchorNode;
-      if (!anchorNode || !articleRef.current.contains(anchorNode)) { setBubble(null); return; }
+      if (!anchorNode || !articleRef.current.contains(anchorNode)) { setSelection(null); return; }
       const text = sel.toString().trim();
-      if (text.length < 4) { setBubble(null); return; }
-      // 找 paragraph index：往上找有 data-paragraph-index 的祖先
+      if (text.length < 2) { setSelection(null); return; }
+      // 找 paragraph：往上找带 data-paragraph-index 的祖先
       let el: Node | null = anchorNode;
-      while (el && (el as Element).getAttribute?.('data-paragraph-index') == null) el = (el as Element).parentNode ?? null;
-      const idx = el ? Number((el as Element).getAttribute('data-paragraph-index')) : -1;
-      const paraText = el ? ((el as Element).textContent ?? '') : text;
+      while (el && (el as Element).getAttribute?.('data-paragraph-index') == null) {
+        el = (el as Element).parentNode ?? null;
+      }
+      if (!el) { setSelection(null); return; }
+      const paraEl = el as Element;
+      const idx = Number(paraEl.getAttribute('data-paragraph-index'));
       const range = sel.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      setBubble({
-        top: Math.max(60, rect.top - 44 + window.scrollY),
-        left: Math.min(window.innerWidth - 180, rect.left + window.scrollX + rect.width / 2 - 90),
+      // 选段起止可能跨段 · 这里只支持单段（startContainer / endContainer 都在 paraEl 内）
+      if (!paraEl.contains(range.startContainer) || !paraEl.contains(range.endContainer)) {
+        setSelection(null);
+        return;
+      }
+      const start = textOffsetWithin(paraEl, range.startContainer, range.startOffset);
+      const end = textOffsetWithin(paraEl, range.endContainer, range.endOffset);
+      if (end <= start) { setSelection(null); return; }
+      const paraText = paraEl.textContent ?? '';
+      setSelection({
+        paragraphIndex: idx,
+        textStart: Math.min(start, end),
+        textEnd: Math.max(start, end),
         text,
-        index: idx >= 0 ? idx : 0,
-        anchor: paraText.slice(0, 80),
+        anchorText: paraText.slice(0, 80),
       });
     }
     document.addEventListener('selectionchange', onSelectionChange);
     return () => document.removeEventListener('selectionchange', onSelectionChange);
   }, []);
 
+  // 高亮 query + mutation
+  const qc = useQueryClient();
+  const highlights = useLessonHighlights(lessonId || null);
+  const createHighlight = useMutation({
+    mutationFn: (vars: { color: HighlightColor }) => {
+      if (!selection) throw new Error('no selection');
+      return api.post<Highlight>('/api/highlights', {
+        lessonId,
+        paragraphIndex: selection.paragraphIndex,
+        textStart: selection.textStart,
+        textEnd: selection.textEnd,
+        anchorText: selection.text,
+        color: vars.color,
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/lessons', lessonId, 'highlights'] });
+      window.getSelection()?.removeAllRanges();
+      setSelection(null);
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+  const deleteHighlight = useMutation({
+    mutationFn: (id: string) => api.del(`/api/highlights/${encodeURIComponent(id)}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['/api/lessons', lessonId, 'highlights'] }),
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
+  // 高亮按段落分组
+  const highlightsByPara = useMemo(() => {
+    const m = new Map<number, Highlight[]>();
+    (highlights.data ?? []).forEach((h) => {
+      const arr = m.get(h.paragraphIndex) ?? [];
+      arr.push(h);
+      m.set(h.paragraphIndex, arr);
+    });
+    return m;
+  }, [highlights.data]);
+
   function addNoteFromSelection() {
-    if (!bubble) return;
+    if (!selection) return;
     sessionStorage.setItem('note-draft', JSON.stringify({
       lessonId,
-      body: bubble.text,
-      anchorText: bubble.anchor,
-      anchorIndex: bubble.index,
+      lessonSlug: slug, // 用于 NoteEditPage 计算 backTo
+      body: selection.text,
+      anchorText: selection.anchorText,
+      anchorIndex: selection.paragraphIndex,
       autoDraft: true, // 自动调 LLM action=draft
     }));
-    setBubble(null);
+    window.getSelection()?.removeAllRanges();
+    setSelection(null);
     nav('/notes/new?fromDraft=1');
+  }
+
+  async function copySelection() {
+    if (!selection) return;
+    try {
+      await navigator.clipboard.writeText(selection.text);
+      toast.ok(s('已复制', '已複製', 'Copied'));
+    } catch {
+      toast.warn(s('复制失败', '複製失敗', 'Copy failed'));
+    }
+    window.getSelection()?.removeAllRanges();
+    setSelection(null);
   }
 
   // 向下滚 → 隐藏工具栏；向上滚 → 显示
@@ -399,6 +488,7 @@ export default function ScriptureReadingPage() {
           {(lesson.referenceText ?? '').trim() ? (
             splitParagraphs(lesson.referenceText!).map((para, idx) => {
               const notes = notesByAnchor.get(idx) ?? [];
+              const paraHighlights = highlightsByPara.get(idx) ?? [];
               return (
                 <p
                   key={idx}
@@ -410,7 +500,7 @@ export default function ScriptureReadingPage() {
                     paddingRight: notes.length > 0 ? 28 : 0,
                   }}
                 >
-                  {para}
+                  {renderParaWithHighlights(para, paraHighlights, (id) => deleteHighlight.mutate(id))}
                   {notes.length > 0 && (
                     <Link
                       to={`/notes/${notes[0]!.id}`}
@@ -444,37 +534,96 @@ export default function ScriptureReadingPage() {
           )}
         </article>
 
-        {/* 选段气泡 · 「📝 用此段加笔记」 */}
-        {bubble && (
-          <button
-            type="button"
-            onClick={addNoteFromSelection}
-            style={{
-              position: 'absolute',
-              top: bubble.top,
-              left: bubble.left,
-              padding: '6px 12px',
-              borderRadius: 'var(--r-pill)',
-              background: 'var(--ink)',
-              color: '#fff',
-              border: 'none',
-              font: 'var(--text-caption)',
-              fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-              zIndex: 90,
-              letterSpacing: 1,
-            }}
-          >
-            📝 加笔记（含原文 + AI 骨架）
-          </button>
-        )}
+        {/* 选段工具栏移到视口底部 · portal 渲到 body 避免 .page-enter transform 影响 fixed */}
       </div>
 
       {/* 观修 + 工具栏走 createPortal · 渲到 document.body 避免被 .page-enter 的
           transform 创建的 containing block 影响 fixed 定位（之前 bug：栏漂到页面底而非视口） */}
       {createPortal(
         <>
+          {/* 选段工具栏 · 底部固定 · 4 色标记 + 拷贝 + 笔记 · selection 存在时出现 */}
+          {selection && (
+            <div
+              role="toolbar"
+              aria-label={s('选段操作', '選段操作', 'Selection actions')}
+              style={{
+                position: 'fixed',
+                left: 'var(--sp-3)',
+                right: 'var(--sp-3)',
+                bottom: `calc(env(safe-area-inset-bottom, 0px) + 12px)`,
+                padding: '10px 12px',
+                background: 'rgba(43,34,24,0.95)',
+                color: '#fff',
+                borderRadius: 'var(--r-lg)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                zIndex: 95,
+                maxWidth: 460,
+                marginLeft: 'auto',
+                marginRight: 'auto',
+              }}
+            >
+              {/* 4 色标记 */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['yellow', 'green', 'blue', 'pink'] as HighlightColor[]).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => createHighlight.mutate({ color: c })}
+                    aria-label={s('标记', '標記', 'Highlight') + ' ' + c}
+                    title={c}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      background: HIGHLIGHT_BG[c],
+                      border: '2px solid rgba(255,255,255,0.6)',
+                      cursor: 'pointer',
+                      padding: 0,
+                      flexShrink: 0,
+                    }}
+                  />
+                ))}
+              </div>
+              <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.2)' }} aria-hidden />
+              <button
+                type="button"
+                onClick={copySelection}
+                style={toolbarBtnStyle}
+              >
+                {s('拷贝', '拷貝', 'Copy')}
+              </button>
+              <button
+                type="button"
+                onClick={addNoteFromSelection}
+                style={toolbarBtnStyle}
+              >
+                📝 {s('笔记', '筆記', 'Note')}
+              </button>
+              <button
+                type="button"
+                onClick={() => { window.getSelection()?.removeAllRanges(); setSelection(null); }}
+                aria-label={s('取消', '取消', 'Cancel')}
+                style={{
+                  marginLeft: 'auto',
+                  width: 28,
+                  height: 28,
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.15)',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  flexShrink: 0,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* 观修入口（如该课时有发布观修）· 底部栏上方 · 跟工具栏联动显示 */}
           {lessonMeditation.data && lessonMeditation.data.isPublished && (
             <Link
@@ -726,4 +875,68 @@ function splitParagraphs(text: string): string[] {
   // 单 \n 兜底 · 但每段至少 8 字防止把短行单独成段
   const bySingle = text.split(/\n/g).map((p) => p.trim()).filter((p) => p.length > 0);
   return bySingle.length > 1 ? bySingle : [text.trim()];
+}
+
+// 4 色高亮 · 浅色背景 + 不影响阅读对比
+const HIGHLIGHT_BG: Record<HighlightColor, string> = {
+  yellow: 'rgba(255, 220, 80, 0.55)',
+  green: 'rgba(120, 200, 130, 0.45)',
+  blue: 'rgba(120, 180, 240, 0.45)',
+  pink: 'rgba(245, 140, 180, 0.45)',
+};
+
+// 工具栏按钮样式 · 复用
+const toolbarBtnStyle: React.CSSProperties = {
+  padding: '6px 12px',
+  borderRadius: 'var(--r-pill)',
+  background: 'rgba(255,255,255,0.18)',
+  color: '#fff',
+  border: 'none',
+  font: 'var(--text-caption)',
+  fontSize: '0.8rem',
+  fontWeight: 600,
+  letterSpacing: 1,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+};
+
+// 按高亮 ranges 切段落文本 · 渲染为 [text, <mark>, text, <mark>, ...]
+// 点击 <mark> 删除该高亮
+function renderParaWithHighlights(
+  para: string,
+  highlights: Highlight[],
+  onDelete: (id: string) => void,
+): React.ReactNode {
+  if (highlights.length === 0) return para;
+  // 按 textStart 升序 · 合并重叠的（不支持嵌套 · 取后者）
+  const sorted = [...highlights].sort((a, b) => a.textStart - b.textStart);
+  const out: React.ReactNode[] = [];
+  let cursor = 0;
+  for (const h of sorted) {
+    const start = Math.max(h.textStart, cursor);
+    const end = Math.min(h.textEnd, para.length);
+    if (end <= start) continue;
+    if (start > cursor) out.push(para.slice(cursor, start));
+    out.push(
+      <mark
+        key={h.id}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (confirm('删除这条标记？')) onDelete(h.id);
+        }}
+        style={{
+          background: HIGHLIGHT_BG[h.color],
+          color: 'inherit',
+          padding: '0 1px',
+          borderRadius: 2,
+          cursor: 'pointer',
+        }}
+      >
+        {para.slice(start, end)}
+      </mark>,
+    );
+    cursor = end;
+  }
+  if (cursor < para.length) out.push(para.slice(cursor));
+  return out;
 }
