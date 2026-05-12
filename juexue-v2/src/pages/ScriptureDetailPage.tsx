@@ -530,8 +530,8 @@ export default function ScriptureDetailPage() {
                 >
                   <div
                     style={{
-                      width: 36,
-                      height: 36,
+                      width: 32,
+                      height: 32,
                       borderRadius: '50%',
                       background: chPct === 100 ? 'var(--sage-dark)' : 'var(--saffron)',
                       color: '#fff',
@@ -540,7 +540,7 @@ export default function ScriptureDetailPage() {
                       justifyContent: 'center',
                       fontFamily: 'var(--font-serif)',
                       fontWeight: 700,
-                      fontSize: '.875rem',
+                      fontSize: '.8125rem',
                       flexShrink: 0,
                     }}
                   >
@@ -604,15 +604,9 @@ export default function ScriptureDetailPage() {
                           </span>
                         </Link>
 
-                        {/* 副入口：📝 答题 · 🧘 观修 · 仅图标（无 label · 不喧宾夺主） */}
-                        <Link
-                          to={`/quiz/${l.id}?courseId=${c.id}&slug=${encodeURIComponent(c.slug)}&from=detail`}
-                          aria-label={s('答题', '答題', 'Quiz')}
-                          title={s('答题', '答題', 'Quiz')}
-                          style={iconBtn(false)}
-                        >
-                          <IconQuiz />
-                        </Link>
+                        {/* 副入口：🧘 观修（仅 lesson 有观修视频时） · 答题入口砍掉
+                            · 答题在 lesson 阅读页 / 复习中心 / 智能练习 都有 ·
+                            目录的本职是定位 + 主入口 · 不再横向冗余答题 */}
                         {lessonMed && (
                           <Link
                             to={`/meditation/${lessonMed.id}`}
@@ -636,7 +630,8 @@ export default function ScriptureDetailPage() {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 4,
-                              padding: '5px 12px',
+                              // 触发面积加大 · 高度 ~36（与观修 icon 齐高）· 主入口要好按
+                              padding: '8px 16px',
                               borderRadius: 'var(--r-lg)',
                               background: 'var(--saffron-pale)',
                               color: 'var(--saffron-dark)',
@@ -649,7 +644,7 @@ export default function ScriptureDetailPage() {
                             }}
                           >
                             {s('阅读', '閱讀', 'Read')}
-                            <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" viewBox="0 0 24 24">
+                            <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" viewBox="0 0 24 24">
                               <polyline points="9 6 15 12 9 18" />
                             </svg>
                           </Link>
@@ -860,11 +855,11 @@ function Empty({ title }: { title: string }) {
   );
 }
 
-// ── 课时小图标按钮 · 答题（默认）/ 观修（accent 橙色）─────
+// ── 课时小图标按钮 · 观修 accent 橙底 · 36×36 触发面积（>iOS HIG 44 临界 · 列表里舒服）
 function iconBtn(accent: boolean): React.CSSProperties {
   return {
-    width: 28,
-    height: 28,
+    width: 36,
+    height: 36,
     flexShrink: 0,
     display: 'inline-flex',
     alignItems: 'center',
@@ -879,19 +874,9 @@ function iconBtn(accent: boolean): React.CSSProperties {
 }
 
 // ── 线性图标（与项目其他 admin shell 统一风格）─────
-function IconQuiz() {
-  return (
-    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <path d="M9 13l2 2 4-4" />
-    </svg>
-  );
-}
-
 function IconMeditation() {
   return (
-    <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
       <circle cx="12" cy="6" r="2.5" />
       <path d="M12 11v3" />
       <path d="M5 21c1-3 4-5 7-5s6 2 7 5" />
