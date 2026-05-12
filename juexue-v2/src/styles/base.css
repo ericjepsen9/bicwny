@@ -101,6 +101,14 @@ input:focus-visible, textarea:focus-visible, select:focus-visible {
 body.prototype-frame .phone { padding-top: 0; overflow: hidden; }
 .status-bar { display: none; }
 
+/* 法本详情 · hero 需贴到屏幕真顶 · .phone padding-top 退到仅保留 PWA 安全区
+   原 padding 包含 16px 兜底 · 会让 wrapper 起点下移 16px ·
+   再叠加 wrapper 的 overflowX:clip 让 overflow-y 隐式 auto 裁剪 ·
+   hero 的负 top 永远到不了 .phone 顶部的 padding 区域 → 露米色 */
+body.scripture-detail-page .phone {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
 /* 首页画报全屏模式 · HomePage 挂载时 body 加 .home-fullbleed · 全链路锁滚动 */
 body.home-fullbleed,
 body.home-fullbleed > #root {

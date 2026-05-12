@@ -63,6 +63,16 @@ export default function ScriptureDetailPage() {
 
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // body class · 让 .phone padding-top 退到 0 · hero 才能真正贴顶
+  // （wrapper 的 overflowX:clip 会把 overflow-y 隐式算成 auto → 裁掉 hero 顶部溢出
+  //   所以必须让 wrapper 自己起点等于 .phone 顶端 · 而不是靠 hero 负 top 越过 padding）
+  useEffect(() => {
+    document.body.classList.add('scripture-detail-page');
+    return () => {
+      document.body.classList.remove('scripture-detail-page');
+    };
+  }, []);
+
   // 顶部 nav · 滚出 hero 后转玻璃模糊 + 显示标题（参考 Apple 图书）
   // hero 区高度 ~ 360px · 滚到 200 时开始过渡 · 250 时完成
   const [scrolled, setScrolled] = useState(0); // 0..1 渐变进度
