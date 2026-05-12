@@ -530,11 +530,12 @@ export default function ScriptureDetailPage() {
                 >
                   <div
                     style={{
-                      width: 32,
-                      height: 32,
+                      width: 28,
+                      height: 28,
                       borderRadius: '50%',
-                      background: chPct === 100 ? 'var(--sage-dark)' : 'var(--saffron)',
-                      color: '#fff',
+                      // 浅底 + 深字 · 不再大色块 · 完成时换 sage 系
+                      background: chPct === 100 ? 'var(--sage-light)' : 'var(--saffron-pale)',
+                      color: chPct === 100 ? 'var(--sage-dark)' : 'var(--saffron-dark)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -572,8 +573,10 @@ export default function ScriptureDetailPage() {
                     const done = completedSet.has(l.id);
                     const lessonMed = meditationByLesson.get(l.id);
                     return (
-                      <div
+                      <Link
                         key={l.id}
+                        to={`/read/${c.slug}/${l.id}`}
+                        aria-label={s('阅读', '閱讀', 'Read') + ' ' + l.title}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -582,74 +585,54 @@ export default function ScriptureDetailPage() {
                           borderRadius: 'var(--r-sm)',
                           background: done ? 'var(--sage-light)' : 'var(--glass)',
                           border: '1px solid ' + (done ? 'var(--sage)' : 'var(--glass-border)'),
+                          textDecoration: 'none',
+                          color: 'inherit',
                         }}
                       >
-                        <Link
-                          to={`/read/${c.slug}/${l.id}`}
-                          style={{
-                            flex: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 'var(--sp-3)',
-                            textDecoration: 'none',
-                            color: 'inherit',
-                            minWidth: 0,
-                          }}
-                        >
-                          <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontWeight: 700, minWidth: 24 }}>
-                            {l.order}
-                          </span>
-                          <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {l.title}
-                          </span>
-                        </Link>
+                        <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontWeight: 700, minWidth: 24 }}>
+                          {l.order}
+                        </span>
+                        <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                          {l.title}
+                        </span>
 
-                        {/* 副入口：🧘 观修（仅 lesson 有观修视频时） · 答题入口砍掉
-                            · 答题在 lesson 阅读页 / 复习中心 / 智能练习 都有 ·
-                            目录的本职是定位 + 主入口 · 不再横向冗余答题 */}
+                        {/* 观修 · 仅线性图标 · 不带 chip 底色 · padding 撑触发面积但 margin 抵消不增高 */}
                         {lessonMed && (
-                          <Link
-                            to={`/meditation/${lessonMed.id}`}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              nav(`/meditation/${lessonMed.id}`);
+                            }}
                             aria-label={s('观修', '觀修', 'Meditation')}
                             title={lessonMed.title}
-                            style={iconBtn(true)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 10,
+                              margin: '-10px 0',
+                              cursor: 'pointer',
+                              color: 'var(--saffron-dark)',
+                              display: 'inline-flex',
+                              flexShrink: 0,
+                            }}
                           >
                             <IconMeditation />
-                          </Link>
+                          </button>
                         )}
 
-                        {/* 主入口：✓已学 / [阅读 →] · 维持原样 */}
+                        {/* 状态指示 · 已学 sage 文字 / 未学 灰 chevron · 都不是按钮 · 整行才是 read 触发 */}
                         {done ? (
-                          <span style={{ fontSize: 14, color: 'var(--sage-dark)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: 13, color: 'var(--sage-dark)', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>
                             ✓ {s('已学', '已學', 'Done')}
                           </span>
                         ) : (
-                          <Link
-                            to={`/read/${c.slug}/${l.id}`}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              // 触发面积加大 · 高度 ~36（与观修 icon 齐高）· 主入口要好按
-                              padding: '8px 16px',
-                              borderRadius: 'var(--r-lg)',
-                              background: 'var(--saffron-pale)',
-                              color: 'var(--saffron-dark)',
-                              border: '1px solid var(--saffron-light)',
-                              font: 'var(--text-caption)',
-                              fontWeight: 700,
-                              letterSpacing: 1,
-                              whiteSpace: 'nowrap',
-                              textDecoration: 'none',
-                            }}
-                          >
-                            {s('阅读', '閱讀', 'Read')}
-                            <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" viewBox="0 0 24 24">
-                              <polyline points="9 6 15 12 9 18" />
-                            </svg>
-                          </Link>
+                          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" viewBox="0 0 24 24" style={{ color: 'var(--ink-4)', flexShrink: 0 }} aria-hidden>
+                            <polyline points="9 6 15 12 9 18" />
+                          </svg>
                         )}
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>
@@ -853,24 +836,6 @@ function Empty({ title }: { title: string }) {
       <p style={{ color: 'var(--ink-3)' }}>{title}</p>
     </div>
   );
-}
-
-// ── 课时小图标按钮 · 观修 accent 橙底 · 36×36 触发面积（>iOS HIG 44 临界 · 列表里舒服）
-function iconBtn(accent: boolean): React.CSSProperties {
-  return {
-    width: 36,
-    height: 36,
-    flexShrink: 0,
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 'var(--r-sm)',
-    background: accent ? 'var(--saffron)' : 'var(--glass-thick)',
-    color: accent ? '#fff' : 'var(--ink-3)',
-    border: '1px solid ' + (accent ? 'var(--saffron-dark)' : 'var(--glass-border)'),
-    textDecoration: 'none',
-    cursor: 'pointer',
-  };
 }
 
 // ── 线性图标（与项目其他 admin shell 统一风格）─────
