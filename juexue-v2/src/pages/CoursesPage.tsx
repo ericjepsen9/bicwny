@@ -190,12 +190,13 @@ export default function CoursesPage() {
           aria-label={s('排序', '排序', 'Sort')}
           style={{
             marginLeft: 'auto',
-            padding: '6px 10px',
+            padding: '4px 8px',
             borderRadius: 'var(--r-pill)',
             border: '1px solid var(--border)',
             background: 'var(--glass-thick)',
             color: 'var(--ink-2)',
             font: 'var(--text-caption)',
+            fontSize: '0.75rem',
             letterSpacing: 1,
             cursor: 'pointer',
             outline: 'none',

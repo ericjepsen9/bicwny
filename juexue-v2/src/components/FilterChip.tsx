@@ -22,7 +22,7 @@ export default function FilterChip({ active, onClick, children }: Props) {
       onClick={() => { if (!active) selection(); onClick(); }}
       aria-pressed={active}
       style={{
-        padding: '6px 14px',
+        padding: '4px 11px',
         borderRadius: 'var(--r-pill)',
         border: '1px solid ' + (active ? 'var(--saffron-light)' : 'var(--glass-border)'),
         background: active ? 'var(--saffron-pale)' : 'var(--glass-thick)',
@@ -30,6 +30,7 @@ export default function FilterChip({ active, onClick, children }: Props) {
         font: 'var(--text-caption)',
         fontWeight: 600,
         letterSpacing: 1,
+        fontSize: '0.75rem',
         cursor: 'pointer',
         whiteSpace: 'nowrap',
         flexShrink: 0,
