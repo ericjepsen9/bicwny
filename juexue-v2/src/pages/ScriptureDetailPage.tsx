@@ -183,7 +183,8 @@ export default function ScriptureDetailPage() {
     <div style={{
       position: 'relative',
       minHeight: '100vh',
-      background: 'var(--bg)',
+      // bg-scene = 全局米色渐变 · 之前用未定义的 --bg → 透明 → 看穿 .phone 露白
+      background: 'var(--bg-scene)',
       // 必须裁掉横向溢出 · 否则下方 hero 的 transform: scale(1.5) blur 层
       // 会撑出右侧水平滚动条
       overflowX: 'clip',
@@ -205,7 +206,8 @@ export default function ScriptureDetailPage() {
               filter: 'blur(60px) saturate(1.2) brightness(1.3)',
               transform: 'scale(1.5)',
               transformOrigin: 'center top',
-              opacity: 0.25,
+              // 0.55 让封面色铺满顶部 · 不再被下方 bg-scene 米色稀释成白
+              opacity: 0.55,
               pointerEvents: 'none',
               zIndex: 0,
             }}
@@ -219,7 +221,7 @@ export default function ScriptureDetailPage() {
               left: 0,
               right: 0,
               height: 180,
-              background: 'linear-gradient(180deg, transparent 0%, var(--bg) 90%)',
+              background: 'linear-gradient(180deg, transparent 0%, var(--bg-scene) 90%)',
               pointerEvents: 'none',
               zIndex: 0,
             }}
@@ -234,7 +236,7 @@ export default function ScriptureDetailPage() {
             left: 0,
             right: 0,
             height: 360,
-            background: 'linear-gradient(180deg, var(--saffron-pale) 0%, var(--saffron-pale) 30%, var(--bg) 100%)',
+            background: 'linear-gradient(180deg, var(--saffron-pale) 0%, var(--saffron-pale) 30%, var(--bg-scene) 100%)',
             pointerEvents: 'none',
             zIndex: 0,
           }}

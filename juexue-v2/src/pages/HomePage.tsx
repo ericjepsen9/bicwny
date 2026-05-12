@@ -169,7 +169,7 @@ export default function HomePage() {
       <div
         style={{
           position: 'absolute',
-          top: 'calc(env(safe-area-inset-top, 0) + var(--sp-1))',
+          top: 'calc(env(safe-area-inset-top, 0) + var(--sp-3))',
           left: 0,
           right: 0,
           padding: '0 var(--sp-4)',
