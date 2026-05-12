@@ -460,7 +460,13 @@ export default function ScriptureDetailPage() {
         >
           <StatCard label={s('章节', '章節', 'Chapters')} value={String(chapters.length)} icon={<IconChapters />} />
           <StatCard label={s('课时', '課時', 'Lessons')} value={String(totalLessons)} icon={<IconLessons />} />
-          <StatCard label={s('已学', '已學', 'Progress')} value={pct + '%'} icon={<IconProgress />} color="var(--sage-dark)" />
+          {/* 已学 · 0% 时用默认灰 ink · >0 才染绿（绿色 = 进度奖赏色 · 不做常态色） */}
+          <StatCard
+            label={s('已学', '已學', 'Progress')}
+            value={pct + '%'}
+            icon={<IconProgress />}
+            color={pct > 0 ? 'var(--sage-dark)' : undefined}
+          />
         </div>
 
         {c.description && (
@@ -733,7 +739,7 @@ function StatCard({ label, value, icon, color }: { label: string; value: string;
   return (
     <div
       style={{
-        padding: 'var(--sp-3) var(--sp-2)',
+        padding: 'var(--sp-2)',
         borderRadius: 'var(--r-lg)',
         // 磨砂玻璃 · 与首页 BigCard 一致
         background: 'rgba(255, 255, 255, 0.55)',
@@ -744,7 +750,7 @@ function StatCard({ label, value, icon, color }: { label: string; value: string;
         textAlign: 'center',
         display: 'flex',
         flexDirection: 'column',
-        gap: 6,
+        gap: 4,
       }}
     >
       <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1 }}>
