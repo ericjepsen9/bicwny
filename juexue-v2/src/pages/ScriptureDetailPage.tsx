@@ -188,7 +188,7 @@ export default function ScriptureDetailPage() {
       // 会撑出右侧水平滚动条
       overflowX: 'clip',
     }}>
-      {/* Hero 背景 · 有封面图时用 blur 模糊提色（参考 Apple 图书）· 否则 saffron 渐变 */}
+      {/* Hero 背景 · 有封面图时用 blur 模糊提色（减淡 · 不抢内容）· 否则 saffron 渐变 */}
       {c.coverImageUrl ? (
         <>
           <div
@@ -201,24 +201,24 @@ export default function ScriptureDetailPage() {
               backgroundImage: `url(${c.coverImageUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              filter: 'blur(60px) saturate(1.5) brightness(1.2)',
+              filter: 'blur(60px) saturate(1.2) brightness(1.3)',
               transform: 'scale(1.5)',
               transformOrigin: 'center top',
-              opacity: 0.5,
+              opacity: 0.25,
               pointerEvents: 'none',
               zIndex: 0,
             }}
             aria-hidden
           />
-          {/* 底部渐隐到 bg · 让目录区融入 */}
+          {/* 底部更早渐隐到 bg · 让内容区更早回到纯净背景 */}
           <div
             style={{
               position: 'absolute',
-              top: 220,
+              top: 160,
               left: 0,
               right: 0,
-              height: 120,
-              background: 'linear-gradient(180deg, transparent 0%, var(--bg) 100%)',
+              height: 180,
+              background: 'linear-gradient(180deg, transparent 0%, var(--bg) 90%)',
               pointerEvents: 'none',
               zIndex: 0,
             }}
@@ -233,7 +233,7 @@ export default function ScriptureDetailPage() {
             left: 0,
             right: 0,
             height: 320,
-            background: 'linear-gradient(180deg, var(--saffron-pale) 0%, var(--saffron-pale) 50%, var(--bg) 100%)',
+            background: 'linear-gradient(180deg, var(--saffron-pale) 0%, var(--saffron-pale) 30%, var(--bg) 100%)',
             pointerEvents: 'none',
             zIndex: 0,
           }}
@@ -316,7 +316,7 @@ export default function ScriptureDetailPage() {
         style={{
           position: 'relative',
           zIndex: 1,
-          padding: 'var(--sp-2) var(--sp-5) var(--sp-4)',
+          padding: 'var(--sp-4) var(--sp-5) var(--sp-6)',
         }}
       >
         <div style={{ display: 'flex', gap: 'var(--sp-4)', alignItems: 'flex-start' }}>
@@ -438,24 +438,18 @@ export default function ScriptureDetailPage() {
           </div>
         </div>
 
-        {/* 统计 3 卡 · Hero 下方 */}
+        {/* 统计 3 张独立卡 · 等宽 grid · 上灰字标签 + 下大字数值 + emoji · 模仿参考图 */}
         <div
-          className="glass-card"
           style={{
-            marginTop: 'var(--sp-4)',
-            padding: 'var(--sp-3)',
-            borderRadius: 'var(--r-lg)',
+            marginTop: 'var(--sp-5)',
             display: 'grid',
-            gridTemplateColumns: '1fr 1px 1fr 1px 1fr',
-            alignItems: 'center',
+            gridTemplateColumns: 'repeat(3, 1fr)',
             gap: 'var(--sp-2)',
           }}
         >
-          <Stat num={chapters.length} label={s('章', '章', 'Ch')} />
-          <Sep />
-          <Stat num={totalLessons} label={s('课', '課', 'Le')} />
-          <Sep />
-          <Stat num={pct + '%'} label={s('已学', '已學', 'Done')} color="var(--sage-dark)" />
+          <StatCard label={s('章节', '章節', 'Chapters')} value={String(chapters.length)} icon="📚" />
+          <StatCard label={s('课时', '課時', 'Lessons')} value={String(totalLessons)} icon="📖" />
+          <StatCard label={s('已学', '已學', 'Progress')} value={pct + '%'} icon="✓" color="var(--sage-dark)" />
         </div>
 
         {c.description && (
@@ -465,7 +459,7 @@ export default function ScriptureDetailPage() {
               color: 'var(--ink-2)',
               letterSpacing: 1,
               lineHeight: 1.7,
-              margin: 'var(--sp-4) 0 0',
+              margin: 'var(--sp-5) 0 0',
             }}
           >
             {c.description}
@@ -473,8 +467,8 @@ export default function ScriptureDetailPage() {
         )}
       </div>
 
-      {/* 目录 section */}
-      <div style={{ position: 'relative', zIndex: 1, padding: '0 var(--sp-5) var(--sp-8)' }}>
+      {/* 目录 section · 与上方 hero 多留一档间距 */}
+      <div style={{ position: 'relative', zIndex: 1, padding: 'var(--sp-3) var(--sp-5) var(--sp-8)' }}>
         <h2
           style={{
             font: 'var(--text-caption)',
@@ -724,19 +718,30 @@ export default function ScriptureDetailPage() {
   );
 }
 
-function Stat({ num, label, color }: { num: string | number; label: string; color?: string }) {
+function StatCard({ label, value, icon, color }: { label: string; value: string; icon: string; color?: string }) {
   return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.125rem', color: color ?? 'var(--ink)', lineHeight: 1.1 }}>
-        {num}
+    <div
+      style={{
+        padding: 'var(--sp-3) var(--sp-2)',
+        borderRadius: 'var(--r-lg)',
+        background: 'var(--saffron-pale)',
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+      }}
+    >
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1 }}>
+        {label}
       </div>
-      <div style={{ fontSize: '.6875rem', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+        <span style={{ fontSize: '0.95rem' }}>{icon}</span>
+        <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.15rem', color: color ?? 'var(--ink)', lineHeight: 1.1 }}>
+          {value}
+        </span>
+      </div>
     </div>
   );
-}
-
-function Sep() {
-  return <div style={{ background: 'var(--border-light)', justifySelf: 'center', height: 24, width: 1 }} />;
 }
 
 function SheetItem({
