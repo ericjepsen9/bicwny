@@ -427,12 +427,12 @@ function BigCard({ to, onClick, icon, title, sub }: {
     gap: 4,
     padding: '10px 14px',
     borderRadius: 'var(--r-md)',
-    // 磨砂玻璃 · 半透明白底 + backdrop blur
-    background: 'rgba(255, 255, 255, 0.55)',
-    backdropFilter: 'blur(16px) saturate(140%)',
-    WebkitBackdropFilter: 'blur(16px) saturate(140%)',
-    border: '1px solid rgba(255, 255, 255, 0.4)',
-    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+    // 磨砂玻璃 · 加大不透明度 + 强模糊 · 保证 sub 文字可读
+    background: 'rgba(255, 255, 255, 0.82)',
+    backdropFilter: 'blur(20px) saturate(160%)',
+    WebkitBackdropFilter: 'blur(20px) saturate(160%)',
+    border: '1px solid rgba(255, 255, 255, 0.6)',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
     color: 'var(--ink)',
     textDecoration: 'none',
     cursor: 'pointer',
@@ -443,15 +443,14 @@ function BigCard({ to, onClick, icon, title, sub }: {
   };
   const content = (
     <>
-      {/* row 1: icon + 标题 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ color: 'var(--ink-2)', display: 'inline-flex' }}>{icon}</span>
+        <span style={{ color: 'var(--ink)', display: 'inline-flex' }}>{icon}</span>
         <span style={{ font: 'var(--text-body)', fontWeight: 700, letterSpacing: 2, fontSize: '0.95rem' }}>
           {title}
         </span>
       </div>
-      {/* row 2: 小灰字 · 与 row 1 标题左对齐（含 icon 宽度 + gap） */}
-      <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.72rem', paddingLeft: 30, letterSpacing: 1 }}>
+      {/* sub 改深一档 · 加粗 · paddingLeft 与 row1 标题对齐 */}
+      <span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', fontSize: '0.75rem', paddingLeft: 30, letterSpacing: 1, fontWeight: 500 }}>
         {sub}
       </span>
     </>

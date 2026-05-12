@@ -107,9 +107,20 @@ body.prototype-frame .phone { padding-top: 0; overflow: hidden; }
    - .scroll-area 默认有 inline paddingBottom: 80px+safe-area 让位 tab bar
      · HomePage 自己 cards padding-bottom 处理 tab bar · 这里要 !important 抵消
    - .page-enter / HomePage outer height 100% 链式继承 */
+body.home-fullbleed,
+html:has(body.home-fullbleed) {
+  overflow: hidden;
+  height: 100dvh;
+  /* iOS Safari · 阻止 rubber-band 滚动 */
+  overscroll-behavior: none;
+}
+body.home-fullbleed .phone-wrap {
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+}
 body.home-fullbleed .phone {
   padding-top: 0;
-  /* 100dvh = 动态可视视口 · iOS Safari 含 chrome 时比 100vh 小 200px · 与 tab bar fixed 对齐 */
   min-height: 100dvh;
   height: 100dvh;
   overflow: hidden;
@@ -117,6 +128,7 @@ body.home-fullbleed .phone {
 body.home-fullbleed .scroll-area {
   height: 100%;
   padding-bottom: 0 !important;
+  overflow: hidden;
 }
 body.home-fullbleed .page-enter {
   height: 100%;
