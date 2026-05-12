@@ -350,8 +350,8 @@ export default function ScriptureDetailPage() {
             </div>
           )}
 
-          {/* 右 · 标题 + 作者 + CTA */}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+          {/* 右 · 标题 + 作者 + CTA · 紧凑垂直布局 */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
             <h1
               style={{
                 fontFamily: 'var(--font-serif)',
@@ -366,76 +366,74 @@ export default function ScriptureDetailPage() {
               {c.title}
             </h1>
             {c.author && (
-              <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, margin: 0 }}>
+              <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, margin: '4px 0 0' }}>
                 {c.author}
               </p>
             )}
 
-            {/* 主 CTA · 标题正下方 */}
-            {continueLesson ? (
-              <Link
-                to={`/read/${c.slug}/${continueLesson.id}`}
-                className="btn btn-primary"
-                style={{
-                  alignSelf: 'flex-start',
-                  marginTop: 4,
-                  padding: '7px 16px',
-                  borderRadius: 'var(--r-pill)',
-                  fontFamily: 'var(--font-serif)',
-                  fontWeight: 600,
-                  fontSize: '0.82rem',
-                  letterSpacing: 1.5,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {hasReadHistory
-                  ? s('继续阅读 →', '繼續閱讀 →', 'Continue →')
-                  : s('开始阅读 →', '開始閱讀 →', 'Start →')}
-              </Link>
-            ) : (
-              <span
-                aria-disabled
-                style={{
-                  alignSelf: 'flex-start',
-                  marginTop: 4,
-                  padding: '7px 16px',
-                  borderRadius: 'var(--r-pill)',
-                  fontFamily: 'var(--font-serif)',
-                  fontWeight: 600,
-                  fontSize: '0.82rem',
-                  letterSpacing: 1.5,
-                  background: 'var(--glass-thick)',
-                  color: 'var(--ink-4)',
-                  border: '1px solid var(--glass-border)',
-                  cursor: 'not-allowed',
-                }}
-              >
-                —
-              </span>
-            )}
+            {/* CTA 横向行 · 继续阅读 + 加入学习（未加入时）一排 */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 'var(--sp-3)', flexWrap: 'wrap' }}>
+              {continueLesson ? (
+                <Link
+                  to={`/read/${c.slug}/${continueLesson.id}`}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '7px 16px',
+                    borderRadius: 'var(--r-pill)',
+                    fontFamily: 'var(--font-serif)',
+                    fontWeight: 600,
+                    fontSize: '0.82rem',
+                    letterSpacing: 1.5,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {hasReadHistory
+                    ? s('继续阅读', '繼續閱讀', 'Continue')
+                    : s('开始阅读', '開始閱讀', 'Start')}
+                </Link>
+              ) : (
+                <span
+                  aria-disabled
+                  style={{
+                    padding: '7px 16px',
+                    borderRadius: 'var(--r-pill)',
+                    fontFamily: 'var(--font-serif)',
+                    fontWeight: 600,
+                    fontSize: '0.82rem',
+                    letterSpacing: 1.5,
+                    background: 'var(--glass-thick)',
+                    color: 'var(--ink-4)',
+                    border: '1px solid var(--glass-border)',
+                    cursor: 'not-allowed',
+                  }}
+                >
+                  —
+                </span>
+              )}
 
-            {/* 未加入时 · 加入学习副 CTA */}
-            {!enrollment && firstLesson && (
-              <button
-                type="button"
-                onClick={() => enroll.mutate()}
-                disabled={enroll.isPending}
-                style={{
-                  alignSelf: 'flex-start',
-                  padding: '5px 12px',
-                  borderRadius: 'var(--r-pill)',
-                  background: 'var(--saffron-pale)',
-                  color: 'var(--saffron-dark)',
-                  border: '1px solid var(--saffron-light)',
-                  font: 'var(--text-caption)',
-                  fontWeight: 700,
-                  letterSpacing: 1,
-                  cursor: enroll.isPending ? 'default' : 'pointer',
-                }}
-              >
-                {enroll.isPending ? '…' : '+ ' + s('加入学习', '加入學習', 'Join')}
-              </button>
-            )}
+              {/* 未加入时 · 加入学习副 CTA · 与继续阅读并排 */}
+              {!enrollment && firstLesson && (
+                <button
+                  type="button"
+                  onClick={() => enroll.mutate()}
+                  disabled={enroll.isPending}
+                  style={{
+                    padding: '7px 14px',
+                    borderRadius: 'var(--r-pill)',
+                    background: 'var(--saffron-pale)',
+                    color: 'var(--saffron-dark)',
+                    border: '1px solid var(--saffron-light)',
+                    font: 'var(--text-caption)',
+                    fontWeight: 700,
+                    letterSpacing: 1,
+                    fontSize: '0.78rem',
+                    cursor: enroll.isPending ? 'default' : 'pointer',
+                  }}
+                >
+                  {enroll.isPending ? '…' : s('加入学习', '加入學習', 'Join')}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
