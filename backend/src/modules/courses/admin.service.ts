@@ -26,6 +26,7 @@ export interface CreateCourseInput {
   authorInfo?: string | null;
   description?: string | null;
   coverEmoji?: string | null;
+  category?: string | null;
   displayOrder?: number;
   isPublished?: boolean;
   licenseInfo?: string | null;
@@ -40,6 +41,7 @@ export interface UpdateCourseInput {
   description?: string | null;
   coverEmoji?: string;
   coverImageUrl?: string | null;
+  category?: string | null;
   displayOrder?: number;
   isPublished?: boolean;
   licenseInfo?: string | null;
@@ -114,6 +116,7 @@ export async function createCourse(adminId: string, input: CreateCourseInput) {
         authorInfo: input.authorInfo ?? null,
         description: input.description ?? null,
         coverEmoji: input.coverEmoji ?? '🪷',
+        category: input.category ?? null,
         displayOrder: input.displayOrder ?? 0,
         isPublished: input.isPublished ?? true,
         licenseInfo: input.licenseInfo ?? null,
@@ -154,6 +157,7 @@ export async function updateCourse(
   if (patch.description !== undefined)      data.description      = patch.description;
   if (patch.coverEmoji !== undefined)       data.coverEmoji       = patch.coverEmoji;
   if (patch.coverImageUrl !== undefined)    data.coverImageUrl    = patch.coverImageUrl;
+  if (patch.category !== undefined)         data.category         = patch.category;
   if (patch.displayOrder !== undefined)     data.displayOrder     = patch.displayOrder;
   if (patch.isPublished !== undefined)      data.isPublished      = patch.isPublished;
   if (patch.licenseInfo !== undefined)      data.licenseInfo      = patch.licenseInfo;

@@ -14,6 +14,7 @@ export interface Course {
   description: string | null;
   coverEmoji: string;
   coverImageUrl: string | null;
+  category: string | null;
   displayOrder: number;
   isPublished: boolean;
 }
@@ -75,6 +76,7 @@ export function useCourseDetail(
 export interface Enrollment {
   courseId: string;
   enrolledAt: string;
+  lastStudiedAt: string | null;
   lessonsCompleted: string[];
   currentLessonId: string | null;
   course?: Course;
@@ -821,6 +823,7 @@ export interface AdminCourseDetail {
   description: string | null;
   coverEmoji: string;
   coverImageUrl: string | null;
+  category: string | null;
   displayOrder: number;
   isPublished: boolean;
   licenseInfo: string | null;

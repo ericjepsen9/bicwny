@@ -182,6 +182,7 @@ export async function listMyEnrollments(userId: string) {
           coverEmoji: true,
           coverImageUrl: true,
           isPublished: true,
+          category: true,
           // M3: 同步返回总课时数 · 让 quiz-center 能显示 N / M
           chapters: {
             select: { _count: { select: { lessons: true } } },

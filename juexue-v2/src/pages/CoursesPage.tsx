@@ -19,6 +19,7 @@ import { type Course, useCourses, useEnrollments } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 type Filter = 'all' | 'enrolled' | 'available';
+type SortKey = 'recent' | 'name' | 'category';
 
 export default function CoursesPage() {
   const { s } = useLang();
@@ -35,16 +36,29 @@ export default function CoursesPage() {
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [search, setSearch] = useState('');
   const [openSlug, setOpenSlug] = useState<string | null>(null);
+  // 排序 · null = 跟随 filter 默认（enrolled→recent · 其他→category）· 用户手选后锁定
+  const [sortOverride, setSortOverride] = useState<SortKey | null>(null);
+  const sort: SortKey = sortOverride ?? (filter === 'enrolled' ? 'recent' : 'category');
 
   const enrolledIds = useMemo(
     () => new Set((enrollments.data ?? []).map((e) => e.courseId)),
     [enrollments.data],
   );
 
+  // lastStudiedAt map · 仅 enrolled 的法本有 · 用于 recent 排序
+  const lastStudiedMap = useMemo(() => {
+    const m = new Map<string, number>();
+    (enrollments.data ?? []).forEach((e) => {
+      if (e.lastStudiedAt) m.set(e.courseId, new Date(e.lastStudiedAt).getTime());
+      else m.set(e.courseId, new Date(e.enrolledAt).getTime()); // 兜底用 enrolledAt
+    });
+    return m;
+  }, [enrollments.data]);
+
   const list = useMemo(() => {
     const all = (courses.data ?? []).filter((c) => c.isPublished);
     const q = search.trim().toLowerCase();
-    return all.filter((c) => {
+    const filtered = all.filter((c) => {
       if (filter === 'enrolled' && !enrolledIds.has(c.id)) return false;
       if (filter === 'available' && enrolledIds.has(c.id)) return false;
       if (q) {
@@ -52,8 +66,32 @@ export default function CoursesPage() {
         if (!hay.includes(q)) return false;
       }
       return true;
-    }).sort((a, b) => a.displayOrder - b.displayOrder);
-  }, [courses.data, enrolledIds, filter, search]);
+    });
+    // 排序 · 三种 key
+    if (sort === 'recent') {
+      // 已加入按 lastStudiedAt 倒序 · 未加入按 displayOrder
+      return filtered.sort((a, b) => {
+        const ta = lastStudiedMap.get(a.id);
+        const tb = lastStudiedMap.get(b.id);
+        if (ta && tb) return tb - ta;
+        if (ta) return -1;
+        if (tb) return 1;
+        return a.displayOrder - b.displayOrder;
+      });
+    }
+    if (sort === 'name') {
+      return filtered.sort((a, b) => a.title.localeCompare(b.title, 'zh'));
+    }
+    // category · 按 category 分组（null 排尾）· 同 category 内按 displayOrder
+    return filtered.sort((a, b) => {
+      const ca = a.category ?? '';
+      const cb = b.category ?? '';
+      if (ca === cb) return a.displayOrder - b.displayOrder;
+      if (!ca) return 1;
+      if (!cb) return -1;
+      return ca.localeCompare(cb, 'zh');
+    });
+  }, [courses.data, enrolledIds, filter, search, sort, lastStudiedMap]);
 
   const openCourse = useMemo(
     () => list.find((c) => c.slug === openSlug) || null,
@@ -142,10 +180,31 @@ export default function CoursesPage() {
         />
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--sp-2)', padding: '0 var(--sp-5) var(--sp-3)' }}>
+      <div style={{ display: 'flex', gap: 'var(--sp-2)', padding: '0 var(--sp-5) var(--sp-3)', alignItems: 'center' }}>
         <FilterChip active={filter === 'all'}       onClick={() => setFilter('all')}>      {s('全部', '全部', 'All')}      </FilterChip>
         <FilterChip active={filter === 'enrolled'}  onClick={() => setFilter('enrolled')}> {s('已加入', '已加入', 'Enrolled')} </FilterChip>
         <FilterChip active={filter === 'available'} onClick={() => setFilter('available')}>{s('未加入', '未加入', 'Available')}</FilterChip>
+        <select
+          value={sort}
+          onChange={(e) => setSortOverride(e.target.value as SortKey)}
+          aria-label={s('排序', '排序', 'Sort')}
+          style={{
+            marginLeft: 'auto',
+            padding: '6px 10px',
+            borderRadius: 'var(--r-pill)',
+            border: '1px solid var(--border)',
+            background: 'var(--glass-thick)',
+            color: 'var(--ink-2)',
+            font: 'var(--text-caption)',
+            letterSpacing: 1,
+            cursor: 'pointer',
+            outline: 'none',
+          }}
+        >
+          <option value="recent">{s('最近阅读', '最近閱讀', 'Recent')}</option>
+          <option value="name">{s('名称', '名稱', 'Name')}</option>
+          <option value="category">{s('类别', '類別', 'Category')}</option>
+        </select>
       </div>
 
       {courses.isError ? (

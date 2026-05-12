@@ -180,6 +180,7 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
   const [description, setDescription] = useState(c.description ?? '');
   const [authorInfo, setAuthorInfo] = useState(c.authorInfo ?? '');
   const [emoji, setEmoji] = useState(c.coverEmoji);
+  const [category, setCategory] = useState(c.category ?? '');
   const [order, setOrder] = useState(c.displayOrder);
   const [published, setPublished] = useState(c.isPublished);
   const [license, setLicense] = useState(c.licenseInfo ?? '');
@@ -193,6 +194,7 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
       description: description.trim() || null,
       authorInfo: authorInfo.trim() || null,
       coverEmoji: emoji.trim() || c.coverEmoji,
+      category: category.trim() || null,
       displayOrder: order,
       isPublished: published,
       licenseInfo: license.trim() || null,
@@ -253,6 +255,7 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
             <TextArea label={s('作者介绍', '作者介紹', 'Author info')} value={authorInfo} onChange={setAuthorInfo} rows={3} maxLength={2000} />
           </div>
           <Field label={s('封面 emoji', '封面 emoji', 'Emoji')} value={emoji} onChange={setEmoji} maxLength={8} />
+          <Field label={s('类别（前端排序分组用 · 如 显宗 / 密宗 / 戒律）', '類別（前端排序分組用）', 'Category')} value={category} onChange={setCategory} maxLength={40} />
           <Field label={s('显示顺序（小→前）', '顯示順序（小→前）', 'Order')} value={String(order)} onChange={(v) => setOrder(Number(v) || 0)} type="number" />
           <div style={{ gridColumn: '1 / -1' }}>
             <Field label={s('版权', '版權', 'License')} value={license} onChange={setLicense} maxLength={500} />
@@ -905,6 +908,7 @@ function CreateCourseForm({ onCreated, onCancel }: { onCreated: (id: string) => 
   const [emoji, setEmoji] = useState('🪷');
   const [author, setAuthor] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
   const [order, setOrder] = useState(0);
   const [published, setPublished] = useState(false);
   const [err, setErr] = useState('');
@@ -932,6 +936,7 @@ function CreateCourseForm({ onCreated, onCancel }: { onCreated: (id: string) => 
       if (titleTC.trim()) body.titleTraditional = titleTC.trim();
       if (author.trim()) body.author = author.trim();
       if (description.trim()) body.description = description.trim();
+      if (category.trim()) body.category = category.trim();
       return api.post<{ id: string }>('/api/admin/courses', body);
     },
     onSuccess: (r) => {
@@ -963,6 +968,7 @@ function CreateCourseForm({ onCreated, onCancel }: { onCreated: (id: string) => 
         <Field label={s('作者（可选）', '作者（可選）', 'Author (opt)')} value={author} onChange={setAuthor} maxLength={120} />
       </div>
       <TextArea label={s('简介（可选）', '簡介（可選）', 'Description (opt)')} value={description} onChange={setDescription} rows={3} maxLength={2000} />
+      <Field label={s('类别（可选 · 排序分组）', '類別（可選 · 排序分組）', 'Category (opt)')} value={category} onChange={setCategory} maxLength={40} />
       <Field label={s('显示顺序（小→前）', '顯示順序（小→前）', 'Order')} value={String(order)} onChange={(v) => setOrder(Number(v) || 0)} type="number" />
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, font: 'var(--text-caption)', color: 'var(--ink-2)' }}>
         <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} />

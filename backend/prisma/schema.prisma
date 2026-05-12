@@ -277,6 +277,9 @@ model Course {
   // 封面图（admin 上传）· 相对路径如 /uploads/courses/<uuid>.jpg · null 时回落 coverEmoji
   // 文件本体存 uploads/courses/，nginx serve 静态
   coverImageUrl         String?
+  // 法本类别 · admin 自由文本（如 '显宗' / '密宗' / '戒律' / '经论'）
+  // 前端按此字段分组排序 · null = 未分类（排尾）
+  category              String?
   displayOrder          Int       @default(0)
   isPublished           Boolean   @default(true)
   licenseInfo           String?
