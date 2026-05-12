@@ -320,7 +320,7 @@ export default function ScriptureDetailPage() {
           padding: 'var(--sp-4) var(--sp-5) var(--sp-6)',
         }}
       >
-        <div style={{ display: 'flex', gap: 'var(--sp-4)', alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: 'var(--sp-4)', alignItems: 'center' }}>
           {/* 封面 · 左 · 120×160 紧凑 */}
           {c.coverImageUrl ? (
             <img
@@ -366,13 +366,13 @@ export default function ScriptureDetailPage() {
               {c.title}
             </h1>
             {c.author && (
-              <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, margin: '4px 0 0' }}>
+              <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, margin: '8px 0 0' }}>
                 {c.author}
               </p>
             )}
 
             {/* CTA 横向行 · 继续阅读 + 加入学习（未加入时）一排 */}
-            <div style={{ display: 'flex', gap: 8, marginTop: 'var(--sp-3)', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 'var(--sp-4)', flexWrap: 'wrap' }}>
               {continueLesson ? (
                 <Link
                   to={`/read/${c.slug}/${continueLesson.id}`}
