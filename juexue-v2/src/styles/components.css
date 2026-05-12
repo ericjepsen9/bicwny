@@ -255,27 +255,6 @@ body.prototype-frame.has-tab-bar .phone { padding-bottom: 0; }
 .tab-item.active svg  { stroke: var(--saffron); }
 .tab-item.active span { color: var(--saffron); font-weight: 600; }
 
-/* 仅图标模式 · 半透明白底磨砂条 · 图标深色 · 任何画报背景上都清晰可见 */
-.tab-bar-icons-only {
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border-top: 1px solid rgba(255, 255, 255, 0.4);
-}
-.tab-bar-icons-only .tab-item {
-  padding: var(--sp-2) 0;
-  justify-content: center;
-}
-.tab-bar-icons-only .tab-item svg {
-  width: 26px;
-  height: 26px;
-  stroke: var(--ink);
-  stroke-width: 2;
-}
-.tab-bar-icons-only .tab-item.active svg {
-  stroke: var(--saffron-dark);
-}
-
 /* ── List Row ───────────────────────────────────── */
 .list-row {
   display: flex;
