@@ -194,10 +194,11 @@ export default function ScriptureDetailPage() {
           <div
             style={{
               position: 'absolute',
-              top: 0,
+              // 负值抵消 .phone padding-top: max(safe-area, 16) · 让渐变背景顶到屏幕顶
+              top: 'calc(-1 * max(env(safe-area-inset-top, 16px), 16px))',
               left: 0,
               right: 0,
-              height: 320,
+              height: 360,
               backgroundImage: `url(${c.coverImageUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
@@ -229,10 +230,10 @@ export default function ScriptureDetailPage() {
         <div
           style={{
             position: 'absolute',
-            top: 0,
+            top: 'calc(-1 * max(env(safe-area-inset-top, 16px), 16px))',
             left: 0,
             right: 0,
-            height: 320,
+            height: 360,
             background: 'linear-gradient(180deg, var(--saffron-pale) 0%, var(--saffron-pale) 30%, var(--bg) 100%)',
             pointerEvents: 'none',
             zIndex: 0,
@@ -378,12 +379,12 @@ export default function ScriptureDetailPage() {
                 style={{
                   alignSelf: 'flex-start',
                   marginTop: 4,
-                  padding: '10px 22px',
+                  padding: '7px 16px',
                   borderRadius: 'var(--r-pill)',
                   fontFamily: 'var(--font-serif)',
                   fontWeight: 600,
-                  fontSize: '0.95rem',
-                  letterSpacing: 2,
+                  fontSize: '0.82rem',
+                  letterSpacing: 1.5,
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -397,12 +398,12 @@ export default function ScriptureDetailPage() {
                 style={{
                   alignSelf: 'flex-start',
                   marginTop: 4,
-                  padding: '10px 22px',
+                  padding: '7px 16px',
                   borderRadius: 'var(--r-pill)',
                   fontFamily: 'var(--font-serif)',
                   fontWeight: 600,
-                  fontSize: '0.95rem',
-                  letterSpacing: 2,
+                  fontSize: '0.82rem',
+                  letterSpacing: 1.5,
                   background: 'var(--glass-thick)',
                   color: 'var(--ink-4)',
                   border: '1px solid var(--glass-border)',
@@ -447,9 +448,9 @@ export default function ScriptureDetailPage() {
             gap: 'var(--sp-2)',
           }}
         >
-          <StatCard label={s('章节', '章節', 'Chapters')} value={String(chapters.length)} icon="📚" />
-          <StatCard label={s('课时', '課時', 'Lessons')} value={String(totalLessons)} icon="📖" />
-          <StatCard label={s('已学', '已學', 'Progress')} value={pct + '%'} icon="✓" color="var(--sage-dark)" />
+          <StatCard label={s('章节', '章節', 'Chapters')} value={String(chapters.length)} icon={<IconChapters />} />
+          <StatCard label={s('课时', '課時', 'Lessons')} value={String(totalLessons)} icon={<IconLessons />} />
+          <StatCard label={s('已学', '已學', 'Progress')} value={pct + '%'} icon={<IconProgress />} color="var(--sage-dark)" />
         </div>
 
         {c.description && (
@@ -718,13 +719,18 @@ export default function ScriptureDetailPage() {
   );
 }
 
-function StatCard({ label, value, icon, color }: { label: string; value: string; icon: string; color?: string }) {
+function StatCard({ label, value, icon, color }: { label: string; value: string; icon: React.ReactNode; color?: string }) {
   return (
     <div
       style={{
         padding: 'var(--sp-3) var(--sp-2)',
         borderRadius: 'var(--r-lg)',
-        background: 'var(--saffron-pale)',
+        // 磨砂玻璃 · 与首页 BigCard 一致
+        background: 'rgba(255, 255, 255, 0.55)',
+        backdropFilter: 'blur(16px) saturate(140%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(140%)',
+        border: '1px solid rgba(255, 255, 255, 0.4)',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
         textAlign: 'center',
         display: 'flex',
         flexDirection: 'column',
@@ -734,13 +740,38 @@ function StatCard({ label, value, icon, color }: { label: string; value: string;
       <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1 }}>
         {label}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-        <span style={{ fontSize: '0.95rem' }}>{icon}</span>
-        <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.15rem', color: color ?? 'var(--ink)', lineHeight: 1.1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <span style={{ color: color ?? 'var(--ink-2)', display: 'inline-flex' }}>{icon}</span>
+        <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.1rem', color: color ?? 'var(--ink)', lineHeight: 1.1 }}>
           {value}
         </span>
       </div>
     </div>
+  );
+}
+
+// 线性图标 · 14×14 · 与首页 BigCard 同风格
+function IconChapters() {
+  return (
+    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+  );
+}
+function IconLessons() {
+  return (
+    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  );
+}
+function IconProgress() {
+  return (
+    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
   );
 }
 
