@@ -427,7 +427,6 @@ function BigCard({ to, onClick, icon, title, sub }: {
     gap: 4,
     padding: '10px 14px',
     borderRadius: 'var(--r-md)',
-    // 磨砂玻璃 · 半透明白底 + backdrop blur
     background: 'rgba(255, 255, 255, 0.55)',
     backdropFilter: 'blur(16px) saturate(140%)',
     WebkitBackdropFilter: 'blur(16px) saturate(140%)',
@@ -440,18 +439,19 @@ function BigCard({ to, onClick, icon, title, sub }: {
     fontSize: 'inherit',
     textAlign: 'left',
     minHeight: 64,
+    // 去掉父级 HomePage 的 textShadow 继承（画报上的白字阴影不该出现在卡片里）
+    textShadow: 'none',
   };
   const content = (
     <>
-      {/* row 1: icon + 标题 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ color: 'var(--ink-2)', display: 'inline-flex' }}>{icon}</span>
         <span style={{ font: 'var(--text-body)', fontWeight: 700, letterSpacing: 2, fontSize: '0.95rem' }}>
           {title}
         </span>
       </div>
-      {/* row 2: 小灰字 · 与 row 1 标题左对齐（含 icon 宽度 + gap） */}
-      <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.72rem', paddingLeft: 30, letterSpacing: 1 }}>
+      {/* sub 改主色 saffron-dark · 不再是灰字 */}
+      <span style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', fontSize: '0.72rem', paddingLeft: 30, letterSpacing: 1, fontWeight: 600 }}>
         {sub}
       </span>
     </>
