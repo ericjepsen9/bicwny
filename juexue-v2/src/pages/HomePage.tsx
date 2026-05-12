@@ -212,33 +212,39 @@ export default function HomePage() {
         <NotificationBell unread={unreadNotifs} />
       </div>
 
-      {/* streak + caption · 右下浮在画报上 */}
-      {(streak > 0 || poster.data?.caption) && (
+      {/* 诗句 caption · 浮在画报中部偏上 · 让画报作品+诗句呼吸 */}
+      {poster.data?.caption && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '40%',
+            left: 'var(--sp-4)',
+            right: 'var(--sp-4)',
+            transform: 'translateY(-50%)',
+            textAlign: 'center',
+            zIndex: 2,
+            pointerEvents: 'none',
+          }}
+        >
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '0.95rem', opacity: 0.85, letterSpacing: 4, fontWeight: 700, lineHeight: 1.8 }}>
+            {poster.data.caption}
+          </div>
+        </div>
+      )}
+
+      {/* streak · 右下浮在画报上 · 不含 caption（已移到中部） */}
+      {streak > 0 && (
         <div
           style={{
             position: 'absolute',
             bottom: 'calc(200px + 90px + env(safe-area-inset-bottom, 12px))',
-            left: 0,
-            right: 0,
-            padding: '0 var(--sp-4)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-end',
+            right: 'var(--sp-4)',
             zIndex: 3,
           }}
         >
-          <div>
-            {poster.data?.caption && (
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '0.95rem', opacity: 0.75, letterSpacing: 6, fontWeight: 700 }}>
-                {poster.data.caption}
-              </div>
-            )}
+          <div style={{ padding: '3px 10px', borderRadius: 'var(--r-pill)', background: 'rgba(255,255,255,0.22)', backdropFilter: 'blur(8px)', fontSize: '0.7rem', fontWeight: 600, letterSpacing: 1 }}>
+            🔥 {streak} 天
           </div>
-          {streak > 0 && (
-            <div style={{ padding: '3px 10px', borderRadius: 'var(--r-pill)', background: 'rgba(255,255,255,0.22)', backdropFilter: 'blur(8px)', fontSize: '0.7rem', fontWeight: 600, letterSpacing: 1 }}>
-              🔥 {streak} 天
-            </div>
-          )}
         </div>
       )}
 
