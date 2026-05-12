@@ -194,11 +194,11 @@ export default function ScriptureDetailPage() {
           <div
             style={{
               position: 'absolute',
-              // 负值抵消 .phone padding-top: max(safe-area, 16) · 让渐变背景顶到屏幕顶
-              top: 'calc(-1 * max(env(safe-area-inset-top, 16px), 16px))',
+              // 强力向上 100px · 覆盖 .phone padding 区 + safe-area · 不留缝
+              top: '-100px',
               left: 0,
               right: 0,
-              height: 360,
+              height: 460,
               backgroundImage: `url(${c.coverImageUrl})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
