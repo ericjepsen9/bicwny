@@ -212,12 +212,12 @@ export default function HomePage() {
         <NotificationBell unread={unreadNotifs} />
       </div>
 
-      {/* 诗句 caption · 浮在画报中部偏上 · 让画报作品+诗句呼吸 */}
+      {/* 诗句 caption · 浮在画报上半区 · 让画报作品+诗句呼吸 */}
       {poster.data?.caption && (
         <div
           style={{
             position: 'absolute',
-            top: '40%',
+            top: '22%',
             left: 'var(--sp-4)',
             right: 'var(--sp-4)',
             transform: 'translateY(-50%)',
