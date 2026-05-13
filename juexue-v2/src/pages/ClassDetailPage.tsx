@@ -104,47 +104,68 @@ export default function ClassDetailPage() {
       <TopNav titles={['我的班级', '我的班級', 'My Class']} />
 
       <div style={{ padding: '0 var(--sp-5) var(--sp-8)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-        {/* ── Hero ── */}
-        <div className="glass-card-thick" style={{ padding: 'var(--sp-5)', textAlign: 'center' }}>
-          <span
-            style={{
-              display: 'inline-block',
-              padding: '3px 10px',
-              borderRadius: 'var(--r-pill)',
-              background: 'var(--saffron-pale)',
-              color: 'var(--saffron-dark)',
-              font: 'var(--text-caption)',
-              fontWeight: 700,
-              letterSpacing: 2,
-              marginBottom: 'var(--sp-3)',
-            }}
-          >
-            {s('共修班', '共修班', 'Class')}
-          </span>
-          <div style={{ fontSize: '2.4rem', marginBottom: 'var(--sp-2)', lineHeight: 1 }}>{c.coverEmoji || '📚'}</div>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.25rem', color: 'var(--ink)', letterSpacing: 3, marginBottom: 4 }}>
-            {c.name}
-          </h1>
-
-          {/* stat row：成员 + 加入天数 · 邀请码独立行（仅 coach/admin） */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--sp-6)', marginTop: 'var(--sp-4)', alignItems: 'baseline' }}>
-            <Stat n={c.members.length} label={s('成员', '成員', 'Members')} />
-            <Stat
-              n={joinedDays}
-              label={s('加入 / 天', '加入 / 天', 'Days')}
-              displayOverride={joinedDays === 0 ? s('今日', '今日', 'Today') : undefined}
-            />
+        {/* ── Hero · 横向紧凑 ── */}
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+            {/* 左 · emoji 圆 */}
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 'var(--r-md)',
+                background: 'var(--saffron-pale)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.8rem',
+                flexShrink: 0,
+              }}
+            >
+              {c.coverEmoji || '📚'}
+            </div>
+            {/* 中 · 班级名 + 副信息 */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                <h1 style={{ margin: 0, fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.15rem', color: 'var(--ink)', letterSpacing: 2 }}>
+                  {c.name}
+                </h1>
+                <span
+                  style={{
+                    padding: '1px 7px',
+                    borderRadius: 'var(--r-pill)',
+                    background: 'var(--saffron-pale)',
+                    color: 'var(--saffron-dark)',
+                    font: 'var(--text-caption)',
+                    fontWeight: 700,
+                    letterSpacing: 1,
+                    fontSize: '0.65rem',
+                  }}
+                >
+                  {s('共修班', '共修班', 'Class')}
+                </span>
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, fontSize: '0.75rem' }}>
+                <span>{c.members.length} {s('成员', '成員', 'members')}</span>
+                <span style={{ margin: '0 6px', color: 'var(--ink-4)' }}>·</span>
+                <span>
+                  {joinedDays === null
+                    ? '—'
+                    : joinedDays === 0
+                    ? s('今日加入', '今日加入', 'Joined today')
+                    : s(`加入 ${joinedDays} 天`, `加入 ${joinedDays} 天`, `${joinedDays} days`)}
+                </span>
+              </div>
+            </div>
           </div>
 
+          {/* 邀请码 · 仅 coach/admin · 与上方分隔的细 row */}
           {isCoachOrAdmin && c.joinCode && (
             <div
               style={{
-                marginTop: 'var(--sp-4)',
-                padding: '8px 12px',
-                background: 'var(--glass)',
-                border: '1px dashed var(--glass-border)',
-                borderRadius: 'var(--r-md)',
-                display: 'inline-flex',
+                marginTop: 'var(--sp-3)',
+                paddingTop: 'var(--sp-3)',
+                borderTop: '1px dashed var(--border-light)',
+                display: 'flex',
                 alignItems: 'center',
                 gap: 8,
                 font: 'var(--text-caption)',
@@ -166,8 +187,8 @@ export default function ClassDetailPage() {
                     );
                   }
                 }}
-                aria-label={s('复制邀请码', '複製邀請碼', 'Copy')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--saffron-dark)', display: 'inline-flex' }}
+                aria-label={s('复制', '複製', 'Copy')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--saffron-dark)', display: 'inline-flex', marginLeft: 'auto' }}
               >
                 <IconCopy />
               </button>
@@ -284,16 +305,6 @@ export default function ClassDetailPage() {
 // 子组件
 // ─────────────────────────────────────────────────────
 
-function Stat({ n, label, displayOverride }: { n: number | null; label: string; displayOverride?: string }) {
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.4rem', color: 'var(--ink)', lineHeight: 1.1 }}>
-        {displayOverride ?? (n == null ? '—' : n)}
-      </div>
-      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 4 }}>{label}</div>
-    </div>
-  );
-}
 
 function SectionTitle({ icon, label }: { icon: ReactNode; label: string }) {
   return (

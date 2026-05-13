@@ -46,11 +46,11 @@ export default function TibetanClassWeekStrip() {
   if (days.length === 0) return null;
 
   return (
-    <div style={{ marginBottom: 'var(--sp-4)' }}>
-      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 8, paddingLeft: 4 }}>
-        📿 {s('未来 7 天 · 修法窗口', '未來 7 天 · 修法窗口', 'Next 7 days · Practice')}
+    <div>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 6, paddingLeft: 4, fontSize: '0.75rem' }}>
+        📿 {s('未来 7 天 · 修法窗口', '未來 7 天 · 修法窗口', 'Next 7 days')}
       </div>
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
         {days.map((d) => {
           const date = new Date(d.date + 'T00:00:00');
           const month = date.getMonth() + 1;
@@ -65,49 +65,48 @@ export default function TibetanClassWeekStrip() {
               to="/calendar"
               style={{
                 flex: '0 0 auto',
-                minWidth: 140,
-                maxWidth: 180,
+                minWidth: 130,
+                maxWidth: 160,
                 scrollSnapAlign: 'start',
-                padding: 'var(--sp-3)',
+                padding: '8px 10px',
                 borderRadius: 'var(--r-md)',
-                background: d.auspicious ? 'var(--gold-pale)' : 'var(--surface)',
-                border: `1px solid ${d.auspicious ? 'var(--saffron-light)' : 'var(--border-light)'}`,
+                background: 'rgba(255, 255, 255, 0.55)',
+                backdropFilter: 'blur(16px) saturate(140%)',
+                WebkitBackdropFilter: 'blur(16px) saturate(140%)',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
                 color: 'var(--ink)',
                 textDecoration: 'none',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 4,
+                gap: 2,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.1rem', color: accent }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.95rem', color: accent }}>
                   {month}/{day}
                 </span>
-                <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>周{dow}</span>
-                {d.auspicious && <span aria-hidden style={{ marginLeft: 'auto' }}>🌺</span>}
+                <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.7rem' }}>周{dow}</span>
+                {multiplier && (
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      padding: '0 6px',
+                      borderRadius: 'var(--r-pill)',
+                      background: 'var(--saffron-pale)',
+                      color: 'var(--saffron-dark)',
+                      fontWeight: 700,
+                      fontSize: '0.62rem',
+                      letterSpacing: 0.5,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    ×{multiplier}
+                  </span>
+                )}
               </div>
-              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', fontSize: '0.7rem' }}>
-                {d.tibetanMonth}{d.isIntercalary ? '·闰' : ''}{d.tibetan}
-              </div>
-              <div style={{ font: 'var(--text-body)', color: 'var(--ink)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink), letterSpacing: 0.5', fontSize: '0.7rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {name}
               </div>
-              {multiplier && (
-                <div
-                  style={{
-                    alignSelf: 'flex-start',
-                    padding: '2px 8px',
-                    borderRadius: 'var(--r-pill)',
-                    background: 'var(--saffron-dark)',
-                    color: '#fff',
-                    fontWeight: 700,
-                    fontSize: '0.7rem',
-                    letterSpacing: 1,
-                  }}
-                >
-                  ×{multiplier}
-                </div>
-              )}
             </Link>
           );
         })}
