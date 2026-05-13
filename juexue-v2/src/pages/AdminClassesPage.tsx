@@ -252,6 +252,14 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
             📢 {s('班级公告', '班級公告', 'Announcements')} ›
           </Link>
           <Link
+            to={`${baseClass}/classes/${encodeURIComponent(cls.id)}/sessions`}
+            onClick={onClose}
+            className="btn btn-pill"
+            style={{ display: 'inline-flex', padding: '6px 14px', font: 'var(--text-caption)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)', textDecoration: 'none' }}
+          >
+            📅 {s('排课', '排課', 'Sessions')} ›
+          </Link>
+          <Link
             to={`${baseClass}/classes/${encodeURIComponent(cls.id)}/dashboard`}
             onClick={onClose}
             className="btn btn-pill"

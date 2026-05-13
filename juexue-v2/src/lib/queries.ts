@@ -1317,3 +1317,64 @@ export function useLessonHighlights(lessonId: string | null | undefined) {
   });
 }
 
+
+// ── 班级排课 ClassSession（v1 · 单次事件）──────────
+export interface ClassSession {
+  id: string;
+  classId: string;
+  title: string;
+  description: string | null;
+  startAt: string;       // ISO
+  durationMin: number;
+  liveLink: string | null;
+  editVersion: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 辅导员侧 · 列表（未来 / 历史）
+export function useClassSessions(classId: string | null | undefined, opts?: { past?: boolean }) {
+  const past = !!opts?.past;
+  return useQuery({
+    enabled: !!classId,
+    queryKey: ['/api/coach/classes', classId, 'sessions', past ? 'past' : 'upcoming'],
+    queryFn: ({ signal }) => api.get<ClassSession[]>(
+      `/api/coach/classes/${encodeURIComponent(classId!)}/sessions${past ? '?past=1' : ''}`,
+      { signal },
+    ),
+  });
+}
+
+// 学员侧 · 我未来 N 分钟内所有班级事件
+export interface UpcomingEvent {
+  kind: 'class_session';
+  id: string;
+  title: string;
+  description: string | null;
+  subtitle: string;       // 班级名
+  startAt: string;
+  durationMin: number;
+  liveLink: string | null;
+  editVersion: number;
+  classId: string;
+  detailPath: string;
+}
+export function useUpcomingEvents(withinMin = 60) {
+  return useQuery({
+    queryKey: ['/api/my/upcoming-events', withinMin],
+    queryFn: ({ signal }) => api.get<UpcomingEvent[]>(
+      `/api/my/upcoming-events?within=${withinMin}`, { signal },
+    ),
+    refetchInterval: 60_000,
+  });
+}
+
+// 学员侧 · 首页卡 top-1
+export function useTopHomeCard() {
+  return useQuery({
+    queryKey: ['/api/my/top-home-card'],
+    queryFn: ({ signal }) => api.get<UpcomingEvent | null>('/api/my/top-home-card', { signal }),
+    refetchInterval: 60_000,
+  });
+}

@@ -30,6 +30,7 @@ const NoteEditPage = lazy(() => import('./pages/NoteEditPage'));
 const CoachClassPracticePage = lazy(() => import('./pages/CoachClassPracticePage'));
 const CoachClassAnnouncementsPage = lazy(() => import('./pages/CoachClassAnnouncementsPage'));
 const CoachClassDashboardPage = lazy(() => import('./pages/CoachClassDashboardPage'));
+const CoachClassSessionsPage = lazy(() => import('./pages/CoachClassSessionsPage'));
 const AdminPracticePage = lazy(() => import('./pages/AdminPracticePage'));
 const CoursesPage = lazy(() => import('./pages/CoursesPage'));
 const QuizCenterPage = lazy(() => import('./pages/QuizCenterPage'));
@@ -210,6 +211,7 @@ function CoachAppShell() {
               <Route path="/classes/:id/practice" element={<CoachClassPracticePage />} />
               <Route path="/classes/:id/announcements" element={<CoachClassAnnouncementsPage />} />
               <Route path="/classes/:id/dashboard" element={<CoachClassDashboardPage />} />
+              <Route path="/classes/:id/sessions" element={<CoachClassSessionsPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
               {/* 题目审核 · coach 也能进审核队列（决策 2） */}
               <Route path="/review" element={<AdminReviewPage />} />
@@ -246,6 +248,7 @@ function AdminAppShell() {
               <Route path="/classes/:id/practice" element={<CoachClassPracticePage />} />
               <Route path="/classes/:id/announcements" element={<CoachClassAnnouncementsPage />} />
               <Route path="/classes/:id/dashboard" element={<CoachClassDashboardPage />} />
+              <Route path="/classes/:id/sessions" element={<CoachClassSessionsPage />} />
               <Route path="/courses" element={<AdminCoursesPage />} />
               <Route path="/meditations" element={<MeditationsPage />} />
               <Route path="/practice" element={<AdminPracticePage />} />
