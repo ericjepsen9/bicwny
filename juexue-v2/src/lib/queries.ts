@@ -1405,3 +1405,33 @@ export function useClassPracticeRanking(
     },
   });
 }
+
+// ── 班级综合修学排行（积分制）─────────────────────
+export type StudyRankingPeriod = 'week' | 'month' | 'all';
+export interface StudyRankingRow {
+  userId: string;
+  dharmaName: string | null;
+  avatar: string | null;
+  score: number;
+  breakdown: {
+    chanting: number;
+    meditationCount: number;
+    meditationMin: number;
+    answerCount: number;
+    readingLessons: number;
+    activeDays: number;
+  };
+}
+export function useClassStudyRanking(
+  classId: string | null | undefined,
+  period: StudyRankingPeriod,
+) {
+  return useQuery({
+    enabled: !!classId,
+    queryKey: ['/api/classes', classId, 'study-ranking', period],
+    queryFn: ({ signal }) => api.get<StudyRankingRow[]>(
+      `/api/classes/${encodeURIComponent(classId!)}/study-ranking?period=${period}`,
+      { signal },
+    ),
+  });
+}

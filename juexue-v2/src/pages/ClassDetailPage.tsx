@@ -189,22 +189,15 @@ export default function ClassDetailPage() {
 
         <SessionEntryCard classId={cid} isCoach={isCoachOrAdmin} />
 
-        {/* 班级排行 · 念诵 + 观修两套榜 */}
-        <SectionTitle icon={<IconTrophy />} label={s('班级排行', '班級排行', 'Rankings')} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-2)' }}>
-          <RankingTile
-            to={`/class/${encodeURIComponent(cid)}/practice-ranking`}
-            icon={<IconBeads />}
-            label={s('念诵', '念誦', 'Chanting')}
-            accent="saffron"
-          />
-          <RankingTile
-            to={`/class/${encodeURIComponent(cid)}/meditations`}
-            icon={<IconMeditation />}
-            label={s('观修', '觀修', 'Meditation')}
-            accent="sage"
-          />
-        </div>
+        {/* 班级综合修学排行（积分制 · 念诵 + 观修 + 阅读 + 答题 全维度） */}
+        <EntryCard
+          to={`/class/${encodeURIComponent(cid)}/ranking`}
+          icon={<IconTrophy />}
+          label={s('班级排行', '班級排行', 'Class ranking')}
+          title={s('修学积分榜', '修學積分榜', 'Study score board')}
+          subtitle={s('念诵 · 观修 · 阅读 · 答题 综合', '念誦 · 觀修 · 閱讀 · 答題 綜合', 'Chant · meditate · read · quiz')}
+          accent="saffron"
+        />
 
         {/* ── 辅导员快捷区（仅 coach 可见） ── */}
         {isCoachOrAdmin && (
@@ -488,42 +481,6 @@ function CoachQuickActions({ classId }: { classId: string }) {
         />
       </div>
     </div>
-  );
-}
-
-// 排行 tile · 念诵 / 观修 共用样式
-function RankingTile({ to, icon, label, accent }: {
-  to: string;
-  icon: ReactNode;
-  label: string;
-  accent: 'saffron' | 'sage';
-}) {
-  const iconColor = accent === 'saffron' ? 'var(--saffron-dark)' : 'var(--sage-dark)';
-  return (
-    <Link
-      to={to}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--sp-3)',
-        padding: 'var(--sp-3) var(--sp-4)',
-        background: 'rgba(255, 255, 255, 0.55)',
-        backdropFilter: 'blur(16px) saturate(140%)',
-        WebkitBackdropFilter: 'blur(16px) saturate(140%)',
-        border: '1px solid rgba(255, 255, 255, 0.4)',
-        borderRadius: 'var(--r-lg)',
-        textDecoration: 'none',
-        color: 'inherit',
-      }}
-    >
-      <span style={{ color: iconColor, display: 'inline-flex' }}>{icon}</span>
-      <span style={{ flex: 1, fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', fontSize: '0.9375rem', letterSpacing: 1.5 }}>
-        {label}
-      </span>
-      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24" style={{ color: 'var(--ink-4)' }} aria-hidden>
-        <polyline points="9 18 15 12 9 6" />
-      </svg>
-    </Link>
   );
 }
 
@@ -858,18 +815,6 @@ function IconBeads() {
       <circle cx="9" cy="18" r="1.5" />
       <circle cx="6" cy="14" r="1.5" />
       <circle cx="6" cy="10" r="1.5" />
-    </svg>
-  );
-}
-
-function IconMeditation() {
-  return (
-    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-      <circle cx="12" cy="6" r="2.5" />
-      <path d="M12 11v3" />
-      <path d="M5 21c1-3 4-5 7-5s6 2 7 5" />
-      <path d="M3 14c2-1 4-1 6 0" />
-      <path d="M21 14c-2-1-4-1-6 0" />
     </svg>
   );
 }

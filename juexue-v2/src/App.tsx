@@ -48,6 +48,7 @@ const ScriptureReadingPage = lazy(() => import('./pages/ScriptureReadingPage'));
 const MeditationPlayerPage = lazy(() => import('./pages/MeditationPlayerPage'));
 const ClassMeditationRankingPage = lazy(() => import('./pages/ClassMeditationRankingPage'));
 const ClassPracticeRankingPage = lazy(() => import('./pages/ClassPracticeRankingPage'));
+const ClassRankingPage = lazy(() => import('./pages/ClassRankingPage'));
 const QuizPage = lazy(() => import('./pages/QuizPage'));
 const MistakeDetailPage = lazy(() => import('./pages/MistakeDetailPage'));
 const MistakesPage = lazy(() => import('./pages/MistakesPage'));
@@ -141,6 +142,7 @@ function AppShell() {
                 <Route path="/meditation/:id" element={<MeditationPlayerPage />} />
                 <Route path="/class/:id/meditations" element={<ClassMeditationRankingPage />} />
                 <Route path="/class/:id/practice-ranking" element={<ClassPracticeRankingPage />} />
+                <Route path="/class/:id/ranking" element={<ClassRankingPage />} />
                 {/* /quiz-practice = 智能练习（QuizPage）· 与修学计数 /practice 区分 */}
                 <Route path="/quiz-practice" element={<QuizPage />} />
                 <Route path="/quiz/:lessonId" element={<QuizPage />} />
