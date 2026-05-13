@@ -191,7 +191,33 @@ admin 桌面页面用默认 Dialog（sheet 风格）· 弹窗变成手机底部 
 
 ---
 
-## 🟢 9. 提交前自检 checklist
+## 🟡 10. 前后端 zod schema 不对齐 · 静默 400
+
+### 表现
+前端调 API 后控制台 400 · response body 「查询参数不合法」/「参数不合法」· 但 UI 没崩 · 只是数据空着 · 容易漏看。
+
+### 原因
+- 前端 hook 传的值（minute / count / limit）超出后端 zod 的 `.min()` / `.max()` / enum 范围
+- 后端 schema 变了 · 前端没跟
+- 共享类型只描述形状 · 不描述值域
+
+### 项目里栽过的两类
+1. **值域不对齐**：前端 `useUpcomingEvents(60*24*7)` = 10080 min · 后端 `.max(60*24)` = 1440 → 永远 400 · "下一场"卡副标始终空（用户根本看不出来）
+2. **可空性不对齐**：前端 `field: null` · 后端 `.optional()` 不接 null → 见 gotcha 4
+
+### 正确做法
+- 写新 hook 之前先打开后端 route 文件 · 抄一遍 schema 范围 · 用 const 写死前端那边
+- 改后端 zod 范围 · 全文搜该 endpoint 的所有前端 caller · 一并审一遍
+- 后端 400 不要只看 status · 看 response body 的 message · 决定是放宽 schema 还是改前端入参
+- 长期看：把 zod schema 抽到 `shared/` 包前后端共用 · 一处改两边亮
+
+### 历史事故
+- `5b1a320` upcoming-events within 前端 7 天 / 后端 24h · 班级页"下一场"卡 副标一直拉不到
+- `0500162` create body schema 不接 null（见 gotcha 4）
+
+---
+
+## 🟢 11. 提交前自检 checklist
 
 ```
 □ npm run typecheck 干净
@@ -200,6 +226,7 @@ admin 桌面页面用默认 Dialog（sheet 风格）· 弹窗变成手机底部 
 □ fixed 元素 · 已 createPortal 或确认无祖先 transform
 □ objectFit / aspectRatio · 已确认裁切 vs 留白哪种语义
 □ zod schema · create 和 update 一致接受 null
+□ zod 值域 · 前端入参在后端 .min()/.max() 范围内
 □ invalidateQueries · 只 invalidate 最浅前缀
 ```
 

@@ -47,6 +47,7 @@ npm run build       # tsc · 必须干净
 - 上传 / 表单 → 查 4（zod nullable + optional）
 - 数据 invalidate → 查 5（前缀匹配 · 不重复调）
 - Dialog → 查 7（桌面用 centered variant）
+- 新 API hook / 改后端 zod → 查 10（前后端值域不对齐 · 静默 400）
 
 ### 提速反馈循环
 
@@ -100,5 +101,6 @@ prod build 仅在视觉确认 OK 后做最终验证。
 | `8c2da1a` | .page-enter transform 让 fixed 失效 |
 | `3c9d0ff` | picture inline 撑不满 flex |
 | `7e8f088` | 容器固定宽高 → 图片留白（用户期待铺满）|
+| `5b1a320` | upcoming-events 前后端 zod 值域不对齐 → 静默 400 |
 
 每条都有详情写在 `docs/CSS-GOTCHAS.md`。
