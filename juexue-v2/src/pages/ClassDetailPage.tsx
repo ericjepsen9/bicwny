@@ -637,7 +637,7 @@ function ClassPracticeProjectsSection({ classId }: { classId: string }) {
   );
 }
 
-// 公告 section · 学员视角无公告时折叠 · coach 总显示
+// 公告 section · placeholder 始终显示（让学员知道这个区域存在）
 function ClassAnnouncementsSection({ classId, isCoach }: { classId: string; isCoach: boolean }) {
   const { s } = useLang();
   const list = useQuery({
@@ -645,8 +645,6 @@ function ClassAnnouncementsSection({ classId, isCoach }: { classId: string; isCo
     queryFn: ({ signal }) => api.get<AnnouncementSummary[]>(`/api/classes/${encodeURIComponent(classId)}/announcements`, { signal }),
   });
   const items = list.data ?? [];
-  // 学员视角且无公告 · 不显示
-  if (!isCoach && items.length === 0 && !list.isLoading) return null;
 
   return (
     <div>
