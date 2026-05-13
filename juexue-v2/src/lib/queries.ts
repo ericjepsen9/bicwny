@@ -1378,3 +1378,30 @@ export function useTopHomeCard() {
     refetchInterval: 60_000,
   });
 }
+
+// ── 班级修学排行 · 学员侧 · 念诵/计数 ────────
+export type PracticeRankingPeriod = 'week' | 'month' | 'all';
+export interface PracticeRankingRow {
+  userId: string;
+  dharmaName: string | null;
+  avatar: string | null;
+  total: number;
+}
+export function useClassPracticeRanking(
+  classId: string | null | undefined,
+  period: PracticeRankingPeriod,
+  categoryKey?: string,
+) {
+  return useQuery({
+    enabled: !!classId,
+    queryKey: ['/api/classes', classId, 'practice-ranking', period, categoryKey ?? ''],
+    queryFn: ({ signal }) => {
+      const qs = new URLSearchParams({ period });
+      if (categoryKey) qs.set('categoryKey', categoryKey);
+      return api.get<PracticeRankingRow[]>(
+        `/api/classes/${encodeURIComponent(classId!)}/practice-ranking?${qs}`,
+        { signal },
+      );
+    },
+  });
+}

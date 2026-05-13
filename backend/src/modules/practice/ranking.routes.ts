@@ -1,0 +1,125 @@
+// 班级修学（念诵 / 计数）排行 · 学员侧 routes
+//   GET /api/classes/:id/practice-ranking?period=week|month|all
+//
+// 与 /api/coach/classes/:id/practice-ranking 区别：
+//   - 学员侧 · 仅班级成员可看
+//   - 班级公告参数复用同一聚合逻辑（practiceDailySummary groupBy）
+//   - 在 v1 仅按 total count desc 排（与教练侧逻辑一致）
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+import { requireUserId } from '../../lib/auth.js';
+import { BadRequest } from '../../lib/errors.js';
+import { prisma } from '../../lib/prisma.js';
+import { getClassForMember } from '../class/service.js';
+
+const TAGS = ['Practice'];
+const SEC = [{ bearerAuth: [] as string[] }];
+
+const idParam = z.object({ id: z.string().min(1) });
+const queryParams = z.object({
+  period: z.enum(['week', 'month', 'all']).default('week'),
+  categoryKey: z.string().optional(),
+});
+
+interface RankingRow {
+  userId: string;
+  dharmaName: string | null;
+  avatar: string | null;
+  total: number;
+}
+
+// 5 分钟 in-memory cache · 与 meditation-ranking 风格一致
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const cache = new Map<string, { data: RankingRow[]; expiresAt: number }>();
+
+function lastNDates(n: number): string[] {
+  const out: string[] = [];
+  const now = new Date();
+  for (let i = 0; i < n; i++) {
+    const d = new Date(now);
+    d.setUTCDate(now.getUTCDate() - i);
+    out.push(d.toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+async function queryRanking(
+  classId: string,
+  period: 'week' | 'month' | 'all',
+  categoryKey?: string,
+): Promise<RankingRow[]> {
+  const members = await prisma.classMember.findMany({
+    where: {
+      classId,
+      removedAt: null,
+      user: {
+        isActive: true,
+        practiceVisibleToClass: true,
+      },
+    },
+    include: {
+      user: { select: { id: true, dharmaName: true, avatar: true } },
+    },
+  });
+  if (members.length === 0) return [];
+  const userIds = members.map((m) => m.userId);
+
+  let categoryFilter: string | undefined;
+  if (categoryKey) {
+    const cat = await prisma.practiceCategory.findUnique({ where: { key: categoryKey } });
+    categoryFilter = cat?.id;
+  }
+
+  const dateRange = period === 'week' ? lastNDates(7)
+    : period === 'month' ? lastNDates(30)
+    : null;
+
+  const rows = await prisma.practiceDailySummary.groupBy({
+    by: ['userId'],
+    where: {
+      userId: { in: userIds },
+      ...(dateRange ? { date: { in: dateRange } } : {}),
+      ...(categoryFilter ? { categoryId: categoryFilter } : {}),
+    },
+    _sum: { count: true },
+  });
+  const sumMap = new Map(rows.map((r) => [r.userId, r._sum.count ?? 0]));
+
+  const data: RankingRow[] = members
+    .map((m) => ({
+      userId: m.userId,
+      dharmaName: m.user.dharmaName,
+      avatar: m.user.avatar,
+      total: sumMap.get(m.userId) ?? 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+  return data;
+}
+
+export const practiceRankingStudentRoutes: FastifyPluginAsync = async (app) => {
+  app.get('/api/classes/:id/practice-ranking', {
+    schema: {
+      tags: TAGS,
+      summary: '班级修学排行（学员侧 · 仅成员可看）',
+      security: SEC,
+    },
+  }, async (req) => {
+    const pp = idParam.safeParse(req.params);
+    if (!pp.success) throw BadRequest('参数不合法');
+    const pq = queryParams.safeParse(req.query);
+    if (!pq.success) throw BadRequest('参数不合法', pq.error.flatten());
+
+    const userId = requireUserId(req);
+    // 班级成员检查（含 coach）
+    await getClassForMember(pp.data.id, userId);
+
+    const cacheKey = `${pp.data.id}:${pq.data.period}:${pq.data.categoryKey ?? ''}`;
+    const cached = cache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return { data: cached.data };
+    }
+    const data = await queryRanking(pp.data.id, pq.data.period, pq.data.categoryKey);
+    cache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+    return { data };
+  });
+};
