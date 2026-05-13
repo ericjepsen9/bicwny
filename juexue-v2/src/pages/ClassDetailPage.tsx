@@ -7,7 +7,7 @@
 //   - 辅导员 / 学员 列表（玻璃头像统一）
 //   - 班级公告（仅有内容或 coach 视角显示）
 //   - 退出班级（底部 · 危险按钮）
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -20,6 +20,7 @@ import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
 import {
   useClassDetail,
+  useClassStudyRanking,
   useClasses,
   useCourseDetail,
   useEnrollments,
@@ -50,6 +51,10 @@ export default function ClassDetailPage() {
 
   const detail = useClassDetail(cid);
   const myClasses = useClasses();
+  const membersAnchorRef = useRef<HTMLDivElement>(null);
+  const scrollToMembers = () => {
+    membersAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const myMembership = useMemo(
     () => (myClasses.data ?? []).find((m) => m.classId === cid),
@@ -185,26 +190,25 @@ export default function ClassDetailPage() {
         {/* ── 修法窗口（沿用现成组件） ── */}
         <TibetanClassWeekStrip />
 
-        {/* ── 3 个入口卡（统一样式） ── */}
-        {c.course && (
-          <CourseEntryCard
-            slug={c.course.slug}
-            title={c.course.title}
-            courseId={c.courseId}
+        {/* ── 3 张横排紧凑卡：主修法本 / 班级排课 / 班级同学 ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-2)' }}>
+          {c.course ? (
+            <CompactCourseCard slug={c.course.slug} title={c.course.title} courseId={c.courseId} />
+          ) : (
+            <CompactCardPlaceholder icon={<IconBook />} label={s('主修法本', '主修法本', 'Main text')} status={s('未绑定', '未綁定', '—')} accent="gold" />
+          )}
+          <CompactSessionCard classId={cid} isCoach={isCoachOrAdmin} />
+          <CompactCard
+            onClick={scrollToMembers}
+            icon={<IconUsers />}
+            label={s('班级同学', '班級同學', 'Members')}
+            status={`${(coaches.length + students.length)} ${s('人', '人', '')}`}
+            accent="sage"
           />
-        )}
+        </div>
 
-        <SessionEntryCard classId={cid} isCoach={isCoachOrAdmin} />
-
-        {/* 班级综合修学排行（积分制 · 念诵 + 观修 + 阅读 + 答题 全维度） */}
-        <EntryCard
-          to={`/class/${encodeURIComponent(cid)}/ranking`}
-          icon={<IconTrophy />}
-          label={s('班级排行', '班級排行', 'Class ranking')}
-          title={s('修学积分榜', '修學積分榜', 'Study score board')}
-          subtitle={s('念诵 · 观修 · 阅读 · 答题 综合', '念誦 · 觀修 · 閱讀 · 答題 綜合', 'Chant · meditate · read · quiz')}
-          accent="saffron"
-        />
+        {/* ── 班级修学积分榜 · Top 3 直显 ── */}
+        <ClassRankingPreview classId={cid} />
 
         {/* ── 辅导员快捷区（仅 coach 可见） ── */}
         {isCoachOrAdmin && (
@@ -216,6 +220,7 @@ export default function ClassDetailPage() {
         <ClassPracticeProjectsSection classId={cid} />
 
         {/* ── 辅导员 ── */}
+        <div ref={membersAnchorRef} />
         {coaches.length > 0 && (
           <div>
             <SectionTitle icon={<IconUserCheck />} label={s(`辅导员 · ${coaches.length}`, `輔導員 · ${coaches.length}`, `Coaches · ${coaches.length}`)} />
@@ -311,68 +316,29 @@ function SectionTitle({ icon, label }: { icon: ReactNode; label: string }) {
   );
 }
 
-// 统一入口卡 · 三处用同款（主修法本 / 班级排课 / 班级观修榜）
-function EntryCard({
-  to, onClick, icon, label, title, subtitle, accent,
-}: {
+// ─────────────────────────────────────────────────────
+// 3 张横排紧凑卡 · icon + 名称 + 1 行状态
+// ─────────────────────────────────────────────────────
+
+function CompactCard({ to, onClick, icon, label, status, accent }: {
   to?: string;
   onClick?: () => void;
   icon: ReactNode;
-  label: string;        // 上灰字小 caption
-  title: string;        // 主标题
-  subtitle?: string;    // 副标题（如 "已学 5/14 课"）
-  accent?: 'saffron' | 'gold' | 'sage';
+  label: string;
+  status: string;
+  accent: 'saffron' | 'gold' | 'sage';
 }) {
-  const tone = accent ?? 'saffron';
   const colorMap = {
     saffron: 'var(--saffron-dark)',
     gold: 'var(--gold-dark)',
     sage: 'var(--sage-dark)',
   };
-  const iconColor = colorMap[tone];
-
-  const content = (
-    <>
-      <div
-        style={{
-          width: 42,
-          height: 42,
-          borderRadius: 'var(--r-md)',
-          background: 'rgba(255, 255, 255, 0.7)',
-          border: '1px solid var(--glass-border)',
-          color: iconColor,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, marginBottom: 2, margin: 0 }}>
-          {label}
-        </p>
-        <p style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', fontSize: '0.9375rem', letterSpacing: 1.5, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {title}
-        </p>
-        {subtitle && (
-          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2, margin: 0 }}>
-            {subtitle}
-          </p>
-        )}
-      </div>
-      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24" style={{ color: 'var(--ink-4)', flexShrink: 0 }} aria-hidden>
-        <polyline points="9 18 15 12 9 6" />
-      </svg>
-    </>
-  );
-
   const sharedStyle: React.CSSProperties = {
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    gap: 'var(--sp-3)',
-    padding: 'var(--sp-3) var(--sp-4)',
+    gap: 'var(--sp-1)',
+    padding: 'var(--sp-3) var(--sp-2)',
     background: 'rgba(255, 255, 255, 0.55)',
     backdropFilter: 'blur(16px) saturate(140%)',
     WebkitBackdropFilter: 'blur(16px) saturate(140%)',
@@ -381,59 +347,157 @@ function EntryCard({
     textDecoration: 'none',
     color: 'inherit',
     cursor: 'pointer',
+    minWidth: 0,
   };
-
+  const content = (
+    <>
+      <div style={{
+        width: 38, height: 38, borderRadius: 'var(--r-md)',
+        background: 'rgba(255, 255, 255, 0.7)',
+        border: '1px solid var(--glass-border)',
+        color: colorMap[accent],
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
+      }}>{icon}</div>
+      <div style={{
+        fontFamily: 'var(--font-serif)', fontWeight: 700,
+        color: 'var(--ink)', fontSize: '.8125rem', letterSpacing: 1.5,
+        textAlign: 'center',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        maxWidth: '100%',
+      }}>{label}</div>
+      <div style={{
+        font: 'var(--text-caption)', color: 'var(--ink-3)',
+        textAlign: 'center', letterSpacing: 1,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        maxWidth: '100%',
+      }}>{status}</div>
+    </>
+  );
   if (to) return <Link to={to} style={sharedStyle}>{content}</Link>;
-  return <button type="button" onClick={onClick} style={{ ...sharedStyle, textAlign: 'left', width: '100%' }}>{content}</button>;
+  return <button type="button" onClick={onClick} style={sharedStyle}>{content}</button>;
 }
 
-// 主修法本入口（含学习进度）
-function CourseEntryCard({ slug, title, courseId }: { slug: string; title: string; courseId: string }) {
+function CompactCardPlaceholder(props: { icon: ReactNode; label: string; status: string; accent: 'saffron' | 'gold' | 'sage' }) {
+  return <CompactCard {...props} onClick={() => { /* noop */ }} />;
+}
+
+// 主修法本紧凑卡（含进度）
+function CompactCourseCard({ slug, title, courseId }: { slug: string; title: string; courseId: string }) {
   const { s } = useLang();
   const enrollments = useEnrollments();
   const enrollment = (enrollments.data ?? []).find((e) => e.courseId === courseId);
-  // 拉 course detail 算总课时
   const courseDetail = useCourseDetail(slug, { lite: true });
   const totalLessons = (courseDetail.data?.chapters ?? []).reduce((sum, ch) => sum + (ch.lessons?.length ?? 0), 0);
   const completed = enrollment?.lessonsCompleted.length ?? 0;
-  const subtitle = totalLessons > 0
-    ? s(`已学 ${completed} / ${totalLessons} 课`, `已學 ${completed} / ${totalLessons} 課`, `${completed}/${totalLessons} done`)
-    : undefined;
-
+  const status = totalLessons > 0
+    ? s(`${completed} / ${totalLessons} 课`, `${completed} / ${totalLessons} 課`, `${completed}/${totalLessons}`)
+    : title;
   return (
-    <EntryCard
+    <CompactCard
       to={`/scripture-detail?slug=${encodeURIComponent(slug)}`}
       icon={<IconBook />}
       label={s('主修法本', '主修法本', 'Main text')}
-      title={title}
-      subtitle={subtitle}
+      status={status}
       accent="gold"
     />
   );
 }
 
-// 班级排课入口
-//   coach → 跳排课管理页 · 副标显示"管理排课"
-//   学员 → 跳排课列表 · 副标显示下一场或"暂无排课"
-function SessionEntryCard({ classId, isCoach }: { classId: string; isCoach: boolean }) {
+// 班级排课紧凑卡（下一场时间或"暂无"）
+function CompactSessionCard({ classId, isCoach }: { classId: string; isCoach: boolean }) {
   const { s } = useLang();
-  const upcoming = useUpcomingEvents(60 * 24 * 7); // 未来 7 天
+  const upcoming = useUpcomingEvents(60 * 24 * 7);
   const myClassUpcoming = (upcoming.data ?? []).filter((e) => e.kind === 'class_session' && e.classId === classId);
   const next = myClassUpcoming[0];
-
-  const to = isCoach
-    ? `/coach/classes/${encodeURIComponent(classId)}/sessions`
-    : `/coach/classes/${encodeURIComponent(classId)}/sessions`; // 学员也能看 GET · 后端校验
-
+  const status = next ? formatRelativeStart(next.startAt, s) : s('暂无未来', '暫無未來', 'None');
   return (
-    <EntryCard
-      to={to}
+    <CompactCard
+      to={`/coach/classes/${encodeURIComponent(classId)}/sessions`}
       icon={<IconCalendar />}
-      label={isCoach ? s('班级排课 · 管理', '班級排課 · 管理', 'Sessions · manage') : s('班级排课', '班級排課', 'Sessions')}
-      title={next ? next.title : s('暂无未来排课', '暫無未來排課', 'No upcoming sessions')}
-      subtitle={next ? formatRelativeStart(next.startAt, s) : undefined}
+      label={isCoach ? s('班级排课', '班級排課', 'Sessions') : s('班级排课', '班級排課', 'Sessions')}
+      status={status}
       accent="saffron"
     />
+  );
+}
+
+// ─────────────────────────────────────────────────────
+// 修学积分榜 · Top 3 直显
+// ─────────────────────────────────────────────────────
+
+function ClassRankingPreview({ classId }: { classId: string }) {
+  const { s } = useLang();
+  const ranking = useClassStudyRanking(classId, 'week');
+  const top3 = (ranking.data ?? []).slice(0, 3);
+  return (
+    <div>
+      <SectionTitle icon={<IconTrophy />} label={s('修学积分榜 · 本周', '修學積分榜 · 本週', 'Top scores · this week')} />
+      <div className="glass-card-thick" style={{ padding: 0, overflow: 'hidden' }}>
+        {ranking.isLoading ? (
+          <div style={{ padding: 'var(--sp-4)', textAlign: 'center', color: 'var(--ink-3)', font: 'var(--text-caption)' }}>
+            {s('加载中…', '加載中…', 'Loading…')}
+          </div>
+        ) : top3.length === 0 ? (
+          <div style={{ padding: 'var(--sp-4)', textAlign: 'center', color: 'var(--ink-3)', font: 'var(--text-caption)' }}>
+            {s('本周尚无修学记录', '本週尚無修學記錄', 'No records this week')}
+          </div>
+        ) : (
+          top3.map((row, i) => (
+            <RankRow
+              key={row.userId}
+              rank={i + 1}
+              name={row.dharmaName ?? '—'}
+              score={row.score}
+              isLast={i === top3.length - 1}
+            />
+          ))
+        )}
+        <Link
+          to={`/class/${encodeURIComponent(classId)}/ranking`}
+          style={{
+            display: 'block',
+            textAlign: 'center',
+            padding: 'var(--sp-3)',
+            borderTop: '1px solid var(--border-light)',
+            color: 'var(--saffron-dark)',
+            textDecoration: 'none',
+            fontSize: '.875rem',
+            letterSpacing: 1.5,
+            fontFamily: 'var(--font-serif)',
+            fontWeight: 600,
+          }}
+        >
+          {s('查看完整榜单 →', '查看完整榜單 →', 'Full leaderboard →')}
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function RankRow({ rank, name, score, isLast }: { rank: number; name: string; score: number; isLast: boolean }) {
+  const medal = ['🥇', '🥈', '🥉'][rank - 1] ?? `#${rank}`;
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 'var(--sp-3)',
+      padding: 'var(--sp-3) var(--sp-4)',
+      borderBottom: isLast ? undefined : '1px solid var(--border-light)',
+    }}>
+      <div style={{ fontSize: '1.375rem', width: 36, textAlign: 'center', flexShrink: 0 }}>{medal}</div>
+      <div style={{
+        flex: 1, minWidth: 0,
+        fontFamily: 'var(--font-serif)', fontWeight: 600,
+        color: 'var(--ink)', letterSpacing: 2, fontSize: '.9375rem',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{name}</div>
+      <div style={{
+        fontFamily: 'var(--font-serif)', fontWeight: 700,
+        color: 'var(--saffron-dark)', fontSize: '1rem', letterSpacing: 1.5,
+        flexShrink: 0,
+      }}>{score}</div>
+    </div>
   );
 }
 
