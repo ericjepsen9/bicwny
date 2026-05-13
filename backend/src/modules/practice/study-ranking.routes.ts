@@ -144,7 +144,7 @@ async function queryStudyRanking(
     by: ['userId'],
     where: {
       userId: { in: userIds },
-      ...(since ? { createdAt: { gte: since } } : {}),
+      ...(since ? { answeredAt: { gte: since } } : {}),
     },
     _count: { id: true },
   });
@@ -162,15 +162,14 @@ async function queryStudyRanking(
   });
   const readingMap = new Map(readingRows.map((r) => [r.userId, r._count.id]));
 
-  // ── 5. 活跃天数（取 4 类活动里出现的不重复日期数）──
-  // 简化版：用 PracticeDailySummary.date + 其他粗略指标
-  // v1 用 PracticeDailySummary 的 distinct date count（最准 · 因为已是 daily 聚合）
+  // ── 5. 活跃天数（PracticeDailySummary 的 distinct date count · 已 daily 聚合）──
   const activeDayRows = await prisma.practiceDailySummary.groupBy({
     by: ['userId', 'date'],
     where: {
       userId: { in: userIds },
       ...(dateRange ? { date: { in: dateRange } } : {}),
     },
+    _count: { _all: true }, // 显式要求 · 避免 Prisma 部分版本要求 aggregation
   });
   const activeDayMap = new Map<string, number>();
   for (const r of activeDayRows) {
