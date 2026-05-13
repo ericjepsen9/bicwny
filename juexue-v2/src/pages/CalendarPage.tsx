@@ -92,7 +92,6 @@ export default function CalendarPage() {
     <>
       <TopNav
         titles={['藏历', '藏曆', 'Calendar']}
-        backTo={isCoach ? '/coach' : '/'}
         right={(
           <button type="button" onClick={jumpToToday} style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', background: 'transparent', border: 'none', padding: '4px 10px', cursor: 'pointer' }}>
             {s('今日', '今日', 'Today')}
