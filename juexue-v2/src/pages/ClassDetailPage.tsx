@@ -106,27 +106,10 @@ export default function ClassDetailPage() {
       <div style={{ padding: '0 var(--sp-5) var(--sp-8)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
         {/* ── Hero · 横向紧凑 ── */}
         <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
-            {/* 左 · emoji 圆 */}
-            <div
-              style={{
-                width: 52,
-                height: 52,
-                borderRadius: 'var(--r-md)',
-                background: 'var(--saffron-pale)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.8rem',
-                flexShrink: 0,
-              }}
-            >
-              {c.coverEmoji || '📚'}
-            </div>
-            {/* 中 · 班级名 + 副信息 */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                <h1 style={{ margin: 0, fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.15rem', color: 'var(--ink)', letterSpacing: 2 }}>
+                <h1 style={{ margin: 0, fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.25rem', color: 'var(--ink)', letterSpacing: 2 }}>
                   {c.name}
                 </h1>
                 <span
