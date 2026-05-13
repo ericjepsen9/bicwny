@@ -179,6 +179,9 @@ export default function ClassDetailPage() {
           )}
         </div>
 
+        {/* ── 班级公告（紧贴 Hero · 第二眼焦点） ── */}
+        <ClassAnnouncementsSection classId={cid} isCoach={isCoachOrAdmin} />
+
         {/* ── 修法窗口（沿用现成组件） ── */}
         <TibetanClassWeekStrip />
 
@@ -255,9 +258,6 @@ export default function ClassDetailPage() {
             )}
           </div>
         </div>
-
-        {/* ── 班级公告（学员视角仅有公告时显示 · coach 总显示加 + 发公告 入口） ── */}
-        <ClassAnnouncementsSection classId={cid} isCoach={isCoachOrAdmin} />
 
         {/* ── 退出班级 ── */}
         <button
@@ -667,39 +667,87 @@ function ClassAnnouncementsSection({ classId, isCoach }: { classId: string; isCo
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-          {items.map((a) => <AnnouncementCard key={a.id} a={a} />)}
+          {items.map((a, idx) => <AnnouncementCard key={a.id} a={a} idx={idx + 1} />)}
         </div>
       )}
     </div>
   );
 }
 
-function AnnouncementCard({ a }: { a: AnnouncementSummary }) {
+// 公告卡 · SD 章节同款 · <details> 收起 · summary 点击展开
+function AnnouncementCard({ a, idx }: { a: AnnouncementSummary; idx: number }) {
   const imgs = a.imageUrls ?? [];
+  const isPinned = !!a.pinnedAt;
   return (
-    <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-        {a.pinnedAt && <span style={{ color: 'var(--saffron-dark)' }}>📌</span>}
-        <h3 style={{ flex: 1, fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 1.5, fontSize: '1rem' }}>
-          {a.title}
-        </h3>
-      </div>
-      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginBottom: 6 }}>
-        {new Date(a.createdAt).toLocaleString()}
-      </div>
-      <div style={{ font: 'var(--text-body)', color: 'var(--ink-2)', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
-        {a.body}
-      </div>
-      {imgs.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-          {imgs.map((u, i) => (
-            <a key={i} href={u} target="_blank" rel="noopener noreferrer">
-              <img src={u} alt="" style={{ maxWidth: 160, maxHeight: 160, objectFit: 'cover', borderRadius: 'var(--r-sm)', border: '1px solid var(--glass-border)' }} />
-            </a>
-          ))}
+    <details
+      className="glass-card-thick"
+      style={{ padding: 'var(--sp-3) var(--sp-4)', borderRadius: 'var(--r-lg)' }}
+      open={idx === 1} // 首条默认展开
+    >
+      <summary
+        style={{
+          cursor: 'pointer',
+          listStyle: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--sp-3)',
+        }}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            background: isPinned ? 'var(--saffron-pale)' : 'var(--glass)',
+            color: isPinned ? 'var(--saffron-dark)' : 'var(--ink-3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: 'var(--font-serif)',
+            fontWeight: 700,
+            fontSize: '0.8125rem',
+            flexShrink: 0,
+          }}
+        >
+          {isPinned ? '📌' : idx}
         </div>
-      )}
-    </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', fontSize: '.9375rem', letterSpacing: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {a.title}
+          </div>
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1, marginTop: 2 }}>
+            {new Date(a.createdAt).toLocaleString()}
+          </div>
+        </div>
+        <svg
+          width="14"
+          height="14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+          style={{ color: 'var(--ink-4)', flexShrink: 0 }}
+          aria-hidden
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </summary>
+
+      <div style={{ marginTop: 'var(--sp-3)', paddingTop: 'var(--sp-3)', borderTop: '1px solid var(--border-light)' }}>
+        <div style={{ font: 'var(--text-body)', color: 'var(--ink-2)', whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+          {a.body}
+        </div>
+        {imgs.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 'var(--sp-3)' }}>
+            {imgs.map((u, i) => (
+              <a key={i} href={u} target="_blank" rel="noopener noreferrer">
+                <img src={u} alt="" style={{ maxWidth: 160, maxHeight: 160, objectFit: 'cover', borderRadius: 'var(--r-sm)', border: '1px solid var(--glass-border)' }} />
+              </a>
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
 
