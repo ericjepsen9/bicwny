@@ -20,8 +20,9 @@ const CLASS_COURSE_INCLUDE = {
   },
 } as const;
 
-// 去掉 O/0/I/1 等易混淆字符，32 种选择 → 32^6 ≈ 10^9 码空间
-const JOIN_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+// 邀请码：6 位纯数字 · 10^6 = 100 万码空间 · 配合 MAX_CODE_RETRIES 防冲突
+// 用户更易输入 / 记忆 / 口述 · 不区分字母大小写问题
+const JOIN_CODE_CHARS = '0123456789';
 const JOIN_CODE_LEN = 6;
 const MAX_CODE_RETRIES = 3;
 
