@@ -63,6 +63,10 @@ const envSchema = z
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().default('mailto:admin@juexue.local'),
 
+  // 调度器开关 · false 时 startScheduler() no-op · 测试 / dev 用
+  // 默认 true · prod 自然挂调度器
+  CRON_ENABLED: z.coerce.boolean().default(true),
+
   // Sentry 错误监控 · 缺失则 SDK 直接 no-op · 不影响其他功能
   // SENTRY_DSN_BACKEND 后端用 · 私密但 Sentry DSN 公开也无大风险（仅能向该项目写）
   // SENTRY_DSN_FRONTEND 通过 /api/config/public 暴露给前端 · 前端 SDK 用

@@ -1,8 +1,9 @@
 // 服务器启动入口
-// 构建 app → listen → 绑定优雅停机信号 → 兜底未捕获异常。
+// 构建 app → listen → 启动调度器 → 绑定优雅停机信号 → 兜底未捕获异常。
 import { buildApp } from './app.js';
 import { config } from './lib/config.js';
 import { prisma } from './lib/prisma.js';
+import { startScheduler, stopScheduler } from './modules/scheduler/cron.js';
 
 const app = await buildApp();
 
@@ -13,11 +14,16 @@ try {
   process.exit(1);
 }
 
+// 启动通知调度器（每 60s tick · 推送 ClassSession 三档提醒）
+// env CRON_ENABLED=false 时 no-op
+startScheduler(prisma);
+
 // 优雅停机：SIGTERM / SIGINT
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {
   process.on(sig, async () => {
     app.log.info({ sig }, '收到停机信号，开始关闭…');
     try {
+      stopScheduler();
       await app.close();
       await prisma.$disconnect();
       process.exit(0);

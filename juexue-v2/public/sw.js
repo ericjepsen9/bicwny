@@ -9,7 +9,7 @@
  *
  * 不在原生壳（iOS/Android Capacitor）注册 · 见 src/lib/sw-register.ts
  */
-const VERSION = 'jx-v2-2026-05-02-01';
+const VERSION = 'jx-v2-2026-05-13-01';
 const STATIC_CACHE = `${VERSION}-static`;
 const SHELL_CACHE = `${VERSION}-shell`;
 
@@ -110,4 +110,54 @@ async function networkFirst(req, cacheName) {
 // 用于业务侧调用 navigator.serviceWorker.controller.postMessage('skipWaiting')
 self.addEventListener('message', (event) => {
   if (event.data === 'skipWaiting') self.skipWaiting();
+});
+
+// ── Push 通知接收 ──────────────────────────────────────────
+// 后端 web-push 推送到达 SW · 用 Notification API 显示系统级 banner
+// payload 由后端 push/service.ts 生成 · 含 title / body / link / tag / icon / badge
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  let data;
+  try {
+    data = event.data.json();
+  } catch {
+    data = { title: '觉学', body: event.data.text() };
+  }
+  const title = data.title || '觉学';
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/app/icon-192.png',
+    badge: data.badge || '/app/icon-72.png',
+    // 同 tag 的后到通知替换前一个 · 防短时刷屏（如 T-30/T-5/T0 三档同事件）
+    tag: data.tag,
+    // 用户点 banner 时跳转的目标 · 默认 home.html
+    data: { link: data.link || '/app/' },
+    requireInteraction: false,
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// 用户点 banner → 打开 app · 跳到 link
+// 已有 /app/ 路径的 tab 复用并 focus · 否则新开 window
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const link = event.notification.data?.link || '/app/';
+  // 容错：link 可能是 '/app/...' 也可能是绝对 URL
+  const url = link.startsWith('http') ? link : (self.location.origin + (link.startsWith('/') ? link : '/' + link));
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // 已有 tab → 聚焦 + 导航
+      for (const c of clientList) {
+        if (c.url.includes('/app/') && 'focus' in c) {
+          c.focus();
+          if ('navigate' in c) {
+            try { c.navigate(url); } catch (_) { /* 不同源会失败 · 忽略 */ }
+          }
+          return;
+        }
+      }
+      // 没 tab → 新开
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    }),
+  );
 });
