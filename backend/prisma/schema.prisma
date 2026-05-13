@@ -100,6 +100,7 @@ model Class {
   practiceProjects PracticeProject[]
   practiceTasks    PracticeTask[]
   announcements    ClassAnnouncement[]
+  sessions         ClassSession[]
 
   @@index([courseId])
 }
@@ -195,6 +196,8 @@ model EmailVerificationToken {
 enum NotificationType {
   system // 系统通知（版本更新 / 维护预告）
   class_announcement // 班级公告（辅导员发给班级成员）
+  class_session // 上课开始提醒（T0）
+  class_session_soon // 上课即将开始（T-30 / T-5）
   achievement // 成就解锁
   reminder // 学习提醒（今日到期 / 错题堆积）
 }
@@ -260,6 +263,50 @@ model PushSubscription {
 
   @@index([userId])
   @@index([lastSeenAt]) // 清理 30 天没活的订阅
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 班级排课 ClassSession（v1 · 单次事件 · 无 recurrence · v2 再加重复规则）
+//   辅导员排共修 / 答疑 / 直播 · 学员 HomePage 卡 + 系统级 push
+//   推送时机：T-30 / T-5 / T0（开始前 30 / 5 / 0 分钟）
+//   v2 待加：recurrence Json? · parentAssemblyId · status enum
+// ═══════════════════════════════════════════════════════════════
+
+model ClassSession {
+  id          String   @id @default(cuid())
+  classId     String
+  title       String   // 如 "周三晚共修"
+  description String?  @db.Text
+  startAt     DateTime // 开始时间 · UTC 存
+  durationMin Int      @default(60)
+  liveLink    String?  // 直播链接 · 学员点"立即进入"跳转
+  // editVersion · 每次 PATCH 自增 · 客户端 acknowledged 记录用作失效校验
+  // 改时间 / 标题 → 旧的 ack 自动失效 · 卡片重新出现
+  editVersion Int      @default(1)
+  createdBy   String   // 创建辅导员 userId
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  class Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@index([classId, startAt])
+  @@index([startAt]) // 调度器扫窗口用
+}
+
+// 推送派发去重日志 · 同一 (eventKind, eventId, tier, userId) 永不重发
+// 调度器抖动 / 进程重启时 · unique 索引保证幂等
+model NotificationDispatchLog {
+  id             String   @id @default(cuid())
+  eventKind      String // 'class_session' · v2 加 'assembly' / 'reminder' 等
+  eventId        String // ClassSession.id 等 · v2 起若是 recurrence 用 'sessionId::ISO'
+  tier           String // 'T-30' | 'T-5' | 'T0'
+  userId         String
+  notificationId String? // 对应 Notification 行 id · null = 写 inbox 失败但 push 已尝试
+  pushedAt       DateTime @default(now())
+
+  @@unique([eventKind, eventId, tier, userId])
+  @@index([eventKind, eventId, tier])
+  @@index([userId, pushedAt])
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -49,6 +49,7 @@ import { dossierRoutes } from './modules/dossier/routes.js';
 import { tibetanRoutes } from './modules/tibetan/routes.js';
 import { notesRoutes } from './modules/notes/routes.js';
 import { highlightsRoutes } from './modules/highlights/routes.js';
+import { classSessionsRoutes } from './modules/classes/sessions/routes.js';
 import { postersRoutes } from './modules/posters/routes.js';
 import { studentMeditationRoutes } from './modules/meditations/student.routes.js';
 import { achievementsRoutes } from './modules/achievements/routes.js';
@@ -346,6 +347,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(tibetanRoutes);
   await app.register(notesRoutes);
   await app.register(highlightsRoutes);
+  await app.register(classSessionsRoutes);
   await app.register(postersRoutes);
   await app.register(learningRoutes);
   await app.register(favoritesRoutes);
