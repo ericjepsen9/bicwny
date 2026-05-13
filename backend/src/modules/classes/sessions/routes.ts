@@ -48,7 +48,7 @@ const listQuery = z.object({
 });
 
 const upcomingQuery = z.object({
-  within: z.coerce.number().int().min(1).max(60 * 24).optional(),
+  within: z.coerce.number().int().min(1).max(60 * 24 * 30).optional(),
 });
 
 export const classSessionsRoutes: FastifyPluginAsync = async (app) => {
