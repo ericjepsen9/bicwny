@@ -433,7 +433,24 @@ export async function listUserClasses(
 export async function getClassForMember(classId: string, userId: string) {
   const cls = await prisma.class.findUnique({
     where: { id: classId },
-    include: CLASS_COURSE_INCLUDE,
+    include: {
+      ...CLASS_COURSE_INCLUDE,
+      // 成员列表 · 前端 ClassDetailPage 需要展示教练 / 学员分组
+      // 过滤已退出 + 已禁用账户 · 口径与 memberCount 一致
+      members: {
+        where: { removedAt: null, user: { isActive: true } },
+        select: {
+          id: true,
+          role: true,
+          joinedAt: true,
+          user: { select: { id: true, dharmaName: true } },
+        },
+        orderBy: [
+          { role: 'desc' }, // coach 在前
+          { joinedAt: 'asc' },
+        ],
+      },
+    },
   });
   if (!cls) throw NotFound('班级不存在');
   const member = await prisma.classMember.findUnique({
