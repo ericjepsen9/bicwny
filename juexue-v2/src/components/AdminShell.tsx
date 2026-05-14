@@ -63,6 +63,7 @@ export default function AdminShell() {
           <AdminNav to="/admin/reports"  label={s('举报处理', '舉報處理', 'Reports')} icon={IconFlag} />
           <AdminNav to="/admin/audit"    label={s('审计日志', '審計日誌', 'Audit')} icon={IconClock} />
           <AdminNav to="/admin/logs"     label={s('运行日志', '運行日誌', 'Logs')} icon={IconAlert} />
+          <AdminNav to="/admin/notification-rules" label={s('通知规则', '通知規則', 'Notif')} icon={IconAlert} />
           <AdminNav to="/admin/llm"      label={s('LLM 管理', 'LLM 管理', 'LLM')} icon={IconBolt} />
           <AdminNav to="/admin/calendar" label={s('藏历管理', '藏曆管理', 'Calendar')} icon={IconCalendar} />
           <AdminNav to="/admin/posters"  label={s('首页画报', '首頁畫報', 'Posters')} icon={IconImage} />

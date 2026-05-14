@@ -3,10 +3,12 @@
 //   - 抖动 ± 90 秒容忍 · 配合 DispatchLog unique 索引保证不重发
 //   - 关闭方法：在测试 / dev 时 env CRON_ENABLED=false 跳过启动
 import type { PrismaClient } from '@prisma/client';
-import { dispatchToUsers, type Tier, type NotifType } from './dispatch.js';
+import { dispatchToUsers, type NotifType } from './dispatch.js';
+import { tickPersonalReminders } from './personal-reminders.js';
 import { config } from '../../lib/config.js';
 
-const TIER_OFFSETS: Record<Tier, number> = {
+type ClassSessionTier = 'T-30' | 'T-5' | 'T0';
+const TIER_OFFSETS: Record<ClassSessionTier, number> = {
   'T-30': 30 * 60_000,
   'T-5': 5 * 60_000,
   'T0': 0,
@@ -14,7 +16,7 @@ const TIER_OFFSETS: Record<Tier, number> = {
 // 窗口 ± 90 秒 · cron 每分钟 tick · 即使有抖动也能命中
 const WINDOW_MS = 90_000;
 
-const TIER_BODY = {
+const TIER_BODY: Record<ClassSessionTier, string> = {
   'T-30': '30 分钟后开始',
   'T-5': '5 分钟后开始',
   'T0': '现在开始 · 立即进入',
@@ -61,7 +63,7 @@ async function tickClassSessions(prisma: PrismaClient): Promise<void> {
     const link = s.liveLink || `/app/class/${s.classId}`;
     const baseTitle = `${s.class.name} · ${s.title}`;
 
-    for (const [tier, offset] of Object.entries(TIER_OFFSETS) as [Tier, number][]) {
+    for (const [tier, offset] of Object.entries(TIER_OFFSETS) as [ClassSessionTier, number][]) {
       const expected = startMs - offset; // 期望触发时刻（startAt - 偏移）
       const diff = Math.abs(now - expected);
       if (diff > WINDOW_MS) continue; // 不在该 tier 窗口
@@ -99,6 +101,7 @@ async function tick(prisma: PrismaClient): Promise<void> {
   running = true;
   try {
     await tickClassSessions(prisma);
+    await tickPersonalReminders(prisma);
   } catch (e) {
     console.error('[scheduler] tick error', e);
   } finally {

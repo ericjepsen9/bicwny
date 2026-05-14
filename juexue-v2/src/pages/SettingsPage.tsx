@@ -79,6 +79,7 @@ export default function SettingsPage() {
         <SectionLabel style={{ marginTop: 'var(--sp-4)' }}>{s('偏好', '偏好', 'Preferences')}</SectionLabel>
         <div className="menu-card">
           <PushToggle />
+          <LinkRow to="/settings/notifications" icon="🔔" label={s('通知偏好', '通知偏好', 'Notification preferences')} />
           <HapticsToggle />
         </div>
 

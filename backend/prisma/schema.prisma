@@ -42,6 +42,19 @@ model User {
   meditationVisibleToClass Boolean   @default(true)
   // 修学计数对班级是否可见（同上）
   practiceVisibleToClass   Boolean   @default(false)
+  // ── 个人提醒偏好 · null = 走平台默认（NotificationRule scope=platform）
+  //    详见 docs/NOTIFICATION_PLAN.md 之"个人提醒"章节
+  eveningReminderEnabled   Boolean   @default(true)  // 19:00 临期 push
+  eveningReminderHour      Int? // 0-23 · null = 走平台默认（19）
+  dailyDigestEnabled       Boolean   @default(true)  // 20:00 日报 push（0 修学时召回）
+  dailyDigestHour          Int? // 0-23 · null = 走平台默认（20）
+  weeklyReportEnabled      Boolean   @default(true)  // 周一 08:00 学修周报
+  weeklyReportWeekday      Int? // 1-7 ISO（1=Mon, 7=Sun）· null = 走平台默认（1）
+  weeklyReportHour         Int? // 0-23 · null = 走平台默认（8）
+  // 静默时段（用户本地时间 · push 通道生效 · 站内 Notification 不拦）
+  // start=end 表示关闭静默 · 跨午夜逻辑见 dispatcher
+  quietHoursStart          Int       @default(22) // 22:00 起
+  quietHoursEnd            Int       @default(7)  // 07:00 止
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 
@@ -295,11 +308,17 @@ model ClassSession {
 
 // 推送派发去重日志 · 同一 (eventKind, eventId, tier, userId) 永不重发
 // 调度器抖动 / 进程重启时 · unique 索引保证幂等
+//
+// eventKind 取值：
+//   'class_session'   · eventId=ClassSession.id      · tier='T-30'|'T-5'|'T0'
+//   'evening-due'     · eventId='YYYY-MM-DD'(本地)   · tier='-'   · 19:00 临期
+//   'daily-digest'    · eventId='YYYY-MM-DD'(本地)   · tier='-'   · 20:00 日报
+//   'weekly-report'   · eventId='YYYY-Www'(ISO 周)   · tier='-'   · 周一 08:00 周报
 model NotificationDispatchLog {
   id             String   @id @default(cuid())
-  eventKind      String // 'class_session' · v2 加 'assembly' / 'reminder' 等
-  eventId        String // ClassSession.id 等 · v2 起若是 recurrence 用 'sessionId::ISO'
-  tier           String // 'T-30' | 'T-5' | 'T0'
+  eventKind      String
+  eventId        String
+  tier           String // 'T-30' | 'T-5' | 'T0' | '-'（个人提醒无 tier）
   userId         String
   notificationId String? // 对应 Notification 行 id · null = 写 inbox 失败但 push 已尝试
   pushedAt       DateTime @default(now())
@@ -307,6 +326,31 @@ model NotificationDispatchLog {
   @@unique([eventKind, eventId, tier, userId])
   @@index([eventKind, eventId, tier])
   @@index([userId, pushedAt])
+}
+
+// 通知规则 · 平台/班级/任务级默认值 + 模板配置
+//   MVP 仅使用 scope='platform' · triggerType in ('evening-due','daily-digest','weekly-report')
+//   admin 在 /admin/notification-rules 配置 · 影响所有未自定义 hour 的用户
+//   class / assignment scope 见 NOTIFICATION_PLAN.md · Phase 2+
+model NotificationRule {
+  id              String   @id @default(cuid())
+  scope           String // 'platform' | 'class' | 'assignment'
+  classId         String?
+  assignmentId    String?
+  triggerType     String // 'evening-due' | 'daily-digest' | 'weekly-report' | 'before-deadline' ...
+  // 时段（个人提醒用 · 单位：小时 0-23）
+  defaultHour     Int?
+  // 周报专用 · ISO weekday（1=Mon, 7=Sun）
+  defaultWeekday  Int?
+  // 其他触发参数 · 留作扩展（before_deadline_hours / inactive_days 等）
+  meta            Json     @default("{}")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // platform scope 每个 triggerType 只允许一条 active
+  @@unique([scope, triggerType, classId, assignmentId])
+  @@index([scope, triggerType, isActive])
 }
 
 // ═══════════════════════════════════════════════════════════════

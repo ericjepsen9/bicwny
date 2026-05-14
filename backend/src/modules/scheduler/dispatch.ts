@@ -4,9 +4,9 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { sendPushToUsers } from '../push/service.js';
 
-export type EventKind = 'class_session';
-export type Tier = 'T-30' | 'T-5' | 'T0';
-export type NotifType = 'class_session' | 'class_session_soon';
+export type EventKind = 'class_session' | 'evening-due' | 'daily-digest' | 'weekly-report';
+export type Tier = 'T-30' | 'T-5' | 'T0' | '-';
+export type NotifType = 'class_session' | 'class_session_soon' | 'reminder';
 
 export interface DispatchInput {
   prisma: PrismaClient;

@@ -57,6 +57,7 @@ const Sm2ReviewPage = lazy(() => import('./pages/Sm2ReviewPage'));
 const NotificationPage = lazy(() => import('./pages/NotificationPage'));
 const AchievementPage = lazy(() => import('./pages/AchievementPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const SettingsNotificationsPage = lazy(() => import('./pages/SettingsNotificationsPage'));
 const DevicesPage = lazy(() => import('./pages/DevicesPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const ClassDetailPage = lazy(() => import('./pages/ClassDetailPage'));
@@ -82,6 +83,7 @@ const MeditationsPage = lazy(() => import('./pages/MeditationsPage'));
 const AdminReviewPage = lazy(() => import('./pages/AdminReviewPage'));
 const AdminAuditPage = lazy(() => import('./pages/AdminAuditPage'));
 const AdminLogsPage = lazy(() => import('./pages/AdminLogsPage'));
+const AdminNotificationRulesPage = lazy(() => import('./pages/AdminNotificationRulesPage'));
 const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
 const AdminLlmPage = lazy(() => import('./pages/AdminLlmPage'));
 const AdminCalendarPage = lazy(() => import('./pages/AdminCalendarPage'));
@@ -165,6 +167,7 @@ function AppShell() {
                 <Route path="/notifications" element={<NotificationPage />} />
                 <Route path="/achievement" element={<AchievementPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/settings/notifications" element={<SettingsNotificationsPage />} />
                 <Route path="/devices" element={<DevicesPage />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/class/:id" element={<ClassDetailPage />} />
@@ -267,6 +270,7 @@ function AdminAppShell() {
               <Route path="/reports" element={<AdminReportsPage />} />
               <Route path="/audit" element={<AdminAuditPage />} />
               <Route path="/logs" element={<AdminLogsPage />} />
+              <Route path="/notification-rules" element={<AdminNotificationRulesPage />} />
               <Route path="/llm" element={<AdminLlmPage />} />
               <Route path="/calendar" element={<AdminCalendarPage />} />
               <Route path="/calendar/year/:year" element={<AdminCalendarYearPage />} />
