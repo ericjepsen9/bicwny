@@ -597,39 +597,45 @@ function MemberRow({
   );
 }
 
-// 班级修学任务（沿用 · 仅微调样式）
+// 班级修学任务 · 空态也显示（让学员知道这个区域存在 · 同公告 section）
 function ClassPracticeTasksSection({ classId }: { classId: string }) {
   const { s } = useLang();
   const tasks = usePracticeTasks();
+  if (tasks.isLoading) return null;
   const classTasks = (tasks.data ?? []).filter((t) => t.scope === 'class' && t.class?.id === classId);
-  if (tasks.isLoading || classTasks.length === 0) return null;
   return (
     <div>
       <SectionTitle icon={<IconTarget />} label={s('班级修学任务', '班級修學任務', 'Practice tasks')} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-        {classTasks.map((t) => {
-          const pct = Math.min(100, Math.round((t.progress / t.target) * 100));
-          return (
-            <Link key={t.id} to={`/practice/project/${encodeURIComponent(t.project.id)}`} style={{ textDecoration: 'none' }}>
-              <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', letterSpacing: 1.2 }}>
-                    {t.title || `${t.project.emoji ?? ''} ${t.project.name}`}
-                  </span>
-                  {t.isDone && <span style={{ font: 'var(--text-caption)', color: 'var(--sage-dark)', fontWeight: 700 }}>✓</span>}
+      {classTasks.length === 0 ? (
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', textAlign: 'center', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5 }}>
+          {s('辅导员尚未下达任务 · 等待安排', '輔導員尚未下達任務 · 等待安排', 'Awaiting tasks from coach')}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+          {classTasks.map((t) => {
+            const pct = Math.min(100, Math.round((t.progress / t.target) * 100));
+            return (
+              <Link key={t.id} to={`/practice/project/${encodeURIComponent(t.project.id)}`} style={{ textDecoration: 'none' }}>
+                <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', letterSpacing: 1.2 }}>
+                      {t.title || `${t.project.emoji ?? ''} ${t.project.name}`}
+                    </span>
+                    {t.isDone && <span style={{ font: 'var(--text-caption)', color: 'var(--sage-dark)', fontWeight: 700 }}>✓</span>}
+                  </div>
+                  <div style={{ height: 6, borderRadius: 3, background: 'var(--glass)', overflow: 'hidden', marginBottom: 4 }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: t.isDone ? 'var(--sage-dark)' : 'linear-gradient(90deg, var(--saffron) 0%, var(--saffron-dark) 100%)' }} />
+                  </div>
+                  <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+                    {t.progress} / {t.target} · {pct}%
+                    {t.endAt && ` · ${s('截止', '截止', 'due')} ${new Date(t.endAt).toLocaleDateString()}`}
+                  </div>
                 </div>
-                <div style={{ height: 6, borderRadius: 3, background: 'var(--glass)', overflow: 'hidden', marginBottom: 4 }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: t.isDone ? 'var(--sage-dark)' : 'linear-gradient(90deg, var(--saffron) 0%, var(--saffron-dark) 100%)' }} />
-                </div>
-                <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
-                  {t.progress} / {t.target} · {pct}%
-                  {t.endAt && ` · ${s('截止', '截止', 'due')} ${new Date(t.endAt).toLocaleDateString()}`}
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
