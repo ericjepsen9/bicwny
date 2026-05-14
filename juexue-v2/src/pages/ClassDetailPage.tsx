@@ -98,10 +98,17 @@ export default function ClassDetailPage() {
       <TopNav titles={[c.name, c.name, c.name]} />
 
       <div style={{ padding: '0 var(--sp-5) var(--sp-8)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-        {/* ── 班级公告（第一眼焦点 · 班级名已在 TopNav） ── */}
+        {/* ── 上半屏 · 辅导员的「下达指令」(公告 + 修学目标) ──
+              空态压成 1 行 · 不吃屏 · 有内容时展开 */}
         <ClassAnnouncementsSection classId={cid} isCoach={isCoachOrAdmin} />
+        <ClassPracticeTasksSection classId={cid} isCoach={isCoachOrAdmin} />
 
-        {/* ── 修法窗口（沿用现成组件） ── */}
+        {/* ── 辅导员快捷区 · 仅 coach 看到 · 紧跟在指令区之后 ── */}
+        {isCoachOrAdmin && (
+          <CoachQuickActions classId={cid} joinCode={c.joinCode ?? null} s={s} />
+        )}
+
+        {/* ── 修法窗口 · 殊胜日 strip ── */}
         <TibetanClassWeekStrip />
 
         {/* ── 3 张横排紧凑卡：主修闻思 / 共修安排 / 班级同学 ── */}
@@ -121,16 +128,8 @@ export default function ClassDetailPage() {
           />
         </div>
 
-        {/* ── 班级修学积分榜 · Top 3 直显 ── */}
+        {/* ── 状态展示区 · 修学积分榜 + 本班专修（vanity / 状态 · 不催促） ── */}
         <ClassRankingPreview classId={cid} />
-
-        {/* ── 辅导员快捷区（仅 coach 可见） ── */}
-        {isCoachOrAdmin && (
-          <CoachQuickActions classId={cid} joinCode={c.joinCode ?? null} s={s} />
-        )}
-
-        {/* ── 班级修学目标 ── */}
-        <ClassPracticeTasksSection classId={cid} />
         <ClassPracticeProjectsSection classId={cid} />
 
         {/* ── 辅导员 ── */}
@@ -208,7 +207,7 @@ export default function ClassDetailPage() {
 // ─────────────────────────────────────────────────────
 
 
-function SectionTitle({ icon, label }: { icon: ReactNode; label: string }) {
+function SectionTitle({ icon, label, right }: { icon: ReactNode; label: string; right?: ReactNode }) {
   return (
     <h2
       style={{
@@ -225,8 +224,41 @@ function SectionTitle({ icon, label }: { icon: ReactNode; label: string }) {
       }}
     >
       <span style={{ color: 'var(--saffron-dark)', display: 'inline-flex' }}>{icon}</span>
-      {label}
+      <span style={{ flex: 1 }}>{label}</span>
+      {right}
     </h2>
+  );
+}
+
+// 空态压缩 placeholder · 1 行 caption · 替代整块空态卡
+//   icon + 灰色 label · 可选右侧 action link
+//   场景：班级公告 / 修学目标 等"指令区" 空时不吃屏
+function CompactPlaceholder({ icon, label, action }: {
+  icon: ReactNode;
+  label: string;
+  action?: { label: string; to: string };
+}) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      padding: 'var(--sp-2) var(--sp-3)',
+      font: 'var(--text-caption)',
+      color: 'var(--ink-4)',
+      letterSpacing: 1.5,
+    }}>
+      <span style={{ color: 'var(--ink-4)', display: 'inline-flex', opacity: 0.6 }}>{icon}</span>
+      <span style={{ flex: 1 }}>{label}</span>
+      {action && (
+        <Link
+          to={action.to}
+          style={{ color: 'var(--saffron-dark)', textDecoration: 'none', fontWeight: 600 }}
+        >
+          {action.label}
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -326,7 +358,7 @@ function CompactSessionCard({ classId, isCoach }: { classId: string; isCoach: bo
   const upcoming = useUpcomingEvents(60 * 24 * 7);
   const myClassUpcoming = (upcoming.data ?? []).filter((e) => e.kind === 'class_session' && e.classId === classId);
   const next = myClassUpcoming[0];
-  const status = next ? formatRelativeStart(next.startAt, s) : s('暂无未来', '暫無未來', 'None');
+  const status = next ? formatRelativeStart(next.startAt, s) : s('暂无安排', '暫無安排', 'None');
   const to = isCoach
     ? `/coach/classes/${encodeURIComponent(classId)}/sessions`
     : `/class/${encodeURIComponent(classId)}/sessions`;
@@ -597,45 +629,56 @@ function MemberRow({
   );
 }
 
-// 班级修学目标 · 空态也显示（让学员知道这个区域存在 · 同公告 section）
-function ClassPracticeTasksSection({ classId }: { classId: string }) {
+// 班级修学目标 · 空态压成 1 行 caption（同公告 section）
+//   - 学员视角空 → 1 行 "🎯 暂无修学目标 · 等待安排"
+//   - coach 视角空 → 1 行 "🎯 暂无修学目标 · + 下达任务"
+//   - 有任务 → 完整 SectionTitle + 任务卡列表
+function ClassPracticeTasksSection({ classId, isCoach }: { classId: string; isCoach: boolean }) {
   const { s } = useLang();
   const tasks = usePracticeTasks();
   if (tasks.isLoading) return null;
   const classTasks = (tasks.data ?? []).filter((t) => t.scope === 'class' && t.class?.id === classId);
+
+  if (classTasks.length === 0) {
+    return (
+      <CompactPlaceholder
+        icon={<IconTarget />}
+        label={s('暂无班级修学目标', '暫無班級修學目標', 'No practice tasks')}
+        action={isCoach ? {
+          label: s('+ 下达任务', '+ 下達任務', '+ Assign'),
+          to: `/coach/classes/${encodeURIComponent(classId)}/practice`,
+        } : undefined}
+      />
+    );
+  }
+
   return (
     <div>
       <SectionTitle icon={<IconTarget />} label={s('班级修学目标', '班級修學目標', 'Practice tasks')} />
-      {classTasks.length === 0 ? (
-        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', textAlign: 'center', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5 }}>
-          {s('辅导员尚未下达任务 · 等待安排', '輔導員尚未下達任務 · 等待安排', 'Awaiting tasks from coach')}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-          {classTasks.map((t) => {
-            const pct = Math.min(100, Math.round((t.progress / t.target) * 100));
-            return (
-              <Link key={t.id} to={`/practice/project/${encodeURIComponent(t.project.id)}`} style={{ textDecoration: 'none' }}>
-                <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', letterSpacing: 1.2 }}>
-                      {t.title || `${t.project.emoji ?? ''} ${t.project.name}`}
-                    </span>
-                    {t.isDone && <span style={{ font: 'var(--text-caption)', color: 'var(--sage-dark)', fontWeight: 700 }}>✓</span>}
-                  </div>
-                  <div style={{ height: 6, borderRadius: 3, background: 'var(--glass)', overflow: 'hidden', marginBottom: 4 }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: t.isDone ? 'var(--sage-dark)' : 'linear-gradient(90deg, var(--saffron) 0%, var(--saffron-dark) 100%)' }} />
-                  </div>
-                  <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
-                    {t.progress} / {t.target} · {pct}%
-                    {t.endAt && ` · ${s('截止', '截止', 'due')} ${new Date(t.endAt).toLocaleDateString()}`}
-                  </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+        {classTasks.map((t) => {
+          const pct = Math.min(100, Math.round((t.progress / t.target) * 100));
+          return (
+            <Link key={t.id} to={`/practice/project/${encodeURIComponent(t.project.id)}`} style={{ textDecoration: 'none' }}>
+              <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', letterSpacing: 1.2 }}>
+                    {t.title || `${t.project.emoji ?? ''} ${t.project.name}`}
+                  </span>
+                  {t.isDone && <span style={{ font: 'var(--text-caption)', color: 'var(--sage-dark)', fontWeight: 700 }}>✓</span>}
                 </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+                <div style={{ height: 6, borderRadius: 3, background: 'var(--glass)', overflow: 'hidden', marginBottom: 4 }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: t.isDone ? 'var(--sage-dark)' : 'linear-gradient(90deg, var(--saffron) 0%, var(--saffron-dark) 100%)' }} />
+                </div>
+                <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+                  {t.progress} / {t.target} · {pct}%
+                  {t.endAt && ` · ${s('截止', '截止', 'due')} ${new Date(t.endAt).toLocaleDateString()}`}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -666,7 +709,10 @@ function ClassPracticeProjectsSection({ classId }: { classId: string }) {
   );
 }
 
-// 公告 section · placeholder 始终显示（让学员知道这个区域存在）
+// 公告 section · 空态压成 1 行 caption · 有内容时展开
+//   - 学员视角空 → 1 行 "📣 暂无公告"
+//   - coach 视角空 → 1 行 "📣 暂无公告 · + 去发布"（link）
+//   - 有内容 → 完整 SectionTitle + 卡片列表
 function ClassAnnouncementsSection({ classId, isCoach }: { classId: string; isCoach: boolean }) {
   const { s } = useLang();
   const list = useQuery({
@@ -675,30 +721,37 @@ function ClassAnnouncementsSection({ classId, isCoach }: { classId: string; isCo
   });
   const items = list.data ?? [];
 
+  if (list.isLoading) return null; // 不闪 · 静默加载
+  if (items.length === 0) {
+    return (
+      <CompactPlaceholder
+        icon={<IconMegaphone />}
+        label={s('暂无班级公告', '暫無班級公告', 'No announcements')}
+        action={isCoach ? {
+          label: s('+ 去发布', '+ 去發布', '+ Post'),
+          to: `/coach/classes/${encodeURIComponent(classId)}/announcements`,
+        } : undefined}
+      />
+    );
+  }
+
   return (
     <div>
-      <SectionTitle icon={<IconMegaphone />} label={s('班级公告', '班級公告', 'Announcements')} />
-      {isCoach && (
-        <Link
-          to={`/coach/classes/${encodeURIComponent(classId)}/announcements`}
-          style={{ display: 'inline-block', font: 'var(--text-caption)', color: 'var(--saffron-dark)', textDecoration: 'none', marginBottom: 'var(--sp-2)' }}
-        >
-          + {s('管理公告', '管理公告', 'Manage')}
-        </Link>
-      )}
-      {list.isLoading ? (
-        <Skeleton.List />
-      ) : items.length === 0 ? (
-        <div className="glass-card" style={{ padding: 'var(--sp-4)', textAlign: 'center', borderRadius: 'var(--r-lg)' }}>
-          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
-            {s('暂无公告', '暫無公告', 'No announcements')}
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-          {items.map((a, idx) => <AnnouncementCard key={a.id} a={a} idx={idx + 1} />)}
-        </div>
-      )}
+      <SectionTitle
+        icon={<IconMegaphone />}
+        label={s('班级公告', '班級公告', 'Announcements')}
+        right={isCoach ? (
+          <Link
+            to={`/coach/classes/${encodeURIComponent(classId)}/announcements`}
+            style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', textDecoration: 'none' }}
+          >
+            {s('管理', '管理', 'Manage')}
+          </Link>
+        ) : undefined}
+      />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+        {items.map((a, idx) => <AnnouncementCard key={a.id} a={a} idx={idx + 1} />)}
+      </div>
     </div>
   );
 }

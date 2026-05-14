@@ -7,7 +7,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
-import { useLang } from '@/lib/i18n';
 
 interface TibetanDay {
   date: string;
@@ -35,7 +34,6 @@ function pickHeadline(d: TibetanDay): { name: string; multiplier: string | null;
 }
 
 export default function TibetanClassWeekStrip() {
-  const { s } = useLang();
   const data = useQuery({
     queryKey: ['/api/calendar/upcoming', 7],
     queryFn: ({ signal }) => api.get<TibetanDay[]>('/api/calendar/upcoming?days=7', { signal }),
@@ -47,9 +45,6 @@ export default function TibetanClassWeekStrip() {
 
   return (
     <div>
-      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 6, paddingLeft: 4, fontSize: '0.75rem' }}>
-        📿 {s('未来 7 天 · 修法窗口', '未來 7 天 · 修法窗口', 'Next 7 days')}
-      </div>
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2, scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
         {days.map((d) => {
           const date = new Date(d.date + 'T00:00:00');
