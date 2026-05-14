@@ -8,6 +8,7 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
+import TopNav from '@/components/TopNav';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
@@ -51,14 +52,9 @@ export default function CoachClassPracticePage() {
   const [tab, setTab] = useState<'projects' | 'tasks' | 'ranking'>('projects');
 
   return (
-    <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-      <Link to={back} style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-        ← {s('返回班级', '返回班級', 'Back')}
-      </Link>
-
-      <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.3rem', letterSpacing: 2 }}>
-        📿 {s('班级修学', '班級修學', 'Class practice')}
-      </h1>
+    <div>
+      <TopNav titles={['班级修学', '班級修學', 'Class practice']} backTo={back} />
+      <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
 
       <div style={{ display: 'flex', gap: 6 }}>
         {([
@@ -86,6 +82,7 @@ export default function CoachClassPracticePage() {
       {tab === 'projects' && classId && <ProjectsTab classId={classId} />}
       {tab === 'tasks' && classId && <TasksTab classId={classId} />}
       {tab === 'ranking' && classId && <RankingTab classId={classId} />}
+      </div>
     </div>
   );
 }

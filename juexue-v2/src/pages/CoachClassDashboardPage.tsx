@@ -7,6 +7,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import TopNav from '@/components/TopNav';
 import { api } from '@/lib/api';
 import { getAccess } from '@/lib/tokenStore';
 import { useLang } from '@/lib/i18n';
@@ -87,18 +88,17 @@ export default function CoachClassDashboardPage() {
   }
 
   return (
-    <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-      <Link to={back} style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-        ← {s('返回班级', '返回班級', 'Back')}
-      </Link>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.3rem', letterSpacing: 2 }}>
-          📊 {s('班级学修对比', '班級學修對比', 'Class dashboard')}
-        </h1>
-        <button type="button" onClick={downloadCsv} className="btn btn-pill" style={{ padding: '6px 14px', font: 'var(--text-caption)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)' }}>
-          📥 {s('导出 CSV', '導出 CSV', 'CSV')}
-        </button>
-      </div>
+    <div>
+      <TopNav
+        titles={['班级学修', '班級學修', 'Dashboard']}
+        backTo={back}
+        right={(
+          <button type="button" onClick={downloadCsv} className="btn btn-pill" style={{ padding: '6px 14px', font: 'var(--text-caption)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)' }}>
+            📥 {s('导出', '導出', 'CSV')}
+          </button>
+        )}
+      />
+      <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
 
       {data.isLoading ? <Skeleton.List /> : sorted.length === 0 ? (
         <p style={{ color: 'var(--ink-4)', font: 'var(--text-caption)', textAlign: 'center', padding: 'var(--sp-5) 0' }}>
@@ -152,6 +152,7 @@ export default function CoachClassDashboardPage() {
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

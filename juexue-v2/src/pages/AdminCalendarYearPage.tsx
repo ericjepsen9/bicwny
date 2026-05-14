@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import TopNav from '@/components/TopNav';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 
@@ -67,16 +68,14 @@ export default function AdminCalendarYearPage() {
   }
 
   return (
-    <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-      <Link to="/admin/calendar" style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-        ← 返回月视图
-      </Link>
-
+    <div>
+      <TopNav titles={['年视图', '年視圖', 'Year view']} backTo="/admin/calendar" />
+      <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button type="button" onClick={() => navigate(`/admin/calendar/year/${year - 1}`)} className="btn btn-pill" style={{ padding: '6px 12px' }}>‹</button>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.4rem', letterSpacing: 3 }}>
-          📿 {year} 年视图
-        </h1>
+        <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.2rem', letterSpacing: 3, margin: 0 }}>
+          {year}
+        </h2>
         <button type="button" onClick={() => navigate(`/admin/calendar/year/${year + 1}`)} className="btn btn-pill" style={{ padding: '6px 12px' }}>›</button>
       </div>
 
@@ -167,6 +166,7 @@ export default function AdminCalendarYearPage() {
             </Link>
           );
         })}
+      </div>
       </div>
     </div>
   );

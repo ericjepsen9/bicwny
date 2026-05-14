@@ -4,8 +4,8 @@
 //   - 上传 multipart → 拿到 URL → PUT upsert
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import TopNav from '@/components/TopNav';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError, uploadWithProgress } from '@/lib/api';
 import { toast } from '@/lib/toast';
@@ -33,16 +33,14 @@ export default function AdminPostersPage() {
   (data.data ?? []).forEach((p) => byMonth.set(p.month, p));
 
   return (
-    <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-      <Link to="/admin" style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-        ← 返回 admin
-      </Link>
-
+    <div>
+      <TopNav titles={['首页画报', '首頁畫報', 'Posters']} backTo="/admin" />
+      <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button type="button" onClick={() => setYear(year - 1)} className="btn btn-pill" style={{ padding: '6px 12px' }}>‹</button>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.3rem', letterSpacing: 3 }}>
-          🖼️ {year} 年首页画报
-        </h1>
+        <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.15rem', letterSpacing: 3, margin: 0 }}>
+          {year}
+        </h2>
         <button type="button" onClick={() => setYear(year + 1)} className="btn btn-pill" style={{ padding: '6px 12px' }}>›</button>
       </div>
 
@@ -57,6 +55,7 @@ export default function AdminPostersPage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

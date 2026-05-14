@@ -5,10 +5,11 @@
 //   - 删除二次确认
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
+import TopNav from '@/components/TopNav';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -35,25 +36,22 @@ export default function CoachClassSessionsPage() {
   const backTo = canEdit ? '/coach/classes' : `/class/${encodeURIComponent(classId || '')}`;
 
   return (
-    <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-      <Link to={backTo} style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-        ← {s('返回', '返回', 'Back')}
-      </Link>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.3rem', letterSpacing: 2 }}>
-          📅 {s('排课', '排課', 'Sessions')}
-        </h1>
-        {canEdit && (
+    <div>
+      <TopNav
+        titles={['班级排课', '班級排課', 'Sessions']}
+        backTo={backTo}
+        right={canEdit ? (
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
             className="btn btn-primary btn-pill"
-            style={{ padding: '8px 16px' }}
+            style={{ padding: '6px 14px', font: 'var(--text-caption)' }}
           >
             + {s('新建', '新建', 'New')}
           </button>
-        )}
-      </div>
+        ) : undefined}
+      />
+      <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
 
       {/* Tab */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border-light)' }}>
@@ -126,6 +124,7 @@ export default function CoachClassSessionsPage() {
           )}
         </Dialog>
       )}
+      </div>
     </div>
   );
 }

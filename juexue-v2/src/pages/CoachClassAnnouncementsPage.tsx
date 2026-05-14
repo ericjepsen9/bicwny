@@ -3,10 +3,11 @@
 //   - 简单 markdown body（textarea 直存 · 学员侧渲染换行）
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
+import TopNav from '@/components/TopNav';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError, uploadWithProgress } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -56,18 +57,17 @@ export default function CoachClassAnnouncementsPage() {
   });
 
   return (
-    <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-      <Link to={back} style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-        ← {s('返回班级', '返回班級', 'Back')}
-      </Link>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.3rem', letterSpacing: 2 }}>
-          📢 {s('班级公告', '班級公告', 'Announcements')}
-        </h1>
-        <button type="button" onClick={() => setCreateOpen(true)} className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
-          + {s('发公告', '發公告', 'New')}
-        </button>
-      </div>
+    <div>
+      <TopNav
+        titles={['班级公告', '班級公告', 'Announcements']}
+        backTo={back}
+        right={(
+          <button type="button" onClick={() => setCreateOpen(true)} className="btn btn-primary btn-pill" style={{ padding: '6px 14px', font: 'var(--text-caption)' }}>
+            + {s('新建', '新建', 'New')}
+          </button>
+        )}
+      />
+      <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
 
       {list.isLoading ? <Skeleton.List /> : (list.data ?? []).length === 0 ? (
         <p style={{ color: 'var(--ink-4)', font: 'var(--text-caption)', textAlign: 'center', padding: 'var(--sp-5) 0' }}>
@@ -90,6 +90,7 @@ export default function CoachClassAnnouncementsPage() {
           <Editor classId={editing.classId} initial={editing} onDone={() => setEditing(null)} />
         </Dialog>
       )}
+      </div>
     </div>
   );
 }

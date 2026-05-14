@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import TibetanYearTransitionBanner from '@/components/TibetanYearTransitionBanner';
+import TopNav from '@/components/TopNav';
 import { api } from '@/lib/api';
 import { toast } from '@/lib/toast';
 
@@ -106,23 +107,24 @@ export default function AdminCalendarPage() {
   }
 
   return (
-    <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Link to="/admin" style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-          ← 返回 admin
-        </Link>
-        <Link to={`/admin/calendar/year/${year}`} style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', textDecoration: 'none' }}>
-          📅 年视图 →
-        </Link>
-      </div>
-
+    <div>
+      <TopNav
+        titles={['藏历管理', '藏曆管理', 'Tibetan calendar']}
+        backTo="/admin"
+        right={(
+          <Link to={`/admin/calendar/year/${year}`} style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', textDecoration: 'none', padding: '6px 10px' }}>
+            年视图 →
+          </Link>
+        )}
+      />
+      <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
       <TibetanYearTransitionBanner />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button type="button" onClick={() => shiftMonth(-1)} className="btn btn-pill" style={{ padding: '6px 12px' }}>‹</button>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.3rem', letterSpacing: 2 }}>
-          📿 藏历管理 · {year} · {String(month).padStart(2, '0')}
-        </h1>
+        <h2 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.1rem', letterSpacing: 2, margin: 0 }}>
+          {year} · {String(month).padStart(2, '0')}
+        </h2>
         <button type="button" onClick={() => shiftMonth(1)} className="btn btn-pill" style={{ padding: '6px 12px' }}>›</button>
       </div>
 
@@ -206,6 +208,7 @@ export default function AdminCalendarPage() {
           }}
         />
       )}
+      </div>
     </div>
   );
 }
