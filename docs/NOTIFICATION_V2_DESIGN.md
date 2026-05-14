@@ -1,6 +1,6 @@
 # 觉学 · 通知系统 v2 完整设计（模块化）
 
-> 状态：✅ 设计已定稿（2026-05-14）· **9 模块 28 个开放问题**全部落决策 · 待进入实施排期
+> 状态：✅ 设计已定稿（2026-05-14）· **9 模块 30 个开放问题**全部落决策 · 待进入实施排期
 >
 > 关联：`NOTIFICATION_PLAN.md`（v1 框架）· `PERSONAL_REMINDERS_V1.md`（个人提醒 v1 已交付）
 >
@@ -352,8 +352,9 @@ async function getMyTopHomeCard(userId) {
 | ID | 问题 | 结论 |
 |---|---|---|
 | M4.Q1 | 个人提醒进首页卡？ | ✅ **不进** · 个人提醒仅走 push + 通知中心 · 首页卡只留给老师/班级事件 · 避免被动事件占领首页 |
-| M4.Q2 | 同 severity 同时间 tiebreaker？ | ✅ **kindRank 硬排序** · 班级公告 > 共修 > 任务 > 成就 > 藏历日 > 系统公告 · 可预测稳定 |
+| M4.Q2 | 同 severity 同时间 tiebreaker？ | ✅ **kindRank 硬排序** · 班级公告 > 法会 > 共修 > 任务 > 藏历日 > 系统公告 · 可预测稳定 |
 | M4.Q3 | 仲裁结果缓存？ | ✅ **不缓存 · 每次实时算** · 接口调用频率受 React Query 60s staleTime 节制 · ack 后立即生效 |
+| M4.Q4 | 候选时间窗？ | ✅ **每类事件独立时间窗** · 公告 24h（urgent 48h）· 共修 T-60min 到 endAt · 任务 fixed T-12h 内未完成 · 法会进行中 · 藏历当日 · 系统公告 24h（critical 72h）|
 
 #### kindRank 定义
 
@@ -363,11 +364,67 @@ const KIND_RANK: Record<EventKind, number> = {
   dharmaAssembly:    15,  // 法会进行中（M12）· 高于普通 session
   classSession:      20,  // 共修
   practiceTask:      30,  // 修学任务
-  achievement:       40,  // 成就解锁
   auspiciousDay:     50,  // 藏历加持日
   systemAnnouncement: 60, // 系统公告（admin）
+  // achievement 不参与首页卡仲裁（M11.Q1）· 仅 push + 通知中心
 };
 // 排序：severity desc > startAt asc > kindRank asc（小的赢）
+```
+
+#### 候选时间窗（每类事件独立）· M4.Q4 决策
+
+只有"在窗口内"的事件才算合格候选 · 进入仲裁排序。
+
+| 事件类型 | 时间窗 | 备注 |
+|---|---|---|
+| classAnnouncement | 发布后 24h 内未 ack | severity=urgent 延长到 48h |
+| classSession | T-60min ≤ now ≤ endAt | 进行中或即将开始 |
+| practiceTask | fixed · T-12h ≤ deadline 且 progress < target | daily 走个人提醒 · 不进卡 |
+| dharmaAssembly | startDate ≤ today ≤ endDate | 进行中 + 当日未 ack |
+| auspiciousDay | 当日 00:00 - 23:59 | 仅当日 |
+| systemAnnouncement | 发布后 24h 内未 ack | severity=critical 延长到 72h |
+
+时间窗外的事件 · 仍可在通知中心查看 · 但不抢首页卡。
+
+#### 完整仲裁伪代码
+
+```ts
+async function getTopHomeCard(userId: string): Promise<HomeCard | null> {
+  // 1. 各源拉取窗口内候选
+  const candidates = [
+    ...await loadAnnouncements(userId, { withinHours: 24 }),
+    ...await loadSessions(userId, { fromMinBefore: 60 }),
+    ...await loadTasks(userId, { fromHourBefore: 12, mode: 'fixed', incomplete: true }),
+    ...await loadAssemblies(userId, { ongoing: true }),
+    ...await loadAuspiciousDays(userId, { today: true }),
+    ...await loadSystemAnnouncements(userId, { withinHours: 24, criticalHours: 72 }),
+  ];
+
+  // 2. ack 过滤
+  const acks = await prisma.notificationCardAck.findMany({ where: { userId } });
+  const filtered = candidates.filter(c => {
+    const ack = acks.find(a => a.eventKind === c.kind && a.eventId === c.id);
+    if (!ack) return true;
+    // 法会按天 ack
+    if (c.kind === 'dharmaAssembly') {
+      return ack.ackedAt < startOfToday();
+    }
+    return ack.ackedVersion < c.editVersion;
+  });
+
+  if (filtered.length === 0) return null;
+
+  // 3. 三层排序
+  filtered.sort((a, b) => {
+    const sev = SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity];
+    if (sev !== 0) return sev;
+    const t = a.startAt.getTime() - b.startAt.getTime();
+    if (t !== 0) return t;
+    return KIND_RANK[a.kind] - KIND_RANK[b.kind];
+  });
+
+  return filtered[0];
+}
 ```
 
 ---
