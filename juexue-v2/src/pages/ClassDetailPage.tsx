@@ -405,17 +405,22 @@ function CompactCourseCard({ slug, title, courseId }: { slug: string; title: str
 }
 
 // 班级排课紧凑卡（下一场时间或"暂无"）
+//   coach → 排课管理页 · 可增删改
+//   学员 → 日历页（学员域 · 含所有 upcoming）· /coach/* 学员被守卫挡掉
 function CompactSessionCard({ classId, isCoach }: { classId: string; isCoach: boolean }) {
   const { s } = useLang();
   const upcoming = useUpcomingEvents(60 * 24 * 7);
   const myClassUpcoming = (upcoming.data ?? []).filter((e) => e.kind === 'class_session' && e.classId === classId);
   const next = myClassUpcoming[0];
   const status = next ? formatRelativeStart(next.startAt, s) : s('暂无未来', '暫無未來', 'None');
+  const to = isCoach
+    ? `/coach/classes/${encodeURIComponent(classId)}/sessions`
+    : '/calendar';
   return (
     <CompactCard
-      to={`/coach/classes/${encodeURIComponent(classId)}/sessions`}
+      to={to}
       icon={<IconCalendar />}
-      label={isCoach ? s('班级排课', '班級排課', 'Sessions') : s('班级排课', '班級排課', 'Sessions')}
+      label={s('班级排课', '班級排課', 'Sessions')}
       status={status}
       accent="saffron"
     />
