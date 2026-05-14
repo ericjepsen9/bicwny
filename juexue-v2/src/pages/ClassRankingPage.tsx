@@ -7,8 +7,9 @@
 //
 // 入口：班级页 · 主修页 · 个人 dossier 等
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
+import TopNav from '@/components/TopNav';
 import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
@@ -40,20 +41,9 @@ export default function ClassRankingPage() {
   }, [ranking.data, dim]);
 
   return (
-    <div style={{ padding: 'var(--sp-3)' }}>
-      {/* 顶部 · 返回 + 标题 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', marginBottom: 'var(--sp-3)' }}>
-        <Link
-          to={`/class/${classId}`}
-          style={{ width: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-2)', textDecoration: 'none', fontSize: 22 }}
-          aria-label={s('返回', '返回', 'Back')}
-        >
-          ←
-        </Link>
-        <h1 style={{ flex: 1, fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.125rem', color: 'var(--ink)', letterSpacing: 1.5, margin: 0 }}>
-          🏆 {s('班级修学排行', '班級修學排行', 'Class study ranking')}
-        </h1>
-      </div>
+    <div>
+      <TopNav titles={['班级修学排行', '班級修學排行', 'Ranking']} />
+      <div style={{ padding: 'var(--sp-3)' }}>
 
       {/* dim tab */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border-light)', marginBottom: 'var(--sp-3)' }}>
@@ -146,6 +136,7 @@ export default function ClassRankingPage() {
           '默認開放給同班',
           'Visible to classmates · adjust in Settings → Privacy',
         )}
+      </div>
       </div>
     </div>
   );
