@@ -7,7 +7,7 @@
 //   - 辅导员 / 学员 列表（玻璃头像统一）
 //   - 班级公告（仅有内容或 coach 视角显示）
 //   - 退出班级（底部 · 危险按钮）
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -21,7 +21,6 @@ import { useLang } from '@/lib/i18n';
 import {
   useClassDetail,
   useClassStudyRanking,
-  useClasses,
   useCourseDetail,
   useEnrollments,
   usePracticeProjects,
@@ -50,20 +49,10 @@ export default function ClassDetailPage() {
   const { user } = useAuth();
 
   const detail = useClassDetail(cid);
-  const myClasses = useClasses();
   const membersAnchorRef = useRef<HTMLDivElement>(null);
   const scrollToMembers = () => {
     membersAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-
-  const myMembership = useMemo(
-    () => (myClasses.data ?? []).find((m) => m.classId === cid),
-    [myClasses.data, cid],
-  );
-  const joinedDays = useMemo(() => {
-    if (!myMembership?.joinedAt) return null;
-    return Math.max(0, Math.floor((Date.now() - new Date(myMembership.joinedAt).getTime()) / 86400000));
-  }, [myMembership]);
 
   const leave = useMutation({
     mutationFn: () => api.post(`/api/classes/${encodeURIComponent(cid)}/leave`),
@@ -106,85 +95,10 @@ export default function ClassDetailPage() {
 
   return (
     <div>
-      <TopNav titles={['我的班级', '我的班級', 'My Class']} />
+      <TopNav titles={[c.name, c.name, c.name]} />
 
       <div style={{ padding: '0 var(--sp-5) var(--sp-8)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-        {/* ── Hero · 横向紧凑 ── */}
-        <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                <h1 style={{ margin: 0, fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.25rem', color: 'var(--ink)', letterSpacing: 2 }}>
-                  {c.name}
-                </h1>
-                <span
-                  style={{
-                    padding: '1px 7px',
-                    borderRadius: 'var(--r-pill)',
-                    background: 'var(--saffron-pale)',
-                    color: 'var(--saffron-dark)',
-                    font: 'var(--text-caption)',
-                    fontWeight: 700,
-                    letterSpacing: 1,
-                    fontSize: '0.65rem',
-                  }}
-                >
-                  {s('共修班', '共修班', 'Class')}
-                </span>
-              </div>
-              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, fontSize: '0.75rem' }}>
-                <span>{c.members.length} {s('成员', '成員', 'members')}</span>
-                <span style={{ margin: '0 6px', color: 'var(--ink-4)' }}>·</span>
-                <span>
-                  {joinedDays === null
-                    ? '—'
-                    : joinedDays === 0
-                    ? s('今日加入', '今日加入', 'Joined today')
-                    : s(`加入 ${joinedDays} 天`, `加入 ${joinedDays} 天`, `${joinedDays} days`)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 邀请码 · 仅 coach/admin · 与上方分隔的细 row */}
-          {isCoachOrAdmin && c.joinCode && (
-            <div
-              style={{
-                marginTop: 'var(--sp-3)',
-                paddingTop: 'var(--sp-3)',
-                borderTop: '1px dashed var(--border-light)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                font: 'var(--text-caption)',
-                color: 'var(--ink-3)',
-                letterSpacing: 1,
-              }}
-            >
-              <span>{s('邀请码', '邀請碼', 'Invite code')}</span>
-              <span style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 700, color: 'var(--saffron-dark)', letterSpacing: 2 }}>
-                {c.joinCode}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (navigator.clipboard) {
-                    navigator.clipboard.writeText(c.joinCode!).then(
-                      () => toast.ok(s('已复制', '已複製', 'Copied')),
-                      () => toast.warn(s('复制失败', '複製失敗', 'Copy failed')),
-                    );
-                  }
-                }}
-                aria-label={s('复制', '複製', 'Copy')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--saffron-dark)', display: 'inline-flex', marginLeft: 'auto' }}
-              >
-                <IconCopy />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* ── 班级公告（紧贴 Hero · 第二眼焦点） ── */}
+        {/* ── 班级公告（第一眼焦点 · 班级名已在 TopNav） ── */}
         <ClassAnnouncementsSection classId={cid} isCoach={isCoachOrAdmin} />
 
         {/* ── 修法窗口（沿用现成组件） ── */}
@@ -212,7 +126,7 @@ export default function ClassDetailPage() {
 
         {/* ── 辅导员快捷区（仅 coach 可见） ── */}
         {isCoachOrAdmin && (
-          <CoachQuickActions classId={cid} />
+          <CoachQuickActions classId={cid} joinCode={c.joinCode ?? null} s={s} />
         )}
 
         {/* ── 班级修学任务 ── */}
@@ -521,8 +435,11 @@ function formatRelativeStart(iso: string, s: (sc: string, tc: string, en?: strin
 }
 
 // 辅导员快捷区
-function CoachQuickActions({ classId }: { classId: string }) {
-  const { s } = useLang();
+function CoachQuickActions({ classId, joinCode, s }: {
+  classId: string;
+  joinCode: string | null;
+  s: (sc: string, tc: string, en?: string) => string;
+}) {
   return (
     <div>
       <SectionTitle icon={<IconWrench />} label={s('辅导员快捷', '輔導員快捷', 'Coach quick actions')} />
@@ -543,6 +460,43 @@ function CoachQuickActions({ classId }: { classId: string }) {
           label={s('学员看板', '學員看板', 'Dashboard')}
         />
       </div>
+      {joinCode && (
+        <div
+          style={{
+            marginTop: 'var(--sp-2)',
+            padding: 'var(--sp-2) var(--sp-3)',
+            background: 'rgba(255, 255, 255, 0.55)',
+            border: '1px solid rgba(255, 255, 255, 0.4)',
+            borderRadius: 'var(--r-md)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            font: 'var(--text-caption)',
+            color: 'var(--ink-3)',
+            letterSpacing: 1,
+          }}
+        >
+          <span>{s('邀请码', '邀請碼', 'Invite code')}</span>
+          <span style={{ fontFamily: 'var(--font-mono, monospace)', fontWeight: 700, color: 'var(--saffron-dark)', letterSpacing: 2 }}>
+            {joinCode}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (navigator.clipboard) {
+                navigator.clipboard.writeText(joinCode).then(
+                  () => toast.ok(s('已复制', '已複製', 'Copied')),
+                  () => toast.warn(s('复制失败', '複製失敗', 'Copy failed')),
+                );
+              }
+            }}
+            aria-label={s('复制', '複製', 'Copy')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--saffron-dark)', display: 'inline-flex', marginLeft: 'auto' }}
+          >
+            <IconCopy />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
