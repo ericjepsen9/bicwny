@@ -10,6 +10,50 @@
 - 部署：主后端服务器（instance-20260213-1230）跑 backend + nginx 反代前端
 - 域名：`juexue.caughtalert.com`（前端在 `/app/` 路径）· `media.juexue.caughtalert.com`（OSS）
 
+## 生产服务器路径 / 进程名（别再问用户）
+
+| 用途 | 值 |
+|---|---|
+| 项目根目录 | `/home/ubuntu/projects/juexue` |
+| 后端 PM2 进程名 | **`juexue-api`** · `pm2 reload juexue-api` 重启 |
+| 前端静态目录（nginx 指向） | `/var/www/juexue/app/` |
+| 数据库 | PostgreSQL · `localhost:5433` · db 名 `juexue` |
+| 默认登录用户 | `ubuntu` |
+| 服务器主机名 | `instance-20260213-1230` |
+
+### 一键部署流程（拷给用户跑）
+
+```bash
+# 1. 拉代码
+cd /home/ubuntu/projects/juexue
+git pull origin <branch>
+
+# 2. 后端 · 仅在 schema 或后端代码变动时跑
+cd backend
+npx prisma generate
+npx prisma db push          # 非破坏式 · 不删字段不丢数据
+npm run build
+pm2 reload juexue-api
+
+# 3. 前端 · 任何 juexue-v2/ 文件改动都要跑
+cd ../juexue-v2
+rm -rf dist/                # 清旧 build · 防 vite 增量缓存
+npm run build
+sudo rsync -av --delete dist/ /var/www/juexue/app/
+
+# 4. 浏览器强刷（iOS Safari 长按"刷新" · 或换无痕窗口）
+```
+
+## 三端分离铁律（学员 / 辅导员 / admin）
+
+- **学员端** (`/`、`/class/:id`、`/profile` 等)：**纯消费视图** · 即便辅导员或 admin 登入也看不到管理操作
+- **辅导员端** (`/coach/*`)：辅导员管理自己的班 · 学员被路由守卫挡掉
+- **admin 后台** (`/admin/*`)：管理员管理平台 · 限 admin role
+
+**规则**：不管谁登进学员端 · 看到的 UI 都和普通学员一致。想管理 → 切到 `/coach/*` 或 `/admin/*`。
+
+栽过的事故：曾在 ClassDetailPage 加"+ 去发布" / "+ 下达任务" / 辅导员快捷区 · 给 admin 看到了。后来全部清除（commit `1507921`）。**新增任何 section 前先问自己：这个按钮该出现在学员端吗？**
+
 ## 关键规则
 
 ### 提交前自检（按顺序跑 · 不要跳）
