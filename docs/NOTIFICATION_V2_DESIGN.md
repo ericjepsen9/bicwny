@@ -1,6 +1,6 @@
 # 觉学 · 通知系统 v2 完整设计（模块化）
 
-> 状态：✅ 设计已定稿（2026-05-14）· 8 模块 24 个开放问题全部落决策 · 待进入实施排期
+> 状态：✅ 设计已定稿（2026-05-14）· **9 模块 28 个开放问题**全部落决策 · 待进入实施排期
 >
 > 关联：`NOTIFICATION_PLAN.md`（v1 框架）· `PERSONAL_REMINDERS_V1.md`（个人提醒 v1 已交付）
 >
@@ -33,8 +33,8 @@
 - ❌ 全局每日 push 上限 3 条（NOTIFICATION_PLAN 决策 #7）
 - ❌ 多设备协调（一台 ack 其他同步）
 - ❌ NotificationCardAck 表（用户已读 · 卡片不重复冒）
-- ❌ recurrence 重复事件（每周三共修 · v2.5 可选）
-- ❌ DharmaAssembly 法会模型（v2.5 可选）
+- ❌ recurrence 重复事件（每周三共修）→ **v2 M12 已纳入**
+- ❌ DharmaAssembly 法会模型 → **v2 M12 已纳入**
 - ❌ iOS Safari Web Push 真机验证
 - ❌ PWA 安装引导
 
@@ -360,12 +360,12 @@ async function getMyTopHomeCard(userId) {
 ```ts
 const KIND_RANK: Record<EventKind, number> = {
   classAnnouncement: 10,  // 班级公告
-  classSession: 20,       // 共修
-  practiceTask: 30,       // 修学任务
-  achievement: 40,        // 成就解锁
-  auspiciousDay: 50,      // 藏历加持日
+  dharmaAssembly:    15,  // 法会进行中（M12）· 高于普通 session
+  classSession:      20,  // 共修
+  practiceTask:      30,  // 修学任务
+  achievement:       40,  // 成就解锁
+  auspiciousDay:     50,  // 藏历加持日
   systemAnnouncement: 60, // 系统公告（admin）
-  dharmaAssembly: 70,     // 法会（v2.5）
 };
 // 排序：severity desc > startAt asc > kindRank asc（小的赢）
 ```
@@ -696,6 +696,126 @@ async function onAchievementUnlock(userId: string, achievementId: string) {
 
 ---
 
+### M12 · 排期模式扩展（recurring + 法会）
+
+#### 现状
+- ❌ 仅支持 one_time 单次共修
+- ❌ 老师要排"每周三 19:00"持续 8 周 → 必须手工建 8 条
+- ❌ 法会（如莲师 7 日 · 每天 2-4 场）无法表达"同一法会主题"
+- ❌ ack 颗粒度对法会场景失效（一次 ack 整组都静音）
+
+#### 目标
+辅导员 / admin 创建时可选 4 种排期模式：
+1. **单次共修** · 一次性
+2. **每周重复** · 周X + 时间 + 持续 N 周
+3. **每日连开** · 起止日 + 每日时间（可多个）
+4. **自定义法会** · 法会容器 + 任意场次时间
+
+每种模式都能正确触发通知 + 上首页卡 + 不爆 push 上限。
+
+#### 决策
+
+| ID | 问题 | 结论 |
+|---|---|---|
+| M12.Q1 | recurring 怎么存？ | ✅ **RRULE 单行 + 按需展开** · ClassSession.recurrence Json · 查询时展开 N 个虚拟实例 · 改单场触发 detach 为独立行 |
+| M12.Q2 | Assembly 法会首页卡 ack 颗粒度？ | ✅ **按天 ack** · ack key = `${assemblyId}:${YYYY-MM-DD}` · 第 2 天卡片自动重冒 |
+| M12.Q3 | recurring 中改单场时间？ | ✅ **「仅此次 / 此后 / 全部」三选** · Google Calendar 风 · 「仅此次」生成 detach instance · 「此后」拆分新 master · 「全部」直接改 master |
+| M12.Q4 | 法会 push 频率控制？ | ✅ **默认聚合 + 老师可勾「场场提醒」** · 默认每日 1 条聚合 + 首场 T-30 · 老师勾选后每场 T-30 都推（绕日上限 · 但显式开关）|
+
+#### 数据模型
+
+```prisma
+// ClassSession 加 schedule 字段（详见上文 M12 schema 块）
+scheduleMode    String  // 'one_time' | 'recurring_master' | 'recurring_detached' | 'assembly_child'
+recurrence      Json?   // RRULE 子集
+recurrenceParentId String?
+parentAssemblyId String?
+remindEachOccurrence Boolean @default(false)
+
+// 新表 DharmaAssembly · 详见数据模型汇总
+```
+
+#### RRULE 子集（不引第三方库 · 自实现）
+
+```ts
+type Recurrence = {
+  freq: 'DAILY' | 'WEEKLY';
+  interval: number;          // 每隔几天/周（默认 1）
+  byDay?: number[];          // 0-6 · 周几（仅 WEEKLY）· 0=周日
+  byTime: string;            // 'HH:mm' · 默认场次开始时间
+  count?: number;            // 共 N 次（与 until 二选一）
+  until?: string;            // ISO date
+  exceptions?: string[];     // detach 出去的实例日期（不展开）
+};
+```
+
+#### 展开函数
+
+```ts
+function expandRecurrence(master: ClassSession, from: Date, to: Date): VirtualSession[] {
+  const r = master.recurrence as Recurrence;
+  const out: VirtualSession[] = [];
+  let cur = new Date(master.startAt);
+  let n = 0;
+  while (cur <= to && (!r.count || n < r.count) && (!r.until || cur <= new Date(r.until))) {
+    if (cur >= from && !r.exceptions?.includes(cur.toISOString().slice(0, 10))) {
+      out.push({ ...master, startAt: cur, isVirtual: true });
+    }
+    cur = nextOccurrence(cur, r);
+    n++;
+  }
+  return out;
+}
+```
+
+#### 改单场三选实现
+
+| 选项 | 行为 |
+|---|---|
+| **仅此次** | 在 master.recurrence.exceptions 加该日期 · 创建独立 ClassSession（scheduleMode=`recurring_detached`, recurrenceParentId=master.id）· 修改它 |
+| **此后** | 当前及之后从 master 切出新 master · 老 master 加 until = 改动日 - 1 · 新 master 复制旧的 + 改字段 |
+| **全部** | 直接改 master 的 startAt / recurrence · 所有未 detach 实例自动跟随 |
+
+#### Assembly 法会首页卡
+
+进行中（startDate ≤ today ≤ endDate）时 · 抢占 kindRank=15（高于普通 session=20 · 低于 announcement=10）· 卡片样式：
+
+```
+🪷 莲师 7 日荟供 · 进行中第 3 / 7 天
+今日还有 2 场 · 14:00 / 19:00
+[ 查看法会 ]   [ 知道了今日 ]
+```
+
+ack key = `${assemblyId}:${YYYY-MM-DD}` · 当天点 [知道了今日] 后卡片消失 · 次日 00:00 后自动重冒。
+
+#### push 频率控制（防风暴）
+
+| 场景 | 默认推送 | 老师勾「场场提醒」时 |
+|---|---|---|
+| 法会创建 | 1 条 "🪷 法会即将开始 · 共 N 场" | 同 |
+| 每日首场前 | 1 条聚合 "今日 9/14/19 三场" | 1 条聚合 + 每场 T-30 |
+| 每场 T-0 | ❌ 不推（避免 21 条/周）| 推（每场）|
+
+「场场提醒」绕过日 3 条上限（显式 opt-in · 老师勾选时弹确认 "学员将收到每场提醒 · 可能超出每日 3 条上限 · 是否继续？"）。
+
+#### 老师创建 UI
+
+```
+[+ 新建共修 / 法会]
+  ◯ 单次共修      → startAt + endAt + 标题 + severity
+  ◯ 每周重复      → 周X(多选) + 时间 + 持续 N 周（或截止日）
+  ◯ 每日连开      → 起止日 + 每日时间(可加多个) + 标题
+  ◯ 自定义法会    → 起止日 + 法会名 + [+ 添加场次] × N
+                     [ ] 场场提醒（默认聚合）
+```
+
+#### 与 v1 兼容
+
+- 现有所有 ClassSession 行：`scheduleMode='one_time'` · `recurrence=null` · `parentAssemblyId=null` · 行为不变
+- 现有 T-30/T-5/T-0 调度：仅对 one_time 与 recurring 展开后实例触发 · 法会 assembly_child 由 M12 新调度器处理
+
+---
+
 ## 4. 数据模型变更汇总
 
 ```prisma
@@ -706,13 +826,35 @@ enum Severity {
   critical
 }
 
-// 2. ClassSession 加字段
+// 2. ClassSession 加字段（含 M12 排期模式）
 model ClassSession {
   ...
-  severity Severity @default(normal)
-  // recurrence Json?  // v2.5
-  // parentAssemblyId String?  // v2.5
-  // status SessionStatus @default(scheduled)  // v2.5
+  severity           Severity @default(normal)
+  scheduleMode       String   @default("one_time")
+  // 'one_time' | 'recurring_master' | 'recurring_detached' | 'assembly_child'
+  recurrence         Json?    // recurring_master 用：{freq, interval, count, until, byDay, byTime}
+  recurrenceParentId String?  // recurring_detached 指回 master
+  parentAssemblyId   String?  // assembly_child 用
+  status             String   @default("scheduled")
+  // 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+  remindEachOccurrence Boolean @default(false)  // 老师勾「场场提醒」时 true
+}
+
+// 2b. 新表 · 法会容器（M12）
+model DharmaAssembly {
+  id          String   @id @default(cuid())
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id])
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  severity    Severity @default(urgent)
+  status      String   @default("upcoming")
+  // 'upcoming' | 'ongoing' | 'completed' | 'cancelled'
+  createdBy   String
+  sessions    ClassSession[]
+  @@index([classId, startDate])
 }
 
 // 3. ClassAnnouncement 加字段
@@ -926,7 +1068,7 @@ GET    /api/my/assemblies                      学员看自己班的法会
 |---|---|---|---|---|
 | Phase 1 | **M5** Severity 三档 + **M6** Ack 表 + **M7** channel 字段 | 中 | 仅 schema 变更 | `prisma db push` · 不破坏现状 |
 | Phase 2 | **M2** 系统公告 admin UI + 表 | 中 | M5 | admin /notification-rules 加 tab |
-| Phase 3 | **M8** 班级公告 push · **M9** 共修首发/变更/取消 · **M10** 任务 push + cron · **M11** 成就 push | 大 | M5/M6/M7 | 各 service 末尾加 dispatch · cron 加新 tick |
+| Phase 3 | **M8** 班级公告 push · **M9** 共修首发/变更/取消 · **M10** 任务 push + cron · **M11** 成就 push · **M12** 排期模式（recurring + assembly） | 大 | M5/M6/M7 | 各 service 末尾加 dispatch · cron 加新 tick · M12 加 RRULE 展开器 + DharmaAssembly 表 |
 | Phase 4 | **M4** 多源仲裁 API + kindRank · **M3** UpcomingEventCard 组件 + HomePage 集成 | 大 | Phase 3 全部完成 | UI 终点 |
 | Phase 5 | **M1** PWA 引导 sheet + iOS 检测 + 教程页 | 小 | 独立 | 任意时段做 |
 
@@ -944,6 +1086,7 @@ GET    /api/my/assemblies                      学员看自己班的法会
 | M9 | 待 | |
 | M10 | 待 | |
 | M11 | 待 | |
+| M12 | 待 | |
 | M1 | 待 | |
 
 ---
