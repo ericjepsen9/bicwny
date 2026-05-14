@@ -19,7 +19,8 @@ export default function TopNav({ titles, onBack, backTo, right }: Props) {
   const nav = useNavigate();
   const back = () => {
     if (onBack) return onBack();
-    if (backTo) return nav(backTo);
+    // backTo 用 replace · 避免历史栈被同页 push 弄脏（曾经导致班级↔子页死循环）
+    if (backTo) return nav(backTo, { replace: true });
     nav(-1);
   };
 
