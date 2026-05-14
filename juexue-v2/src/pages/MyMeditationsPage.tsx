@@ -1,6 +1,6 @@
 // 我的观修历史 · /me/meditations
 //   - 已完成的观修列表（按完成时间倒序 · 跨课程）
-//   - 含视频时长 / 法本来源 / 完成时间
+//   - 含视频时长 / 闻思来源 / 完成时间
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import Skeleton from '@/components/Skeleton';

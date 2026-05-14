@@ -794,7 +794,7 @@ export function useAdminReports(opts?: { limit?: number; reason?: ReportReason }
   });
 }
 
-// ── Admin · 法本/章节/课时 三级 CRUD ──
+// ── Admin · 闻思/章节/课时 三级 CRUD ──
 export interface AdminCourseRow {
   id: string;
   slug: string;
@@ -1141,7 +1141,7 @@ export function useMeditationDetail(meditationId: string | null | undefined) {
   });
 }
 
-/** 法本下所有已发布观修（目录页批量用） · key: lessonId → meditation */
+/** 闻思下所有已发布观修（目录页批量用） · key: lessonId → meditation */
 export function useCourseMeditations(courseId: string | null | undefined) {
   return useQuery({
     enabled: !!courseId,
@@ -1318,7 +1318,7 @@ export function useLessonHighlights(lessonId: string | null | undefined) {
 }
 
 
-// ── 班级排课 ClassSession（v1 · 单次事件）──────────
+// ── 共修安排 ClassSession（v1 · 单次事件）──────────
 export interface ClassSession {
   id: string;
   classId: string;

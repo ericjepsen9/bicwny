@@ -10,7 +10,7 @@
 // 4. 通知铃铛 + 未读 badge
 // 5. 头像入口 (saffron 渐变 / 跳 /profile)
 // 6. 加入班级引导卡 / 班级卡（加入后）
-// 7. 主修法本卡 · 含「继续阅读」CTA + 切换/目录
+// 7. 主修闻思卡 · 含「继续阅读」CTA + 切换/目录
 // 8. 智能练习卡 · 题量 picker + 「开始练习」
 // 9. 4 个图标行 · SM-2 / 错题 / 收藏 / 修学（错题红点 badge）
 // 10. 下拉刷新
@@ -18,14 +18,14 @@
 // HomePage · 学习仪表盘
 //   1. greeting · 时段问候 + dharmaName + 🔥 streak + 通知铃铛 + 头像
 //   2. class-card · 当前班级 / 加入班级引导
-//   3. course-card · 当前法本（进度 + 当前学到第 N 课 + 阅读 / 目录 / 切换主修）
+//   3. course-card · 当前闻思（进度 + 当前学到第 N 课 + 阅读 / 目录 / 切换主修）
 //   4. ⚡ smart-practice card · 题量 chip + 开始练习（secondary）
 //   5. icon-grid · SM-2 / 错题 / 收藏 / 设置（错题/SM-2 红点提醒）
 // 已删：
 //   · 邮箱未验证 banner（移到 ProfilePage 单点）
 //   · 错题大 banner（与 IconTile 重复）
-//   · 章级棋盘格（与当前法本卡的进度数字重复 · 145 章铺满后视觉噪音）
-//     ChapterProgressGrid 组件保留 · 后续可能放法本详情页 hero 区
+//   · 章级棋盘格（与当前闻思卡的进度数字重复 · 145 章铺满后视觉噪音）
+//     ChapterProgressGrid 组件保留 · 后续可能放闻思详情页 hero 区
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -67,8 +67,8 @@ export default function HomePage() {
   const dharmaName = user?.dharmaName || s('师兄', '師兄', 'Friend');
   const streak = progress.data?.streakDays ?? 0;
 
-  // 找当前要显示的法本：
-  //   优先用户在法本详情页设的"主修"（localStorage）·
+  // 找当前要显示的闻思：
+  //   优先用户在闻思详情页设的"主修"（localStorage）·
   //   否则首本 enrollment（兜底）
   const mainCourseId = useMainCourseId();
   const enrollList = enrollments.data ?? [];
@@ -82,7 +82,7 @@ export default function HomePage() {
       (c) => c.id === firstEnrollment.courseId,
     );
 
-  // 拉法本详情（章节树）· 用来算 totalLessons + 找 currentLesson 元数据
+  // 拉闻思详情（章节树）· 用来算 totalLessons + 找 currentLesson 元数据
   // 首页只看 TOC 和进度 · 不显示原文 · 用 lite 省几 MB payload
   const currentCourseDetail = useCourseDetail(currentCourse?.slug, { lite: true });
   const completedSet = useMemo(
@@ -122,7 +122,7 @@ export default function HomePage() {
   }, [flatLessons, firstEnrollment?.currentLessonId, completedSet]);
 
   const firstClass = classes.data?.[0];
-  // 班级 hero 引导：进行中的班级修学任务数（未完成 · scope=class · 当前班）
+  // 班级 hero 引导：进行中的班级修学目标数（未完成 · scope=class · 当前班）
   const tasks = usePracticeTasks();
   const myClassActiveTasks = firstClass
     ? (tasks.data ?? []).filter((t) => t.scope === 'class' && t.class?.id === firstClass.classId && !t.isDone).length
@@ -131,9 +131,9 @@ export default function HomePage() {
   // 智能练习题量 · localStorage 持久化 · 默认 20
   const [practiceLimit, setPracticeLimit] = usePracticeLimit();
   const [limitSheetOpen, setLimitSheetOpen] = useState(false);
-  // 主修法本切换 sheet（仅多本时启用）
+  // 主修闻思切换 sheet（仅多本时启用）
   const [switchOpen, setSwitchOpen] = useState(false);
-  // 已加入的法本（带 course meta）· 给 sheet 列表用
+  // 已加入的闻思（带 course meta）· 给 sheet 列表用
   const enrolledCourseList = enrollList
     .map((e) => courseList.find((c) => c.id === e.courseId))
     .filter((c): c is NonNullable<typeof c> => !!c);
@@ -357,11 +357,11 @@ export default function HomePage() {
           </Link>
         )}
 
-        {/* 当前法本卡 */}
+        {/* 当前闻思卡 */}
         <div className="glass-card-thick" style={{ padding: 'var(--sp-5)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-2)' }}>
             <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2 }}>
-              {s('当前法本', '當前法本', 'Current text')}
+              {s('当前闻思', '當前聞思', 'Current text')}
             </p>
             {enrolledCourseList.length > 1 ? (
               <button
@@ -376,7 +376,7 @@ export default function HomePage() {
                   cursor: 'pointer',
                   padding: 0,
                 }}
-                title={s('切换主修法本', '切換主修法本', 'Switch main text')}
+                title={s('切换主修闻思', '切換主修聞思', 'Switch main text')}
               >
                 {s('切换 →', '切換 →', 'Switch →')}
               </button>
@@ -483,17 +483,17 @@ export default function HomePage() {
             <div style={{ textAlign: 'center', padding: 'var(--sp-5)' }}>
               <div style={{ fontSize: '2rem', marginBottom: 'var(--sp-2)' }}>📚</div>
               <p style={{ color: 'var(--ink-3)', font: 'var(--text-caption)', marginBottom: 8 }}>
-                {s('尚未选修法本', '尚未選修法本', 'No enrollment yet')}
+                {s('尚未选修闻思', '尚未選修聞思', 'No enrollment yet')}
               </p>
               <Link to="/courses" className="btn btn-primary btn-pill" style={{ padding: '8px 18px', display: 'inline-block' }}>
-                {s('去选修法本', '去選修法本', 'Browse texts')}
+                {s('去选修闻思', '去選修聞思', 'Browse texts')}
               </Link>
             </div>
           )}
         </div>
 
         {/* 二级 section header · 「智能练习」从卡内标题升格为功能区分隔
-            上方留 sp-3 额外间距 · 让"当前法本"和"智能练习"两个功能区视觉分开 */}
+            上方留 sp-3 额外间距 · 让"当前闻思"和"智能练习"两个功能区视觉分开 */}
         <div style={{ marginTop: 'var(--sp-3)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
           <div style={{ minWidth: 0 }}>
             <h2 className="t-section" style={{ color: 'var(--ink)' }}>
@@ -532,7 +532,7 @@ export default function HomePage() {
         </div>
 
         {/* 智能练习 CTA · saffron 描边 + pale 底色（次主）
-            一屏一个 primary 原则：法本卡的"继续阅读"才是主 · 这里是次 */}
+            一屏一个 primary 原则：闻思卡的"继续阅读"才是主 · 这里是次 */}
         <Link
           to={`/quiz-practice?limit=${practiceLimit}`}
           className="btn btn-pill btn-full"
@@ -592,11 +592,11 @@ export default function HomePage() {
         </div>
       </Dialog>
 
-      {/* 主修法本切换 sheet · 仅多本时弹 */}
+      {/* 主修闻思切换 sheet · 仅多本时弹 */}
       <Dialog
         open={switchOpen}
         onClose={() => setSwitchOpen(false)}
-        title={s('切换主修法本', '切換主修法本', 'Switch main text')}
+        title={s('切换主修闻思', '切換主修聞思', 'Switch main text')}
       >
         <div className="menu-card" style={{ marginTop: 'var(--sp-2)' }}>
           {enrolledCourseList.map((c) => {
@@ -610,7 +610,7 @@ export default function HomePage() {
                 onClick={() => {
                   if (!isCur) {
                     setMainCourseId(c.id);
-                    toast.ok(s('已切换主修法本', '已切換主修法本', 'Switched'));
+                    toast.ok(s('已切换主修闻思', '已切換主修聞思', 'Switched'));
                   }
                   setSwitchOpen(false);
                 }}
@@ -680,7 +680,7 @@ export default function HomePage() {
             onClick={() => setSwitchOpen(false)}
             style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', letterSpacing: 1, textDecoration: 'none' }}
           >
-            + {s('选修新法本', '選修新法本', 'Enroll new text')}
+            + {s('选修新闻思', '選修新聞思', 'Enroll new text')}
           </Link>
         </div>
       </Dialog>

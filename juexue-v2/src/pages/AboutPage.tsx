@@ -25,9 +25,7 @@ export default function AboutPage() {
 
         <div className="glass-card-thick" style={{ padding: 'var(--sp-5)', marginBottom: 'var(--sp-3)' }}>
           <p style={{ font: 'var(--text-body-serif)', color: 'var(--ink)', letterSpacing: 1.2, lineHeight: 1.9 }}>
-            {s(
-              '觉学 · 用现代工具学习佛法 · 数字化的法本研习与日常背诵',
-              '覺學 · 用現代工具學習佛法 · 數位化的法本研習與日常背誦',
+            {s('觉学 · 用现代工具学习佛法 · 数字化的闻思研习与日常背诵', '覺學 · 用現代工具學習佛法 · 數位化的聞思研習與日常背誦',
               'Juexue · A modern tool for studying Buddhist scriptures with daily review.',
             )}
           </p>

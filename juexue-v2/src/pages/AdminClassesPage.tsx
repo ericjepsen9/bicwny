@@ -114,7 +114,7 @@ export default function AdminClassesPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead><tr style={{ background: 'var(--glass)', textAlign: 'left' }}>
               <Th>{s('班级', '班級', 'Class')}</Th>
-              <Th>{s('法本', '法本', 'Course')}</Th>
+              <Th>{s('闻思', '聞思', 'Course')}</Th>
               <Th>{s('加入码', '加入碼', 'Code')}</Th>
               <Th>{s('创建', '創建', 'Created')}</Th>
               <Th>{s('状态', '狀態', 'Status')}</Th>
@@ -257,7 +257,7 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
             className="btn btn-pill"
             style={{ display: 'inline-flex', padding: '6px 14px', font: 'var(--text-caption)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)', textDecoration: 'none' }}
           >
-            📅 {s('排课', '排課', 'Sessions')} ›
+            📅 {s('共修', '共修', 'Sessions')} ›
           </Link>
           <Link
             to={`${baseClass}/classes/${encodeURIComponent(cls.id)}/dashboard`}

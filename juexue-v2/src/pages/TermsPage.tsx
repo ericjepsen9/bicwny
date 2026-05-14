@@ -28,8 +28,8 @@ const SECTIONS: Section[] = [
   {
     title: ['三、内容版权', '三、內容版權', '3. Content Rights'],
     body: [
-      '· 法本原文及讲记版权归原作者与传承机构所有，本服务仅作为学习工具\n· 班级题库由辅导员创建或平台审核，版权归本服务与相应创建者共有\n· 您上传的笔记、答题内容版权归您所有，授予本服务在必要范围内使用的权利',
-      '· 法本原文及講記版權歸原作者與傳承機構所有，本服務僅作為學習工具\n· 班級題庫由輔導員創建或平台審核，版權歸本服務與相應創建者共有\n· 您上傳的筆記、答題內容版權歸您所有，授予本服務在必要範圍內使用的權利',
+      '· 闻思原文及讲记版权归原作者与传承机构所有，本服务仅作为学习工具\n· 班级题库由辅导员创建或平台审核，版权归本服务与相应创建者共有\n· 您上传的笔记、答题内容版权归您所有，授予本服务在必要范围内使用的权利',
+      '· 聞思原文及講記版權歸原作者與傳承機構所有，本服務僅作為學習工具\n· 班級題庫由輔導員創建或平台審核，版權歸本服務與相應創建者共有\n· 您上傳的筆記、答題內容版權歸您所有，授予本服務在必要範圍內使用的權利',
       '· Source texts and commentary remain with their authors and lineages; we are a study tool only\n· Question banks are jointly held by us and the authoring coach\n· Your notes and answers remain yours; you grant us limited rights to use them as needed',
     ],
   },

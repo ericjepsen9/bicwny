@@ -1,4 +1,4 @@
-// 法本阅读追踪 hook
+// 闻思阅读追踪 hook
 //   - scroll 监听（throttle 250ms）· 计算 scrollPercent
 //   - 心跳 timer 每 10s 上报（仅 visible 时计时）
 //   - visibilitychange · hidden 时暂停 / visible 时恢复
@@ -18,7 +18,7 @@ interface ReportResult {
 }
 
 /**
- * 自动追踪法本阅读进度
+ * 自动追踪闻思阅读进度
  * @param lessonId  当前课时 id（null/'' 时不工作）
  * @param scrollEl  滚动容器（默认 window）· 学员端用 .scroll-area 容器
  */

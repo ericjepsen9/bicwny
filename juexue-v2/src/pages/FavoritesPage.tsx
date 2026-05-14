@@ -1,6 +1,6 @@
 // FavoritesPage · /favorites
 //   收藏列表 · 卡片显示题干（折 3 行）+ 移除按钮
-//   筛选：按法本（course）下拉
+//   筛选：按闻思（course）下拉
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import EmptyState from '@/components/EmptyState';
@@ -26,7 +26,7 @@ export default function FavoritesPage() {
     return all.filter((f) => f.question?.courseId === courseId);
   }, [all, courseId]);
 
-  // 收藏涉及的法本 id 集 · 用于过滤下拉只显示有收藏的法本
+  // 收藏涉及的闻思 id 集 · 用于过滤下拉只显示有收藏的闻思
   const usedCourseIds = useMemo(() => {
     const set = new Set<string>();
     for (const f of all) {
@@ -49,7 +49,7 @@ export default function FavoritesPage() {
     <div>
       <TopNav titles={['收藏', '收藏', 'Favorites']} />
 
-      {/* 法本筛选 */}
+      {/* 闻思筛选 */}
       {!isLoading && !isError && all.length > 0 && usedCourseIds.size > 1 && (
         <div style={{ padding: '0 var(--sp-5) var(--sp-3)' }}>
           <select
@@ -67,7 +67,7 @@ export default function FavoritesPage() {
               outline: 'none',
             }}
           >
-            <option value="">{s('全部法本', '全部法本', 'All texts')} ({all.length})</option>
+            <option value="">{s('全部闻思', '全部聞思', 'All texts')} ({all.length})</option>
             {(courses.data ?? [])
               .filter((c) => usedCourseIds.has(c.id))
               .map((c) => {
@@ -98,7 +98,7 @@ export default function FavoritesPage() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon="🔍"
-            title={s('当前法本下暂无收藏', '當前法本下暫無收藏', 'No favorites in this text')}
+            title={s('当前闻思下暂无收藏', '當前聞思下暫無收藏', 'No favorites in this text')}
           />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>

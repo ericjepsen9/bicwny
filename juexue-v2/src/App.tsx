@@ -155,7 +155,7 @@ function AppShell() {
                 <Route path="/me/meditations" element={<MyMeditationsPage />} />
                 <Route path="/me/stats" element={<DossierPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
-                {/* 学员域 · 班级排课只读 · 复用 CoachClassSessionsPage · 内部按角色 hide 增改删 */}
+                {/* 学员域 · 共修安排只读 · 复用 CoachClassSessionsPage · 内部按角色 hide 增改删 */}
                 <Route path="/class/:id/sessions" element={<CoachClassSessionsPage />} />
                 <Route path="/notes" element={<NotesPage />} />
                 <Route path="/notes/new" element={<NoteEditPage />} />
@@ -208,7 +208,7 @@ function CoachAppShell() {
               <Route path="/questions/new" element={<CoachQuestionNewPage />} />
               <Route path="/questions/import" element={<CoachQuestionImportPage />} />
               <Route path="/questions/generate" element={<CoachQuestionGeneratePage />} />
-              {/* 法本管理 · 复用 admin 页 · coach 也能 CRUD（决策 1 · 后端 coachGuard 已开） */}
+              {/* 闻思管理 · 复用 admin 页 · coach 也能 CRUD（决策 1 · 后端 coachGuard 已开） */}
               <Route path="/courses" element={<AdminCoursesPage />} />
               <Route path="/courses/browse" element={<CoachCoursesPage />} />
               {/* 班级管理 · coach 给自己班加/移除学员（决策 3） */}

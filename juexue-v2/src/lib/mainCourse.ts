@@ -1,7 +1,7 @@
-// 用户当前主修法本偏好（首页"当前法本卡"显示哪本）
+// 用户当前主修闻思偏好（首页"当前闻思卡"显示哪本）
 //   存储：localStorage['jx-main-course-id']
-//   默认：用户已加入法本中的第一本（enrollments[0]）
-//   切换入口：法本详情页 ⋯ 菜单的「设为主修法本」
+//   默认：用户已加入闻思中的第一本（enrollments[0]）
+//   切换入口：闻思详情页 ⋯ 菜单的「设为主修闻思」
 //
 // 跨标签页同步：用 storage 事件 + 通过监听 fire 简单 React state
 import { useEffect, useState } from 'react';

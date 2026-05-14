@@ -1,5 +1,5 @@
 // CoachCoursesPage · /coach/courses
-//   左：法本列表（点选）· 右：选中法本的章节/课时树
+//   左：闻思列表（点选）· 右：选中闻思的章节/课时树
 //   "添加新题"链接带 courseId/chapterId/lessonId QS 跳到 /coach/questions?autoNew=1&...
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -17,13 +17,13 @@ export default function CoachCoursesPage() {
     <>
       <div className="top-bar">
         <div>
-          <h1 className="page-title">{s('法本浏览', '法本瀏覽', 'Texts')}</h1>
+          <h1 className="page-title">{s('闻思浏览', '聞思瀏覽', 'Texts')}</h1>
           <p className="page-sub">{s('查看原文 · 准备出题', '查看原文 · 準備出題', 'Browse to author questions')}</p>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 'var(--sp-5)' }}>
-        {/* 左：法本列表 */}
+        {/* 左：闻思列表 */}
         <aside style={{ position: 'sticky', top: 0, alignSelf: 'flex-start', maxHeight: 'calc(100vh - var(--sp-8))', overflowY: 'auto' }}>
           {courses.isLoading ? (
             <Skeleton.List />
@@ -67,7 +67,7 @@ export default function CoachCoursesPage() {
         <section>
           {!slug ? (
             <div style={{ padding: 'var(--sp-8)', textAlign: 'center', color: 'var(--ink-3)' }}>
-              {s('← 选一本法本', '← 選一本法本', '← Pick a text')}
+              {s('← 选一本闻思', '← 選一本聞思', '← Pick a text')}
             </div>
           ) : detail.isLoading ? (
             <Skeleton.Card />

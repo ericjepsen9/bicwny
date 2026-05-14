@@ -225,7 +225,7 @@ export default function QuizPage() {
     // /practice 智能练习返回逻辑：按入口分流
     //   onlyMistakes  → /mistakes（错题中心）
     //   questionId    → /mistake/:id（单题详情）
-    //   courseId      → /quiz（复习中心 · 「按法本练习」入口）
+    //   courseId      → /quiz（复习中心 · 「按闻思练习」入口）
     //   其他          → /（首页 · 智能练习卡入口）
     if (isPractice) {
       if (practiceOnlyMistakes) nav('/mistakes', { replace: true });
@@ -467,7 +467,7 @@ export default function QuizPage() {
                 const adminText = ok ? exp?.correctText : exp?.wrongText;
                 if (adminText && adminText.trim()) return adminText;
                 if (grade.feedback) return grade.feedback;
-                return s('请参考法本原文', '請參考法本原文', 'Refer to the source text');
+                return s('请参考闻思原文', '請參考聞思原文', 'Refer to the source text');
               })()}
             </div>
           </div>

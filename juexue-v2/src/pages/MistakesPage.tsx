@@ -1,6 +1,6 @@
 // MistakesPage · /mistakes
 //   错题本列表 · 顶部 sticky CTA「刷错题 · N 题」直接进 /practice?onlyMistakes=1
-//   错题卡：法本/章节标签 + 题干 + 错次 + 时间 + 「再练 →」按钮
+//   错题卡：闻思/章节标签 + 题干 + 错次 + 时间 + 「再练 →」按钮
 //   筛选 tabs: 全部 / 今日（按 lastWrongAt 是不是今天）
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -170,7 +170,7 @@ export default function MistakesPage() {
                     gap: 'var(--sp-2)',
                   }}
                 >
-                  {/* 法本/章节标签 + 错次 */}
+                  {/* 闻思/章节标签 + 错次 */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     {meta ? (
                       <span

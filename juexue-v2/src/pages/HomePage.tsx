@@ -3,8 +3,8 @@
 //   - 顶部 overlay：左上头像（→ /profile）· 右上通知（→ /notifications）
 //   - 画报中部叠加：公历大字 + 周X + 藏历 + 节日/事件徽章
 //   - 整个画报区域可点 → /calendar
-//   - 底部 4 大卡（半透明白底）：法本 · 班级 · 智能练习 · 修学
-//   - 3 个 TabBar tab（首页/法本/复习）
+//   - 底部 4 大卡（半透明白底）：闻思 · 班级 · 智能练习 · 修学
+//   - 3 个 TabBar tab（首页/闻思/复习）
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -76,7 +76,7 @@ export default function HomePage() {
     staleTime: 60 * 60 * 1000,
   });
 
-  // 主修法本
+  // 主修闻思
   const mainCourseId = useMainCourseId();
   const enrollList = enrollments.data ?? [];
   const courseList = courses.data ?? [];
@@ -265,7 +265,7 @@ export default function HomePage() {
         <BigCard
           to={continueTarget && currentCourse ? `/read/${currentCourse.slug}/${continueTarget.lesson.id}` : '/courses'}
           icon={<IconBook />}
-          title={s('法本', '法本', 'Texts')}
+          title={s('闻思', '聞思', 'Texts')}
           sub={currentCourse ? `${pct}%` : s('选择', '選擇', 'Pick')}
         />
         <BigCard

@@ -1,11 +1,11 @@
-// 章级棋盘格 · 显示当前法本每章学习进度
+// 章级棋盘格 · 显示当前闻思每章学习进度
 //   ✓ completed: 全章 lesson 都完成 · sage 绿底
 //   ● current  : 本章包含 currentLessonId · saffron 橙边框 + 浅橙底
 //   ◐ partial  : 部分 lesson 完成（不含当前章）· saffron-pale + 数字
 //   ○ untouched: 未开始 · 灰底
 //
 // 点击格子 → 跳到该章"首个未完成 lesson"的 reading
-// 法本无章/章数为 0 时不显示
+// 闻思无章/章数为 0 时不显示
 import { Link } from 'react-router-dom';
 import { useLang } from '@/lib/i18n';
 import type { Chapter } from '@/lib/queries';

@@ -144,7 +144,7 @@ export default function CoachQuestionNewPage() {
         <Section title={s('归属', '歸屬', 'Location')}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)' }}>
             <Pickr
-              label={s('法本', '法本', 'Course')}
+              label={s('闻思', '聞思', 'Course')}
               value={courseId}
               onChange={(v) => { setCourseId(v); setChapterId(''); setLessonId(''); }}
               options={[{ v: '', label: '— 请选 —' }, ...(courses.data ?? []).map((c) => ({ v: c.id, label: `${c.coverEmoji} ${c.title}` }))]}

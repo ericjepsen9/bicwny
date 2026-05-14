@@ -1,4 +1,4 @@
-// CoursesPage · 法本网格 + 搜索 + 筛选
+// CoursesPage · 闻思网格 + 搜索 + 筛选
 //   filter: all / enrolled / available
 //   点击未加入 → 弹层显示详情 + 加入按钮
 //   点击已加入 → 进 /scripture-detail
@@ -45,7 +45,7 @@ export default function CoursesPage() {
     [enrollments.data],
   );
 
-  // lastStudiedAt map · 仅 enrolled 的法本有 · 用于 recent 排序
+  // lastStudiedAt map · 仅 enrolled 的闻思有 · 用于 recent 排序
   const lastStudiedMap = useMemo(() => {
     const m = new Map<string, number>();
     (enrollments.data ?? []).forEach((e) => {
@@ -110,7 +110,7 @@ export default function CoursesPage() {
       notification('success');
       toast.ok(s('已加入 · 即将进入', '已加入 · 即將進入', 'Joined · opening…'));
       setOpenSlug(null);
-      // "加入并查看" · 直接跳法本详情
+      // "加入并查看" · 直接跳闻思详情
       nav(`/scripture-detail?slug=${encodeURIComponent(vars.slug)}`);
     },
     onError: (e) => {
@@ -127,8 +127,8 @@ export default function CoursesPage() {
       {pullIndicator}
       <div style={{ padding: 'var(--sp-2) var(--sp-5) var(--sp-4)' }}>
         <p className="t-h1" style={{ color: 'var(--ink)' }}>
-          <span className="sc">法本</span>
-          <span className="tc">法本</span>
+          <span className="sc">闻思</span>
+          <span className="tc">聞思</span>
           <span className="en">Texts</span>
         </p>
         <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 4 }}>
@@ -162,7 +162,7 @@ export default function CoursesPage() {
         </svg>
         <input
           type="search"
-          placeholder={s('搜索法本', '搜尋法本', 'Search texts')}
+          placeholder={s('搜索闻思', '搜尋聞思', 'Search texts')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{
@@ -223,8 +223,8 @@ export default function CoursesPage() {
           <div style={{ gridColumn: '1 / -1' }}>
             <EmptyState
               icon={search ? '🔍' : '📚'}
-              title={search ? s('没有匹配的法本', '沒有匹配的法本', 'No matches') : s('暂无法本', '暫無法本', 'No texts')}
-              hint={!search ? s('管理员稍后会上架法本', '管理員稍後會上架法本', 'Admin will publish soon') : undefined}
+              title={search ? s('没有匹配的闻思', '沒有匹配的聞思', 'No matches') : s('暂无闻思', '暫無聞思', 'No texts')}
+              hint={!search ? s('管理员稍后会上架闻思', '管理員稍後會上架聞思', 'Admin will publish soon') : undefined}
             />
           </div>
         ) : (

@@ -308,7 +308,7 @@ export default function CoachQuestionGeneratePage() {
         {/* 课程级联 */}
         <Section title={s('归属', '歸屬', 'Location')}>
           <div style={{ display: 'grid', gridTemplateColumns: scope === 'chapter' ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 'var(--sp-3)' }}>
-            <Pickr label={s('法本', '法本', 'Course')} value={courseId} disabled={batchRunning} onChange={(v) => { setCourseId(v); setChapterId(''); setLessonId(''); setPassage(''); }} options={[{ v: '', label: '— 请选 —' }, ...(courses.data ?? []).map((c) => ({ v: c.id, label: `${c.coverEmoji} ${c.title}` }))]} />
+            <Pickr label={s('闻思', '聞思', 'Course')} value={courseId} disabled={batchRunning} onChange={(v) => { setCourseId(v); setChapterId(''); setLessonId(''); setPassage(''); }} options={[{ v: '', label: '— 请选 —' }, ...(courses.data ?? []).map((c) => ({ v: c.id, label: `${c.coverEmoji} ${c.title}` }))]} />
             <Pickr label={s('章节', '章節', 'Chapter')} value={chapterId} disabled={!detail.data || batchRunning} onChange={(v) => { setChapterId(v); setLessonId(''); setPassage(''); setBatch(null); }} options={[{ v: '', label: '— 请选 —' }, ...((detail.data?.chapters ?? []).map((ch) => ({ v: ch.id, label: `第 ${ch.order} 章 · ${ch.title}` })))]} />
             {scope === 'lesson' && (
               <Pickr label={s('课时', '課時', 'Lesson')} value={lessonId} disabled={!chapter} onChange={setLessonId} options={[{ v: '', label: '— 请选 —' }, ...((chapter?.lessons ?? []).map((l) => ({ v: l.id, label: `第 ${l.order} 课 · ${l.title}` })))]} />

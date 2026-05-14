@@ -3,7 +3,7 @@
 //   - 无 coverImageUrl · 渲染 标题 + emoji + 书脊 的设计版式（按 title hash 选色）
 import type { Course } from '@/lib/queries';
 
-// 6 套配色 · 按 title 字符 hash 选 · 同法本永远同色 · 列表里色相分散
+// 6 套配色 · 按 title 字符 hash 选 · 同闻思永远同色 · 列表里色相分散
 const PALETTES = [
   { bg: 'linear-gradient(160deg, #F4D6B8 0%, #E8B98A 100%)', fg: '#5A3A1F', spine: '#C99563' },
   { bg: 'linear-gradient(160deg, #D9E5C8 0%, #B6C9A0 100%)', fg: '#3F4F2D', spine: '#8AA170' },
@@ -51,7 +51,7 @@ export default function CourseCover({
 
   if (!url) {
     // 自动生成设计封面 · 标题 emoji 同构 · 不依赖外部图片
-    // 颜色 token 按 title 字符 hash 选 · 同一本法本永远同色
+    // 颜色 token 按 title 字符 hash 选 · 同一本闻思永远同色
     const palette = pickPalette(course.title);
     return (
       <div

@@ -1,5 +1,5 @@
 // 学修档案 · /me/stats（自己）· /coach/students/:uid/stats · /admin/users/:uid/stats（教师/admin 看学员）
-//   多维综合：班级任务 / 修学计数 / 观修 / 法本阅读 / 已选法本 / 答题
+//   多维综合：班级任务 / 修学计数 / 观修 / 闻思阅读 / 已选闻思 / 答题
 //   admin dashboard 风：KPI hero + 各模块完整数据
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -196,8 +196,8 @@ export default function DossierPage() {
               )}
             </Section>
 
-            {/* 法本阅读 · 课程展开看每节课时进度 */}
-            <Section title="📖" name={s('法本阅读', '法本閱讀', 'Reading')}>
+            {/* 闻思阅读 · 课程展开看每节课时进度 */}
+            <Section title="📖" name={s('闻思阅读', '聞思閱讀', 'Reading')}>
               <div style={{ display: 'flex', gap: 'var(--sp-3)', alignItems: 'baseline', marginBottom: 'var(--sp-3)' }}>
                 <Mini value={String(stats.data.reading.completedLessons)} label={s('已读', '已讀', 'Done')} />
                 <Mini value={String(stats.data.reading.inProgressLessons)} label={s('进行中', '進行中', 'WIP')} />
@@ -212,9 +212,9 @@ export default function DossierPage() {
               )}
             </Section>
 
-            {/* 已选法本（含未读的 · 看整体进度） */}
+            {/* 已选闻思（含未读的 · 看整体进度） */}
             {stats.data.enrolledCourses.length > 0 && (
-              <Section title="📚" name={s('已选法本', '已選法本', 'Enrollments')}>
+              <Section title="📚" name={s('已选闻思', '已選聞思', 'Enrollments')}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
                   {stats.data.enrolledCourses.map((e) => {
                     const pct = e.lessonsTotal > 0 ? Math.round((e.lessonsCompleted / e.lessonsTotal) * 100) : 0;
@@ -339,7 +339,7 @@ function ReadingCourseCard({ c }: { c: DossierStats['reading']['byCourse'][0] })
           )}
           {total < 3 && (
             <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 4 }}>
-              {s(`仅显示已读/进行中课时 · 完整课时表请查看法本目录`, `僅顯示已讀/進行中課時`, 'Only completed/in-progress lessons shown')}
+              {s(`仅显示已读/进行中课时 · 完整课时表请查看闻思目录`, `僅顯示已讀/進行中課時`, 'Only completed/in-progress lessons shown')}
             </div>
           )}
         </div>

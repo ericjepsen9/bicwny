@@ -51,13 +51,13 @@ export default function AdminReviewPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
         <Kpi loading={list.isLoading} value={String(filtered.length)} label={s('待审', '待審', 'Pending')} color="var(--gold-dark)" />
         <Kpi loading={list.isLoading} value={oldestDays + 'd'} label={s('最久等待', '最久等待', 'Oldest wait')} />
-        <Kpi loading={list.isLoading} value={String(courseCount)} label={s('涉及法本', '涉及法本', 'Courses')} />
+        <Kpi loading={list.isLoading} value={String(courseCount)} label={s('涉及闻思', '涉及聞思', 'Courses')} />
         <Kpi loading={list.isLoading} value={String(submitterCount)} label={s('提交人', '提交人', 'Coaches')} />
       </div>
 
       <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-3)', alignItems: 'center' }}>
         <select value={courseId} onChange={(e) => setCourseId(e.target.value)} style={{ padding: '6px 10px', borderRadius: 'var(--r)', border: '1px solid var(--border)', background: 'var(--bg-input)', font: 'var(--text-caption)' }}>
-          <option value="">{s('所有法本', '所有法本', 'All courses')}</option>
+          <option value="">{s('所有闻思', '所有聞思', 'All courses')}</option>
           {(courses.data ?? []).map((c) => (
             <option key={c.id} value={c.id}>{c.coverEmoji} {c.title}</option>
           ))}

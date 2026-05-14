@@ -1,5 +1,5 @@
 // AdminCoursesPage · /admin/courses
-//   两栏：左侧法本列表 + 右侧编辑器（metadata · 章节 · 课时）
+//   两栏：左侧闻思列表 + 右侧编辑器（metadata · 章节 · 课时）
 //   完整 3 级 CRUD：Course / Chapter / Lesson · 含封面图上传 / 删除
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -40,7 +40,7 @@ export default function AdminCoursesPage() {
     <>
       <div className="top-bar">
         <div>
-          <h1 className="page-title">{s('法本管理', '法本管理', 'Texts')}</h1>
+          <h1 className="page-title">{s('闻思管理', '聞思管理', 'Texts')}</h1>
           <p className="page-sub">
             {list.data ? list.data.length + ' ' + s('部 · 含未发布', '部 · 含未發布', 'incl. unpublished') : '…'}
           </p>
@@ -55,19 +55,19 @@ export default function AdminCoursesPage() {
             📥 {s('导入', '導入', 'Import')}
           </button>
           <button type="button" onClick={() => setCreateOpen(true)} className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
-            + {s('新建法本', '新建法本', 'New text')}
+            + {s('新建闻思', '新建聞思', 'New text')}
           </button>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 'var(--sp-5)' }}>
-        {/* 左：法本列表 */}
+        {/* 左：闻思列表 */}
         <aside style={{ position: 'sticky', top: 0, alignSelf: 'flex-start', maxHeight: 'calc(100vh - var(--sp-8))', overflowY: 'auto' }}>
           {list.isLoading ? (
             <Skeleton.List />
           ) : !list.data || list.data.length === 0 ? (
             <div style={{ padding: 'var(--sp-5)', color: 'var(--ink-3)', textAlign: 'center' }}>
-              {s('暂无法本', '暫無法本', 'None')}
+              {s('暂无闻思', '暫無聞思', 'None')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -121,7 +121,7 @@ export default function AdminCoursesPage() {
         </section>
       </div>
 
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s("新建法本 · 填基础信息后再添加章节", "新建法本 · 填基礎信息後再添加章節", "New text · fill basics then add chapters")} variant="centered">
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s("新建闻思 · 填基础信息后再添加章节", "新建聞思 · 填基礎信息後再添加章節", "New text · fill basics then add chapters")} variant="centered">
         <CreateCourseForm
           onCreated={(id) => { setCreateOpen(false); setSp({ id }); }}
           onCancel={() => setCreateOpen(false)}
@@ -143,7 +143,7 @@ function EmptyHero() {
     <div className="glass-card-thick" style={{ padding: 'var(--sp-7)', textAlign: 'center', color: 'var(--ink-3)' }}>
       <div style={{ fontSize: '2.6rem', marginBottom: 'var(--sp-3)' }}>📿</div>
       <p style={{ font: 'var(--text-body)', letterSpacing: 1 }}>
-        {s('← 选择左侧法本查看 / 编辑，或点 +新建', '← 選擇左側法本查看 / 編輯，或點 +新建', '← Pick a text on the left, or + New text')}
+        {s('← 选择左侧闻思查看 / 编辑，或点 +新建', '← 選擇左側聞思查看 / 編輯，或點 +新建', '← Pick a text on the left, or + New text')}
       </p>
     </div>
   );
@@ -168,7 +168,7 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
   const [, setSp] = useSearchParams();
   const qc = useQueryClient();
 
-  // 后端可能返回 chapters: undefined（空法本未加载嵌套关系）· 拍平到 []
+  // 后端可能返回 chapters: undefined（空闻思未加载嵌套关系）· 拍平到 []
   const c = { ...cIn, chapters: cIn.chapters ?? [] };
 
   // metadata 状态（受控 · 用 key 重置）
@@ -269,7 +269,7 @@ function CourseEditor({ c: cIn }: { c: AdminCourseDetail }) {
             <button
               type="button"
               onClick={async () => {
-                if (!(await confirmAsync({ title: s('归档此法本？学员不再能访问（可通过未发布恢复展示）', '歸檔此法本？學員不再能訪問', 'Archive this text? Students lose access.') }))) return;
+                if (!(await confirmAsync({ title: s('归档此闻思？学员不再能访问（可通过未发布恢复展示）', '歸檔此聞思？學員不再能訪問', 'Archive this text? Students lose access.') }))) return;
                 del.mutate();
               }}
               disabled={del.isPending}
@@ -877,7 +877,7 @@ function LessonForm({ submit, initial, onDone, confirmLabel }: {
       </div>
       <Field label={s('标题（繁）', '標題（繁）', 'Title (TC)')} value={titleTC} onChange={setTitleTC} maxLength={200} />
       <TextArea
-        label={s('原文 / 法本', '原文 / 法本', 'Reference text')}
+        label={s('原文 / 闻思', '原文 / 聞思', 'Reference text')}
         value={refText}
         onChange={setRefText}
         rows={10}

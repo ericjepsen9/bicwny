@@ -1,4 +1,4 @@
-// 法本管理 · 课时下题目内联管理
+// 闻思管理 · 课时下题目内联管理
 //   - LessonQuestionsSlot · 课时行下的 📝 副行（计数 + [列表] [+ 添加]）
 //   - QuestionListDialog · 题目列表 + 行内 [编辑] [删除]
 //   - QuestionEditDialog · 5 种常用题型的精简表单（single / multi / fill / sort / open）

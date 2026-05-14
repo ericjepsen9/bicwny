@@ -1,4 +1,4 @@
-// ScriptureDetailPage · 法本目录
+// ScriptureDetailPage · 闻思目录
 //   ?slug=xxx [&mode=quiz]
 //
 // 视觉参考 Apple 图书风格（用户提供截图）：
@@ -38,7 +38,7 @@ export default function ScriptureDetailPage() {
   // 详情页只显示 TOC + 章节 · 不渲染原文 · 用 lite 省几 MB payload
   const course = useCourseDetail(slug, { lite: true });
   const enrollments = useEnrollments();
-  // 该法本下所有已发布观修 · 用于课时行展示 🧘 入口
+  // 该闻思下所有已发布观修 · 用于课时行展示 🧘 入口
   const meditations = useCourseMeditations(course.data?.id ?? null);
   const meditationByLesson = useMemo(() => {
     const m = new Map<string, { id: string; title: string; videoDurationSec: number }>();
@@ -57,7 +57,7 @@ export default function ScriptureDetailPage() {
     [enrollment],
   );
 
-  // 当前是否为主修法本
+  // 当前是否为主修闻思
   const mainCourseId = useMainCourseId();
   const isMainCourse = !!course.data && mainCourseId === course.data.id;
 
@@ -155,7 +155,7 @@ export default function ScriptureDetailPage() {
     return <ErrorState error={course.error} onRetry={() => course.refetch()} />;
   }
 
-  if (!course.data) return <Empty title={s('法本不存在', '法本不存在', 'Text not found')} />;
+  if (!course.data) return <Empty title={s('闻思不存在', '聞思不存在', 'Text not found')} />;
 
   const c = course.data;
   const chapters = c.chapters ?? [];
@@ -254,7 +254,7 @@ export default function ScriptureDetailPage() {
         />
       )}
 
-      {/* 顶部 nav · hero 区透明 · 滚出 hero 后渐变为玻璃模糊 + 显示法本名 */}
+      {/* 顶部 nav · hero 区透明 · 滚出 hero 后渐变为玻璃模糊 + 显示闻思名 */}
       <div
         className="top-nav"
         style={{
@@ -693,12 +693,12 @@ export default function ScriptureDetailPage() {
           {enrollment && !isMainCourse && (
             <SheetItem
               icon="📍"
-              label={s('设为主修法本', '設為主修法本', 'Set as main')}
+              label={s('设为主修闻思', '設為主修聞思', 'Set as main')}
               sub={s('首页将显示这本的进度', '首頁將顯示這本的進度', 'Home will show this text')}
               onClick={() => {
                 setMainCourseId(c.id);
                 setMenuOpen(false);
-                toast.ok(s('已设为主修法本', '已設為主修法本', 'Set as main'));
+                toast.ok(s('已设为主修闻思', '已設為主修聞思', 'Set as main'));
               }}
             />
           )}

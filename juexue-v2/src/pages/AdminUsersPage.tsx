@@ -366,8 +366,8 @@ function LearningSection({ userId }: { userId: string }) {
     rows.push(`今日到期 due,${csv(data.sm2Progress.due)}`);
     rows.push(`总计 total,${csv(data.sm2Progress.total)}`);
     rows.push('');
-    rows.push('# 按法本统计');
-    rows.push('法本ID,法本标题,答过题数,答对题数,已掌握,最近学习');
+    rows.push('# 按闻思统计');
+    rows.push('闻思ID,闻思标题,答过题数,答对题数,已掌握,最近学习');
     for (const c of data.byCourse) {
       rows.push([c.courseId, c.title, c.answered, c.correct, c.masteredCount, c.lastStudiedAt ?? ''].map(csv).join(','));
     }
@@ -470,11 +470,11 @@ function LearningSection({ userId }: { userId: string }) {
             <DrawerStat value={String(data.sm2Progress.total)} label={s('总计', '總計', 'Total')} small />
           </div>
 
-          {/* 按法本分列 */}
+          {/* 按闻思分列 */}
           {data.byCourse.length > 0 && (
             <>
               <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-2)' }}>
-                {s('按法本', '按法本', 'By text')}
+                {s('按闻思', '按聞思', 'By text')}
               </h3>
               <div className="glass-card-thick" style={{ padding: 0, marginBottom: 'var(--sp-4)' }}>
                 {data.byCourse.map((c, i) => {

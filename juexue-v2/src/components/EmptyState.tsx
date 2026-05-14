@@ -3,7 +3,7 @@
 //
 // 用法：
 //   <EmptyState icon="🌿" title="暂无错题" hint="太棒了" />
-//   <EmptyState icon="📚" title="暂无法本" cta={<Link to="...">去找一本</Link>} />
+//   <EmptyState icon="📚" title="暂无闻思" cta={<Link to="...">去找一本</Link>} />
 //
 // compact = 适合 section 内 · 默认 = 占满空间居中
 import type { ReactNode } from 'react';

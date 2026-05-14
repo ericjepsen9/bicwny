@@ -1,5 +1,5 @@
 // AchievementPage · /achievement
-//   学习统计：顶部累计答题 ring · 三项指标 · 按法本分列 · 成就墙
+//   学习统计：顶部累计答题 ring · 三项指标 · 按闻思分列 · 成就墙
 import { useMemo } from 'react';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
@@ -196,8 +196,8 @@ export default function AchievementPage() {
           </div>
         )}
 
-        {/* 按法本分列 */}
-        <SectionHead label={s('按法本分列', '按法本分列', 'By text')} />
+        {/* 按闻思分列 */}
+        <SectionHead label={s('按闻思分列', '按聞思分列', 'By text')} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', marginBottom: 'var(--sp-5)' }}>
           {progress.isLoading ? (
             Array.from({ length: 2 }).map((_, i) => <Skeleton.Card key={i} />)

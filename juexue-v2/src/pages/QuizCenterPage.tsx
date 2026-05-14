@@ -1,13 +1,13 @@
 // QuizCenterPage · 复习中心
 //
 // 方案 B：与首页分工
-//   首页 = 学习仪表盘（智能练习 / 当前法本 / 棋盘格）· 主动学新内容入口
-//   /quiz = 复习中心 · 巩固已学（SM-2 / 错题 / 收藏 / 按法本随抽）
+//   首页 = 学习仪表盘（智能练习 / 当前闻思 / 棋盘格）· 主动学新内容入口
+//   /quiz = 复习中心 · 巩固已学（SM-2 / 错题 / 收藏 / 按闻思随抽）
 //
 // 区域：
 //   1. 标题 + 小 stat（待复习 / 错题 / 收藏 总数）
 //   2. 三复习卡（SM-2 / 错题 / 收藏）
-//   3. 「按法本随机抽题」· 直接 /practice?courseId=X 不跳目录
+//   3. 「按闻思随机抽题」· 直接 /practice?courseId=X 不跳目录
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import CourseCover from '@/components/CourseCover';
@@ -55,7 +55,7 @@ export default function QuizCenterPage() {
         </p>
       </div>
 
-      {/* 三复习卡 · 与法本详情 StatCard 同款 · 磨砂玻璃 + 线性图标 · 数值比 SD 大一档 */}
+      {/* 三复习卡 · 与闻思详情 StatCard 同款 · 磨砂玻璃 + 线性图标 · 数值比 SD 大一档 */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)', padding: '0 var(--sp-5) var(--sp-5)' }}>
         <ReviewCard
           to="/sm2-review"
@@ -83,11 +83,11 @@ export default function QuizCenterPage() {
         />
       </div>
 
-      {/* 按法本随机抽题 · 二级 section header · 与首页"智能练习"同规范
+      {/* 按闻思随机抽题 · 二级 section header · 与首页"智能练习"同规范
           复习卡区与本区清晰分隔 · 不再用一行小 caption 容易被略过 */}
       <div style={{ padding: '0 var(--sp-5) var(--sp-3)', marginTop: 'var(--sp-3)' }}>
         <h2 className="t-section" style={{ color: 'var(--ink)' }}>
-          {s('按法本练习', '按法本練習', 'By text')}
+          {s('按闻思练习', '按聞思練習', 'By text')}
         </h2>
         <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
           {s('从已学课时随机抽题', '從已學課時隨機抽題', 'Random questions from studied lessons')}
@@ -112,15 +112,15 @@ export default function QuizCenterPage() {
         ) : courseList.length === 0 ? (
           <EmptyState
             icon="📚"
-            title={s('暂未报名法本', '暫未報名法本', 'No enrolled texts')}
-            hint={s('去法本页选一本开始学习', '去法本頁選一本開始學習', 'Browse texts to start')}
+            title={s('暂未报名闻思', '暫未報名聞思', 'No enrolled texts')}
+            hint={s('去闻思页选一本开始学习', '去聞思頁選一本開始學習', 'Browse texts to start')}
             cta={
               <Link
                 to="/courses"
                 className="btn btn-primary btn-pill"
                 style={{ padding: '10px 20px' }}
               >
-                {s('去选修法本', '去選修法本', 'Browse texts')}
+                {s('去选修闻思', '去選修聞思', 'Browse texts')}
               </Link>
             }
           />
@@ -188,7 +188,7 @@ function ReviewCard({
       style={{
         padding: 'var(--sp-3) var(--sp-2)',
         borderRadius: 'var(--r-lg)',
-        // 磨砂玻璃 · 与法本详情 StatCard 一致
+        // 磨砂玻璃 · 与闻思详情 StatCard 一致
         background: 'rgba(255, 255, 255, 0.55)',
         backdropFilter: 'blur(16px) saturate(140%)',
         WebkitBackdropFilter: 'blur(16px) saturate(140%)',
@@ -223,7 +223,7 @@ function ReviewCard({
   );
 }
 
-// 线性图标 · 18×18 · 与法本详情 StatCard 同风格 · 比 SD 略大配合 1.5rem 数值
+// 线性图标 · 18×18 · 与闻思详情 StatCard 同风格 · 比 SD 略大配合 1.5rem 数值
 function IconReplay() {
   return (
     <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">

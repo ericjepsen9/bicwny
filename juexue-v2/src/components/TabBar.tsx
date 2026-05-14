@@ -12,7 +12,7 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { to: '/',        label: { sc: '首页', tc: '首頁', en: 'Home' } },
-  { to: '/courses', label: { sc: '法本', tc: '法本', en: 'Texts' } },
+  { to: '/courses', label: { sc: '闻思', tc: '聞思', en: 'Texts' } },
   { to: '/quiz',    label: { sc: '复习', tc: '複習', en: 'Review' } },
 ];
 

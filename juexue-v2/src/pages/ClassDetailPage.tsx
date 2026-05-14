@@ -2,7 +2,7 @@
 //   重做版本 · 统一卡片样式 · 线性图标 · 角色感知（学员 vs coach）
 //   - Hero：班级名 + emoji + 共修班标签 + 成员/天数 stats + 邀请码（仅 coach/admin）
 //   - 修法窗口：藏历日 strip（沿用）
-//   - 3 个入口卡：主修法本 / 班级排课 / 班级观修榜（统一样式）
+//   - 3 个入口卡：主修闻思 / 共修安排 / 班级观修榜（统一样式）
 //   - 辅导员快捷区（仅 coach 可见）
 //   - 辅导员 / 学员 列表（玻璃头像统一）
 //   - 班级公告（仅有内容或 coach 视角显示）
@@ -104,12 +104,12 @@ export default function ClassDetailPage() {
         {/* ── 修法窗口（沿用现成组件） ── */}
         <TibetanClassWeekStrip />
 
-        {/* ── 3 张横排紧凑卡：主修法本 / 班级排课 / 班级同学 ── */}
+        {/* ── 3 张横排紧凑卡：主修闻思 / 共修安排 / 班级同学 ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-2)' }}>
           {c.course ? (
             <CompactCourseCard slug={c.course.slug} title={c.course.title} courseId={c.courseId} />
           ) : (
-            <CompactCardPlaceholder icon={<IconBook />} label={s('主修法本', '主修法本', 'Main text')} status={s('未绑定', '未綁定', '—')} accent="gold" />
+            <CompactCardPlaceholder icon={<IconBook />} label={s('主修闻思', '主修聞思', 'Main text')} status={s('未绑定', '未綁定', '—')} accent="gold" />
           )}
           <CompactSessionCard classId={cid} isCoach={isCoachOrAdmin} />
           <CompactCard
@@ -129,7 +129,7 @@ export default function ClassDetailPage() {
           <CoachQuickActions classId={cid} joinCode={c.joinCode ?? null} s={s} />
         )}
 
-        {/* ── 班级修学任务 ── */}
+        {/* ── 班级修学目标 ── */}
         <ClassPracticeTasksSection classId={cid} />
         <ClassPracticeProjectsSection classId={cid} />
 
@@ -296,7 +296,7 @@ function CompactCardPlaceholder(props: { icon: ReactNode; label: string; status:
   return <CompactCard {...props} onClick={() => { /* noop */ }} />;
 }
 
-// 主修法本紧凑卡（含进度）
+// 主修闻思紧凑卡（含进度）
 function CompactCourseCard({ slug, title, courseId }: { slug: string; title: string; courseId: string }) {
   const { s } = useLang();
   const enrollments = useEnrollments();
@@ -311,15 +311,15 @@ function CompactCourseCard({ slug, title, courseId }: { slug: string; title: str
     <CompactCard
       to={`/scripture-detail?slug=${encodeURIComponent(slug)}`}
       icon={<IconBook />}
-      label={s('主修法本', '主修法本', 'Main text')}
+      label={s('主修闻思', '主修聞思', 'Main text')}
       status={status}
       accent="gold"
     />
   );
 }
 
-// 班级排课紧凑卡（下一场时间或"暂无"）
-//   coach → 排课管理页 · 可增删改
+// 共修安排紧凑卡（下一场时间或"暂无"）
+//   coach → 共修管理页 · 可增删改
 //   学员 → 日历页（学员域 · 含所有 upcoming）· /coach/* 学员被守卫挡掉
 function CompactSessionCard({ classId, isCoach }: { classId: string; isCoach: boolean }) {
   const { s } = useLang();
@@ -334,7 +334,7 @@ function CompactSessionCard({ classId, isCoach }: { classId: string; isCoach: bo
     <CompactCard
       to={to}
       icon={<IconCalendar />}
-      label={s('班级排课', '班級排課', 'Sessions')}
+      label={s('共修安排', '共修安排', 'Sessions')}
       status={status}
       accent="saffron"
     />
@@ -452,7 +452,7 @@ function CoachQuickActions({ classId, joinCode, s }: {
         <QuickActionTile
           to={`/coach/classes/${encodeURIComponent(classId)}/sessions`}
           icon={<IconCalendar />}
-          label={s('排课', '排課', 'Sessions')}
+          label={s('共修', '共修', 'Sessions')}
         />
         <QuickActionTile
           to={`/coach/classes/${encodeURIComponent(classId)}/dashboard`}
@@ -597,7 +597,7 @@ function MemberRow({
   );
 }
 
-// 班级修学任务 · 空态也显示（让学员知道这个区域存在 · 同公告 section）
+// 班级修学目标 · 空态也显示（让学员知道这个区域存在 · 同公告 section）
 function ClassPracticeTasksSection({ classId }: { classId: string }) {
   const { s } = useLang();
   const tasks = usePracticeTasks();
@@ -605,7 +605,7 @@ function ClassPracticeTasksSection({ classId }: { classId: string }) {
   const classTasks = (tasks.data ?? []).filter((t) => t.scope === 'class' && t.class?.id === classId);
   return (
     <div>
-      <SectionTitle icon={<IconTarget />} label={s('班级修学任务', '班級修學任務', 'Practice tasks')} />
+      <SectionTitle icon={<IconTarget />} label={s('班级修学目标', '班級修學目標', 'Practice tasks')} />
       {classTasks.length === 0 ? (
         <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', textAlign: 'center', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5 }}>
           {s('辅导员尚未下达任务 · 等待安排', '輔導員尚未下達任務 · 等待安排', 'Awaiting tasks from coach')}

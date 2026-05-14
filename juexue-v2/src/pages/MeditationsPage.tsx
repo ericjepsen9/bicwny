@@ -1,8 +1,8 @@
 // MeditationsPage · /admin/meditations · /coach/meditations
 //   全局观修浏览页（列表 · 详情 · 编辑）· admin / coach 共用：
-//     - 创建入口在法本管理（课时插槽）· 此页不再支持新建
+//     - 创建入口在闻思管理（课时插槽）· 此页不再支持新建
 //     - 元数据 / 上传 / 归档复用 components/MeditationAdmin.tsx
-//     - 主要用于：审阅独立观修（无 lessonId）· 跨法本浏览 · 排查
+//     - 主要用于：审阅独立观修（无 lessonId）· 跨闻思浏览 · 排查
 import { useSearchParams, Link } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import { ApiError } from '@/lib/api';
@@ -32,14 +32,14 @@ export default function MeditationsPage() {
           className="btn btn-pill"
           style={{ padding: '8px 14px', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)', textDecoration: 'none' }}
         >
-          {s('+ 新建去法本管理 →', '+ 新建去法本管理', 'Create in /admin/courses →')}
+          {s('+ 新建去闻思管理 →', '+ 新建去聞思管理', 'Create in /admin/courses →')}
         </Link>
       </div>
 
       <div className="glass-card-thick" style={{ padding: 'var(--sp-3)', marginBottom: 'var(--sp-4)', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1 }}>
         💡 {s('观修创建入口已整合到', '觀修創建入口已整合到', 'Creation moved to ')}
         <Link to="/admin/courses" style={{ color: 'var(--saffron-dark)', textDecoration: 'underline' }}>
-          {s('法本管理', '法本管理', '/admin/courses')}
+          {s('闻思管理', '聞思管理', '/admin/courses')}
         </Link>
         {s(' · 进入对应课时点「+ 添加观修」即可。本页用于浏览 / 编辑已有观修。',
           ' · 進入課時點「+ 添加觀修」',
@@ -53,7 +53,7 @@ export default function MeditationsPage() {
             <Skeleton.List />
           ) : !list.data || list.data.length === 0 ? (
             <div style={{ padding: 'var(--sp-5)', color: 'var(--ink-3)', textAlign: 'center' }}>
-              {s('暂无观修 · 去法本管理新建', '暫無觀修', 'None · create from /admin/courses')}
+              {s('暂无观修 · 去闻思管理新建', '暫無觀修', 'None · create from /admin/courses')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

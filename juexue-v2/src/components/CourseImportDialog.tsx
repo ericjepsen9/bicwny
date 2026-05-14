@@ -1,4 +1,4 @@
-// CourseImportDialog · /admin/courses 法本批量导入
+// CourseImportDialog · /admin/courses 闻思批量导入
 //   两种入口：上传 PDF/DOCX · 抓取 URL
 //   流程：input → preview tree → 选 mode（new 新建 / append 追加） → commit
 //
@@ -50,7 +50,7 @@ type Mode = 'new' | 'append';
 interface Props {
   open: boolean;
   onClose: () => void;
-  /** 现有法本列表 · 用于 append 模式选目标 */
+  /** 现有闻思列表 · 用于 append 模式选目标 */
   courses: AdminCourseRow[];
   /** commit 成功后 · 父组件刷新列表用 */
   onCommitted?: (courseId: string) => void;
@@ -225,7 +225,7 @@ export default function CourseImportDialog({ open, onClose, courses, onCommitted
   }
 
   return (
-    <Dialog open={open} onClose={close} title={s('导入法本', '導入法本', 'Import text')}>
+    <Dialog open={open} onClose={close} title={s('导入闻思', '導入聞思', 'Import text')}>
       <div style={{ padding: 'var(--sp-2) 0 var(--sp-3)' }}>
         {/* tab 切换 · 仅 idle 阶段显示 */}
         {stage === 'idle' && (
@@ -343,7 +343,7 @@ export default function CourseImportDialog({ open, onClose, courses, onCommitted
             {/* mode 选择 */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 'var(--sp-3)' }}>
               <TabBtn active={mode === 'new'} onClick={() => setMode('new')}>
-                {s('新建法本', '新建法本', 'New text')}
+                {s('新建闻思', '新建聞思', 'New text')}
               </TabBtn>
               <TabBtn active={mode === 'append'} onClick={() => setMode('append')} disabled={courses.length === 0}>
                 {s('追加到现有', '追加到現有', 'Append to existing')}
@@ -389,7 +389,7 @@ export default function CourseImportDialog({ open, onClose, courses, onCommitted
             ) : (
               <div>
                 <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 6 }}>
-                  {s('选择目标法本（章节会追加到末尾）', '選擇目標法本（章節會追加到末尾）', 'Pick a target text (chapters appended)')}
+                  {s('选择目标闻思（章节会追加到末尾）', '選擇目標聞思（章節會追加到末尾）', 'Pick a target text (chapters appended)')}
                 </p>
                 <select
                   value={targetCourseId}

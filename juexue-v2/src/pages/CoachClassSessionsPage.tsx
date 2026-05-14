@@ -1,4 +1,4 @@
-// 排课页 · /coach/classes/:id/sessions（coach/admin · 可增删改）· /class/:id/sessions（学员 · 只读）
+// 共修安排页 · /coach/classes/:id/sessions（coach/admin · 可增删改）· /class/:id/sessions（学员 · 只读）
 //   - tab: 即将 / 历史
 //   - 列表：每条 session 显示 标题 / 时间 / 时长 / 直播链接 / 编辑 / 删除（仅 coach）
 //   - + 新建按钮 → 弹层 form（仅 coach）
@@ -38,7 +38,7 @@ export default function CoachClassSessionsPage() {
   return (
     <div>
       <TopNav
-        titles={['班级排课', '班級排課', 'Sessions']}
+        titles={['共修安排', '共修安排', 'Sessions']}
         backTo={backTo}
         right={canEdit ? (
           <button
@@ -84,9 +84,9 @@ export default function CoachClassSessionsPage() {
         <p style={{ color: 'var(--ink-4)', font: 'var(--text-caption)', textAlign: 'center', padding: 'var(--sp-5) 0' }}>
           {tab === 'upcoming'
             ? (canEdit
-                ? s('暂无未来排课 · 点右上「+」新建', '暫無未來排課', 'No upcoming sessions')
-                : s('暂无未来排课', '暫無未來排課', 'No upcoming sessions'))
-            : s('暂无历史排课', '暫無歷史排課', 'No past sessions')}
+                ? s('暂无未来共修 · 点右上「+」新建', '暫無未來共修', 'No upcoming sessions')
+                : s('暂无未来共修', '暫無未來共修', 'No upcoming sessions'))
+            : s('暂无历史共修', '暫無歷史共修', 'No past sessions')}
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
@@ -104,7 +104,7 @@ export default function CoachClassSessionsPage() {
 
       {/* 创建弹层 · 仅 coach */}
       {canEdit && (
-        <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s('新建排课', '新建排課', 'New session')}>
+        <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s('新建共修', '新建共修', 'New session')}>
           <SessionForm
             classId={classId!}
             onDone={() => setCreateOpen(false)}
@@ -114,7 +114,7 @@ export default function CoachClassSessionsPage() {
 
       {/* 编辑弹层 · 仅 coach */}
       {canEdit && (
-        <Dialog open={!!editing} onClose={() => setEditing(null)} title={s('编辑排课', '編輯排課', 'Edit session')}>
+        <Dialog open={!!editing} onClose={() => setEditing(null)} title={s('编辑共修', '編輯共修', 'Edit session')}>
           {editing && (
             <SessionForm
               classId={classId!}
@@ -195,7 +195,7 @@ function SessionRow({ session, onEdit, classId, canEdit }: { session: ClassSessi
             type="button"
             onClick={async () => {
               if (await confirmAsync({
-                title: s('删除排课？', '刪除排課？', 'Delete?'),
+                title: s('删除共修？', '刪除共修？', 'Delete?'),
                 body: s('删除后已发出的推送会自动停止 · 已通知历史保留', '', 'Pushes will stop · history preserved'),
                 danger: true,
                 okLabel: '删除',

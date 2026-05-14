@@ -868,7 +868,7 @@ export default function ScriptureReadingPage() {
   );
 }
 
-// 把法本原文按段落切 · 优先双换行 · 兜底单换行
+// 把闻思原文按段落切 · 优先双换行 · 兜底单换行
 function splitParagraphs(text: string): string[] {
   const byDouble = text.split(/\n{2,}/g).map((p) => p.trim()).filter(Boolean);
   if (byDouble.length > 1) return byDouble;

@@ -329,8 +329,8 @@ function Drawer({ onClose, loading, data, classId, uid }: { onClose: () => void;
               </>
             )}
 
-            {/* 已选法本 */}
-            <SectionLabel>{s('已选法本', '已選法本', 'Enrollments')}</SectionLabel>
+            {/* 已选闻思 */}
+            <SectionLabel>{s('已选闻思', '已選聞思', 'Enrollments')}</SectionLabel>
             {data.enrollments.length === 0 ? (
               <Empty>{s('暂未选修', '暫未選修', 'None')}</Empty>
             ) : (

@@ -46,7 +46,7 @@ const DICT: Record<string, Entry> = {
 
   // Tab
   'tab.home':    ['首页', '首頁', 'Home'],
-  'tab.courses': ['法本', '法本', 'Texts'],
+  'tab.courses': ['闻思', '聞思', 'Texts'],
   'tab.quiz':    ['答题', '答題', 'Quiz'],
   'tab.profile': ['我的', '我的', 'Profile'],
 };

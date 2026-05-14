@@ -43,7 +43,7 @@ export default function ClassNewPage() {
       <div className="top-bar">
         <div>
           <h1 className="page-title">{s('新建班级', '新建班級', 'New class')}</h1>
-          <p className="page-sub">{s('指定主修法本 + 班级元数据', '指定主修法本 + 班級元資料', 'Pick course + class meta')}</p>
+          <p className="page-sub">{s('指定主修闻思 + 班级元数据', '指定主修聞思 + 班級元資料', 'Pick course + class meta')}</p>
         </div>
         <div className="top-actions">
           <Link to={base} className="btn btn-pill" style={{ padding: '8px 14px', background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)' }}>
@@ -58,7 +58,7 @@ export default function ClassNewPage() {
             e.preventDefault();
             setErr('');
             if (!courseId) {
-              setErr(s('请选法本', '請選法本', 'Pick a course'));
+              setErr(s('请选闻思', '請選聞思', 'Pick a course'));
               return;
             }
             create.mutate();
@@ -69,7 +69,7 @@ export default function ClassNewPage() {
           <Field label={s('班级名', '班級名', 'Name')} value={name} onChange={setName} required maxLength={64} />
           <div>
             <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, fontWeight: 600, marginBottom: 6 }}>
-              {s('法本', '法本', 'Course')}
+              {s('闻思', '聞思', 'Course')}
             </label>
             <select
               value={courseId}
