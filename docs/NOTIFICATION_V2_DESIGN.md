@@ -1,6 +1,6 @@
 # 觉学 · 通知系统 v2 完整设计（模块化）
 
-> 状态：📝 设计中 · 与用户讨论同步落档
+> 状态：✅ 设计已定稿（2026-05-14）· 8 模块 24 个开放问题全部落决策 · 待进入实施排期
 >
 > 关联：`NOTIFICATION_PLAN.md`（v1 框架）· `PERSONAL_REMINDERS_V1.md`（个人提醒 v1 已交付）
 >
@@ -133,11 +133,37 @@
 
 | ID | 问题 | 候选 |
 |---|---|---|
-| M1.Q1 | PWA 引导触发时机？ | A. 首次进入 app 弹一次；B. 用户尝试授权时检测；C. 不引导 · 用户自己装 |
-| M1.Q2 | iOS Safari 没装 PWA 怎么办？ | A. 显式提示"请先添加到主屏幕"；B. 隐藏 push toggle |
+| M1.Q1 | PWA 引导触发时机？ | ✅ **B · 按需提示** · 用户点 push toggle 授权时 · 检测 iOS Safari + 未装 PWA → 弹引导 sheet · 不打扰首访体验 |
+| M1.Q2 | iOS Safari 没装 PWA 怎么办？ | ✅ **A · 显示提示** · push toggle 仍在但置灰 · 下方提示 "iOS 需先 [添加到主屏幕] · [查看教程 →]" · 不隐藏可能性 |
 
 #### 决策
-（待讨论）
+
+#### 检测逻辑
+
+```ts
+function isIosSafariWithoutPwa(): boolean {
+  const ua = navigator.userAgent;
+  const isIos = /iPad|iPhone|iPod/.test(ua);
+  const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || (window.navigator as any).standalone === true;
+  return isIos && isSafari && !isStandalone;
+}
+```
+
+#### 引导 sheet 内容（zh-CN）
+
+> **iOS 接收推送 · 需添加到主屏幕**
+> 1. 点底部分享按钮 ⬆️
+> 2. 选「添加到主屏幕」
+> 3. 从主屏幕图标打开觉学
+> 4. 再次开启推送即可
+>
+> [我知道了] · [跳过]
+
+#### 桌面 fallback
+
+桌面 Chrome / Edge：直接 PushManager.subscribe() · 不需要 PWA · 现有方案已 OK · 不动。
 
 ---
 
@@ -162,8 +188,40 @@
 
 | ID | 问题 | 候选 |
 |---|---|---|
-| M2.Q1 | 系统公告 admin UI 在哪建？ | A. /admin/notification-rules 旁加 tab；B. 单独页 /admin/system-announcements |
-| M2.Q2 | 系统公告是单条还是批量？ | A. admin 写一条 · 所有用户都收；B. 可按角色/地域筛 |
+| M2.Q1 | 系统公告 admin UI 在哪建？ | ✅ **A · /admin/notification-rules 加 tab "系统公告"** · UI 集中 · 与推送规则同页 |
+| M2.Q2 | 系统公告是单条还是批量？ | ✅ **A · 全员 active 用户** · v2 起步不做筛选 · 跨语言文案先以 zh-CN 为主 + 后续可加 i18n 字段 |
+
+#### admin tab 实现
+
+```tsx
+// /admin/notification-rules 页加 tab
+<Tabs defaultValue="rules">
+  <TabsList>
+    <TabsTrigger value="rules">推送规则</TabsTrigger>
+    <TabsTrigger value="announcements">系统公告</TabsTrigger>
+  </TabsList>
+  <TabsContent value="announcements">
+    <SystemAnnouncementForm />  {/* 标题 + 正文 + severity + [发布] */}
+    <SystemAnnouncementList />   {/* 历史发布记录 + 撤回 */}
+  </TabsContent>
+</Tabs>
+```
+
+新表（轻量 · 不复用 ClassAnnouncement）：
+```prisma
+model SystemAnnouncement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  severity  Severity @default(normal)
+  publishedAt DateTime @default(now())
+  publishedBy String
+  revokedAt DateTime?
+  @@index([publishedAt])
+}
+```
+
+发布动作：写表 → dispatchToUsers(全员 active) → eventKind: 'system_announcement'。
 
 ---
 
@@ -223,9 +281,27 @@
 
 | ID | 问题 | 候选 |
 |---|---|---|
-| M3.Q1 | 放在 HomePage 哪个位置？ | A. 顶部 hero 之下；B. NotificationBell 下；C. 卡片间 |
-| M3.Q2 | 卡片有多少 CTA？ | A. 只一个主 CTA；B. 主 CTA + [知道了]；C. 视 severity 而定 |
-| M3.Q3 | 多事件时显示几条？ | A. 仅 top-1（已仲裁）；B. top-3 堆叠（仲裁后取前 3）|
+| M3.Q1 | 放在 HomePage 哪个位置？ | ✅ **B · NotificationBell 下** · 浮在画报上方 · 不遮主体 |
+| M3.Q2 | 卡片有多少 CTA？ | ✅ **C · 视 severity 而定** · normal/urgent: 主 CTA + [知道了] · critical: 仅 [知道了]（防误点）|
+| M3.Q3 | 多事件时显示几条？ | ✅ **A · 仅 top-1** · 其余走通知中心 · 首页保持画报禅意 |
+
+#### CTA 细则
+
+| severity | 主 CTA | 次 CTA | ack 时机 |
+|---|---|---|---|
+| normal | [进入直播] / [去念诵] / [去做题] | [知道了] | 点任意按钮 |
+| urgent | 同上 · 金色描边 | [知道了] | 点任意按钮 |
+| critical | ❌ 无主 CTA | [知道了] | 仅次 CTA · 防误触跳走 |
+
+#### 集成位置（实施细节）
+
+```tsx
+// HomePage.tsx · NotificationBell 下方插入
+<NotificationBell unread={unreadNotifs} />
+<UpcomingEventCard />   // 无事件时返回 null · 不占空间
+```
+
+样式上限：占首页画报顶部 ≤ 25% 高度 · maxWidth 与 4 大卡对齐 · 自带退出动画（ack 后 fade out 200ms）。
 
 ---
 
@@ -271,13 +347,28 @@ async function getMyTopHomeCard(userId) {
 }
 ```
 
-#### 开放问题
+#### 决策
 
-| ID | 问题 | 候选 |
+| ID | 问题 | 结论 |
 |---|---|---|
-| M4.Q1 | 个人提醒（19:00 临期等）要不要进首页卡？ | A. 不进 · 仅 push + 通知中心；B. 进 · 但 severity normal |
-| M4.Q2 | 同 severity 同时间的 tiebreaker？ | A. kindRank 硬排（公告 > 共修 > 任务 > 成就）；B. createdAt desc（新的在前）|
-| M4.Q3 | 仲裁结果缓存吗？ | A. 不缓存 · 每次实时算；B. 短缓存 60s |
+| M4.Q1 | 个人提醒进首页卡？ | ✅ **不进** · 个人提醒仅走 push + 通知中心 · 首页卡只留给老师/班级事件 · 避免被动事件占领首页 |
+| M4.Q2 | 同 severity 同时间 tiebreaker？ | ✅ **kindRank 硬排序** · 班级公告 > 共修 > 任务 > 成就 > 藏历日 > 系统公告 · 可预测稳定 |
+| M4.Q3 | 仲裁结果缓存？ | ✅ **不缓存 · 每次实时算** · 接口调用频率受 React Query 60s staleTime 节制 · ack 后立即生效 |
+
+#### kindRank 定义
+
+```ts
+const KIND_RANK: Record<EventKind, number> = {
+  classAnnouncement: 10,  // 班级公告
+  classSession: 20,       // 共修
+  practiceTask: 30,       // 修学任务
+  achievement: 40,        // 成就解锁
+  auspiciousDay: 50,      // 藏历加持日
+  systemAnnouncement: 60, // 系统公告（admin）
+  dharmaAssembly: 70,     // 法会（v2.5）
+};
+// 排序：severity desc > startAt asc > kindRank asc（小的赢）
+```
 
 ---
 
@@ -386,13 +477,25 @@ async function canSendPush(userId): Promise<boolean> {
 
 注意：当前 DispatchLog 不区分通道（push 还是 inapp）· 要么改表加字段 `channel`，要么用其他表（NotificationLog）专门记 push 送达。
 
-#### 开放问题
+#### 决策
 
-| ID | 问题 | 候选 |
+| ID | 问题 | 结论 |
 |---|---|---|
-| M7.Q1 | 用什么记 push 计数？ | A. DispatchLog 加 `channel` 字段；B. 新增 `PushSendLog` 表；C. 用 Notification + push_sent flag |
-| M7.Q2 | critical push 也算上限吗？ | A. 算 · 一视同仁；B. critical 绕过上限 |
-| M7.Q3 | 上限默认值 3 · 用户能调吗？ | A. 不能 · 系统硬限；B. 用户偏好可改（1-5） |
+| M7.Q1 | 用什么记 push 计数？ | ✅ **DispatchLog 加 `channel` 字段** · 'inapp' / 'push' / 'email' / 'sms' · 不新增表 · count where channel='push' |
+| M7.Q2 | critical 算上限吗？ | ✅ **critical 绕过上限** · 与 M5 决策一致 · critical = 真紧急 · 静默 + 上限都不拦 |
+| M7.Q3 | 用户能调上限吗？ | ✅ **不能 · 系统硬限 3 条** · 保底产品级约束 · NOTIFICATION_PLAN #7 原话 · 不给偏好页 slider |
+
+#### 字段 migration
+
+```prisma
+model NotificationDispatchLog {
+  // ... 现有字段
+  channel String @default("inapp") // 'inapp' | 'push' | 'email' | 'sms'
+  @@index([userId, channel, pushedAt])  // 查 daily push count 用
+}
+```
+
+`canSendPush` 内仅 count `channel='push' AND severity != 'critical'` (或允许 critical 总是 return true · 不查表)。
 
 ---
 
@@ -430,8 +533,15 @@ dispatchToUsers 内部按 severity 决定要不要绕过静默 / 是否走全局
 
 | ID | 问题 | 候选 |
 |---|---|---|
-| M8.Q1 | 公告默认 severity？ | A. normal · 老师勾"重要"才升 urgent；B. 默认 urgent · 公告本身是重要事件 |
-| M8.Q2 | 编辑公告（PATCH）触发新 push 吗？ | A. 不触发 · 只触发首发；B. severity 升级时触发；C. 始终触发 |
+| M8.Q1 | 公告默认 severity？ | ✅ **A · normal + 重要勾选 → urgent** · critical 由 admin 通道走系统公告 · 不开放给 coach |
+| M8.Q2 | 编辑公告触发新 push 吗？ | ✅ **A · 不触发 · 仅首发推** · editVersion+1 让首页卡重新冒（已 ack 失效）· 但不发 push · 防风暴 |
+
+#### 重要事故场景
+
+**公告写错了怎么补救？** 老师有三条路径：
+1. 撤回原公告 + 发新公告（语义清晰 · 学员看到 "已撤回"）
+2. 编辑文本 + 在班级群口头通知（依赖班级群运营 · 不依赖 push）
+3. 删公告后另发 · 影响小
 
 ---
 
@@ -466,8 +576,19 @@ await dispatchToUsers({
 
 | ID | 问题 | 候选 |
 |---|---|---|
-| M9.Q1 | session 改时间是否再发首发通知？ | A. 不发 · 只 T-30/5/0 自然提醒；B. 改时间 → 发"时间已变更"通知；C. severity 升级 → 发 |
-| M9.Q2 | session 取消（删除）是否通知？ | A. 不通知 · 学员看不到等于不存在；B. 发"已取消"通知（critical） |
+| M9.Q1 | session 改时间是否再发？ | ✅ **B · 发变更通知 · severity 上调 urgent** · 文案 "《XX 班》共修时间调整为 YY" · 走 push（绕静默不绕上限）|
+| M9.Q2 | session 取消是否通知？ | ✅ **B · 发 critical 取消通知** · 绕静默 + 绕上限 · 文案 "《XX 班》今晚共修取消" · 防学员白跑 |
+
+#### tier 分桶（防 dispatch_log unique 撞）
+
+| tier | 用途 |
+|---|---|
+| `created` | 首发 · session 排出来时 |
+| `time_changed` | 改时间触发 |
+| `cancelled` | 取消触发 |
+| `t30` / `t5` / `t0` | 调度提醒（现有）|
+
+unique 索引 `(eventKind, eventId, tier, userId)` 保证每个 tier 每用户只发一次。
 
 ---
 
@@ -506,9 +627,18 @@ B. **截止前调度**（cron 加新 tick）：
 
 | ID | 问题 | 候选 |
 |---|---|---|
-| M10.Q1 | daily 模式任务的"日内未完成"提醒 · 走个人提醒系统还是单独发？ | A. 走 v1 个人提醒（已覆盖）；B. 独立 tick |
-| M10.Q2 | 截止后任务发"已完成" / "未完成"通知吗？ | A. 不发；B. 仅完成发祝贺；C. 全发 |
-| M10.Q3 | severity 默认值？ | A. normal · 老师可升 urgent；B. fixed 模式 endAt - now < 6h 自动 urgent |
+| M10.Q1 | daily 模式未完成提醒走哪？ | ✅ **A · v1 个人提醒覆盖** · M10 仅做 fixed 截止 tick · 责任清晰 不双推 |
+| M10.Q2 | 截止后发结果通知吗？ | ✅ **B · 仅完成发祝贺** · "🌟《XX 心咒》圆满 · 共 N 遍" · 未完成不发 · 学法不该被罚 |
+| M10.Q3 | severity 默认值？ | ✅ **混合** · 默认 normal · 老师可手勾 urgent · T-6h 系统自动升 urgent · T-0 维持 normal（完成发祝贺）|
+
+#### tick 表（cron）
+
+| tick | 条件 | severity | 文案 |
+|---|---|---|---|
+| T-24h | fixed · progress < target | normal | 明日截止 · 还差 N |
+| T-6h | fixed · progress < target | urgent | 6h 后截止 · 还差 N |
+| T-0 完成 | progress ≥ target | normal | 🌟 圆满 · 共 N 遍 |
+| T-0 未完成 | progress < target | ❌ 不发 | — |
 
 ---
 
@@ -540,8 +670,29 @@ await dispatchToUsers({
 
 | ID | 问题 | 候选 |
 |---|---|---|
-| M11.Q1 | 成就解锁要不要进首页卡？ | A. 进 · 24h 内未 ack 时；B. 不进 · 仅 push + 通知中心 |
-| M11.Q2 | 多个成就同时解锁（比如新用户首日多里程碑）合一发？ | A. 一条一条发；B. 合并成"今日解锁 N 项" |
+| M11.Q1 | 成就要不要进首页卡？ | ✅ **B · 仅 push + 通知中心** · 与 M4.Q1 一致 · 成就是被动事件 · 首页保持画报禅意 |
+| M11.Q2 | 多成就合并？ | ✅ **合并** · 5 分钟窗口内多成就合并为 "今日解锁 N 项 · 包括 XX、YY..." · 点击跳 /achievement · 防新用户首日 7 连震 |
+
+#### 合并实现（事件触发链）
+
+```ts
+// achievement/service.ts
+async function onAchievementUnlock(userId: string, achievementId: string) {
+  // 1. 同一窗口聚合 · key = `unlock:${userId}`
+  const window = await redis.get(`unlock:${userId}`);
+  if (window) {
+    // 已有窗口 · 加入 list · 不立刻发
+    await redis.rpush(`unlock:${userId}:items`, achievementId);
+    return;
+  }
+  // 2. 开新窗口 · 5 分钟后冲刷
+  await redis.setex(`unlock:${userId}`, 300, '1');
+  await redis.rpush(`unlock:${userId}:items`, achievementId);
+  setTimeout(() => flushUnlockBatch(userId), 300_000);
+}
+```
+
+> 备注：当前栈无 Redis · 用 in-memory `Map<userId, { items: string[]; timer: NodeJS.Timeout }>` 起步 · 多进程时迁 Redis（参考 NOTIFICATION_PLAN 决策 #12 静默判定缓存策略）。
 
 ---
 
@@ -700,17 +851,17 @@ GET    /api/my/assemblies                      学员看自己班的法会
 | M3 | Q1 | UpcomingEventCard 放 HomePage 哪个位置？ | 待答 |
 | M3 | Q2 | 卡片几个 CTA？ | 待答 |
 | M3 | Q3 | 多事件显示几条？ | 待答 |
-| M4 | Q1 | 个人提醒进不进首页卡？ | 待答 |
-| M4 | Q2 | 同 severity 同时间 tiebreaker？ | 待答 |
-| M4 | Q3 | 仲裁结果缓存吗？ | 待答 |
-| M5 | Q1 | severity 手动还是自动？ | 待答 |
-| M5 | Q2 | critical 谁能发？ | 待答 |
-| M5 | Q3 | T-0/T-5/T-30 算什么 severity？ | 待答 |
-| M6 | Q1 | ack 过期吗？ | 待答 |
-| M6 | Q2 | 多设备 ack 同步？ | 待答 |
-| M7 | Q1 | 用什么记 push 计数？ | 待答 |
-| M7 | Q2 | critical push 算上限吗？ | 待答 |
-| M7 | Q3 | 上限默认 3 · 用户能调吗？ | 待答 |
+| M4 | Q1 | 个人提醒进不进首页卡？ | ✅ 不进 · 仅 push + 通知中心 |
+| M4 | Q2 | 同 severity 同时间 tiebreaker？ | ✅ kindRank 硬排序 |
+| M4 | Q3 | 仲裁结果缓存吗？ | ✅ 不缓存 · 每次实时算 |
+| M5 | Q1 | severity 手动还是自动？ | ✅ 混合（默认自动 · 老师可覆盖） |
+| M5 | Q2 | critical 谁能发？ | ✅ admin + 班级 coach |
+| M5 | Q3 | T-0/T-5/T-30 算什么 severity？ | ✅ T-30 normal · T-5 urgent · T-0 critical |
+| M6 | Q1 | ack 过期吗？ | ✅ 事件改动才重冲（editVersion 失效触发） |
+| M6 | Q2 | 多设备 ack 同步？ | ✅ 后端表同步（用户声明：不允许多设备登录 · 政策依据 ack 后端） |
+| M7 | Q1 | 用什么记 push 计数？ | ✅ DispatchLog 加 channel 字段 |
+| M7 | Q2 | critical push 算上限吗？ | ✅ critical 绕过上限 |
+| M7 | Q3 | 上限默认 3 · 用户能调吗？ | ✅ 不能 · 系统硬限 3 条 |
 | M8 | Q1 | 公告默认 severity？ | 待答 |
 | M8 | Q2 | 编辑公告触发新 push？ | 待答 |
 | M9 | Q1 | session 改时间再发首发通知？ | 待答 |
@@ -725,16 +876,75 @@ GET    /api/my/assemblies                      学员看自己班的法会
 
 ## 9. 决策记录（每个模块定型后填）
 
-（空 · 等用户讨论）
+### M5 Severity 三档 · 已定型
+
+**Q1 标记方式：混合（默认自动 · 老师可覆盖）**
+- 系统默认按规则给 severity：
+  - 公告 / 任务 / 共修创建 → 默认 `normal`
+  - fixed 任务 `endAt - now < 24h` → 自动升 `urgent`
+  - 共修 T-30 → `normal` · T-5 → `urgent` · T-0 → `critical`
+- 老师在 coach 创建 / 编辑 UI 上**可手动覆盖默认值**（dropdown 选 normal / urgent / critical）
+- 系统升级仅"自动加严"· 不自动降级（避免老师标了 urgent 被系统降回 normal）
+
+**Q2 critical 权限：admin + 班级 coach 均可发**
+- admin 全平台 critical（系统公告 / 紧急维护）
+- coach 仅本班 critical（紧急取消 / 调时间）
+- 平台后续监控 critical 滥用率 · 必要时收口到仅 admin
+
+**Q3 共修调度 severity：T-30 normal · T-5 urgent · T-0 critical**
+- T-0 (现在开始) 绕过静默时段 · 保证用户收到
+- 用户报名共修 = 自愿被在该时刻叫醒 · 即便深夜也合理
+- 全局每日 3 条上限 critical 是否绕过 → 见 M7 决策
+
+---
+
+### M6 NotificationCardAck · 已定型
+
+**Q1 重冲条件：事件改动 (editVersion+1) 才重冲**
+- 表 `NotificationCardAck` 记 `(userId, eventKind, eventId, ackedVersion)`
+- 仲裁过滤逻辑：`event.editVersion > ack.ackedVersion` 才上卡片
+- 老师改共修时间 / 改公告内容 / 调任务目标 → 自动 editVersion+1 → 用户重新看到
+- 不做时间过期（30 天等）· 不主动清 ack · 表行随事件删除一起 CASCADE
+
+**Q2 多设备同步：后端表统一**
+- 用户政策：**不允许多设备同时登录**（注：当前 AuthSession 表 schema 支持多设备 · `/devices` 页有"退出其他设备" 入口 · **后续将单独评估是否收口到单设备**）
+- 即便有多端 · ack 落后端表 · 60s refetch 自然同步 · 不再设计 localStorage 端缓存
+- 决策推论：ack 设计**与设备数无关** · 任何设备 ack 都改后端
+
+**附注 · 多设备登录政策**：用户在 M6.Q2 提到"不允许多设备登录" · 但当前实际是支持多设备的（AuthSession + DevicesPage）· 这条政策若要真正落地需要：
+1. 登录时检测已有 active session → 顶掉旧端
+2. /devices 页改为只能"登出本设备"
+此项不在 v2 通知系统范围 · 单独议题（建一个 issue 跟踪）
 
 ---
 
 ## 10. 实施流水（按 commit 追踪）
 
+### 推荐实施顺序（由底向上 · 先基础设施 · 再事件源 · 再 UI）
+
+| 阶段 | 模块 | 工作量 | 依赖 | 备注 |
+|---|---|---|---|---|
+| Phase 1 | **M5** Severity 三档 + **M6** Ack 表 + **M7** channel 字段 | 中 | 仅 schema 变更 | `prisma db push` · 不破坏现状 |
+| Phase 2 | **M2** 系统公告 admin UI + 表 | 中 | M5 | admin /notification-rules 加 tab |
+| Phase 3 | **M8** 班级公告 push · **M9** 共修首发/变更/取消 · **M10** 任务 push + cron · **M11** 成就 push | 大 | M5/M6/M7 | 各 service 末尾加 dispatch · cron 加新 tick |
+| Phase 4 | **M4** 多源仲裁 API + kindRank · **M3** UpcomingEventCard 组件 + HomePage 集成 | 大 | Phase 3 全部完成 | UI 终点 |
+| Phase 5 | **M1** PWA 引导 sheet + iOS 检测 + 教程页 | 小 | 独立 | 任意时段做 |
+
+### Commit 表
+
 | 模块 | Commit | 备注 |
 |---|---|---|
 | M2 | 待 | |
-| ... | | |
+| M3 | 待 | |
+| M4 | 待 | |
+| M5 | 待 | |
+| M6 | 待 | |
+| M7 | 待 | |
+| M8 | 待 | |
+| M9 | 待 | |
+| M10 | 待 | |
+| M11 | 待 | |
+| M1 | 待 | |
 
 ---
 
