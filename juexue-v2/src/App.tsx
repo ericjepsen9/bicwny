@@ -155,6 +155,8 @@ function AppShell() {
                 <Route path="/me/meditations" element={<MyMeditationsPage />} />
                 <Route path="/me/stats" element={<DossierPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
+                {/* 学员域 · 班级排课只读 · 复用 CoachClassSessionsPage · 内部按角色 hide 增改删 */}
+                <Route path="/class/:id/sessions" element={<CoachClassSessionsPage />} />
                 <Route path="/notes" element={<NotesPage />} />
                 <Route path="/notes/new" element={<NoteEditPage />} />
                 <Route path="/notes/:id" element={<NoteEditPage />} />

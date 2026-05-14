@@ -415,7 +415,7 @@ function CompactSessionCard({ classId, isCoach }: { classId: string; isCoach: bo
   const status = next ? formatRelativeStart(next.startAt, s) : s('暂无未来', '暫無未來', 'None');
   const to = isCoach
     ? `/coach/classes/${encodeURIComponent(classId)}/sessions`
-    : '/calendar';
+    : `/class/${encodeURIComponent(classId)}/sessions`;
   return (
     <CompactCard
       to={to}

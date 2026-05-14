@@ -1,7 +1,7 @@
-// 辅导员排课页 · /coach/classes/:id/sessions
+// 排课页 · /coach/classes/:id/sessions（coach/admin · 可增删改）· /class/:id/sessions（学员 · 只读）
 //   - tab: 即将 / 历史
-//   - 列表：每条 session 显示 标题 / 时间 / 时长 / 直播链接 / 编辑 / 删除
-//   - + 新建按钮 → 弹层 form
+//   - 列表：每条 session 显示 标题 / 时间 / 时长 / 直播链接 / 编辑 / 删除（仅 coach）
+//   - + 新建按钮 → 弹层 form（仅 coach）
 //   - 删除二次确认
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -11,8 +11,9 @@ import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
-import { type ClassSession, useClassSessions } from '@/lib/queries';
+import { type ClassSession, useClassDetail, useClassSessions } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 type Tab = 'upcoming' | 'past';
@@ -20,29 +21,38 @@ type Tab = 'upcoming' | 'past';
 export default function CoachClassSessionsPage() {
   const { s } = useLang();
   const { id: classId } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const [tab, setTab] = useState<Tab>('upcoming');
   const [editing, setEditing] = useState<ClassSession | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
   const list = useClassSessions(classId, { past: tab === 'past' });
+  const detail = useClassDetail(classId || null);
+  const myRole = user && detail.data
+    ? detail.data.members.find((m) => m.user.id === user.id)?.role
+    : undefined;
+  const canEdit = myRole === 'coach' || user?.role === 'admin';
+  const backTo = canEdit ? '/coach/classes' : `/class/${encodeURIComponent(classId || '')}`;
 
   return (
     <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-      <Link to={`/coach/classes`} style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
-        ← {s('返回班级', '返回班級', 'Back')}
+      <Link to={backTo} style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textDecoration: 'none' }}>
+        ← {s('返回', '返回', 'Back')}
       </Link>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.3rem', letterSpacing: 2 }}>
           📅 {s('排课', '排課', 'Sessions')}
         </h1>
-        <button
-          type="button"
-          onClick={() => setCreateOpen(true)}
-          className="btn btn-primary btn-pill"
-          style={{ padding: '8px 16px' }}
-        >
-          + {s('新建', '新建', 'New')}
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="btn btn-primary btn-pill"
+            style={{ padding: '8px 16px' }}
+          >
+            + {s('新建', '新建', 'New')}
+          </button>
+        )}
       </div>
 
       {/* Tab */}
@@ -75,7 +85,9 @@ export default function CoachClassSessionsPage() {
       ) : (list.data ?? []).length === 0 ? (
         <p style={{ color: 'var(--ink-4)', font: 'var(--text-caption)', textAlign: 'center', padding: 'var(--sp-5) 0' }}>
           {tab === 'upcoming'
-            ? s('暂无未来排课 · 点右上「+」新建', '暫無未來排課', 'No upcoming sessions')
+            ? (canEdit
+                ? s('暂无未来排课 · 点右上「+」新建', '暫無未來排課', 'No upcoming sessions')
+                : s('暂无未来排课', '暫無未來排課', 'No upcoming sessions'))
             : s('暂无历史排课', '暫無歷史排課', 'No past sessions')}
         </p>
       ) : (
@@ -86,34 +98,39 @@ export default function CoachClassSessionsPage() {
               session={sess}
               onEdit={() => setEditing(sess)}
               classId={classId!}
+              canEdit={canEdit}
             />
           ))}
         </div>
       )}
 
-      {/* 创建弹层 */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s('新建排课', '新建排課', 'New session')}>
-        <SessionForm
-          classId={classId!}
-          onDone={() => setCreateOpen(false)}
-        />
-      </Dialog>
-
-      {/* 编辑弹层 */}
-      <Dialog open={!!editing} onClose={() => setEditing(null)} title={s('编辑排课', '編輯排課', 'Edit session')}>
-        {editing && (
+      {/* 创建弹层 · 仅 coach */}
+      {canEdit && (
+        <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={s('新建排课', '新建排課', 'New session')}>
           <SessionForm
             classId={classId!}
-            session={editing}
-            onDone={() => setEditing(null)}
+            onDone={() => setCreateOpen(false)}
           />
-        )}
-      </Dialog>
+        </Dialog>
+      )}
+
+      {/* 编辑弹层 · 仅 coach */}
+      {canEdit && (
+        <Dialog open={!!editing} onClose={() => setEditing(null)} title={s('编辑排课', '編輯排課', 'Edit session')}>
+          {editing && (
+            <SessionForm
+              classId={classId!}
+              session={editing}
+              onDone={() => setEditing(null)}
+            />
+          )}
+        </Dialog>
+      )}
     </div>
   );
 }
 
-function SessionRow({ session, onEdit, classId }: { session: ClassSession; onEdit: () => void; classId: string }) {
+function SessionRow({ session, onEdit, classId, canEdit }: { session: ClassSession; onEdit: () => void; classId: string; canEdit: boolean }) {
   const { s } = useLang();
   const qc = useQueryClient();
   const remove = useMutation({
@@ -165,34 +182,36 @@ function SessionRow({ session, onEdit, classId }: { session: ClassSession; onEdi
           🔗 {session.liveLink}
         </a>
       )}
-      <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-        <button
-          type="button"
-          onClick={onEdit}
-          className="btn btn-pill"
-          style={{ padding: '4px 12px', font: 'var(--text-caption)' }}
-        >
-          {s('编辑', '編輯', 'Edit')}
-        </button>
-        <button
-          type="button"
-          onClick={async () => {
-            if (await confirmAsync({
-              title: s('删除排课？', '刪除排課？', 'Delete?'),
-              body: s('删除后已发出的推送会自动停止 · 已通知历史保留', '', 'Pushes will stop · history preserved'),
-              danger: true,
-              okLabel: '删除',
-            })) {
-              remove.mutate();
-            }
-          }}
-          disabled={remove.isPending}
-          className="btn btn-pill"
-          style={{ padding: '4px 12px', font: 'var(--text-caption)', background: 'transparent', border: '1px solid var(--crimson)', color: 'var(--crimson)' }}
-        >
-          🗑️
-        </button>
-      </div>
+      {canEdit && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="btn btn-pill"
+            style={{ padding: '4px 12px', font: 'var(--text-caption)' }}
+          >
+            {s('编辑', '編輯', 'Edit')}
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              if (await confirmAsync({
+                title: s('删除排课？', '刪除排課？', 'Delete?'),
+                body: s('删除后已发出的推送会自动停止 · 已通知历史保留', '', 'Pushes will stop · history preserved'),
+                danger: true,
+                okLabel: '删除',
+              })) {
+                remove.mutate();
+              }
+            }}
+            disabled={remove.isPending}
+            className="btn btn-pill"
+            style={{ padding: '4px 12px', font: 'var(--text-caption)', background: 'transparent', border: '1px solid var(--crimson)', color: 'var(--crimson)' }}
+          >
+            🗑️
+          </button>
+        </div>
+      )}
     </div>
   );
 }
