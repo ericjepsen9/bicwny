@@ -1297,14 +1297,176 @@ sendPush({
 
 ---
 
-## ✅ 设计最终版（第 8 层封顶）
+## 第 9 层 · 端到端流程（按事件源 · 发布 → 用户 → 跳转）
 
-整套架构 5 个有效层 · 第 2 / 6 层作废：
-- 第 1 层：9 类事件源
-- 第 3 层：三通道路由（站内 / Push / 首页卡 → 现改为 站内 / Push / Banner / 首页 UI）
-- 第 4 层：用户偏好
-- 第 5 层：通知中心 UI
-- 第 7 层：可观测性 + 灰度 + 实施排期
-- **第 8 层：简化决策 + In-app Banner + 信息型法会**
+> 这一层是**实施参考手册** · 列出 9 类事件每一类的发布方 / 入口路径 / 字段 / tier 调度 / 三通道文案 / 跳转目标 / 撤回方式。
 
-下一步：进入实施排期 S1。
+### ① ClassSession · 班级共修
+
+**发布**：辅导员 · `/coach/classes/:id/sessions` → 「+ 新建共修」
+**字段**：标题 / 开始时间 / 时长（分钟）/ 内部直播链接 / 备注
+
+| Tier | 触发 | severity | 站内文案 | Push 文案 | Banner 文案 |
+|---|---|---|---|---|---|
+| created | 创建瞬间 | normal | 辅导员安排了周五 19:00 共修 | 周五 19:00 共修已安排 | — |
+| time_changed | 改时间 | urgent | 共修时间已改 · 周六 20:00 | 共修时间变更 · 周六 20:00 | — |
+| cancelled | 取消 | urgent | 周五共修已取消 | 周五共修已取消 | — |
+| t24h | 开始前 24h | normal | 明日 19:00 周共修 | 明日 19:00 周共修 | — |
+| t30 | 前 30 分钟 | normal | 30 分钟后开始 | 30 分钟后开始 · 准备就绪 | — |
+| t5 | 前 5 分钟 | urgent | 共修即将开始 | 即将开始 · ⏱ 5:00 | 共修即将开始 · ⏱ 4:32 · `[立即进入]` |
+| t0 | 准时开始 | critical | 共修进行中 | 立即进入 | 共修进行中 · `[进入直播间]` |
+
+**Push tag 替换**：T-30/T-5/T-0 共用 `tag = class_session:{sid}` · 通知栏只显示最新一条。
+
+**跳转**：
+- Tier ≤ t5 → `/classes/:id/sessions/:sid`（等候室）
+- Tier = t0 → `/classes/:id/sessions/:sid/live`（直播间）
+- Tier = end → `/classes/:id/sessions/:sid`（回放）
+
+### ② ClassAnnouncement · 班级公告
+
+**发布**：辅导员 · `/coach/classes/:id/announcements` → 「+ 新建公告」
+**字段**：标题 / 内容（富文本）/ severity（normal 默认 · urgent 手选）
+
+| severity | 站内 | Push | Banner |
+|---|---|---|---|
+| normal | 辅导员发布「本周任务安排」 | 班级公告 · 本周任务安排 | — |
+| urgent | 🔴 重要公告 | 重要 · 周日调休安排 | 重要 · 周日调休 · `[查看公告]` |
+
+**跳转**：所有入口 → `/classes/:id/announcements/:aid`
+**撤回**：辅导员点撤回 → 写 `revokedAt` · 不发新通知 · 通知中心置灰 + 删除线
+
+### ③ PracticeTask · 修学任务
+
+**发布**：辅导员 · `/coach/classes/:id/tasks` → 「+ 新建任务」
+**字段**：标题 / 关联法本 / 截止时间 / 题数 / 提醒模式（fixed / loose）
+
+| Tier | 触发 | severity | 站内 | Push |
+|---|---|---|---|---|
+| created | 创建瞬间 | normal | 新任务 · 完成《XXX》| 新任务 · 完成《XXX》|
+| task_t24h | 截止前 24h 未完成 | normal | 还有 24h 完成 | 任务剩 24h |
+| task_t6h | 截止前 6h 未完成 | urgent | ⚠️ 6h 后截止 | 即将截止 · 仅剩 6h |
+| task_completed | 学员完成 | normal | 你完成了《XXX》任务 | —（仅站内）|
+
+**跳转**：所有入口 → `/classes/:id/tasks/:tid`
+
+### ④ Personal Reminder · 个人提醒
+
+**发布**：系统 cron 自动 · 用户在 `/settings/notifications` 开关
+
+| Tier | 时机 | 站内 | Push |
+|---|---|---|---|
+| due | 每日 19:00 · 当日未修学 | 今天还没修学哦 | 临期提醒 · 你今天还没修学 |
+| daily | 每日 20:00 | 今日修学回顾 · 完成 2/3 任务 | 今日小结 · 完成 2/3 |
+| weekly | 周一 08:00 | 上周共修 X 次 · 任务 X/Y | 上周回顾来了 |
+
+**跳转**：所有入口 → `/profile/practice`
+
+### ⑤ Achievement · 成就解锁
+
+**发布**：系统业务事件触发 · 5 分钟窗口聚合
+
+**Banner 庆祝样式**（仅成就）：金色渐变 + 光晕呼吸 · 5 秒自动消失 · 不进队列优先级。
+
+| 站内 | Push | Banner |
+|---|---|---|
+| 🎉 解锁成就「坚持修学 7 天」 | 新成就 · 坚持修学 7 天 | 🎉 解锁成就「坚持修学 7 天」`[查看]` |
+
+**跳转**：所有入口 → `/profile/achievements?highlight=:id`
+
+### ⑥ SystemAnnouncement · 系统公告
+
+**发布**：admin · `/admin/announcements` → 「+ 新建系统公告」
+**字段**：标题 / 内容 / severity（normal / urgent / critical 三选）/ expiresAt
+
+| severity | 站内 | Push | Banner |
+|---|---|---|---|
+| normal | 平台公告 · 新增功能上线 | 平台公告 · 新增功能上线 | — |
+| urgent | 重要 · 数据迁移即将开始 | 重要 · 数据迁移 22:00 开始 | 重要 · 数据迁移 22:00 开始 · `[查看详情]` |
+| critical | ⚠️ 紧急 · 平台 22:00 维护 30 分钟 | 紧急 · 22:00 维护 30 分钟（无视静默）| ⚠️ 平台 22:00 维护 30 分钟 · `[我知道了]` |
+
+**critical 特殊**：
+- Push 无视静默时段
+- Banner 永不自动消失 · 必须 ack
+- 未 ack 时每次进 app 重浮（直到 ack 或 expiresAt）
+
+**跳转**：所有入口 → `/announcements/:id`（新增页面）
+**撤回**：admin 撤回 → 写 `revokedAt` · 通知中心置灰 · 已显示 banner 立即关
+
+### ⑦ DharmaAssembly · 法会 / 系统活动（信息型）
+
+**发布**：admin · `/admin/assemblies` → 「+ 新建法会」
+**字段**：标题 / category（assembly / system_session / memorial）/ 起止时间 / 介绍 / 主题 / 参与方式 / 封面图 / externalLink（Zoom 等 · 可空）
+
+| Tier | 触发 | 站内 | Push | Banner |
+|---|---|---|---|---|
+| created | 创建瞬间 | 即将开启 · 文殊圣诞法会 5/20-5/22 | 文殊圣诞法会 5/20 开启 | — |
+| daily_t1h | 每日首场前 1h | 法会今日 19:00 开始 | 法会今日 19:00 开始 | — |
+| in_progress_arrival | 法会期间每日首次进 app | 法会进行中 · 与全球同修共发心 | — | 🪷 法会进行中 · `[查看详情]` |
+
+**首页玻璃文字**（法会期间持续）：「🪷 文殊圣诞法会 · 进行中」
+
+**跳转**：所有入口 → `/assemblies/:id`（详情页 · **无 /live 子页**）
+
+**详情页**：
+- 封面 / 主题 / 参与方式 / 主办方 / 介绍
+- 外部链接：`<a target="_blank">加入 Zoom 会议 ↗</a>` 直接跳转
+- **无评论区**
+
+### ⑧ AuspiciousDay · 藏历加持日
+
+**发布**：系统数据预置 · admin 在 `/admin/auspicious-days` 可编辑文案
+**通道**：仅首页玻璃文字 · 不写站内 / 不发 push / 不触发 banner
+**玻璃文字**（当日 0:00-23:59）：「🪷 今日加持日 · 农历四月十五 · 释迦牟尼吉祥日」
+**跳转**：点击 → `/auspicious/:date`（介绍页）
+
+### ⑨ MembershipChange · 班级成员变动
+
+**发布**：
+- 辅导员 · `/coach/classes/:id/members` → 列表项 `[移除]` / `[邀请]`
+- admin · `/admin/classes/:id/members`
+
+**通道**：仅站内（不发 push · 不触发 banner · 不进玻璃文字）
+
+| Tier | severity | 文案 | 跳转 |
+|---|---|---|---|
+| kicked | urgent | 你已被移出「班级·初心」 · 如有疑问请联系辅导员 | `/classes`（不能跳已踢班）|
+| joined | normal | 你已加入「班级·研修」 · 开始你的修学之旅 | `/classes/:id` |
+| class_dissolved | urgent | 「班级·初心」已解散 · 感谢同行 | `/classes` |
+
+**隐私原则**：不暴露操作人是谁。
+
+### 全局规则汇总
+
+**Push 5 层过滤**：事件源允许 → 用户偏好 → 幂等去重 → 静默时段 → 频率上限。
+**Banner 触发**：`severity >= urgent AND 临场行动类 AND 前台 AND 不在目标页`。
+**跳转边界**：404 / 403 / 未登录 / 已在目标页 / pendingDeepLink 中转。
+**撤回行为**：写 `revokedAt` · 通知中心置灰 + 删除线 · 不发新通知。
+
+### 总流程图
+
+```
+[发布方]                   [后端]                    [用户端]
+辅导员 → /coach/...          ↓                    ┌──→ 站内（铃铛）
+admin → /admin/...    → dispatchToUsers()  ───→  ├──→ Push（不在 app 时）
+系统 cron / 业务事件         ↓                    ├──→ Banner（在 app 时）
+                       NotificationDispatchLog     └──→ 首页玻璃文字 / 班级红点
+                       PushDeliveryLog                  （前端 query 主动拉）
+                            ↓
+                       Web Push 协议
+                            ↓
+                       SW push handler
+                            ↓
+                     ┌──无窗口──→ openWindow(link)
+                     └──有窗口──→ focus + postMessage navigate
+                            ↓
+                    React Router navigate(link)
+                            ↓
+                       目标页（同 URL · 不论来自 push / banner / 通知中心）
+```
+
+---
+
+## 待续
+
+- **第 10 层**：SMS 短信提醒（兜底通道 · 国内运营商 / 模板备案 / 成本控制）
