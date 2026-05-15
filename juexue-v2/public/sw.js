@@ -116,10 +116,16 @@ self.addEventListener('message', (event) => {
 // 后端 web-push 推送到达 SW · 用 Notification API 显示系统级 banner
 // payload 由后端 push/service.ts 生成 · 含 title / body / link / tag / icon / badge
 
-// link 白名单校验 · 防 javascript: / data: 等危险 URL · 只接受 /app/ 同源相对路径
+// link 白名单校验 · 防 javascript: / data: / 跨域协议注入
+// 接受两种形式:
+//   1) /app/... (已带 router base) · 直接用
+//   2) /... (in-app 路由 · 如 /practice) · 自动补 /app 前缀
+// 其它一律兜底 /app/
+// 后端 dispatch 通常输出形式 2 · 见 reminder-queries.ts / announcements/service.ts
 function safeLink(link) {
   if (!link || typeof link !== 'string') return '/app/';
   if (link.startsWith('/app/')) return link;
+  if (link.startsWith('/')) return '/app' + link;
   return '/app/';
 }
 

@@ -253,7 +253,7 @@ export async function handleReport(
   await sendPushToUsers(reportersToNotify, {
     title,
     body: titleTcMap[decision],
-    link: 'notification.html',
+    link: '/notifications',
     tag: 'report-' + r.questionId,
   });
 
