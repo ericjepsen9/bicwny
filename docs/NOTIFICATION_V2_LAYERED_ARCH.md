@@ -527,9 +527,109 @@ async function dispatchToUsers(event: {
 
 ---
 
+## 第 4 层 · 用户偏好
+
+### A. 偏好 5 维度
+
+| # | 维度 | 默认 | 可改 |
+|---|---|---|---|
+| 1 | Push 总开关（master）| on | ✅ |
+| 2 | Per-type push toggle（9 类）| 全部 on | 部分（critical 强制 on）|
+| 3 | 静默时段 | 22:00 - 07:00 · Asia/Shanghai | ✅ |
+| 4 | 个人提醒细分（v1 已有）| 三档全 on | ✅ |
+| 5 | 首页卡偏好 | 启用 / 8h 衰减 / 显示藏历日 | ✅ |
+
+### B. 默认 on 原则
+
+新用户最需被引导 · 默认全开。强制规则：
+- `system_announcement.critical`：**不可关** · UI 灰锁图标
+- `membership_change` / `auspicious_day`：**无 push toggle**（本就不发 push）
+- `auspicious_day`：有「首页卡显示开关」
+
+### C. Prisma schema
+
+```prisma
+model NotificationPreference {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  
+  pushEnabled   Boolean  @default(true)
+  pushTypes     Json     @default("{}")  // 仅记关闭项 · 缺省键=on · 加类型不用 migration
+  
+  quietStart    String   @default("22:00")
+  quietEnd      String   @default("07:00")
+  timezone      String   @default("Asia/Shanghai")
+  
+  decayHours    Int      @default(8)       // 6/8/12/24
+  
+  reminderDue    Boolean @default(true)
+  reminderDaily  Boolean @default(true)
+  reminderWeekly Boolean @default(true)
+  
+  homeCardEnabled    Boolean @default(true)
+  auspiciousDayCard  Boolean @default(true)
+  
+  user      User     @relation(fields: [userId], references: [id])
+  updatedAt DateTime @updatedAt
+}
+```
+
+**用 JSON 不用关系表**：加新事件类型不需 migration · 仅记关闭项节省存储 · 大多数 row 几 bytes。
+
+### D. Push 授权时机分层（避免冷启动 deny）
+
+| 时机 | 触发 | 文案 |
+|---|---|---|
+| 1 | 首次进第一节共修详情 | 「开启通知 · 不错过下次共修开始」|
+| 2 | 首次被加入新班 | 「老师发公告会即时提醒你」|
+| 3 | 用户主动开总开关 | 直接弹 permission |
+
+授权失败时引导浏览器设置手动开（文字指引）。
+
+### E. 偏好查询性能
+
+批量 dispatch 时一次性 prefetch + **in-memory Map cache 5 分钟**（不引入 Redis）：
+
+```ts
+const prefs = await prisma.notificationPreference.findMany({
+  where: { userId: { in: userIds } }
+});
+const prefMap = new Map(prefs.map(p => [p.userId, p]));
+```
+
+cache 失效：用户改偏好时主动 invalidate 该 user entry。
+
+### F. 偏好变更生效
+
+- 立即生效 · 下一次 dispatch 按新值过滤
+- **历史不补发**（站内已有 · 无需重复打扰）
+- 关 master ≠ 删 PushSubscription · subscription 保留 · 仅过滤
+
+### G. API
+
+```
+GET   /api/me/notification-preferences
+PATCH /api/me/notification-preferences        // 部分更新
+POST  /api/me/notification-preferences/reset  // 恢复默认
+```
+
+响应仅含缺省值 + 差异：
+```ts
+{
+  pushEnabled: true,
+  pushTypes: { achievement: false },  // 仅记关闭项
+  quietStart: '22:00', quietEnd: '07:00', timezone: 'Asia/Shanghai',
+  decayHours: 8,
+  reminders: { due: true, daily: true, weekly: false },
+  homeCardEnabled: true,
+  auspiciousDayCard: true,
+}
+```
+
+---
+
 ## 待续
 
-- **第 4 层**：用户偏好层（per-type toggle、静默时段自定义、push 总开关、默认值策略）
 - **第 5 层**：通知中心 UI（铃铛列表 + 已读管理 + 撤回置灰）
 - **第 6 层**：首页卡 UI 细节（倒计时 / dismiss 交互 / 档位切换动画）
 - **第 7 层**：可观测性 + 灰度发布
