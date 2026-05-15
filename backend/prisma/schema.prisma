@@ -55,6 +55,12 @@ model User {
   // start=end 表示关闭静默 · 跨午夜逻辑见 dispatcher
   quietHoursStart          Int       @default(22) // 22:00 起
   quietHoursEnd            Int       @default(7)  // 07:00 止
+  // ── 单设备登录 · v2 通知系统 ──
+  // 新登录时写新 sessionId · 旧 session 与此不匹配则中间件 401 强登出
+  // 同时所有 PushSubscription 标 isActive=false · 防多设备收 push
+  currentSessionId         String?
+  // v2 灰度发布 feature flag · false=v1 · true=v2 · 全平台 mode 在 SystemSetting
+  notificationV2Enabled    Boolean   @default(false)
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 
@@ -227,6 +233,11 @@ model Notification {
   readAt    DateTime?
   // 软删（21）：列表查询过滤 deletedAt IS NULL · 物理行保留供 cursor 锚定
   deletedAt DateTime?
+  // v2 通知系统 · 内容指纹 · 公告 update 后 dismissal 失效
+  // sha256(title+body).slice(0,16)
+  contentHash String?
+  // v2 撤回 · admin / 老师撤回公告时写入 · 前端置灰 + 删除线 · 不发新通知
+  revokedAt   DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -271,10 +282,16 @@ model PushSubscription {
   userAgent  String?
   createdAt  DateTime @default(now())
   lastSeenAt DateTime @default(now())
+  // v2 单设备登录支持 · 关联当时登录的 sessionId · 新登录踢旧 session 时一并停用
+  sessionId  String?
+  // 软删除标志 · false 时 sendPush 时跳过 · 不物理删（保留审计）
+  isActive   Boolean   @default(true)
+  deactivatedAt DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, isActive])
   @@index([lastSeenAt]) // 清理 30 天没活的订阅
 }
 
@@ -322,10 +339,21 @@ model NotificationDispatchLog {
   userId         String
   notificationId String? // 对应 Notification 行 id · null = 写 inbox 失败但 push 已尝试
   pushedAt       DateTime @default(now())
+  // v2 通知系统 · 通道维度（用于频率上限计数）
+  // 'inbox' | 'push' | 'sms' | 'banner'
+  channel        String   @default("push")
+  // v2 · 投递成功状态 · false 时不计入频率上限
+  success        Boolean  @default(true)
+  // v2 · 错误信息 · 投递失败时写入
+  error          String?
 
-  @@unique([eventKind, eventId, tier, userId])
+  // 含 channel 的 unique · 同事件多通道各发一次
+  // 数据库现有数据 channel 默认 'push' · 不破坏旧 unique 语义
+  @@unique([eventKind, eventId, tier, userId, channel])
   @@index([eventKind, eventId, tier])
   @@index([userId, pushedAt])
+  // 频率上限查询索引（每用户每通道按时间）
+  @@index([userId, channel, pushedAt])
 }
 
 // 通知规则 · 平台/班级/任务级默认值 + 模板配置
@@ -1397,4 +1425,22 @@ model HomePoster {
 
   @@unique([year, month])
   @@index([year, month])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 孤儿文件回收（cover 等图片替换后延迟物理删除）
+//   触发：cover.service 替换图片时不再 unlink · 而是写一条 OrphanedFile
+//   清理：任何 cover 操作 / juexue-api 启动时顺带跑 gcOrphanedFiles · 删 7 天前的
+//   设计原则：业务流量驱动 · 无独立 cron · 旧文件给浏览器 / SW 缓存留 7 天窗口
+// ═══════════════════════════════════════════════════════════════
+
+model OrphanedFile {
+  id           String   @id @default(cuid())
+  // 主文件相对路径（如 /uploads/courses/abc-123-1024.webp）
+  filePath     String
+  // 同时记录 320/640/1024 三个尺寸路径 · 删除时一并清
+  variantPaths String[]
+  markedAt     DateTime @default(now())
+
+  @@index([markedAt])
 }

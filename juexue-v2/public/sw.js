@@ -115,6 +115,14 @@ self.addEventListener('message', (event) => {
 // ── Push 通知接收 ──────────────────────────────────────────
 // 后端 web-push 推送到达 SW · 用 Notification API 显示系统级 banner
 // payload 由后端 push/service.ts 生成 · 含 title / body / link / tag / icon / badge
+
+// link 白名单校验 · 防 javascript: / data: 等危险 URL · 只接受 /app/ 同源相对路径
+function safeLink(link) {
+  if (!link || typeof link !== 'string') return '/app/';
+  if (link.startsWith('/app/')) return link;
+  return '/app/';
+}
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   let data;
@@ -130,8 +138,8 @@ self.addEventListener('push', (event) => {
     badge: data.badge || '/app/icon-72.png',
     // 同 tag 的后到通知替换前一个 · 防短时刷屏（如 T-30/T-5/T0 三档同事件）
     tag: data.tag,
-    // 用户点 banner 时跳转的目标 · 默认 home.html
-    data: { link: data.link || '/app/' },
+    // 用户点 banner 时跳转的目标 · 默认 home.html · 校验后写入
+    data: { link: safeLink(data.link) },
     requireInteraction: false,
   };
   event.waitUntil(self.registration.showNotification(title, options));
@@ -141,9 +149,9 @@ self.addEventListener('push', (event) => {
 // 已有 /app/ 路径的 tab 复用并 focus · 否则新开 window
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const link = event.notification.data?.link || '/app/';
-  // 容错：link 可能是 '/app/...' 也可能是绝对 URL
-  const url = link.startsWith('http') ? link : (self.location.origin + (link.startsWith('/') ? link : '/' + link));
+  // 再次校验 · 防御性 · 即使 push 时漏过 click 时再拦一次
+  const link = safeLink(event.notification.data?.link);
+  const url = self.location.origin + link;
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // 已有 tab → 聚焦 + 导航
