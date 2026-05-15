@@ -844,6 +844,164 @@ NULL ─fetch─→ HIDDEN (no card)
 
 ---
 
-## 待续
+## 第 7 层 · 可观测性 + 灰度发布 + 实施排期
 
-- **第 7 层**：可观测性 + 灰度发布 + 实施排期 + 风险点
+### A. 关键指标（10 个）
+
+| # | 指标 | 公式 | 告警阈值 |
+|---|---|---|---|
+| 1 | 通知送达率 | `notifications_written / events_dispatched` | < 99% |
+| 2 | Push 成功率 | `push_delivered / push_sent` | < 95% |
+| 3 | Push 授权率 | `granted / active_users` | 跟踪 |
+| 4 | 静默时段命中率 | `quiet_hours_delayed / push_sent` | 跟踪 |
+| 5 | 频率上限丢弃率 | `rate_limit_dropped / push_sent` | > 5% |
+| 6 | 首页卡 impression | `card_shown / home_visits` | 跟踪 |
+| 7 | 首页卡 CTR | `card_click / card_shown` | < 5% 异常 |
+| 8 | dismiss 率 | `card_dismissed / card_shown` | > 50% 查文案 |
+| 9 | API p95 延迟 | active-card / unread-count | > 200ms |
+| 10 | 单用户日 push 数 | `push_count / user / day` | > 30 |
+
+### B. 日志表新增 3 个
+
+```prisma
+model PushDeliveryLog {
+  id                  String @id @default(cuid())
+  pushSubscriptionId  String
+  userId              String
+  status              String   // 'sent' | 'failed' | 'expired'
+  error               String?
+  sentAt              DateTime @default(now())
+  @@index([userId, sentAt])
+}
+
+model HomeCardEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  eventKind String
+  eventId   String
+  tier      String
+  action    String   // 'shown' | 'click' | 'dismiss' | 'ack'
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+  @@index([eventKind, action, createdAt])
+}
+
+model NotificationCardAck {
+  userId       String
+  eventKind    String
+  eventId      String
+  kind         String   // 'dismissed' | 'acknowledged'
+  contentHash  String?
+  createdAt    DateTime @default(now())
+  @@unique([userId, eventKind, eventId])
+}
+```
+
+### C. Feature Flag
+
+user-level + 全平台 kill switch：
+
+```prisma
+model User {
+  ...
+  notificationV2Enabled Boolean @default(false)
+}
+
+// SystemConfig.notification_v2_global: 'off' | 'shadow' | 'on'
+// shadow = v1 + v2 双发对比 · 用户仍看 v1
+```
+
+```ts
+async function dispatchToUsers(event) {
+  const mode = await getSystemConfig('notification_v2_global');
+  if (mode === 'off') return dispatchV1(event);
+  
+  for (const userId of event.userIds) {
+    const user = await getUser(userId);
+    if (mode === 'on' && user.notificationV2Enabled) {
+      await dispatchV2(event, user);
+    } else if (mode === 'shadow') {
+      await Promise.allSettled([dispatchV1(event, user), dispatchV2Shadow(event, user)]);
+    } else {
+      await dispatchV1(event, user);
+    }
+  }
+}
+```
+
+### D. 灰度 4 阶段
+
+| 阶段 | 内容 | 覆盖 | 验收 |
+|---|---|---|---|
+| P0 基础 | OrphanedFile · 单设备 · lastSeenAt | 0%（透明）| smoke 全过 |
+| P1 后端切换 | dispatchToUsers · 5 类旧事件 · shadow 3 天 | shadow 100% | v1/v2 diff < 1% |
+| P2 新事件源 | 任务/成就/系统公告/法会/成员变动 | 5→20→50% | 灰度 1 周观察 |
+| P3 UI 上线 | active-card · 通知中心 · 玻璃 pill · 卡片 | 20→100% | smoke + 用户反馈 |
+| P4 清理 | 删 dispatchV1 · 删 createMany · flag 保留 30 天 | 100% | 旧路径 0 调用 1 周 |
+
+### E. Admin 灰度页 `/admin/notification-v2`
+
+- 全平台模式切换：off / shadow / on
+- 启用人数 + 随机加 N / 指定加入 / 清空
+- 事件源细粒度开关
+- 实时指标仪表盘（24h 滚动）
+
+### F. 5 个关键风险
+
+| 风险 | 缓解 |
+|---|---|
+| Push 链路单点故障 | 站内是最终事实 · push 失败不影响功能 · 监控告警 |
+| 首页卡 API 慢查询 | 预入 HomeCardCandidate 表 · active-card 仅读 · staleTime 30s |
+| 聚合 push 早 7:00 cron 漏跑 | DelayedPush 表保留 · cron 健康检查 · 重启扫未发 |
+| Ack 表爆炸 | (userId, eventId) 唯一索引 · 90 天 GC |
+| v2 严重 UX 问题难回退 | flag 保留 6 月 · admin 一键回退个人/全平台 |
+
+### G. 实施排期（7.5 周）
+
+| Sprint | 内容 | 时长 |
+|---|---|---|
+| S1 | P0 基础 · dispatchToUsers · feature flag · OrphanedFile GC | 1 周 |
+| S2 | P1 旧事件源接入 + shadow 3 天 | 1 周 |
+| S3 | 监控 · P2 新事件源 · 灰度 50% | 1.5 周 |
+| S4 | P3 UI（active-card + 通知中心 + 玻璃 pill + 卡片）+ 100% | 2 周 |
+| S5 | P4 旧路径移除 · flag 观察 | 1 周 |
+| 缓冲 | bug fix + 文案 | 1 周 |
+| **合计** | | **~7.5 周** |
+
+### H. 上线前 smoke test（14 项）
+
+1. 9 类事件源各发 1 条 · 三通道全到位
+2. 静默时段 + critical 绕过 + 聚合发送（早 7:00 「N 条未读」）
+3. 首页卡仲裁优先级（5 候选竞争）
+4. 共修 T-30 → T-5 → T-0 档位升级 · 卡片不卸载
+5. 公告 dismiss · 老师改内容 → contentHash 变 → 卡重现
+6. critical SystemAnnouncement ack 后消失 · 全平台每人独立 ack
+7. 进行中卡缩成右下角徽章
+8. 撤回公告：列表置灰 + invalidate
+9. 跨设备登录：旧设备 401 强登出
+10. Cover 替换：7 天后旧文件 GC
+11. 频率上限：第 6 条 normal push 被丢 · 站内仍有
+12. 用户偏好关 push 类型 → 仅站内
+13. 99+ 横幅 + lastSeenAt 显示
+14. 60 天后已读物理删除
+
+### I. 监控通道
+
+- PM2 logs + SystemAlert 表
+- 关键告警转 admin（Slack / 邮件 · 可选）
+- /admin/notification-v2 实时仪表盘
+
+### J. 灰度回退预案
+
+| 情况 | 操作 |
+|---|---|
+| 个别用户报问题 | `user.notificationV2Enabled = false` |
+| 某事件源 bug | 灰度页关掉该事件源 v2 开关 |
+| 全局严重问题 | `SystemConfig.notification_v2_global = 'off'` |
+| 数据库灾难 | 备份恢复 + flag off + DispatchLog 重放 |
+
+---
+
+## ✅ 完整设计封顶
+
+7 层全部决策落定 · 详见各层。下一步进入实施排期 S1。
