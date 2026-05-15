@@ -404,9 +404,132 @@ useQuery({
 
 ---
 
+## 第 3 层 · 三通道路由（站内 / Push / 首页卡）
+
+### A. 通道职责
+
+| 通道 | 性质 | 打扰度 | 触达方式 |
+|---|---|---|---|
+| **站内（铃铛）** | 永久存储 · 主动查看 | 零 | 用户进消息页 |
+| **Push** | 一次性弹窗 · 可锁屏 | 高 | 系统通知 |
+| **首页卡** | 仲裁后展示 · pull 模式 | 中 | 用户进首页 |
+
+### B. 站内通道 · 几乎不抑制
+
+- 默认所有事件都写 Notification 表
+- 唯一例外：**藏历加持日不写**（仅首页卡浮现 · 写铃铛=噪音）
+- 撤回处理：`notification.revokedAt = now()` · 前端置灰不删除
+- 站内是「最终事实」· Push/首页卡是即时通道副本
+
+### C. Push 通道 · 5 层过滤（顺序执行）
+
+```ts
+async function shouldSendPush(event, user) {
+  // L1: 事件源不发 push（藏历日 / 班级成员变动）
+  if (NO_PUSH_EVENTS.includes(event.kind)) return false;
+
+  // L2: 用户偏好
+  if ((await getPreference(user.id, event.kind)).push === 'off') return false;
+
+  // L3: 幂等去重
+  if (await wasAlreadySent(event.kind, event.id, event.tier, user.id)) return false;
+
+  // L4: 静默时段（severity-aware）
+  if (isInQuietHours(user) && event.severity !== 'critical') {
+    const delayTo = event.severity === 'urgent' ? quietHoursEnd : nextDayMorning7am;
+    await scheduleDelayed(event, user, delayTo);
+    return false;
+  }
+
+  // L5: 频率上限（每小时 5 条 normal · urgent/critical 不计入）
+  if (event.severity === 'normal' && await getHourlyPushCount(user.id) >= 5) return false;
+
+  return true;
+}
+```
+
+### D. 静默时段 × severity 矩阵
+
+| severity | 静默期内行为 |
+|---|---|
+| normal | 延迟到次日早 07:00 · 多条**聚合成 1 条**「你有 N 条未读消息 · 包含 X / Y」|
+| urgent | 延迟到静默结束（默认 07:00）· 单条发送 |
+| critical | **立即发送 · 无视静默** |
+
+### E. 频率上限设计
+
+- normal：每小时 5 条
+- urgent / critical：不限制
+- **超限的 normal 仅丢弃 push · 仍写站内 + 进首页卡仲裁**
+
+### F. 首页卡通道 · 4 层过滤
+
+（已在第 2 层定义 · 这里整合）
+
+```ts
+async function shouldShowOnHomeCard(event, user) {
+  // L1: 事件源不进首页卡（个人提醒/成就/班级成员变动）
+  if (NO_HOMECARD_EVENTS.includes(event.kind)) return false;
+  // L2: dismiss 且 contentHash 未变
+  if (await isDismissed(user.id, event)) return false;
+  // L3: 已应答
+  if (await hasAnswered(user.id, event)) return false;
+  // L4: 静默衰减（normal + 8h 无交互）
+  if (event.severity === 'normal' && event.createdAt < now() - 8h
+      && !await hasInteracted(user.id, event.id)) return false;
+  return true;
+}
+```
+
+### G. 三通道事件路由总表
+
+| 事件 | 站内 | Push | 首页卡 |
+|---|---|---|---|
+| ① ClassSession | ✅ | ✅（可关）| ✅ |
+| ② ClassAnnouncement | ✅ | ✅（可关）| ✅ |
+| ③ PracticeTask | ✅ | ✅（可关 · fixed 模式）| ✅ |
+| ④ Personal Reminder | ✅ | ✅（可关）| ❌ |
+| ⑤ Achievement | ✅ | ✅（可关）| ❌ |
+| ⑥ SystemAnnouncement | ✅ | ✅（critical 不可关）| ✅ |
+| ⑦ DharmaAssembly | ✅ | ✅（可关）| ✅ |
+| ⑧ AuspiciousDay | ❌ | ❌ | ✅（仅此通道）|
+| ⑨ MembershipChange | ✅ | ❌（强制）| ❌（强制）|
+
+### H. 三通道写入容错策略
+
+**「最佳努力」模式**：dispatchToUsers 中三个通道并行 await · 失败一个不阻塞其它。每个失败记 log（含 userId / channel / error）· 后续可补偿重试或人工排查。理由：站内是最终事实 · 用户即使 push 失败也能在铃铛找到。
+
+### I. dispatchToUsers() 终极入口（伪代码）
+
+```ts
+async function dispatchToUsers(event: {
+  kind: EventKind, id: string, tier: string,
+  userIds: string[], severity: Severity,
+  title: string, body: string, link: string,
+  contentHash?: string, scopes: string[],
+  expiresAt: Date,
+}) {
+  await logDispatch(event);  // 幂等
+
+  for (const userId of event.userIds) {
+    await Promise.allSettled([     // ← 最佳努力 · 不阻塞
+      shouldWriteInbox(event) && writeNotification({ userId, ...event }),
+      shouldSendPush(event, await getUser(userId)) && sendWebPush(userId, {
+        title, body, link, scopes,
+        tag: `${event.kind}:${event.id}`,   // 同 tag 自动替换 · 防堆叠
+      }),
+      shouldShowOnHomeCard(event, await getUser(userId)) 
+        && upsertHomeCardCandidate(event),
+    ]);
+  }
+}
+```
+
+---
+
 ## 待续
 
-- **第 3 层**：三通道路由（站内 + push + 首页卡的具体路由规则、静默时段、用户偏好叠加）
-- **第 4 层**：用户偏好层（per-type toggle、静默时段、push 频率上限）
-- **第 5 层**：UI / 通知中心改造
-- **第 6 层**：可观测性 + 灰度发布
+- **第 4 层**：用户偏好层（per-type toggle、静默时段自定义、push 总开关、默认值策略）
+- **第 5 层**：通知中心 UI（铃铛列表 + 已读管理 + 撤回置灰）
+- **第 6 层**：首页卡 UI 细节（倒计时 / dismiss 交互 / 档位切换动画）
+- **第 7 层**：可观测性 + 灰度发布
