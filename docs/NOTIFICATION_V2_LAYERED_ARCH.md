@@ -1002,6 +1002,309 @@ async function dispatchToUsers(event) {
 
 ---
 
-## ✅ 完整设计封顶
+## 第 8 层 · 简化决策（B 方案 · 替代第 2 / 6 层 + 补 In-app Banner + 系统活动信息型）
 
-7 层全部决策落定 · 详见各层。下一步进入实施排期 S1。
+> 状态：✅ 设计最终版 · 2026-05-15
+> 取代关系：本层落地后 · 第 2 层（首页卡仲裁）和第 6 层（首页卡 UI）**作废** · 仅保留供历史参考。
+
+### A. 核心决策
+
+放弃「首页卡 + 仲裁优先级表 + 4 档窗口 + 自动消失 3 规则 + dismissal / contentHash」的复杂方案。改为：
+
+**通道架构由 4 改 3 · 新增第 4 个轻量通道 In-app Banner**：
+
+| # | 通道 | 角色 | 用户场景 |
+|---|---|---|---|
+| 1 | 站内（铃铛） | 历史记录 | 用户主动查 |
+| 2 | Push（Web Push）| 强触达 | 用户**不在 app** 时唯一 |
+| 3 | **In-app Banner** | 临场提醒（前台）| 用户在 app 但不在首页 |
+| 4 | **首页玻璃文字 + 班级卡红点**（非通知系统 · 是首页 UI）| 静态概览 | 用户在首页 |
+
+### B. 首页玻璃文字（非通知系统组件 · 但承担「卡片」职责）
+
+```
+[Cover Hero 画报]
+  ╭─ 玻璃 ─╮  下次共修 · 周五 19:00
+  ╭─ 玻璃 ─╮  今日任务 · 5/10 题
+  ╭─ 玻璃 ─╮  最新公告 · 3 条未读
+  
+  ╭─ 玻璃 pill ─╮  本周安排 ›
+```
+
+**特性**：
+- 液态玻璃质感 · 与画报融合 · backdrop-filter blur
+- 仅文字 · 无图标 / 进度条 / 倒计时
+- 静态展示 · 任何 tier 都保持平静（临场感由 banner 承担）
+- 没数据时整行隐藏（无下次共修 → 这行消失）
+- 三行全空 → 整组隐藏 · 只剩玻璃 pill
+- 主题自适应：浅色画报用深字 + 浅白底 · 深色画报用浅字 + 深底
+- 单班假设：所有玻璃文字直指那个班 · 无聚合歧义
+
+**点击跳转**：
+- 下次共修 → `/classes/:id/sessions/:sid`
+- 今日任务 → `/classes/:id/tasks/:tid`（当前未完成的那条）
+- 最新公告 → `/notifications?filter=announcement`（通知中心 + 公告 tab）
+
+### C. 班级卡红点
+
+- 红点 = 该班有未处理事件（共修 / 任务 / 公告任一）
+- **不显示数字** · **不区分类型**
+- 红点消失：进入过共修详情 / 任务完成或截止 / 公告全部已读
+- 单班场景：唯一一张班级卡可能有红点
+
+### D. In-app Banner（第 3 通道详设）
+
+**触发条件**：
+- `severity >= urgent` AND 事件属于「临场行动类」
+- 用户在 app 前台（`document.visibilityState === 'visible'`）
+
+**事件触发表**：
+
+| 事件 | banner 触发 |
+|---|---|
+| ClassSession T-5 / T-0 / 进行中 | ✅ |
+| critical SystemAnnouncement | ✅（不自动消失 · 必须 ack）|
+| urgent SystemAnnouncement | ✅（8 秒自动消失）|
+| DharmaAssembly 进行中（每日首次进 app）| ✅ |
+| Achievement 解锁 | ✅（金色庆祝样式）|
+| ClassAnnouncement urgent | ✅ |
+| 其它 normal 事件 | ❌ |
+
+**UI 规范**：
+```
+[safe-area-inset-top]
+╭──────────────────────────────────╮
+│ 🧘 共修即将开始 · ⏱ 4:32     [×] │
+│ 班级·初心 一组  ·  [立即进入]    │
+╰──────────────────────────────────╯
+```
+
+- z-index 9999 · 浮于所有页面之上
+- 高度 64-72px · 圆角 12px · 距顶 8px
+- 玻璃质感（backdrop-filter blur）
+- 背景按 severity（urgent 浅黄 / critical 浅红）
+- 滑入 300ms · 滑出 200ms · framer-motion
+- 整条点击 = 主 CTA（除右上角 [×]）
+- 自动消失：normal 不触发 / urgent 8 秒 / critical 永不（须 ack）
+
+**Banner 与系统 Push 互斥**：
+- App 前台时跳过系统 push · 走 banner
+- SW push handler 检测 `clients.matchAll({type:'window'})` 是否有 visible client
+- 有 → postMessage 给前端走 banner
+- 无 → showNotification 走系统通知栏
+
+**Banner 队列**：
+- 同时只显示 1 条
+- 队列按 severity 排序（critical > urgent > normal）
+- 用户点击 → navigate + 关当前 + 1 秒后显示下一条
+- 用户 dismiss → 关当前 + 立即显示下一条
+- 新到 banner 优先级更高 → 推开当前（当前回队列首位）
+
+**Achievement 庆祝样式**（特殊）：
+```
+╭──────────────────────────────────╮
+│ 🎉 解锁成就「坚持修学 7 天」   [×] │  ← 金色边
+│    [查看]                          │
+╰──────────────────────────────────╯
+```
+金色渐变背景 + 光晕呼吸 · 5 秒后自动消失 · 不进队列优先级。
+
+### E. 4 类事件源最终路由
+
+| 事件 | 站内 | Push | Banner | 首页玻璃文字 | 红点 |
+|---|---|---|---|---|---|
+| ① ClassSession 共修 | ✅ | ✅ | T-5/T-0/进行中 | 下次共修 行 | ✅ |
+| ② ClassAnnouncement normal | ✅ | ✅ | ❌ | 「N 条未读」| ✅ |
+| ② ClassAnnouncement urgent | ✅ | ✅ | ✅ | 同上 | ✅ |
+| ③ PracticeTask | ✅ | ✅ | ❌ | 今日任务 行 | ✅ |
+| ④ Personal Reminder | ✅ | ✅ | ❌ | ❌（被「今日任务」覆盖）| ❌ |
+| ⑤ Achievement | ✅ | ✅ | ✅（庆祝样式）| ❌ | ❌ |
+| ⑥ SystemAnnouncement normal | ✅ | ✅ | ❌ | ❌ | ❌ |
+| ⑥ SystemAnnouncement urgent | ✅ | ✅ | ✅ | ❌ | ❌ |
+| ⑥ SystemAnnouncement critical | ✅ | ✅（无视静默）| ✅（须 ack）| ❌ | ❌ |
+| ⑦ DharmaAssembly 法会 | ✅ | ✅ | 进行中（每日首次进 app）| 进行中持续显示 | ❌ |
+| ⑧ AuspiciousDay 藏历加持日 | ❌ | ❌ | ❌ | 可选独立行 | ❌ |
+| ⑨ MembershipChange | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+### F. 法会 / 系统共修 · 信息型处理（方案 A · 模型合并）
+
+**关键认知**：平台发布的活动（法会 / 系统共修）**没有 app 内入口** · 用户线下 / 外部渠道参与 · app 仅展示信息。
+
+**模型合并**：把「系统共修」视为「法会」的子集 · 同一事件源 `DharmaAssembly`：
+
+```prisma
+model DharmaAssembly {
+  id          String   @id @default(cuid())
+  title       String
+  category    String   // 'assembly' | 'system_session' | 'memorial' | ...
+  startAt     DateTime
+  endAt       DateTime
+  description String   @db.Text
+  coverImage  String?
+  externalLink String? // 外部直播链接（如 Zoom · 可空）
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+**跳转调整**：
+- `DharmaAssembly` 跳转改为 `/assemblies/:id` · **不存在 `/live` 子页**
+- 班级共修 ClassSession 不变 · 仍有 `/live` 直播间
+
+### G. 详情页 `/assemblies/:id`
+
+```
+[封面图]
+
+🪷 文殊菩萨圣诞法会
+农历四月初四 - 初六
+2026/5/20 - 5/22
+
+─── 主题 ───
+共发菩提心 · 同诵文殊心咒
+
+─── 参与方式 ───
+• 自行持诵文殊心咒 100 遍/日
+• 法本《文殊真实名经》同步学习
+• 外部直播链接：[加入 Zoom 会议] ←可点击跳转
+
+─── 主办方 ───
+觉学平台 · 智悲法洲
+
+─── 介绍 ───
+[长文内容 · 法会缘起 / 仪轨 / ...]
+```
+
+**移除评论区**（用户决策）。
+
+**外部链接跳转**（用户决策 · 直接跳转）：
+
+```tsx
+<a 
+  href={externalLink} 
+  target="_blank" 
+  rel="noopener noreferrer"
+  className="external-link-button"
+>
+  加入 Zoom 会议 ↗
+</a>
+```
+
+- 直接 `<a>` 跳转 · 浏览器自动 hand off 给 Zoom app（如安装）· 否则浏览器打开 Zoom Web Client
+- 同理支持腾讯会议 / 钉钉 / 任意 https 链接
+- 如 `externalLink` 为空 · 整个按钮不显示
+
+**不做「关注此活动」按钮**（用户决策）。
+
+### H. 法会 / 系统活动文案调整
+
+通知文案去掉「立即进入」「进入直播间」等暗示 app 内入口的引导 · 换为信息感：
+
+| tier | 文案 | CTA |
+|---|---|---|
+| created | 「文殊圣诞法会 · 5/20-5/22 即将开启」 | 查看详情 |
+| 每日首场前 1h | 「法会今日 19:00 开始 · 参与方式见详情」 | 查看详情 |
+| 进行中（每日首次进 app）| 「法会进行中 · 与全球同修共发心」 | 查看详情 |
+
+玻璃文字「🪷 文殊圣诞法会 · 进行中」点击同样跳详情页。
+
+### I. 完整跳转矩阵
+
+| 事件 / tier | 跳转 link |
+|---|---|
+| ClassSession 预告 / 临近 / 倒数 | `/classes/:id/sessions/:sid` |
+| ClassSession 进行中 (t0) | `/classes/:id/sessions/:sid/live` |
+| ClassSession 结束 | `/classes/:id/sessions/:sid`（回放）|
+| ClassAnnouncement | `/classes/:id/announcements/:aid` |
+| PracticeTask | `/classes/:id/tasks/:tid` |
+| Personal Reminder | `/profile/practice` |
+| Achievement | `/profile/achievements?highlight=:id` |
+| SystemAnnouncement | `/announcements/:id` |
+| **DharmaAssembly（所有 tier）** | `/assemblies/:id`（无 /live）|
+| MembershipChange kicked / dissolved | `/classes` |
+| MembershipChange joined | `/classes/:id` |
+
+### J. 三入口跳转实现
+
+**B.1 系统 Push 点击（用户在 app 外）**：
+```js
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const link = event.notification.data.link;
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(allClients => {
+        const appClient = allClients.find(c => c.url.startsWith(self.location.origin));
+        if (appClient) {
+          appClient.focus();
+          appClient.postMessage({ type: 'navigate', link });
+        } else {
+          clients.openWindow(link);
+        }
+      })
+  );
+});
+```
+
+**B.2 In-app Banner 点击**：
+```ts
+<button onClick={() => {
+  router.navigate(banner.link);
+  closeBanner(banner.id);
+}}>
+```
+
+**B.3 通知中心列表点击**：标 readAt（乐观）+ navigate。
+
+### K. 跳转边界处理
+
+| 场景 | 处理 |
+|---|---|
+| 目标已删除 (404) | 兜底页「该内容已不存在」+ 「返回首页」+ 5 秒自动跳 |
+| 权限不足 (403) | 兜底页「你没有权限查看」 |
+| 未登录（PWA 点 push）| `sessionStorage.setItem('pendingDeepLink', link)` · 登录后读取并跳 |
+| App 未启动（push 唤起）| 同上 · sessionStorage 中转 |
+| App 前台已在目标页 | refetch + scroll to top + 高亮 |
+| App 后台 → 前台 | focus refetch + 如有 pendingDeepLink 自动跳 |
+| Link 解析失败 | console.warn + 跳首页 |
+
+### L. 共修 Push tag 替换（避免堆叠 3 条通知）
+
+```ts
+sendPush({
+  tag: `class_session:${sessionId}`,
+  title, body, link,
+});
+```
+
+- 共修 T-30 / T-5 / T-0 共用同 tag · 系统通知栏自动替换前一条
+- 用户系统通知栏始终只看到「这场共修」的最新状态
+- 链接按当前 tier 决定（T-0 起跳 /live · 之前跳详情）
+
+### M. 简化后效果总结
+
+| 维度 | 原 7 层方案 | 第 8 层简化方案 |
+|---|---|---|
+| 通道数 | 4（含 banner） | 4（站内 + push + banner + 首页 UI 元素）|
+| 首页卡仲裁逻辑 | 14 行优先级表 + 4 档窗口 | ❌ 全部砍 |
+| 自动消失规则 | 3 条复杂规则 | 玻璃文字按业务状态自然显示 / 隐藏 |
+| dismissal / contentHash 模型 | 全套 | 仅 critical SystemAnnouncement ack |
+| 后端表新增 | 4 个 | 2 个（PushDeliveryLog · NotificationCardAck）|
+| 实施工时 | 7.5 周 | **~4.5 周** |
+| 维护成本 | 高 | 低 |
+| 视觉密度 | 中 | 低（画报为主）|
+
+---
+
+## ✅ 设计最终版（第 8 层封顶）
+
+整套架构 5 个有效层 · 第 2 / 6 层作废：
+- 第 1 层：9 类事件源
+- 第 3 层：三通道路由（站内 / Push / 首页卡 → 现改为 站内 / Push / Banner / 首页 UI）
+- 第 4 层：用户偏好
+- 第 5 层：通知中心 UI
+- 第 7 层：可观测性 + 灰度 + 实施排期
+- **第 8 层：简化决策 + In-app Banner + 信息型法会**
+
+下一步：进入实施排期 S1。
