@@ -316,9 +316,8 @@ export interface NotificationItem {
   type: string;
   title: string;
   body: string;
-  read: boolean;
+  isRead: boolean;
   createdAt: string;
-  data?: Record<string, unknown>;
 }
 export function useNotifications(opts?: { unreadOnly?: boolean; limit?: number }) {
   const q: string[] = [];

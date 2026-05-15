@@ -51,17 +51,17 @@ export default function NotificationPage() {
   });
 
   const data = useMemo(() => list.data ?? [], [list.data]);
-  const hasUnread = data.some((n) => !n.read);
+  const hasUnread = data.some((n) => !n.isRead);
 
   const filtered = useMemo(() => {
     if (!filter) return data;
-    if (filter === 'unread') return data.filter((n) => !n.read);
+    if (filter === 'unread') return data.filter((n) => !n.isRead);
     return data.filter((n) => n.type === filter);
   }, [data, filter]);
 
   const counts = useMemo(() => ({
     all: data.length,
-    unread: data.filter((n) => !n.read).length,
+    unread: data.filter((n) => !n.isRead).length,
     class_announcement: data.filter((n) => n.type === 'class_announcement').length,
     reminder: data.filter((n) => n.type === 'reminder').length,
     achievement: data.filter((n) => n.type === 'achievement').length,
@@ -157,11 +157,11 @@ export default function NotificationPage() {
                   padding: 'var(--sp-4)',
                   display: 'flex',
                   gap: 'var(--sp-3)',
-                  borderLeft: '3px solid ' + (n.read ? 'transparent' : 'var(--saffron)'),
-                  background: n.read ? 'var(--glass)' : 'var(--saffron-pale)',
-                  cursor: n.read ? 'default' : 'pointer',
+                  borderLeft: '3px solid ' + (n.isRead ? 'transparent' : 'var(--saffron)'),
+                  background: n.isRead ? 'var(--glass)' : 'var(--saffron-pale)',
+                  cursor: n.isRead ? 'default' : 'pointer',
                 }}
-                onClick={() => { if (!n.read) markOne.mutate(n.id); }}
+                onClick={() => { if (!n.isRead) markOne.mutate(n.id); }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--ink)', letterSpacing: 1.5, marginBottom: 4 }}>
