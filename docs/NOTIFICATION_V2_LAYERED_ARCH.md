@@ -628,8 +628,110 @@ POST  /api/me/notification-preferences/reset  // 恢复默认
 
 ---
 
+## 第 5 层 · 通知中心 UI（铃铛 / 消息页）
+
+### A. 入口
+
+顶栏铃铛常驻：
+- 未读 = 0：纯灰图标 · 无角标
+- 1 ≤ 未读 ≤ 9：白底蓝点 + 数字
+- > 9：「9+」· > 99：「99+」+ 顶部「自上次登录 N 条新消息」横幅
+- 上次登录时间：`User.lastSeenAt`（每次 API 调用更新）
+
+### B. 列表布局
+
+按日期分组（今天 / 昨天 / N 天前 / 上周 / 更早）· 组内 `createdAt desc`。**同事件多 tier 不合并**（T-30/T-5/T-0 各一条）。
+
+### C. 视觉规范
+
+| 状态 | 样式 |
+|---|---|
+| 未读 | 左侧 3px 竖色条（severity 配色）+ 白底 + 标题 600 字重 |
+| 已读 | 无竖条 + 灰底 #FAFAFA + 标题 400 |
+| 撤回 | 50% 透明 + 删除线 + 灰色「已撤回」徽章 + 不可点 |
+
+severity icon：normal 🔵 / urgent 🟡 / critical 🔴
+
+时间：`<1h`「N 分钟前」/ `1-24h`「N 小时前」/ `1-7d`「N 天前」/ `>7d`「MM/DD」
+
+### D. 交互
+
+| 动作 | 结果 |
+|---|---|
+| 点击未读 | 标 readAt + 乐观更新 + 跳 link |
+| 点击已读 | 跳 link |
+| 点击撤回 | 不响应 · toast「该内容已被撤回」|
+| 「全部已读」 | 批量标记 |
+| 滚动到底 | infinite scroll 30 条/页 |
+| 下拉刷新（移动）| 重拉 |
+
+**不提供删除按钮 · 已读即归档**。
+
+### E. 撤回处理
+
+admin / 老师撤回 → 写 `revokedAt` · **不发新通知** · 推 invalidate `['notifications']` 触发列表 refetch · 该条目变样。
+
+### F. 实时刷新
+
+SW push invalidate + focus refetch + mount 时一次 · **无轮询**。
+
+### G. API
+
+```ts
+GET   /api/me/notifications?cursor=...&limit=30
+PATCH /api/me/notifications/:id  { read: true }
+POST  /api/me/notifications/read-all
+GET   /api/me/notifications/unread-count   // 独立 endpoint · 角标用 · staleTime 30s
+```
+
+响应：
+```ts
+{
+  items: [{
+    id, eventKind, eventId, severity,
+    title, body, link, icon,
+    createdAt, readAt, revokedAt,
+  }],
+  nextCursor, unreadCount,
+}
+```
+
+### H. 空状态 + 边界
+
+- 0 条：「暂无消息 · 安心修学」
+- Link 跳目标已删：兜底页 + toast「内容已不存在」
+- 长时间离线回来：顶部「自上次登录 N 条新消息」+「全部已读」捷径
+
+### I. 清理策略（业务驱动 GC）
+
+- 已读 + 30 天前 → 软删除 `deletedAt`
+- 软删除 + 30 天 → 物理删除
+- 总保留期 60 天
+- 触发：`juexue-api` 启动时 + 大批量通知写入时顺带扫一次
+
+### J. 移动端 PWA
+
+- 原生 overflow + `-webkit-overflow-scrolling: touch`
+- > 100 条用 `react-window` 虚拟滚动
+- iOS 安全区 `env(safe-area-inset-top/bottom)`
+
+### K. 通知项点击跳转表
+
+| eventKind | 跳转 |
+|---|---|
+| class_session | `/classes/:id/sessions/:sid` |
+| class_announcement | `/classes/:id/announcements/:aid` |
+| practice_task | `/classes/:id/tasks/:tid` |
+| personal_reminder | `/profile/practice` |
+| achievement | `/profile/achievements` |
+| system_announcement | `/announcements/:id` **（新增页面）** |
+| dharma_assembly | `/assemblies/:id` |
+| membership_change(kicked/dissolved) | `/classes` |
+| membership_change(joined) | `/classes/:id` |
+
+---
+
 ## 待续
 
-- **第 5 层**：通知中心 UI（铃铛列表 + 已读管理 + 撤回置灰）
-- **第 6 层**：首页卡 UI 细节（倒计时 / dismiss 交互 / 档位切换动画）
+- **第 6 层**：首页卡 UI 细节（每事件卡形 / 倒计时 / dismiss 交互 / 档位切换动画）
 - **第 7 层**：可观测性 + 灰度发布
