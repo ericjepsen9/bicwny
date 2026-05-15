@@ -1,15 +1,55 @@
-# 觉学 · 通知系统 v2 完整设计（模块化）
+# 觉学 · 通知系统 v2 完整设计（模块化）· ⚠️ 已被 FINAL_SPEC 取代
 
-> 状态：✅ 设计已定稿（2026-05-15）· **12 模块 32 个开放问题**全部落决策 · 致命级 schema/排期冲突已修 · 设计缺口已补（M1 重试 / M2-8 撤回 / M9 触发 / M10 cron 去重 / M11 SIGTERM / M12 时区+ack 迁移 / 删除级联 / per-type 默认 / editVersion 规则 / API 补全 / 通知中心 UI / 可观测性）· 已加 §2.5 全栈现状基线（与代码库扫描对齐）· 待进入实施排期
+> ## 🚨 重要：本文档已被取代 · 仅作历史参考
 >
-> **本文档 v2 改造矩阵速读**（详见 §2.5）：
-> - ✅ 已就位：dispatch / push / cron / Notification 中心 / 偏好页 / SW push handler / NotificationRule 表
-> - 🟡 改造：ClassAnnouncement（createMany → dispatchToUsers）· Notification 加 revokedAt
-> - ❌ 新建：SystemAnnouncement / NotificationCardAck / DharmaAssembly · 各事件源 dispatch 钩子（成就/任务/共修首发）· UpcomingEventCard / per-type toggle UI / PWA 引导
+> **实施唯一参考 → `docs/NOTIFICATION_FINAL_SPEC.md`**（2026-05-15 终版 · 含审计修复）
 >
-> 关联：`NOTIFICATION_PLAN.md`（v1 框架）· `PERSONAL_REMINDERS_V1.md`（个人提醒 v1 已交付）
+> 本文档保留 · 但其中部分模块已被新设计取代。冲突时以 FINAL_SPEC 为准。
 >
-> 维护规则：每次和用户讨论一个模块 · 落定即更新对应章节的"决策"段 · 未决问题记在"开放问题"段。
+> ### 模块 → 新规格 映射表
+>
+> | 旧模块 | 状态 | 取代位置 |
+> |---|---|---|
+> | M1 · Web Push 通道加固 | ✅ 沿用 + 增强 | FINAL_SPEC §5（Push 5 层过滤）+ §11.7（Twilio webhook 签名）|
+> | M2 · 站内 Notification 补全事件源 | ✅ 沿用 | FINAL_SPEC §2 路由表 + §3 tier 调度 |
+> | M3 · UpcomingEventCard 前端组件 | ❌ **作废** | 改为 §7 首页玻璃文字（液态玻璃）+ §6 In-app Banner |
+> | M4 · 多源仲裁 logic | ❌ **作废** | 不需要仲裁 · §1 4 通道架构精准分工 + §6 banner 队列 |
+> | M5 · Severity 字段 + 三档样式 | ✅ 沿用 | FINAL_SPEC §6.4 + §6.5（severity 自动消失 / 背景色）|
+> | M6 · NotificationCardAck | 🟡 **缩减** | 只保留 critical SystemAnnouncement ack（§3.6）· 其它 dismissal 同表存（§13）|
+> | M7 · 全局每日 3 条 push 上限 | 🟡 **改为每小时 5 条** | FINAL_SPEC §5 第 5 层过滤 |
+> | M8 · 班级公告 push 联动 | ✅ 沿用 | FINAL_SPEC §3.2 |
+> | M9 · 班级共修首发通知 | ✅ 沿用 + 扩展 | FINAL_SPEC §3.1（含 T-24h 预告档）|
+> | M10 · 班级修学任务通知 | ✅ 沿用 | FINAL_SPEC §3.3 |
+> | M11 · 成就解锁通知 | ✅ 沿用 + 5min 聚合 | FINAL_SPEC §3.5 + §19.9（聚合实现）|
+> | M12 · 排期模式扩展（法会）| 🟡 **改为信息型** | FINAL_SPEC §3.7 + §7（玻璃文字行 · 无 /live 子页）|
+> | — · UI 仲裁 / 首页卡 / 4 档窗口 | ❌ **新设计 / 全废** | 改为 §6 banner（仅 severity≥urgent）+ §7 玻璃文字 |
+> | — · In-app Banner（新通道）| ❌ **新增** | FINAL_SPEC §1 通道 #3 + §6 全节 |
+> | — · SMS 短信通道（新增）| ❌ **新增** | FINAL_SPEC §1 通道 #5 + §11 SMS 子系统 + admin 广播 |
+>
+> ### 新增的关键设计（FINAL_SPEC 独有）
+>
+> - 单设备登录 · `User.currentSessionId` + PushSubscription 自动停用（§19.2）
+> - 服务端化 banner 队列 · `ActiveBanner` 表（§19.4）
+> - SW link 白名单校验（§19.1）
+> - Admin SMS 广播功能（受众选择 / 模板 / bypass 二次密码确认）
+> - 法会 / 系统活动信息型处理（无 app 内入口 · 外部 Zoom 链接）
+> - 首页画报 + 液态玻璃文字（替代「首页卡」概念）
+> - 班级卡红点（取代任务级 push 上限）
+> - 19 项审计修复（§19 全节）
+>
+> ### 实施基线
+>
+> - 总工时：~8 周（FINAL_SPEC §14）
+> - 灰度 5 阶段：P0 基础 → P4 清理（FINAL_SPEC §15）
+> - Smoke test 19 项（FINAL_SPEC §17）
+>
+> ---
+>
+> ## 以下为历史设计文档（保留供回溯）
+>
+> 关联：`NOTIFICATION_PLAN.md`（v1 框架）· `PERSONAL_REMINDERS_V1.md`（个人提醒 v1 已交付）· `NOTIFICATION_V2_LAYERED_ARCH.md`（10 层分层演进史 · 含本文档→FINAL_SPEC 的决策过程）
+>
+> 原始状态：✅ 设计已定稿（2026-05-15）· **12 模块 32 个开放问题**全部落决策 · 致命级 schema/排期冲突已修 · 设计缺口已补 · 已加 §2.5 全栈现状基线（与代码库扫描对齐）
 
 ---
 
