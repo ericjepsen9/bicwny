@@ -4,6 +4,7 @@
 //   - 上传图片（多图 · ≤ 6 张 · 复用 cover 同型 sharp resize）
 //   - 创建时给班级所有 active 学员发 Notification（class_announcement）
 //   - 触发 Notification 时不阻塞主创建（fire-and-forget · 失败仅 console.error）
+//   - v2：走统一 dispatchToUsers · 自动入幂等 + web push 推送（v1 旧版仅 createMany 无 push）
 import { randomBytes } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -12,6 +13,7 @@ import { Prisma } from '@prisma/client';
 import sharp from 'sharp';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { dispatchToUsers } from '../scheduler/dispatch.js';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB / 图
 const MAX_IMAGES = 6;
@@ -78,6 +80,7 @@ export async function createAnnouncement(input: CreateInput): Promise<ClassAnnou
   });
 
   // fire-and-forget 通知 · 失败仅 log（不阻塞主创建）
+  // 走 dispatchToUsers · 自动获得 web push 推送 + 幂等去重（同公告重发不会重复打扰）
   notifyClassMembers(input.classId, cls.name, input.title, ann.id).catch((e) => {
     console.error('[announcement] notify failed:', e);
   });
@@ -85,20 +88,23 @@ export async function createAnnouncement(input: CreateInput): Promise<ClassAnnou
   return ann;
 }
 
-async function notifyClassMembers(classId: string, className: string, title: string, _announcementId: string) {
+async function notifyClassMembers(classId: string, className: string, title: string, announcementId: string) {
   const members = await prisma.classMember.findMany({
     where: { classId, removedAt: null, role: 'student' },
     select: { userId: true },
   });
   if (members.length === 0) return;
-  await prisma.notification.createMany({
-    data: members.map((m) => ({
-      userId: m.userId,
-      type: 'class_announcement' as const,
-      title: `《${className}》新公告`,
-      body: title,
-      link: `/class/${classId}`,
-    })),
+  await dispatchToUsers({
+    prisma,
+    eventKind: 'class_announcement',
+    eventId: announcementId,
+    tier: '-',
+    userIds: members.map((m) => m.userId),
+    title: `《${className}》新公告`,
+    body: title,
+    link: `/class/${classId}`,
+    notificationType: 'class_announcement',
+    severity: 'normal',
   });
 }
 

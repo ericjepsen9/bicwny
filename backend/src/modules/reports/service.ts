@@ -13,8 +13,7 @@ import type {
 } from '@prisma/client';
 import { BadRequest, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
-import { createNotification } from '../notifications/service.js';
-import { sendPushToUsers } from '../push/service.js';
+import { dispatchToUsers } from '../scheduler/dispatch.js';
 
 export interface CreateReportInput {
   questionId: string;
@@ -234,27 +233,26 @@ export async function handleReport(
     reject: '您的舉報已審核 · 不予採納',
   } as const;
   const title = titleMap[decision];
-  // 给 reporter 创建站内通知（已有 Notification 表）+ 推送
+  // 给 reporter 创建站内通知 + 推送 · 走 dispatchToUsers 统一入口（自动幂等 + push）
   const notifiedCount = reportersToNotify.length;
   const defaultBody = decision === 'accept_hide'
     ? '感谢您帮助维护内容质量 · 相关题目已被下架'
     : decision === 'accept_keep'
       ? '问题虽存在但程度较轻 · 我们已记录'
       : '此举报经审核不构成下架理由 · 感谢您的关注';
-  await Promise.all(
-    reportersToNotify.map((uid) => createNotification({
-      userId: uid,
-      type: 'system',
-      title,
-      body: note || defaultBody,
-    })),
-  );
-  // 推送（best-effort · VAPID 没配则 no-op）
-  await sendPushToUsers(reportersToNotify, {
+  // titleTcMap 给 push body 用（繁体推送差异化体验）· 站内 body 用 note/defaultBody
+  void titleTcMap; // 旧 push body 区分 · 现 dispatchToUsers 单 body · 暂保留 map 备用
+  await dispatchToUsers({
+    prisma,
+    eventKind: 'question_report_decision',
+    eventId: reportId,
+    tier: decision,
+    userIds: reportersToNotify,
     title,
-    body: titleTcMap[decision],
+    body: note || defaultBody,
     link: '/notifications',
-    tag: 'report-' + r.questionId,
+    notificationType: 'system',
+    severity: 'normal',
   });
 
   // 拿回当前这条最新状态返给 admin UI

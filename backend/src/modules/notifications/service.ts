@@ -4,7 +4,9 @@
 //   · 所有读路径过滤 deletedAt IS NULL
 //   · cursor 行被"删"后仍在 DB 内，分页 anchor 不会失效
 // 22 unread+markAll 事务化：避免计数与标记之间的竞态导致红点漂移
-import type { Notification, NotificationType } from '@prisma/client';
+//
+// v2 迁移说明：旧 createNotification 已删除 · 所有事件源走 scheduler/dispatch.ts 统一入口
+import type { Notification } from '@prisma/client';
 import { NotFound, Forbidden } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 
@@ -86,25 +88,4 @@ export async function deleteNotification(
   });
 }
 
-/** 内部使用：触发某类型通知时调此函数（如成就解锁、班级公告发布） */
-export interface CreateNotificationInput {
-  userId: string;
-  type: NotificationType;
-  title: string;
-  body?: string;
-  link?: string;
-}
-
-export async function createNotification(
-  input: CreateNotificationInput,
-): Promise<Notification> {
-  return prisma.notification.create({
-    data: {
-      userId: input.userId,
-      type: input.type,
-      title: input.title,
-      body: input.body ?? null,
-      link: input.link ?? null,
-    },
-  });
-}
+// createNotification(v1) 已删除 · 见文件头说明 · 用 scheduler/dispatch.ts 的 dispatchToUsers

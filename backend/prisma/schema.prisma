@@ -233,6 +233,16 @@ model Notification {
   readAt    DateTime?
   // 软删（21）：列表查询过滤 deletedAt IS NULL · 物理行保留供 cursor 锚定
   deletedAt DateTime?
+  // ── v2 通知系统扩展（与 v1 type 并存 · 渐进迁移）──
+  // 新代码写新字段 + type · 旧代码仍只写 type · 兼容期过后再去 enum
+  // 同 spec §2 路由表 · 'class_session' / 'practice_task' / 'dharma_assembly' / 'membership_change' / ...
+  eventKind   String?
+  // 关联业务实体 id（ClassSession.id / ClassAnnouncement.id / ...）· 撤回 + dismissal 用
+  eventId     String?
+  // 多档 tier · 'created' / 'time_changed' / 'cancelled' / 't24h' / 't30' / 't5' / 't0' / 'task_t24h' / ...
+  tier        String?
+  // severity · normal / urgent / critical · 决定 UI 配色 + push 静默绕过
+  severity    String?
   // v2 通知系统 · 内容指纹 · 公告 update 后 dismissal 失效
   // sha256(title+body).slice(0,16)
   contentHash String?
@@ -244,6 +254,8 @@ model Notification {
   @@index([userId, isRead, createdAt])
   @@index([userId, createdAt])
   @@index([userId, deletedAt])
+  // v2 撤回查询 + 按事件查 dismissal 用
+  @@index([userId, eventKind, eventId])
 }
 
 // 分析埋点事件 · 自建轻量方案

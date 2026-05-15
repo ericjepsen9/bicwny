@@ -7,6 +7,7 @@
 import type { FeedbackKind, FeedbackStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
+import { dispatchToUsers } from '../scheduler/dispatch.js';
 
 const MAX_MESSAGE = 4000;
 const MAX_RESPONSE = 4000;
@@ -116,17 +117,7 @@ export async function handleFeedback(
         response,
       },
     });
-    // 给原用户发 in-app notification（匿名提交无 userId · 只能依赖 contactEmail）
-    if (fb.userId && response) {
-      await tx.notification.create({
-        data: {
-          userId: fb.userId,
-          type: 'system',
-          title: '管理员回复了你的反馈',
-          body: response.slice(0, 200),
-        },
-      });
-    }
+    // 通知改为事务外 dispatchToUsers · 走统一入口（自动幂等 + push）
     // 写一行 AuditLog 备查
     await tx.auditLog.create({
       data: {
@@ -142,6 +133,22 @@ export async function handleFeedback(
     });
     return u;
   });
+
+  // 事务外 fire-and-forget · 失败仅 log（不影响反馈处理状态）
+  if (fb.userId && response) {
+    dispatchToUsers({
+      prisma,
+      eventKind: 'feedback_reply',
+      eventId: feedbackId,
+      tier: '-',
+      userIds: [fb.userId],
+      title: '管理员回复了你的反馈',
+      body: response.slice(0, 200),
+      link: '/notifications',
+      notificationType: 'system',
+      severity: 'normal',
+    }).catch((e) => console.error('[feedback] notify failed:', e));
+  }
 
   return updated;
 }
