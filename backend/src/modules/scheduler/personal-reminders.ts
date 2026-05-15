@@ -167,11 +167,12 @@ async function runEveningDue(
       // 幂等：相同 eventId(=ymd) 命中已发则跳
       const already = await prisma.notificationDispatchLog.findUnique({
         where: {
-          eventKind_eventId_tier_userId: {
+          eventKind_eventId_tier_userId_channel: {
             eventKind: 'evening-due',
             eventId: h.ymd,
             tier: '-',
             userId: h.userId,
+            channel: 'push',
           },
         },
       });
@@ -207,11 +208,12 @@ async function runDailyDigest(
     try {
       const already = await prisma.notificationDispatchLog.findUnique({
         where: {
-          eventKind_eventId_tier_userId: {
+          eventKind_eventId_tier_userId_channel: {
             eventKind: 'daily-digest',
             eventId: h.ymd,
             tier: '-',
             userId: h.userId,
+            channel: 'push',
           },
         },
       });
@@ -247,11 +249,12 @@ async function runWeeklyReport(
     try {
       const already = await prisma.notificationDispatchLog.findUnique({
         where: {
-          eventKind_eventId_tier_userId: {
+          eventKind_eventId_tier_userId_channel: {
             eventKind: 'weekly-report',
             eventId: h.isoWeek,
             tier: '-',
             userId: h.userId,
+            channel: 'push',
           },
         },
       });

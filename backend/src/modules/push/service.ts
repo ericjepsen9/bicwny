@@ -47,7 +47,10 @@ export async function sendPushToUser(
     console.warn('[push] VAPID keys 未配置 · 跳过推送');
     return { delivered: 0, invalid: 0, failed: 0 };
   }
-  const subs = await prisma.pushSubscription.findMany({ where: { userId } });
+  // isActive=false 表示该订阅已被新登录踢出 · 不再发送（单设备登录）
+  const subs = await prisma.pushSubscription.findMany({
+    where: { userId, isActive: true },
+  });
   return sendToSubscriptions(subs, payload);
 }
 
@@ -61,7 +64,7 @@ export async function sendPushToUsers(
   }
   if (userIds.length === 0) return { delivered: 0, invalid: 0, failed: 0 };
   const subs = await prisma.pushSubscription.findMany({
-    where: { userId: { in: userIds } },
+    where: { userId: { in: userIds }, isActive: true },
   });
   return sendToSubscriptions(subs, payload);
 }
@@ -83,7 +86,8 @@ async function sendToSubscriptions(
   const body = JSON.stringify({
     title: payload.title,
     body: payload.body || '',
-    link: payload.link || 'home.html',
+    // 默认跳 app 首页 · 旧 prototype 路径 'home.html' 已弃用（SW safeLink 会拦）
+    link: payload.link || '/app/',
     tag: payload.tag,
     icon: payload.icon,
     badge: payload.badge,
