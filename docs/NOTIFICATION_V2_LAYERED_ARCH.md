@@ -1467,6 +1467,180 @@ admin → /admin/...    → dispatchToUsers()  ───→  ├──→ Push�
 
 ---
 
-## 待续
+## 第 10 层 · SMS 短信提醒（精简版 · 美国部署 + Admin 广播）
 
-- **第 10 层**：SMS 短信提醒（兜底通道 · 国内运营商 / 模板备案 / 成本控制）
+### A. 战略
+
+- 服务器在美国 · 用 Twilio 全球短信
+- SMS 是终极兜底 · 仅发绝对不能错过的事
+- 用户必须 opt-in（手机号验证 + 总开关 + 子开关）
+- Admin 后台支持手动广播（选受众 / 模板 / 自定义文案）
+
+### B. 触发的 2 条路径
+
+**路径 1 · 自动触发**：
+- ⑥ critical SystemAnnouncement → 强制 SMS（不可关）
+- ⑦ DharmaAssembly T-24h → 可选 SMS（用户子开关 · 默认关）
+
+**共修不发 SMS**：时间固定 · 用户能记 · push 已足够。
+
+**路径 2 · Admin 手动广播**：
+- 入口 `/admin/sms/broadcast`
+- 受众：全平台 / 指定班级 / 指定用户
+- 内容：预设模板 或 自定义文案
+- 时机：立即 / 定时
+- 可选 bypass 用户偏好（需二次密码确认）
+
+### C. 数据库（新增）
+
+```prisma
+model User {
+  ...
+  phoneNumber       String?   @unique     // E.164
+  phoneCountryCode  String?
+  phoneVerifiedAt   DateTime?
+  smsEnabled        Boolean   @default(false)
+  smsAssemblyAlerts Boolean   @default(false)  // 法会子开关
+  smsLanguage       String    @default("zh-CN")
+  timezone          String    @default("Asia/Shanghai")
+}
+
+model SmsDeliveryLog {
+  id              String   @id @default(cuid())
+  userId          String
+  phoneNumber     String
+  countryCode     String
+  messageBody     String
+  templateName    String?
+  status          String   // queued/sent/delivered/failed/undelivered
+  providerMsgId   String?  // Twilio SID
+  errorCode       String?
+  cost            Decimal? @db.Decimal(8, 4)
+  sentAt          DateTime @default(now())
+  deliveredAt     DateTime?
+  @@index([userId, sentAt])
+  @@index([countryCode, sentAt])
+}
+
+model SmsTemplate {
+  id          String @id @default(cuid())
+  name        String @unique  // 'assembly_t24h_zh' | 'system_critical_zh' | ...
+  language    String
+  text        String
+  parameters  String[]
+}
+
+model SmsBroadcast {
+  id                String   @id @default(cuid())
+  adminUserId       String
+  audienceType      String   // 'all' | 'classes' | 'users'
+  audienceData      Json
+  templateName      String?
+  customTextZh      String?
+  customTextEn      String?
+  parameters        Json?
+  bypassPreferences Boolean  @default(false)
+  scheduledAt       DateTime?
+  estimatedCount    Int
+  actualSent        Int      @default(0)
+  actualCost        Decimal? @db.Decimal(8, 4)
+  status            String   @default("draft")
+  createdAt         DateTime @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  @@index([adminUserId, createdAt])
+  @@index([status, scheduledAt])
+}
+```
+
+### D. 触发路径 × 用户偏好矩阵
+
+| 触发 | smsEnabled | smsAssemblyAlerts | 发送？ |
+|---|---|---|---|
+| 自动 critical | 任意 | 任意 | ✅ 强制 |
+| 自动法会 T-24h | 开 | 开 | ✅ |
+| 自动法会 T-24h | 开 | 关 | ❌ |
+| 自动法会 T-24h | 关 | 任意 | ❌ |
+| Admin 广播（不 bypass）| 开 | 任意 | ✅ |
+| Admin 广播（不 bypass）| 关 | 任意 | ❌ |
+| Admin 广播（bypass）| 任意 | 任意 | ✅（强制）|
+
+### E. 7 层过滤
+
+1. 手机号已验证
+2. 总开关（critical 绕过）
+3. 事件类型 + tier 在白名单（仅 3 种 · 其它一律不发）
+4. 子开关（仅法会查 smsAssemblyAlerts）
+5. 静默时段（按用户时区 · critical 绕过）
+6. 频率上限（日 2 条 + 月度 $100 预算）
+7. 幂等去重
+
+### F. 4 个核心模板
+
+```
+1. critical 系统公告（强制 · 双语）
+   zh: [觉学] 重要 · ${body}  ${appLink}
+   en: [JueXue] Important: ${body}  ${appLink}
+
+2. 法会 T-24h（可选 · 双语）
+   zh: [觉学]「${title}」明日 ${startTime} 开启 · ${appLink}  回 STOP 退订
+   en: [JueXue] "${title}" begins tomorrow at ${startTime}. ${appLink}  Reply STOP
+
+3. Admin 广播自定义
+   自动追加 [觉学] 前缀 + 回 STOP 退订后缀
+   admin 输入文案 ≤ 80 字符
+
+4. OTP（独立 · 不计业务）
+   zh: [觉学] 验证码 ${code} · 5 分钟内有效
+   en: [JueXue] Code: ${code}. Valid 5 min
+```
+
+### G. 服务商 · Twilio
+
+- 全球 180+ 国家
+- A2P 10DLC（美国注册）+ Approved Sender（中国到达）
+- Geo Permissions 白名单 · 防 toll fraud
+- STOP 关键字自动处理
+- 投递回调 webhook
+
+### H. Admin 广播 UI
+
+```
+1. 选受众：全平台 / 指定班级（多选）/ 指定用户（搜索）
+2. 选内容：预设模板 / 自定义文案
+3. 是否 bypass 偏好（强制发 · 需二次密码确认）
+4. 立即 / 定时
+5. 实时成本预估（按国家分布显示）
+6. 二次确认 → 发送
+```
+
+### I. 月度成本估算（1000 用户 · 10% opt-in）
+
+| 场景 | 月触发数 | 成本 |
+|---|---|---|
+| critical 公告（月 1 次 · 全员）| 1000 | $40 |
+| 法会 T-24h（10% 开启）| 100 | $4 |
+| Admin 广播（月 2 次 · 200 人均）| 400 | $16 |
+| **合计** | ~1500 | **~$60/月** |
+
+预算 $100/月。
+
+### J. 关键风险
+
+| 风险 | 缓解 |
+|---|---|
+| 中国到达率 | Twilio Approved Sender · 备 Vonage fallback |
+| TCPA / GDPR 合规 | 强制 opt-in · STOP · 仅事务性 |
+| Toll Fraud | Geo Permissions 白名单 |
+| 账户被封 | 严格 spam policy · 留 opt-in 证据 |
+| Admin 误发 | bypass 需二次密码确认 + 审计日志 |
+
+### K. 实施工时 ~10 天
+
+Twilio 集成 1 + Schema 0.5 + 手机绑定 2 + dispatch SMS 0.5 + webhook 1 + 广播后端 2 + 广播 UI 2 + 监控页 1 = ~10 天。放 S5。
+
+---
+
+## ✅ 完整设计封顶 · 10 层全部决策落定
+
+下一步：实施排期 S1 或进一步澄清。
