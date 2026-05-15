@@ -731,7 +731,119 @@ GET   /api/me/notifications/unread-count   // 独立 endpoint · 角标用 · st
 
 ---
 
+## 第 6 层 · 首页卡 UI 细节
+
+### A. 通用结构
+
+```
+[icon] severity-badge        [×]?
+TITLE · 18px / 600
+body · 13px / 400
+[⏱ countdown / progress]?
+[Primary CTA]  [Secondary CTA]?
+```
+
+max-width 480px · 圆角 16px · 阴影 `0 2px 12px rgba(0,0,0,.08)` · 内距 20px。
+
+### B. severity 背景
+
+| severity | 卡背景 | accent | 动效 |
+|---|---|---|---|
+| normal | #FFF | 蓝 3px | 无 |
+| urgent | #FFFBEB | 橙 4px | 无 |
+| critical | #FEF2F2 | 红 5px | 红光晕 2.4s 呼吸 |
+
+### C. 9 类卡形（要点）
+
+- **共修预告 T-24h**：「明日周五 19:00」+ `[开启通知] [查看详情]`
+- **共修临近 T-30**：30 分钟倒计时 + `[进入等候室]` · 不可关
+- **共修倒数 T-5**：倒计时字号放大 24px 橙色 pulse · 不可关
+- **共修进行中 T-0**：critical · 红光晕 + `[进入直播间]` · 进入后**缩成右下角 48px 圆形浮动徽章** · 点击重新展开
+- **班级公告**：`[查看公告]` · 可关
+- **任务 T-24h**：progress bar `▓▓▓░░ 5/10 题` + 截止时间 + `[继续答题]` · 可关
+- **任务 T-6h**：红色倒计时 `5h 23m 剩余` + `[继续答题]` · 不可关
+- **系统公告 critical**：纯告知 + **「我知道了」按钮 · 点击 ack 后消失** · 无 X
+- **法会**：法会主题图 30% 透明叠底 + `[了解详情] [设置提醒]`
+- **藏历日**：「农历 X 月 X 日 · XX 加持日」+ `[了解更多]` · 可关
+
+### D. 倒计时规则
+
+| 阶段 | 格式 | 颜色 | 动效 |
+|---|---|---|---|
+| T-30 → T-5 | `MM:SS` | 蓝 #3B82F6 | 无 |
+| T-5 → T-0 | `MM:SS` | 橙 #F59E0B | 数字 scale 1→1.05→1 pulse |
+| T-0 → end | 「已开始 X 分钟」 | 红 #EF4444 | 红圆点呼吸 |
+
+`useEffect + setInterval(1000)` · 后端不参与 tick · `expiresAt` 决定 invalidate 时机。
+
+### E. 档位切换动画
+
+`framer-motion` · 同 eventId tier 升级时**卡片不卸载** · 内容用 motion 平滑过渡 200ms：
+
+```tsx
+<motion.div layoutId={`card-${eventId}`}>
+  <AnimatePresence mode="wait">
+    <motion.div
+      key={`${eventId}-${tier}`}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.2 }}
+    >...</motion.div>
+  </AnimatePresence>
+</motion.div>
+```
+
+不同事件切换：整卡 fade + scale · 300ms。
+
+### F. dismiss / ack 交互
+
+| 类型 | UI | 行为 |
+|---|---|---|
+| 可关闭（normal/urgent · 部分）| 右上角 [×] 24px tap target | 立即 fade out + 后台 `POST /api/home/dismiss` · 失败回滚 |
+| 不可关闭（T-30 / T-5 / T-0 / T-6h / DharmaAssembly 进行中）| 无 [×] | — |
+| **critical SystemAnnouncement** | **底部「我知道了」按钮** | **点击 POST /api/home/ack · 卡片消失** |
+
+ack 与 dismiss 后端共用 `NotificationCardAck` 表（区分 `kind: 'dismissed' | 'acknowledged'`）。critical 系统公告**全平台用户都得 ack 一次** · 不能跨用户共享。
+
+### G. 状态机
+
+```
+NULL ─fetch─→ HIDDEN (no card)
+              │ 后端有 card
+              ↓
+          MOUNTED ─┬─ USER CLICK   → NAVIGATE
+                   ├─ TIER UP      → 内容渐变（keep card）
+                   ├─ EXPIRED      → refetch · 可能 UNMOUNT
+                   ├─ DISMISSED    → refetch · 可能换 winner
+                   └─ ACKED        → refetch · 可能换 winner
+```
+
+### H. 无障碍
+
+- `<section aria-live="polite" aria-label="首页提醒卡">`
+- 倒计时 `aria-label="距离开始还有 N 分 N 秒"` · 每 30s 更新（不是每秒）
+- critical 卡 `role="alert"` 让阅读器立即播报
+- [×] / 「我知道了」`aria-label` 明确
+
+### I. 响应式
+
+| 屏宽 | 卡宽 | 字号 |
+|---|---|---|
+| < 480 | 100% - 32 margin | title 16 / body 13 |
+| 480-768 | 100% - 48 margin | title 18 / body 14 |
+| > 768 | max 480 居中 | title 18 / body 14 |
+
+### J. 玻璃 pill 与卡片协调
+
+- **无卡时**：pill 浮在 hero 画报右下
+- **有卡时**：pill **整体隐藏**（更克制 · 不与卡并存）
+- pill 与卡片共享 `useActiveCardQuery` hook · 状态联动
+
+### K. 暂不考虑 dark mode（项目当前无此规划）
+
+---
+
 ## 待续
 
-- **第 6 层**：首页卡 UI 细节（每事件卡形 / 倒计时 / dismiss 交互 / 档位切换动画）
-- **第 7 层**：可观测性 + 灰度发布
+- **第 7 层**：可观测性 + 灰度发布 + 实施排期 + 风险点
