@@ -65,6 +65,7 @@ export default function AdminShell() {
           <AdminNav to="/admin/logs"     label={s('运行日志', '運行日誌', 'Logs')} icon={IconAlert} />
           <AdminNav to="/admin/notification-rules" label={s('通知规则', '通知規則', 'Notif')} icon={IconAlert} />
           <AdminNav to="/admin/system-announcements" label={s('系统公告', '系統公告', 'Announce')} icon={IconAlert} />
+          <AdminNav to="/admin/dharma-assemblies" label={s('法会活动', '法會活動', 'Assemblies')} icon={IconAlert} />
           <AdminNav to="/admin/llm"      label={s('LLM 管理', 'LLM 管理', 'LLM')} icon={IconBolt} />
           <AdminNav to="/admin/calendar" label={s('藏历管理', '藏曆管理', 'Calendar')} icon={IconCalendar} />
           <AdminNav to="/admin/posters"  label={s('首页画报', '首頁畫報', 'Posters')} icon={IconImage} />

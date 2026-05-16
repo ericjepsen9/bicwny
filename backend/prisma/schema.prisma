@@ -1442,6 +1442,37 @@ model HomePoster {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 法会 / 系统活动（spec §3.7 + §13）· 信息型活动 · 无 app 内入口
+//   - admin 发布 · 三 tier 通知: created / daily_t1h / in_progress_arrival
+//   - category: 'assembly'（多日法会）| 'system_session'（短期系统共修）| 'memorial'（纪念日）
+//   - externalLink: 外部 Zoom / 直播链接（可空 · 详情页直接跳）
+//   - 详情页 /assemblies/:id · 无 /live 子页
+// ═══════════════════════════════════════════════════════════════
+
+model DharmaAssembly {
+  id           String    @id @default(cuid())
+  title        String
+  // 类别 · 影响 UI 视觉（多日法会 / 短期共修 / 纪念日）
+  category     String    @default("assembly")
+  startAt      DateTime
+  endAt        DateTime
+  description  String    @db.Text
+  coverImage   String?
+  // 外部参与链接（如 Zoom / 腾讯会议 / 寺院直播）· 可空
+  // 用户点击详情页「加入会议」按钮直接跳转 · 不嵌入 app
+  externalLink String?
+  // 软删除 · admin 删除时写 · 已调度的 cron job 检查后跳过（spec §19.8）
+  deletedAt    DateTime?
+  createdBy    String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // 法会期间扫描 · cron daily_t1h tick 用
+  @@index([startAt, endAt, deletedAt])
+  @@index([createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 用户通知偏好（spec §8 NotificationPreference）
 //   - 仅放「v1 没有」的新字段：push 总开关 + per-type 子开关 + 首页玻璃文字偏好
 //   - v1 已有的 eveningReminderEnabled / quietHoursStart 等保留在 User 表（向后兼容）

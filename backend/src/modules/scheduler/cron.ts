@@ -8,6 +8,7 @@ import { dispatchToUsers, type NotifType } from './dispatch.js';
 import { tickPersonalReminders } from './personal-reminders.js';
 import { gcOrphanedFiles } from '../courses/cover.service.js';
 import { getBadgeDef } from '../achievements/service.js';
+import { getAssembliesForT1hReminder } from '../dharma-assemblies/service.js';
 import { config } from '../../lib/config.js';
 
 type ClassSessionTier = 'T-30' | 'T-5' | 'T0';
@@ -281,6 +282,47 @@ async function tickAchievementUnlocks(prisma: PrismaClient): Promise<void> {
   }
 }
 
+/**
+ * 法会 / 系统活动 · 每日 1h 前提醒（spec §3.7 daily_t1h tier）
+ * 简化策略：找 startAt = now+1h 命中的（cron 窗口 ±90s）
+ * v3 改进：DharmaAssembly 加 dailyTopics 子表精细化每日时刻
+ */
+async function tickDharmaAssemblies(prisma: PrismaClient): Promise<void> {
+  const now = new Date();
+  const assemblies = await getAssembliesForT1hReminder(now);
+  if (assemblies.length === 0) return;
+
+  // 给所有 active 用户发预告
+  const users = await prisma.user.findMany({
+    where: { isActive: true },
+    select: { id: true },
+  });
+  if (users.length === 0) return;
+  const userIds = users.map((u) => u.id);
+
+  for (const a of assemblies) {
+    try {
+      const result = await dispatchToUsers({
+        prisma,
+        eventKind: 'dharma_assembly',
+        eventId: a.id,
+        tier: 'daily_t1h',
+        userIds,
+        title: `${a.title} · 1 小时后开始`,
+        body: '参与方式见详情',
+        link: `/assemblies/${a.id}`,
+        notificationType: 'system',
+        severity: 'urgent',
+      });
+      if (result.newPushedUsers > 0) {
+        console.log(`[scheduler] dispatched assembly=${a.id} tier=daily_t1h new=${result.newPushedUsers}`);
+      }
+    } catch (e) {
+      console.error(`[scheduler] assembly dispatch failed id=${a.id}`, e);
+    }
+  }
+}
+
 async function tick(prisma: PrismaClient): Promise<void> {
   if (running) {
     console.warn('[scheduler] previous tick still running · skipping');
@@ -292,6 +334,7 @@ async function tick(prisma: PrismaClient): Promise<void> {
     await tickPracticeTasks(prisma);
     await tickPersonalReminders(prisma);
     await tickAchievementUnlocks(prisma);
+    await tickDharmaAssemblies(prisma);
   } catch (e) {
     console.error('[scheduler] tick error', e);
   } finally {

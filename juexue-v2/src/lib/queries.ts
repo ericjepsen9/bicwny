@@ -340,6 +340,29 @@ export function useSystemAnnouncement(id: string | null | undefined) {
     queryFn: ({ signal }) => api.get<SystemAnnouncement>(`/api/announcements/${encodeURIComponent(id!)}`, { signal }),
   });
 }
+
+// ── 法会 / 系统活动（spec §3.7）──
+export interface DharmaAssembly {
+  id: string;
+  title: string;
+  category: 'assembly' | 'system_session' | 'memorial';
+  startAt: string;
+  endAt: string;
+  description: string;
+  coverImage: string | null;
+  externalLink: string | null;
+  deletedAt: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export function useDharmaAssembly(id: string | null | undefined) {
+  return useQuery({
+    enabled: !!id,
+    queryKey: ['/api/assemblies', id],
+    queryFn: ({ signal }) => api.get<DharmaAssembly>(`/api/assemblies/${encodeURIComponent(id!)}`, { signal }),
+  });
+}
 export function useNotifications(opts?: { unreadOnly?: boolean; limit?: number }) {
   const q: string[] = [];
   if (opts?.unreadOnly) q.push('unreadOnly=1');
