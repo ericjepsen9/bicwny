@@ -6,6 +6,26 @@
 > 前置文档：
 > - `NOTIFICATION_FINAL_SPEC.md`（设计参考）
 > - `NOTIFICATION_V3_ROADMAP.md`（远期路线）
+> - **`NOTIFICATION_DEPRECATED_DESIGNS.md`（⚠️ 必读 · 已废弃设计清单 · 防误判）**
+
+---
+
+## ⚠️ 重要：废弃设计清单
+
+下面的功能在历史讨论中出现过 · 但**已永久废弃** · 不要试图实施：
+
+| 已废弃 | 替代方案 |
+|---|---|
+| 单槽位首页卡（HomeCard）| In-app Banner（v3）+ 玻璃文字（v3）+ 详情页 |
+| 优先级仲裁表（14 行评分）| Banner 队列按 severity 简单排序 |
+| 4 档窗口（预告/临近/倒数/进行中）作为卡片状态 | tier 仅用于 push · UI 变化在详情页实现 |
+| HomeCardDismissal 表 | 不需要（仅 critical 公告 ack 保留）|
+| UpcomingEventCard 前端组件 | 玻璃文字 + /events 列表 |
+| 9 类事件源「卡形草图」| 各自详情页 + Banner |
+| 首页卡自动消失 3 条规则 | Banner 自己消失规则 |
+| NotificationRule class/assignment scope | 仅 platform scope（保留）|
+
+**完整废弃清单见 `NOTIFICATION_DEPRECATED_DESIGNS.md`。**
 
 ---
 
