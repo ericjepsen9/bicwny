@@ -1,7 +1,8 @@
-// 通知调度器 · setInterval 60s tick · v1 仅处理 ClassSession 三档提醒
+// 通知调度器 · setInterval 60s tick · v2 多事件源
 //   - 进程启动挂一次 · pm2 重启重新挂 · 单实例足够
 //   - 抖动 ± 90 秒容忍 · 配合 DispatchLog unique 索引保证不重发
 //   - 关闭方法：在测试 / dev 时 env CRON_ENABLED=false 跳过启动
+//   - 事件源：① ClassSession 三档 · ③ PracticeTask 两档（t24h/t6h）· ④ Personal Reminder 三档
 import type { PrismaClient } from '@prisma/client';
 import { dispatchToUsers, type NotifType } from './dispatch.js';
 import { tickPersonalReminders } from './personal-reminders.js';
@@ -21,6 +22,23 @@ const TIER_BODY: Record<ClassSessionTier, string> = {
   'T-30': '30 分钟后开始',
   'T-5': '5 分钟后开始',
   'T0': '现在开始 · 立即进入',
+};
+
+// PracticeTask 截止前提醒（spec §3.3）
+// 仅 fixed mode 任务（有 endAt）触发 · daily 任务每日刷新无截止
+type PracticeTaskTier = 'task_t24h' | 'task_t6h';
+const PRACTICE_TASK_OFFSETS: Record<PracticeTaskTier, number> = {
+  task_t24h: 24 * 60 * 60_000,  // 24h
+  task_t6h: 6 * 60 * 60_000,    //  6h
+};
+const PRACTICE_TASK_BODY: Record<PracticeTaskTier, string> = {
+  task_t24h: '还有 24 小时完成',
+  task_t6h: '⚠️ 6 小时后截止',
+};
+// spec §3.3 · t6h 自动升 urgent
+const PRACTICE_TASK_SEVERITY: Record<PracticeTaskTier, 'normal' | 'urgent'> = {
+  task_t24h: 'normal',
+  task_t6h: 'urgent',
 };
 
 let timer: NodeJS.Timeout | null = null;
@@ -94,6 +112,85 @@ async function tickClassSessions(prisma: PrismaClient): Promise<void> {
   }
 }
 
+/**
+ * 班级修学任务 · t24h / t6h 截止前提醒（spec §3.3）
+ * 扫 fixed mode + endAt 在 24h / 6h 窗口内 + 未归档的任务
+ * 给班级所有 active 学员发（dispatchToUsers 幂等防重发）
+ *
+ * 简化策略：发给所有班级学员 · 不检查个人完成状态
+ *   - 优点：单次扫描简单 · 不需要每用户聚合 PracticeEntry
+ *   - 缺点：已完成的学员会收到一次「确认」提醒（噪音较小 · 可接受）
+ *   - TODO 优化：v3 时按 (userId, projectId) 聚合 PracticeEntry vs target 过滤
+ */
+async function tickPracticeTasks(prisma: PrismaClient): Promise<void> {
+  const now = Date.now();
+  // 一次性查所有候选 · 内存中分档（避免双查询）
+  // 最远 = t24h + 90s · 最近 = t6h - 90s
+  const minEnd = new Date(now + PRACTICE_TASK_OFFSETS.task_t6h - WINDOW_MS);
+  const maxEnd = new Date(now + PRACTICE_TASK_OFFSETS.task_t24h + WINDOW_MS);
+
+  const tasks = await prisma.practiceTask.findMany({
+    where: {
+      scope: 'class',
+      mode: 'fixed',
+      archivedAt: null,
+      endAt: { gte: minEnd, lte: maxEnd },
+      // 注意 classId 必有 · scope='class' 约束
+    },
+    include: {
+      class: {
+        select: {
+          id: true,
+          name: true,
+          members: {
+            where: { removedAt: null, role: 'student', user: { isActive: true } },
+            select: { userId: true },
+          },
+        },
+      },
+      project: { select: { name: true } },
+    },
+  });
+
+  if (tasks.length === 0) return;
+
+  for (const t of tasks) {
+    if (!t.endAt || !t.class) continue;
+    const userIds = t.class.members.map((m) => m.userId);
+    if (userIds.length === 0) continue;
+
+    const endMs = t.endAt.getTime();
+    const taskTitle = t.title || t.project.name;
+
+    for (const [tier, offset] of Object.entries(PRACTICE_TASK_OFFSETS) as [PracticeTaskTier, number][]) {
+      const expected = endMs - offset; // 期望触发时刻
+      if (Math.abs(now - expected) > WINDOW_MS) continue; // 不在该 tier 窗口
+
+      try {
+        const result = await dispatchToUsers({
+          prisma,
+          eventKind: 'practice_task',
+          eventId: t.id,
+          tier,
+          userIds,
+          title: `《${t.class.name}》${taskTitle}`,
+          body: PRACTICE_TASK_BODY[tier],
+          link: '/practice',
+          notificationType: 'reminder',
+          severity: PRACTICE_TASK_SEVERITY[tier],
+        });
+        if (result.newPushedUsers > 0) {
+          console.log(
+            `[scheduler] dispatched practice-task=${t.id} tier=${tier} new=${result.newPushedUsers} push_ok=${result.pushDelivered}`,
+          );
+        }
+      } catch (e) {
+        console.error(`[scheduler] practice-task dispatch failed task=${t.id} tier=${tier}`, e);
+      }
+    }
+  }
+}
+
 async function tick(prisma: PrismaClient): Promise<void> {
   if (running) {
     console.warn('[scheduler] previous tick still running · skipping');
@@ -102,6 +199,7 @@ async function tick(prisma: PrismaClient): Promise<void> {
   running = true;
   try {
     await tickClassSessions(prisma);
+    await tickPracticeTasks(prisma);
     await tickPersonalReminders(prisma);
   } catch (e) {
     console.error('[scheduler] tick error', e);
