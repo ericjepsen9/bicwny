@@ -87,6 +87,7 @@ model User {
   readingProgress        LessonReadingProgress[]
   notes                  Note[]
   highlights             Highlight[]
+  achievementUnlocks     UserAchievementUnlock[]
 
   @@index([role])
 }
@@ -1437,6 +1438,29 @@ model HomePoster {
 
   @@unique([year, month])
   @@index([year, month])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 用户成就解锁记录（spec §3.5 + §19.9）
+//   - 持久化"何时解锁某 badge" · BADGES 仍在 service.ts 内定义（无 DB）
+//   - 用于：① 5min 聚合通知（cron 找 unnotified rows · 按 userId 合并）② 防重发
+//   - 用户活动触发（submitAnswer / 访问成就页）→ detectAndPersistNewUnlocks
+//   - cron 60s tick · 找 notifiedAt=null + unlockedAt > 5min 的 · 按 userId fan-out
+// ═══════════════════════════════════════════════════════════════
+
+model UserAchievementUnlock {
+  id         String    @id @default(cuid())
+  userId     String
+  badgeId    String    // 与 BADGES[].id 对齐（无 DB 表 · service.ts 内定义）
+  unlockedAt DateTime  @default(now())
+  // 通知派发时刻 · null = 尚未通知 · cron 会扫描这些
+  notifiedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])           // 每用户每 badge 仅解锁一次
+  @@index([userId, notifiedAt])          // 5min 聚合 flush 查询
+  @@index([unlockedAt])                  // 全局窗口扫描
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -1,6 +1,12 @@
-// 成就徽章 · 从 UserAnswer / SM-2 / streak 派生（无独立 DB 表）
+// 成就徽章 · 从 UserAnswer / SM-2 / streak 派生（BADGES 定义无 DB）
 // 每枚徽章有一个门槛函数 test(metrics) → { unlocked, progress }
 // progress 是 0-1 之间的值，前端可据此画进度条
+//
+// v2 通知接入（spec §3.5 + §19.9）：
+//   - UserAchievementUnlock 表持久化「何时解锁」· 派生 BADGES 不存
+//   - detectAndPersistNewUnlocks 找新解锁的 · upsert 写表（notifiedAt=null）
+//   - cron tickAchievementUnlocks 60s 扫描 · 5min 后聚合 dispatch
+import { prisma } from '../../lib/prisma.js';
 import { myProgress, type MyProgress } from '../answering/progress.service.js';
 
 export type BadgeCategory = 'activity' | 'streak' | 'accuracy' | 'mastery' | 'breadth';
@@ -214,6 +220,13 @@ export async function getAchievements(userId: string): Promise<AchievementsResp>
       target: r.target,
     };
   });
+
+  // 副作用 · 检测新解锁的 badge · 写表（fire-and-forget · 不阻塞返回）
+  // 通知 dispatch 由 cron tickAchievementUnlocks 5min 后聚合发出（spec §19.9）
+  detectAndPersistNewUnlocksFromBadges(userId, badges).catch((e) => {
+    console.error('[achievements] persist unlock failed:', e);
+  });
+
   return {
     totalBadges: badges.length,
     unlockedCount: badges.filter((b) => b.unlocked).length,
@@ -227,4 +240,60 @@ export async function getAchievements(userId: string): Promise<AchievementsResp>
       coursesCovered: m.byCourse.length,
     },
   };
+}
+
+/**
+ * 外部触发点（如 submitAnswer 后）· 检测并持久化新解锁的 badge
+ * 用于「不需要前端刷新」的实时触发场景
+ *
+ * 注：getAchievements 也会调用相同逻辑（用户主动看页面时）· upsert 幂等
+ */
+export async function detectAndPersistNewUnlocks(userId: string): Promise<number> {
+  const m = await myProgress(userId);
+  const badges: BadgeStatus[] = BADGES.map((b) => {
+    const r = b.test(m);
+    return {
+      id: b.id,
+      category: b.category,
+      titleSc: b.titleSc,
+      titleTc: b.titleTc,
+      descSc: b.descSc,
+      descTc: b.descTc,
+      unlocked: r.unlocked,
+      progress: r.progress,
+      current: r.current,
+      target: r.target,
+    };
+  });
+  return detectAndPersistNewUnlocksFromBadges(userId, badges);
+}
+
+/** 内部 · 已计算 badges 时复用 · 返回新解锁数 */
+async function detectAndPersistNewUnlocksFromBadges(
+  userId: string,
+  badges: BadgeStatus[],
+): Promise<number> {
+  const unlocked = badges.filter((b) => b.unlocked).map((b) => b.id);
+  if (unlocked.length === 0) return 0;
+
+  // 一次性查现有解锁 · 过滤新解锁
+  const existing = await prisma.userAchievementUnlock.findMany({
+    where: { userId, badgeId: { in: unlocked } },
+    select: { badgeId: true },
+  });
+  const existingSet = new Set(existing.map((r) => r.badgeId));
+  const newOnes = unlocked.filter((id) => !existingSet.has(id));
+  if (newOnes.length === 0) return 0;
+
+  // createMany · skipDuplicates 防并发竞争（其他 worker 也在写）
+  const r = await prisma.userAchievementUnlock.createMany({
+    data: newOnes.map((badgeId) => ({ userId, badgeId })),
+    skipDuplicates: true,
+  });
+  return r.count;
+}
+
+/** 给 cron 用的 · 查 BADGES 中 id 对应的 title/desc · 用于通知文案 */
+export function getBadgeDef(id: string): BadgeDef | undefined {
+  return BADGES.find((b) => b.id === id);
 }

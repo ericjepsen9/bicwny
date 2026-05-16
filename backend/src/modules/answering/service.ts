@@ -181,6 +181,12 @@ export async function submitAnswer(
     throw e;
   }
 
+  // 副作用 · 检测新解锁的成就 badge（fire-and-forget · 不阻塞答题响应）
+  // 5min 后由 scheduler/cron.ts tickAchievementUnlocks 聚合 dispatch 通知
+  void import('../achievements/service.js').then((mod) => mod.detectAndPersistNewUnlocks(userId).catch((e) => {
+    console.error('[achievements] detect from submitAnswer failed:', e);
+  }));
+
   return { userAnswerId: ua.id, question, grade };
 }
 

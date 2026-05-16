@@ -7,6 +7,7 @@ import type { PrismaClient } from '@prisma/client';
 import { dispatchToUsers, type NotifType } from './dispatch.js';
 import { tickPersonalReminders } from './personal-reminders.js';
 import { gcOrphanedFiles } from '../courses/cover.service.js';
+import { getBadgeDef } from '../achievements/service.js';
 import { config } from '../../lib/config.js';
 
 type ClassSessionTier = 'T-30' | 'T-5' | 'T0';
@@ -191,6 +192,95 @@ async function tickPracticeTasks(prisma: PrismaClient): Promise<void> {
   }
 }
 
+/**
+ * 成就解锁 5min 聚合通知（spec §3.5 + §19.9）
+ *
+ * 触发逻辑:
+ *   - submitAnswer / getAchievements 调用 detectAndPersistNewUnlocks 后
+ *     UserAchievementUnlock 表会有 notifiedAt=null 的行
+ *   - cron 每 60s 扫描：min(unlockedAt) 早于 5min 前 且 notifiedAt=null 的用户
+ *   - 5min 窗口让多个解锁合并为一条通知（避免快速连续解锁产生多条）
+ *
+ * 文案 (spec §19.9):
+ *   - 单条：🎉 解锁成就「title」
+ *   - 聚合：🎉 解锁 N 个成就 · body=「A」·「B」·「C」
+ */
+const ACHIEVEMENT_AGGREGATE_MS = 5 * 60_000; // 5 分钟
+
+async function tickAchievementUnlocks(prisma: PrismaClient): Promise<void> {
+  const cutoff = new Date(Date.now() - ACHIEVEMENT_AGGREGATE_MS);
+  // 找所有未通知 + 已超过 5min 的解锁记录
+  const pending = await prisma.userAchievementUnlock.findMany({
+    where: {
+      notifiedAt: null,
+      unlockedAt: { lt: cutoff },
+    },
+    orderBy: { unlockedAt: 'asc' },
+    take: 500, // 单次 cap · 防大批量阻塞
+  });
+  if (pending.length === 0) return;
+
+  // 按 userId 分组
+  const byUser = new Map<string, typeof pending>();
+  for (const row of pending) {
+    if (!byUser.has(row.userId)) byUser.set(row.userId, []);
+    byUser.get(row.userId)!.push(row);
+  }
+
+  for (const [userId, rows] of byUser) {
+    // 同时把同用户在 5min 内已存在但未到 cutoff 的也归入此次（避免拆批）
+    // 注：rows 已是 cutoff 之前的 · 已包含「足够旧」的解锁
+    const badgeIds = rows.map((r) => r.badgeId);
+    const defs = badgeIds.map((id) => getBadgeDef(id)).filter((d): d is NonNullable<typeof d> => !!d);
+    if (defs.length === 0) continue;
+
+    const titles = defs.slice(0, 3).map((d) => d.titleSc);
+    const more = defs.length > 3 ? ` 等 ${defs.length} 个` : '';
+    const notifTitle = defs.length === 1
+      ? `🎉 解锁成就「${titles[0]}」`
+      : `🎉 解锁 ${defs.length} 个成就`;
+    const notifBody = defs.length === 1
+      ? defs[0].descSc
+      : titles.join('·') + more;
+    // 单条 link 到 highlight 那个 · 多条 link 到列表
+    const link = defs.length === 1
+      ? `/achievement?highlight=${encodeURIComponent(defs[0].id)}`
+      : '/achievement';
+
+    try {
+      // eventId 用聚合后 unique key · 同 userId + 同批次 badge id 集合
+      // 简化版：用最早 unlock 时间 + badgeIds 排序后 hash 当 eventId
+      // 实际 dedup 由 dispatchLog 的 (kind, eventId, tier, userId, channel) 保证
+      // 这里直接用 rows[0].id（最早一条的 id）作 eventId · 5min 后才扫到一次 · 不会冲突
+      const eventId = rows[0].id;
+      const result = await dispatchToUsers({
+        prisma,
+        eventKind: 'achievement',
+        eventId,
+        tier: 'unlocked',
+        userIds: [userId],
+        title: notifTitle,
+        body: notifBody,
+        link,
+        notificationType: 'achievement',
+        severity: 'normal',
+      });
+      // 标记 notifiedAt（不论 dispatch 是否新写入 · 都防再次扫到）
+      await prisma.userAchievementUnlock.updateMany({
+        where: { id: { in: rows.map((r) => r.id) } },
+        data: { notifiedAt: new Date() },
+      });
+      if (result.newPushedUsers > 0) {
+        console.log(
+          `[scheduler] dispatched achievement userId=${userId} badges=${defs.length} push_ok=${result.pushDelivered}`,
+        );
+      }
+    } catch (e) {
+      console.error(`[scheduler] achievement dispatch failed user=${userId}`, e);
+    }
+  }
+}
+
 async function tick(prisma: PrismaClient): Promise<void> {
   if (running) {
     console.warn('[scheduler] previous tick still running · skipping');
@@ -201,6 +291,7 @@ async function tick(prisma: PrismaClient): Promise<void> {
     await tickClassSessions(prisma);
     await tickPracticeTasks(prisma);
     await tickPersonalReminders(prisma);
+    await tickAchievementUnlocks(prisma);
   } catch (e) {
     console.error('[scheduler] tick error', e);
   } finally {
