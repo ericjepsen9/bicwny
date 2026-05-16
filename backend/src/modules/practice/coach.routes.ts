@@ -36,7 +36,7 @@ async function notifyClassPracticeTask(classId: string, taskId: string, taskTitl
     userIds: members.map((m) => m.userId),
     title: `《${cls.name}》新任务`,
     body: taskTitle,
-    link: `/practice`,  // 学员的 PracticePage · 显示班级任务列表
+    link: `/class/${classId}`,  // 跳班级首页 · 上下文完整（含修学任务卡）
     notificationType: 'reminder',
     severity: 'normal',
   });

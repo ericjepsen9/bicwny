@@ -179,7 +179,7 @@ async function tickPracticeTasks(prisma: PrismaClient): Promise<void> {
           userIds,
           title: `《${t.class.name}》${taskTitle}`,
           body: PRACTICE_TASK_BODY[tier],
-          link: '/practice',
+          link: `/class/${t.class.id}`,
           notificationType: 'reminder',
           severity: PRACTICE_TASK_SEVERITY[tier],
         });
