@@ -4,7 +4,11 @@
 //   - v2 扩展：severity / link 校验 / channel 通道粒度日志
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { sendPushToUsers } from '../push/service.js';
-import { filterUsersAllowingPush, filterUsersOutsideQuietHours } from '../notifications/push-prefs.service.js';
+import {
+  filterUsersAllowingPush,
+  filterUsersOutsideQuietHours,
+  filterUsersUnderRateLimit,
+} from '../notifications/push-prefs.service.js';
 
 // v1 类型保留作为 hint · v2 实际接受任意 string · 由调用方约定取值
 // 取值规约见 NOTIFICATION_FINAL_SPEC.md §2 路由表
@@ -128,6 +132,7 @@ export async function dispatchToUsers(input: DispatchInput): Promise<DispatchRes
         eventKind, eventId, tier, userId: uid, channel,
         notificationId: n.id,
         success: true,
+        severity,  // L4 频率上限统计用
       },
     });
   }
@@ -163,12 +168,17 @@ export async function dispatchToUsers(input: DispatchInput): Promise<DispatchRes
   // L1 spec §3 路由表：部分事件类型完全不发 push（如 membership_change）· NO_PUSH_EVENTS 跳过
   // L2 spec §8：用户级偏好过滤 · pushEnabled / pushTypes per-type 子开关
   // L3 spec §5 静默时段：normal/urgent 在用户本地 22-7 跳过 · critical 无视
+  // L4 spec §5 频率上限：normal 每用户每小时 5 条 · urgent/critical 不限
   if (result.newPushedUsers > 0 && !NO_PUSH_EVENTS.has(eventKind as string)) {
     // L2 偏好过滤
     let allowedUsers = await filterUsersAllowingPush(newUsers, eventKind as string);
     // L3 静默时段过滤
     if (allowedUsers.length > 0) {
       allowedUsers = await filterUsersOutsideQuietHours(allowedUsers, severity);
+    }
+    // L4 频率上限过滤
+    if (allowedUsers.length > 0) {
+      allowedUsers = await filterUsersUnderRateLimit(allowedUsers, severity);
     }
     if (allowedUsers.length > 0) {
       const tag = `${eventKind}:${eventId}:${tier}`;

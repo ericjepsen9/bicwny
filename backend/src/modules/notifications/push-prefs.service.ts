@@ -121,6 +121,50 @@ export async function filterUsersAllowingPush(
 }
 
 /**
+ * 频率上限过滤（spec §5 L4）
+ *   - normal: 每用户每小时最多 5 条 push · 超限丢弃
+ *   - urgent / critical: 不限制（不计入 5 条上限）
+ *   - 计数维度：NotificationDispatchLog (userId, channel='push', severity='normal', pushedAt > now-1h)
+ *
+ * 多进程支持：直接 SQL count · 不用 in-memory 计数（PM2 cluster 模式安全）
+ * 性能：每用户一次 count(*) · 单次 dispatch 通常 < 100 用户 · 可接受
+ *
+ * 一致性：count 查询与后续 INSERT 不在同一事务 · 极端并发下可能略超 5 条 · 接受
+ */
+const NORMAL_HOURLY_LIMIT = 5;
+
+export async function filterUsersUnderRateLimit(
+  userIds: string[],
+  severity: 'normal' | 'urgent' | 'critical',
+  now: Date = new Date(),
+): Promise<string[]> {
+  if (userIds.length === 0) return [];
+  // urgent / critical 不限制
+  if (severity !== 'normal') return userIds;
+
+  const cutoff = new Date(now.getTime() - 60 * 60_000); // 1h 前
+  // 一次 groupBy count · 比 N 次 findMany 高效
+  const counts = await prisma.notificationDispatchLog.groupBy({
+    by: ['userId'],
+    where: {
+      userId: { in: userIds },
+      channel: 'push',
+      success: true,
+      severity: 'normal',
+      pushedAt: { gt: cutoff },
+    },
+    _count: { _all: true },
+  });
+  const blocked = new Set<string>();
+  for (const row of counts) {
+    if (row._count._all >= NORMAL_HOURLY_LIMIT) {
+      blocked.add(row.userId);
+    }
+  }
+  return userIds.filter((u) => !blocked.has(u));
+}
+
+/**
  * 静默时段过滤（spec §5 L3）
  *   - critical → 跳过过滤 · 立即发送（无视静默）
  *   - normal / urgent → 落在用户本地静默时段内则跳过 push

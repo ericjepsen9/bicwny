@@ -360,6 +360,10 @@ model NotificationDispatchLog {
   success        Boolean  @default(true)
   // v2 · 错误信息 · 投递失败时写入
   error          String?
+  // v2 · severity 副本（避免 join Notification 查询）· 频率上限统计用
+  //   normal: 计入每小时 5 条上限
+  //   urgent / critical: 不计入（不限制）
+  severity       String   @default("normal")
 
   // 含 channel 的 unique · 同事件多通道各发一次
   // 数据库现有数据 channel 默认 'push' · 不破坏旧 unique 语义
@@ -368,6 +372,8 @@ model NotificationDispatchLog {
   @@index([userId, pushedAt])
   // 频率上限查询索引（每用户每通道按时间）
   @@index([userId, channel, pushedAt])
+  // 频率上限 · 按 severity 过滤（normal only）
+  @@index([userId, channel, severity, pushedAt])
 }
 
 // 通知规则 · 平台/班级/任务级默认值 + 模板配置
