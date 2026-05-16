@@ -749,7 +749,9 @@ export default function ScriptureReadingPage() {
           style={{
             position: 'fixed',
             right: 16,
-            bottom: 96,
+            // 96px 是底部操作栏高度 + 32px 间隙 · safe-area 兼容 iPhone 12+ home bar
+            // 旧设备 / 桌面：96px(不变)；iPhone 12+：96 + 34 = 130px(向上避让)
+            bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))',
             width: 48,
             height: 48,
             borderRadius: '50%',
