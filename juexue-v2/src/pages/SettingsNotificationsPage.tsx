@@ -41,6 +41,34 @@ interface PrefsResp {
   resolved: Resolved;
 }
 
+// v2 push 偏好 · spec §8 NotificationPreference
+interface PushPrefs {
+  pushEnabled: boolean;
+  pushTypes: Record<string, boolean>;
+  homeCardEnabled: boolean;
+  auspiciousDayCard: boolean;
+}
+
+// Per-type 开关列表 · 与 backend NO_PUSH_EVENTS 互补
+// membership_change / auspicious_day 走 inbox-only · 不在此列表
+type PushType = {
+  key: string;
+  labelSc: string;
+  labelTc: string;
+  labelEn: string;
+  descSc: string;
+  descTc: string;
+  descEn: string;
+};
+const PUSH_TYPES: PushType[] = [
+  { key: 'class_session', labelSc: '共修开始', labelTc: '共修開始', labelEn: 'Class Session', descSc: '共修开始前 30/5/0 分钟提醒', descTc: '共修開始前 30/5/0 分鐘提醒', descEn: 'T-30/T-5/T0 reminders' },
+  { key: 'class_announcement', labelSc: '班级公告', labelTc: '班級公告', labelEn: 'Class Announcement', descSc: '辅导员发布班级公告', descTc: '輔導員發佈班級公告', descEn: 'Coach announcements' },
+  { key: 'practice_task', labelSc: '修学任务', labelTc: '修學任務', labelEn: 'Practice Task', descSc: '任务下达 · 截止前 24h / 6h 提醒', descTc: '任務下達 · 截止前 24h / 6h 提醒', descEn: 'Task created · 24h / 6h reminders' },
+  { key: 'achievement', labelSc: '成就解锁', labelTc: '成就解鎖', labelEn: 'Achievement', descSc: '解锁徽章时通知（5 分钟聚合）', descTc: '解鎖徽章時通知（5 分鐘聚合）', descEn: 'Badge unlocks (5min aggregated)' },
+  { key: 'system_announcement', labelSc: '系统公告', labelTc: '系統公告', labelEn: 'System Announcement', descSc: '平台公告 · 紧急公告无视此开关', descTc: '平台公告 · 緊急公告無視此開關', descEn: 'Platform announcements (critical overrides)' },
+  { key: 'dharma_assembly', labelSc: '法会活动', labelTc: '法會活動', labelEn: 'Dharma Assembly', descSc: '法会预告 · 开始前 1h 提醒', descTc: '法會預告 · 開始前 1h 提醒', descEn: 'Assembly preview · 1h reminder' },
+];
+
 export default function SettingsNotificationsPage() {
   const { s } = useLang();
   const qc = useQueryClient();
@@ -59,6 +87,21 @@ export default function SettingsNotificationsPage() {
     onError: (e) => toast.error((e as ApiError).message),
   });
 
+  // v2 push 偏好 (spec §8) · 与 v1 三档提醒并存
+  const pushQ = useQuery({
+    queryKey: ['/api/my/push-preferences'],
+    queryFn: () => api.get<{ data: PushPrefs }>('/api/my/push-preferences').then((r) => r.data),
+  });
+
+  const pushM = useMutation({
+    mutationFn: (patch: Partial<PushPrefs> & { pushTypes?: Record<string, boolean> }) =>
+      api.patch('/api/my/push-preferences', patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/my/push-preferences'] });
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
   if (q.isLoading || !q.data) {
     return (
       <div>
@@ -69,14 +112,85 @@ export default function SettingsNotificationsPage() {
   }
 
   const { prefs, resolved } = q.data;
+  const push = pushQ.data;
+  const pushEnabled = push?.pushEnabled ?? true;
 
   return (
     <div>
       <TopNav titles={['通知偏好', '通知偏好', 'Notifications']} backTo="/settings" />
       <div style={{ padding: '0 var(--sp-5) var(--sp-8)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
 
+        {/* Push 通道总开关 · spec §8 */}
+        <SectionLabel>{s('系统通知 · Push', '系統通知 · Push', 'Push notifications')}</SectionLabel>
+        <div className="menu-card" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--sp-3)' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ font: 'var(--text-body)', color: 'var(--ink)', letterSpacing: 1.2 }}>
+                {s('启用系统通知', '啟用系統通知', 'Enable system push')}
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 2 }}>
+                {s(
+                  '关闭后不弹手机系统通知 · 站内消息仍可见',
+                  '關閉後不彈手機系統通知 · 站內消息仍可見',
+                  'Disable to silence phone push · in-app inbox still works',
+                )}
+              </div>
+            </div>
+            <Switch
+              checked={pushEnabled}
+              onChange={() => pushM.mutate({ pushEnabled: !pushEnabled })}
+              disabled={pushQ.isLoading || pushM.isPending}
+            />
+          </div>
+        </div>
+
+        {/* Per-type push 子开关 */}
+        {pushEnabled && (
+          <>
+            <SectionLabel style={{ marginTop: 'var(--sp-3)' }}>
+              {s('按类型控制', '按類型控制', 'Per-type control')}
+            </SectionLabel>
+            <div className="menu-card">
+              {PUSH_TYPES.map((pt, i) => {
+                const types = push?.pushTypes ?? {};
+                // 缺省 = 开 · 仅显式 false 时关
+                const enabled = types[pt.key] !== false;
+                return (
+                  <div key={pt.key}>
+                    {i > 0 && <Divider />}
+                    <div style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--sp-3)' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ font: 'var(--text-body)', color: 'var(--ink)', letterSpacing: 1.2 }}>
+                            {s(pt.labelSc, pt.labelTc, pt.labelEn)}
+                          </div>
+                          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 2 }}>
+                            {s(pt.descSc, pt.descTc, pt.descEn)}
+                          </div>
+                        </div>
+                        <Switch
+                          checked={enabled}
+                          onChange={() => pushM.mutate({ pushTypes: { [pt.key]: !enabled } })}
+                          disabled={pushM.isPending}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 'var(--sp-1)', lineHeight: 1.5 }}>
+              {s(
+                '注：紧急系统公告 · 班级成员变动 · 藏历加持日 不受此列表控制',
+                '注：緊急系統公告 · 班級成員變動 · 藏曆加持日 不受此列表控制',
+                'Note: critical system announcements, membership changes, and auspicious days are not affected',
+              )}
+            </div>
+          </>
+        )}
+
         {/* 时区 */}
-        <SectionLabel>{s('时区', '時區', 'Timezone')}</SectionLabel>
+        <SectionLabel style={{ marginTop: 'var(--sp-3)' }}>{s('时区', '時區', 'Timezone')}</SectionLabel>
         <div className="menu-card" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ font: 'var(--text-body)' }}>{prefs.timezone}</div>
