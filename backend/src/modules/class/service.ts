@@ -8,6 +8,7 @@ import { type Class, type ClassMember, type ClassMemberRole, Prisma } from '@pri
 import { Conflict, Forbidden, Internal, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { migratePracticeOnLeave } from '../practice/migration.js';
+import { dispatchToUsers } from '../scheduler/dispatch.js';
 
 // 班级列表 / 详情 / 写操作返回时统一带的 course 选段
 // admin 列表页 + 详情抽屉 + coach.html / class-detail.html 都依赖 c.course.{title|coverEmoji|...}
@@ -268,6 +269,49 @@ export async function removeMember(
   }, {
     isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
   });
+
+  // spec §3 ⑨ MembershipChange · kicked tier · urgent
+  // 仅 admin/coach 操作时通知（self-leave 即用户主动退班 · 不发通知 · 隐私原则）
+  if (opts.actorAdminId) {
+    notifyMemberKicked(classId, userId).catch((e) => {
+      console.error('[class] notify kicked failed:', e);
+    });
+  }
+}
+
+/** spec §3 ⑨ kicked tier · 通知被移出的学员 */
+async function notifyMemberKicked(classId: string, userId: string): Promise<void> {
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { name: true } });
+  if (!cls) return;
+  await dispatchToUsers({
+    prisma,
+    eventKind: 'membership_change',
+    eventId: `${classId}:${userId}`,
+    tier: 'kicked',
+    userIds: [userId],
+    title: `你已被移出「${cls.name}」`,
+    body: '如有疑问请联系辅导员',
+    link: '/',  // 不能跳已退出的班 · 跳首页（spec §3.9 兜底）
+    notificationType: 'system',
+    severity: 'urgent',
+  });
+}
+
+/** spec §3 ⑨ class_dissolved tier · 通知班级所有学员 */
+async function notifyClassDissolved(classId: string, className: string, userIds: string[]): Promise<void> {
+  if (userIds.length === 0) return;
+  await dispatchToUsers({
+    prisma,
+    eventKind: 'membership_change',
+    eventId: `${classId}:dissolved`,
+    tier: 'class_dissolved',
+    userIds,
+    title: `「${className}」已解散`,
+    body: '感谢同行',
+    link: '/',
+    notificationType: 'system',
+    severity: 'urgent',
+  });
 }
 
 // C1: tx-aware 核心 · removeMember / archiveClass 共用
@@ -526,7 +570,13 @@ export async function archiveClass(
   //   - 解决：复用 removeMember 的 fallback / delete 语义，对所有 active 成员逐个处理
   //   - 单次 tx + SERIALIZABLE：与 removeMember 一致的并发保证
   //   - skipAudit=true：避免每成员一条 audit · 已有 class.archive 总账记录解散事件
-  return prisma.$transaction(async (tx) => {
+  // 提前抓 className + 成员 · 用于事务后发解散通知（tx 内 archive 后这些数据会被改）
+  const preArchive = await prisma.class.findUnique({
+    where: { id },
+    select: { name: true, members: { where: { removedAt: null }, select: { userId: true } } },
+  });
+
+  const result = await prisma.$transaction(async (tx) => {
     const before = await tx.class.findUnique({
       where: { id },
       select: { isActive: true, archivedAt: true, name: true },
@@ -580,6 +630,15 @@ export async function archiveClass(
   }, {
     isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
   });
+
+  // spec §3 ⑨ class_dissolved tier · fire-and-forget 通知所有原成员
+  if (preArchive && preArchive.members.length > 0) {
+    notifyClassDissolved(id, preArchive.name, preArchive.members.map((m) => m.userId)).catch((e) => {
+      console.error('[class] notify dissolved failed:', e);
+    });
+  }
+
+  return result;
 }
 
 /** 断言 userId 是 classId 的当前辅导员；否则抛 Forbidden。 */

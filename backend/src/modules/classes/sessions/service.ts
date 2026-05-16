@@ -4,6 +4,7 @@
 import type { Prisma } from '@prisma/client';
 import { Forbidden, NotFound, BadRequest } from '../../../lib/errors.js';
 import { prisma } from '../../../lib/prisma.js';
+import { dispatchToUsers } from '../../scheduler/dispatch.js';
 
 export interface CreateSessionInput {
   classId: string;
@@ -92,24 +93,92 @@ export async function updateSession(userId: string, id: string, patch: UpdateSes
   if (significant) {
     data.editVersion = { increment: 1 };
     // 清掉相关 DispatchLog · 让调度器按新时间重新触发
-    // 注：仅清未来还会再触发的（保留历史 audit）
+    // 注：仅清未来还会再触发的（保留历史 audit）· 含 channel 维度
     await prisma.notificationDispatchLog.deleteMany({
       where: {
         eventKind: 'class_session',
         eventId: id,
-        // T-30/T-5/T0 三档无论改前改后都清 · 简单稳妥
+        tier: { in: ['T-30', 'T-5', 'T0'] },
       },
     });
   }
-  return prisma.classSession.update({ where: { id }, data });
+  const updated = await prisma.classSession.update({ where: { id }, data });
+
+  // spec §3 ① time_changed tier · urgent severity · 改时间后即时通知学员（fire-and-forget）
+  if (patch.startAt !== undefined) {
+    notifySessionTimeChanged(updated.classId, updated.id, updated.title, updated.startAt).catch((e) => {
+      console.error('[session] notify time_changed failed:', e);
+    });
+  }
+  return updated;
 }
 
 export async function deleteSession(userId: string, id: string) {
   const s = await prisma.classSession.findUnique({ where: { id } });
   if (!s) throw NotFound('排课不存在');
   await assertCoachOfClass(userId, s.classId);
+  // 删除前先取学员名单 · 用于发取消通知
+  const members = await prisma.classMember.findMany({
+    where: { classId: s.classId, removedAt: null, role: 'student' },
+    select: { userId: true },
+  });
   await prisma.classSession.delete({ where: { id } });
   // 删除后调度器自然不再扫到 · DispatchLog 保留作 audit
+
+  // spec §3 ① cancelled tier · urgent severity · 取消通知学员（fire-and-forget）
+  if (members.length > 0) {
+    notifySessionCancelled(s.classId, s.id, s.title, members.map((m) => m.userId)).catch((e) => {
+      console.error('[session] notify cancelled failed:', e);
+    });
+  }
+}
+
+/**
+ * 共修改时间通知（spec §3 ① time_changed tier）
+ */
+async function notifySessionTimeChanged(classId: string, sessionId: string, title: string, newStartAt: Date): Promise<void> {
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { name: true } });
+  if (!cls) return;
+  const members = await prisma.classMember.findMany({
+    where: { classId, removedAt: null, role: 'student' },
+    select: { userId: true },
+  });
+  if (members.length === 0) return;
+  // 简单格式化时间 · 给文案用（用户本地时间在前端处理）
+  const tz = 'Asia/Shanghai';
+  const fmt = newStartAt.toLocaleString('zh-CN', { timeZone: tz, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  await dispatchToUsers({
+    prisma,
+    eventKind: 'class_session',
+    eventId: sessionId,
+    tier: 'time_changed',
+    userIds: members.map((m) => m.userId),
+    title: `《${cls.name}》共修时间变更`,
+    body: `${title} · 新时间 ${fmt}`,
+    link: `/class/${classId}`,
+    notificationType: 'class_session_soon',
+    severity: 'urgent',
+  });
+}
+
+/**
+ * 共修取消通知（spec §3 ① cancelled tier）
+ */
+async function notifySessionCancelled(classId: string, sessionId: string, title: string, userIds: string[]): Promise<void> {
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { name: true } });
+  if (!cls) return;
+  await dispatchToUsers({
+    prisma,
+    eventKind: 'class_session',
+    eventId: sessionId,
+    tier: 'cancelled',
+    userIds,
+    title: `《${cls.name}》共修已取消`,
+    body: title,
+    link: `/class/${classId}`,
+    notificationType: 'class_session_soon',
+    severity: 'urgent',
+  });
 }
 
 // 学员侧 · 我未来 N 分钟内所有班级的 ClassSession（v1 仅这一种事件源）
