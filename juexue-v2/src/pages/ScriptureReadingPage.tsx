@@ -1,17 +1,32 @@
 // ScriptureReadingPage · /read/:slug/:lessonId
 //   Apple 图书风沉浸阅读 · 进入显示工具栏 → 滚一屏后自动隐 → 点正文呼出/收起
+//
+// 拆分（优化 1）后 · 本主组件仅负责:
+//   - 状态管理（chromeVisible · selection · tocOpen · notesOpen）
+//   - 数据 queries（course · enrollments · notes · highlights · meditation）
+//   - mutations（createHighlight · deleteHighlight · readingProgress）
+//   - 副作用（scroll · selection · scroll-to-top · 进度推进 · 自愈重定向）
+//   - 子组件编排（TopBar · Article · SelectionToolbar · BottomNav · Fab · TocSheet）
+//
+// 拆出去的子组件位于 components/reading/ · 见各文件头说明。
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
-import Dialog from '@/components/Dialog';
 import NotesDrawer from '@/components/NotesDrawer';
+import ReadingTopBar from '@/components/reading/ReadingTopBar';
+import ReadingArticle from '@/components/reading/ReadingArticle';
+import ReadingSelectionToolbar from '@/components/reading/ReadingSelectionToolbar';
+import ReadingBottomNav from '@/components/reading/ReadingBottomNav';
+import ReadingNotesFab from '@/components/reading/ReadingNotesFab';
+import ReadingTocSheet from '@/components/reading/ReadingTocSheet';
 import { api, ApiError } from '@/lib/api';
 import { useFontScale } from '@/lib/fontSize';
 import { useLang } from '@/lib/i18n';
 import { type Highlight, type HighlightColor, useCourseDetail, useEnrollments, useLessonHighlights, useLessonMeditation, useUpdateEnrollmentProgress } from '@/lib/queries';
 import { useReadingTracker } from '@/lib/readingTracker';
+import { textOffsetWithin } from '@/lib/reading-utils';
 import { toast } from '@/lib/toast';
 
 interface LessonNote {
@@ -29,7 +44,7 @@ interface FlatLesson {
 }
 
 export default function ScriptureReadingPage() {
-  const { s, lang } = useLang();
+  const { s } = useLang();
   const params = useParams<{ slug: string; lessonId: string }>();
   const slug = params.slug || '';
   const lessonId = params.lessonId || '';
@@ -141,19 +156,6 @@ export default function ScriptureReadingPage() {
     anchorText: string;
   } | null>(null);
 
-  // 计算 node + offset 在 root 内的文本字符偏移
-  function textOffsetWithin(root: Element, container: Node, offset: number): number {
-    let sum = 0;
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    let n: Node | null = walker.nextNode();
-    while (n) {
-      if (n === container) return sum + offset;
-      sum += (n.textContent ?? '').length;
-      n = walker.nextNode();
-    }
-    return sum;
-  }
-
   useEffect(() => {
     function onSelectionChange() {
       const sel = window.getSelection();
@@ -258,6 +260,11 @@ export default function ScriptureReadingPage() {
     setSelection(null);
   }
 
+  function cancelSelection() {
+    window.getSelection()?.removeAllRanges();
+    setSelection(null);
+  }
+
   // 向下滚 → 隐藏工具栏；向上滚 → 显示
   // 顶部 60px 内强制显示（避免顶端就给隐了 · 视觉断层）
   // 抖动阈值 8px 避免微抖动反复触发
@@ -288,6 +295,16 @@ export default function ScriptureReadingPage() {
       `字號：${opt.labelTc}`,
       `Font: ${opt.labelEn}`,
     ));
+  }
+
+  function onBack() {
+    // location.key === 'default' = 直接 deep link 进入 · 历史栈空 · 用显式 nav 兜底
+    // 否则 nav(-1) 走浏览器历史 · 由于 lesson 切换都用 replace · 上一条必然是 detail
+    if (location.key === 'default') {
+      nav(`/scripture-detail?slug=${encodeURIComponent(slug)}`, { replace: true });
+    } else {
+      nav(-1);
+    }
   }
 
   if (course.isLoading) {
@@ -321,487 +338,69 @@ export default function ScriptureReadingPage() {
 
   const c = course.data!;
   const { chapterTitle, lesson } = cur;
-
-  const toolBtn: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    padding: '8px 14px',
-    background: 'var(--glass-thick)',
-    border: '1px solid var(--glass-border)',
-    borderRadius: 'var(--r-pill)',
-    color: 'var(--ink-2)',
-    font: 'var(--text-caption)',
-    fontWeight: 600,
-    letterSpacing: 1,
-    textDecoration: 'none',
-    cursor: 'pointer',
-  };
-  const toolBtnDisabled: React.CSSProperties = { opacity: 0.4, cursor: 'not-allowed', pointerEvents: 'none' };
+  const meditationEntry = lessonMeditation.data && lessonMeditation.data.isPublished
+    ? { id: lessonMeditation.data.id, title: lessonMeditation.data.title, videoDurationSec: lessonMeditation.data.videoDurationSec }
+    : null;
 
   return (
     <div>
-      <div
-        className="top-nav"
-        style={{
-          opacity: chromeVisible ? 1 : 0,
-          transform: chromeVisible ? 'translateY(0)' : 'translateY(-100%)',
-          pointerEvents: chromeVisible ? 'auto' : 'none',
-          transition: 'opacity .25s var(--ease), transform .25s var(--ease)',
-        }}
-      >
-        <button
-          type="button"
-          className="nav-back"
-          onClick={() => {
-            // location.key === 'default' = 直接 deep link 进入 · 历史栈空 · 用显式 nav 兜底
-            // 否则 nav(-1) 走浏览器历史 · 由于 lesson 切换都用 replace · 上一条必然是 detail
-            if (location.key === 'default') {
-              nav(`/scripture-detail?slug=${encodeURIComponent(slug)}`, { replace: true });
-            } else {
-              nav(-1);
-            }
-          }}
-          aria-label={s('返回', '返回', 'Back')}
-        >
-          <svg width="18" height="18" fill="none" stroke="#55463A" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-        <span
-          className="nav-title"
-          style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-        >
-          {c.coverEmoji} {c.title}
-        </span>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            type="button"
-            onClick={() => bumpFont(-1)}
-            aria-label={s('字号减小', '字號減小', 'Smaller text')}
-            title={s('字号 A-', '字號 A-', 'A-')}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 'var(--r-sm)',
-              background: 'var(--glass-thick)',
-              border: '1px solid var(--glass-border)',
-              color: 'var(--ink-2)',
-              fontFamily: 'var(--font-serif)',
-              fontWeight: 700,
-              fontSize: '0.75rem',
-              letterSpacing: 0,
-              cursor: 'pointer',
-            }}
-          >
-            A-
-          </button>
-          <button
-            type="button"
-            onClick={() => bumpFont(1)}
-            aria-label={s('字号增大', '字號增大', 'Larger text')}
-            title={s('字号 A+', '字號 A+', 'A+')}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 'var(--r-sm)',
-              background: 'var(--glass-thick)',
-              border: '1px solid var(--glass-border)',
-              color: 'var(--ink-2)',
-              fontFamily: 'var(--font-serif)',
-              fontWeight: 700,
-              fontSize: '1rem',
-              letterSpacing: 0,
-              cursor: 'pointer',
-            }}
-          >
-            A+
-          </button>
-          <button
-            type="button"
-            onClick={() => setTocOpen(true)}
-            aria-label={s('章节目录', '章節目錄', 'Catalog')}
-            style={{
-              width: 34,
-              height: 32,
-              borderRadius: 'var(--r-sm)',
-              background: 'var(--glass-thick)',
-              border: '1px solid var(--glass-border)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--ink-2)',
-              cursor: 'pointer',
-            }}
-          >
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-              <line x1="8" y1="6" x2="21" y2="6" />
-              <line x1="8" y1="12" x2="21" y2="12" />
-              <line x1="8" y1="18" x2="21" y2="18" />
-              <line x1="3" y1="6" x2="3.01" y2="6" />
-              <line x1="3" y1="12" x2="3.01" y2="12" />
-              <line x1="3" y1="18" x2="3.01" y2="18" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      <ReadingTopBar
+        chromeVisible={chromeVisible}
+        courseEmoji={c.coverEmoji ?? ''}
+        courseTitle={c.title}
+        onBack={onBack}
+        onTocOpen={() => setTocOpen(true)}
+        onFontBump={bumpFont}
+      />
 
-      <div
-        onClick={() => setChromeVisible((v) => !v)}
-        style={{
-          padding: '0 var(--sp-5) calc(var(--sp-8) + 80px)',
-          cursor: 'pointer',
-        }}
-      >
-        <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: '1.5px', marginBottom: 'var(--sp-2)' }}>
-          {chapterTitle} · {s('第 ' + lesson.order + ' 课', '第 ' + lesson.order + ' 課', 'Lesson ' + lesson.order)}
-          <span style={{ marginLeft: 8, color: 'var(--ink-4)' }}>· {idx + 1} / {flat.length}</span>
-          {completed && <span style={{ color: 'var(--sage-dark)', marginLeft: 8 }}>· ✓ {s('已学', '已學', 'Done')}</span>}
-        </div>
-        <h1
-          style={{
-            fontFamily: 'var(--font-serif)',
-            fontWeight: 700,
-            fontSize: '1.375rem',
-            color: 'var(--ink)',
-            letterSpacing: 4,
-            marginBottom: 'var(--sp-4)',
-          }}
-        >
-          {lesson.title}
-        </h1>
+      <ReadingArticle
+        articleRef={articleRef}
+        chapterTitle={chapterTitle}
+        lessonOrder={lesson.order}
+        lessonTitle={lesson.title}
+        lessonReferenceText={lesson.referenceText}
+        flatIdx={idx}
+        flatTotal={flat.length}
+        completed={completed}
+        notesByAnchor={notesByAnchor}
+        highlightsByPara={highlightsByPara}
+        onDeleteHighlight={(id) => deleteHighlight.mutate(id)}
+        onToggleChrome={() => setChromeVisible((v) => !v)}
+      />
 
-        {/* 原文 · 按段落拆 · 段落旁显示笔记 💬 · 选段弹「加笔记」气泡
-            字号 / 行距按语言基线自适应（优化 5）:
-              - 简体 (sc)：1rem · 1.9 · 1px（沿用现有 · 不变）
-              - 繁体 (tc)：1.05rem · 1.95 · 1px（笔画复杂 · 字号 +5% · 行距略宽）
-              - 英文 (en)：1rem · 1.7 · 0（字母窄 · 行距收紧 · 字距取消）
-            额外字号缩放仍受 useFontScale 全局 --font-scale 影响（叠加倍率）*/}
-        <article
-          ref={articleRef}
-          style={{
-            padding: 'var(--sp-2) 0 var(--sp-3)',
-            font: 'var(--text-body-serif)',
-            fontSize: lang === 'tc' ? '1.05rem' : '1rem',
-            lineHeight: lang === 'en' ? 1.7 : (lang === 'tc' ? 1.95 : 1.9),
-            letterSpacing: lang === 'en' ? 0 : 1,
-            color: 'var(--ink)',
-            wordBreak: 'break-word',
-          }}
-        >
-          {(lesson.referenceText ?? '').trim() ? (
-            splitParagraphs(lesson.referenceText!).map((para, idx) => {
-              const notes = notesByAnchor.get(idx) ?? [];
-              const paraHighlights = highlightsByPara.get(idx) ?? [];
-              return (
-                <p
-                  key={idx}
-                  data-paragraph-index={idx}
-                  style={{
-                    margin: '0 0 var(--sp-3)',
-                    whiteSpace: 'pre-wrap',
-                    position: 'relative',
-                    paddingRight: notes.length > 0 ? 28 : 0,
-                  }}
-                >
-                  {renderParaWithHighlights(para, paraHighlights, (id) => deleteHighlight.mutate(id))}
-                  {notes.length > 0 && (
-                    <Link
-                      to={`/notes/${notes[0]!.id}`}
-                      aria-label={`本段有 ${notes.length} 条笔记`}
-                      title={notes.map((n) => n.title || '(无标题)').join(' · ')}
-                      style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: 0,
-                        fontSize: '0.95rem',
-                        color: 'var(--saffron-dark)',
-                        textDecoration: 'none',
-                        background: 'var(--saffron-pale)',
-                        borderRadius: '50%',
-                        width: 22,
-                        height: 22,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 700,
-                      }}
-                    >
-                      💬{notes.length > 1 ? notes.length : ''}
-                    </Link>
-                  )}
-                </p>
-              );
-            })
-          ) : (
-            <p>{s('（本课时尚无原文）', '（本課時尚無原文）', '(No reference text yet)')}</p>
-          )}
-        </article>
-
-        {/* 选段工具栏移到视口底部 · portal 渲到 body 避免 .page-enter transform 影响 fixed */}
-      </div>
-
-      {/* 观修 + 工具栏走 createPortal · 渲到 document.body 避免被 .page-enter 的
-          transform 创建的 containing block 影响 fixed 定位（之前 bug：栏漂到页面底而非视口） */}
+      {/* 选段工具栏 + 观修入口 + 底部操作栏 · createPortal 渲到 body
+          避免被 .page-enter 的 transform 创建的 containing block 影响 fixed 定位
+          （之前 bug：栏漂到页面底而非视口 · 见 docs/CSS-GOTCHAS.md 坑 1） */}
       {createPortal(
         <>
-          {/* 选段工具栏 · 底部固定 · 4 色标记 + 拷贝 + 笔记 · selection 存在时出现 */}
           {selection && (
-            <div
-              role="toolbar"
-              aria-label={s('选段操作', '選段操作', 'Selection actions')}
-              style={{
-                position: 'fixed',
-                left: 'var(--sp-3)',
-                right: 'var(--sp-3)',
-                bottom: `calc(env(safe-area-inset-bottom, 0px) + 12px)`,
-                padding: '10px 12px',
-                background: 'rgba(43,34,24,0.95)',
-                color: '#fff',
-                borderRadius: 'var(--r-lg)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                zIndex: 95,
-                maxWidth: 460,
-                marginLeft: 'auto',
-                marginRight: 'auto',
-              }}
-            >
-              {/* 4 色标记 */}
-              <div style={{ display: 'flex', gap: 6 }}>
-                {(['yellow', 'green', 'blue', 'pink'] as HighlightColor[]).map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => createHighlight.mutate({ color: c })}
-                    aria-label={s('标记', '標記', 'Highlight') + ' ' + c}
-                    title={c}
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: '50%',
-                      background: HIGHLIGHT_BG[c],
-                      border: '2px solid rgba(255,255,255,0.6)',
-                      cursor: 'pointer',
-                      padding: 0,
-                      flexShrink: 0,
-                    }}
-                  />
-                ))}
-              </div>
-              <div style={{ width: 1, height: 22, background: 'rgba(255,255,255,0.2)' }} aria-hidden />
-              <button
-                type="button"
-                onClick={copySelection}
-                style={toolbarBtnStyle}
-              >
-                {s('拷贝', '拷貝', 'Copy')}
-              </button>
-              <button
-                type="button"
-                onClick={addNoteFromSelection}
-                style={toolbarBtnStyle}
-              >
-                📝 {s('笔记', '筆記', 'Note')}
-              </button>
-              <button
-                type="button"
-                onClick={() => { window.getSelection()?.removeAllRanges(); setSelection(null); }}
-                aria-label={s('取消', '取消', 'Cancel')}
-                style={{
-                  marginLeft: 'auto',
-                  width: 28,
-                  height: 28,
-                  borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.15)',
-                  color: '#fff',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: 14,
-                  flexShrink: 0,
-                }}
-              >
-                ✕
-              </button>
-            </div>
+            <ReadingSelectionToolbar
+              onHighlight={(color) => createHighlight.mutate({ color })}
+              onCopy={copySelection}
+              onNote={addNoteFromSelection}
+              onCancel={cancelSelection}
+            />
           )}
-
-          {/* 观修入口（如该课时有发布观修）· 底部栏上方 · 跟工具栏联动显示 */}
-          {lessonMeditation.data && lessonMeditation.data.isPublished && (
-            <Link
-              to={`/meditation/${lessonMeditation.data.id}`}
-              style={{
-                position: 'fixed',
-                left: 'var(--sp-5)',
-                right: 'var(--sp-5)',
-                bottom: `calc(64px + env(safe-area-inset-bottom, 0px))`,
-                padding: '12px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--sp-3)',
-                background: 'var(--saffron)',
-                color: '#fff',
-                borderRadius: 'var(--r)',
-                boxShadow: '0 4px 16px rgba(224,120,86,.35)',
-                textDecoration: 'none',
-                zIndex: 21,
-                opacity: chromeVisible ? 1 : 0,
-                transform: chromeVisible ? 'translateY(0)' : 'translateY(120%)',
-                pointerEvents: chromeVisible ? 'auto' : 'none',
-                transition: 'opacity .25s var(--ease), transform .25s var(--ease)',
-                letterSpacing: 1,
-              }}
-            >
-              <span style={{ fontSize: '1.4rem' }}>🧘</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>
-                  {s('进入观修', '進入觀修', 'Start meditation')}
-                </div>
-                <div style={{ font: 'var(--text-caption)', opacity: .85, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {lessonMeditation.data.title}
-                  {lessonMeditation.data.videoDurationSec > 0 && (
-                    <span> · {Math.floor(lessonMeditation.data.videoDurationSec / 60)}:{String(lessonMeditation.data.videoDurationSec % 60).padStart(2, '0')}</span>
-                  )}
-                </div>
-              </div>
-              <span style={{ fontSize: '1.2rem' }}>→</span>
-            </Link>
-          )}
-
-          {/* 底部操作栏 · 固定在屏底 · 跟顶部 nav 联动显示/隐藏 */}
-          <div
-            style={{
-              position: 'fixed',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              padding: `var(--sp-3) var(--sp-5) calc(var(--sp-3) + env(safe-area-inset-bottom, 0px))`,
-              display: 'flex',
-              gap: 'var(--sp-2)',
-              alignItems: 'center',
-              background: 'var(--glass-thick)',
-              backdropFilter: 'var(--blur)',
-              WebkitBackdropFilter: 'var(--blur)',
-              borderTop: '1px solid var(--glass-border)',
-              zIndex: 20,
-              opacity: chromeVisible ? 1 : 0,
-              transform: chromeVisible ? 'translateY(0)' : 'translateY(100%)',
-              pointerEvents: chromeVisible ? 'auto' : 'none',
-              transition: 'opacity .25s var(--ease), transform .25s var(--ease)',
-            }}
-          >
-        {prev ? (
-          <Link
-            to={`/read/${c.slug}/${prev.lesson.id}`}
-            replace
-            style={{ ...toolBtn, flex: 1 }}
-            aria-label={s('上一课', '上一課', 'Previous lesson')}
-          >
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            <span>{s('上一课', '上一課', 'Prev')}</span>
-          </Link>
-        ) : (
-          <span style={{ ...toolBtn, ...toolBtnDisabled, flex: 1 }} aria-disabled="true">
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            <span>{s('上一课', '上一課', 'Prev')}</span>
-          </span>
-        )}
-        <Link
-          to={`/quiz/${lesson.id}?courseId=${c.id}&slug=${encodeURIComponent(c.slug)}&from=reading${next ? '&nextLessonId=' + next.lesson.id : ''}`}
-          className="btn btn-primary btn-pill"
-          style={{ flex: 1.4, padding: 12, justifyContent: 'center' }}
-        >
-          {s('开始答题', '開始答題', 'Start quiz')}
-        </Link>
-        {next ? (
-          <Link
-            to={`/read/${c.slug}/${next.lesson.id}`}
-            replace
-            style={{ ...toolBtn, flex: 1 }}
-            aria-label={s('下一课', '下一課', 'Next lesson')}
-          >
-            <span>{s('下一课', '下一課', 'Next')}</span>
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-              <polyline points="9 6 15 12 9 18" />
-            </svg>
-          </Link>
-        ) : (
-          <span style={{ ...toolBtn, ...toolBtnDisabled, flex: 1 }} aria-disabled="true">
-            <span>{s('下一课', '下一課', 'Next')}</span>
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
-              <polyline points="9 6 15 12 9 18" />
-            </svg>
-          </span>
-        )}
-          </div>
+          <ReadingBottomNav
+            chromeVisible={chromeVisible}
+            courseSlug={c.slug}
+            courseId={c.id}
+            lessonId={lesson.id}
+            prev={prev}
+            next={next}
+            meditation={meditationEntry}
+          />
         </>,
         document.body,
       )}
 
       {/* 笔记 FAB · 浮于右下 · 仅当 lessonId 有效时显示 · 点击开抽屉不跳页 */}
       {lessonId && (
-        <button
-          type="button"
-          onClick={() => setNotesOpen(true)}
-          aria-label={s('本课笔记', '本課筆記', 'Lesson notes')}
-          style={{
-            position: 'fixed',
-            right: 16,
-            // 96px 是底部操作栏高度 + 32px 间隙 · safe-area 兼容 iPhone 12+ home bar
-            // 旧设备 / 桌面：96px(不变)；iPhone 12+：96 + 34 = 130px(向上避让)
-            bottom: 'calc(96px + env(safe-area-inset-bottom, 0px))',
-            width: 48,
-            height: 48,
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: '1.3rem',
-            zIndex: 50,
-            opacity: chromeVisible ? 1 : 0,
-            pointerEvents: chromeVisible ? 'auto' : 'none',
-            transition: 'opacity .25s var(--ease)',
-          }}
-        >
-          📝
-          {(lessonNotes.data?.length ?? 0) > 0 && (
-            <span
-              aria-hidden
-              style={{
-                position: 'absolute',
-                top: -4,
-                right: -4,
-                minWidth: 18,
-                height: 18,
-                padding: '0 5px',
-                borderRadius: 999,
-                background: 'var(--crimson)',
-                border: '2px solid var(--bg)',
-                color: '#fff',
-                fontSize: 10,
-                fontWeight: 700,
-                lineHeight: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {(lessonNotes.data!.length) > 9 ? '9+' : lessonNotes.data!.length}
-            </span>
-          )}
-        </button>
+        <ReadingNotesFab
+          chromeVisible={chromeVisible}
+          notesCount={lessonNotes.data?.length ?? 0}
+          onOpen={() => setNotesOpen(true)}
+        />
       )}
 
       {/* 抽屉 · 本课笔记列表 + 新建按钮 */}
@@ -815,135 +414,14 @@ export default function ScriptureReadingPage() {
       )}
 
       {/* 目录 sheet · 当前课时高亮 · 点击直跳 */}
-      <Dialog open={tocOpen} onClose={() => setTocOpen(false)} title={s('目录', '目錄', 'Catalog')}>
-        <div style={{ maxHeight: '60vh', overflowY: 'auto', padding: 'var(--sp-2) 0' }}>
-          {course.data?.chapters?.map((ch) => (
-            <div key={ch.id} style={{ marginBottom: 'var(--sp-3)' }}>
-              <div
-                style={{
-                  font: 'var(--text-caption)',
-                  color: 'var(--ink-3)',
-                  letterSpacing: 2,
-                  fontWeight: 700,
-                  padding: 'var(--sp-2) 0',
-                }}
-              >
-                {s('第 ' + ch.order + ' 章', '第 ' + ch.order + ' 章', 'Ch ' + ch.order)} · {ch.title}
-              </div>
-              <div className="menu-card">
-                {(ch.lessons ?? []).map((l) => {
-                  const done = !!enrollment?.lessonsCompleted.includes(l.id);
-                  const isCur = l.id === lessonId;
-                  return (
-                    <Link
-                      key={l.id}
-                      to={`/read/${c.slug}/${l.id}`}
-                      replace
-                      onClick={() => setTocOpen(false)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--sp-3)',
-                        padding: 'var(--sp-3) var(--sp-4)',
-                        textDecoration: 'none',
-                        color: 'inherit',
-                        background: isCur ? 'var(--saffron-pale)' : 'transparent',
-                        borderLeft: isCur ? '3px solid var(--saffron)' : '3px solid transparent',
-                      }}
-                    >
-                      <span style={{ minWidth: 24, font: 'var(--text-caption)', color: 'var(--ink-4)', fontWeight: 700 }}>
-                        {l.order}
-                      </span>
-                      <span style={{ flex: 1, font: 'var(--text-body)', color: isCur ? 'var(--saffron-dark)' : 'var(--ink)' }}>
-                        {l.title}
-                      </span>
-                      {done && (
-                        <span style={{ fontSize: 14, color: 'var(--sage-dark)', fontWeight: 700 }}>✓</span>
-                      )}
-                      {isCur && !done && (
-                        <span style={{ fontSize: 12, color: 'var(--saffron-dark)', fontWeight: 700 }}>{s('当前', '當前', 'Now')}</span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Dialog>
+      <ReadingTocSheet
+        open={tocOpen}
+        onClose={() => setTocOpen(false)}
+        courseSlug={c.slug}
+        chapters={c.chapters ?? []}
+        currentLessonId={lessonId}
+        completedLessonIds={enrollment?.lessonsCompleted ?? []}
+      />
     </div>
   );
-}
-
-// 把闻思原文按段落切 · 优先双换行 · 兜底单换行
-function splitParagraphs(text: string): string[] {
-  const byDouble = text.split(/\n{2,}/g).map((p) => p.trim()).filter(Boolean);
-  if (byDouble.length > 1) return byDouble;
-  // 单 \n 兜底 · 但每段至少 8 字防止把短行单独成段
-  const bySingle = text.split(/\n/g).map((p) => p.trim()).filter((p) => p.length > 0);
-  return bySingle.length > 1 ? bySingle : [text.trim()];
-}
-
-// 4 色高亮 · 浅色背景 + 不影响阅读对比
-const HIGHLIGHT_BG: Record<HighlightColor, string> = {
-  yellow: 'rgba(255, 220, 80, 0.55)',
-  green: 'rgba(120, 200, 130, 0.45)',
-  blue: 'rgba(120, 180, 240, 0.45)',
-  pink: 'rgba(245, 140, 180, 0.45)',
-};
-
-// 工具栏按钮样式 · 复用
-const toolbarBtnStyle: React.CSSProperties = {
-  padding: '6px 12px',
-  borderRadius: 'var(--r-pill)',
-  background: 'rgba(255,255,255,0.18)',
-  color: '#fff',
-  border: 'none',
-  font: 'var(--text-caption)',
-  fontSize: '0.8rem',
-  fontWeight: 600,
-  letterSpacing: 1,
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-};
-
-// 按高亮 ranges 切段落文本 · 渲染为 [text, <mark>, text, <mark>, ...]
-// 点击 <mark> 删除该高亮
-function renderParaWithHighlights(
-  para: string,
-  highlights: Highlight[],
-  onDelete: (id: string) => void,
-): React.ReactNode {
-  if (highlights.length === 0) return para;
-  // 按 textStart 升序 · 合并重叠的（不支持嵌套 · 取后者）
-  const sorted = [...highlights].sort((a, b) => a.textStart - b.textStart);
-  const out: React.ReactNode[] = [];
-  let cursor = 0;
-  for (const h of sorted) {
-    const start = Math.max(h.textStart, cursor);
-    const end = Math.min(h.textEnd, para.length);
-    if (end <= start) continue;
-    if (start > cursor) out.push(para.slice(cursor, start));
-    out.push(
-      <mark
-        key={h.id}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (confirm('删除这条标记？')) onDelete(h.id);
-        }}
-        style={{
-          background: HIGHLIGHT_BG[h.color],
-          color: 'inherit',
-          padding: '0 1px',
-          borderRadius: 2,
-          cursor: 'pointer',
-        }}
-      >
-        {para.slice(start, end)}
-      </mark>,
-    );
-    cursor = end;
-  }
-  if (cursor < para.length) out.push(para.slice(cursor));
-  return out;
 }
