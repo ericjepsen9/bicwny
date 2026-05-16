@@ -109,10 +109,15 @@ export async function addMember(
     linkEnrollment?: { courseId: string };
   } = {},
 ): Promise<ClassMember> {
-  return prisma.$transaction(async (tx) => {
+  // 是否「真正新加入」· 用于事务后是否发 joined 通知
+  // 满足任一即算新加入：之前 row 不存在 / 之前 row removedAt 不为 null（重新激活）
+  let wasNewlyJoined = false;
+
+  const result = await prisma.$transaction(async (tx) => {
     const before = await tx.classMember.findUnique({
       where: { classId_userId: { classId, userId } },
     });
+    wasNewlyJoined = !before || before.removedAt !== null;
     const member = await tx.classMember.upsert({
       where: { classId_userId: { classId, userId } },
       create: { classId, userId, role },
@@ -190,6 +195,35 @@ export async function addMember(
       });
     }
     return member;
+  });
+
+  // spec §3 ⑨ MembershipChange · joined tier · normal severity
+  // 仅 admin/coach 操作时通知（学员自助 join 由 student.routes 调用 · 无 actorAdminId · 不通知 · 用户已主动操作）
+  // 仅当真的「新加入」（含从 removedAt 重新激活）才发 · 避免角色变更也发通知
+  if (opts.actorAdminId && wasNewlyJoined && role === 'student') {
+    notifyMemberJoined(classId, userId).catch((e) => {
+      console.error('[class] notify joined failed:', e);
+    });
+  }
+
+  return result;
+}
+
+/** spec §3 ⑨ joined tier · 通知被加入新班的学员 */
+async function notifyMemberJoined(classId: string, userId: string): Promise<void> {
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { name: true } });
+  if (!cls) return;
+  await dispatchToUsers({
+    prisma,
+    eventKind: 'membership_change',
+    eventId: `${classId}:${userId}`,
+    tier: 'joined',
+    userIds: [userId],
+    title: `你已加入「${cls.name}」`,
+    body: '开始你的修学之旅',
+    link: `/class/${classId}`,
+    notificationType: 'system',
+    severity: 'normal',
   });
 }
 

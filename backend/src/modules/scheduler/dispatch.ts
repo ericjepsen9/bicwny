@@ -30,6 +30,17 @@ export type NotifType =
   | (string & {});
 export type Severity = 'normal' | 'urgent' | 'critical';
 
+/**
+ * 不发 push 的事件类型白名单（spec §3 ⑧ ⑨ + §5 L1 第一层过滤）
+ * 这些事件仅写站内 Notification · 不通过 Web Push 触达手机系统通知栏
+ *   - membership_change: 身份变动属于私密 · 不主动打扰
+ *   - auspicious_day: 藏历加持日仅展示 · 不打扰（v3 实现）
+ */
+const NO_PUSH_EVENTS = new Set<string>([
+  'membership_change',
+  'auspicious_day',
+]);
+
 export interface DispatchInput {
   prisma: PrismaClient;
   eventKind: EventKind;
@@ -148,7 +159,8 @@ export async function dispatchToUsers(input: DispatchInput): Promise<DispatchRes
   }
 
   // 3. 发 web push（事务外 · push 失败不回滚 inbox）
-  if (result.newPushedUsers > 0) {
+  // spec §3 路由表：部分事件类型不发 push（仅站内）· 这里精确过滤
+  if (result.newPushedUsers > 0 && !NO_PUSH_EVENTS.has(eventKind as string)) {
     const tag = `${eventKind}:${eventId}:${tier}`;
     const pushResult = await sendPushToUsers(newUsers, {
       title: input.title,
