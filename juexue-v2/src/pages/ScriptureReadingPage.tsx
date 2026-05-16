@@ -29,7 +29,7 @@ interface FlatLesson {
 }
 
 export default function ScriptureReadingPage() {
-  const { s } = useLang();
+  const { s, lang } = useLang();
   const params = useParams<{ slug: string; lessonId: string }>();
   const slug = params.slug || '';
   const lessonId = params.lessonId || '';
@@ -472,15 +472,20 @@ export default function ScriptureReadingPage() {
           {lesson.title}
         </h1>
 
-        {/* 原文 · 按段落拆 · 段落旁显示笔记 💬 · 选段弹「加笔记」气泡 */}
+        {/* 原文 · 按段落拆 · 段落旁显示笔记 💬 · 选段弹「加笔记」气泡
+            字号 / 行距按语言基线自适应（优化 5）:
+              - 简体 (sc)：1rem · 1.9 · 1px（沿用现有 · 不变）
+              - 繁体 (tc)：1.05rem · 1.95 · 1px（笔画复杂 · 字号 +5% · 行距略宽）
+              - 英文 (en)：1rem · 1.7 · 0（字母窄 · 行距收紧 · 字距取消）
+            额外字号缩放仍受 useFontScale 全局 --font-scale 影响（叠加倍率）*/}
         <article
           ref={articleRef}
           style={{
             padding: 'var(--sp-2) 0 var(--sp-3)',
             font: 'var(--text-body-serif)',
-            fontSize: '1rem',
-            lineHeight: 1.9,
-            letterSpacing: 1,
+            fontSize: lang === 'tc' ? '1.05rem' : '1rem',
+            lineHeight: lang === 'en' ? 1.7 : (lang === 'tc' ? 1.95 : 1.9),
+            letterSpacing: lang === 'en' ? 0 : 1,
             color: 'var(--ink)',
             wordBreak: 'break-word',
           }}
