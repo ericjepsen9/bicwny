@@ -10,6 +10,7 @@ import { requireUserId, requireRole } from '../../lib/auth.js';
 import { BadRequest, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { triggerManualReminder } from '../scheduler/personal-reminders.js';
+import { getPushPreference, updatePushPreference } from './push-prefs.service.js';
 
 const TAGS_USER = ['Notification Prefs'];
 const TAGS_ADMIN = ['Admin · Notification Rules'];
@@ -138,6 +139,50 @@ export const notificationPrefsRoutes: FastifyPluginAsync = async (app) => {
       },
     });
     return { data: updated };
+  });
+
+  // ─── Push 偏好 v2（spec §8 NotificationPreference）─────────────
+  // 与 /api/my/notification-prefs 区别:
+  //   notification-prefs: 个人提醒时段 + 静默时段（v1 · 写在 User 表）
+  //   push-preferences: push 总开关 + per-type 子开关 + 玻璃文字偏好（v2 · NotificationPreference 表）
+  app.get('/api/my/push-preferences', {
+    schema: { tags: TAGS_USER, summary: 'v2 push 偏好（总开关 + per-type 子开关 + 玻璃文字）', security: SEC },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const pref = await getPushPreference(userId);
+    return {
+      data: {
+        pushEnabled: pref.pushEnabled,
+        pushTypes: pref.pushTypes ?? {},
+        homeCardEnabled: pref.homeCardEnabled,
+        auspiciousDayCard: pref.auspiciousDayCard,
+      },
+    };
+  });
+
+  const updatePushPrefsSchema = z.object({
+    pushEnabled: z.boolean().optional(),
+    // pushTypes value: true = 开（等同删除该键 · 缺省 = 开）· false = 显式关
+    pushTypes: z.record(z.string(), z.boolean()).optional(),
+    homeCardEnabled: z.boolean().optional(),
+    auspiciousDayCard: z.boolean().optional(),
+  });
+
+  app.patch('/api/my/push-preferences', {
+    schema: { tags: TAGS_USER, summary: '改 v2 push 偏好（partial patch）', security: SEC },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const parsed = updatePushPrefsSchema.safeParse(req.body);
+    if (!parsed.success) throw BadRequest('参数不合法');
+    const updated = await updatePushPreference(userId, parsed.data);
+    return {
+      data: {
+        pushEnabled: updated.pushEnabled,
+        pushTypes: updated.pushTypes ?? {},
+        homeCardEnabled: updated.homeCardEnabled,
+        auspiciousDayCard: updated.auspiciousDayCard,
+      },
+    };
   });
 
   // ─── Admin · 平台规则 ───

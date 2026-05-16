@@ -88,6 +88,7 @@ model User {
   notes                  Note[]
   highlights             Highlight[]
   achievementUnlocks     UserAchievementUnlock[]
+  notificationPreference NotificationPreference?
 
   @@index([role])
 }
@@ -1438,6 +1439,31 @@ model HomePoster {
 
   @@unique([year, month])
   @@index([year, month])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 用户通知偏好（spec §8 NotificationPreference）
+//   - 仅放「v1 没有」的新字段：push 总开关 + per-type 子开关 + 首页玻璃文字偏好
+//   - v1 已有的 eveningReminderEnabled / quietHoursStart 等保留在 User 表（向后兼容）
+//   - 后续可分阶段迁移完成后再移除 User 上的字段
+//   - userId 自动创建：首次 GET 时 ensureNotificationPreference 写默认行
+// ═══════════════════════════════════════════════════════════════
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  // Push 总开关 · 关掉所有 web push（站内 Notification 仍写）· 不影响 SMS
+  pushEnabled Boolean @default(true)
+  // Per-type push toggle JSON · 仅记关闭项 · 缺省键 = 开
+  //   {"class_announcement": false, "achievement": false, ...}
+  //   eventKind 取值见 dispatch.ts EventKind 类型 + spec §2 路由表
+  pushTypes Json    @default("{}")
+  // 首页玻璃文字偏好（spec §7 · v3 玻璃文字 UI 实施时用）
+  homeCardEnabled   Boolean @default(true)
+  auspiciousDayCard Boolean @default(true)
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @updatedAt
 }
 
 // ═══════════════════════════════════════════════════════════════
