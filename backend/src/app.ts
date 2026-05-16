@@ -57,6 +57,7 @@ import { studentMeditationRoutes } from './modules/meditations/student.routes.js
 import { achievementsRoutes } from './modules/achievements/routes.js';
 import { notificationsRoutes } from './modules/notifications/routes.js';
 import { notificationPrefsRoutes } from './modules/notifications/prefs.routes.js';
+import { systemAnnouncementsRoutes } from './modules/system-announcements/routes.js';
 import { pushRoutes } from './modules/push/routes.js';
 import { analyticsRoutes } from './modules/analytics/routes.js';
 import { experimentsRoutes } from './modules/experiments/routes.js';
@@ -362,6 +363,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(sm2Routes);
   await app.register(notificationsRoutes);
   await app.register(notificationPrefsRoutes);
+  await app.register(systemAnnouncementsRoutes);
   await app.register(achievementsRoutes);
   await app.register(pushRoutes);
   await app.register(analyticsRoutes);

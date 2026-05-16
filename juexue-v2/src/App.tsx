@@ -55,6 +55,7 @@ const MistakesPage = lazy(() => import('./pages/MistakesPage'));
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const Sm2ReviewPage = lazy(() => import('./pages/Sm2ReviewPage'));
 const NotificationPage = lazy(() => import('./pages/NotificationPage'));
+const AnnouncementDetailPage = lazy(() => import('./pages/AnnouncementDetailPage'));
 const AchievementPage = lazy(() => import('./pages/AchievementPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const SettingsNotificationsPage = lazy(() => import('./pages/SettingsNotificationsPage'));
@@ -165,6 +166,7 @@ function AppShell() {
                 <Route path="/practice/project/:id" element={<PracticeProjectPage />} />
                 <Route path="/practice/:categoryKey" element={<PracticeCategoryPage />} />
                 <Route path="/notifications" element={<NotificationPage />} />
+                <Route path="/announcements/:id" element={<AnnouncementDetailPage />} />
                 <Route path="/achievement" element={<AchievementPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/settings/notifications" element={<SettingsNotificationsPage />} />

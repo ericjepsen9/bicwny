@@ -319,6 +319,27 @@ export interface NotificationItem {
   isRead: boolean;
   createdAt: string;
 }
+
+// ── 系统公告（spec §3.6）──
+export interface SystemAnnouncement {
+  id: string;
+  title: string;
+  body: string;
+  severity: 'normal' | 'urgent' | 'critical';
+  expiresAt: string;
+  revokedAt: string | null;
+  contentHash: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export function useSystemAnnouncement(id: string | null | undefined) {
+  return useQuery({
+    enabled: !!id,
+    queryKey: ['/api/announcements', id],
+    queryFn: ({ signal }) => api.get<SystemAnnouncement>(`/api/announcements/${encodeURIComponent(id!)}`, { signal }),
+  });
+}
 export function useNotifications(opts?: { unreadOnly?: boolean; limit?: number }) {
   const q: string[] = [];
   if (opts?.unreadOnly) q.push('unreadOnly=1');

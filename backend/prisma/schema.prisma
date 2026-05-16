@@ -1440,6 +1440,35 @@ model HomePoster {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 系统公告 · admin 全平台公告（与班级公告 ClassAnnouncement 区分）
+//   - 三档 severity: normal / urgent / critical
+//   - critical 必发 push 无视静默 + 必发 SMS（spec §3.6）· v3 时实现
+//   - 撤回 revokedAt · 已发通知置灰
+//   - expiresAt 必填 · 默认创建时 +24h（§19.20）
+// ═══════════════════════════════════════════════════════════════
+
+model SystemAnnouncement {
+  id          String    @id @default(cuid())
+  title       String
+  body        String    @db.Text
+  // 'normal' | 'urgent' | 'critical'
+  severity    String    @default("normal")
+  // 失效时刻 · 过期后不再展示在 active list
+  expiresAt   DateTime
+  // 撤回 · admin 撤回时写入 · 已发通知 join 此字段判定是否置灰
+  revokedAt   DateTime?
+  // 内容指纹 · sha256(title+body).slice(0,16) · §19.10 dismissal 失效用
+  contentHash String?
+  // 谁创建的 · admin userId
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([revokedAt, expiresAt])  // active 列表查询
+  @@index([createdAt])              // admin 后台时序倒序
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 孤儿文件回收（cover 等图片替换后延迟物理删除）
 //   触发：cover.service 替换图片时不再 unlink · 而是写一条 OrphanedFile
 //   清理：任何 cover 操作 / juexue-api 启动时顺带跑 gcOrphanedFiles · 删 7 天前的
