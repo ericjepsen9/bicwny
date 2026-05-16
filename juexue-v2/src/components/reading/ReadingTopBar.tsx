@@ -1,5 +1,6 @@
 // 法本阅读顶栏 · 返回 / 标题 / 字号 A-A+ / 目录按钮
 // 与 chromeVisible 联动显示 / 隐藏（向下滚自动收）
+import { memo } from 'react';
 import { useLang } from '@/lib/i18n';
 
 interface Props {
@@ -11,7 +12,7 @@ interface Props {
   onFontBump: (dir: 1 | -1) => void;
 }
 
-export default function ReadingTopBar({
+function ReadingTopBar({
   chromeVisible,
   courseEmoji,
   courseTitle,
@@ -112,3 +113,5 @@ function fontBtnStyle(fontSize: string): React.CSSProperties {
     cursor: 'pointer',
   };
 }
+
+export default memo(ReadingTopBar);

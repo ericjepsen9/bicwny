@@ -2,6 +2,7 @@
 //   - 上一课 / 开始答题 / 下一课
 //   - 观修入口（如该课时有发布观修）· 浮在操作栏上方
 //   - 跟 chromeVisible 联动显示 / 隐藏
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { useLang } from '@/lib/i18n';
 
@@ -25,7 +26,7 @@ interface Props {
   meditation: MeditationEntry | null;
 }
 
-export default function ReadingBottomNav({
+function ReadingBottomNav({
   chromeVisible,
   courseSlug,
   courseId,
@@ -178,3 +179,5 @@ const toolBtn: React.CSSProperties = {
   cursor: 'pointer',
 };
 const toolBtnDisabled: React.CSSProperties = { opacity: 0.4, cursor: 'not-allowed', pointerEvents: 'none' };
+
+export default memo(ReadingBottomNav);

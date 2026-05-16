@@ -2,6 +2,7 @@
 //   - 4 色高亮按钮
 //   - 拷贝 / 笔记 / 取消
 //   - selection 不为 null 时显示
+import { memo } from 'react';
 import type { HighlightColor } from '@/lib/queries';
 import { useLang } from '@/lib/i18n';
 import { HIGHLIGHT_BG } from '@/lib/reading-utils';
@@ -13,7 +14,7 @@ interface Props {
   onCancel: () => void;
 }
 
-export default function ReadingSelectionToolbar({ onHighlight, onCopy, onNote, onCancel }: Props) {
+function ReadingSelectionToolbar({ onHighlight, onCopy, onNote, onCancel }: Props) {
   const { s } = useLang();
   return (
     <div
@@ -103,3 +104,5 @@ const toolbarBtnStyle: React.CSSProperties = {
   cursor: 'pointer',
   whiteSpace: 'nowrap',
 };
+
+export default memo(ReadingSelectionToolbar);

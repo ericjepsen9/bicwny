@@ -3,6 +3,7 @@
 //   - 有笔记时显示红色数字角标
 //   - safe-area 兼容 iPhone 12+ home bar（优化 7）
 //   - 与 chromeVisible 联动显隐
+import { memo } from 'react';
 import { useLang } from '@/lib/i18n';
 
 interface Props {
@@ -11,7 +12,7 @@ interface Props {
   onOpen: () => void;
 }
 
-export default function ReadingNotesFab({ chromeVisible, notesCount, onOpen }: Props) {
+function ReadingNotesFab({ chromeVisible, notesCount, onOpen }: Props) {
   const { s } = useLang();
 
   return (
@@ -72,3 +73,5 @@ export default function ReadingNotesFab({ chromeVisible, notesCount, onOpen }: P
     </button>
   );
 }
+
+export default memo(ReadingNotesFab);

@@ -1,6 +1,7 @@
 // 法本阅读 · 目录抽屉（Dialog · sheet variant）
 //   - 按 chapter 分组 · lesson 列表
 //   - 当前课时高亮 · 已学打勾 · 点击直跳（replace）
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import { useLang } from '@/lib/i18n';
@@ -21,7 +22,7 @@ interface Props {
   completedLessonIds: string[];
 }
 
-export default function ReadingTocSheet({
+function ReadingTocSheet({
   open,
   onClose,
   courseSlug,
@@ -89,3 +90,5 @@ export default function ReadingTocSheet({
     </Dialog>
   );
 }
+
+export default memo(ReadingTocSheet);

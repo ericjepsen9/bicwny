@@ -9,7 +9,7 @@
 //   - 子组件编排（TopBar · Article · SelectionToolbar · BottomNav · Fab · TocSheet）
 //
 // 拆出去的子组件位于 components/reading/ · 见各文件头说明。
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -60,6 +60,12 @@ export default function ScriptureReadingPage() {
   const enrollments = useEnrollments();
   // 该课时关联的观修（如有）· null = 无 · 用于底部入口
   const lessonMeditation = useLessonMeditation(lessonId || null);
+  // useMemo 让 meditationEntry 引用稳定 · 配合 BottomNav memo 减少 rerender
+  const meditationEntry = useMemo(() => {
+    const m = lessonMeditation.data;
+    if (!m || !m.isPublished) return null;
+    return { id: m.id, title: m.title, videoDurationSec: m.videoDurationSec };
+  }, [lessonMeditation.data]);
   const [tocOpen, setTocOpen] = useState(false);
   // 工具栏可见性 · 进入默认显示 · 向下滚收 / 向上滚显（iOS Safari 风格）
   // 整屏点击正文也能 toggle
@@ -233,22 +239,23 @@ export default function ScriptureReadingPage() {
     return m;
   }, [highlights.data]);
 
-  function addNoteFromSelection() {
+  // useCallback 让 ReadingSelectionToolbar 的 props 稳定 · 配合 memo 减少 rerender
+  const addNoteFromSelection = useCallback(() => {
     if (!selection) return;
     sessionStorage.setItem('note-draft', JSON.stringify({
       lessonId,
-      lessonSlug: slug, // 用于 NoteEditPage 计算 backTo
+      lessonSlug: slug,
       body: selection.text,
       anchorText: selection.anchorText,
       anchorIndex: selection.paragraphIndex,
-      autoDraft: true, // 自动调 LLM action=draft
+      autoDraft: true,
     }));
     window.getSelection()?.removeAllRanges();
     setSelection(null);
     nav('/notes/new?fromDraft=1');
-  }
+  }, [selection, lessonId, slug, nav]);
 
-  async function copySelection() {
+  const copySelection = useCallback(async () => {
     if (!selection) return;
     try {
       await navigator.clipboard.writeText(selection.text);
@@ -258,12 +265,29 @@ export default function ScriptureReadingPage() {
     }
     window.getSelection()?.removeAllRanges();
     setSelection(null);
-  }
+  }, [selection, s]);
 
-  function cancelSelection() {
+  const cancelSelection = useCallback(() => {
     window.getSelection()?.removeAllRanges();
     setSelection(null);
-  }
+  }, []);
+
+  const onHighlightFromToolbar = useCallback((color: HighlightColor) => {
+    createHighlight.mutate({ color });
+  }, [createHighlight]);
+
+  const onDeleteHighlight = useCallback((id: string) => {
+    deleteHighlight.mutate(id);
+  }, [deleteHighlight]);
+
+  const onToggleChrome = useCallback(() => {
+    setChromeVisible((v) => !v);
+  }, []);
+
+  const onTocOpen = useCallback(() => setTocOpen(true), []);
+  const onNotesOpen = useCallback(() => setNotesOpen(true), []);
+  const onNotesClose = useCallback(() => setNotesOpen(false), []);
+  const onTocClose = useCallback(() => setTocOpen(false), []);
 
   // 向下滚 → 隐藏工具栏；向上滚 → 显示
   // 顶部 60px 内强制显示（避免顶端就给隐了 · 视觉断层）
@@ -287,7 +311,7 @@ export default function ScriptureReadingPage() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  function bumpFont(dir: 1 | -1) {
+  const bumpFont = useCallback((dir: 1 | -1) => {
     const opt = step(dir);
     if (!opt) return;
     toast.info(s(
@@ -295,9 +319,9 @@ export default function ScriptureReadingPage() {
       `字號：${opt.labelTc}`,
       `Font: ${opt.labelEn}`,
     ));
-  }
+  }, [step, s]);
 
-  function onBack() {
+  const onBack = useCallback(() => {
     // location.key === 'default' = 直接 deep link 进入 · 历史栈空 · 用显式 nav 兜底
     // 否则 nav(-1) 走浏览器历史 · 由于 lesson 切换都用 replace · 上一条必然是 detail
     if (location.key === 'default') {
@@ -305,7 +329,7 @@ export default function ScriptureReadingPage() {
     } else {
       nav(-1);
     }
-  }
+  }, [location.key, slug, nav]);
 
   if (course.isLoading) {
     return (
@@ -338,9 +362,6 @@ export default function ScriptureReadingPage() {
 
   const c = course.data!;
   const { chapterTitle, lesson } = cur;
-  const meditationEntry = lessonMeditation.data && lessonMeditation.data.isPublished
-    ? { id: lessonMeditation.data.id, title: lessonMeditation.data.title, videoDurationSec: lessonMeditation.data.videoDurationSec }
-    : null;
 
   return (
     <div>
@@ -349,7 +370,7 @@ export default function ScriptureReadingPage() {
         courseEmoji={c.coverEmoji ?? ''}
         courseTitle={c.title}
         onBack={onBack}
-        onTocOpen={() => setTocOpen(true)}
+        onTocOpen={onTocOpen}
         onFontBump={bumpFont}
       />
 
@@ -364,8 +385,8 @@ export default function ScriptureReadingPage() {
         completed={completed}
         notesByAnchor={notesByAnchor}
         highlightsByPara={highlightsByPara}
-        onDeleteHighlight={(id) => deleteHighlight.mutate(id)}
-        onToggleChrome={() => setChromeVisible((v) => !v)}
+        onDeleteHighlight={onDeleteHighlight}
+        onToggleChrome={onToggleChrome}
       />
 
       {/* 选段工具栏 + 观修入口 + 底部操作栏 · createPortal 渲到 body
@@ -375,7 +396,7 @@ export default function ScriptureReadingPage() {
         <>
           {selection && (
             <ReadingSelectionToolbar
-              onHighlight={(color) => createHighlight.mutate({ color })}
+              onHighlight={onHighlightFromToolbar}
               onCopy={copySelection}
               onNote={addNoteFromSelection}
               onCancel={cancelSelection}
@@ -399,7 +420,7 @@ export default function ScriptureReadingPage() {
         <ReadingNotesFab
           chromeVisible={chromeVisible}
           notesCount={lessonNotes.data?.length ?? 0}
-          onOpen={() => setNotesOpen(true)}
+          onOpen={onNotesOpen}
         />
       )}
 
@@ -407,7 +428,7 @@ export default function ScriptureReadingPage() {
       {lessonId && (
         <NotesDrawer
           open={notesOpen}
-          onClose={() => setNotesOpen(false)}
+          onClose={onNotesClose}
           lessonId={lessonId}
           lessonText={lesson.referenceText ?? ''}
         />
@@ -416,7 +437,7 @@ export default function ScriptureReadingPage() {
       {/* 目录 sheet · 当前课时高亮 · 点击直跳 */}
       <ReadingTocSheet
         open={tocOpen}
-        onClose={() => setTocOpen(false)}
+        onClose={onTocClose}
         courseSlug={c.slug}
         chapters={c.chapters ?? []}
         currentLessonId={lessonId}

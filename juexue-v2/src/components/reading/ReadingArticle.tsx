@@ -3,7 +3,7 @@
 //   - article 段落渲染 · 含高亮 + 笔记 💬 icon
 //   - 字号 / 行距按语言基线自适应（优化 5）
 //   - 点击正文 toggle chromeVisible
-import type { Ref } from 'react';
+import { memo, type Ref } from 'react';
 import { Link } from 'react-router-dom';
 import type { Highlight } from '@/lib/queries';
 import { useLang } from '@/lib/i18n';
@@ -32,7 +32,7 @@ interface Props {
   onToggleChrome: () => void;
 }
 
-export default function ReadingArticle({
+function ReadingArticle({
   articleRef,
   chapterTitle,
   lessonOrder,
@@ -148,3 +148,5 @@ export default function ReadingArticle({
     </div>
   );
 }
+
+export default memo(ReadingArticle);
