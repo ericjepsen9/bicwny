@@ -9,6 +9,7 @@
 import type { NotificationPreference, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { BadRequest } from '../../lib/errors.js';
+import { inQuietHours, userLocalTime } from '../scheduler/time-utils.js';
 
 /**
  * 取用户 push 偏好 · 不存在则建默认行（spec §8）
@@ -114,6 +115,39 @@ export async function filterUsersAllowingPush(
     const types = p.pushTypes as Record<string, boolean> | null;
     if (types && types[eventKind] === false) {
       blocked.add(p.userId);
+    }
+  }
+  return userIds.filter((u) => !blocked.has(u));
+}
+
+/**
+ * 静默时段过滤（spec §5 L3）
+ *   - critical → 跳过过滤 · 立即发送（无视静默）
+ *   - normal / urgent → 落在用户本地静默时段内则跳过 push
+ *     · 站内 inbox 仍写 · 用户次日打开 app 可见
+ *   - v3 优化：normal 延迟到次日 07:00 聚合发 / urgent 延迟到静默结束单独发
+ *     现 v2 实现：静默期跳过 push · 等同「延迟到用户主动看 app」· 接受
+ *
+ * 用户 quietHoursStart === quietHoursEnd 视为关闭静默 · 走默认 22-7
+ *   说明：v1 设计 default 22-7 已写在 schema · null/未设的用户默认有静默时段
+ */
+export async function filterUsersOutsideQuietHours(
+  userIds: string[],
+  severity: 'normal' | 'urgent' | 'critical',
+  now: Date = new Date(),
+): Promise<string[]> {
+  if (userIds.length === 0) return [];
+  if (severity === 'critical') return userIds; // critical 无视静默
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: { id: true, timezone: true, quietHoursStart: true, quietHoursEnd: true },
+  });
+  const blocked = new Set<string>();
+  for (const u of users) {
+    const local = userLocalTime(now, u.timezone ?? 'Asia/Shanghai');
+    if (inQuietHours(local.hour, u.quietHoursStart, u.quietHoursEnd)) {
+      blocked.add(u.id);
     }
   }
   return userIds.filter((u) => !blocked.has(u));
