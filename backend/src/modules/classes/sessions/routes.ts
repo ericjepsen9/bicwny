@@ -16,6 +16,7 @@ import {
   createSession,
   deleteSession,
   getMyTopHomeCard,
+  getSessionDetailForUser,
   listClassSessions,
   listMyUpcomingEvents,
   updateSession,
@@ -113,6 +114,16 @@ export const classSessionsRoutes: FastifyPluginAsync = async (app) => {
     if (!pp.success) throw BadRequest('路径参数不合法');
     await deleteSession(userId, pp.data.id);
     reply.code(204);
+  });
+
+  // 学员：单场共修详情（push / banner 跳转目标）
+  app.get('/api/classes/:classId/sessions/:sid', {
+    schema: { tags: TAGS, summary: '学员：单场共修详情（含 liveLink）', security: SEC },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const pp = z.object({ classId: z.string().min(1), sid: z.string().min(1) }).safeParse(req.params);
+    if (!pp.success) throw BadRequest('路径参数不合法');
+    return { data: await getSessionDetailForUser(userId, pp.data.classId, pp.data.sid) };
   });
 
   // 学员：upcoming events

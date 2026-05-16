@@ -81,7 +81,9 @@ async function tickClassSessions(prisma: PrismaClient): Promise<void> {
     const userIds = s.class.members.map((m) => m.userId);
     if (userIds.length === 0) continue;
 
-    const link = s.liveLink || `/app/class/${s.classId}`;
+    // push link 改为单场详情页 · liveLink 不放 push（SW safeLink 会拦外部 URL）
+    // 学员进详情页有「加入直播 ↗」按钮 target=_blank 跳 liveLink
+    const link = `/class/${s.classId}/sessions/${s.id}`;
     const baseTitle = `${s.class.name} · ${s.title}`;
 
     for (const [tier, offset] of Object.entries(TIER_OFFSETS) as [ClassSessionTier, number][]) {

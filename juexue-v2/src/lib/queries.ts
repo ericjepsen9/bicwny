@@ -1389,19 +1389,45 @@ export function useClassSessions(classId: string | null | undefined, opts?: { pa
   });
 }
 
-// 学员侧 · 我未来 N 分钟内所有班级事件
+// 学员侧 · 我未来 N 分钟内所有事件
+//   v2: 含 ClassSession + DharmaAssembly 联合
 export interface UpcomingEvent {
-  kind: 'class_session';
+  kind: 'class_session' | 'dharma_assembly';
   id: string;
   title: string;
   description: string | null;
-  subtitle: string;       // 班级名
+  subtitle: string;       // 班级名 / 法会 category
+  startAt: string;
+  endAt?: string;
+  durationMin?: number;
+  liveLink?: string | null;
+  editVersion?: number;
+  classId?: string;
+  category?: string;
+  detailPath: string;
+}
+
+// 单场共修详情（push/banner 跳转目标）
+export interface ClassSessionDetail {
+  id: string;
+  classId: string;
+  className: string;
+  title: string;
+  description: string | null;
   startAt: string;
   durationMin: number;
   liveLink: string | null;
   editVersion: number;
-  classId: string;
-  detailPath: string;
+}
+export function useClassSessionDetail(classId: string | null | undefined, sessionId: string | null | undefined) {
+  return useQuery({
+    enabled: !!classId && !!sessionId,
+    queryKey: ['/api/classes', classId, 'sessions', sessionId],
+    queryFn: ({ signal }) => api.get<ClassSessionDetail>(
+      `/api/classes/${encodeURIComponent(classId!)}/sessions/${encodeURIComponent(sessionId!)}`,
+      { signal },
+    ),
+  });
 }
 export function useUpcomingEvents(withinMin = 60) {
   return useQuery({

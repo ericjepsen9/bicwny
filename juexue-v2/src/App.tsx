@@ -57,6 +57,8 @@ const Sm2ReviewPage = lazy(() => import('./pages/Sm2ReviewPage'));
 const NotificationPage = lazy(() => import('./pages/NotificationPage'));
 const AnnouncementDetailPage = lazy(() => import('./pages/AnnouncementDetailPage'));
 const AssemblyDetailPage = lazy(() => import('./pages/AssemblyDetailPage'));
+const ClassSessionDetailPage = lazy(() => import('./pages/ClassSessionDetailPage'));
+const EventsPage = lazy(() => import('./pages/EventsPage'));
 const AchievementPage = lazy(() => import('./pages/AchievementPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const SettingsNotificationsPage = lazy(() => import('./pages/SettingsNotificationsPage'));
@@ -171,6 +173,8 @@ function AppShell() {
                 <Route path="/notifications" element={<NotificationPage />} />
                 <Route path="/announcements/:id" element={<AnnouncementDetailPage />} />
                 <Route path="/assemblies/:id" element={<AssemblyDetailPage />} />
+                <Route path="/class/:id/sessions/:sid" element={<ClassSessionDetailPage />} />
+                <Route path="/events" element={<EventsPage />} />
                 <Route path="/achievement" element={<AchievementPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/settings/notifications" element={<SettingsNotificationsPage />} />

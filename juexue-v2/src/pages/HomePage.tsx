@@ -209,7 +209,10 @@ export default function HomePage() {
             )}
           </Link>
         </div>
-        <NotificationBell unread={unreadNotifs} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+          <EventsButton />
+          <NotificationBell unread={unreadNotifs} />
+        </div>
       </div>
 
       {/* 诗句 caption · 浮在画报上半区 · 让画报作品+诗句呼吸 */}
@@ -363,6 +366,36 @@ function ProfileAvatar({ dharmaName, unread }: { dharmaName: string; unread: num
           {unread > 9 ? '9+' : unread}
         </span>
       )}
+    </Link>
+  );
+}
+
+function EventsButton() {
+  return (
+    <Link
+      to="/events"
+      aria-label="活动"
+      style={{
+        width: 38,
+        height: 38,
+        borderRadius: '50%',
+        background: 'rgba(255,255,255,0.2)',
+        backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(255,255,255,0.3)',
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textDecoration: 'none',
+        textShadow: 'none',
+      }}
+    >
+      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
     </Link>
   );
 }

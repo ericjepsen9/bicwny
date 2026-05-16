@@ -52,6 +52,38 @@ export async function getSession(id: string) {
   return s;
 }
 
+/**
+ * 学员侧单场共修详情 · 权限：必须是本班成员
+ * 用于 /class/:id/sessions/:sid 学员详情页（push / banner 跳转目标）
+ */
+export async function getSessionDetailForUser(userId: string, classId: string, sessionId: string) {
+  const s = await prisma.classSession.findUnique({
+    where: { id: sessionId },
+    include: {
+      class: { select: { id: true, name: true } },
+    },
+  });
+  if (!s) throw NotFound('共修不存在');
+  if (s.classId !== classId) throw NotFound('共修不属于该班');
+  // 班级成员校验（含 coach + student · 移除的 removedAt 不允许）
+  const member = await prisma.classMember.findFirst({
+    where: { classId, userId, removedAt: null },
+    select: { id: true },
+  });
+  if (!member) throw Forbidden('非本班成员 · 无权查看');
+  return {
+    id: s.id,
+    classId: s.classId,
+    className: s.class.name,
+    title: s.title,
+    description: s.description,
+    startAt: s.startAt,
+    durationMin: s.durationMin,
+    liveLink: s.liveLink,
+    editVersion: s.editVersion,
+  };
+}
+
 export async function createSession(userId: string, input: CreateSessionInput) {
   await assertCoachOfClass(userId, input.classId);
   if (input.title.trim().length === 0) throw BadRequest('标题不能为空');
@@ -155,7 +187,7 @@ async function notifySessionTimeChanged(classId: string, sessionId: string, titl
     userIds: members.map((m) => m.userId),
     title: `《${cls.name}》共修时间变更`,
     body: `${title} · 新时间 ${fmt}`,
-    link: `/class/${classId}`,
+    link: `/class/${classId}/sessions/${sessionId}`,
     notificationType: 'class_session_soon',
     severity: 'urgent',
   });
@@ -175,38 +207,70 @@ async function notifySessionCancelled(classId: string, sessionId: string, title:
     userIds,
     title: `《${cls.name}》共修已取消`,
     body: title,
+    // cancelled 后 session 已删除 · 跳详情页会 404 · 改为跳班级页
     link: `/class/${classId}`,
     notificationType: 'class_session_soon',
     severity: 'urgent',
   });
 }
 
-// 学员侧 · 我未来 N 分钟内所有班级的 ClassSession（v1 仅这一种事件源）
-export async function listMyUpcomingEvents(userId: string, withinMinutes = 60) {
+// 学员侧 · 我未来 N 分钟内所有事件
+//   v1: 仅 ClassSession
+//   v2: 含 DharmaAssembly（系统法会 / 系统共修 · 全平台）
+export interface UpcomingEventOut {
+  kind: 'class_session' | 'dharma_assembly';
+  id: string;
+  title: string;
+  description: string | null;
+  subtitle: string;       // 班级名 / 法会 category
+  startAt: Date;
+  endAt?: Date;           // 法会用 · ClassSession 无 endAt
+  durationMin?: number;   // ClassSession 用
+  liveLink?: string | null;     // ClassSession liveLink · 法会 externalLink
+  editVersion?: number;   // ClassSession 用
+  classId?: string;       // ClassSession 用
+  category?: string;      // 法会 category
+  detailPath: string;
+}
+
+export async function listMyUpcomingEvents(userId: string, withinMinutes = 60): Promise<UpcomingEventOut[]> {
   const now = new Date();
   const horizon = new Date(now.getTime() + withinMinutes * 60_000);
+  const fiveMinAgo = new Date(now.getTime() - 5 * 60_000);
+
   // 拉用户所有 active 班级
   const memberships = await prisma.classMember.findMany({
     where: { userId, removedAt: null },
     select: { classId: true },
   });
-  if (memberships.length === 0) return [];
   const classIds = memberships.map((m) => m.classId);
 
-  // 当前活跃事件 · 包括 T-{N} 内即将开始 + 已开始 5 分钟内
-  const fiveMinAgo = new Date(now.getTime() - 5 * 60_000);
-  const sessions = await prisma.classSession.findMany({
-    where: {
-      classId: { in: classIds },
-      startAt: { gte: fiveMinAgo, lte: horizon },
-    },
-    orderBy: { startAt: 'asc' },
-    include: {
-      class: { select: { id: true, name: true } },
-    },
-  });
+  // 并行查 · 班级共修 + 法会
+  const [sessions, assemblies] = await Promise.all([
+    classIds.length > 0
+      ? prisma.classSession.findMany({
+          where: {
+            classId: { in: classIds },
+            startAt: { gte: fiveMinAgo, lte: horizon },
+          },
+          orderBy: { startAt: 'asc' },
+          include: { class: { select: { id: true, name: true } } },
+        })
+      : Promise.resolve([] as any[]),
+    // 法会：未删 + (startAt 在窗口内 OR 已开始未结束)
+    prisma.dharmaAssembly.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { startAt: { gte: fiveMinAgo, lte: horizon } },     // 即将开始
+          { AND: [{ startAt: { lte: now } }, { endAt: { gt: now } }] }, // 进行中
+        ],
+      },
+      orderBy: { startAt: 'asc' },
+    }),
+  ]);
 
-  return sessions.map((s) => ({
+  const sessionItems: UpcomingEventOut[] = sessions.map((s: any) => ({
     kind: 'class_session' as const,
     id: s.id,
     title: s.title,
@@ -217,8 +281,26 @@ export async function listMyUpcomingEvents(userId: string, withinMinutes = 60) {
     liveLink: s.liveLink,
     editVersion: s.editVersion,
     classId: s.classId,
-    detailPath: `/class/${s.classId}`,
+    detailPath: `/class/${s.classId}/sessions/${s.id}`,
   }));
+
+  const assemblyItems: UpcomingEventOut[] = assemblies.map((a) => ({
+    kind: 'dharma_assembly' as const,
+    id: a.id,
+    title: a.title,
+    description: a.description.slice(0, 200),
+    subtitle: a.category,
+    startAt: a.startAt,
+    endAt: a.endAt,
+    liveLink: a.externalLink,
+    category: a.category,
+    detailPath: `/assemblies/${a.id}`,
+  }));
+
+  // 合并 + 时间排序
+  return [...sessionItems, ...assemblyItems].sort(
+    (x, y) => x.startAt.getTime() - y.startAt.getTime(),
+  );
 }
 
 // 学员侧 · 取 top-1（已仲裁的最重要事件 · 用于首页卡）
