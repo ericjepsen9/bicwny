@@ -5,6 +5,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { dispatchToUsers, type NotifType } from './dispatch.js';
 import { tickPersonalReminders } from './personal-reminders.js';
+import { gcOrphanedFiles } from '../courses/cover.service.js';
 import { config } from '../../lib/config.js';
 
 type ClassSessionTier = 'T-30' | 'T-5' | 'T0';
@@ -122,6 +123,13 @@ export function startScheduler(prisma: PrismaClient): void {
     tick(prisma).catch(() => {});
   }, 60_000);
   console.log('[scheduler] started · tick every 60s');
+
+  // 启动时跑一次孤儿文件 GC（spec §19.4 兜底）
+  // 业务流量驱动 GC 在 cover 操作时触发 · 这里是「长期无 cover 操作」的兜底
+  // 7 天前的 OrphanedFile 行 + 物理文件一次性清理 · 单次最多 100 行
+  gcOrphanedFiles().then((n) => {
+    if (n > 0) console.log(`[scheduler] gcOrphanedFiles cleaned ${n} files at startup`);
+  }).catch((e) => console.error('[scheduler] gcOrphanedFiles failed at startup:', e));
 }
 
 export function stopScheduler(): void {

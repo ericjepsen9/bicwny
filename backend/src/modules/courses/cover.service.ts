@@ -134,10 +134,13 @@ export async function uploadCourseCover(
     });
   });
 
-  // 删旧文件（best-effort · DB 已成功就行 · prev 是事务内拿的真正被替换的值）
+  // 旧文件标记为 OrphanedFile · 7 天后由 gc 删除（spec §19.4 + §13）
+  // 给浏览器 / SW 缓存 7 天窗口 · 防换图后老 URL 仍被请求 → 404 破图
   if (prevCoverUrl) {
-    deleteCoverFile(prevCoverUrl).catch(() => undefined);
+    markCoverOrphaned(prevCoverUrl).catch((e) => console.error('[cover] mark orphan failed:', e));
   }
+  // 顺带跑一次 GC（业务流量驱动 · 无独立 cron · spec §19.4）
+  gcOrphanedFiles().catch((e) => console.error('[cover] gc failed:', e));
 
   return { coverImageUrl: url };
 }
@@ -166,8 +169,48 @@ export async function removeCourseCover(adminId: string, courseId: string): Prom
       },
     });
   });
-  // 删盘（best-effort · DB 已成功就行）
-  await deleteCoverFile(course.coverImageUrl).catch(() => undefined);
+  // 标记 OrphanedFile · 7 天后 gc 删除（与上传逻辑一致 · spec §19.4）
+  await markCoverOrphaned(course.coverImageUrl).catch((e) => console.error('[cover] mark orphan failed:', e));
+}
+
+/** 把要删的 cover URL 写入 OrphanedFile 表 · 7 天后 gcOrphanedFiles 物理删除
+ *  variantPaths 同步记录三尺寸路径 · 防 GC 时漏删兄弟文件
+ */
+async function markCoverOrphaned(relUrl: string): Promise<void> {
+  if (!relUrl.startsWith('/uploads/courses/')) return;
+  const fname = path.basename(relUrl);
+  // 检测是否新格式 <base>-{320|640|1024}.webp · 是则记三尺寸全路径
+  const m = fname.match(/^(.*)-(?:320|640|1024)\.webp$/);
+  const variantPaths = m
+    ? VARIANT_SIZES.map((w) => `/uploads/courses/${m[1]}-${w}.webp`)
+    : [relUrl];
+  await prisma.orphanedFile.create({
+    data: { filePath: relUrl, variantPaths },
+  });
+}
+
+/** 删除 7 天前的 OrphanedFile 行 + 物理文件
+ *  触发：cover 任意操作（上传 / 删除）顺带跑 + juexue-api 启动时
+ *  spec §19.4 业务流量驱动 GC · 无独立 cron 进程
+ */
+export async function gcOrphanedFiles(daysOld = 7): Promise<number> {
+  const cutoff = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
+  const rows = await prisma.orphanedFile.findMany({
+    where: { markedAt: { lt: cutoff } },
+    take: 100,  // 单次最多 100 行 · 防大批量阻塞
+  });
+  if (rows.length === 0) return 0;
+  // 物理删每个 variant
+  for (const row of rows) {
+    for (const p of row.variantPaths) {
+      await deleteCoverFile(p).catch(() => undefined);
+    }
+  }
+  // 删 OrphanedFile 行
+  await prisma.orphanedFile.deleteMany({
+    where: { id: { in: rows.map((r) => r.id) } },
+  });
+  return rows.length;
 }
 
 /** 把 /uploads/courses/<file> 转成绝对路径并删 · 防路径穿越（仅允许 uploadsRoot 子路径）

@@ -9,11 +9,38 @@ import { z } from 'zod';
 import { getUserRole, requireRole, requireUserId } from '../../lib/auth.js';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { dispatchToUsers } from '../scheduler/dispatch.js';
 import { dateKey, lastNDates } from './utils.js';
 
 const TAGS = ['Coach'];
 const SEC = [{ bearerAuth: [] as string[] }];
 const coachGuard = requireRole('coach', 'admin');
+
+/**
+ * 班级任务创建后给所有 active 学员发通知
+ * spec §3.3 PracticeTask · created tier · severity normal
+ */
+async function notifyClassPracticeTask(classId: string, taskId: string, taskTitle: string): Promise<void> {
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { name: true } });
+  if (!cls) return;
+  const members = await prisma.classMember.findMany({
+    where: { classId, removedAt: null, role: 'student' },
+    select: { userId: true },
+  });
+  if (members.length === 0) return;
+  await dispatchToUsers({
+    prisma,
+    eventKind: 'practice_task',
+    eventId: taskId,
+    tier: 'created',
+    userIds: members.map((m) => m.userId),
+    title: `《${cls.name}》新任务`,
+    body: taskTitle,
+    link: `/practice`,  // 学员的 PracticePage · 显示班级任务列表
+    notificationType: 'reminder',
+    severity: 'normal',
+  });
+}
 
 const idParam = z.object({ id: z.string().min(1) });
 const idAndPidParam = z.object({ id: z.string().min(1), pid: z.string().min(1) });
@@ -175,6 +202,12 @@ export const practiceCoachRoutes: FastifyPluginAsync = async (app) => {
         endAt: body.data.endAt ?? null,
       },
     });
+
+    // fire-and-forget · 通知班级所有 active 学员（spec §3.3 PracticeTask created tier）
+    notifyClassPracticeTask(pp.data.id, data.id, body.data.title?.trim() || proj.name).catch((e) => {
+      console.error('[practice-task] notify failed:', e);
+    });
+
     reply.code(201);
     return { data };
   });
