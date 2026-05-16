@@ -15,7 +15,7 @@ import Skeleton from '@/components/Skeleton';
 import { api, ApiError } from '@/lib/api';
 import { selection, notification } from '@/lib/haptics';
 import { useLang } from '@/lib/i18n';
-import { useEnrollments, useLessonQuestions, useProgress, useSmartPractice } from '@/lib/queries';
+import { useEnrollments, useLessonMeditation, useLessonQuestions, useProgress, useSmartPractice } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 interface Grade {
@@ -67,6 +67,8 @@ export default function QuizPage() {
 
   const enrollments = useEnrollments();
   const progress = useProgress();
+  // 答题完成时显示「进入观修」CTA · 拉关联观修（无则 null）
+  const lessonMeditation = useLessonMeditation(lessonId);
   // 进入答题前的"今日已答" · 用于判断本次完成是否触发首日打卡
   const [enterTodayAnswered] = useState(() => progress.data?.todayAnswered ?? 0);
 
@@ -336,31 +338,17 @@ export default function QuizPage() {
           <DoneStat val={String(total)} label={s('总数', '總數', 'Total')} />
         </div>
 
-        {/* 按钮：下一课（仅 nextLessonId 时） + 返回首页 */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', width: '100%', maxWidth: 320, marginTop: 'var(--sp-2)' }}>
-          {nextLessonId && slug && (
-            <button
-              type="button"
-              onClick={() => nav(`/read/${encodeURIComponent(slug)}/${encodeURIComponent(nextLessonId)}`, { replace: true })}
-              className="btn btn-primary btn-pill btn-full"
-              style={{ padding: 14, justifyContent: 'center' }}
-            >
-              {s('下一课 →', '下一課 →', 'Next lesson →')}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => nav('/', { replace: true })}
-            className={nextLessonId && slug ? 'btn btn-pill btn-full' : 'btn btn-primary btn-pill btn-full'}
-            style={
-              nextLessonId && slug
-                ? { padding: 14, justifyContent: 'center', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }
-                : { padding: 14, justifyContent: 'center' }
-            }
-          >
-            {s('返回首页', '返回首頁', 'Back to home')}
-          </button>
-        </div>
+        {/* 「闻思修」教学闭环 CTA · 多选项 · 主 CTA 优先级:
+            进入观修 (修是稀缺入口 · 应该 highlight) > 下一课 > 回到本课
+            返回首页始终最弱 · 玻璃质感 */}
+        <DoneCtaList
+          slug={slug}
+          lessonId={lessonId}
+          nextLessonId={nextLessonId}
+          fromReading={from === 'reading'}
+          meditationId={lessonMeditation.data?.id ?? null}
+          onNavigate={(to) => nav(to, { replace: true })}
+        />
       </div>
     );
   }
@@ -534,4 +522,118 @@ function DoneStat({ val, label, color }: { val: string; label: string; color?: s
 
 function DoneSep() {
   return <div style={{ background: 'var(--border-light)', justifySelf: 'center', height: 28, width: 1 }} />;
+}
+
+/**
+ * 答题完成「闻思修」教学闭环 CTA 列表
+ * 主 CTA 优先级（择一变 primary 橙色）:
+ *   1. 进入观修（修是稀缺入口 · 应该 highlight）
+ *   2. 下一课（推进 · 自然学修流）
+ *   3. 回到本课阅读（复习 · 兜底）
+ * 其它 CTA 用 glass 质感 · 返回首页总是最弱
+ */
+function DoneCtaList({
+  slug,
+  lessonId,
+  nextLessonId,
+  fromReading,
+  meditationId,
+  onNavigate,
+}: {
+  slug: string;
+  lessonId: string;
+  nextLessonId: string;
+  fromReading: boolean;
+  meditationId: string | null;
+  onNavigate: (to: string) => void;
+}) {
+  const { s } = useLang();
+
+  type Cta = { key: string; emoji: string; label: string; to: string };
+  const ctas: Cta[] = [];
+
+  // 1. 进入观修 (主 CTA 候选)
+  if (meditationId) {
+    ctas.push({
+      key: 'meditation',
+      emoji: '🧘',
+      label: s('进入观修', '進入觀修', 'Meditation'),
+      to: `/meditation/${encodeURIComponent(meditationId)}`,
+    });
+  }
+
+  // 2. 下一课
+  if (nextLessonId && slug) {
+    ctas.push({
+      key: 'next',
+      emoji: '→',
+      label: s('下一课', '下一課', 'Next lesson'),
+      to: `/read/${encodeURIComponent(slug)}/${encodeURIComponent(nextLessonId)}`,
+    });
+  }
+
+  // 3. 回到本课阅读 (仅来自阅读页时显示)
+  if (fromReading && slug && lessonId) {
+    ctas.push({
+      key: 'reading',
+      emoji: '📖',
+      label: s('回到本课', '回到本課', 'Back to lesson'),
+      to: `/read/${encodeURIComponent(slug)}/${encodeURIComponent(lessonId)}`,
+    });
+  }
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--sp-3)',
+        width: '100%',
+        maxWidth: 320,
+        marginTop: 'var(--sp-2)',
+      }}
+    >
+      {ctas.map((cta, i) => (
+        <button
+          key={cta.key}
+          type="button"
+          onClick={() => onNavigate(cta.to)}
+          className={i === 0 ? 'btn btn-primary btn-pill btn-full' : 'btn btn-pill btn-full'}
+          style={
+            i === 0
+              ? { padding: 14, justifyContent: 'center', display: 'flex', gap: 8 }
+              : {
+                  padding: 14,
+                  justifyContent: 'center',
+                  display: 'flex',
+                  gap: 8,
+                  background: 'var(--glass-thick)',
+                  color: 'var(--ink-2)',
+                  border: '1px solid var(--glass-border)',
+                }
+          }
+        >
+          <span aria-hidden>{cta.emoji}</span>
+          <span>{cta.label}</span>
+        </button>
+      ))}
+      {/* 返回首页 · 始终最弱 · 文字 link 风格 */}
+      <button
+        type="button"
+        onClick={() => onNavigate('/')}
+        className="btn btn-pill btn-full"
+        style={{
+          padding: 12,
+          justifyContent: 'center',
+          background: 'transparent',
+          color: 'var(--ink-3)',
+          border: 'none',
+          font: 'var(--text-caption)',
+          letterSpacing: 1,
+        }}
+      >
+        {s('返回首页', '返回首頁', 'Back to home')}
+      </button>
+    </div>
+  );
 }
