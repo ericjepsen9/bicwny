@@ -75,7 +75,7 @@ export default function SettingsNotificationsPage() {
 
   const q = useQuery({
     queryKey: ['/api/my/notification-prefs'],
-    queryFn: () => api.get<{ data: PrefsResp }>('/api/my/notification-prefs').then((r) => r.data),
+    queryFn: () => api.get<PrefsResp>('/api/my/notification-prefs'),
   });
 
   const m = useMutation({
@@ -90,7 +90,7 @@ export default function SettingsNotificationsPage() {
   // v2 push 偏好 (spec §8) · 与 v1 三档提醒并存
   const pushQ = useQuery({
     queryKey: ['/api/my/push-preferences'],
-    queryFn: () => api.get<{ data: PushPrefs }>('/api/my/push-preferences').then((r) => r.data),
+    queryFn: () => api.get<PushPrefs>('/api/my/push-preferences'),
   });
 
   const pushM = useMutation({

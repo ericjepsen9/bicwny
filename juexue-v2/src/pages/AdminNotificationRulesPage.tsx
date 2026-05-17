@@ -38,7 +38,7 @@ export default function AdminNotificationRulesPage() {
 
   const q = useQuery({
     queryKey: ['/api/admin/notification-rules'],
-    queryFn: () => api.get<{ data: RulesResp }>('/api/admin/notification-rules').then((r) => r.data),
+    queryFn: () => api.get<RulesResp>('/api/admin/notification-rules'),
   });
 
   const upsert = useMutation({
@@ -216,10 +216,10 @@ function TestSection() {
   const [kind, setKind] = useState<TriggerType>('weekly-report');
 
   const trigger = useMutation({
-    mutationFn: () => api.post<{ data: { sent: boolean; reason?: string } }>('/api/admin/notification-test', { userId, kind }),
+    mutationFn: () => api.post<{ sent: boolean; reason?: string }>('/api/admin/notification-test', { userId, kind }),
     onSuccess: (r) => {
-      if (r.data.sent) toast.ok(s('已发送 · 看用户通知中心', '已發送 · 看用戶通知中心', 'Sent · check notif center'));
-      else toast.error(s(`未发送：${r.data.reason ?? '无数据'}`, `未發送：${r.data.reason ?? '無資料'}`, `Skipped: ${r.data.reason}`));
+      if (r.sent) toast.ok(s('已发送 · 看用户通知中心', '已發送 · 看用戶通知中心', 'Sent · check notif center'));
+      else toast.error(s(`未发送：${r.reason ?? '无数据'}`, `未發送：${r.reason ?? '無資料'}`, `Skipped: ${r.reason}`));
     },
     onError: (e) => toast.error((e as ApiError).message),
   });

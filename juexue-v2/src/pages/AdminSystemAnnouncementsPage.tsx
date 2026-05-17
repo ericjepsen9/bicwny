@@ -48,7 +48,7 @@ export default function AdminSystemAnnouncementsPage() {
 
   const list = useQuery({
     queryKey: ['/api/admin/system-announcements'],
-    queryFn: () => api.get<{ data: SystemAnnouncement[] }>('/api/admin/system-announcements?limit=50').then((r) => r.data),
+    queryFn: () => api.get<SystemAnnouncement[]>('/api/admin/system-announcements?limit=50'),
   });
 
   // 创建表单状态

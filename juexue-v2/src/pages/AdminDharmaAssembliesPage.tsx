@@ -41,7 +41,7 @@ export default function AdminDharmaAssembliesPage() {
 
   const list = useQuery({
     queryKey: ['/api/admin/dharma-assemblies'],
-    queryFn: () => api.get<{ data: DharmaAssembly[] }>('/api/admin/dharma-assemblies').then((r) => r.data),
+    queryFn: () => api.get<DharmaAssembly[]>('/api/admin/dharma-assemblies'),
   });
 
   const [showForm, setShowForm] = useState(false);
