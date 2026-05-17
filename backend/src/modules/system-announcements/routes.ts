@@ -5,8 +5,10 @@
 //     PATCH  /api/admin/system-announcements/:id      改内容（contentHash 自动重算）
 //     POST   /api/admin/system-announcements/:id/revoke  撤回
 //   公开（已登录）:
-//     GET    /api/announcements/:id                   详情（前端 link 跳转用 · 兜底显示已撤回/过期）
-//     GET    /api/announcements                       active 列表（前端 banner / 玻璃文字候选用）
+//     GET    /api/system-announcements/:id            详情（前端 link 跳转用 · 兜底显示已撤回/过期）
+//     GET    /api/system-announcements                active 列表（前端 banner / 玻璃文字候选用）
+//   注：公开 endpoint 用 /api/system-announcements 而非 /api/announcements
+//   后者已被班级公告占用（announcements/routes.ts:/api/announcements/:aid）
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireRole, requireUserId } from '../../lib/auth.js';
@@ -109,7 +111,7 @@ export const systemAnnouncementsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // === 公开（已登录）===
-  app.get('/api/announcements/:id', {
+  app.get('/api/system-announcements/:id', {
     schema: { tags: TAGS_PUBLIC, summary: '系统公告详情（前端 link 跳转用）', security: SEC },
   }, async (req) => {
     requireUserId(req); // 仅登录 · 任意 role
@@ -119,7 +121,7 @@ export const systemAnnouncementsRoutes: FastifyPluginAsync = async (app) => {
     return { data: a };
   });
 
-  app.get('/api/announcements', {
+  app.get('/api/system-announcements', {
     schema: { tags: TAGS_PUBLIC, summary: 'active 系统公告列表（前端 banner / 玻璃文字候选）', security: SEC },
   }, async (req) => {
     requireUserId(req);

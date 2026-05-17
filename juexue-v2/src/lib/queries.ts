@@ -336,8 +336,8 @@ export interface SystemAnnouncement {
 export function useSystemAnnouncement(id: string | null | undefined) {
   return useQuery({
     enabled: !!id,
-    queryKey: ['/api/announcements', id],
-    queryFn: ({ signal }) => api.get<SystemAnnouncement>(`/api/announcements/${encodeURIComponent(id!)}`, { signal }),
+    queryKey: ['/api/system-announcements', id],
+    queryFn: ({ signal }) => api.get<SystemAnnouncement>(`/api/system-announcements/${encodeURIComponent(id!)}`, { signal }),
   });
 }
 
