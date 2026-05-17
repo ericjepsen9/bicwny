@@ -5,6 +5,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { toast } from '@/lib/toast';
@@ -69,25 +70,38 @@ export default function NotesDrawer({
     }
   }
 
-  return (
-    <>
+  // createPortal 渲到 document.body · 避开 ScriptureReadingPage 祖先 stacking context
+  //   - 修 bug 1: 手机端点击 FAB 只见 dim · 不见 drawer（祖先 transform 困住 fixed 子孙）
+  //   - 修 bug 2: Edge 桌面横向滑动暴露 drawer（外层 overflow:hidden 裁掉 transform 溢出）
+  // 见 docs/CSS-GOTCHAS.md 坑 1
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        // 关闭时整层不拦事件 · 让正文区可点
+        pointerEvents: open ? 'auto' : 'none',
+        // 裁掉 drawer translateX(100%) 时溢出右侧的部分
+        // 防 Edge 桌面横向滑动暴露 drawer
+        overflow: 'hidden',
+        zIndex: 100,
+      }}
+    >
       {/* 背板 */}
       <div
         onClick={onClose}
         style={{
-          position: 'fixed',
+          position: 'absolute',
           inset: 0,
           background: 'rgba(0,0,0,0.4)',
           opacity: open ? 1 : 0,
-          pointerEvents: open ? 'auto' : 'none',
           transition: 'opacity .25s',
-          zIndex: 100,
         }}
       />
       {/* 抽屉 */}
       <aside
         style={{
-          position: 'fixed',
+          position: 'absolute',
           top: 0,
           right: 0,
           bottom: 0,
@@ -96,7 +110,6 @@ export default function NotesDrawer({
           boxShadow: '-4px 0 16px rgba(0,0,0,0.15)',
           transform: open ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform .28s var(--ease)',
-          zIndex: 101,
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -172,6 +185,7 @@ export default function NotesDrawer({
           )}
         </div>
       </aside>
-    </>
+    </div>,
+    document.body,
   );
 }
