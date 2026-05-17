@@ -25,13 +25,19 @@ export default function NotesDrawer({
   open,
   onClose,
   lessonId,
+  lessonSlug,
   lessonText,
 }: {
   open: boolean;
   onClose: () => void;
   lessonId: string;
+  lessonSlug?: string; // 本课 slug · 用于「返回阅读页」backTo
   lessonText?: string; // 本课全文 · 用于 AI 草稿
 }) {
+  // 抽屉里所有 link 都带 ?backTo=/read/:slug/:id · 让 NoteEditPage 返回时跳回当前阅读页
+  // 不传 slug 时 fallback /notes（旧行为 · 不至于崩）
+  const backTo = lessonSlug ? `/read/${lessonSlug}/${lessonId}` : '';
+  const backQuery = backTo ? `&backTo=${encodeURIComponent(backTo)}` : '';
   const { s } = useLang();
   const navigate = useNavigate();
   const [drafting, setDrafting] = useState(false);
@@ -58,11 +64,12 @@ export default function NotesDrawer({
       // 写入 sessionStorage 供 NoteEditPage 读
       sessionStorage.setItem('note-draft', JSON.stringify({
         lessonId,
+        lessonSlug,
         body: r.result,
         anchorText: null,
         anchorIndex: null,
       }));
-      navigate('/notes/new?fromDraft=1');
+      navigate(`/notes/new?fromDraft=1${backQuery}`);
     } catch (e) {
       toast.error('AI 失败: ' + (e as ApiError).message);
     } finally {
@@ -106,7 +113,7 @@ export default function NotesDrawer({
           right: 0,
           bottom: 0,
           width: 'min(420px, 90vw)',
-          background: 'var(--bg)',
+          background: 'var(--bg-card)',
           boxShadow: '-4px 0 16px rgba(0,0,0,0.15)',
           transform: open ? 'translateX(0)' : 'translateX(100%)',
           transition: 'transform .28s var(--ease)',
@@ -125,7 +132,7 @@ export default function NotesDrawer({
         {/* 操作按钮 */}
         <div style={{ padding: 'var(--sp-3) var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <Link
-            to={`/notes/new?lessonId=${encodeURIComponent(lessonId)}`}
+            to={`/notes/new?lessonId=${encodeURIComponent(lessonId)}${backQuery}`}
             onClick={onClose}
             className="btn btn-pill"
             style={{ padding: '8px 14px', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)', textDecoration: 'none', textAlign: 'center', fontWeight: 600 }}
@@ -158,7 +165,7 @@ export default function NotesDrawer({
             notes.map((n) => (
               <Link
                 key={n.id}
-                to={`/notes/${n.id}`}
+                to={backTo ? `/notes/${n.id}?backTo=${encodeURIComponent(backTo)}` : `/notes/${n.id}`}
                 onClick={onClose}
                 className="glass-card"
                 style={{ padding: 'var(--sp-2) var(--sp-3)', display: 'flex', flexDirection: 'column', gap: 4, textDecoration: 'none', color: 'var(--ink)' }}

@@ -56,13 +56,17 @@ export default function NoteEditPage() {
     } catch { return null; }
   }, [fromDraft]);
 
-  // 返回路径 · 从阅读页选段进来 → 返回该阅读页 · 否则回 /notes 列表
+  // 返回路径 · 优先级：?backTo= → sessionDraft 推导 → /notes 兜底
+  //   URL 携带 backTo 是为了 saveMut 调 navigate(replace) 后仍能保留来源页（sessionDraft 一次性消费）
+  //   见 NotesDrawer · 长按选段 · ReadingNotesFab → 全部把 backTo 写入 URL
+  const urlBackTo = searchParams.get('backTo');
   const backTo = useMemo(() => {
+    if (urlBackTo) return urlBackTo;
     if (sessionDraft?.lessonSlug && sessionDraft?.lessonId) {
       return `/read/${sessionDraft.lessonSlug}/${sessionDraft.lessonId}`;
     }
     return '/notes';
-  }, [sessionDraft]);
+  }, [urlBackTo, sessionDraft]);
 
   const [anchorText, setAnchorText] = useState<string | null>(sessionDraft?.anchorText ?? null);
   const [anchorIndex, setAnchorIndex] = useState<number | null>(sessionDraft?.anchorIndex ?? null);
@@ -139,7 +143,11 @@ export default function NoteEditPage() {
       qc.invalidateQueries({ queryKey: ['/api/notes'] });
       qc.invalidateQueries({ queryKey: ['/api/notes', n.id] });
       toast.ok(isNew ? '✓ 已创建' : '✓ 已保存');
-      if (isNew) navigate(`/notes/${n.id}`, { replace: true });
+      if (isNew) {
+        // 保留 backTo · 让保存后再按返回仍能跳回阅读页
+        const q = backTo && backTo !== '/notes' ? `?backTo=${encodeURIComponent(backTo)}` : '';
+        navigate(`/notes/${n.id}${q}`, { replace: true });
+      }
     },
     onError: (e) => toast.error('保存失败: ' + (e as ApiError).message),
   });

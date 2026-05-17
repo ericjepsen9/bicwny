@@ -252,7 +252,8 @@ export default function ScriptureReadingPage() {
     }));
     window.getSelection()?.removeAllRanges();
     setSelection(null);
-    nav('/notes/new?fromDraft=1');
+    // 带 backTo · 让 NoteEditPage 保存后 replace 跳到详情页时仍能返回此阅读页
+    nav(`/notes/new?fromDraft=1&backTo=${encodeURIComponent(`/read/${slug}/${lessonId}`)}`);
   }, [selection, lessonId, slug, nav]);
 
   const copySelection = useCallback(async () => {
@@ -430,6 +431,7 @@ export default function ScriptureReadingPage() {
           open={notesOpen}
           onClose={onNotesClose}
           lessonId={lessonId}
+          lessonSlug={slug}
           lessonText={lesson.referenceText ?? ''}
         />
       )}

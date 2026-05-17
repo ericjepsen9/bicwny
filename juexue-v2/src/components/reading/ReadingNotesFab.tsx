@@ -57,7 +57,7 @@ function ReadingNotesFab({ chromeVisible, notesCount, onOpen }: Props) {
             padding: '0 5px',
             borderRadius: 999,
             background: 'var(--crimson)',
-            border: '2px solid var(--bg)',
+            border: '2px solid var(--bg-card)',
             color: '#fff',
             fontSize: 10,
             fontWeight: 700,
