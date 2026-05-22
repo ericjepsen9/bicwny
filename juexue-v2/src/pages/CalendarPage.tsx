@@ -2,14 +2,27 @@
 //   - 默认显示当前月 · 上下箭头切月
 //   - 网格 7 列 · 每格显示公历日 + 藏历小字 + 标记（🌺 / 圣诞 / 法会 / 假日）
 //   - 点格 → 弹底部 sheet 显示当日完整信息
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
+import Dialog from '@/components/Dialog';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
 import { api } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { useCoachClasses } from '@/lib/queries';
+
+// 桌面 ≥768 用 centered modal · 手机用底部 sheet（CSS-GOTCHAS 坑 7）
+function useIsWide(): boolean {
+  const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const fn = () => setWide(mq.matches);
+    mq.addEventListener('change', fn);
+    return () => mq.removeEventListener('change', fn);
+  }, []);
+  return wide;
+}
 
 interface TibetanDay {
   date: string;
@@ -39,6 +52,8 @@ export default function CalendarPage() {
   const [year, setYear] = useState<number>(() => new Date().getFullYear());
   const [month, setMonth] = useState<number>(() => new Date().getMonth() + 1);
   const [selected, setSelected] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const isWide = useIsWide();
 
   const ym = fmtYm(year, month);
   const data = useQuery({
@@ -85,7 +100,7 @@ export default function CalendarPage() {
     const t = new Date();
     setYear(t.getFullYear());
     setMonth(t.getMonth() + 1);
-    setSelected(today);
+    setSelected(null);
   }
 
   return (
@@ -102,11 +117,17 @@ export default function CalendarPage() {
 
       {/* 月份导航 */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button type="button" onClick={() => shiftMonth(-1)} className="btn btn-pill" style={{ padding: '6px 12px' }}>‹</button>
-        <h1 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.3rem', letterSpacing: 2 }}>
+        <button type="button" onClick={() => shiftMonth(-1)} className="btn btn-pill" style={{ padding: '6px 12px' }} aria-label={s('上一月', '上一月', 'Previous month')}>‹</button>
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          aria-label={s('选择年月', '選擇年月', 'Pick year and month')}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.3rem', letterSpacing: 2, color: 'var(--ink)' }}
+        >
           📿 {year} · {String(month).padStart(2, '0')}
-        </h1>
-        <button type="button" onClick={() => shiftMonth(1)} className="btn btn-pill" style={{ padding: '6px 12px' }}>›</button>
+          <span style={{ fontSize: '0.7rem', color: 'var(--ink-3)' }}>▾</span>
+        </button>
+        <button type="button" onClick={() => shiftMonth(1)} className="btn btn-pill" style={{ padding: '6px 12px' }} aria-label={s('下一月', '下一月', 'Next month')}>›</button>
       </div>
 
       {/* 数据空态：seed 未灌库 / API 失败 / 当月未编辑 */}
@@ -164,6 +185,7 @@ export default function CalendarPage() {
                 key={cell.ymd}
                 type="button"
                 onClick={() => setSelected(isSelected ? null : cell.ymd)}
+                aria-label={`${cell.ymd}${day?.auspicious ? ' 🌺' : ''}${isCeremony ? ' 📜' : ''}`}
                 style={{
                   aspectRatio: '1',
                   border: isSelected ? '2px solid var(--saffron-dark)' : isCeremony ? '1px solid var(--crimson-light)' : '1px solid var(--border-light)',
@@ -199,9 +221,6 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* 选中日详情 */}
-      {selectedDay && <DayDetail day={selectedDay} isCoach={isCoach} />}
-
       {/* 图例 */}
       <div className="glass-card" style={{ padding: 'var(--sp-3)', font: 'var(--text-caption)', color: 'var(--ink-3)', display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div>🌺 {s('修法功德日 · 公农藏共认特殊日', '修法功德日 · 公農藏共認特殊日', 'Auspicious day')}</div>
@@ -209,25 +228,52 @@ export default function CalendarPage() {
         <div>● {s('当日有圣诞 / 加持日 / 法会等', '當日有聖誕 / 加持日 / 法會等', 'Has events')}</div>
       </div>
     </div>
+
+      {/* 选中日详情 · 底部 sheet（桌面 centered）*/}
+      <Dialog
+        open={!!selectedDay}
+        onClose={() => setSelected(null)}
+        variant={isWide ? 'centered' : 'sheet'}
+        title={selectedDay?.date}
+      >
+        {selectedDay && <DayDetailBody day={selectedDay} isCoach={isCoach} />}
+      </Dialog>
+
+      {/* 年月选择器 */}
+      <Dialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        variant={isWide ? 'centered' : 'sheet'}
+        title={s('选择年月', '選擇年月', 'Pick month')}
+      >
+        <YearMonthPicker
+          year={year}
+          month={month}
+          onPick={(y, m) => { setYear(y); setMonth(m); setSelected(null); setPickerOpen(false); }}
+        />
+      </Dialog>
     </>
   );
 }
 
-function DayDetail({ day, isCoach }: { day: TibetanDay; isCoach: boolean }) {
+function DayDetailBody({ day, isCoach }: { day: TibetanDay; isCoach: boolean }) {
   const { s } = useLang();
   return (
-    <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
-        <h3 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.1rem', margin: 0 }}>
-          {day.date}
-        </h3>
-        {day.auspicious && <span style={{ fontSize: '1rem' }}>🌺</span>}
-        {day.publicHoliday && (
-          <span className="chip" style={{ background: 'var(--crimson-pale)', color: 'var(--crimson)' }}>
-            {day.publicHoliday}
-          </span>
-        )}
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', paddingTop: 'var(--sp-2)' }}>
+      {(day.auspicious || day.publicHoliday) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {day.auspicious && (
+            <span className="chip" style={{ background: 'var(--gold-pale)', color: 'var(--gold-dark)' }}>
+              🌺 {s('修法功德日', '修法功德日', 'Auspicious')}
+            </span>
+          )}
+          {day.publicHoliday && (
+            <span className="chip" style={{ background: 'var(--crimson-pale)', color: 'var(--crimson)' }}>
+              {day.publicHoliday}
+            </span>
+          )}
+        </div>
+      )}
 
       <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
         {s('农历', '農曆', 'Lunar')}: {day.lunar}
@@ -255,6 +301,43 @@ function DayDetail({ day, isCoach }: { day: TibetanDay; isCoach: boolean }) {
         </ul>
       )}
       {isCoach && <CoachPublishCTA day={day} />}
+    </div>
+  );
+}
+
+function YearMonthPicker({ year, month, onPick }: { year: number; month: number; onPick: (y: number, m: number) => void }) {
+  const { s } = useLang();
+  const [y, setY] = useState(year);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)', paddingTop: 'var(--sp-2)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button type="button" onClick={() => setY((v) => v - 1)} className="btn btn-pill" style={{ padding: '6px 16px' }} aria-label={s('上一年', '上一年', 'Previous year')}>‹</button>
+        <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.25rem', letterSpacing: 2 }}>{y}</span>
+        <button type="button" onClick={() => setY((v) => v + 1)} className="btn btn-pill" style={{ padding: '6px 16px' }} aria-label={s('下一年', '下一年', 'Next year')}>›</button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+          const isCur = y === year && m === month;
+          return (
+            <button
+              key={m}
+              type="button"
+              onClick={() => onPick(y, m)}
+              className="btn btn-pill"
+              style={{
+                padding: '10px 0',
+                background: isCur ? 'var(--saffron-dark)' : 'var(--surface)',
+                color: isCur ? '#fff' : 'var(--ink)',
+                border: isCur ? '1px solid var(--saffron-dark)' : '1px solid var(--border-light)',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {m}{s('月', '月', '')}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
