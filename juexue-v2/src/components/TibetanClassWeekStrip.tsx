@@ -7,6 +7,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
+import { useLang } from '@/lib/i18n';
+
+type SFn = (sc: string, tc: string, en?: string) => string;
 
 interface TibetanDay {
   date: string;
@@ -19,21 +22,23 @@ interface TibetanDay {
   publicHoliday: string | null;
 }
 
-const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
+const WEEKDAY_SC = ['日', '一', '二', '三', '四', '五', '六'];
+const WEEKDAY_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const KEYWORDS = ['加持日', '荟供', '法会', '诞辰', '圣诞', '涅槃'];
 const MULTIPLIER_RE = /成([一二三四五六七八九十百千万亿0-9]+)倍/;
 
-function pickHeadline(d: TibetanDay): { name: string; multiplier: string | null; kind: 'holiday' | 'auspicious' | 'event' } {
+function pickHeadline(d: TibetanDay, s: SFn): { name: string; multiplier: string | null; kind: 'holiday' | 'auspicious' | 'event' } {
   if (d.publicHoliday) return { name: d.publicHoliday, multiplier: null, kind: 'holiday' };
   const evt = d.events.find((e) => KEYWORDS.some((k) => e.includes(k))) ?? d.events.find((e) => !e.startsWith('理发吉日'));
   if (evt) {
     const m = evt.match(MULTIPLIER_RE);
     return { name: evt.split(/[,，]/)[0]!.trim(), multiplier: m ? m[1] + '倍' : null, kind: 'event' };
   }
-  return { name: `${d.tibetanMonth} · 修法功德日`, multiplier: null, kind: 'auspicious' };
+  return { name: `${d.tibetanMonth} · ${s('修法功德日', '修法功德日', 'Auspicious')}`, multiplier: null, kind: 'auspicious' };
 }
 
 export default function TibetanClassWeekStrip() {
+  const { s } = useLang();
   const data = useQuery({
     queryKey: ['/api/calendar/upcoming', 7],
     queryFn: ({ signal }) => api.get<TibetanDay[]>('/api/calendar/upcoming?days=7', { signal }),
@@ -50,8 +55,9 @@ export default function TibetanClassWeekStrip() {
           const date = new Date(d.date + 'T00:00:00');
           const month = date.getMonth() + 1;
           const day = date.getDate();
-          const dow = WEEKDAY[date.getDay()]!;
-          const { name, multiplier, kind } = pickHeadline(d);
+          const dowIdx = date.getDay();
+          const dowLabel = s(`周${WEEKDAY_SC[dowIdx]}`, `週${WEEKDAY_SC[dowIdx]}`, WEEKDAY_EN[dowIdx]);
+          const { name, multiplier, kind } = pickHeadline(d, s);
           const accent = kind === 'holiday' ? 'var(--crimson)' : kind === 'auspicious' ? 'var(--gold-dark)' : 'var(--saffron-dark)';
 
           return (
@@ -80,7 +86,7 @@ export default function TibetanClassWeekStrip() {
                 <span style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.95rem', color: accent }}>
                   {month}/{day}
                 </span>
-                <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.7rem' }}>周{dow}</span>
+                <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.7rem' }}>{dowLabel}</span>
                 {multiplier && (
                   <span
                     style={{

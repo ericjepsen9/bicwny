@@ -36,6 +36,8 @@ export async function listClassSessions(classId: string, opts?: { past?: boolean
   const now = new Date();
   const where: Prisma.ClassSessionWhereInput = {
     classId,
+    // 已归档班级不返回共修（防 archive 后残留数据被读出）
+    class: { isActive: true },
     startAt: opts?.past ? { lt: now } : { gte: new Date(now.getTime() - 30 * 60_000) },
     // 历史也展示开始 30 分钟内（正在进行的不算"过去"）
   };

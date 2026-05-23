@@ -154,7 +154,8 @@ export async function updateAnnouncement(
 
 export async function listAnnouncements(classId: string, opts: { includeArchived?: boolean } = {}) {
   return prisma.classAnnouncement.findMany({
-    where: { classId, ...(opts.includeArchived ? {} : { archivedAt: null }) },
+    // 已归档班级不返回公告（防 archive 后残留数据被读出）
+    where: { classId, class: { isActive: true }, ...(opts.includeArchived ? {} : { archivedAt: null }) },
     orderBy: [
       { pinnedAt: { sort: 'desc', nulls: 'last' } },
       { createdAt: 'desc' },
