@@ -177,14 +177,12 @@ export default function CalendarPage() {
             const isSelected = selected === cell.ymd;
             const isCeremony = !!day?.events.some((e) => e.includes('法会'));
             const hasOtherEvent = (day?.events?.length ?? 0) > 0;
-            // 单圆点 · 颜色编码 · 优先级 功德 > 法会 > 其它事件
-            const dotColor = day?.auspicious
-              ? 'var(--gold-dark)'
-              : isCeremony
-                ? 'var(--crimson)'
-                : hasOtherEvent
-                  ? 'var(--ink-4)'
-                  : null;
+            // 圆点 · 颜色编码 · 功德金 + 法会绛红可并存（最多 2 点）·
+            // 既非功德也非法会但有其它事件 → 灰点。一格永远 ≤2 点
+            const dots: string[] = [];
+            if (day?.auspicious) dots.push('var(--gold-dark)');
+            if (isCeremony) dots.push('var(--crimson)');
+            if (dots.length === 0 && hasOtherEvent) dots.push('var(--ink-4)');
             const bg = isToday ? 'var(--saffron-pale)' : 'var(--surface)';
             return (
               <button
@@ -212,8 +210,12 @@ export default function CalendarPage() {
                 <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.62rem', lineHeight: 1, marginTop: 1, opacity: 0.85 }}>
                   {day?.tibetan ?? ''}
                 </div>
-                {dotColor && (
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: dotColor, marginTop: 3 }} />
+                {dots.length > 0 && (
+                  <div style={{ display: 'flex', gap: 3, marginTop: 3 }}>
+                    {dots.map((c, di) => (
+                      <div key={di} style={{ width: 5, height: 5, borderRadius: '50%', background: c }} />
+                    ))}
+                  </div>
                 )}
               </button>
             );
