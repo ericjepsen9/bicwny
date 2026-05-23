@@ -66,10 +66,13 @@ export async function enroll(
   if (course.archivedAt) throw Conflict('该法本已下线，无法新报名');
 
   // upsert 防止并发重复；已有记录保留已学进度
+  // 显式自学报名 → source 升级为 'self'（审计 S9）·
+  //   否则"先加班 → 再自学同课"的 update 为空 · source 仍 'class' ·
+  //   日后退班无 fallback 时整条 enrollment 被删 · 用户丢失明确自选的课程
   return prisma.userCourseEnrollment.upsert({
     where: { userId_courseId: { userId, courseId } },
-    create: { userId, courseId },
-    update: {},
+    create: { userId, courseId, source: 'self' },
+    update: { source: 'self' },
   });
 }
 

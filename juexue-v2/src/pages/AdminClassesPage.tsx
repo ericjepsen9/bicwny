@@ -213,6 +213,8 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/admin/classes'] });
+      // 同步学员端 useClassDetail · 否则改名后学员仍看旧名（审计 S3）
+      qc.invalidateQueries({ queryKey: ['/api/classes', cls.id] });
       toast.ok(s('已保存', '已保存', 'Saved'));
       setEditing(false);
     },
@@ -223,6 +225,8 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
     mutationFn: () => api.patch(`/api/admin/classes/${encodeURIComponent(cls.id)}/archive`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/admin/classes'] });
+      // 归档后学员端立即失访 · 让 ClassDetail 重新拉到 403/归档态（审计 S3）
+      qc.invalidateQueries({ queryKey: ['/api/classes', cls.id] });
       toast.ok(s('已归档', '已歸檔', 'Archived'));
       onClose();
     },
@@ -430,6 +434,8 @@ function AddMemberForm({ classId }: { classId: string }) {
       qc.invalidateQueries({ queryKey: ['/api/admin/classes', classId, 'members'] });
       // 同步刷新班级列表 · 否则列表行的 memberCount 陈旧（与 kick 一致）
       qc.invalidateQueries({ queryKey: ['/api/admin/classes'] });
+      // 同步学员端班级详情成员列表（审计 S3）
+      qc.invalidateQueries({ queryKey: ['/api/classes', classId] });
       toast.ok(s('已添加', '已添加', 'Added'));
       setSearch(''); setPicked(null);
     },
@@ -497,6 +503,7 @@ function MemberRow({ m, classId, top }: { m: { id: string; role: 'coach' | 'stud
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/admin/classes', classId, 'members'] });
       qc.invalidateQueries({ queryKey: ['/api/admin/classes'] });
+      qc.invalidateQueries({ queryKey: ['/api/classes', classId] }); // 同步学员端（审计 S3）
       toast.ok(s('已移除', '已移除', 'Removed'));
     },
     onError: (e) => toast.error((e as ApiError).message),
@@ -509,6 +516,7 @@ function MemberRow({ m, classId, top }: { m: { id: string; role: 'coach' | 'stud
     ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/admin/classes', classId, 'members'] });
+      qc.invalidateQueries({ queryKey: ['/api/classes', classId] }); // 同步学员端（审计 S3）
       toast.ok(s('角色已更新', '角色已更新', 'Role updated'));
     },
     onError: (e) => toast.error((e as ApiError).message),
@@ -517,7 +525,7 @@ function MemberRow({ m, classId, top }: { m: { id: string; role: 'coach' | 'stud
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)', borderTop: top ? 'none' : '1px solid var(--border-light)' }}>
       <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.75rem' }}>
-        {m.user.dharmaName.slice(0, 1)}
+        {(m.user.dharmaName ?? '').slice(0, 1) || '·'}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600, color: 'var(--ink)', letterSpacing: 1 }}>{m.user.dharmaName}</div>

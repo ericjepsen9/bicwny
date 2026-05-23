@@ -114,6 +114,11 @@ export async function addMember(
   let wasNewlyJoined = false;
 
   const result = await prisma.$transaction(async (tx) => {
+    // 事务内再校验班级存活 · 防"入班 vs 归档"竞态把成员复活进死班（审计 S7）
+    // findClassByCode / getClass 的 isActive 检查在事务外 · 有 TOCTOU 窗口
+    const cls = await tx.class.findUnique({ where: { id: classId }, select: { isActive: true } });
+    if (!cls || !cls.isActive) throw NotFound('班级不存在或已归档');
+
     const before = await tx.classMember.findUnique({
       where: { classId_userId: { classId, userId } },
     });
@@ -195,6 +200,9 @@ export async function addMember(
       });
     }
     return member;
+  }, {
+    // 与 archiveClass / removeMember 同隔离级 · 让入班↔归档的读写依赖触发 abort 重试
+    isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
   });
 
   // spec §3 ⑨ MembershipChange · joined tier · normal severity
@@ -354,11 +362,23 @@ async function _removeMemberInTx(
   tx: Prisma.TransactionClient,
   classId: string,
   userId: string,
-  opts: { actorAdminId?: string; skipAudit?: boolean } = {},
+  opts: { actorAdminId?: string; skipAudit?: boolean; skipCoachGuard?: boolean } = {},
 ): Promise<void> {
   const before = await tx.classMember.findUnique({
     where: { classId_userId: { classId, userId } },
   });
+
+  // 防班级降到 0 coach：移除最后一名 coach 前必须另有 coach
+  //   - setMemberRole 已有同款保护 · removeMember / 退班路径此前漏了（审计 S1）
+  //   - archiveClass 整班解散时跳过（skipCoachGuard）
+  if (before?.role === 'coach' && before.removedAt === null && !opts.skipCoachGuard) {
+    const otherCoaches = await tx.classMember.count({
+      where: { classId, role: 'coach', removedAt: null, userId: { not: userId } },
+    });
+    if (otherCoaches === 0) {
+      throw Conflict('班级至少保留 1 名 coach · 请先指定另一位 coach 再退出 / 移除');
+    }
+  }
 
   // 软删 ClassMember（保留 join 历史）
   await tx.classMember.updateMany({
@@ -626,6 +646,7 @@ export async function archiveClass(
       await _removeMemberInTx(tx, id, m.userId, {
         actorAdminId: opts.actorAdminId,
         skipAudit: true,
+        skipCoachGuard: true, // 整班解散 · 不受"保留 1 coach"限制
       });
     }
 

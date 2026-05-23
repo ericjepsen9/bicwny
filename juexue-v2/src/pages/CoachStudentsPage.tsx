@@ -116,7 +116,7 @@ export default function CoachStudentsPage() {
                   <Td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
                       <span style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.75rem' }}>
-                        {m.user.dharmaName.slice(0, 1)}
+                        {(m.user.dharmaName ?? '').slice(0, 1) || '·'}
                       </span>
                       <div>
                         <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600, color: 'var(--ink)', letterSpacing: 1 }}>
@@ -195,7 +195,7 @@ function Drawer({ onClose, loading, data, classId, uid }: { onClose: () => void;
             {/* hero */}
             <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem' }}>
-                {data.user.dharmaName.slice(0, 1)}
+                {(data.user.dharmaName ?? '').slice(0, 1) || '·'}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h3 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', letterSpacing: 2, fontSize: '1rem' }}>
