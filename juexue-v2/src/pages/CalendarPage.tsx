@@ -53,6 +53,7 @@ export default function CalendarPage() {
   const [month, setMonth] = useState<number>(() => new Date().getMonth() + 1);
   const [selected, setSelected] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   const isWide = useIsWide();
 
   const ym = fmtYm(year, month);
@@ -84,8 +85,13 @@ export default function CalendarPage() {
         else if (e.includes('法会开始')) ceremonies.add(e.replace('开始', '').trim());
       });
     });
-    return { auspiciousCount, fastCount, tibMonths, ceremonies: Array.from(ceremonies).slice(0, 3) };
-  }, [data.data]);
+    const ceremonyList = Array.from(ceremonies).slice(0, 3);
+    const parts: string[] = [...tibMonths];
+    if (auspiciousCount > 0) parts.push(`${auspiciousCount} ${s('功德日', '功德日', 'auspicious')}`);
+    if (fastCount > 0) parts.push(`${fastCount} ${s('十斋日', '十齋日', 'fast')}`);
+    parts.push(...ceremonyList);
+    return { auspiciousCount, fastCount, tibMonths, ceremonies: ceremonyList, summary: parts.join(' · ') };
+  }, [data.data, s]);
 
   function shiftMonth(delta: number) {
     let y = year, m = month + delta;
@@ -108,9 +114,12 @@ export default function CalendarPage() {
       <TopNav
         titles={['藏历', '藏曆', 'Calendar']}
         right={(
-          <button type="button" onClick={jumpToToday} style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', background: 'transparent', border: 'none', padding: '4px 10px', cursor: 'pointer' }}>
-            {s('今日', '今日', 'Today')}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <button type="button" onClick={() => setLegendOpen(true)} aria-label={s('图例', '圖例', 'Legend')} style={{ font: 'var(--text-body)', color: 'var(--ink-3)', background: 'transparent', border: 'none', padding: '4px 8px', cursor: 'pointer' }}>ⓘ</button>
+            <button type="button" onClick={jumpToToday} style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', background: 'transparent', border: 'none', padding: '4px 10px', cursor: 'pointer' }}>
+              {s('今日', '今日', 'Today')}
+            </button>
+          </div>
         )}
       />
       <div style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
@@ -145,21 +154,10 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* 本月概览 · 藏历月名 + 功德日 / 十斋日 / 主法会 */}
-      {!data.isLoading && (data.data?.length ?? 0) > 0 && (
-        <div className="glass-card" style={{ padding: 'var(--sp-3)', display: 'flex', flexWrap: 'wrap', gap: 8, font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
-          {overview.tibMonths.map((m) => (
-            <span key={m} className="chip" style={{ background: 'var(--saffron-pale)', color: 'var(--saffron-dark)' }}>📿 {m}</span>
-          ))}
-          {overview.auspiciousCount > 0 && (
-            <span className="chip" style={{ background: 'var(--gold-pale)', color: 'var(--gold-dark)' }}>🌺 {overview.auspiciousCount} {s('天功德日', '天功德日', 'auspicious days')}</span>
-          )}
-          {overview.fastCount > 0 && (
-            <span className="chip" style={{ background: 'var(--sage-pale)', color: 'var(--sage-dark)' }}>{overview.fastCount} {s('天十斋日', '天十齋日', 'fast days')}</span>
-          )}
-          {overview.ceremonies.map((c) => (
-            <span key={c} className="chip" style={{ background: 'var(--crimson-pale)', color: 'var(--crimson)' }}>📜 {c}</span>
-          ))}
+      {/* 本月概览 · 一行素灰字 · 藏历月名 · 功德日 / 十斋日 / 主法会 */}
+      {!data.isLoading && (data.data?.length ?? 0) > 0 && overview.summary && (
+        <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', textAlign: 'center', lineHeight: 1.5 }}>
+          {overview.summary}
         </div>
       )}
 
@@ -177,18 +175,26 @@ export default function CalendarPage() {
             const day = byDate.get(cell.ymd);
             const isToday = cell.ymd === today;
             const isSelected = selected === cell.ymd;
-            const hasEvent = (day?.events?.length ?? 0) > 0 || day?.auspicious;
             const isCeremony = !!day?.events.some((e) => e.includes('法会'));
-            const bg = isToday ? 'var(--saffron-pale)' : isCeremony ? 'var(--crimson-pale)' : 'var(--surface)';
+            const hasOtherEvent = (day?.events?.length ?? 0) > 0;
+            // 单圆点 · 颜色编码 · 优先级 功德 > 法会 > 其它事件
+            const dotColor = day?.auspicious
+              ? 'var(--gold-dark)'
+              : isCeremony
+                ? 'var(--crimson)'
+                : hasOtherEvent
+                  ? 'var(--ink-4)'
+                  : null;
+            const bg = isToday ? 'var(--saffron-pale)' : 'var(--surface)';
             return (
               <button
                 key={cell.ymd}
                 type="button"
                 onClick={() => setSelected(isSelected ? null : cell.ymd)}
-                aria-label={`${cell.ymd}${day?.auspicious ? ' 🌺' : ''}${isCeremony ? ' 📜' : ''}`}
+                aria-label={`${cell.ymd}${day?.auspicious ? ` ${s('功德日', '功德日', 'auspicious')}` : ''}${isCeremony ? ` ${s('法会', '法會', 'ceremony')}` : ''}`}
                 style={{
                   aspectRatio: '1',
-                  border: isSelected ? '2px solid var(--saffron-dark)' : isCeremony ? '1px solid var(--crimson-light)' : '1px solid var(--border-light)',
+                  border: isSelected ? '2px solid var(--saffron-dark)' : '1px solid var(--border-light)',
                   borderRadius: 6,
                   background: bg,
                   display: 'flex',
@@ -203,30 +209,17 @@ export default function CalendarPage() {
                 <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.05rem', color: isToday ? 'var(--saffron-dark)' : 'var(--ink)' }}>
                   {cell.day}
                 </div>
-                <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.65rem', lineHeight: 1, marginTop: 2 }}>
+                <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.62rem', lineHeight: 1, marginTop: 1, opacity: 0.85 }}>
                   {day?.tibetan ?? ''}
                 </div>
-                {day?.auspicious && (
-                  <div style={{ position: 'absolute', top: 2, right: 4, fontSize: '0.7rem' }}>🌺</div>
-                )}
-                {isCeremony && (
-                  <div style={{ position: 'absolute', bottom: 2, left: 0, right: 0, fontSize: '0.55rem', color: 'var(--crimson)', textAlign: 'center', lineHeight: 1, fontWeight: 700 }}>📜</div>
-                )}
-                {!day?.auspicious && !isCeremony && hasEvent && (
-                  <div style={{ position: 'absolute', top: 4, right: 4, width: 6, height: 6, borderRadius: '50%', background: 'var(--saffron-dark)' }} />
+                {dotColor && (
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: dotColor, marginTop: 3 }} />
                 )}
               </button>
             );
           })}
         </div>
       )}
-
-      {/* 图例 */}
-      <div className="glass-card" style={{ padding: 'var(--sp-3)', font: 'var(--text-caption)', color: 'var(--ink-3)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div>🌺 {s('修法功德日 · 公农藏共认特殊日', '修法功德日 · 公農藏共認特殊日', 'Auspicious day')}</div>
-        <div><span style={{ display: 'inline-block', width: 12, height: 12, background: 'var(--crimson-pale)', border: '1px solid var(--crimson-light)', borderRadius: 3, verticalAlign: 'middle', marginRight: 6 }} />📜 {s('法会期', '法會期', 'Ceremony days')}</div>
-        <div>● {s('当日有圣诞 / 加持日 / 法会等', '當日有聖誕 / 加持日 / 法會等', 'Has events')}</div>
-      </div>
     </div>
 
       {/* 选中日详情 · 底部 sheet（桌面 centered）*/}
@@ -251,6 +244,27 @@ export default function CalendarPage() {
           month={month}
           onPick={(y, m) => { setYear(y); setMonth(m); setSelected(null); setPickerOpen(false); }}
         />
+      </Dialog>
+
+      {/* 图例 */}
+      <Dialog
+        open={legendOpen}
+        onClose={() => setLegendOpen(false)}
+        variant={isWide ? 'centered' : 'sheet'}
+        title={s('图例', '圖例', 'Legend')}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 'var(--sp-2)' }}>
+          <LegendRow color="var(--gold-dark)" text={s('功德日 · 修法功德增上', '功德日 · 修法功德增上', 'Auspicious · merit day')} />
+          <LegendRow color="var(--crimson)" text={s('法会期', '法會期', 'Ceremony')} />
+          <LegendRow color="var(--ink-4)" text={s('其它事件 · 圣诞 / 加持日等', '其它事件 · 聖誕 / 加持日等', 'Other events')} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, font: 'var(--text-body)', color: 'var(--ink-2)' }}>
+            <span style={{ width: 18, height: 18, borderRadius: 4, background: 'var(--saffron-pale)', border: '1px solid var(--saffron-light)', flex: 'none' }} />
+            {s('今日', '今日', 'Today')}
+          </div>
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 4 }}>
+            {s('十斋日等标记在点开当日详情中查看', '十齋日等標記在點開當日詳情中查看', 'Fast days etc. shown in day detail')}
+          </div>
+        </div>
       </Dialog>
     </>
   );
@@ -301,6 +315,15 @@ function DayDetailBody({ day, isCoach }: { day: TibetanDay; isCoach: boolean }) 
         </ul>
       )}
       {isCoach && <CoachPublishCTA day={day} />}
+    </div>
+  );
+}
+
+function LegendRow({ color, text }: { color: string; text: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, font: 'var(--text-body)', color: 'var(--ink-2)' }}>
+      <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, flex: 'none', marginLeft: 4 }} />
+      {text}
     </div>
   );
 }
