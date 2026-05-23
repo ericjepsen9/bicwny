@@ -122,7 +122,7 @@ async function notifySessionCreated(classId: string, sessionId: string, title: s
     select: { userId: true },
   });
   if (members.length === 0) return;
-  const tz = 'Asia/Shanghai';
+  const tz = 'America/New_York';
   const fmt = startAt.toLocaleString('zh-CN', { timeZone: tz, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   await dispatchToUsers({
     prisma,
@@ -212,7 +212,7 @@ async function notifySessionTimeChanged(classId: string, sessionId: string, titl
   });
   if (members.length === 0) return;
   // 简单格式化时间 · 给文案用（用户本地时间在前端处理）
-  const tz = 'Asia/Shanghai';
+  const tz = 'America/New_York';
   const fmt = newStartAt.toLocaleString('zh-CN', { timeZone: tz, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   await dispatchToUsers({
     prisma,

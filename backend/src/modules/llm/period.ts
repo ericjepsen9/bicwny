@@ -1,14 +1,16 @@
 // LLM 用量时间分桶
 // 输出键与 LlmProviderUsage.periodKey 一致；
-// 一律使用 UTC，避免服务器所在地时区影响计量。
+// 一律使用纽约时区（America/New_York · 审计 D7/D8）· 全应用日历口径统一。
 import type { PeriodType } from '@prisma/client';
+import { zonedParts } from '../../lib/timezone.js';
 
 export function periodKey(type: PeriodType, d: Date = new Date()): string {
-  const y = d.getUTCFullYear();
-  const m = pad2(d.getUTCMonth() + 1);
-  const day = pad2(d.getUTCDate());
-  const h = pad2(d.getUTCHours());
-  const min = pad2(d.getUTCMinutes());
+  const p = zonedParts(d);
+  const y = p.year;
+  const m = pad2(p.month);
+  const day = pad2(p.day);
+  const h = pad2(p.hour);
+  const min = pad2(p.minute);
 
   switch (type) {
     case 'year':

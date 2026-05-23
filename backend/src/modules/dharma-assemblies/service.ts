@@ -144,7 +144,7 @@ async function notifyCreated(ann: DharmaAssembly): Promise<void> {
   if (users.length === 0) return;
 
   // 文案格式化 · 简体（前端 i18n 不影响 push payload · 用户进 app 看详情会按 lang 渲染）
-  const dateStr = ann.startAt.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric' });
+  const dateStr = ann.startAt.toLocaleDateString('zh-CN', { timeZone: 'America/New_York', month: 'numeric', day: 'numeric' });
   await dispatchToUsers({
     prisma,
     eventKind: 'dharma_assembly',

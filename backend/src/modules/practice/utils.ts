@@ -1,29 +1,18 @@
 // 修学计数 · 共用工具
-//   - 日期归一化：YYYY-MM-DD（暂 UTC · 后期切 user.timezone）
+//   - 日期归一化：YYYY-MM-DD（纽约时区锚定 · 审计 D7/D8 · 见 lib/timezone）
 //   - streak 算法
 //   - 项目可见性（user 自建 / 班级专修 / 平台预置）
 import type { PrismaClient } from '@prisma/client';
+import { lastNZonedDates, zonedDateKey } from '../../lib/timezone.js';
 
-/** date → 'YYYY-MM-DD'（UTC 锚定 · 跨日聚合用） */
+/** date → 'YYYY-MM-DD'（纽约日历日 · 跨日聚合用） */
 export function dateKey(d: Date | string = new Date()): string {
-  const dt = typeof d === 'string' ? new Date(d) : d;
-  const yyyy = dt.getUTCFullYear();
-  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(dt.getUTCDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  return zonedDateKey(typeof d === 'string' ? new Date(d) : d);
 }
 
-/** 给定 days 天数 · 返回 [today-N+1 .. today] 的 dateKey 数组 */
+/** 给定 days 天数 · 返回 [today-N+1 .. today] 的纽约 dateKey 数组 */
 export function lastNDates(n: number): string[] {
-  const out: string[] = [];
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setUTCDate(today.getUTCDate() - i);
-    out.push(dateKey(d));
-  }
-  return out;
+  return lastNZonedDates(n);
 }
 
 /** 算用户连续修学天数（任意大类有计数即算 +1 · 不要求达成目标） */

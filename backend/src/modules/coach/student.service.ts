@@ -3,26 +3,23 @@
 import { NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { getCardStats } from '../sm2/service.js';
+import { addDaysToDateKey, zonedDateKey, zonedTimeToUtc } from '../../lib/timezone.js';
 import type { StudentDetail } from './student.types.js';
 
 const RECENT_ANSWERS_DEFAULT = 50;
 const MISTAKES_LIMIT = 100;
 const DAILY_WINDOW = 30;
 
+// 纽约日历日（审计 D7/D8 · 与 PracticeDailySummary.date 口径一致）
 function ymdLocal(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return zonedDateKey(d);
 }
 
 function emptyDays(n: number): Map<string, { count: number; correct: number }> {
   const out = new Map<string, { count: number; correct: number }>();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = zonedDateKey();
   for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(today.getTime() - i * 86_400_000);
-    out.set(ymdLocal(d), { count: 0, correct: 0 });
+    out.set(addDaysToDateKey(today, -i), { count: 0, correct: 0 });
   }
   return out;
 }
@@ -63,10 +60,11 @@ export async function studentDetail(
 
   // 所有 UserAnswer / UserMistakeBook 查询都按 question.courseId === courseId 过滤
   // 防止 coach A 看到学员在 B 班 / 自学其他法本的答题
-  const dailyWindowStart = new Date(Date.now() - DAILY_WINDOW * 86_400_000);
-  dailyWindowStart.setHours(0, 0, 0, 0);
-
-  const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD（与 PracticeDailySummary 一致）
+  const today = zonedDateKey(); // 纽约 YYYY-MM-DD（与 PracticeDailySummary 一致）
+  // 柱图下界 · 纽约 (DAILY_WINDOW-1) 天前的 00:00 折算为 UTC 时刻
+  const windowStartKey = addDaysToDateKey(today, -(DAILY_WINDOW - 1));
+  const [wy, wm, wd] = windowStartKey.split('-').map(Number);
+  const dailyWindowStart = zonedTimeToUtc(wy!, wm! - 1, wd!, 0, 0, 0);
   const [
     totalAnswers,
     correctAnswers,
@@ -186,12 +184,10 @@ export async function studentDetail(
     todayCount: todaysMap.get(c.id) ?? 0,
   }));
   const practiceTotal = practiceCategoriesView.reduce((acc, c) => acc + c.totalCount, 0);
-  // streak（复用算法 · 简化为同步内联）
+  // streak（复用算法 · 简化为同步内联 · 纽约日历日）
   const dates90: string[] = [];
-  const todayDate = new Date(); todayDate.setUTCHours(0, 0, 0, 0);
   for (let i = 89; i >= 0; i--) {
-    const d = new Date(todayDate); d.setUTCDate(todayDate.getUTCDate() - i);
-    dates90.push(d.toISOString().slice(0, 10));
+    dates90.push(addDaysToDateKey(today, -i));
   }
   const streakRows = await prisma.practiceDailySummary.groupBy({
     by: ['date'],

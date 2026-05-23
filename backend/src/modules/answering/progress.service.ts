@@ -6,12 +6,13 @@
 //   1) groupBy isCorrect → totalAnswers / correctRate
 //   2) groupBy 按 (questionId)→course 聚合 byCourse · 走 raw SQL（Prisma groupBy
 //      不能跨关系 join）
-//   3) DISTINCT day（UTC）→ totalDays / streak / weekDays · raw SQL
+//   3) DISTINCT day（纽约日）→ totalDays / streak / weekDays · raw SQL
 //   4) 今日 count（窄 where + index）→ todayAnswered
 // 都吃 @@index([userId, answeredAt])，每条命中索引扫描。
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { getCardStats } from '../sm2/service.js';
+import { addDaysToDateKey, zonedDateKey, zonedTimeToUtc, zonedWeekday } from '../../lib/timezone.js';
 
 export interface CourseProgress {
   courseId: string;
@@ -40,11 +41,11 @@ export interface MyProgress {
     due: number;
     total: number;
   };
-  /** 累计活跃天数（有答题记录的不同 UTC 日数） */
+  /** 累计活跃天数（有答题记录的不同纽约日数） */
   totalDays: number;
-  /** 今日已答题数（UTC 日） */
+  /** 今日已答题数（纽约日） */
   todayAnswered: number;
-  /** 本周（UTC 周一起 7 天）活跃日 YYYY-MM-DD 集合 */
+  /** 本周（纽约周一起 7 天）活跃日 YYYY-MM-DD 集合 */
   weekDays: string[];
 }
 
@@ -62,10 +63,12 @@ interface DayRow {
 
 export async function myProgress(userId: string): Promise<MyProgress> {
   const now = new Date();
-  const today = utcDayKey(now);
-  const startOfTodayUtc = new Date(`${today}T00:00:00Z`);
-  const startOfTomorrowUtc = new Date(startOfTodayUtc);
-  startOfTomorrowUtc.setUTCDate(startOfTomorrowUtc.getUTCDate() + 1);
+  const today = zonedDateKey(now); // 纽约日历日
+  const [ty, tm, td] = today.split('-').map(Number);
+  const startOfTodayUtc = zonedTimeToUtc(ty!, tm! - 1, td!, 0, 0, 0); // 纽约今日 00:00 → UTC 时刻
+  const tomorrow = addDaysToDateKey(today, 1);
+  const [ny, nm, nd] = tomorrow.split('-').map(Number);
+  const startOfTomorrowUtc = zonedTimeToUtc(ny!, nm! - 1, nd!, 0, 0, 0);
 
   const [grouped, byCourseRows, dayRows, todayAnswered, sm2] = await Promise.all([
     // 1) total + correct（一个 groupBy 直接拿两个值）
@@ -88,9 +91,10 @@ export async function myProgress(userId: string): Promise<MyProgress> {
       GROUP BY q."courseId", c."title"
       ORDER BY "answered" DESC
     `),
-    // 3) DISTINCT 日（UTC）→ 单查询拿 streak / totalDays / weekDays 全套
+    // 3) DISTINCT 日（纽约时区）→ 单查询拿 streak / totalDays / weekDays 全套
+    //    列是 timestamp(无时区)存 UTC · 先按 UTC 解读再折算到纽约墙上日
     prisma.$queryRaw<DayRow[]>(Prisma.sql`
-      SELECT DISTINCT to_char("answeredAt" AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS day
+      SELECT DISTINCT to_char(("answeredAt" AT TIME ZONE 'UTC') AT TIME ZONE 'America/New_York', 'YYYY-MM-DD') AS day
       FROM "UserAnswer"
       WHERE "userId" = ${userId}
       ORDER BY day
@@ -122,7 +126,7 @@ export async function myProgress(userId: string): Promise<MyProgress> {
 
   const sortedDays = dayRows.map((r) => r.day);
   const streak = computeStreak(sortedDays, now);
-  const weekWindow = utcWeekDays(now);
+  const weekWindow = weekDaysNY(now);
   const daysSet = new Set(sortedDays);
   const weekDays = weekWindow.filter((d) => daysSet.has(d));
 
@@ -138,30 +142,17 @@ export async function myProgress(userId: string): Promise<MyProgress> {
   };
 }
 
-// ───── streak helpers ─────
+// ───── streak helpers（纽约时区 · 审计 D7/D8）─────
 
-function utcDayKey(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-/** 本周（UTC 周一 ~ 周日）的 7 个 YYYY-MM-DD 键；JS 的 getUTCDay 周日=0，需换算到 0=周一 */
-function utcWeekDays(now: Date): string[] {
-  const dow = (now.getUTCDay() + 6) % 7; // 0=周一 ... 6=周日
-  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  monday.setUTCDate(monday.getUTCDate() - dow);
+/** 本周（纽约周一 ~ 周日）的 7 个 YYYY-MM-DD 键 */
+function weekDaysNY(now: Date): string[] {
+  const today = zonedDateKey(now);
+  const wd = zonedWeekday(now); // 0=周日 .. 6=周六
+  const diff = wd === 0 ? 6 : wd - 1; // 距本周一的天数
+  const monday = addDaysToDateKey(today, -diff);
   const out: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(monday);
-    d.setUTCDate(monday.getUTCDate() + i);
-    out.push(d.toISOString().slice(0, 10));
-  }
+  for (let i = 0; i < 7; i++) out.push(addDaysToDateKey(monday, i));
   return out;
-}
-
-function addUtcDays(day: string, n: number): string {
-  const d = new Date(`${day}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
 }
 
 function computeStreak(sortedDays: string[], now: Date): StreakInfo {
@@ -171,7 +162,7 @@ function computeStreak(sortedDays: string[], now: Date): StreakInfo {
   let longest = 1;
   let run = 1;
   for (let i = 1; i < sortedDays.length; i++) {
-    if (sortedDays[i] === addUtcDays(sortedDays[i - 1], 1)) {
+    if (sortedDays[i] === addDaysToDateKey(sortedDays[i - 1]!, 1)) {
       run++;
       if (run > longest) longest = run;
     } else {
@@ -179,8 +170,8 @@ function computeStreak(sortedDays: string[], now: Date): StreakInfo {
     }
   }
   const lastDay = sortedDays[sortedDays.length - 1];
-  const today = utcDayKey(now);
-  const yesterday = addUtcDays(today, -1);
+  const today = zonedDateKey(now);
+  const yesterday = addDaysToDateKey(today, -1);
   return {
     current: lastDay === today || lastDay === yesterday ? run : 0,
     longest,

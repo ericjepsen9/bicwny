@@ -1261,7 +1261,7 @@ model PracticeDailySummary {
   categoryId String
   projectId  String
   project    PracticeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  date       String // YYYY-MM-DD（用户 tz 锁定 · 暂用 UTC · 后期切 user.timezone）
+  date       String // YYYY-MM-DD（纽约时区日历日 · America/New_York · 审计 D7/D8 · 见 lib/timezone）
   count      Int
 
   @@unique([userId, projectId, date])
