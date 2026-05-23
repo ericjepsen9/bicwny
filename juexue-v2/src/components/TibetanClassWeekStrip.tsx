@@ -99,7 +99,7 @@ export default function TibetanClassWeekStrip() {
                   </span>
                 )}
               </div>
-              <div style={{ font: 'var(--text-caption)', color: 'var(--ink), letterSpacing: 0.5', fontSize: '0.7rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink)', letterSpacing: 0.5, fontSize: '0.7rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {name}
               </div>
             </Link>

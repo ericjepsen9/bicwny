@@ -5,7 +5,7 @@
 //   - 删除二次确认
 import { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import Dialog from '@/components/Dialog';
 import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
@@ -22,7 +22,11 @@ type Tab = 'upcoming' | 'past';
 export default function CoachClassSessionsPage() {
   const { s } = useLang();
   const { id: classId } = useParams<{ id: string }>();
+  const { pathname } = useLocation();
   const { user } = useAuth();
+  // 仅管理路由(/coach·/admin)才允许编辑 · 学员路由 /class/:id/sessions 一律只读
+  // 防 admin 从学员 URL 进入也看到新建/编辑/删除（三端分离铁律）
+  const isManageRoute = pathname.startsWith('/coach') || pathname.startsWith('/admin');
   const [tab, setTab] = useState<Tab>('upcoming');
   const [editing, setEditing] = useState<ClassSession | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -32,7 +36,7 @@ export default function CoachClassSessionsPage() {
   const myRole = user && detail.data
     ? detail.data.members.find((m) => m.user.id === user.id)?.role
     : undefined;
-  const canEdit = myRole === 'coach' || user?.role === 'admin';
+  const canEdit = isManageRoute && (myRole === 'coach' || user?.role === 'admin');
   const backTo = canEdit ? '/coach/classes' : `/class/${encodeURIComponent(classId || '')}`;
 
   return (
