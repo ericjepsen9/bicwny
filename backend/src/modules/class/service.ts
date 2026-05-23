@@ -638,6 +638,22 @@ export async function archiveClass(
       data: { visibility: 'draft' },
     });
 
+    // 级联软归档子表 · 防归档后残留可读/可触发（ClassSession 无 archivedAt ·
+    // 已由 listClassSessions 的 isActive 过滤 + 成员清空使 cron 不再触发）
+    const now = new Date();
+    const archivedAnnouncements = await tx.classAnnouncement.updateMany({
+      where: { classId: id, archivedAt: null },
+      data: { archivedAt: now },
+    });
+    const archivedTasks = await tx.practiceTask.updateMany({
+      where: { classId: id, archivedAt: null },
+      data: { archivedAt: now },
+    });
+    const archivedProjects = await tx.practiceProject.updateMany({
+      where: { classId: id, archivedAt: null },
+      data: { archivedAt: now },
+    });
+
     const cls = await tx.class.update({
       where: { id },
       data: { isActive: false, archivedAt: new Date() },
@@ -656,6 +672,9 @@ export async function archiveClass(
             archivedAt: cls.archivedAt,
             cascadedMembers: activeMembers.length,
             draftedQuestions: draftedCount.count,
+            archivedAnnouncements: archivedAnnouncements.count,
+            archivedTasks: archivedTasks.count,
+            archivedProjects: archivedProjects.count,
           } as Prisma.InputJsonValue,
         },
       });

@@ -92,7 +92,7 @@ export async function createSession(userId: string, input: CreateSessionInput) {
   if (input.durationMin != null && (input.durationMin < 1 || input.durationMin > 24 * 60)) {
     throw BadRequest('时长必须在 1 分钟到 24 小时之间');
   }
-  return prisma.classSession.create({
+  const session = await prisma.classSession.create({
     data: {
       classId: input.classId,
       title: input.title.trim(),
@@ -102,6 +102,38 @@ export async function createSession(userId: string, input: CreateSessionInput) {
       liveLink: input.liveLink?.trim() || null,
       createdBy: userId,
     },
+  });
+  // spec §3 ① created tier · normal severity · 新建即通知学员（fire-and-forget）
+  notifySessionCreated(session.classId, session.id, session.title, session.startAt).catch((e) => {
+    console.error('[session] notify created failed:', e);
+  });
+  return session;
+}
+
+/**
+ * 共修创建通知（spec §3 ① created tier · normal）
+ */
+async function notifySessionCreated(classId: string, sessionId: string, title: string, startAt: Date): Promise<void> {
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { name: true } });
+  if (!cls) return;
+  const members = await prisma.classMember.findMany({
+    where: { classId, removedAt: null, role: 'student' },
+    select: { userId: true },
+  });
+  if (members.length === 0) return;
+  const tz = 'Asia/Shanghai';
+  const fmt = startAt.toLocaleString('zh-CN', { timeZone: tz, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  await dispatchToUsers({
+    prisma,
+    eventKind: 'class_session',
+    eventId: sessionId,
+    tier: 'created',
+    userIds: members.map((m) => m.userId),
+    title: `《${cls.name}》共修已安排`,
+    body: `${title} · ${fmt}`,
+    link: `/class/${classId}/sessions/${sessionId}`,
+    notificationType: 'class_session',
+    severity: 'normal',
   });
 }
 
@@ -132,7 +164,7 @@ export async function updateSession(userId: string, id: string, patch: UpdateSes
       where: {
         eventKind: 'class_session',
         eventId: id,
-        tier: { in: ['T-30', 'T-5', 'T0'] },
+        tier: { in: ['T-24h', 'T-30', 'T-5', 'T0'] },
       },
     });
   }

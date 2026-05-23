@@ -11,8 +11,9 @@ import { getBadgeDef } from '../achievements/service.js';
 import { getAssembliesForT1hReminder } from '../dharma-assemblies/service.js';
 import { config } from '../../lib/config.js';
 
-type ClassSessionTier = 'T-30' | 'T-5' | 'T0';
+type ClassSessionTier = 'T-24h' | 'T-30' | 'T-5' | 'T0';
 const TIER_OFFSETS: Record<ClassSessionTier, number> = {
+  'T-24h': 24 * 60 * 60_000,
   'T-30': 30 * 60_000,
   'T-5': 5 * 60_000,
   'T0': 0,
@@ -21,6 +22,7 @@ const TIER_OFFSETS: Record<ClassSessionTier, number> = {
 const WINDOW_MS = 90_000;
 
 const TIER_BODY: Record<ClassSessionTier, string> = {
+  'T-24h': '明天将举行 · 24 小时后开始',
   'T-30': '30 分钟后开始',
   'T-5': '5 分钟后开始',
   'T0': '现在开始 · 立即进入',
@@ -48,10 +50,8 @@ let running = false; // 防 tick 重入（上次没跑完下次就来了）
 
 async function tickClassSessions(prisma: PrismaClient): Promise<void> {
   const now = Date.now();
-  // 窗口最早 = T-30 - 90s · 最晚 = T0 + 90s
-  const minStart = new Date(now + TIER_OFFSETS['T-30'] - WINDOW_MS);
-  // 取 max(T-30 + 90s) 作为外层上界 · 不漏窗口
-  const maxStart = new Date(now + TIER_OFFSETS['T-30'] + WINDOW_MS);
+  // 外层上界 = 最远档 T-24h + 90s · 下界 = T0 - 90s · 覆盖全部档窗口
+  const maxStart = new Date(now + TIER_OFFSETS['T-24h'] + WINDOW_MS);
   // T0 下界 = now - 90s
   const minT0 = new Date(now - WINDOW_MS);
 
