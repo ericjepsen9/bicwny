@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { type Class, type ClassMember, type ClassMemberRole, Prisma } from '@prisma/client';
 import { Conflict, Forbidden, Internal, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
-import { migratePracticeOnLeave } from '../practice/migration.js';
+import { migratePracticeOnLeave, migratePracticeOnArchive } from '../practice/migration.js';
 import { dispatchToUsers } from '../scheduler/dispatch.js';
 
 // 班级列表 / 详情 / 写操作返回时统一带的 course 选段
@@ -423,6 +423,7 @@ async function _removeMemberInTx(
         class: { isActive: true },
       },
       select: { classId: true, class: { select: { courseId: true } } },
+      orderBy: { joinedAt: 'asc' }, // 确定性 fallback：最早加入的班（审计 F1）
     });
     const fallbackByCourse = new Map<string, string>();
     for (const m of otherClasses) {
@@ -628,6 +629,65 @@ export async function updateClass(
   });
 }
 
+// 整班归档 · 批量处理成员的 source='class' enrollment（审计 F12）
+//   语义同 _removeMemberInTx 的 fallback/detach/delete · 但集合化：
+//     一次拿全部 orphan + 一次拿全部"其他活跃班"成员关系 → JS 端分桶 ·
+//   替代旧实现"每成员一轮 orphan/otherClasses 查询"。
+async function _archiveEnrollmentsInTx(
+  tx: Prisma.TransactionClient,
+  classId: string,
+  userIds: string[],
+): Promise<void> {
+  if (userIds.length === 0) return;
+  const orphans = await tx.userCourseEnrollment.findMany({
+    where: { userId: { in: userIds }, enrolledViaClassId: classId },
+    select: { id: true, userId: true, courseId: true, source: true },
+  });
+  if (orphans.length === 0) return;
+
+  const courseIds = [...new Set(orphans.map((o) => o.courseId))];
+  const otherClasses = await tx.classMember.findMany({
+    where: {
+      userId: { in: userIds },
+      removedAt: null,
+      classId: { not: classId },
+      class: { isActive: true, courseId: { in: courseIds } },
+    },
+    select: { userId: true, classId: true, class: { select: { courseId: true } } },
+    orderBy: { joinedAt: 'asc' }, // 确定性 fallback：最早加入的班（审计 F1）
+  });
+  const fbKey = (u: string, c: string) => `${u}::${c}`;
+  const fallback = new Map<string, string>();
+  for (const m of otherClasses) {
+    const k = fbKey(m.userId, m.class.courseId);
+    if (!fallback.has(k)) fallback.set(k, m.classId);
+  }
+
+  const updateBuckets = new Map<string, string[]>(); // fallbackClassId → enrollmentIds
+  const detachIds: string[] = []; // source='self' · 仅清 enrolledViaClassId
+  const deleteIds: string[] = []; // source='class' · 整条删除
+  for (const o of orphans) {
+    const fb = fallback.get(fbKey(o.userId, o.courseId));
+    if (fb) {
+      if (!updateBuckets.has(fb)) updateBuckets.set(fb, []);
+      updateBuckets.get(fb)!.push(o.id);
+    } else if (o.source === 'self') {
+      detachIds.push(o.id);
+    } else {
+      deleteIds.push(o.id);
+    }
+  }
+  for (const [fb, ids] of updateBuckets) {
+    await tx.userCourseEnrollment.updateMany({ where: { id: { in: ids } }, data: { enrolledViaClassId: fb } });
+  }
+  if (detachIds.length > 0) {
+    await tx.userCourseEnrollment.updateMany({ where: { id: { in: detachIds } }, data: { enrolledViaClassId: null } });
+  }
+  if (deleteIds.length > 0) {
+    await tx.userCourseEnrollment.deleteMany({ where: { id: { in: deleteIds } } });
+  }
+}
+
 export async function archiveClass(
   id: string,
   opts: { actorAdminId?: string } = {},
@@ -649,18 +709,24 @@ export async function archiveClass(
       select: { isActive: true, archivedAt: true, name: true },
     });
 
-    // 先级联处理所有 active 成员（fallback 查询要求本班 isActive=true 不影响：
-    // _removeMemberInTx 排除当前 classId，本班是否 active 与 fallback 无关）
+    // 级联处理所有 active 成员（批量 · 审计 F12）：
+    //   旧实现按成员逐个调 _removeMemberInTx · O(成员数×法本数) 顺序查询长期占用
+    //   Serializable 事务 · 大班高延迟且单点 abort 整体重试。改为集合化三步。
     const activeMembers = await tx.classMember.findMany({
       where: { classId: id, removedAt: null },
       select: { userId: true },
     });
-    for (const m of activeMembers) {
-      await _removeMemberInTx(tx, id, m.userId, {
-        actorAdminId: opts.actorAdminId,
-        skipAudit: true,
-        skipCoachGuard: true, // 整班解散 · 不受"保留 1 coach"限制
+    const memberIds = activeMembers.map((m) => m.userId);
+    if (memberIds.length > 0) {
+      // a) 批量迁移修学数据 · 必须在 class project 归档前（否则查不到 class projects）
+      await migratePracticeOnArchive(tx, id, before?.name ?? '原班', memberIds);
+      // b) 批量软删成员（保留 join 历史）
+      await tx.classMember.updateMany({
+        where: { classId: id, removedAt: null },
+        data: { removedAt: new Date() },
       });
+      // c) 批量处理 source='class' enrollment（fallback / detach / delete）
+      await _archiveEnrollmentsInTx(tx, id, memberIds);
     }
 
     // CO1: 私题软退役 · class_private + ownerClassId=本班 → visibility='draft'
