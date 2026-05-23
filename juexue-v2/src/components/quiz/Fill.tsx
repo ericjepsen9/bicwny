@@ -253,7 +253,7 @@ function VerseDisplay({ verseLines, filler }: { verseLines: string[]; filler: st
 function normalizeForDisplay(s: string): string {
   return s
     .trim()
-    .replace(/[\s　]+/g, '')
+    .replace(/\s+/g, '')
     .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
     .replace(/[，。！？、：；""''「」『』《》〈〉,.!?;:"'()<>·\-—_]/g, '')
     .toLowerCase();

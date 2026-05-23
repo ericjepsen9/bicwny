@@ -23,7 +23,7 @@ interface ChainPayload {
 function normalize(s: string): string {
   return String(s ?? '')
     .trim()
-    .replace(/[\s　]+/g, '')
+    .replace(/\s+/g, '')
     .replace(/[，。！？、：；""''「」『』《》〈〉,.!?;:"'()<>·\-—_]/g, '')
     .toLowerCase();
 }

@@ -29,7 +29,7 @@ export function displayQuestionText(q: QLike, s: S): string {
     const verseLines = q.payload?.verseLines ?? [];
     // 比对前都去空白 / 下划线 / 全角空格 · 防止「如来芽尊者______依止」vs「如来芽尊者依止」
     // 因下划线分隔字符位置导致 .includes() 误判
-    const strip = (s: string) => s.replace(/[_＿\s　]+|（_+）/g, '');
+    const strip = (s: string) => s.replace(/[_＿\s]+|（_+）/g, '');
     const verseHead = strip(verseLines[0] ?? '').slice(0, 8);
     const cleanQT = strip(q.questionText);
     if (verseHead.length >= 4 && cleanQT.includes(verseHead)) {

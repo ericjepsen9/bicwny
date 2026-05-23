@@ -94,10 +94,10 @@ export default function PracticeHistoryPage() {
 
 // ── 折线图（纯 SVG · 无依赖） ─────────────────
 function DailyChart({ series }: { series: PracticeHistory['dailySeries'] }) {
-  if (series.length === 0) {
-    return <p style={{ color: 'var(--ink-4)', font: 'var(--text-caption)', textAlign: 'center', padding: 'var(--sp-3) 0' }}>暂无数据</p>;
-  }
   const { s } = useLang();
+  if (series.length === 0) {
+    return <p style={{ color: 'var(--ink-4)', font: 'var(--text-caption)', textAlign: 'center', padding: 'var(--sp-3) 0' }}>{s('暂无数据', '暫無數據', 'No data')}</p>;
+  }
   const W = 600;
   const H = 160;
   const padX = 30;
