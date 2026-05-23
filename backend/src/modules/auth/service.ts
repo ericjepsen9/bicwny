@@ -1,5 +1,6 @@
 // auth 业务编排：注册 / 登录 / 刷新 / 登出
 // 内部工具（issuePair / newSessionId / stripPassword / normalizeEmail）见 ./service.helpers.ts
+import { Prisma } from '@prisma/client';
 import type { UserRole } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { BadRequest, Conflict, Forbidden, Unauthorized } from '../../lib/errors.js';
@@ -50,15 +51,25 @@ export async function registerUser(
     throw Conflict('该邮箱刚注销不久，请 30 天后重试或使用其他邮箱');
   }
   const passwordHash = await hashPassword(input.password);
-  const user = await prisma.user.create({
-    data: {
-      email,
-      passwordHash,
-      role: input.role ?? 'student',
-      dharmaName: input.dharmaName,
-      lastLoginAt: new Date(),
-    },
-  });
+  // 审计 D6：上面的预检查给出友好提示，但与 create 之间有并发窗口 ·
+  //   email @unique 兜底完整性 · 撞 P2002 时转 Conflict 而非裸 500
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        role: input.role ?? 'student',
+        dharmaName: input.dharmaName,
+        lastLoginAt: new Date(),
+      },
+    });
+  } catch (e) {
+    if ((e as Prisma.PrismaClientKnownRequestError)?.code === 'P2002') {
+      throw Conflict('邮箱已被占用');
+    }
+    throw e;
+  }
   // AU3: 注册成功后异步生成邮箱验证 token · dev console 输出 · 失败不阻塞注册
   createVerificationToken(user.id).catch(function () { /* 静默 */ });
   const pair = await issuePair(app, user, input);

@@ -7,7 +7,8 @@
 // 但在答题主流程的 $transaction 内被并发同 requestId 调用时，外层已通过
 // answering/service.ts 的 cache-hit 短路避免重入；外层 P2002 兜底也会让重入路径
 // 不进入此函数。本函数只在"非幂等"或"首次 requestId"下被调用。
-import type { Prisma, PrismaClient, Sm2Card, Sm2Status } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { PrismaClient, Sm2Card, Sm2Status } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { getUserActiveClassIds } from '../questions/list.service.js';
 import {
@@ -26,6 +27,25 @@ export async function scheduleReview(
   rating: Sm2Rating,
   now: Date = new Date(),
   db: Db = prisma,
+): Promise<Sm2Card> {
+  // 审计 D4：独立调用（无外层事务）把 读+upsert 包进 Serializable 事务 ·
+  //   防并发自评从同一 prev 计算导致调度漂移。答题主流程传入 tx（db !== prisma）时已在事务内 · 不再嵌套。
+  if (db === prisma) {
+    return prisma.$transaction(
+      (tx) => runScheduleReview(tx, userId, courseId, questionId, rating, now),
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+  }
+  return runScheduleReview(db, userId, courseId, questionId, rating, now);
+}
+
+async function runScheduleReview(
+  db: Db,
+  userId: string,
+  courseId: string,
+  questionId: string,
+  rating: Sm2Rating,
+  now: Date,
 ): Promise<Sm2Card> {
   const existing = await db.sm2Card.findUnique({
     where: { userId_questionId: { userId, questionId } },
