@@ -5,7 +5,7 @@
 //   POST   /api/push/test               鉴权 · 给自己发一条测试推送
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requireUserId } from '../../lib/auth.js';
+import { getCurrentSessionId, requireUserId } from '../../lib/auth.js';
 import { config } from '../../lib/config.js';
 import { BadRequest, Internal } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
@@ -46,6 +46,8 @@ export const pushRoutes: FastifyPluginAsync = async (app) => {
     const parsed = subscribeBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('订阅参数不合法', parsed.error.flatten());
     const b = parsed.data;
+    // 关联当前 session（审计 B1）· 远程吊销该 session 时一并停用其推送订阅
+    const sessionId = getCurrentSessionId(req);
     // upsert by endpoint · 同设备重复订阅时只更新 user / lastSeen
     const sub = await prisma.pushSubscription.upsert({
       where: { endpoint: b.endpoint },
@@ -56,6 +58,7 @@ export const pushRoutes: FastifyPluginAsync = async (app) => {
         auth: b.keys.auth,
         platform: b.platform || 'web',
         userAgent: b.userAgent || null,
+        sessionId,
       },
       update: {
         userId, // 同设备换账号 · 更新 ownership
@@ -63,7 +66,11 @@ export const pushRoutes: FastifyPluginAsync = async (app) => {
         auth: b.keys.auth,
         platform: b.platform || 'web',
         userAgent: b.userAgent || null,
+        sessionId,
         lastSeenAt: new Date(),
+        // re-subscribe（含 resyncSubscription / 轮换）→ 重新激活（审计 B1/B2）
+        isActive: true,
+        deactivatedAt: null,
       },
     });
     reply.code(201);
@@ -90,7 +97,7 @@ export const pushRoutes: FastifyPluginAsync = async (app) => {
     const result = await sendPushToUser(userId, {
       title: '觉学测试推送',
       body: '如果您看到这条 · 推送已正常工作 ✓',
-      link: 'home.html',
+      link: '/', // SW safeLink 只放行 / 开头 · 'home.html' 会被兜底掉
       tag: 'test',
     });
     return { data: result };

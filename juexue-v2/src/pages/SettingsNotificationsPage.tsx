@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import TopNav from '@/components/TopNav';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
+import * as pushApi from '@/lib/push';
 import { toast } from '@/lib/toast';
 
 interface NotifPrefs {
@@ -102,6 +103,22 @@ export default function SettingsNotificationsPage() {
     onError: (e) => toast.error((e as ApiError).message),
   });
 
+  // 本设备真实推送状态（审计 N7）· 服务端 pushEnabled 偏好 ≠ 浏览器订阅/授权态
+  const deviceQ = useQuery({
+    queryKey: ['push-device-status'],
+    queryFn: () => pushApi.status(),
+    staleTime: 0,
+  });
+  const enableM = useMutation({
+    mutationFn: () => pushApi.subscribe(),
+    onSuccess: (st) => {
+      qc.invalidateQueries({ queryKey: ['push-device-status'] });
+      if (st === 'denied') toast.error(s('浏览器已拒绝通知权限', '瀏覽器已拒絕通知權限', 'Browser denied permission'));
+      else if (st === 'on') toast.ok(s('已开启', '已開啟', 'Enabled'));
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
   if (q.isLoading || !q.data) {
     return (
       <div>
@@ -143,6 +160,39 @@ export default function SettingsNotificationsPage() {
             />
           </div>
         </div>
+
+        {/* 本设备推送状态提示（审计 N7）· 偏好开但设备未订阅/被拒时明确告知 */}
+        {pushEnabled && deviceQ.data && deviceQ.data !== 'on' && (
+          <div
+            className="menu-card"
+            style={{ padding: 'var(--sp-3) var(--sp-4)', border: '1px solid var(--saffron-light)', background: 'var(--saffron-pale)' }}
+          >
+            <div style={{ font: 'var(--text-caption)', color: 'var(--ink-2)', lineHeight: 1.6 }}>
+              {deviceQ.data === 'denied'
+                ? s('本设备已拒绝通知权限 · 以下偏好暂不生效 · 请在浏览器设置中开启通知后重试',
+                    '本設備已拒絕通知權限 · 以下偏好暫不生效 · 請在瀏覽器設定中開啟通知後重試',
+                    'This device has denied notifications · the settings below won\'t take effect until you allow notifications in your browser settings')
+                : deviceQ.data === 'unsupported'
+                ? s('本设备不支持系统推送 · 站内消息仍可见',
+                    '本設備不支援系統推送 · 站內消息仍可見',
+                    'This device does not support push · in-app inbox still works')
+                : s('本设备尚未开启系统推送 · 以下偏好暂不生效',
+                    '本設備尚未開啟系統推送 · 以下偏好暫不生效',
+                    'System push is not enabled on this device · the settings below won\'t take effect yet')}
+            </div>
+            {(deviceQ.data === 'off' || deviceQ.data === 'denied') && (
+              <button
+                type="button"
+                onClick={() => enableM.mutate()}
+                disabled={enableM.isPending}
+                className="btn btn-pill"
+                style={{ marginTop: 'var(--sp-2)', padding: '4px 14px', font: 'var(--text-caption)', background: 'var(--saffron)', color: '#fff', border: 'none' }}
+              >
+                {enableM.isPending ? s('开启中…', '開啟中…', 'Enabling…') : s('在本设备开启', '在本設備開啟', 'Enable on this device')}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Per-type push 子开关 */}
         {pushEnabled && (

@@ -77,6 +77,11 @@ export const authSessionsRoutes: FastifyPluginAsync = async (app) => {
       data: { revokedAt: new Date() },
     });
     if (r.count === 0) throw NotFound('会话不存在或已吊销');
+    // 该设备的推送订阅一并停用（审计 B1）· 远程登出后不再收到推送
+    await prisma.pushSubscription.updateMany({
+      where: { userId, sessionId: parsed.data.id, isActive: true },
+      data: { isActive: false, deactivatedAt: new Date() },
+    });
     return { data: { revoked: r.count } };
   });
 
@@ -95,6 +100,11 @@ export const authSessionsRoutes: FastifyPluginAsync = async (app) => {
         id: { not: currentSid },
       },
       data: { revokedAt: new Date() },
+    });
+    // 其他设备的推送订阅一并停用（审计 B1）
+    await prisma.pushSubscription.updateMany({
+      where: { userId, sessionId: { not: currentSid }, isActive: true },
+      data: { isActive: false, deactivatedAt: new Date() },
     });
     return { data: { revoked: r.count } };
   });

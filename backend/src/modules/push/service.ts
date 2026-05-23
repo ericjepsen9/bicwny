@@ -108,8 +108,12 @@ async function sendToSubscriptions(
     } catch (err: unknown) {
       const e = err as { statusCode?: number; message?: string };
       if (e.statusCode === 410 || e.statusCode === 404) {
-        // endpoint 已被吊销 · 删
-        await prisma.pushSubscription.delete({ where: { id: s.id } }).catch(() => {});
+        // endpoint 已被吊销 · 软停用（审计 B2：保留审计行 · 与 schema isActive 设计一致 ·
+        // 不物理删 · re-subscribe 时会重新激活）
+        await prisma.pushSubscription.update({
+          where: { id: s.id },
+          data: { isActive: false, deactivatedAt: new Date() },
+        }).catch(() => {});
         invalid++;
       } else {
         console.warn('[push] send failed:', e.statusCode, e.message);

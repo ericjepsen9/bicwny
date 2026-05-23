@@ -20,6 +20,7 @@ import {
   type ReactNode,
 } from 'react';
 import { api, ApiError } from './api';
+import { unsubscribe as unsubscribePush } from './push';
 import { clearTokens, getAccess, setTokens, whenReady } from './tokenStore';
 
 export interface AuthUser {
@@ -115,6 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback<AuthCtx['logout']>(async () => {
+    // 先退订推送（审计 N2）· 需在清 token 前 · 否则共享设备上前一用户继续收推送
+    await unsubscribePush().catch(() => {});
     try {
       await api.post('/api/auth/logout', {});
     } catch {
