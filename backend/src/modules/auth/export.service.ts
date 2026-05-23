@@ -82,14 +82,17 @@ export async function exportUserData(userId: string): Promise<UserExportPayload>
     prisma.userMistakeBook.findMany({
       where: { userId },
       orderBy: { lastWrongAt: 'desc' },
+      take: 50_000, // 审计 P8：与 answers 一致封顶 · 这三表随答题量 1:1 增长
     }),
     prisma.userFavorite.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      take: 50_000,
     }),
     prisma.sm2Card.findMany({
       where: { userId },
       orderBy: { dueDate: 'asc' },
+      take: 50_000,
     }),
     prisma.userCourseEnrollment.findMany({
       where: { userId },

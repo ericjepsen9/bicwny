@@ -96,64 +96,104 @@ export async function reportReadingProgress(
 
 /** 我的阅读统计 · 全部已读课时 + 各课程进度 */
 export async function getMyReadingStats(prisma: PrismaClient, userId: string) {
-  const all = await prisma.lessonReadingProgress.findMany({
-    where: { userId },
-    orderBy: { lastReadAt: 'desc' },
-    include: {
-      lesson: {
-        select: {
-          id: true,
-          title: true,
-          chapter: { select: { id: true, title: true, course: { select: { id: true, slug: true, title: true, coverEmoji: true } } } },
-        },
-      },
-    },
-  });
+  // 审计 P5：不再把全部 LessonReadingProgress 行拉进内存聚合。
+  //   ① groupBy(courseId,isCompleted) 求每课程完成/在读数 + 总秒数
+  //   ② DISTINCT ON(courseId) 取每课程最近一次阅读（lastReadAt + lastLesson）· 结果 ≤ 课程数
+  const [grouped, latestPerCourse] = await Promise.all([
+    prisma.lessonReadingProgress.groupBy({
+      by: ['courseId', 'isCompleted'],
+      where: { userId },
+      _count: { _all: true },
+      _sum: { totalSeconds: true },
+    }),
+    prisma.$queryRaw<Array<{ courseId: string; lessonId: string; lessonTitle: string; lastReadAt: Date }>>`
+      SELECT DISTINCT ON (lrp."courseId")
+             lrp."courseId" AS "courseId",
+             lrp."lessonId" AS "lessonId",
+             l.title AS "lessonTitle",
+             lrp."lastReadAt" AS "lastReadAt"
+      FROM "LessonReadingProgress" lrp
+      JOIN "Lesson" l ON l.id = lrp."lessonId"
+      WHERE lrp."userId" = ${userId}
+      ORDER BY lrp."courseId", lrp."lastReadAt" DESC
+    `,
+  ]);
 
-  // 按课程聚合 · 总课时数 / 已读课时数 / 最近读的课
-  const byCourse = new Map<string, {
-    courseId: string;
-    courseTitle: string;
-    coverEmoji: string;
-    completedCount: number;
-    inProgressCount: number;
-    totalSeconds: number;
-    lastReadAt: Date;
-    lastLesson: { id: string; title: string };
-  }>();
-
-  for (const p of all) {
-    const c = p.lesson.chapter.course;
-    const cur = byCourse.get(c.id) ?? {
-      courseId: c.id,
-      courseTitle: c.title,
-      coverEmoji: c.coverEmoji,
-      completedCount: 0,
-      inProgressCount: 0,
-      totalSeconds: 0,
-      lastReadAt: p.lastReadAt,
-      lastLesson: { id: p.lesson.id, title: p.lesson.title },
-    };
-    if (p.isCompleted) cur.completedCount++;
-    else cur.inProgressCount++;
-    cur.totalSeconds += p.totalSeconds;
-    if (p.lastReadAt > cur.lastReadAt) {
-      cur.lastReadAt = p.lastReadAt;
-      cur.lastLesson = { id: p.lesson.id, title: p.lesson.title };
-    }
-    byCourse.set(c.id, cur);
+  const courseIds = [...new Set(grouped.map((g) => g.courseId))];
+  if (courseIds.length === 0) {
+    return { totalSeconds: 0, completedLessons: 0, inProgressLessons: 0, byCourse: [], recent: [] };
   }
 
+  // 课程元数据 + recent top10（courseTitle 复用 meta · 不再深 include）
+  const [courses, recentRows] = await Promise.all([
+    prisma.course.findMany({
+      where: { id: { in: courseIds } },
+      select: { id: true, title: true, coverEmoji: true },
+    }),
+    prisma.lessonReadingProgress.findMany({
+      where: { userId },
+      orderBy: { lastReadAt: 'desc' },
+      take: 10,
+      select: {
+        lessonId: true,
+        courseId: true,
+        scrollPercent: true,
+        totalSeconds: true,
+        isCompleted: true,
+        lastReadAt: true,
+        lesson: { select: { title: true } },
+      },
+    }),
+  ]);
+
+  const courseMeta = new Map(courses.map((c) => [c.id, c]));
+  const latestMap = new Map(latestPerCourse.map((r) => [r.courseId, r]));
+
+  const perCourse = new Map<string, { completedCount: number; inProgressCount: number; totalSeconds: number }>();
+  let totalSeconds = 0;
+  let completedLessons = 0;
+  let inProgressLessons = 0;
+  for (const g of grouped) {
+    const cnt = g._count._all;
+    const sec = g._sum.totalSeconds ?? 0;
+    totalSeconds += sec;
+    if (g.isCompleted) completedLessons += cnt;
+    else inProgressLessons += cnt;
+    const cur = perCourse.get(g.courseId) ?? { completedCount: 0, inProgressCount: 0, totalSeconds: 0 };
+    if (g.isCompleted) cur.completedCount += cnt;
+    else cur.inProgressCount += cnt;
+    cur.totalSeconds += sec;
+    perCourse.set(g.courseId, cur);
+  }
+
+  const byCourse = courseIds
+    .map((cid) => {
+      const meta = courseMeta.get(cid);
+      const agg = perCourse.get(cid)!;
+      const latest = latestMap.get(cid);
+      return {
+        courseId: cid,
+        courseTitle: meta?.title ?? '',
+        coverEmoji: meta?.coverEmoji ?? '',
+        completedCount: agg.completedCount,
+        inProgressCount: agg.inProgressCount,
+        totalSeconds: agg.totalSeconds,
+        lastReadAt: latest?.lastReadAt ?? new Date(0),
+        lastLesson: latest ? { id: latest.lessonId, title: latest.lessonTitle } : { id: '', title: '' },
+      };
+    })
+    .sort((a, b) => +b.lastReadAt - +a.lastReadAt);
+
   return {
-    totalSeconds: all.reduce((acc, p) => acc + p.totalSeconds, 0),
-    completedLessons: all.filter((p) => p.isCompleted).length,
-    inProgressLessons: all.filter((p) => !p.isCompleted).length,
-    byCourse: [...byCourse.values()].sort((a, b) => +b.lastReadAt - +a.lastReadAt),
-    recent: all.slice(0, 10).map((p) => ({
+    totalSeconds,
+    completedLessons,
+    inProgressLessons,
+    byCourse,
+    recent: recentRows.map((p) => ({
       lessonId: p.lessonId,
       lessonTitle: p.lesson.title,
       courseId: p.courseId,
-      courseTitle: p.lesson.chapter.course.title,
+      courseTitle: courseMeta.get(p.courseId)?.title ?? '',
       scrollPercent: p.scrollPercent,
       totalSeconds: p.totalSeconds,
       isCompleted: p.isCompleted,

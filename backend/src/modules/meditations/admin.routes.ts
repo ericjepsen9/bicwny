@@ -1,4 +1,4 @@
-// 观修内容 admin routes（admin only）
+// 观修内容 admin routes（coach + admin · 观修为平台全局内容 · 见下方 adminGuard 注释 · 审计 S4 确认有意）
 //
 //   GET    /api/admin/meditations
 //   GET    /api/admin/meditations/:id

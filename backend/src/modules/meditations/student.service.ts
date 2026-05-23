@@ -206,9 +206,22 @@ async function markCourseEnrollmentMeditationDone(
 
 /** 我的观修历史 · 列出该用户完成过的所有观修（按 completedAt desc · 跨课程） */
 export async function listMyCompletedMeditations(userId: string) {
-  // 取该 user 所有已完成 sessions · 按 meditationId 去重（取最早的 completedAt 作为完成时间）
-  const sessions = await prisma.meditationSession.findMany({
-    where: { userId, isCompleted: true },
+  // 审计 P6：DB 内 DISTINCT ON 选出每个 meditation 最近一条已完成 session 的 id（结果 ≤ 观修数 · 有界）·
+  //   排除归档观修 · 再用 Prisma 按 id 取完整结构 · 不再把全部 session 行拉进内存去重
+  const picked = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT DISTINCT ON (s."meditationId") s.id
+    FROM "MeditationSession" s
+    JOIN "Meditation" m ON m.id = s."meditationId"
+    WHERE s."userId" = ${userId}
+      AND s."isCompleted" = true
+      AND m."archivedAt" IS NULL
+    ORDER BY s."meditationId", s."completedAt" DESC NULLS LAST
+  `;
+  const ids = picked.map((r) => r.id);
+  if (ids.length === 0) return [];
+
+  return prisma.meditationSession.findMany({
+    where: { id: { in: ids } },
     orderBy: { completedAt: 'desc' },
     select: {
       id: true,
@@ -230,15 +243,4 @@ export async function listMyCompletedMeditations(userId: string) {
       },
     },
   });
-
-  // 同 meditation 多 session 取最早完成的（用户首次完成时间）
-  const seen = new Set<string>();
-  const unique: typeof sessions = [];
-  for (const s of sessions) {
-    if (seen.has(s.meditationId)) continue;
-    if (s.meditation.archivedAt) continue; // 归档观修不展示
-    seen.add(s.meditationId);
-    unique.push(s);
-  }
-  return unique;
 }

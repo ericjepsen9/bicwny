@@ -1,4 +1,4 @@
-// 法本封面图路由（admin only）
+// 法本封面图路由（coach + admin · 法本为平台全局内容 · 所有 vetted coach 均可管理 · 审计 S4 确认有意）
 //   POST   /api/admin/courses/:id/cover  multipart/form-data 字段名 'file'
 //   DELETE /api/admin/courses/:id/cover
 import type { FastifyPluginAsync } from 'fastify';
