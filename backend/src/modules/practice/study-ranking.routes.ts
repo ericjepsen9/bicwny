@@ -20,6 +20,8 @@ import { requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { getClassForMember } from '../class/service.js';
+import { periodStart, periodStartDate, type RankPeriod } from '../../lib/period.js';
+import { rankingPrivacyVersion } from '../../lib/ranking-cache.js';
 
 const TAGS = ['Practice'];
 const SEC = [{ bearerAuth: [] as string[] }];
@@ -55,23 +57,6 @@ interface StudyRankingRow {
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { data: StudyRankingRow[]; expiresAt: number }>();
 
-function periodStart(period: 'week' | 'month' | 'all'): Date | null {
-  if (period === 'all') return null;
-  const days = period === 'week' ? 7 : 30;
-  return new Date(Date.now() - days * 86400_000);
-}
-
-function lastNDates(n: number): string[] {
-  const out: string[] = [];
-  const now = new Date();
-  for (let i = 0; i < n; i++) {
-    const d = new Date(now);
-    d.setUTCDate(now.getUTCDate() - i);
-    out.push(d.toISOString().slice(0, 10));
-  }
-  return out;
-}
-
 function calcScore(b: StudyRankingRow['breakdown']): number {
   return Math.round(
     b.chanting * W_CHANTING
@@ -85,10 +70,14 @@ function calcScore(b: StudyRankingRow['breakdown']): number {
 
 async function queryStudyRanking(
   classId: string,
-  period: 'week' | 'month' | 'all',
+  period: RankPeriod,
 ): Promise<StudyRankingRow[]> {
+  // 班级主修法本 · 各维度仅统计本班法本范围（审计 S4）
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { courseId: true } });
+  if (!cls) return [];
+
   // 班级成员（活跃 · 用户未禁用）
-  const members = await prisma.classMember.findMany({
+  const allMembers = await prisma.classMember.findMany({
     where: { classId, removedAt: null, user: { isActive: true } },
     include: {
       user: {
@@ -102,34 +91,39 @@ async function queryStudyRanking(
       },
     },
   });
+  // 完全隐藏（两个开关都关）的成员不进综合榜（审计 S5）
+  const members = allMembers.filter((m) => m.user.practiceVisibleToClass || m.user.meditationVisibleToClass);
   if (members.length === 0) return [];
 
-  const userIds = members.map((m) => m.userId);
   const since = periodStart(period);
+  const sinceDate = periodStartDate(period);
 
-  // ── 1. 念诵聚合（PracticeDailySummary · 仅 practiceVisibleToClass=true 的用户）──
+  // 修学维度（念诵 / 答题 / 阅读 / 活跃天数）统一受 practiceVisibleToClass 管（审计 S5）
   const practiceVisibleIds = members.filter((m) => m.user.practiceVisibleToClass).map((m) => m.userId);
-  const dateRange = period === 'all' ? null : lastNDates(period === 'week' ? 7 : 30);
+  // 观修维度受 meditationVisibleToClass 管
+  const medVisibleIds = members.filter((m) => m.user.meditationVisibleToClass).map((m) => m.userId);
+
+  // ── 1. 念诵聚合（PracticeDailySummary）──
   const chantingRows = practiceVisibleIds.length > 0
     ? await prisma.practiceDailySummary.groupBy({
         by: ['userId'],
         where: {
           userId: { in: practiceVisibleIds },
-          ...(dateRange ? { date: { in: dateRange } } : {}),
+          ...(sinceDate ? { date: { gte: sinceDate } } : {}),
         },
         _sum: { count: true },
       })
     : [];
   const chantingMap = new Map(chantingRows.map((r) => [r.userId, r._sum.count ?? 0]));
 
-  // ── 2. 观修聚合（MeditationSession · 仅 meditationVisibleToClass=true）──
-  const medVisibleIds = members.filter((m) => m.user.meditationVisibleToClass).map((m) => m.userId);
+  // ── 2. 观修聚合（MeditationSession · 仅本班法本）──
   const medRows = medVisibleIds.length > 0
     ? await prisma.meditationSession.groupBy({
         by: ['userId'],
         where: {
           userId: { in: medVisibleIds },
           isCompleted: true,
+          meditation: { courseId: cls.courseId },
           ...(since ? { completedAt: { gte: since } } : {}),
         },
         _count: { id: true },
@@ -139,38 +133,46 @@ async function queryStudyRanking(
   const medCountMap = new Map(medRows.map((r) => [r.userId, r._count.id]));
   const medSecMap = new Map(medRows.map((r) => [r.userId, r._sum.videoWatchedSec ?? 0]));
 
-  // ── 3. 答题聚合（UserAnswer · 全部公开 · 不区分 visibility）──
-  const answerRows = await prisma.userAnswer.groupBy({
-    by: ['userId'],
-    where: {
-      userId: { in: userIds },
-      ...(since ? { answeredAt: { gte: since } } : {}),
-    },
-    _count: { id: true },
-  });
+  // ── 3. 答题聚合（UserAnswer · 受 practice 隐私管 · 仅本班法本题目）──
+  const answerRows = practiceVisibleIds.length > 0
+    ? await prisma.userAnswer.groupBy({
+        by: ['userId'],
+        where: {
+          userId: { in: practiceVisibleIds },
+          question: { courseId: cls.courseId },
+          ...(since ? { answeredAt: { gte: since } } : {}),
+        },
+        _count: { id: true },
+      })
+    : [];
   const answerMap = new Map(answerRows.map((r) => [r.userId, r._count.id]));
 
-  // ── 4. 阅读完成聚合（LessonReadingProgress · isCompleted=true）──
-  const readingRows = await prisma.lessonReadingProgress.groupBy({
-    by: ['userId'],
-    where: {
-      userId: { in: userIds },
-      isCompleted: true,
-      ...(since ? { completedAt: { gte: since } } : {}),
-    },
-    _count: { id: true },
-  });
+  // ── 4. 阅读完成聚合（LessonReadingProgress · 受 practice 隐私管 · 仅本班法本）──
+  const readingRows = practiceVisibleIds.length > 0
+    ? await prisma.lessonReadingProgress.groupBy({
+        by: ['userId'],
+        where: {
+          userId: { in: practiceVisibleIds },
+          isCompleted: true,
+          courseId: cls.courseId,
+          ...(since ? { completedAt: { gte: since } } : {}),
+        },
+        _count: { id: true },
+      })
+    : [];
   const readingMap = new Map(readingRows.map((r) => [r.userId, r._count.id]));
 
-  // ── 5. 活跃天数（PracticeDailySummary 的 distinct date count · 已 daily 聚合）──
-  const activeDayRows = await prisma.practiceDailySummary.groupBy({
-    by: ['userId', 'date'],
-    where: {
-      userId: { in: userIds },
-      ...(dateRange ? { date: { in: dateRange } } : {}),
-    },
-    _count: { _all: true }, // 显式要求 · 避免 Prisma 部分版本要求 aggregation
-  });
+  // ── 5. 活跃天数（PracticeDailySummary distinct date · 受 practice 隐私管）──
+  const activeDayRows = practiceVisibleIds.length > 0
+    ? await prisma.practiceDailySummary.groupBy({
+        by: ['userId', 'date'],
+        where: {
+          userId: { in: practiceVisibleIds },
+          ...(sinceDate ? { date: { gte: sinceDate } } : {}),
+        },
+        _count: { _all: true }, // 显式要求 · 避免 Prisma 部分版本要求 aggregation
+      })
+    : [];
   const activeDayMap = new Map<string, number>();
   for (const r of activeDayRows) {
     activeDayMap.set(r.userId, (activeDayMap.get(r.userId) ?? 0) + 1);
@@ -194,7 +196,7 @@ async function queryStudyRanking(
       score: calcScore(breakdown),
       breakdown,
     };
-  }).sort((a, b) => b.score - a.score);
+  }).sort((a, b) => (b.score - a.score) || a.userId.localeCompare(b.userId));
 
   return rows;
 }
@@ -215,7 +217,7 @@ export const studyRankingRoutes: FastifyPluginAsync = async (app) => {
     const userId = requireUserId(req);
     await getClassForMember(pp.data.id, userId);
 
-    const cacheKey = `${pp.data.id}:${pq.data.period}`;
+    const cacheKey = `${rankingPrivacyVersion()}:${pp.data.id}:${pq.data.period}`;
     const cached = cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return { data: cached.data };

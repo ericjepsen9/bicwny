@@ -7,6 +7,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
 import { calcStreak, dateKey, lastNDates } from './utils.js';
+import { bumpRankingPrivacyVersion } from '../../lib/ranking-cache.js';
 
 interface BatchEntryItem {
   projectId: string;
@@ -469,5 +470,6 @@ export async function archiveSelfTask(prisma: PrismaClient, userId: string, task
 // ── 隐私 ─────────────────────────────────────────
 export async function setVisibility(prisma: PrismaClient, userId: string, visible: boolean) {
   await prisma.user.update({ where: { id: userId }, data: { practiceVisibleToClass: visible } });
+  bumpRankingPrivacyVersion(); // 即时失效排行缓存 · 防关闭后仍露出 ≤5min（审计 S5）
   return { practiceVisibleToClass: visible };
 }

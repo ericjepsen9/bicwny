@@ -11,6 +11,8 @@ import { requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { getClassForMember } from '../class/service.js';
+import { periodStart, type RankPeriod } from '../../lib/period.js';
+import { rankingPrivacyVersion } from '../../lib/ranking-cache.js';
 
 const TAGS = ['Meditation'];
 const SEC = [{ bearerAuth: [] as string[] }];
@@ -31,24 +33,12 @@ interface RankingRow {
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { data: RankingRow[]; expiresAt: number }>();
 
-function startOfPeriod(period: 'week' | 'month' | 'all'): Date | null {
-  const now = new Date();
-  if (period === 'all') return null;
-  if (period === 'week') {
-    // Monday 0:00 user-local · v1 简化为 UTC 周一
-    const day = now.getUTCDay(); // 0=Sun
-    const diff = day === 0 ? 6 : day - 1;
-    const d = new Date(Date.UTC(
-      now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - diff,
-    ));
-    return d;
-  }
-  // month
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-}
+async function queryRanking(classId: string, period: RankPeriod): Promise<RankingRow[]> {
+  const since = periodStart(period);
 
-async function queryRanking(classId: string, period: 'week' | 'month' | 'all'): Promise<RankingRow[]> {
-  const since = startOfPeriod(period);
+  // 班级主修法本 · 排行仅统计本班法本下的观修（审计 S4 · 与 classStats 课程范围一致）
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { courseId: true } });
+  if (!cls) return [];
 
   // 取班级活跃成员（未退班 · 用户未禁用 · 未隐藏观修可见性）
   const members = await prisma.classMember.findMany({
@@ -76,6 +66,7 @@ async function queryRanking(classId: string, period: 'week' | 'month' | 'all'): 
     where: {
       userId: { in: userIds },
       isCompleted: true,
+      meditation: { courseId: cls.courseId },
       ...(since ? { completedAt: { gte: since } } : {}),
     },
     _count: { id: true },
@@ -97,10 +88,11 @@ async function queryRanking(classId: string, period: 'week' | 'month' | 'all'): 
     totalSec: stats.get(m.userId)?.totalSec ?? 0,
   }));
 
-  // 排序：次数 desc → 时长 desc
+  // 排序：次数 desc → 时长 desc → userId 稳定兜底
   ranking.sort((a, b) => {
     if (b.count !== a.count) return b.count - a.count;
-    return b.totalSec - a.totalSec;
+    if (b.totalSec !== a.totalSec) return b.totalSec - a.totalSec;
+    return a.userId.localeCompare(b.userId);
   });
 
   return ranking;
@@ -123,7 +115,7 @@ export const meditationRankingRoutes: FastifyPluginAsync = async (app) => {
     // 仅班级成员可看（含 coach + admin）
     await getClassForMember(pp.data.id, userId);
 
-    const cacheKey = `${pp.data.id}:${pq.data.period}`;
+    const cacheKey = `${rankingPrivacyVersion()}:${pp.data.id}:${pq.data.period}`;
     const cached = cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return { data: cached.data };

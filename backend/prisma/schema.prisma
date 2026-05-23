@@ -40,8 +40,9 @@ model User {
   // 观修记录（量化数据 · 不含 reflection）对班级同学/辅导员/管理员是否可见
   // 默认 true · settings 关闭后排行不再显示自己
   meditationVisibleToClass Boolean   @default(true)
-  // 修学计数对班级是否可见（同上）
-  practiceVisibleToClass   Boolean   @default(false)
+  // 修学计数（念诵 / 答题 / 阅读 / 活跃天数）对班级是否可见（同上）
+  // 默认 true · 与观修一致 · 关闭后综合榜不统计这些维度（审计 S5）
+  practiceVisibleToClass   Boolean   @default(true)
   // ── 个人提醒偏好 · null = 走平台默认（NotificationRule scope=platform）
   //    详见 docs/NOTIFICATION_PLAN.md 之"个人提醒"章节
   eveningReminderEnabled   Boolean   @default(true)  // 19:00 临期 push

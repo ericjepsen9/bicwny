@@ -11,6 +11,8 @@ import { requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { getClassForMember } from '../class/service.js';
+import { periodStartDate, type RankPeriod } from '../../lib/period.js';
+import { rankingPrivacyVersion } from '../../lib/ranking-cache.js';
 
 const TAGS = ['Practice'];
 const SEC = [{ bearerAuth: [] as string[] }];
@@ -32,20 +34,9 @@ interface RankingRow {
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { data: RankingRow[]; expiresAt: number }>();
 
-function lastNDates(n: number): string[] {
-  const out: string[] = [];
-  const now = new Date();
-  for (let i = 0; i < n; i++) {
-    const d = new Date(now);
-    d.setUTCDate(now.getUTCDate() - i);
-    out.push(d.toISOString().slice(0, 10));
-  }
-  return out;
-}
-
 async function queryRanking(
   classId: string,
-  period: 'week' | 'month' | 'all',
+  period: RankPeriod,
   categoryKey?: string,
 ): Promise<RankingRow[]> {
   const members = await prisma.classMember.findMany({
@@ -70,15 +61,13 @@ async function queryRanking(
     categoryFilter = cat?.id;
   }
 
-  const dateRange = period === 'week' ? lastNDates(7)
-    : period === 'month' ? lastNDates(30)
-    : null;
+  const sinceDate = periodStartDate(period); // 日历周/月起始 YYYY-MM-DD · null=不限
 
   const rows = await prisma.practiceDailySummary.groupBy({
     by: ['userId'],
     where: {
       userId: { in: userIds },
-      ...(dateRange ? { date: { in: dateRange } } : {}),
+      ...(sinceDate ? { date: { gte: sinceDate } } : {}),
       ...(categoryFilter ? { categoryId: categoryFilter } : {}),
     },
     _sum: { count: true },
@@ -92,7 +81,8 @@ async function queryRanking(
       avatar: m.user.avatar,
       total: sumMap.get(m.userId) ?? 0,
     }))
-    .sort((a, b) => b.total - a.total);
+    // total desc · 平局按 userId 稳定排序（审计：防同分名次抖动）
+    .sort((a, b) => (b.total - a.total) || a.userId.localeCompare(b.userId));
   return data;
 }
 
@@ -113,7 +103,7 @@ export const practiceRankingStudentRoutes: FastifyPluginAsync = async (app) => {
     // 班级成员检查（含 coach）
     await getClassForMember(pp.data.id, userId);
 
-    const cacheKey = `${pp.data.id}:${pq.data.period}:${pq.data.categoryKey ?? ''}`;
+    const cacheKey = `${rankingPrivacyVersion()}:${pp.data.id}:${pq.data.period}:${pq.data.categoryKey ?? ''}`;
     const cached = cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return { data: cached.data };

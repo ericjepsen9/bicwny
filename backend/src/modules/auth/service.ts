@@ -15,6 +15,7 @@ import {
   type TokenPair,
 } from './service.helpers.js';
 import { hashRefreshToken, verifyRefreshToken } from './tokens.js';
+import { bumpRankingPrivacyVersion } from '../../lib/ranking-cache.js';
 
 export interface RegisterInput extends SessionCtx {
   email: string;
@@ -139,7 +140,10 @@ export async function updateMe(
   if (patch.avatar !== undefined)     data.avatar     = patch.avatar || null;
   if (patch.timezone !== undefined)   data.timezone   = patch.timezone;
   if (patch.locale !== undefined)     data.locale     = patch.locale;
-  if (patch.meditationVisibleToClass !== undefined) data.meditationVisibleToClass = patch.meditationVisibleToClass;
+  if (patch.meditationVisibleToClass !== undefined) {
+    data.meditationVisibleToClass = patch.meditationVisibleToClass;
+    bumpRankingPrivacyVersion(); // 即时失效排行缓存（审计 S5）
+  }
   if (Object.keys(data).length === 0) {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     return stripPassword(user);

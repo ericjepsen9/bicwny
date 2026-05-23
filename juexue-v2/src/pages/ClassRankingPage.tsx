@@ -105,8 +105,8 @@ export default function ClassRankingPage() {
         <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1, marginBottom: 'var(--sp-3)', lineHeight: 1.6 }}>
           {s(
             '积分 = 念诵 ×0.01 + 观修次 ×5 + 观修分钟 ×0.1 + 答题 ×0.5 + 阅读完成 ×2 + 活跃天数 ×1',
-            '積分公式同上',
-            'Score formula',
+            '積分 = 念誦 ×0.01 + 觀修次 ×5 + 觀修分鐘 ×0.1 + 答題 ×0.5 + 閱讀完成 ×2 + 活躍天數 ×1',
+            'Score = chanting ×0.01 + meditations ×5 + min ×0.1 + answers ×0.5 + readings ×2 + active days ×1',
           )}
         </p>
       )}
@@ -132,9 +132,9 @@ export default function ClassRankingPage() {
       {/* 隐私提示 */}
       <div style={{ marginTop: 'var(--sp-4)', font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1, lineHeight: 1.6, textAlign: 'center' }}>
         {s(
-          '默认开放给同班 · 可在 [设置 → 隐私] 关闭单项可见',
-          '默認開放給同班',
-          'Visible to classmates · adjust in Settings → Privacy',
+          '默认对同班可见 · 在 [设置 → 隐私] 可分别关闭「修学」(念诵/答题/阅读) 与「观修」可见性 · 关闭后该维度不计入排行',
+          '預設對同班可見 · 在 [設定 → 隱私] 可分別關閉「修學」(念誦/答題/閱讀) 與「觀修」可見性 · 關閉後該維度不計入排行',
+          'Visible to classmates by default · in Settings → Privacy you can hide Study (chanting/answers/reading) and Meditation separately; hidden dimensions are excluded from the ranking',
         )}
       </div>
       </div>
