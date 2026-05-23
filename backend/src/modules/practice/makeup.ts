@@ -20,6 +20,7 @@ export interface MakeupStatus {
   windowDays: number;
   earliestDate: string; // 可补的最早日（含）
   latestDate: string;   // 可补的最晚日（昨天）
+  madeUpDates: string[]; // 窗口内已补签的目标日（前端标 ✓ · 避免补完仍显示成空缺）
 }
 
 /** 本周(ET)已用补签数 · 配额按 makeup.createdAt 落在哪个 ET 周计 */
@@ -30,14 +31,23 @@ async function usedThisWeek(db: Db, userId: string): Promise<number> {
 
 export async function getMakeupStatus(db: Db, userId: string): Promise<MakeupStatus> {
   const today = zonedDateKey();
-  const used = await usedThisWeek(db, userId);
+  const earliestDate = addDaysToDateKey(today, -MAKEUP_WINDOW_DAYS);
+  const latestDate = addDaysToDateKey(today, -1);
+  const [used, madeUp] = await Promise.all([
+    usedThisWeek(db, userId),
+    db.practiceMakeup.findMany({
+      where: { userId, date: { gte: earliestDate, lte: latestDate } },
+      select: { date: true },
+    }),
+  ]);
   return {
     perWeek: MAKEUP_PER_WEEK,
     usedThisWeek: used,
     remaining: Math.max(0, MAKEUP_PER_WEEK - used),
     windowDays: MAKEUP_WINDOW_DAYS,
-    earliestDate: addDaysToDateKey(today, -MAKEUP_WINDOW_DAYS),
-    latestDate: addDaysToDateKey(today, -1),
+    earliestDate,
+    latestDate,
+    madeUpDates: madeUp.map((m) => m.date),
   };
 }
 

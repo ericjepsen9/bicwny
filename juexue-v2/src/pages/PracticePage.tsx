@@ -5,6 +5,7 @@
 //   - 5 大类 quick-action grid（2 列 · 自适应）
 //   - 移动端友好
 import { Link } from 'react-router-dom';
+import MakeupCard from '@/components/MakeupCard';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
 import { useLang } from '@/lib/i18n';
@@ -48,6 +49,9 @@ export default function PracticePage() {
           <Kpi loading={summary.isLoading} value={fmt(allTotal)} label={s('累计', '累計', 'Total')} color="var(--sage-dark)" />
           <Kpi loading={tasks.isLoading} value={String(activeTasks)} label={s('进行中任务', '進行中任務', 'Active tasks')} sub={activeTasks > 0 ? s('点下方查看', '點下方查看', 'see below') : undefined} />
         </div>
+
+        {/* 补签 · 修学打卡 streak 自助补救（仅近 7 天 · 每周 1 次） */}
+        <MakeupCard />
 
         {/* 任务横幅 · 参 admin Action 高亮风格 */}
         {(tasks.data ?? []).length > 0 && (

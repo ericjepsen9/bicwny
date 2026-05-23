@@ -1280,8 +1280,19 @@ export interface PracticeProject {
   todayCount: number;
 }
 
+export interface PracticeMakeupStatus {
+  perWeek: number;
+  usedThisWeek: number;
+  remaining: number;
+  windowDays: number;
+  earliestDate: string;  // 可补的最早日（含）YYYY-MM-DD
+  latestDate: string;    // 可补的最晚日（昨天）
+  madeUpDates: string[]; // 窗口内已补签的目标日
+}
+
 export interface PracticeSummary {
   streak: number;
+  makeup: PracticeMakeupStatus;
   today: string;
   categories: Array<{
     id: string;
@@ -1350,6 +1361,17 @@ export function usePracticeHistory(projectId?: string) {
       '/api/practice/history' + (projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''),
       { signal },
     ),
+  });
+}
+// 补签某一天（保连续 · 每周 1 次 · 仅近 7 天）
+export function usePracticeMakeup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (date: string) => api.post<PracticeMakeupStatus>('/api/practice/makeup', { date }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/practice/summary'] });
+      qc.invalidateQueries({ queryKey: ['/api/practice/history'] });
+    },
   });
 }
 export function usePracticeGoals() {
