@@ -188,7 +188,8 @@ export async function getDossierStats(prisma: PrismaClient, userId: string): Pro
     }),
     prisma.userCourseEnrollment.findMany({
       where: { userId },
-      include: { course: { select: { id: true, title: true, coverEmoji: true, chapters: { select: { lessons: { select: { id: true } } } } } } },
+      // 审计 P7：只为算 lessonsTotal · 用 _count 代替拉全部 lesson 行
+      include: { course: { select: { id: true, title: true, coverEmoji: true, chapters: { select: { _count: { select: { lessons: true } } } } } } },
       orderBy: { lastStudiedAt: 'desc' },
     }),
   ]);
@@ -384,7 +385,7 @@ export async function getDossierStats(prisma: PrismaClient, userId: string): Pro
     courseTitle: e.course.title,
     coverEmoji: e.course.coverEmoji,
     lessonsCompleted: e.lessonsCompleted.length,
-    lessonsTotal: e.course.chapters.reduce((acc, ch) => acc + ch.lessons.length, 0),
+    lessonsTotal: e.course.chapters.reduce((acc, ch) => acc + ch._count.lessons, 0),
     lastStudiedAt: e.lastStudiedAt,
   }));
 

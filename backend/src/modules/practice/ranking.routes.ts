@@ -13,6 +13,7 @@ import { prisma } from '../../lib/prisma.js';
 import { getClassForMember } from '../class/service.js';
 import { periodStartDate, type RankPeriod } from '../../lib/period.js';
 import { rankingPrivacyVersion } from '../../lib/ranking-cache.js';
+import { TtlCache } from '../../lib/ttl-cache.js';
 
 const TAGS = ['Practice'];
 const SEC = [{ bearerAuth: [] as string[] }];
@@ -30,9 +31,8 @@ interface RankingRow {
   total: number;
 }
 
-// 5 分钟 in-memory cache · 与 meditation-ranking 风格一致
-const CACHE_TTL_MS = 5 * 60 * 1000;
-const cache = new Map<string, { data: RankingRow[]; expiresAt: number }>();
+// 5 分钟 in-memory cache · 与 meditation-ranking 风格一致（自清理见 TtlCache · 审计 P9）
+const cache = new TtlCache<RankingRow[]>(5 * 60 * 1000);
 
 async function queryRanking(
   classId: string,
@@ -105,11 +105,9 @@ export const practiceRankingStudentRoutes: FastifyPluginAsync = async (app) => {
 
     const cacheKey = `${rankingPrivacyVersion()}:${pp.data.id}:${pq.data.period}:${pq.data.categoryKey ?? ''}`;
     const cached = cache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return { data: cached.data };
-    }
+    if (cached) return { data: cached };
     const data = await queryRanking(pp.data.id, pq.data.period, pq.data.categoryKey);
-    cache.set(cacheKey, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+    cache.set(cacheKey, data);
     return { data };
   });
 };
