@@ -44,6 +44,14 @@ function todayYmd(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// 切到某月时默认选中哪天：当前真实月 → 今天；其它月 → 该月 1 号
+// 保证底部详情卡始终有一个该月内的有效日期可显示
+function defaultSelForMonth(y: number, m: number): string {
+  const t = new Date();
+  if (y === t.getFullYear() && m === t.getMonth() + 1) return t.toISOString().slice(0, 10);
+  return `${y}-${String(m).padStart(2, '0')}-01`;
+}
+
 export default function CalendarPage() {
   const { s } = useLang();
   const { pathname } = useLocation();
@@ -51,7 +59,7 @@ export default function CalendarPage() {
   const today = todayYmd();
   const [year, setYear] = useState<number>(() => new Date().getFullYear());
   const [month, setMonth] = useState<number>(() => new Date().getMonth() + 1);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(today); // 默认选中今天
   const [pickerOpen, setPickerOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const isWide = useIsWide();
@@ -99,14 +107,14 @@ export default function CalendarPage() {
     while (m > 12) { m -= 12; y += 1; }
     setYear(y);
     setMonth(m);
-    setSelected(null);
+    setSelected(defaultSelForMonth(y, m));
   }
 
   function jumpToToday() {
     const t = new Date();
     setYear(t.getFullYear());
     setMonth(t.getMonth() + 1);
-    setSelected(null);
+    setSelected(today);
   }
 
   return (
@@ -189,7 +197,7 @@ export default function CalendarPage() {
               <button
                 key={cell.ymd}
                 type="button"
-                onClick={() => setSelected(isSelected ? null : cell.ymd)}
+                onClick={() => setSelected(cell.ymd)}
                 aria-label={`${cell.ymd}${day?.auspicious ? ` ${s('功德日', '功德日', 'auspicious')}` : ''}${isCeremony ? ` ${s('法会', '法會', 'ceremony')}` : ''}`}
                 style={{
                   aspectRatio: '1',
@@ -223,17 +231,26 @@ export default function CalendarPage() {
           })}
         </div>
       )}
-    </div>
 
-      {/* 选中日详情 · 底部 sheet（桌面 centered）*/}
-      <Dialog
-        open={!!selectedDay}
-        onClose={() => setSelected(null)}
-        variant={isWide ? 'centered' : 'sheet'}
-        title={selectedDay?.date}
-      >
-        {selectedDay && <DayDetailBody day={selectedDay} isCoach={isCoach} />}
-      </Dialog>
+      {/* 选中日详情 · 底部常驻卡 · 默认今天 · 点其它日切换 */}
+      {selected && !data.isLoading && (
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+            {selected === today && (
+              <span className="chip" style={{ background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', fontWeight: 700 }}>
+                {s('今日', '今日', 'Today')}
+              </span>
+            )}
+            <h3 style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.1rem', margin: 0 }}>
+              {selected}
+            </h3>
+          </div>
+          {selectedDay
+            ? <DayDetailBody day={selectedDay} isCoach={isCoach} />
+            : <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', margin: 0 }}>{s('本日无特别记录', '本日無特別記錄', 'No special records')}</p>}
+        </div>
+      )}
+    </div>
 
       {/* 年月选择器 */}
       <Dialog
