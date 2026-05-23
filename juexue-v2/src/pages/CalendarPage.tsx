@@ -177,13 +177,14 @@ export default function CalendarPage() {
             const isSelected = selected === cell.ymd;
             const isCeremony = !!day?.events.some((e) => e.includes('法会'));
             const hasOtherEvent = (day?.events?.length ?? 0) > 0;
-            // 底部色条 · 颜色编码 · 功德金 + 法会绛红可并存（并排两条）·
-            // 既非功德也非法会但有其它事件 → 灰条。一格永远 ≤2 条
+            // 圆点 · 功德金 + 法会绛红可并存（并排两点）·
+            // 既非功德也非法会但有其它事件 → 灰点。一格永远 ≤2 点
             const marks: string[] = [];
             if (day?.auspicious) marks.push('var(--gold-dark)');
             if (isCeremony) marks.push('var(--crimson)');
             if (marks.length === 0 && hasOtherEvent) marks.push('var(--ink-4)');
-            const bg = isToday ? 'var(--saffron-pale)' : 'var(--surface)';
+            // 法会日额外淡红底（最强调）· 今日藏红底优先
+            const bg = isToday ? 'var(--saffron-pale)' : isCeremony ? 'var(--crimson-pale)' : 'var(--surface)';
             return (
               <button
                 key={cell.ymd}
@@ -211,9 +212,9 @@ export default function CalendarPage() {
                   {day?.tibetan ?? ''}
                 </div>
                 {marks.length > 0 && (
-                  <div style={{ position: 'absolute', bottom: 3, left: 6, right: 6, height: 3, display: 'flex', gap: 2 }}>
+                  <div style={{ display: 'flex', gap: 3, marginTop: 3 }}>
                     {marks.map((c, di) => (
-                      <div key={di} style={{ flex: 1, background: c, borderRadius: 2 }} />
+                      <div key={di} style={{ width: 5, height: 5, borderRadius: '50%', background: c }} />
                     ))}
                   </div>
                 )}
@@ -256,13 +257,10 @@ export default function CalendarPage() {
         title={s('图例', '圖例', 'Legend')}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 'var(--sp-2)' }}>
-          <LegendRow color="var(--gold-dark)" text={s('功德日 · 修法功德增上', '功德日 · 修法功德增上', 'Auspicious · merit day')} />
-          <LegendRow color="var(--crimson)" text={s('法会期', '法會期', 'Ceremony')} />
-          <LegendRow color="var(--ink-4)" text={s('其它事件 · 圣诞 / 加持日等', '其它事件 · 聖誕 / 加持日等', 'Other events')} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, font: 'var(--text-body)', color: 'var(--ink-2)' }}>
-            <span style={{ width: 18, height: 18, borderRadius: 4, background: 'var(--saffron-pale)', border: '1px solid var(--saffron-light)', flex: 'none' }} />
-            {s('今日', '今日', 'Today')}
-          </div>
+          <LegendRow dot="var(--gold-dark)" text={s('功德日 · 修法功德增上', '功德日 · 修法功德增上', 'Auspicious · merit day')} />
+          <LegendRow dot="var(--crimson)" bg="var(--crimson-pale)" text={s('法会日 · 红底 + 红点', '法會日 · 紅底 + 紅點', 'Ceremony · tinted + dot')} />
+          <LegendRow dot="var(--ink-4)" text={s('其它事件 · 圣诞 / 加持日等', '其它事件 · 聖誕 / 加持日等', 'Other events')} />
+          <LegendRow bg="var(--saffron-pale)" text={s('今日', '今日', 'Today')} />
           <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', marginTop: 4 }}>
             {s('十斋日等标记在点开当日详情中查看', '十齋日等標記在點開當日詳情中查看', 'Fast days etc. shown in day detail')}
           </div>
@@ -321,10 +319,26 @@ function DayDetailBody({ day, isCoach }: { day: TibetanDay; isCoach: boolean }) 
   );
 }
 
-function LegendRow({ color, text }: { color: string; text: string }) {
+// 图例 swatch · 渲成迷你格子（点在格内）· 与真实日历格一致
+function LegendRow({ dot, bg, text }: { dot?: string; bg?: string; text: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, font: 'var(--text-body)', color: 'var(--ink-2)' }}>
-      <span style={{ width: 18, height: 4, borderRadius: 2, background: color, flex: 'none', marginLeft: 2 }} />
+      <span
+        style={{
+          width: 24,
+          height: 24,
+          borderRadius: 5,
+          background: bg ?? 'var(--surface)',
+          border: '1px solid var(--border-light)',
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          paddingBottom: 3,
+          flex: 'none',
+        }}
+      >
+        {dot && <span style={{ width: 5, height: 5, borderRadius: '50%', background: dot }} />}
+      </span>
       {text}
     </div>
   );
