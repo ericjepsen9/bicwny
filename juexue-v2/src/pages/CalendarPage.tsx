@@ -177,12 +177,12 @@ export default function CalendarPage() {
             const isSelected = selected === cell.ymd;
             const isCeremony = !!day?.events.some((e) => e.includes('法会'));
             const hasOtherEvent = (day?.events?.length ?? 0) > 0;
-            // 圆点 · 颜色编码 · 功德金 + 法会绛红可并存（最多 2 点）·
-            // 既非功德也非法会但有其它事件 → 灰点。一格永远 ≤2 点
-            const dots: string[] = [];
-            if (day?.auspicious) dots.push('var(--gold-dark)');
-            if (isCeremony) dots.push('var(--crimson)');
-            if (dots.length === 0 && hasOtherEvent) dots.push('var(--ink-4)');
+            // 底部色条 · 颜色编码 · 功德金 + 法会绛红可并存（并排两条）·
+            // 既非功德也非法会但有其它事件 → 灰条。一格永远 ≤2 条
+            const marks: string[] = [];
+            if (day?.auspicious) marks.push('var(--gold-dark)');
+            if (isCeremony) marks.push('var(--crimson)');
+            if (marks.length === 0 && hasOtherEvent) marks.push('var(--ink-4)');
             const bg = isToday ? 'var(--saffron-pale)' : 'var(--surface)';
             return (
               <button
@@ -210,10 +210,10 @@ export default function CalendarPage() {
                 <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', fontSize: '0.62rem', lineHeight: 1, marginTop: 1, opacity: 0.85 }}>
                   {day?.tibetan ?? ''}
                 </div>
-                {dots.length > 0 && (
-                  <div style={{ display: 'flex', gap: 3, marginTop: 3 }}>
-                    {dots.map((c, di) => (
-                      <div key={di} style={{ width: 5, height: 5, borderRadius: '50%', background: c }} />
+                {marks.length > 0 && (
+                  <div style={{ position: 'absolute', bottom: 3, left: 6, right: 6, height: 3, display: 'flex', gap: 2 }}>
+                    {marks.map((c, di) => (
+                      <div key={di} style={{ flex: 1, background: c, borderRadius: 2 }} />
                     ))}
                   </div>
                 )}
@@ -324,7 +324,7 @@ function DayDetailBody({ day, isCoach }: { day: TibetanDay; isCoach: boolean }) 
 function LegendRow({ color, text }: { color: string; text: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, font: 'var(--text-body)', color: 'var(--ink-2)' }}>
-      <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, flex: 'none', marginLeft: 4 }} />
+      <span style={{ width: 18, height: 4, borderRadius: 2, background: color, flex: 'none', marginLeft: 2 }} />
       {text}
     </div>
   );
