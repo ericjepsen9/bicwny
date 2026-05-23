@@ -92,11 +92,12 @@ export function localDayRange(ymd: string, tz: string): { startUtc: Date; endUtc
   // 先用 UTC 假定 · 算这个 UTC 时刻在 tz 下显示几点
   const guessUtc = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
   const local = userLocalTime(guessUtc, tz);
-  // local.hour 可能不是 0（因为 tz 偏移）· 把偏移补回去
-  const offsetHours = (local.hour === 0 && local.ymd === ymd)
-    ? 0
-    : (local.ymd < ymd ? -(24 - local.hour) : local.hour);
-  const startUtc = new Date(guessUtc.getTime() - offsetHours * 3600_000);
+  // 按分钟算偏移（审计）· 否则 +5:30 印度 / +5:45 尼泊尔 等半/三刻钟时区会丢 30~45 分钟
+  const localMinutes = local.hour * 60 + local.minute;
+  const offsetMinutes = local.ymd < ymd
+    ? -((24 * 60) - localMinutes) // 负偏移：本地还停在前一天
+    : localMinutes;               // 正偏移 / 零
+  const startUtc = new Date(guessUtc.getTime() - offsetMinutes * 60_000);
   const endUtc = new Date(startUtc.getTime() + 86400_000);
   return { startUtc, endUtc };
 }

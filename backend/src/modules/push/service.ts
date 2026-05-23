@@ -8,14 +8,23 @@ import { config } from '../../lib/config.js';
 import { prisma } from '../../lib/prisma.js';
 
 let configured = false;
+let vapidBroken = false; // 密钥畸形 · 不再反复尝试（审计）
 function ensureConfigured(): boolean {
   if (configured) return true;
+  if (vapidBroken) return false;
   if (!config.VAPID_PUBLIC_KEY || !config.VAPID_PRIVATE_KEY) return false;
-  webPush.setVapidDetails(
-    config.VAPID_SUBJECT,
-    config.VAPID_PUBLIC_KEY,
-    config.VAPID_PRIVATE_KEY,
-  );
+  try {
+    webPush.setVapidDetails(
+      config.VAPID_SUBJECT,
+      config.VAPID_PUBLIC_KEY,
+      config.VAPID_PRIVATE_KEY,
+    );
+  } catch (e) {
+    // 密钥格式非法 · 之前会在首次派发时抛出未捕获 · 现降级为 no-op + 一次性告警
+    vapidBroken = true;
+    console.error('[push] VAPID 密钥格式非法 · 推送已禁用:', (e as Error).message);
+    return false;
+  }
   configured = true;
   return true;
 }
@@ -92,7 +101,7 @@ async function sendToSubscriptions(
     icon: payload.icon,
     badge: payload.badge,
   });
-  await Promise.all(subs.map(async (s) => {
+  const sendOne = async (s: SubLike): Promise<void> => {
     try {
       await webPush.sendNotification(
         { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
@@ -120,7 +129,12 @@ async function sendToSubscriptions(
         failed++;
       }
     }
-  }));
+  };
+  // 限并发分块（审计）· 防班级公告对几百订阅同时打 FCM/Mozilla → 429 / socket 耗尽
+  const CONCURRENCY = 20;
+  for (let i = 0; i < subs.length; i += CONCURRENCY) {
+    await Promise.all(subs.slice(i, i + CONCURRENCY).map(sendOne));
+  }
   return { delivered, invalid, failed };
 }
 

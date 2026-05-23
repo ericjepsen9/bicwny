@@ -50,15 +50,20 @@ let running = false; // 防 tick 重入（上次没跑完下次就来了）
 
 async function tickClassSessions(prisma: PrismaClient): Promise<void> {
   const now = Date.now();
-  // 外层上界 = 最远档 T-24h + 90s · 下界 = T0 - 90s · 覆盖全部档窗口
-  const maxStart = new Date(now + TIER_OFFSETS['T-24h'] + WINDOW_MS);
-  // T0 下界 = now - 90s
-  const minT0 = new Date(now - WINDOW_MS);
+  // 分档窄窗 OR（审计）· 每档 [now+offset±90s] · 只取真正临近某档的 session ·
+  //   旧实现一次扫 [now-90s, now+24h+90s] 全量 · 加 T-24h 后每 60s 拉 24h 内所有 session+成员 ·
+  //   绝大多数会被内存窗口过滤掉 · 纯浪费 I/O。
+  const tierWindows = (Object.values(TIER_OFFSETS) as number[]).map((offset) => ({
+    startAt: {
+      gte: new Date(now + offset - WINDOW_MS),
+      lte: new Date(now + offset + WINDOW_MS),
+    },
+  }));
 
-  // 一次性拉所有候选 · 然后内存中按三档窗口分类
+  // 只拉临近任一档的候选 · 然后内存中按各档窗口分类
   const sessions = await prisma.classSession.findMany({
     where: {
-      startAt: { gte: minT0, lte: maxStart },
+      OR: tierWindows,
     },
     include: {
       class: {

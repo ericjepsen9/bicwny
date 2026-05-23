@@ -26,16 +26,17 @@ export async function listNotifications(
       deletedAt: null,
       ...(opts.unreadOnly ? { isRead: false } : {}),
     },
-    orderBy: { createdAt: 'desc' },
+    // createdAt 非唯一 · 加 id 兜底排序 · 防同毫秒行在游标分页处重复/漏（审计）
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: opts.limit ?? 50,
     ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
   });
 }
 
-/** header 红点计数（count isRead=false） */
+/** header 红点计数（count isRead=false）· 排除已撤回（审计：撤回项不应让红点虚高） */
 export async function unreadCount(userId: string): Promise<number> {
   return prisma.notification.count({
-    where: { userId, isRead: false, deletedAt: null },
+    where: { userId, isRead: false, deletedAt: null, revokedAt: null },
   });
 }
 

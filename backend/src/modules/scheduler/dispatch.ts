@@ -66,6 +66,7 @@ export interface DispatchResult {
   pushDelivered: number;      // web-push 实际推送成功数
   pushInvalid: number;        // 失效订阅
   pushFailed: number;         // 网络等失败
+  pushRateLimited: number;    // 被每小时频率上限拦下的用户数（审计 · 可观测性）
 }
 
 /**
@@ -89,6 +90,7 @@ export async function dispatchToUsers(input: DispatchInput): Promise<DispatchRes
     pushDelivered: 0,
     pushInvalid: 0,
     pushFailed: 0,
+    pushRateLimited: 0,
   };
   if (userIds.length === 0) return result;
 
@@ -178,7 +180,12 @@ export async function dispatchToUsers(input: DispatchInput): Promise<DispatchRes
     }
     // L4 频率上限过滤
     if (allowedUsers.length > 0) {
+      const beforeRl = allowedUsers.length;
       allowedUsers = await filterUsersUnderRateLimit(allowedUsers, severity);
+      result.pushRateLimited = beforeRl - allowedUsers.length;
+      if (result.pushRateLimited > 0) {
+        console.log(`[dispatch] rate-limited ${result.pushRateLimited} user(s) · ${eventKind}:${eventId}:${tier}`);
+      }
     }
     if (allowedUsers.length > 0) {
       const tag = `${eventKind}:${eventId}:${tier}`;
