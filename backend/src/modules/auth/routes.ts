@@ -152,6 +152,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   // 重置密码：凭 forgot 下发的 token 设置新密码。成功后所有 session 吊销。
   app.post('/api/auth/reset', {
     schema: { tags: TAGS, summary: '重置密码 · 用 forgot 下发的 token', body: zBody(resetBody) },
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } }, // 审计 S3：防 token 暴力猜测
   }, async (req) => {
     const parsed = resetBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());
@@ -162,6 +163,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   // AU3: 邮箱验证 · 公开端点 · 凭注册 / resend 下发的 token
   app.post('/api/auth/verify-email', {
     schema: { tags: TAGS, summary: '验证邮箱', body: zBody(verifyEmailBody) },
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } }, // 审计 S3：防 token 暴力猜测
   }, async (req) => {
     const parsed = verifyEmailBody.safeParse(req.body);
     if (!parsed.success) throw BadRequest('参数不合法', parsed.error.flatten());

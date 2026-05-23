@@ -335,18 +335,32 @@ export async function getDossierStats(prisma: PrismaClient, userId: string): Pro
     orderBy: [{ archivedAt: 'asc' }, { createdAt: 'desc' }],
   }) : [];
 
-  const classTasks = await Promise.all(tasks.map(async (t) => {
+  // 审计 P1：消除 N+1 · 一次拉齐所有任务涉及 project 的 summary（覆盖最宽日期跨度）·
+  //   再按各任务自己的 [startKey,endKey] 在内存里求和（date 为 YYYY-MM-DD 字符串 · 可字典序比较）
+  const taskProjectIds = [...new Set(tasks.map((t) => t.projectId))];
+  const allSummaries = tasks.length > 0 ? await prisma.practiceDailySummary.findMany({
+    where: {
+      userId,
+      projectId: { in: taskProjectIds },
+      date: {
+        gte: tasks.reduce((min, t) => { const k = dateKey(t.startAt); return k < min ? k : min; }, '9999-99-99'),
+        lte: tasks.reduce((max, t) => { const k = t.endAt ? dateKey(t.endAt) : dateKey(); return k > max ? k : max; }, '0000-00-00'),
+      },
+    },
+    select: { projectId: true, date: true, count: true },
+  }) : [];
+  const summaryByProject = new Map<string, { date: string; count: number }[]>();
+  for (const r of allSummaries) {
+    const arr = summaryByProject.get(r.projectId);
+    if (arr) arr.push({ date: r.date, count: r.count });
+    else summaryByProject.set(r.projectId, [{ date: r.date, count: r.count }]);
+  }
+
+  const classTasks = tasks.map((t) => {
     const startKey = dateKey(t.startAt);
     const endKey = t.endAt ? dateKey(t.endAt) : dateKey();
-    const rows = await prisma.practiceDailySummary.findMany({
-      where: {
-        userId,
-        projectId: t.projectId,
-        date: { gte: startKey, lte: endKey },
-      },
-      select: { count: true },
-    });
-    const progress = rows.reduce((s, r) => s + r.count, 0);
+    const rows = summaryByProject.get(t.projectId) ?? [];
+    const progress = rows.reduce((s, r) => (r.date >= startKey && r.date <= endKey ? s + r.count : s), 0);
     return {
       id: t.id,
       classId: t.classId!,
@@ -362,7 +376,7 @@ export async function getDossierStats(prisma: PrismaClient, userId: string): Pro
       startAt: t.startAt,
       endAt: t.endAt,
     };
-  }));
+  });
 
   // 已选法本：含课时总数（用于进度条）
   const enrolledCourses = enrollmentsRaw.map((e) => ({

@@ -159,19 +159,22 @@ export async function userLearningStats(userId: string): Promise<UserLearningSta
   }
   const dailySeries: DailyPoint[] = [...dayMap.entries()].map(([date, v]) => ({ date, count: v.count, correct: v.correct }));
 
-  // 按法本聚合：另用 join question.courseId 做更准的 count
-  // 数据量大时可改成 raw SQL；此处单用户体量可控
-  const courseAns = await prisma.userAnswer.findMany({
-    where: { userId },
-    select: { isCorrect: true, question: { select: { courseId: true } } },
-  });
+  // 按法本聚合（审计 P4）：DB 内 GROUP BY 而非拉全量答题行进内存求和
+  //   Prisma groupBy 不支持按关系字段(question.courseId)分组 → 用 $queryRaw 联表聚合
+  const courseAggRows = await prisma.$queryRaw<
+    Array<{ courseId: string; answered: bigint; correct: bigint }>
+  >`
+    SELECT q."courseId" AS "courseId",
+           COUNT(*) AS answered,
+           COUNT(*) FILTER (WHERE ua."isCorrect" = true) AS correct
+    FROM "UserAnswer" ua
+    JOIN "Question" q ON q.id = ua."questionId"
+    WHERE ua."userId" = ${userId}
+    GROUP BY q."courseId"
+  `;
   const courseAggMap = new Map<string, { answered: number; correct: number }>();
-  for (const a of courseAns) {
-    const cid = a.question.courseId;
-    const cur = courseAggMap.get(cid) ?? { answered: 0, correct: 0 };
-    cur.answered++;
-    if (a.isCorrect === true) cur.correct++;
-    courseAggMap.set(cid, cur);
+  for (const r of courseAggRows) {
+    courseAggMap.set(r.courseId, { answered: Number(r.answered), correct: Number(r.correct) });
   }
   const masteredMap = new Map(perCourseMastered.map((x) => [x.courseId, x._count._all]));
 

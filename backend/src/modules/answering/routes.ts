@@ -3,7 +3,7 @@
 //   POST /api/answers         提交答案 → 评分 → 持久化
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requireUserId } from '../../lib/auth.js';
+import { getUserId, requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import { toPublicView } from './publicView.js';
 import { getQuestion, submitAnswer } from './service.js';
@@ -30,7 +30,7 @@ export const answeringRoutes: FastifyPluginAsync = async (app) => {
   }, async (req) => {
     const parsed = idParam.safeParse(req.params);
     if (!parsed.success) throw BadRequest('路径参数不合法', parsed.error.flatten());
-    const q = await getQuestion(parsed.data.id);
+    const q = await getQuestion(parsed.data.id, getUserId(req) ?? undefined);
     return { data: toPublicView(q) };
   });
 

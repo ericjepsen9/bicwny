@@ -219,8 +219,23 @@ function gradeToRating(grade: AnswerGrade): Sm2Rating {
   return 1; // 困难（60-79，通常出现在 partial multi 或 open）
 }
 
-export async function getQuestion(questionId: string): Promise<Question> {
+export async function getQuestion(questionId: string, userId?: string): Promise<Question> {
   const q = await prisma.question.findUnique({ where: { id: questionId } });
   if (!q) throw NotFound(`题目不存在: ${questionId}`);
+  // 审计 S2：可见性校验 · 与 submitAnswer 对齐 · 防 draft/rejected/class_private 题面泄漏
+  //   draft/rejected → 不暴露存在性（404）；class_private → 仅在班成员可读
+  if (q.reviewStatus === 'rejected' || q.visibility === 'draft') {
+    throw NotFound(`题目不存在: ${questionId}`);
+  }
+  if (q.visibility === 'class_private' && q.ownerClassId) {
+    const member = userId
+      ? await prisma.classMember.findUnique({
+          where: { classId_userId: { classId: q.ownerClassId, userId } },
+        })
+      : null;
+    if (!member || member.removedAt !== null) {
+      throw Forbidden('该题为班级私题，您不在班级中');
+    }
+  }
   return q;
 }

@@ -32,7 +32,8 @@ async function assertCoachOfClass(userId: string, classId: string): Promise<void
   if (!m) throw Forbidden('非该班辅导员 · 无权操作排课');
 }
 
-export async function listClassSessions(classId: string, opts?: { past?: boolean }) {
+export async function listClassSessions(classId: string, userId: string, opts?: { past?: boolean }) {
+  await assertCoachOfClass(userId, classId); // 审计 S1：防越权读取他班排课（含 liveLink）
   const now = new Date();
   const where: Prisma.ClassSessionWhereInput = {
     classId,

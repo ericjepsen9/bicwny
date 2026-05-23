@@ -57,12 +57,12 @@ export const classSessionsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/api/coach/classes/:classId/sessions', {
     schema: { tags: TAGS, summary: '辅导员：班级排课列表', security: SEC },
   }, async (req) => {
-    requireUserId(req); // 仅鉴权 · service 内校验是否本班 coach
+    const userId = requireUserId(req); // service 内 assertCoachOfClass 校验本班 coach
     const pp = classIdParam.safeParse(req.params);
     if (!pp.success) throw BadRequest('路径参数不合法');
     const pq = listQuery.safeParse(req.query);
     if (!pq.success) throw BadRequest('查询参数不合法');
-    return { data: await listClassSessions(pp.data.classId, { past: pq.data.past }) };
+    return { data: await listClassSessions(pp.data.classId, userId, { past: pq.data.past }) };
   });
 
   // 辅导员：新建

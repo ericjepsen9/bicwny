@@ -1,6 +1,7 @@
 // 班级学习聚合统计（辅导员面板）
-// 一次 findMany 拉所有成员答题，JS 端单遍聚合。
-// Sprint 2 MVP，单班级通常答题量级可控；大规模再换 groupBy + 分批。
+// 审计 P4：DB 内按 (userId, lessonId) GROUP BY 聚合（结果≤成员×课时 · 有界），
+//   不再把全班所有答题行拉进内存。Prisma groupBy 不支持按关系字段分组 → 用 $queryRaw 联表。
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import {
   type ByLesson,
@@ -31,25 +32,32 @@ export async function classStats(
   const studentIds = members.map((m) => m.userId);
   const userLookup = new Map(members.map((m) => [m.userId, m.user]));
 
-  const answers = await prisma.userAnswer.findMany({
-    where: {
-      userId: { in: studentIds },
-      ...(cls?.courseId ? { question: { courseId: cls.courseId } } : {}),
-    },
-    select: {
-      userId: true,
-      isCorrect: true,
-      answeredAt: true,
-      question: {
-        select: {
-          lessonId: true,
-          lesson: { select: { title: true } },
-        },
-      },
-    },
-  });
-
   const windowStart = new Date(Date.now() - windowDays * 86_400_000);
+  const courseFilter = cls?.courseId ? Prisma.sql`AND q."courseId" = ${cls.courseId}` : Prisma.empty;
+  const rows = await prisma.$queryRaw<Array<{
+    userId: string;
+    lessonId: string;
+    lessonTitle: string;
+    answered: bigint;
+    correct: bigint;
+    windowAnswered: bigint;
+    lastActiveAt: Date;
+  }>>(Prisma.sql`
+    SELECT ua."userId" AS "userId",
+           q."lessonId" AS "lessonId",
+           l.title AS "lessonTitle",
+           COUNT(*) AS answered,
+           COUNT(*) FILTER (WHERE ua."isCorrect" = true) AS correct,
+           COUNT(*) FILTER (WHERE ua."answeredAt" >= ${windowStart}) AS "windowAnswered",
+           MAX(ua."answeredAt") AS "lastActiveAt"
+    FROM "UserAnswer" ua
+    JOIN "Question" q ON q.id = ua."questionId"
+    JOIN "Lesson" l ON l.id = q."lessonId"
+    WHERE ua."userId" IN (${Prisma.join(studentIds)})
+      ${courseFilter}
+    GROUP BY ua."userId", q."lessonId", l.title
+  `);
+
   const byLesson = new Map<string, { title: string; answered: number; correct: number }>();
   const byUser = new Map<
     string,
@@ -57,32 +65,25 @@ export async function classStats(
   >();
   const activeIds = new Set<string>();
   let correct = 0;
+  let total = 0;
 
-  for (const a of answers) {
-    if (a.isCorrect) correct++;
-    if (a.answeredAt >= windowStart) activeIds.add(a.userId);
+  for (const r of rows) {
+    const answered = Number(r.answered);
+    const corr = Number(r.correct);
+    total += answered;
+    correct += corr;
+    if (Number(r.windowAnswered) > 0) activeIds.add(r.userId);
 
-    const lid = a.question.lessonId;
-    const le = byLesson.get(lid) ?? {
-      title: a.question.lesson.title,
-      answered: 0,
-      correct: 0,
-    };
-    le.answered++;
-    if (a.isCorrect) le.correct++;
-    byLesson.set(lid, le);
+    const le = byLesson.get(r.lessonId) ?? { title: r.lessonTitle, answered: 0, correct: 0 };
+    le.answered += answered;
+    le.correct += corr;
+    byLesson.set(r.lessonId, le);
 
-    const ue = byUser.get(a.userId) ?? {
-      answers: 0,
-      correct: 0,
-      lastActiveAt: null,
-    };
-    ue.answers++;
-    if (a.isCorrect) ue.correct++;
-    if (!ue.lastActiveAt || a.answeredAt > ue.lastActiveAt) {
-      ue.lastActiveAt = a.answeredAt;
-    }
-    byUser.set(a.userId, ue);
+    const ue = byUser.get(r.userId) ?? { answers: 0, correct: 0, lastActiveAt: null };
+    ue.answers += answered;
+    ue.correct += corr;
+    if (!ue.lastActiveAt || r.lastActiveAt > ue.lastActiveAt) ue.lastActiveAt = r.lastActiveAt;
+    byUser.set(r.userId, ue);
   }
 
   const perStudent: PerStudent[] = [...byUser.entries()].map(([uid, v]) => ({
@@ -119,7 +120,6 @@ export async function classStats(
     }),
   );
 
-  const total = answers.length;
   return {
     memberCount: members.length,
     activeInWindow: activeIds.size,

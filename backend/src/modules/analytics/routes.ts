@@ -147,17 +147,6 @@ export const analyticsRoutes: FastifyPluginAsync = async (app) => {
     if (steps.length === 0) throw BadRequest('steps 不能为空');
     if (steps.length > 8) throw BadRequest('steps 上限 8 步');
 
-    // 拉所有相关事件 · 按 user / time 排序 · 内存里推进步骤指针
-    const events = await prisma.analyticsEvent.findMany({
-      where: {
-        createdAt: { gte: since },
-        userId: { not: null },
-        event: { in: steps.map((s) => s.event) },
-      },
-      orderBy: [{ userId: 'asc' }, { createdAt: 'asc' }],
-      select: { userId: true, event: true, page: true, createdAt: true },
-    });
-
     function matchStep(idx: number, ev: { event: string; page: string | null }) {
       const step = steps[idx]!;
       if (ev.event !== step.event) return false;
@@ -165,24 +154,43 @@ export const analyticsRoutes: FastifyPluginAsync = async (app) => {
       return ev.page === step.tag;
     }
 
+    // 审计 P3：游标分页流式处理 · 不再一次性把全量事件读进内存（AnalyticsEvent 增长最快）·
+    //   事件按 [userId, createdAt, id] 排序 · 同用户事件全局连续 · 跨页时步骤指针状态自然延续
+    const PAGE = 5000;
     const reached: number[] = new Array(steps.length).fill(0);
     let curUser: string | null = null;
     let stepIdx = 0;
     let countedThisUser: boolean[] = new Array(steps.length).fill(false);
-
-    for (const ev of events) {
-      if (ev.userId !== curUser) {
-        curUser = ev.userId;
-        stepIdx = 0;
-        countedThisUser = new Array(steps.length).fill(false);
-      }
-      while (stepIdx < steps.length && matchStep(stepIdx, ev)) {
-        if (!countedThisUser[stepIdx]) {
-          reached[stepIdx]! += 1;
-          countedThisUser[stepIdx] = true;
+    let cursor: string | undefined;
+    for (;;) {
+      const events = await prisma.analyticsEvent.findMany({
+        where: {
+          createdAt: { gte: since },
+          userId: { not: null },
+          event: { in: steps.map((s) => s.event) },
+        },
+        orderBy: [{ userId: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+        select: { id: true, userId: true, event: true, page: true },
+        take: PAGE,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      });
+      if (events.length === 0) break;
+      for (const ev of events) {
+        if (ev.userId !== curUser) {
+          curUser = ev.userId;
+          stepIdx = 0;
+          countedThisUser = new Array(steps.length).fill(false);
         }
-        stepIdx += 1;
+        while (stepIdx < steps.length && matchStep(stepIdx, ev)) {
+          if (!countedThisUser[stepIdx]) {
+            reached[stepIdx]! += 1;
+            countedThisUser[stepIdx] = true;
+          }
+          stepIdx += 1;
+        }
       }
+      if (events.length < PAGE) break;
+      cursor = events[events.length - 1]!.id;
     }
 
     const total = reached[0] || 0;

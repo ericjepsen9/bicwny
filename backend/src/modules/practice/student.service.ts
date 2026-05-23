@@ -401,18 +401,31 @@ export async function listTasks(prisma: PrismaClient, userId: string) {
   });
 
   // 每个 task 的进度（学员自己的 daily summary 累计 between startAt and endAt）
-  const out = await Promise.all(tasks.map(async (t) => {
+  // 审计 P2：消除 N+1 · 一次拉齐所有 project 的 summary（覆盖最宽跨度）· 内存内按各任务日期范围求和
+  const taskProjectIds = [...new Set(tasks.map((t) => t.projectId))];
+  const allSummaries = tasks.length > 0 ? await prisma.practiceDailySummary.findMany({
+    where: {
+      userId,
+      projectId: { in: taskProjectIds },
+      date: {
+        gte: tasks.reduce((min, t) => { const k = dateKey(t.startAt); return k < min ? k : min; }, '9999-99-99'),
+        lte: tasks.reduce((max, t) => { const k = t.endAt ? dateKey(t.endAt) : dateKey(); return k > max ? k : max; }, '0000-00-00'),
+      },
+    },
+    select: { projectId: true, date: true, count: true },
+  }) : [];
+  const summaryByProject = new Map<string, { date: string; count: number }[]>();
+  for (const r of allSummaries) {
+    const arr = summaryByProject.get(r.projectId);
+    if (arr) arr.push({ date: r.date, count: r.count });
+    else summaryByProject.set(r.projectId, [{ date: r.date, count: r.count }]);
+  }
+
+  return tasks.map((t) => {
     const startKey = dateKey(t.startAt);
     const endKey = t.endAt ? dateKey(t.endAt) : dateKey();
-    const rows = await prisma.practiceDailySummary.findMany({
-      where: {
-        userId,
-        projectId: t.projectId,
-        date: { gte: startKey, lte: endKey },
-      },
-      select: { count: true },
-    });
-    const progress = rows.reduce((s, r) => s + r.count, 0);
+    const rows = summaryByProject.get(t.projectId) ?? [];
+    const progress = rows.reduce((s, r) => (r.date >= startKey && r.date <= endKey ? s + r.count : s), 0);
     return {
       id: t.id,
       scope: t.scope,
@@ -426,8 +439,7 @@ export async function listTasks(prisma: PrismaClient, userId: string) {
       endAt: t.endAt,
       isDone: progress >= t.target,
     };
-  }));
-  return out;
+  });
 }
 
 export async function createSelfTask(
