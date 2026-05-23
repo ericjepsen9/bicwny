@@ -56,6 +56,23 @@ export async function markRead(
 }
 
 /**
+ * 按事件标记已读（审计 N5）· 用户点系统推送 banner 后 · app 用 nr 令牌回写。
+ * 匹配本人 (eventKind, eventId, tier) 的未读通知 · 幂等。
+ */
+export async function markReadByEvent(
+  userId: string,
+  eventKind: string,
+  eventId: string,
+  tier: string,
+): Promise<{ updated: number }> {
+  const r = await prisma.notification.updateMany({
+    where: { userId, eventKind, eventId, tier, isRead: false, deletedAt: null },
+    data: { isRead: true, readAt: new Date() },
+  });
+  return { updated: r.count };
+}
+
+/**
  * 标记全部已读 + 返回操作前的未读数（22 事务化）。
  * 单事务避免「count → markAll」之间收到新通知导致计数与实际标记不符。
  */

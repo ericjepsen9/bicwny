@@ -124,6 +124,7 @@ self.addEventListener('message', (event) => {
 // 后端 dispatch 通常输出形式 2 · 见 reminder-queries.ts / announcements/service.ts
 function safeLink(link) {
   if (!link || typeof link !== 'string') return '/app/';
+  if (link.startsWith('//')) return '/app/'; // 协议相对 //evil.com · 拦掉
   if (link.startsWith('/app/')) return link;
   if (link.startsWith('/')) return '/app' + link;
   return '/app/';
@@ -140,38 +141,55 @@ self.addEventListener('push', (event) => {
   const title = data.title || '觉学';
   const options = {
     body: data.body || '',
-    icon: data.icon || '/app/icon-192.png',
-    badge: data.badge || '/app/icon-72.png',
+    icon: data.icon || '/app/icon.svg',
+    badge: data.badge || '/app/icon-maskable.svg',
     // 同 tag 的后到通知替换前一个 · 防短时刷屏（如 T-30/T-5/T0 三档同事件）
     tag: data.tag,
-    // 用户点 banner 时跳转的目标 · 默认 home.html · 校验后写入
-    data: { link: safeLink(data.link) },
+    // 用户点 banner 时跳转的目标 · 校验后写入 · tag 携带 eventKind:eventId:tier 供点击标已读
+    data: { link: safeLink(data.link), tag: data.tag },
     requireInteraction: false,
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// 用户点 banner → 打开 app · 跳到 link
+// 用户点 banner → 打开 app · 跳到 link · 并带 nr 令牌让 app 标该通知已读
 // 已有 /app/ 路径的 tab 复用并 focus · 否则新开 window
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   // 再次校验 · 防御性 · 即使 push 时漏过 click 时再拦一次
   const link = safeLink(event.notification.data?.link);
-  const url = self.location.origin + link;
+  const tag = event.notification.data?.tag;
+  // nr = 标已读令牌（eventKind:eventId:tier）· app 启动钩子消费后剥除
+  let url = self.location.origin + link;
+  if (tag) url += (url.includes('?') ? '&' : '?') + 'nr=' + encodeURIComponent(tag);
+  const base = self.location.origin + '/app/';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // 已有 tab → 聚焦 + 导航
+      // 已有 tab → 聚焦 + 导航（navigate 的 promise 必须 return · 否则 app 关闭时路由丢失）
       for (const c of clientList) {
-        if (c.url.includes('/app/') && 'focus' in c) {
-          c.focus();
+        if (c.url.startsWith(base) && 'focus' in c) {
           if ('navigate' in c) {
-            try { c.navigate(url); } catch (_) { /* 不同源会失败 · 忽略 */ }
+            return c.focus().then((fc) => (fc || c).navigate(url)).catch(() => {});
           }
-          return;
+          return c.focus();
         }
       }
       // 没 tab → 新开
       if (self.clients.openWindow) return self.clients.openWindow(url);
     }),
+  );
+});
+
+// 浏览器轮换订阅（pushsubscriptionchange）· 用旧订阅的 applicationServerKey 重新订阅
+//   注：SW 无 Bearer token · 无法直接上报后端 · 浏览器层先续上 ·
+//   服务端同步由 app 下次打开时的 resyncSubscription() 完成（见 src/lib/push.ts）
+self.addEventListener('pushsubscriptionchange', (event) => {
+  const oldSub = event.oldSubscription;
+  const appServerKey = oldSub?.options?.applicationServerKey;
+  if (!appServerKey) return;
+  event.waitUntil(
+    self.registration.pushManager
+      .subscribe({ userVisibleOnly: true, applicationServerKey: appServerKey })
+      .catch(() => {}),
   );
 });

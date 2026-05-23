@@ -13,6 +13,7 @@ import {
   listNotifications,
   markAllRead,
   markRead,
+  markReadByEvent,
   unreadCount,
 } from './service.js';
 
@@ -23,6 +24,12 @@ const listQuery = z.object({
 });
 
 const idParam = z.object({ id: z.string().min(1) });
+
+const readByEventBody = z.object({
+  eventKind: z.string().min(1).max(64),
+  eventId: z.string().min(1).max(128),
+  tier: z.string().min(1).max(32),
+});
 
 const TAGS = ['Notifications'];
 const SEC = [{ bearerAuth: [] as string[] }];
@@ -65,6 +72,16 @@ export const notificationsRoutes: FastifyPluginAsync = async (app) => {
   }, async (req) => {
     const userId = requireUserId(req);
     const r = await markAllRead(userId);
+    return { data: r };
+  });
+
+  app.post('/api/notifications/read-by-event', {
+    schema: { tags: TAGS, summary: '按事件标已读（点 push banner 后回写）', security: SEC },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const pb = readByEventBody.safeParse(req.body);
+    if (!pb.success) throw BadRequest('参数不合法');
+    const r = await markReadByEvent(userId, pb.data.eventKind, pb.data.eventId, pb.data.tier);
     return { data: r };
   });
 

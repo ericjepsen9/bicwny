@@ -318,6 +318,8 @@ export interface NotificationItem {
   body: string;
   isRead: boolean;
   createdAt: string;
+  link?: string | null;       // 应用内路径（如 /class/:id）· 点击跳转用
+  revokedAt?: string | null;  // 撤回时间 · 前端置灰 + 删除线
 }
 
 // ── 系统公告（spec §3.6）──

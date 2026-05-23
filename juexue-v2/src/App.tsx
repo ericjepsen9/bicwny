@@ -14,6 +14,7 @@ import RequireAuth from './components/RequireAuth';
 import RequireCoach from './components/RequireCoach';
 import RequireCoachAuth from './components/RequireCoachAuth';
 import TabBar, { shouldShowTabBar } from './components/TabBar';
+import PushSync from './components/PushSync';
 import { useAuth } from './lib/auth';
 
 // lazy 切分 · 进各页才加载对应代码
@@ -304,6 +305,8 @@ export default function App() {
   const { status } = useAuth();
 
   return (
+    <>
+    <PushSync />
     <Routes>
       {/* 公开 */}
       <Route
@@ -330,5 +333,6 @@ export default function App() {
       {/* 主壳 · 包含 4 个 tab + 后续详情页 */}
       <Route path="/*" element={<AppShell />} />
     </Routes>
+    </>
   );
 }

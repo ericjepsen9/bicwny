@@ -71,6 +71,19 @@ export async function subscribe(): Promise<PushStatus> {
   return 'on';
 }
 
+// 同步当前浏览器订阅到后端（审计 N3）· 登录后调用。
+//   浏览器轮换订阅（pushsubscriptionchange）后 SW 已在浏览器层续订 · 但无 Bearer 无法上报；
+//   此函数把当前订阅幂等 re-POST · 让后端拿到新 endpoint（旧 endpoint 下次发送 410 自然清理）。
+export async function resyncSubscription(): Promise<void> {
+  if (!isSupported()) return;
+  if (Notification.permission !== 'granted') return;
+  const reg = await getRegistration();
+  if (!reg) return;
+  const sub = await reg.pushManager.getSubscription();
+  if (!sub) return;
+  await api.post('/api/push/subscribe', sub.toJSON() as Record<string, unknown>).catch(() => {});
+}
+
 export async function unsubscribe(): Promise<PushStatus> {
   const reg = await getRegistration();
   if (!reg) return 'off';

@@ -2,6 +2,7 @@
 //   通知列表 · 未读高亮 · 点击 mark read · 顶部右侧"全部已读"
 //   筛选 tabs：全部 / 未读 / 班级 / 学习 / 成就 / 系统
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
@@ -19,6 +20,7 @@ type NotifFilter = '' | 'unread' | 'class_announcement' | 'reminder' | 'achievem
 
 export default function NotificationPage() {
   const { s } = useLang();
+  const nav = useNavigate();
   const list = useNotifications({ limit: 100 });
   const qc = useQueryClient();
   const [filter, setFilter] = useState<NotifFilter>('');
@@ -149,7 +151,10 @@ export default function NotificationPage() {
           />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-            {filtered.map((n) => (
+            {filtered.map((n) => {
+              const revoked = !!n.revokedAt;
+              const clickable = !revoked && !!n.link;
+              return (
               <div
                 key={n.id}
                 className="glass-card-thick"
@@ -159,12 +164,17 @@ export default function NotificationPage() {
                   gap: 'var(--sp-3)',
                   borderLeft: '3px solid ' + (n.isRead ? 'transparent' : 'var(--saffron)'),
                   background: n.isRead ? 'var(--glass)' : 'var(--saffron-pale)',
-                  cursor: n.isRead ? 'default' : 'pointer',
+                  cursor: (clickable || !n.isRead) ? 'pointer' : 'default',
+                  opacity: revoked ? 0.55 : 1,
                 }}
-                onClick={() => { if (!n.isRead) markOne.mutate(n.id); }}
+                onClick={() => {
+                  if (!n.isRead) markOne.mutate(n.id);
+                  // 撤回的通知内容可能已失效 · 只标已读不跳转
+                  if (clickable && n.link) nav(n.link);
+                }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--ink)', letterSpacing: 1.5, marginBottom: 4 }}>
+                  <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '0.9375rem', color: 'var(--ink)', letterSpacing: 1.5, marginBottom: 4, textDecoration: revoked ? 'line-through' : 'none' }}>
                     {n.title}
                   </div>
                   <div style={{ font: 'var(--text-body)', color: 'var(--ink-2)', letterSpacing: '.5px', lineHeight: 1.5, marginBottom: 6 }}>
@@ -195,7 +205,8 @@ export default function NotificationPage() {
                   ✕
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
