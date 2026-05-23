@@ -1,7 +1,7 @@
 // 课程报名 · 进度跟踪
 // 每学员每课程一条 UserCourseEnrollment（@@unique([userId, courseId])）。
 // 退课：硬删（历史若需要保留可再加 archivedAt，Sprint 3 暂不需要）。
-import type { UserCourseEnrollment } from '@prisma/client';
+import { Prisma, type UserCourseEnrollment } from '@prisma/client';
 import { Conflict, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 
@@ -126,19 +126,20 @@ export async function updateProgress(
     return ok;
   }
 
-  let lessonsCompleted = existing.lessonsCompleted;
+  // M1: 防伪造 · 验 lesson 属于本 course + 实算 80% 阈值（前端值不可信）
+  // 耗时校验放事务外 · 仅得出「这次是否真的要追加这一节」
+  let lessonIdToAdd: string | null = null;
   if (
     input.addCompletedLessonId &&
-    !lessonsCompleted.includes(input.addCompletedLessonId)
+    !existing.lessonsCompleted.includes(input.addCompletedLessonId)
   ) {
-    // M1: 防伪造 · 验 lesson 属于本 course + 实算 80% 阈值（前端值不可信）
-    if (await belongsToCourse(input.addCompletedLessonId)) {
-      const passed = await isLessonPassed(userId, input.addCompletedLessonId);
-      if (passed) {
-        lessonsCompleted = [...lessonsCompleted, input.addCompletedLessonId];
-      }
-      // 不达 80% → 静默忽略 addCompletedLessonId
+    if (
+      (await belongsToCourse(input.addCompletedLessonId)) &&
+      (await isLessonPassed(userId, input.addCompletedLessonId))
+    ) {
+      lessonIdToAdd = input.addCompletedLessonId;
     }
+    // 不属于本 course 或不达 80% → 静默忽略
   }
 
   // A2: currentLessonId 也校验 belongs-to-course · 与 addCompletedLessonId 对称
@@ -153,14 +154,24 @@ export async function updateProgress(
     // 不属于本 course → 静默忽略 · 保留 existing.currentLessonId
   }
 
-  return prisma.userCourseEnrollment.update({
-    where: { userId_courseId: { userId, courseId } },
-    data: {
-      lastStudiedAt: new Date(),
-      currentLessonId: nextCurrentLessonId,
-      lessonsCompleted,
-    },
-  });
+  // 审计 D2：读-改-写进 Serializable 事务 · 防同课不同节并发完成时数组互相覆盖（丢更新）
+  return prisma.$transaction(async (tx) => {
+    const cur = await tx.userCourseEnrollment.findUnique({
+      where: { userId_courseId: { userId, courseId } },
+      select: { lessonsCompleted: true },
+    });
+    const base = cur?.lessonsCompleted ?? existing.lessonsCompleted;
+    const lessonsCompleted =
+      lessonIdToAdd && !base.includes(lessonIdToAdd) ? [...base, lessonIdToAdd] : base;
+    return tx.userCourseEnrollment.update({
+      where: { userId_courseId: { userId, courseId } },
+      data: {
+        lastStudiedAt: new Date(),
+        currentLessonId: nextCurrentLessonId,
+        lessonsCompleted,
+      },
+    });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
 export async function markCompleted(

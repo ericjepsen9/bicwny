@@ -9,7 +9,7 @@
 // 同一 user × meditation 多次播放产生多条 session（历史记录）
 // "已完成" 判定 = 任一 session.isCompleted = true（reduce）
 
-import type { Meditation, MeditationSession } from '@prisma/client';
+import { Prisma, type Meditation, type MeditationSession } from '@prisma/client';
 import { BadRequest, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 
@@ -186,18 +186,22 @@ async function markCourseEnrollmentMeditationDone(
   meditationId: string,
 ): Promise<void> {
   if (!courseId) return;
-  const enrollment = await prisma.userCourseEnrollment.findUnique({
-    where: { userId_courseId: { userId, courseId } },
-  });
-  if (!enrollment) return;
-  if (enrollment.meditationsCompleted.includes(meditationId)) return;
-  await prisma.userCourseEnrollment.update({
-    where: { userId_courseId: { userId, courseId } },
-    data: {
-      meditationsCompleted: [...enrollment.meditationsCompleted, meditationId],
-      lastStudiedAt: new Date(),
-    },
-  });
+  // 审计 D3：读-改-写进 Serializable 事务 · 防同课多观修并发完成时数组互相覆盖（丢更新）
+  await prisma.$transaction(async (tx) => {
+    const enrollment = await tx.userCourseEnrollment.findUnique({
+      where: { userId_courseId: { userId, courseId } },
+      select: { meditationsCompleted: true },
+    });
+    if (!enrollment) return;
+    if (enrollment.meditationsCompleted.includes(meditationId)) return;
+    await tx.userCourseEnrollment.update({
+      where: { userId_courseId: { userId, courseId } },
+      data: {
+        meditationsCompleted: [...enrollment.meditationsCompleted, meditationId],
+        lastStudiedAt: new Date(),
+      },
+    });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
 /** 我的观修历史 · 列出该用户完成过的所有观修（按 completedAt desc · 跨课程） */
