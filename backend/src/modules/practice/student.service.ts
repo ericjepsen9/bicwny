@@ -7,6 +7,8 @@
 import type { PrismaClient } from '@prisma/client';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
 import { calcStreak, dateKey, lastNDates } from './utils.js';
+import { MAKEUP_WINDOW_DAYS, getMakeupStatus, reserveBackfillMakeups } from './makeup.js';
+import { addDaysToDateKey } from '../../lib/timezone.js';
 import { bumpRankingPrivacyVersion } from '../../lib/ranking-cache.js';
 
 interface BatchEntryItem {
@@ -210,6 +212,10 @@ export async function submitEntries(
     if (!it.date) return today;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(it.date)) throw BadRequest('date 格式应为 YYYY-MM-DD');
     if (it.date > today) throw BadRequest('不能登记未来日期');
+    // 回填收紧（审计 D7/D8 后续）：只能回填最近 N 天 · 且过去日期占用每周补签配额
+    if (it.date < addDaysToDateKey(today, -MAKEUP_WINDOW_DAYS)) {
+      throw BadRequest(`只能回填最近 ${MAKEUP_WINDOW_DAYS} 天`);
+    }
     return it.date;
   }
   for (const it of items) {
@@ -225,7 +231,11 @@ export async function submitEntries(
     aggregateByDate.set(key, cur);
   }
 
+  // 过去日期（非今天）= 回填 · 占用每周补签配额（事务内校验 · 超额整批回滚）
+  const pastDates = [...aggregateByDate.values()].map((a) => a.date).filter((d) => d !== today);
+
   await prisma.$transaction(async (tx) => {
+    if (pastDates.length > 0) await reserveBackfillMakeups(tx, userId, pastDates, today);
     // 写明细 · createdAt 用回填日期 UTC noon（避开 timezone 边界）
     await tx.practiceEntry.createMany({
       data: items.map((it) => {
@@ -279,10 +289,11 @@ export async function getSummary(prisma: PrismaClient, userId: string) {
   const cats = await prisma.practiceCategory.findMany({ orderBy: { displayOrder: 'asc' } });
   const todayMap = new Map(todayByCat.map((r) => [r.categoryId, r._sum.count ?? 0]));
   const allMap = new Map(allByCat.map((r) => [r.categoryId, r._sum.count ?? 0]));
-  const streak = await calcStreak(prisma, userId);
+  const [streak, makeup] = await Promise.all([calcStreak(prisma, userId), getMakeupStatus(prisma, userId)]);
 
   return {
     streak,
+    makeup, // 本周补签配额 + 可补窗口（前端展示「补签」入口用）
     today,
     categories: cats.map((c) => ({
       id: c.id,

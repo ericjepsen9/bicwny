@@ -85,6 +85,7 @@ model User {
   practiceEntries        PracticeEntry[]
   practiceDailySummaries PracticeDailySummary[]
   practiceGoals          PracticeGoal[]
+  practiceMakeups        PracticeMakeup[]
   readingProgress        LessonReadingProgress[]
   notes                  Note[]
   highlights             Highlight[]
@@ -1305,6 +1306,21 @@ model PracticeTask {
 
   @@index([scope, classId, archivedAt])
   @@index([scope, userId, archivedAt])
+}
+
+// 补签 · 修学打卡 streak 的补救（审计 D7/D8 后续）
+//   规则见 modules/practice/makeup.ts：仅过去 7 天内 · 每自然周(ET) 1 次
+//   date = 被补的目标日（ET 日历日）· createdAt = 实际补签时刻（配额按其落在哪个 ET 周计）
+//   calcStreak 把有 makeup 的日视为「已打卡」· 与真实计数 count>0 等价
+model PracticeMakeup {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      String // YYYY-MM-DD（纽约时区日历日）
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId, createdAt])
 }
 
 // ═══════════════════════════════════════════════════════════════

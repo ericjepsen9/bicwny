@@ -5,6 +5,8 @@
 //   PATCH  /api/practice/projects/:id                   改名 / emoji
 //   DELETE /api/practice/projects/:id                   归档（仅自建）
 //   POST   /api/practice/entries                        上报 entry 批次
+//   GET    /api/practice/makeup                         补签配额状态
+//   POST   /api/practice/makeup                         补签某一天（保连续 · 每周 1 次）
 //   GET    /api/practice/summary                        当日总览 + streak
 //   GET    /api/practice/history                        历史聚合
 //   GET    /api/practice/goals                          目标列表
@@ -36,6 +38,7 @@ import {
   updateUserProject,
   upsertGoal,
 } from './student.service.js';
+import { createMakeup, getMakeupStatus } from './makeup.js';
 
 const TAGS = ['Practice'];
 const SEC = [{ bearerAuth: [] as string[] }];
@@ -60,6 +63,10 @@ const entriesBody = z.object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     note: z.string().max(50).optional(),
   })).min(1).max(200),
+});
+
+const makeupBody = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 
 const goalUpsertBody = z.object({
@@ -132,6 +139,23 @@ export const practiceStudentRoutes: FastifyPluginAsync = async (app) => {
     const body = entriesBody.safeParse(req.body);
     if (!body.success) throw BadRequest('参数不合法', body.error.flatten());
     const data = await submitEntries(prisma, requireUserId(req), body.data.items);
+    return { data };
+  });
+
+  app.get('/api/practice/makeup', {
+    schema: { tags: TAGS, summary: '补签配额状态（本周剩余 + 可补窗口）', security: SEC },
+  }, async (req) => {
+    const data = await getMakeupStatus(prisma, requireUserId(req));
+    return { data };
+  });
+
+  app.post('/api/practice/makeup', {
+    schema: { tags: TAGS, summary: '补签某一天（保连续 · 每周 1 次 · 仅近 7 天）', security: SEC },
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+  }, async (req) => {
+    const body = makeupBody.safeParse(req.body);
+    if (!body.success) throw BadRequest('参数不合法', body.error.flatten());
+    const data = await createMakeup(prisma, requireUserId(req), body.data.date);
     return { data };
   });
 

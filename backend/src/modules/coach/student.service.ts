@@ -189,12 +189,16 @@ export async function studentDetail(
   for (let i = 89; i >= 0; i--) {
     dates90.push(addDaysToDateKey(today, -i));
   }
-  const streakRows = await prisma.practiceDailySummary.groupBy({
-    by: ['date'],
-    where: { userId, date: { in: dates90 }, count: { gt: 0 } },
-    _sum: { count: true },
-  });
-  const streakSet = new Set(streakRows.map((r) => r.date));
+  const [streakRows, streakMakeups] = await Promise.all([
+    prisma.practiceDailySummary.groupBy({
+      by: ['date'],
+      where: { userId, date: { in: dates90 }, count: { gt: 0 } },
+      _sum: { count: true },
+    }),
+    prisma.practiceMakeup.findMany({ where: { userId, date: { in: dates90 } }, select: { date: true } }),
+  ]);
+  // 有计数 或 有补签 的日都算「已打卡」· 与学员端 calcStreak 口径一致
+  const streakSet = new Set<string>([...streakRows.map((r) => r.date), ...streakMakeups.map((m) => m.date)]);
   let practiceStreak = 0;
   for (let i = dates90.length - 1; i >= 0; i--) {
     if (streakSet.has(dates90[i]!)) practiceStreak++;

@@ -15,17 +15,23 @@ export function lastNDates(n: number): string[] {
   return lastNZonedDates(n);
 }
 
-/** 算用户连续修学天数（任意大类有计数即算 +1 · 不要求达成目标） */
+/** 算用户连续修学天数（任意大类有计数、或当天有补签即算 +1 · 不要求达成目标） */
 export async function calcStreak(prisma: PrismaClient, userId: string): Promise<number> {
   // 取最近 90 天（足够覆盖大多数 streak） · 前端展示如想看 365 后期再扩
   const dates = lastNDates(90);
-  // group by date
-  const rows = await prisma.practiceDailySummary.groupBy({
-    by: ['date'],
-    where: { userId, date: { in: dates }, count: { gt: 0 } },
-    _sum: { count: true },
-  });
-  const set = new Set(rows.map((r) => r.date));
+  const [rows, makeups] = await Promise.all([
+    prisma.practiceDailySummary.groupBy({
+      by: ['date'],
+      where: { userId, date: { in: dates }, count: { gt: 0 } },
+      _sum: { count: true },
+    }),
+    prisma.practiceMakeup.findMany({
+      where: { userId, date: { in: dates } },
+      select: { date: true },
+    }),
+  ]);
+  // 有真实计数 或 有补签 的日都算「已打卡」
+  const set = new Set<string>([...rows.map((r) => r.date), ...makeups.map((m) => m.date)]);
   // 从今天往前数连续
   let streak = 0;
   for (let i = dates.length - 1; i >= 0; i--) {
