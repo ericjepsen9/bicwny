@@ -297,7 +297,7 @@ export async function getDossierStats(prisma: PrismaClient, userId: string): Pro
   });
   const dayCountMap = new Map<string, { count: number; correct: number }>();
   for (const a of dailyAnswers) {
-    const key = a.answeredAt.toISOString().slice(0, 10);
+    const key = dateKey(a.answeredAt); // 纽约日 · 与 lastNDates(90) 对齐（否则交界处差一天）
     const cur = dayCountMap.get(key) ?? { count: 0, correct: 0 };
     cur.count++;
     if (a.isCorrect === true) cur.correct++;

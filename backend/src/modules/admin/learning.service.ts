@@ -4,7 +4,7 @@
 // 输出：
 //   - account：注册/最后登录/邮箱验证 时间戳
 //   - summary：累计答题、正确率、首次/最近活跃时间
-//   - dailySeries：最近 30 天每天答题数（有数据缺位以 0 填充 · 时区按服务器 local）
+//   - dailySeries：最近 30 天每天答题数（有数据缺位以 0 填充 · 纽约时区 ET）
 //   - sm2Progress：new/learning/review/mastered/due/total
 //   - byCourse：每个 enrollment 的标题/答题数/正确率/掌握数/最后学习
 //   - classMemberships：用户在哪些班、角色、加入日期
@@ -13,9 +13,10 @@
 import { NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { getCardStats } from '../sm2/service.js';
+import { addDaysToDateKey, zonedDateKey, zonedTimeToUtc } from '../../lib/timezone.js';
 
 export interface DailyPoint {
-  date: string;        // 'YYYY-MM-DD' 服务器 local
+  date: string;        // 'YYYY-MM-DD' 纽约时区 ET
   count: number;
   correct: number;
 }
@@ -64,21 +65,17 @@ export interface UserLearningStats {
 
 const DAILY_WINDOW = 30;
 
+// 纽约日历日（与全应用 ET 口径一致 · 审计 D7/D8）
 function ymdLocal(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return zonedDateKey(d);
 }
 
 /** 给最近 N 天空表 · 后续 fill */
 function emptyDays(n: number): Map<string, { count: number; correct: number }> {
   const out = new Map<string, { count: number; correct: number }>();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = zonedDateKey();
   for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(today.getTime() - i * 86_400_000);
-    out.set(ymdLocal(d), { count: 0, correct: 0 });
+    out.set(addDaysToDateKey(today, -i), { count: 0, correct: 0 });
   }
   return out;
 }
@@ -99,8 +96,10 @@ export async function userLearningStats(userId: string): Promise<UserLearningSta
   });
   if (!user) throw NotFound('用户不存在');
 
-  const windowStart = new Date(Date.now() - DAILY_WINDOW * 86_400_000);
-  windowStart.setHours(0, 0, 0, 0);
+  // 柱图下界 · 纽约 (DAILY_WINDOW-1) 天前 00:00 折算为 UTC 时刻
+  const windowStartKey = addDaysToDateKey(zonedDateKey(), -(DAILY_WINDOW - 1));
+  const [wy, wm, wd] = windowStartKey.split('-').map(Number);
+  const windowStart = zonedTimeToUtc(wy!, wm! - 1, wd!, 0, 0, 0);
 
   const [
     totalAnswers,
