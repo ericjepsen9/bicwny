@@ -64,7 +64,7 @@ const taskCreateBody = z.object({
   startAt: z.string().datetime().or(z.date()).transform((v) => new Date(v)),
   endAt: z.string().datetime().or(z.date()).nullable().optional().transform((v) => v ? new Date(v) : null),
   title: z.string().max(120).optional(),
-});
+}).refine((b) => !b.endAt || b.endAt > b.startAt, { message: 'endAt 必须晚于 startAt', path: ['endAt'] });
 const taskPatchBody = z.object({
   archive: z.boolean().optional(),
   title: z.string().max(120).optional(),

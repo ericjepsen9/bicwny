@@ -32,6 +32,8 @@ export default function ClassNewPage() {
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/admin/classes'] });
+      // coach 建班后也要刷新 coach 班级列表（useCoachClasses · 仪表盘 / 日历发公告入口）
+      qc.invalidateQueries({ queryKey: ['/api/coach/classes'] });
       toast.ok(s('已创建', '已創建', 'Created'));
       nav(base);
     },

@@ -428,6 +428,8 @@ function AddMemberForm({ classId }: { classId: string }) {
     mutationFn: () => api.post(`/api/admin/classes/${encodeURIComponent(classId)}/members`, { userId: picked!.id, role }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/admin/classes', classId, 'members'] });
+      // 同步刷新班级列表 · 否则列表行的 memberCount 陈旧（与 kick 一致）
+      qc.invalidateQueries({ queryKey: ['/api/admin/classes'] });
       toast.ok(s('已添加', '已添加', 'Added'));
       setSearch(''); setPicked(null);
     },

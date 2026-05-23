@@ -24,11 +24,18 @@ export async function classStats(
   });
   if (members.length === 0) return emptyClassStats(windowDays);
 
+  // 班级统计只算「本班主修法本」的答题 · 否则正确率 / 排行 / byLesson
+  // 会混入学员在其它课程的答题数据（与单学员详情页 CO2 scope 对齐）
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { courseId: true } });
+
   const studentIds = members.map((m) => m.userId);
   const userLookup = new Map(members.map((m) => [m.userId, m.user]));
 
   const answers = await prisma.userAnswer.findMany({
-    where: { userId: { in: studentIds } },
+    where: {
+      userId: { in: studentIds },
+      ...(cls?.courseId ? { question: { courseId: cls.courseId } } : {}),
+    },
     select: {
       userId: true,
       isCorrect: true,

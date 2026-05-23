@@ -26,17 +26,20 @@ const SEC = [{ bearerAuth: [] as string[] }];
 const idParam = z.object({ id: z.string().min(1) });
 const aidParam = z.object({ aid: z.string().min(1) });
 
+// 图片 URL 只接受本服务上传 endpoint 产出的相对路径 · 防 javascript:/data:/站外注入
+const imageUrl = z.string().regex(/^\/uploads\/announcements\//, '非法图片地址');
+
 const createBody = z.object({
   title: z.string().trim().min(1).max(80),
   body: z.string().max(5000),
-  imageUrls: z.array(z.string()).max(6).optional(),
+  imageUrls: z.array(imageUrl).max(6).optional(),
   pinned: z.boolean().optional(),
 });
 
 const updateBody = z.object({
   title: z.string().trim().min(1).max(80).optional(),
   body: z.string().max(5000).optional(),
-  imageUrls: z.array(z.string()).max(6).nullable().optional(),
+  imageUrls: z.array(imageUrl).max(6).nullable().optional(),
   pinned: z.boolean().optional(),
   archive: z.boolean().optional(),
 });
