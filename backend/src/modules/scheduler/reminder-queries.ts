@@ -4,7 +4,7 @@
 //
 // 设计：所有 query 在事务外、可被取消；不写数据库；返回 null 即跳过发送
 import type { PrismaClient } from '@prisma/client';
-import { lastWeekRange, localDayRange } from './time-utils.js';
+import { lastWeekRange, localDayRange, userLocalTime } from './time-utils.js';
 
 // ───────────────────────────────────────────────────────────────
 // 19:00 临期 · "还差 X 即可圆满"
@@ -220,10 +220,9 @@ export async function buildWeeklyReportPayload(
   const total = practiceCount + medCompleted + answers + readingCompleted;
   if (total === 0) return null; // 0 修学 · 跳过避免羞辱
 
-  // 连续天数 = 上周这 4 表里 distinct date 数（用本地 ymd · 但 entries 只有 UTC createdAt
-  // 这里近似：用 entries 的 ymd 数量 + meditation/answer/reading 各天）
+  // 连续天数 = 上周这 4 表里 distinct date 数（按用户本地 tz · 与周报口径一致）
   // 简化版：用 practice 的天 + 把 medCompleted/answers/readingCompleted 当 1 天补足
-  const practiceDays = new Set(practiceEntries.map((e) => e.createdAt.toISOString().slice(0, 10)));
+  const practiceDays = new Set(practiceEntries.map((e) => userLocalTime(e.createdAt, tz).ymd));
   let activeDays = practiceDays.size;
   if (medCompleted > 0 && practiceDays.size === 0) activeDays = Math.max(1, activeDays);
   if (answers > 0 && practiceDays.size === 0) activeDays = Math.max(1, activeDays);

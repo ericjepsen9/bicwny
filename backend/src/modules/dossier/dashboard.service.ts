@@ -153,7 +153,7 @@ export function dashboardToCsv(taskCount: number, rows: DashboardRow[]): string 
   for (const r of rows) {
     lines.push([
       `"${(r.dharmaName ?? r.email ?? r.userId).replace(/"/g, '""')}"`,
-      r.joinedAt.toISOString().slice(0, 10),
+      dateKey(r.joinedAt),
       r.practiceTotal,
       r.practiceStreak,
       r.meditationCompleted,

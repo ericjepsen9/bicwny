@@ -1,5 +1,6 @@
 // 藏历服务 · 按月查询 / 按日查询 / admin 编辑
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { zonedDateKey } from '../../lib/timezone.js';
 import type { TibetanDayDto, TibetanTag } from './types.js';
 
 function rowToDto(row: {
@@ -73,17 +74,15 @@ export async function getDay(prisma: PrismaClient, date: string): Promise<Tibeta
   }
 }
 
-/** 取「今天」（UTC · 与 seed 一致） */
+/** 取「今天」（纽约日历日 · 与全应用 ET 口径一致；TibetanDay.date 仍按日期 UTC 午夜存储） */
 export async function getToday(prisma: PrismaClient): Promise<TibetanDayDto | null> {
-  const now = new Date();
-  const ymd = now.toISOString().slice(0, 10);
-  return getDay(prisma, ymd);
+  return getDay(prisma, zonedDateKey());
 }
 
 /** 取「今日 + 未来 N 天」窗口（首页 widget） */
 export async function getUpcoming(prisma: PrismaClient, days = 7): Promise<TibetanDayDto[]> {
   if (!modelReady(prisma)) return [];
-  const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
+  const today = new Date(zonedDateKey() + 'T00:00:00.000Z');
   const end = new Date(today.getTime() + days * 24 * 60 * 60 * 1000);
   try {
     const rows = await prisma.tibetanDay.findMany({

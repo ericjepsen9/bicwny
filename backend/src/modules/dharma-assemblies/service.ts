@@ -151,7 +151,7 @@ async function notifyCreated(ann: DharmaAssembly): Promise<void> {
     eventId: ann.id,
     tier: 'created',
     userIds: users.map((u) => u.id),
-    title: `${ann.title} · ${dateStr} 开启`,
+    title: `${ann.title} · ${dateStr} 开启（美东时间）`,
     body: ann.description.slice(0, 200),
     link: `/assemblies/${ann.id}`,
     notificationType: 'system',
