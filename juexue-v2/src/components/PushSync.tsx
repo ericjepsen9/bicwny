@@ -15,6 +15,19 @@ export default function PushSync() {
   const qc = useQueryClient();
   const resyncedRef = useRef(false);
 
+  // SW 收到 push → postMessage 通知此处即时刷新红点/列表（审计 · 否则红点陈旧 ≤5min）
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'jx-notif') {
+        qc.invalidateQueries({ queryKey: ['/api/notifications'] });
+        qc.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', onMsg);
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg);
+  }, [qc]);
+
   // N3 · 登录后同步推送订阅
   useEffect(() => {
     if (status === 'authed') {

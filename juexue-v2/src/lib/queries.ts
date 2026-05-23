@@ -381,6 +381,10 @@ export function useUnreadNotifCount() {
       const r = await api.get<{ count: number }>('/api/notifications/unread-count', { signal });
       return r?.count ?? 0;
     },
+    // 红点要新鲜（审计）· 覆盖全局 5min staleTime · 回到 tab 时刷新；
+    // app 开着时收到 push 由 SW postMessage → PushSync 主动失效（即时）
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   });
 }
 

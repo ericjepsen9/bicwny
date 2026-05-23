@@ -12,7 +12,7 @@ import TopNav from '@/components/TopNav';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
-import { useNotifications } from '@/lib/queries';
+import { useNotifications, type NotificationItem } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 // '' = 全部 · 'unread' = 未读 · 否则按 type 字段精确匹配
@@ -25,31 +25,64 @@ export default function NotificationPage() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<NotifFilter>('');
 
+  // 乐观更新工具（审计）：改本地列表缓存 + 红点 · 失败回滚 · onSettled 兜底失效
+  const snapshotLists = () => qc.getQueriesData<NotificationItem[]>({ queryKey: ['/api/notifications'] });
+  const patchLists = (fn: (items: NotificationItem[]) => NotificationItem[]) =>
+    qc.setQueriesData<NotificationItem[]>({ queryKey: ['/api/notifications'] }, (old) => (old ? fn(old) : old));
+  const setBadge = (fn: (c: number) => number) =>
+    qc.setQueryData<number>(['/api/notifications/unread-count'], (c) => Math.max(0, fn(c ?? 0)));
+  type ListSnap = ReturnType<typeof snapshotLists>;
+  const rollback = (snap: ListSnap | undefined) => {
+    snap?.forEach(([key, data]) => qc.setQueryData(key, data));
+    qc.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
+  };
+  const settleNotif = () => {
+    qc.invalidateQueries({ queryKey: ['/api/notifications'] });
+    qc.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
+  };
+
   const markOne = useMutation({
     mutationFn: (id: string) => api.post(`/api/notifications/${encodeURIComponent(id)}/read`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['/api/notifications'] });
-      qc.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['/api/notifications'] });
+      const snap = snapshotLists();
+      patchLists((items) => items.map((n) => (n.id === id && !n.isRead ? { ...n, isRead: true } : n)));
+      setBadge((c) => c - 1);
+      return { snap };
     },
+    onError: (_e, _id, ctx) => rollback(ctx?.snap),
+    onSettled: settleNotif,
   });
 
   const markAll = useMutation({
     mutationFn: () => api.post('/api/notifications/read-all'),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['/api/notifications'] });
-      qc.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
-      toast.ok(s('已全部标为已读', '已全部標為已讀', 'All read'));
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ['/api/notifications'] });
+      const snap = snapshotLists();
+      patchLists((items) => items.map((n) => (n.isRead ? n : { ...n, isRead: true })));
+      setBadge(() => 0);
+      return { snap };
     },
-    onError: (e) => toast.error((e as ApiError).message),
+    onError: (e, _v, ctx) => { rollback(ctx?.snap); toast.error((e as ApiError).message); },
+    onSuccess: () => toast.ok(s('已全部标为已读', '已全部標為已讀', 'All read')),
+    onSettled: settleNotif,
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => api.del(`/api/notifications/${encodeURIComponent(id)}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['/api/notifications'] });
-      qc.invalidateQueries({ queryKey: ['/api/notifications/unread-count'] });
+    onMutate: async (id: string) => {
+      await qc.cancelQueries({ queryKey: ['/api/notifications'] });
+      const snap = snapshotLists();
+      let wasUnread = false;
+      patchLists((items) => items.filter((n) => {
+        if (n.id === id) { wasUnread = !n.isRead; return false; }
+        return true;
+      }));
+      if (wasUnread) setBadge((c) => c - 1);
+      return { snap };
     },
-    onError: (e) => toast.error((e as ApiError).message),
+    onError: (e, _id, ctx) => { rollback(ctx?.snap); toast.error((e as ApiError).message); },
+    onSettled: settleNotif,
   });
 
   const data = useMemo(() => list.data ?? [], [list.data]);

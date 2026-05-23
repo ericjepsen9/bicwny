@@ -145,11 +145,20 @@ self.addEventListener('push', (event) => {
     badge: data.badge || '/app/icon-maskable.svg',
     // 同 tag 的后到通知替换前一个 · 防短时刷屏（如 T-30/T-5/T0 三档同事件）
     tag: data.tag,
+    // renotify · 同 tag 替换时仍震动/响铃 · 否则 T-5/T0 静默替换 · 用户看不到（审计）
+    renotify: !!data.tag,
     // 用户点 banner 时跳转的目标 · 校验后写入 · tag 携带 eventKind:eventId:tier 供点击标已读
     data: { link: safeLink(data.link), tag: data.tag },
     requireInteraction: false,
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.registration.showNotification(title, options).then(() =>
+      // 通知打开着的 app 刷新红点 / 列表（审计 · 否则红点最多陈旧 5min）
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+        for (const c of cs) c.postMessage({ type: 'jx-notif' });
+      }),
+    ),
+  );
 });
 
 // 用户点 banner → 打开 app · 跳到 link · 并带 nr 令牌让 app 标该通知已读
