@@ -1,6 +1,6 @@
 // 觉学 v2 · 共享 React Query hooks
 // 所有 GET 数据走这里 · queryKey 统一约定 · staleTime 5min（main.tsx 默认）
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './api';
 
 // ── 课程相关 ──
@@ -372,6 +372,25 @@ export function useNotifications(opts?: { unreadOnly?: boolean; limit?: number }
   return useQuery({
     queryKey: ['/api/notifications', opts?.unreadOnly ?? false, opts?.limit ?? 50],
     queryFn: ({ signal }) => api.get<NotificationItem[]>('/api/notifications?' + q.join('&'), { signal }),
+  });
+}
+
+// 游标分页版（审计）· 收件箱"加载更多"用 · key 前缀仍是 ['/api/notifications']
+//   → PushSync / 乐观更新的 invalidate 仍命中
+export const NOTIF_PAGE_SIZE = 30;
+export function useInfiniteNotifications(opts?: { unreadOnly?: boolean }) {
+  const unreadOnly = opts?.unreadOnly ?? false;
+  return useInfiniteQuery({
+    queryKey: ['/api/notifications', 'infinite', unreadOnly],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) => {
+      const q = [`limit=${NOTIF_PAGE_SIZE}`];
+      if (unreadOnly) q.push('unreadOnly=1');
+      if (pageParam) q.push('cursor=' + encodeURIComponent(pageParam));
+      return api.get<NotificationItem[]>('/api/notifications?' + q.join('&'), { signal });
+    },
+    // 满页才有下一页 · 游标 = 末条 id（后端 orderBy createdAt,id 已确定性）
+    getNextPageParam: (last) => (last.length === NOTIF_PAGE_SIZE ? last[last.length - 1]?.id : undefined),
   });
 }
 export function useUnreadNotifCount() {

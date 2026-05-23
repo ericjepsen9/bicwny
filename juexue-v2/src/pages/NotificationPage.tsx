@@ -12,7 +12,7 @@ import TopNav from '@/components/TopNav';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
-import { useNotifications, type NotificationItem } from '@/lib/queries';
+import { useInfiniteNotifications, type NotificationItem } from '@/lib/queries';
 import { toast } from '@/lib/toast';
 
 // '' = 全部 · 'unread' = 未读 · 否则按 type 字段精确匹配
@@ -21,14 +21,22 @@ type NotifFilter = '' | 'unread' | 'class_announcement' | 'reminder' | 'achievem
 export default function NotificationPage() {
   const { s } = useLang();
   const nav = useNavigate();
-  const list = useNotifications({ limit: 100 });
+  const list = useInfiniteNotifications();
   const qc = useQueryClient();
   const [filter, setFilter] = useState<NotifFilter>('');
 
-  // 乐观更新工具（审计）：改本地列表缓存 + 红点 · 失败回滚 · onSettled 兜底失效
-  const snapshotLists = () => qc.getQueriesData<NotificationItem[]>({ queryKey: ['/api/notifications'] });
-  const patchLists = (fn: (items: NotificationItem[]) => NotificationItem[]) =>
-    qc.setQueriesData<NotificationItem[]>({ queryKey: ['/api/notifications'] }, (old) => (old ? fn(old) : old));
+  // 乐观更新工具（审计）：改分页缓存 + 红点 · 失败回滚 · onSettled 兜底失效
+  type InfNotif = { pages: NotificationItem[][]; pageParams: unknown[] };
+  const snapshotLists = () => qc.getQueriesData<InfNotif>({ queryKey: ['/api/notifications', 'infinite'] });
+  // mapper 返回 null = 从列表移除
+  const patchItems = (mapper: (n: NotificationItem) => NotificationItem | null) =>
+    qc.setQueriesData<InfNotif>({ queryKey: ['/api/notifications', 'infinite'] }, (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        pages: old.pages.map((pg) => pg.map(mapper).filter((x): x is NotificationItem => x !== null)),
+      };
+    });
   const setBadge = (fn: (c: number) => number) =>
     qc.setQueryData<number>(['/api/notifications/unread-count'], (c) => Math.max(0, fn(c ?? 0)));
   type ListSnap = ReturnType<typeof snapshotLists>;
@@ -46,7 +54,7 @@ export default function NotificationPage() {
     onMutate: async (id: string) => {
       await qc.cancelQueries({ queryKey: ['/api/notifications'] });
       const snap = snapshotLists();
-      patchLists((items) => items.map((n) => (n.id === id && !n.isRead ? { ...n, isRead: true } : n)));
+      patchItems((n) => (n.id === id && !n.isRead ? { ...n, isRead: true } : n));
       setBadge((c) => c - 1);
       return { snap };
     },
@@ -59,7 +67,7 @@ export default function NotificationPage() {
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: ['/api/notifications'] });
       const snap = snapshotLists();
-      patchLists((items) => items.map((n) => (n.isRead ? n : { ...n, isRead: true })));
+      patchItems((n) => (n.isRead ? n : { ...n, isRead: true }));
       setBadge(() => 0);
       return { snap };
     },
@@ -74,10 +82,10 @@ export default function NotificationPage() {
       await qc.cancelQueries({ queryKey: ['/api/notifications'] });
       const snap = snapshotLists();
       let wasUnread = false;
-      patchLists((items) => items.filter((n) => {
-        if (n.id === id) { wasUnread = !n.isRead; return false; }
-        return true;
-      }));
+      patchItems((n) => {
+        if (n.id === id) { wasUnread = !n.isRead; return null; }
+        return n;
+      });
       if (wasUnread) setBadge((c) => c - 1);
       return { snap };
     },
@@ -85,7 +93,7 @@ export default function NotificationPage() {
     onSettled: settleNotif,
   });
 
-  const data = useMemo(() => list.data ?? [], [list.data]);
+  const data = useMemo(() => list.data?.pages.flat() ?? [], [list.data]);
   const hasUnread = data.some((n) => !n.isRead);
 
   const filtered = useMemo(() => {
@@ -241,6 +249,18 @@ export default function NotificationPage() {
               );
             })}
           </div>
+        )}
+
+        {list.hasNextPage && !list.isLoading && !list.isError && (
+          <button
+            type="button"
+            onClick={() => list.fetchNextPage()}
+            disabled={list.isFetchingNextPage}
+            className="btn btn-pill"
+            style={{ margin: 'var(--sp-4) auto 0', display: 'block', padding: '6px 18px', font: 'var(--text-caption)', background: 'var(--glass-thick)', color: 'var(--ink-2)', border: '1px solid var(--glass-border)' }}
+          >
+            {list.isFetchingNextPage ? s('加载中…', '載入中…', 'Loading…') : s('加载更多', '載入更多', 'Load more')}
+          </button>
         )}
       </div>
     </div>

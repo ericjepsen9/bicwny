@@ -213,7 +213,7 @@ export async function buildWeeklyReportPayload(
     prisma.user.findUnique({ where: { id: userId }, select: { createdAt: true } }),
   ]);
 
-  // 注册 < 7 天 · 跳过（数据不够 1 周）
+  // 在被报告的那一周（startUtc=上周一）之后才注册 → 未完整经历该周 · 跳过
   if (user && user.createdAt > startUtc) return null;
 
   const practiceCount = practiceEntries.length;
@@ -264,31 +264,44 @@ async function computeBestClassRank(
   classIds: string[],
 ): Promise<number | null> {
   if (classIds.length === 0) return null;
-  let best: number | null = null;
-  for (const cid of classIds) {
-    // 取该班所有可见成员的上周 practice 次数 · 排名
-    const members = await prisma.classMember.findMany({
-      where: { classId: cid, removedAt: null, user: { isActive: true, practiceVisibleToClass: true } },
-      select: { userId: true },
-    });
-    const memberIds = members.map((m) => m.userId);
-    if (memberIds.length === 0) continue;
-    if (!memberIds.includes(userId)) continue; // 用户没勾可见 · 排名跳过
 
-    const last7 = new Date(Date.now() - 7 * 86400_000);
-    const rows = await prisma.practiceEntry.groupBy({
-      by: ['userId'],
-      where: { userId: { in: memberIds }, createdAt: { gte: last7 } },
-      _sum: { count: true },
-    });
-    const sorted = rows
-      .map((r) => ({ uid: r.userId, sum: r._sum.count ?? 0 }))
-      .sort((a, b) => b.sum - a.sum);
-    const idx = sorted.findIndex((r) => r.uid === userId);
-    if (idx >= 0) {
-      const rank = idx + 1;
-      if (best === null || rank < best) best = rank;
+  // 批量化（审计 · 消除 N+1）：一次拉全部班的可见成员 + 一次 groupBy 全部成员的上周次数
+  const members = await prisma.classMember.findMany({
+    where: { classId: { in: classIds }, removedAt: null, user: { isActive: true, practiceVisibleToClass: true } },
+    select: { classId: true, userId: true },
+  });
+  if (members.length === 0) return null;
+
+  const byClass = new Map<string, string[]>();
+  for (const m of members) {
+    if (!byClass.has(m.classId)) byClass.set(m.classId, []);
+    byClass.get(m.classId)!.push(m.userId);
+  }
+  // 仅保留"用户本人可见在册"的班
+  const relevant = [...byClass.values()].filter((ids) => ids.includes(userId));
+  if (relevant.length === 0) return null;
+
+  const allIds = [...new Set(relevant.flat())];
+  const last7 = new Date(Date.now() - 7 * 86400_000);
+  const rows = await prisma.practiceEntry.groupBy({
+    by: ['userId'],
+    where: { userId: { in: allIds }, createdAt: { gte: last7 } },
+    _sum: { count: true },
+  });
+  const sumByUser = new Map(rows.map((r) => [r.userId, r._sum.count ?? 0]));
+
+  const mySum = sumByUser.get(userId) ?? 0;
+  if (mySum === 0) return null; // 上周没修学 · 不显示名次（与旧行为一致）
+
+  // 名次 = 班内严格高于我的人数 + 1（竞争排名 · 平局取最优 · 确定性）
+  let best: number | null = null;
+  for (const ids of relevant) {
+    let higher = 0;
+    for (const uid of ids) {
+      if (uid !== userId && (sumByUser.get(uid) ?? 0) > mySum) higher++;
     }
+    const rank = higher + 1;
+    if (best === null || rank < best) best = rank;
   }
   return best;
 }

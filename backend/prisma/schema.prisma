@@ -352,7 +352,7 @@ model NotificationDispatchLog {
   eventId        String
   tier           String // 'T-30' | 'T-5' | 'T0' | '-'（个人提醒无 tier）
   userId         String
-  notificationId String? // 对应 Notification 行 id · null = 写 inbox 失败但 push 已尝试
+  notificationId String? // 对应 Notification 行 id · 当前实现总是写入（inbox+log 同事务）· nullable 保留作历史/扩展
   pushedAt       DateTime @default(now())
   // v2 通知系统 · 通道维度（用于频率上限计数）
   // 'inbox' | 'push' | 'sms' | 'banner'

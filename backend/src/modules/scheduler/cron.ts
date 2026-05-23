@@ -299,34 +299,43 @@ async function tickDharmaAssemblies(prisma: PrismaClient): Promise<void> {
   const assemblies = await getAssembliesForT1hReminder(now);
   if (assemblies.length === 0) return;
 
-  // 给所有 active 用户发预告
-  const users = await prisma.user.findMany({
-    where: { isActive: true },
-    select: { id: true },
-  });
-  if (users.length === 0) return;
-  const userIds = users.map((u) => u.id);
-
-  for (const a of assemblies) {
-    try {
-      const result = await dispatchToUsers({
-        prisma,
-        eventKind: 'dharma_assembly',
-        eventId: a.id,
-        tier: 'daily_t1h',
-        userIds,
-        title: `${a.title} · 1 小时后开始`,
-        body: '参与方式见详情',
-        link: `/assemblies/${a.id}`,
-        notificationType: 'system',
-        severity: 'urgent',
-      });
-      if (result.newPushedUsers > 0) {
-        console.log(`[scheduler] dispatched assembly=${a.id} tier=daily_t1h new=${result.newPushedUsers}`);
+  // 给所有 active 用户发预告 · 游标分页（审计）· 不一次性把全量用户读进内存 ·
+  // dispatchToUsers 按 (eventKind,eventId,tier,userId) 幂等 · 分批调用安全
+  const PAGE = 1000;
+  let cursor: string | undefined;
+  for (;;) {
+    const users = await prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true },
+      orderBy: { id: 'asc' },
+      take: PAGE,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    if (users.length === 0) break;
+    const userIds = users.map((u) => u.id);
+    for (const a of assemblies) {
+      try {
+        const result = await dispatchToUsers({
+          prisma,
+          eventKind: 'dharma_assembly',
+          eventId: a.id,
+          tier: 'daily_t1h',
+          userIds,
+          title: `${a.title} · 1 小时后开始`,
+          body: '参与方式见详情',
+          link: `/assemblies/${a.id}`,
+          notificationType: 'system',
+          severity: 'urgent',
+        });
+        if (result.newPushedUsers > 0) {
+          console.log(`[scheduler] dispatched assembly=${a.id} tier=daily_t1h new=${result.newPushedUsers}`);
+        }
+      } catch (e) {
+        console.error(`[scheduler] assembly dispatch failed id=${a.id}`, e);
       }
-    } catch (e) {
-      console.error(`[scheduler] assembly dispatch failed id=${a.id}`, e);
     }
+    if (users.length < PAGE) break;
+    cursor = users[users.length - 1].id;
   }
 }
 
@@ -356,6 +365,12 @@ export function startScheduler(prisma: PrismaClient): void {
     console.log('[scheduler] disabled by CRON_ENABLED=false');
     return;
   }
+  // ⚠️ 已知限制（审计 · 决策：保持现状 + 文档说明）：无停机补发。
+  //   启动只跑一次当前 ±90s 窗口的 tick · 不回扫停机期间错过的窗口。
+  //   若进程停机 > ~3 分钟（窗口 180s）· 期间应触发的 T-30/T-5/T0 共修提醒、
+  //   个人提醒（30min 窗口）、法会 T1h 等会永久丢失 · 不补发。
+  //   缓解：pm2 reload 通常 < 1 分钟；T-24h 档为短停机提供 24h 提前量兜底。
+  //   如需补发 · 需实现启动回扫 + 谨慎处理重复推送边界（当前未做）。
   // 立即跑一次 · 防止刚启动时漏掉窗口
   tick(prisma).catch(() => {});
   timer = setInterval(() => {

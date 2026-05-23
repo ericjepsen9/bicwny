@@ -9,7 +9,7 @@
  *
  * 不在原生壳（iOS/Android Capacitor）注册 · 见 src/lib/sw-register.ts
  */
-const VERSION = 'jx-v2-2026-05-13-01';
+const VERSION = 'jx-v2-2026-05-23-01';
 const STATIC_CACHE = `${VERSION}-static`;
 const SHELL_CACHE = `${VERSION}-shell`;
 

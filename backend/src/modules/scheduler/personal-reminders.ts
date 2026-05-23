@@ -114,38 +114,47 @@ export async function tickPersonalReminders(prisma: PrismaClient): Promise<void>
   const now = new Date();
   const platform = await resolvePlatformHours(prisma);
 
-  // 拉所有活跃用户 · 仅取需要的字段
-  const users = await prisma.user.findMany({
-    where: { isActive: true },
-    select: {
-      id: true,
-      timezone: true,
-      eveningReminderEnabled: true,
-      eveningReminderHour: true,
-      dailyDigestEnabled: true,
-      dailyDigestHour: true,
-      weeklyReportEnabled: true,
-      weeklyReportHour: true,
-      weeklyReportWeekday: true,
-      quietHoursStart: true,
-      quietHoursEnd: true,
-    },
-  });
-
   // 分桶：3 个 trigger 各自的命中用户列表
   type Hit = { userId: string; tz: string; ymd: string; isoWeek: string };
   const eveningHits: Hit[] = [];
   const dailyHits: Hit[] = [];
   const weeklyHits: Hit[] = [];
 
-  for (const u of users) {
-    const local = userLocalTime(now, u.timezone);
-    const trigger = resolveUserTrigger(u, local.hour, local.minute, local.weekday, platform);
-    if (!trigger) continue;
-    const hit: Hit = { userId: u.id, tz: u.timezone, ymd: local.ymd, isoWeek: local.isoWeek };
-    if (trigger === 'evening-due') eveningHits.push(hit);
-    else if (trigger === 'daily-digest') dailyHits.push(hit);
-    else weeklyHits.push(hit);
+  // 游标分页拉活跃用户（审计）· 避免一次性把全量用户读进内存 · 命中本分钟某档才入桶
+  const PAGE = 1000;
+  let cursor: string | undefined;
+  for (;;) {
+    const users = await prisma.user.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        timezone: true,
+        eveningReminderEnabled: true,
+        eveningReminderHour: true,
+        dailyDigestEnabled: true,
+        dailyDigestHour: true,
+        weeklyReportEnabled: true,
+        weeklyReportHour: true,
+        weeklyReportWeekday: true,
+        quietHoursStart: true,
+        quietHoursEnd: true,
+      },
+      orderBy: { id: 'asc' },
+      take: PAGE,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    if (users.length === 0) break;
+    for (const u of users) {
+      const local = userLocalTime(now, u.timezone);
+      const trigger = resolveUserTrigger(u, local.hour, local.minute, local.weekday, platform);
+      if (!trigger) continue;
+      const hit: Hit = { userId: u.id, tz: u.timezone, ymd: local.ymd, isoWeek: local.isoWeek };
+      if (trigger === 'evening-due') eveningHits.push(hit);
+      else if (trigger === 'daily-digest') dailyHits.push(hit);
+      else weeklyHits.push(hit);
+    }
+    if (users.length < PAGE) break;
+    cursor = users[users.length - 1].id;
   }
 
   // 并发执行三档（每档内部串行 · 节省 DB 压力）
