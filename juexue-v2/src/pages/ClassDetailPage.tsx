@@ -368,6 +368,10 @@ function ClassRankingPreview({ classId }: { classId: string }) {
           <div style={{ padding: 'var(--sp-4)', textAlign: 'center', color: 'var(--ink-3)', font: 'var(--text-caption)' }}>
             {s('加载中…', '加載中…', 'Loading…')}
           </div>
+        ) : ranking.isError ? (
+          <div style={{ padding: 'var(--sp-4)', textAlign: 'center', color: 'var(--ink-3)', font: 'var(--text-caption)' }}>
+            {s('加载失败 · 稍后重试', '載入失敗 · 稍後重試', 'Failed to load · try later')}
+          </div>
         ) : top3.length === 0 ? (
           <div style={{ padding: 'var(--sp-4)', textAlign: 'center', color: 'var(--ink-3)', font: 'var(--text-caption)' }}>
             {s('本周尚无修学记录', '本週尚無修學記錄', 'No records this week')}
@@ -538,7 +542,7 @@ function ClassPracticeTasksSection({ classId }: { classId: string }) {
       <SectionTitle icon={<IconTarget />} label={s('班级修学目标', '班級修學目標', 'Practice tasks')} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
         {classTasks.map((t) => {
-          const pct = Math.min(100, Math.round((t.progress / t.target) * 100));
+          const pct = t.target > 0 ? Math.min(100, Math.round((t.progress / t.target) * 100)) : 0;
           return (
             <Link key={t.id} to={`/practice/project/${encodeURIComponent(t.project.id)}`} style={{ textDecoration: 'none' }}>
               <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)' }}>

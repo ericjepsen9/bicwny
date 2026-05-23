@@ -11,6 +11,7 @@ import TopNav from '@/components/TopNav';
 import { api } from '@/lib/api';
 import { getAccess } from '@/lib/tokenStore';
 import { useLang } from '@/lib/i18n';
+import { toast } from '@/lib/toast';
 
 interface Row {
   userId: string;
@@ -77,14 +78,19 @@ export default function CoachClassDashboardPage() {
     const url = `/api/coach/classes/${encodeURIComponent(classId)}/dashboard.csv`;
     const token = getAccess();
     fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-      .then((r) => r.blob())
+      .then(async (r) => {
+        // 校验状态 · 否则错误响应体被当 CSV 下载成损坏文件（审计）
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.blob();
+      })
       .then((blob) => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = `class-dashboard-${new Date().toISOString().slice(0, 10)}.csv`;
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-      });
+      })
+      .catch(() => toast.error(s('导出失败 · 稍后重试', '匯出失敗 · 稍後重試', 'Export failed · try again')));
   }
 
   return (

@@ -198,12 +198,15 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
   const [description, setDescription] = useState(cls.description ?? '');
 
   // 切换班级时同步表单字段（避免编辑 A 班 cancel 后切到 B 班还显示 A 的内容）
+  // 仅依赖 cls.id（审计）：原先依赖 name/emoji/description · 后台 refetch 让这些字段
+  //   identity 变化会触发重置 · 吞掉用户正在编辑但未保存的内容。
   useEffect(() => {
     setName(cls.name);
     setEmoji(cls.coverEmoji ?? '📚');
     setDescription(cls.description ?? '');
     setEditing(false);
-  }, [cls.id, cls.name, cls.coverEmoji, cls.description]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cls.id]);
 
   const update = useMutation({
     mutationFn: () => api.patch(`/api/admin/classes/${encodeURIComponent(cls.id)}`, {

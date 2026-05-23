@@ -85,7 +85,16 @@ export async function drop(userId: string, courseId: string): Promise<void> {
   });
   if (!existing) return; // 没报名直接 no-op，幂等
   if (existing.enrolledViaClassId) {
-    throw Conflict('该法本由班级带来，请先退出班级再退课');
+    // 仅当指针指向的班"仍在册且未归档"才拦截退课 · 否则是陈旧指针(审计 F3)：
+    //   用户早已不在该班 · 指针未清 → 旧实现让 enrollment 永远删不掉。
+    //   此时清掉陈旧指针并放行删除。
+    const stillMember = await prisma.classMember.findFirst({
+      where: { userId, classId: existing.enrolledViaClassId, removedAt: null, class: { isActive: true } },
+      select: { id: true },
+    });
+    if (stillMember) {
+      throw Conflict('该法本由班级带来，请先退出班级再退课');
+    }
   }
   await prisma.userCourseEnrollment.delete({
     where: { userId_courseId: { userId, courseId } },

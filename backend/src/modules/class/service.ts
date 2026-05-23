@@ -25,7 +25,7 @@ const CLASS_COURSE_INCLUDE = {
 // 用户更易输入 / 记忆 / 口述 · 不区分字母大小写问题
 const JOIN_CODE_CHARS = '0123456789';
 const JOIN_CODE_LEN = 6;
-const MAX_CODE_RETRIES = 3;
+const MAX_CODE_RETRIES = 5;
 
 export interface CreateClassInput {
   name: string;
@@ -43,11 +43,13 @@ export async function createClass(
   if (!course) throw NotFound('指定的法本不存在');
   if (!course.isPublished) throw NotFound('指定的法本未发布');
 
+  // 直接尝试 create · 撞 joinCode 唯一索引(P2002)再重试（审计 F4）
+  //   旧实现先 findUnique 预检查 · 与 create 非原子 · 并发下两请求可生成同码 ·
+  //   其中一个 create 抛 P2002 未捕获→ 500。唯一索引才是唯一真相源。
   for (let i = 0; i < MAX_CODE_RETRIES; i++) {
     const joinCode = generateJoinCode();
-    const exists = await prisma.class.findUnique({ where: { joinCode } });
-    if (!exists) {
-      return prisma.$transaction(async (tx) => {
+    try {
+      return await prisma.$transaction(async (tx) => {
         const cls = await tx.class.create({
           data: {
             name: input.name,
@@ -75,6 +77,15 @@ export async function createClass(
         }
         return cls;
       });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002' &&
+        String(e.meta?.target ?? '').includes('joinCode')
+      ) {
+        continue; // 撞码 · 换一个重试
+      }
+      throw e;
     }
   }
   throw Internal('生成班级加入码失败（多次冲突）');
@@ -510,6 +521,7 @@ export async function listUserClasses(
       class: { isActive: true },
     },
     orderBy: { joinedAt: 'desc' },
+    take: 200, // 防一个用户挂在超多班时无界拉取（审计 F13）
     include: {
       class: {
         include: {
@@ -548,6 +560,7 @@ export async function getClassForMember(classId: string, userId: string) {
           { role: 'desc' }, // coach 在前
           { joinedAt: 'asc' },
         ],
+        take: 500, // 大班详情成员列表上界 · 与 listMembers 口径一致（审计 F13）
       },
     },
   });

@@ -30,7 +30,8 @@ export default function JoinClassPage() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr('');
-    const c = code.trim();
+    // 加入码为 6 位数字 · 去掉空格 / 连字符等粘贴噪音（审计：避免规范化前与后端不匹配）
+    const c = code.replace(/[\s-]+/g, '');
     if (!c) {
       setErr(s('请输入加入码', '請輸入加入碼', 'Enter join code'));
       return;
@@ -55,8 +56,8 @@ export default function JoinClassPage() {
             label={s('加入码', '加入碼', 'Join code')}
             value={code}
             onChange={setCode}
-            placeholder="ABCD-1234"
-            autoCapitalize="characters"
+            placeholder="123456"
+            inputMode="numeric"
             autoComplete="off"
             spellCheck={false}
           />

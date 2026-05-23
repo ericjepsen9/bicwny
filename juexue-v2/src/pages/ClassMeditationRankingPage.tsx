@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
-import { ApiError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
 import { type MeditationRankingPeriod, useClassMeditationRanking } from '@/lib/queries';
@@ -65,10 +64,15 @@ export default function ClassMeditationRankingPage() {
         <div className="glass-card-thick" style={{ padding: 'var(--sp-4)' }}>
           <Skeleton.List />
         </div>
+      ) : ranking.isError ? (
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-7)', textAlign: 'center', color: 'var(--ink-3)' }}>
+          <div style={{ fontSize: '2rem', marginBottom: 'var(--sp-2)' }}>⚠️</div>
+          {s('加载失败 · 稍后重试', '載入失敗 · 稍後重試', 'Failed to load · try again later')}
+        </div>
       ) : !ranking.data || ranking.data.length === 0 ? (
         <div className="glass-card-thick" style={{ padding: 'var(--sp-7)', textAlign: 'center', color: 'var(--ink-3)' }}>
           <div style={{ fontSize: '2rem', marginBottom: 'var(--sp-2)' }}>🧘</div>
-          {(ranking.error as ApiError | undefined)?.message ?? s('暂无观修记录', '暫無觀修記錄', 'No meditation records yet')}
+          {s('暂无观修记录', '暫無觀修記錄', 'No meditation records yet')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
