@@ -705,7 +705,9 @@ model UserAnswer {
   answeredAt  DateTime @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  question Question @relation(fields: [questionId], references: [id])
+  // 显式 Restrict（审计 D1）：题被物理删时拒绝 · 保护学员答题历史
+  //   （dossier / 成就 / 排行 / 大盘均派生自此）· 退役用过的题应走 reject 软退役
+  question Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
   class    Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
 
   @@unique([userId, questionId, requestId])
