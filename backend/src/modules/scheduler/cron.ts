@@ -10,6 +10,8 @@ import { gcOrphanedFiles } from '../courses/cover.service.js';
 import { getBadgeDef } from '../achievements/service.js';
 import { getAssembliesForT1hReminder } from '../dharma-assemblies/service.js';
 import { config } from '../../lib/config.js';
+import { reportJobError } from '../../lib/job-monitor.js';
+import { pruneOldLogs } from '../../lib/log-retention.js';
 
 type ClassSessionTier = 'T-24h' | 'T-30' | 'T-5' | 'T0';
 const TIER_OFFSETS: Record<ClassSessionTier, number> = {
@@ -46,6 +48,7 @@ const PRACTICE_TASK_SEVERITY: Record<PracticeTaskTier, 'normal' | 'urgent'> = {
 };
 
 let timer: NodeJS.Timeout | null = null;
+let retentionTimer: NodeJS.Timeout | null = null;
 let running = false; // 防 tick 重入（上次没跑完下次就来了）
 
 async function tickClassSessions(prisma: PrismaClient): Promise<void> {
@@ -115,7 +118,7 @@ async function tickClassSessions(prisma: PrismaClient): Promise<void> {
           );
         }
       } catch (e) {
-        console.error(`[scheduler] dispatch failed session=${s.id} tier=${tier}`, e);
+        reportJobError('class-session', 'dispatch failed', e, { sessionId: s.id, tier });
       }
     }
   }
@@ -194,7 +197,7 @@ async function tickPracticeTasks(prisma: PrismaClient): Promise<void> {
           );
         }
       } catch (e) {
-        console.error(`[scheduler] practice-task dispatch failed task=${t.id} tier=${tier}`, e);
+        reportJobError('practice-task', 'dispatch failed', e, { taskId: t.id, tier });
       }
     }
   }
@@ -284,7 +287,7 @@ async function tickAchievementUnlocks(prisma: PrismaClient): Promise<void> {
         );
       }
     } catch (e) {
-      console.error(`[scheduler] achievement dispatch failed user=${userId}`, e);
+      reportJobError('achievement', 'dispatch failed', e, { userId });
     }
   }
 }
@@ -331,7 +334,7 @@ async function tickDharmaAssemblies(prisma: PrismaClient): Promise<void> {
           console.log(`[scheduler] dispatched assembly=${a.id} tier=daily_t1h new=${result.newPushedUsers}`);
         }
       } catch (e) {
-        console.error(`[scheduler] assembly dispatch failed id=${a.id}`, e);
+        reportJobError('dharma-assembly', 'dispatch failed', e, { assemblyId: a.id });
       }
     }
     if (users.length < PAGE) break;
@@ -352,7 +355,7 @@ async function tick(prisma: PrismaClient): Promise<void> {
     await tickAchievementUnlocks(prisma);
     await tickDharmaAssemblies(prisma);
   } catch (e) {
-    console.error('[scheduler] tick error', e);
+    reportJobError('tick', 'top-level tick error', e);
   } finally {
     running = false;
   }
@@ -383,10 +386,18 @@ export function startScheduler(prisma: PrismaClient): void {
   // 7 天前的 OrphanedFile 行 + 物理文件一次性清理 · 单次最多 100 行
   gcOrphanedFiles().then((n) => {
     if (n > 0) console.log(`[scheduler] gcOrphanedFiles cleaned ${n} files at startup`);
-  }).catch((e) => console.error('[scheduler] gcOrphanedFiles failed at startup:', e));
+  }).catch((e) => reportJobError('gc-orphaned-files', 'startup GC failed', e));
+
+  // 日志保留清理（审计）· 启动跑一次 + 每 24h 一次 · 防 ErrorLog/DispatchLog 无限膨胀
+  pruneOldLogs(prisma).catch(() => {});
+  retentionTimer = setInterval(() => {
+    pruneOldLogs(prisma).catch(() => {});
+  }, 24 * 60 * 60_000);
 }
 
 export function stopScheduler(): void {
   if (timer) clearInterval(timer);
   timer = null;
+  if (retentionTimer) clearInterval(retentionTimer);
+  retentionTimer = null;
 }

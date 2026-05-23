@@ -3,6 +3,7 @@
 //   - inbox 行 + push 发送原子相关 · push 失败仅日志 · 不回滚 inbox
 //   - v2 扩展：severity / link 校验 / channel 通道粒度日志
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { reportJobError } from '../../lib/job-monitor.js';
 import { sendPushToUsers } from '../push/service.js';
 import {
   filterUsersAllowingPush,
@@ -96,7 +97,7 @@ export async function dispatchToUsers(input: DispatchInput): Promise<DispatchRes
 
   // Link 安全校验
   if (!isValidLink(input.link)) {
-    console.error('[dispatch] invalid link · 跳过派发', { eventKind, eventId, tier, link: input.link });
+    reportJobError('dispatch', 'invalid link · 跳过派发', new Error('invalid link'), { eventKind, eventId, tier, link: input.link });
     return result;
   }
 
@@ -155,13 +156,13 @@ export async function dispatchToUsers(input: DispatchInput): Promise<DispatchRes
           result.newPushedUsers++;
         } catch (e2) {
           if ((e2 as Prisma.PrismaClientKnownRequestError)?.code !== 'P2002') {
-            console.error('[dispatch] insert failed', uid, e2);
+            reportJobError('dispatch', 'insert failed', e2, { userId: uid, eventKind, eventId, tier });
           }
           // unique 冲突 = 并发派发 · 静默跳过
         }
       }
     } else {
-      console.error('[dispatch] tx failed', e);
+      reportJobError('dispatch', 'tx failed', e, { eventKind, eventId, tier });
       throw e;
     }
   }

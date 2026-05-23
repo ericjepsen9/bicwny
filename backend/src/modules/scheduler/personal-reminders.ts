@@ -10,6 +10,7 @@
 //   - 真正贵的是数据库查询（buildPayload）· 仅对命中 hour 的用户跑
 import type { PrismaClient } from '@prisma/client';
 import { dispatchToUsers } from './dispatch.js';
+import { reportJobError } from '../../lib/job-monitor.js';
 import { inQuietHours, userLocalTime } from './time-utils.js';
 import {
   buildDailyDigestPayload,
@@ -202,7 +203,7 @@ async function runEveningDue(
         notificationType: 'reminder',
       });
     } catch (e) {
-      console.error('[scheduler] evening-due failed user=', h.userId, e);
+      reportJobError('evening-due', 'per-user dispatch failed', e, { userId: h.userId });
     }
   }
 }
@@ -243,7 +244,7 @@ async function runDailyDigest(
         notificationType: 'reminder',
       });
     } catch (e) {
-      console.error('[scheduler] daily-digest failed user=', h.userId, e);
+      reportJobError('daily-digest', 'per-user dispatch failed', e, { userId: h.userId });
     }
   }
 }
@@ -284,7 +285,7 @@ async function runWeeklyReport(
         notificationType: 'reminder',
       });
     } catch (e) {
-      console.error('[scheduler] weekly-report failed user=', h.userId, e);
+      reportJobError('weekly-report', 'per-user dispatch failed', e, { userId: h.userId });
     }
   }
 }
