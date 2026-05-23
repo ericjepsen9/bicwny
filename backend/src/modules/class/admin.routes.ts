@@ -5,14 +5,15 @@
 //   GET    /api/admin/classes/:id/members         成员列表
 //   POST   /api/admin/classes/:id/members         添加成员
 //   DELETE /api/admin/classes/:id/members/:userId 移除成员
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { requireRole, requireUserId } from '../../lib/auth.js';
+import { getUserRole, requireRole, requireUserId } from '../../lib/auth.js';
 import { BadRequest } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import {
   addMember,
   archiveClass,
+  assertIsCoachOfClass,
   createClass,
   getClass,
   listMembers,
@@ -22,7 +23,16 @@ import {
 } from './service.js';
 
 // coach 也能管班级 + 成员（用户决策 · 放权 coach 给自己班加/移除学员）
+// 但 coach 只能管「自己的班」· 每个 :id handler 须过 requireClassScope 归属校验
 const adminGuard = requireRole('coach', 'admin');
+
+/** coach 必须是该班 coach；admin 全放行。返回 actor userId。 */
+async function requireClassScope(req: FastifyRequest, classId: string): Promise<string> {
+  const userId = requireUserId(req);
+  if (getUserRole(req) === 'admin') return userId;
+  await assertIsCoachOfClass(userId, classId);
+  return userId;
+}
 
 const idParam = z.object({ id: z.string().min(1) });
 const memberParams = z.object({
@@ -70,9 +80,13 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/api/admin/classes', {
     preHandler: adminGuard,
-    schema: { tags: TAGS, summary: '全部班级列表（含主修法本）', security: SEC },
-  }, async () => {
+    schema: { tags: TAGS, summary: '班级列表（admin 全部 · coach 仅自己班）', security: SEC },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const isAdmin = getUserRole(req) === 'admin';
     const items = await prisma.class.findMany({
+      // coach 只看自己带的班 · 防止跨班泄漏 joinCode / 成员
+      where: isAdmin ? undefined : { members: { some: { userId, role: 'coach', removedAt: null } } },
       orderBy: { createdAt: 'desc' },
       take: 200,
       include: {
@@ -99,7 +113,7 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
       if (!pp.success) throw BadRequest('路径参数不合法');
       const pb = updateBody.safeParse(req.body);
       if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
-      const adminId = requireUserId(req);
+      const adminId = await requireClassScope(req, pp.data.id);
       const cls = await updateClass(pp.data.id, pb.data, { actorAdminId: adminId });
       return { data: cls };
     },
@@ -114,7 +128,7 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
     async (req) => {
       const parsed = idParam.safeParse(req.params);
       if (!parsed.success) throw BadRequest('路径参数不合法');
-      const adminId = requireUserId(req);
+      const adminId = await requireClassScope(req, parsed.data.id);
       const cls = await archiveClass(parsed.data.id, { actorAdminId: adminId });
       return { data: cls };
     },
@@ -129,6 +143,7 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
     async (req) => {
       const parsed = idParam.safeParse(req.params);
       if (!parsed.success) throw BadRequest('路径参数不合法');
+      await requireClassScope(req, parsed.data.id);
       await getClass(parsed.data.id);
       const members = await listMembers(parsed.data.id);
       return { data: members };
@@ -146,8 +161,8 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
       if (!pp.success) throw BadRequest('路径参数不合法');
       const pb = addMemberBody.safeParse(req.body);
       if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
+      const adminId = await requireClassScope(req, pp.data.id);
       await getClass(pp.data.id);
-      const adminId = requireUserId(req);
       const member = await addMember(pp.data.id, pb.data.userId, pb.data.role, {
         actorAdminId: adminId,
       });
@@ -168,7 +183,7 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
       if (!pp.success) throw BadRequest('路径参数不合法');
       const pb = z.object({ role: z.enum(['coach', 'student']) }).safeParse(req.body);
       if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
-      const adminId = requireUserId(req);
+      const adminId = await requireClassScope(req, pp.data.id);
       const m = await setMemberRole(pp.data.id, pp.data.userId, pb.data.role, { actorAdminId: adminId });
       return { data: m };
     },
@@ -183,7 +198,7 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
     async (req) => {
       const parsed = memberParams.safeParse(req.params);
       if (!parsed.success) throw BadRequest('路径参数不合法');
-      const adminId = requireUserId(req);
+      const adminId = await requireClassScope(req, parsed.data.id);
       await removeMember(parsed.data.id, parsed.data.userId, { actorAdminId: adminId });
       return { data: { ok: true } };
     },

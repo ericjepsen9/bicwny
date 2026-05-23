@@ -124,9 +124,13 @@ export async function updateAnnouncement(
 ): Promise<ClassAnnouncement> {
   const a = await prisma.classAnnouncement.findUnique({ where: { id } });
   if (!a) throw NotFound('公告不存在');
-  if (actorRole !== 'admin' && a.authorId !== actorUserId) {
-    // coach 只能改自己发的（admin 超权）
-    throw Forbidden('只能改自己发布的公告');
+  if (actorRole !== 'admin') {
+    // coach 必须是该公告所属班级的在册 coach（防跨班越权）· 且仅能改自己发的
+    const m = await prisma.classMember.findFirst({
+      where: { classId: a.classId, userId: actorUserId, role: 'coach', removedAt: null },
+    });
+    if (!m) throw Forbidden('非该班 coach');
+    if (a.authorId !== actorUserId) throw Forbidden('只能改自己发布的公告');
   }
   if (patch.title !== undefined && (!patch.title.trim() || patch.title.length > 80)) {
     throw BadRequest('标题不合法');
