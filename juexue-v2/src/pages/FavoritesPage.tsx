@@ -38,8 +38,8 @@ export default function FavoritesPage() {
   const remove = useMutation({
     mutationFn: (qid: string) => api.del(`/api/favorites/${encodeURIComponent(qid)}`),
     onSuccess: () => {
+      // 前缀匹配：['/api/favorites'] 已覆盖 ['/api/favorites','count']（gotcha #5）
       qc.invalidateQueries({ queryKey: ['/api/favorites'] });
-      qc.invalidateQueries({ queryKey: ['/api/favorites', 'count'] });
       toast.ok(s('已移除', '已移除', 'Removed'));
     },
     onError: (e) => toast.error((e as ApiError).message),

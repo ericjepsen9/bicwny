@@ -91,11 +91,12 @@ function ConfirmDialog({
     if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onCancel();
-      else if (e.key === 'Enter') onConfirm();
+      // 破坏性操作不让 Enter 直确认（误触不可逆）· 须显式点击
+      else if (e.key === 'Enter' && !danger) onConfirm();
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onCancel, onConfirm]);
+  }, [open, danger, onCancel, onConfirm]);
 
   if (!open) return null;
 
@@ -151,6 +152,7 @@ function ConfirmDialog({
             type="button"
             onClick={onCancel}
             className="btn btn-pill"
+            autoFocus={danger}
             style={{
               flex: 1,
               padding: 12,
@@ -166,7 +168,7 @@ function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             className="btn btn-pill"
-            autoFocus
+            autoFocus={!danger}
             style={{
               flex: 1,
               padding: 12,

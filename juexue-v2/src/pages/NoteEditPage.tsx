@@ -227,9 +227,13 @@ export default function NoteEditPage() {
         right={(
           <button
             type="button"
-            onClick={() => save.mutate()}
-            disabled={save.isPending}
-            style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', background: 'transparent', border: 'none', padding: '4px 10px', cursor: 'pointer', fontWeight: 700 }}
+            onClick={() => {
+              if (!body.trim()) { toast.error(s('笔记内容不能为空', '筆記內容不能為空', 'Note body is empty')); return; }
+              if (llmLoading) { toast.error(s('AI 处理中 · 请稍候', 'AI 處理中 · 請稍候', 'AI is working…')); return; }
+              save.mutate();
+            }}
+            disabled={save.isPending || llmLoading !== null}
+            style={{ font: 'var(--text-caption)', color: 'var(--saffron-dark)', background: 'transparent', border: 'none', padding: '4px 10px', cursor: 'pointer', fontWeight: 700, opacity: save.isPending || llmLoading !== null ? 0.5 : 1 }}
           >
             {save.isPending ? '保存中…' : '保存'}
           </button>

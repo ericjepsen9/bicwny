@@ -120,6 +120,21 @@ export default function QuizPage() {
 
   const confirmed = grades[qi] !== undefined;
 
+  // 汇总按「不同题首次作答」计 · 答错重练（同题再次入队）不重复计数、不污染正确率
+  // 注：进度条用的 total=playQueue.length 不动（那是答题位置进度，含重练是对的）
+  const stats = useMemo(() => {
+    const firstByQ = new Map<number, Grade>();
+    playQueue.forEach((qIdx, pos) => {
+      const g = grades[pos];
+      if (g && !firstByQ.has(qIdx)) firstByQ.set(qIdx, g);
+    });
+    const vals = [...firstByQ.values()];
+    const correct = vals.filter((g) => g.isCorrect === true).length;
+    const wrong = vals.filter((g) => g.isCorrect === false).length;
+    const answered = vals.length;
+    return { correct, wrong, answered, pct: answered > 0 ? Math.round((correct / answered) * 100) : 0 };
+  }, [playQueue, grades]);
+
   const submit = useMutation<SubmitResult, ApiError, void>({
     mutationFn: async () => {
       if (!current) throw new ApiError('No question', 0);
@@ -181,8 +196,7 @@ export default function QuizPage() {
 
   async function finish() {
     setDone(true);
-    // 算正确数
-    const correct = Object.values(grades).filter((g) => g.isCorrect === true).length;
+    const correct = stats.correct;
     const enrolledHere = (enrollments.data ?? []).some((e) => e.courseId === courseId);
     if (lessonId && courseId && enrolledHere) {
       try {
@@ -203,9 +217,9 @@ export default function QuizPage() {
     if (enterTodayAnswered === 0 && total > 0) {
       // 先弹分数 toast · 再延迟弹打卡 toast（避免同时叠加）
       toast.ok(s(
-        `正确 ${correct} / ${total}`,
-        `正確 ${correct} / ${total}`,
-        `Correct ${correct} / ${total}`,
+        `正确 ${correct} / ${stats.answered}`,
+        `正確 ${correct} / ${stats.answered}`,
+        `Correct ${correct} / ${stats.answered}`,
       ));
       setTimeout(() => {
         toast.ok(s(
@@ -216,9 +230,9 @@ export default function QuizPage() {
       }, 800);
     } else {
       toast.ok(s(
-        `正确 ${correct} / ${total}`,
-        `正確 ${correct} / ${total}`,
-        `Correct ${correct} / ${total}`,
+        `正确 ${correct} / ${stats.answered}`,
+        `正確 ${correct} / ${stats.answered}`,
+        `Correct ${correct} / ${stats.answered}`,
       ));
     }
   }
@@ -282,9 +296,7 @@ export default function QuizPage() {
   }
 
   if (done) {
-    const correct = Object.values(grades).filter((g) => g.isCorrect === true).length;
-    const wrong = Object.values(grades).filter((g) => g.isCorrect === false).length;
-    const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+    const { correct, wrong, pct } = stats;
     const title = pct >= 80
       ? s('太棒了', '太棒了', 'Excellent')
       : pct >= 50
@@ -376,7 +388,7 @@ export default function QuizPage() {
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', font: 'var(--text-caption)', color: 'var(--ink-3)', marginBottom: 4 }}>
             <span>{qi + 1} / {total}</span>
-            <span>{s('正确率', '正確率', 'Accuracy')} {Object.values(grades).length > 0 ? Math.round(Object.values(grades).filter((g) => g.isCorrect).length / Object.values(grades).length * 100) : 0}%</span>
+            <span>{s('正确率', '正確率', 'Accuracy')} {stats.pct}%</span>
           </div>
           <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
             <div

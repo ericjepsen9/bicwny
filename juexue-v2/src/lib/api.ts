@@ -64,7 +64,8 @@ async function refreshOnce(): Promise<void> {
         await clearTokens();
         throw new ApiError('Refresh failed', res.status);
       }
-      const data = (await res.json()).data ?? (await res.json());
+      const json = await res.json(); // body stream 只能读一次
+      const data = json.data ?? json;
       await setTokens({
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,

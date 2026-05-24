@@ -122,8 +122,8 @@ export default function HomePage() {
   // 下拉刷新
   const { indicator: pullIndicator } = usePullToRefresh(() =>
     Promise.all([
-      qc.invalidateQueries({ queryKey: ['/api/enrollments'] }),
-      qc.invalidateQueries({ queryKey: ['/api/progress'] }),
+      qc.invalidateQueries({ queryKey: ['/api/my/enrollments'] }),
+      qc.invalidateQueries({ queryKey: ['/api/my/progress'] }),
       qc.invalidateQueries({ queryKey: ['/api/posters/current'] }),
       qc.invalidateQueries({ queryKey: ['/api/calendar/today'] }),
     ]),

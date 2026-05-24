@@ -59,7 +59,7 @@ export default function PracticePage() {
             <SectionTitle>{s('任务', '任務', 'Tasks')}</SectionTitle>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
               {(tasks.data ?? []).map((t) => {
-                const pct = Math.min(100, Math.round((t.progress / t.target) * 100));
+                const pct = t.target > 0 ? Math.min(100, Math.round((t.progress / t.target) * 100)) : 0;
                 return (
                   <Link key={t.id} to={`/practice/project/${t.project.id}`} className="glass-card-thick" style={{
                     padding: 'var(--sp-3) var(--sp-4)',

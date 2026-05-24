@@ -101,19 +101,23 @@ export default function MeditationPlayerPage() {
     }
   }
 
+  // latest-ref：interval 只依赖 sessionId 重建 · 但每次 tick 调最新 reportProgress
+  //   否则闭包会锁死首次渲染的 isCompleted（完成后仍读旧 false → 每 10s 重复弹完成 toast）
+  const reportRef = useRef(reportProgress);
+  reportRef.current = reportProgress;
+
   useEffect(() => {
     if (!sessionId) return;
     const timer = setInterval(() => {
       const video = videoRef.current;
       if (!video || video.paused) return;
-      void reportProgress();
+      void reportRef.current();
     }, PROGRESS_INTERVAL_MS);
     return () => {
       clearInterval(timer);
       // 卸载前再 patch 一次（兜底）
-      void reportProgress();
+      void reportRef.current();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   // ── 4. 手动完成 ────────────────────────────────────
