@@ -14,6 +14,11 @@ try {
   process.exit(1);
 }
 
+// 生产无 Sentry DSN = 5xx 只落库无人主动告警（审计 4.3）· 启动时大声提醒，避免静默裸奔
+if (config.NODE_ENV === 'production' && !config.SENTRY_DSN_BACKEND) {
+  app.log.warn('SENTRY_DSN_BACKEND 未配置 · 5xx/未捕获异常无主动告警（仅落 ErrorLog 表）· 强烈建议配置');
+}
+
 // 启动通知调度器（每 60s tick · 推送 ClassSession 三档提醒）
 // env CRON_ENABLED=false 时 no-op
 startScheduler(prisma);
