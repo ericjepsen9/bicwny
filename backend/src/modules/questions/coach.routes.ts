@@ -32,23 +32,23 @@ const createBody = z.object({
   type: questionTypeEnum,
   visibility: z.enum(['class_private', 'public']),
   ownerClassId: z.string().optional(),
-  questionText: z.string().min(1),
-  correctText: z.string(),
-  wrongText: z.string(),
-  source: z.string(),
+  questionText: z.string().min(1).max(4000),
+  correctText: z.string().max(8000),
+  wrongText: z.string().max(8000),
+  source: z.string().max(500),
   difficulty: z.number().int().min(1).max(5).optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string().max(40)).max(20).optional(),
   payload: z.any(),
 });
 
 const updateBody = z
   .object({
-    questionText: z.string().min(1).optional(),
-    correctText: z.string().optional(),
-    wrongText: z.string().optional(),
-    source: z.string().optional(),
+    questionText: z.string().min(1).max(4000).optional(),
+    correctText: z.string().max(8000).optional(),
+    wrongText: z.string().max(8000).optional(),
+    source: z.string().max(500).optional(),
     difficulty: z.number().int().min(1).max(5).optional(),
-    tags: z.array(z.string()).optional(),
+    tags: z.array(z.string().max(40)).max(20).optional(),
     payload: z.any().optional(),
     type: questionTypeEnum.optional(),
   })

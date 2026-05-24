@@ -385,6 +385,9 @@ function LlmBtn({ label, loading, onClick }: { label: string; loading: boolean; 
   );
 }
 
+// 链接 scheme 白名单 · 拒绝 javascript:/data: 等危险 scheme
+const SAFE_URL = /^(https?:\/\/|mailto:|\/|#|\.\/|\.\.\/)/i;
+
 // 极简 markdown → HTML · 仅支持基础语法 · 不引第三方库
 function mdToHtml(md: string): string {
   let html = escapeHtml(md);
@@ -395,8 +398,12 @@ function mdToHtml(md: string): string {
   // 粗体 / 斜体
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  // 链接
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+  // 链接 · 仅放行安全 scheme（http/https/mailto/相对路径）· 其余退化为纯文本防 javascript: 等 XSS
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text: string, url: string) =>
+    SAFE_URL.test(url.trim())
+      ? `<a href="${url}" target="_blank" rel="noreferrer noopener">${text}</a>`
+      : text,
+  );
   // 列表 · 先把 - 行转 <li> · 然后把连续 <li>（含中间空白）整体包 <ul>
   // 原 /s flag + 单次 replace 在多组列表场景下会贪婪吃中间非列表内容 · 改为 /g + 非贪婪并要求连续
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
@@ -407,5 +414,10 @@ function mdToHtml(md: string): string {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

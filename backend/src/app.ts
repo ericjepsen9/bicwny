@@ -73,6 +73,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   initSentry();
 
   const app = Fastify({
+    // nginx 反代下信任 X-Forwarded-For · 否则 req.ip 全部归一到代理 IP · 让 IP 维度限流失真
+    trustProxy: true,
     // Fastify 默认 bodyLimit = 1 MB · admin 法本 commit 的 chapters JSON 可能 3-5 MB
     // 设 25 MB 与 nginx client_max_body_size 一致 · 单文件上限仍由 @fastify/multipart 兜底 20 MB
     bodyLimit: 25 * 1024 * 1024,
@@ -193,10 +195,14 @@ export async function buildApp(): Promise<FastifyInstance> {
       },
     },
   });
-  await app.register(fastifySwaggerUi, {
-    routePrefix: '/docs',
-    uiConfig: { docExpansion: 'list', deepLinking: false },
-  });
+  // Swagger UI 仅在非生产挂载 · 生产不暴露 /docs（避免泄漏完整 API 结构）
+  // 如需生产排障 · 走 nginx basic-auth 反代或临时开 dev 实例
+  if (isDev) {
+    await app.register(fastifySwaggerUi, {
+      routePrefix: '/docs',
+      uiConfig: { docExpansion: 'list', deepLinking: false },
+    });
+  }
 
   // 规范位置的 JSON（/docs/json 是 swagger-ui 内部路径，/openapi.json 做别名方便外部消费）
   app.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());

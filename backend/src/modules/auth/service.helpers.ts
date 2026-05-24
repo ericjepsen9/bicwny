@@ -53,6 +53,6 @@ export async function issuePair(
       expiresAt: getRefreshExpiresAt(),
     },
   });
-  const accessToken = signAccessToken(app, { sub: user.id, role: user.role });
+  const accessToken = signAccessToken(app, { sub: user.id, role: user.role, sid });
   return { accessToken, refreshToken };
 }

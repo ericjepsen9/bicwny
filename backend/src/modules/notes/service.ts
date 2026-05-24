@@ -1,6 +1,7 @@
 // 笔记 service · CRUD + 全文搜索 + 班级可见性
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
+import { sanitizeRichText } from '../../lib/text-sanitize.js';
 
 export interface NoteDto {
   id: string;
@@ -176,7 +177,7 @@ export async function createNote(prisma: PrismaClient, userId: string, input: Cr
       lessonId: input.lessonId ?? null,
       courseId,
       title: input.title.trim(),
-      body: input.body,
+      body: sanitizeRichText(input.body) ?? '',
       tags: (input.tags ?? []) as Prisma.InputJsonValue,
       visibility: input.visibility === 'class' ? 'class' : 'private',
       anchorText: input.anchorText?.slice(0, 80) ?? null,
@@ -204,7 +205,7 @@ export async function updateNote(prisma: PrismaClient, userId: string, noteId: s
 
   const data: Prisma.NoteUpdateInput = {};
   if (input.title !== undefined) data.title = input.title.trim();
-  if (input.body !== undefined) data.body = input.body;
+  if (input.body !== undefined) data.body = sanitizeRichText(input.body) ?? '';
   if (input.tags !== undefined) data.tags = input.tags as Prisma.InputJsonValue;
   if (input.visibility !== undefined) data.visibility = input.visibility === 'class' ? 'class' : 'private';
   if (input.pinned !== undefined) data.pinnedAt = input.pinned ? new Date() : null;

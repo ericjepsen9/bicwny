@@ -10,7 +10,7 @@
 //     GET    /api/my/top-home-card                         单条 · 用于首页卡
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requireUserId } from '../../../lib/auth.js';
+import { requireRole, requireUserId } from '../../../lib/auth.js';
 import { BadRequest } from '../../../lib/errors.js';
 import {
   createSession,
@@ -24,6 +24,9 @@ import {
 
 const TAGS = ['ClassSessions'];
 const SEC = [{ bearerAuth: [] as string[] }];
+
+// 辅导员路由的角色守卫（纵深防御 · service 层 assertCoachOfClass 仍是归属兜底）
+const coachGuard = requireRole('coach', 'admin');
 
 const classIdParam = z.object({ classId: z.string().min(1) });
 const idParam = z.object({ id: z.string().min(1) });
@@ -55,6 +58,7 @@ const upcomingQuery = z.object({
 export const classSessionsRoutes: FastifyPluginAsync = async (app) => {
   // 辅导员：列表
   app.get('/api/coach/classes/:classId/sessions', {
+    preHandler: coachGuard,
     schema: { tags: TAGS, summary: '辅导员：班级排课列表', security: SEC },
   }, async (req) => {
     const userId = requireUserId(req); // service 内 assertCoachOfClass 校验本班 coach
@@ -67,6 +71,7 @@ export const classSessionsRoutes: FastifyPluginAsync = async (app) => {
 
   // 辅导员：新建
   app.post('/api/coach/classes/:classId/sessions', {
+    preHandler: coachGuard,
     schema: { tags: TAGS, summary: '辅导员：新建排课', security: SEC },
   }, async (req, reply) => {
     const userId = requireUserId(req);
@@ -88,6 +93,7 @@ export const classSessionsRoutes: FastifyPluginAsync = async (app) => {
 
   // 辅导员：编辑
   app.patch('/api/coach/sessions/:id', {
+    preHandler: coachGuard,
     schema: { tags: TAGS, summary: '辅导员：编辑排课', security: SEC },
   }, async (req) => {
     const userId = requireUserId(req);
@@ -107,6 +113,7 @@ export const classSessionsRoutes: FastifyPluginAsync = async (app) => {
 
   // 辅导员：删除
   app.delete('/api/coach/sessions/:id', {
+    preHandler: coachGuard,
     schema: { tags: TAGS, summary: '辅导员：删除排课', security: SEC },
   }, async (req, reply) => {
     const userId = requireUserId(req);

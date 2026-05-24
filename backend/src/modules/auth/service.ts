@@ -110,6 +110,21 @@ export async function refreshSession(
     where: { id: payload.sid },
     include: { user: true },
   });
+  // reuse detection：呈递的 refresh token 哈希命中一条「已被吊销」的 session →
+  //   说明这是一个被轮换/登出后理应作废的旧 token 又被拿来用（典型为被盗后重放）。
+  //   止血：吊销该用户全部活跃 session，强制所有设备重登。
+  //   代价：网络丢包导致客户端拿旧 token 重试时也会被判为重放 → 全端登出（已知权衡）。
+  if (
+    session &&
+    session.revokedAt &&
+    session.refreshTokenHash === hashRefreshToken(refreshToken)
+  ) {
+    await prisma.authSession.updateMany({
+      where: { userId: session.userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    throw Unauthorized('refresh token 已失效');
+  }
   if (
     !session ||
     session.revokedAt ||

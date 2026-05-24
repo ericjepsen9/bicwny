@@ -14,6 +14,7 @@ const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export interface AccessPayload {
   sub: string; // userId
   role: UserRole;
+  sid: string; // AuthSession.id · 让 access token 也能定位当前设备（会话管理/远程登出依赖）
   aud: 'access';
   iat?: number;
   exp?: number;
@@ -29,7 +30,7 @@ export interface RefreshPayload {
 
 export function signAccessToken(
   app: FastifyInstance,
-  payload: { sub: string; role: UserRole },
+  payload: { sub: string; role: UserRole; sid: string },
 ): string {
   return app.jwt.sign(
     { ...payload, aud: 'access' as const },

@@ -254,6 +254,8 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
   // 改密后会吊销所有 session，前端应立即清 token 跳登录
   app.post('/api/auth/change-password', {
+    // 已登录态防暴破 currentPassword（与 login/forgot 同档限流）
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     schema: {
       tags: TAGS, summary: '修改密码（改后所有会话吊销）',
       security: [{ bearerAuth: [] }],

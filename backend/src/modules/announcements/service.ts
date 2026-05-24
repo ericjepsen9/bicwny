@@ -12,6 +12,7 @@ import type { ClassAnnouncement } from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import sharp from 'sharp';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
+import { sanitizeRichText } from '../../lib/text-sanitize.js';
 import { prisma } from '../../lib/prisma.js';
 import { dispatchToUsers } from '../scheduler/dispatch.js';
 
@@ -73,7 +74,7 @@ export async function createAnnouncement(input: CreateInput): Promise<ClassAnnou
       classId: input.classId,
       authorId: input.authorId,
       title: input.title.trim(),
-      body: input.body,
+      body: sanitizeRichText(input.body) ?? '',
       imageUrls: input.imageUrls && input.imageUrls.length > 0 ? (input.imageUrls as Prisma.InputJsonValue) : Prisma.DbNull,
       pinnedAt: input.pinned ? new Date() : null,
     },
@@ -140,7 +141,7 @@ export async function updateAnnouncement(
 
   const data: Prisma.ClassAnnouncementUpdateInput = {};
   if (patch.title !== undefined) data.title = patch.title.trim();
-  if (patch.body !== undefined) data.body = patch.body;
+  if (patch.body !== undefined) data.body = sanitizeRichText(patch.body) ?? '';
   if (patch.imageUrls !== undefined) {
     data.imageUrls = patch.imageUrls === null || patch.imageUrls.length === 0
       ? Prisma.DbNull

@@ -7,6 +7,7 @@
 import type { FeedbackKind, FeedbackStatus, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
+import { sanitizeRichText } from '../../lib/text-sanitize.js';
 import { dispatchToUsers } from '../scheduler/dispatch.js';
 
 const MAX_MESSAGE = 4000;
@@ -35,7 +36,7 @@ function trimOrNull(s: string | null | undefined, max: number): string | null {
 }
 
 export async function submitFeedback(input: SubmitInput) {
-  const message = trimOrNull(input.message, MAX_MESSAGE);
+  const message = sanitizeRichText(trimOrNull(input.message, MAX_MESSAGE));
   if (!message || message.length < 2) throw BadRequest('反馈内容过短');
 
   // 匿名提交必须给 contactEmail · 否则 admin 没法回复
