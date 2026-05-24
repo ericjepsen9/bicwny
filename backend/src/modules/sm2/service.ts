@@ -9,7 +9,7 @@
 // 不进入此函数。本函数只在"非幂等"或"首次 requestId"下被调用。
 import { Prisma } from '@prisma/client';
 import type { PrismaClient, Sm2Card, Sm2Status } from '@prisma/client';
-import { prisma } from '../../lib/prisma.js';
+import { prisma, withSerializableRetry } from '../../lib/prisma.js';
 import { getUserActiveClassIds } from '../questions/list.service.js';
 import {
   INITIAL_STATE,
@@ -31,10 +31,11 @@ export async function scheduleReview(
   // 审计 D4：独立调用（无外层事务）把 读+upsert 包进 Serializable 事务 ·
   //   防并发自评从同一 prev 计算导致调度漂移。答题主流程传入 tx（db !== prisma）时已在事务内 · 不再嵌套。
   if (db === prisma) {
-    return prisma.$transaction(
+    // 冲突自动重试（并发自评从同一 prev 计算会触发 P2034）
+    return withSerializableRetry(() => prisma.$transaction(
       (tx) => runScheduleReview(tx, userId, courseId, questionId, rating, now),
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+    ));
   }
   return runScheduleReview(db, userId, courseId, questionId, rating, now);
 }

@@ -3,8 +3,9 @@
 //   两条入口共用本模块的校验/配额逻辑：
 //     1) 专用端点 POST /api/practice/makeup —— 纯保连续 · 不加计数（要求那天本是空白）
 //     2) 批量录入回填过去日期 —— 既写计数也占同一份周配额（收紧原「无限回填」）
-import type { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { BadRequest } from '../../lib/errors.js';
+import { withSerializableRetry } from '../../lib/prisma.js';
 import { periodStart } from '../../lib/period.js';
 import { addDaysToDateKey, zonedDateKey } from '../../lib/timezone.js';
 
@@ -74,15 +75,19 @@ export async function createMakeup(prisma: PrismaClient, userId: string, date: s
   });
   if (hasCount) throw BadRequest('那天已有修学记录 · 无需补签');
 
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.practiceMakeup.findUnique({ where: { userId_date: { userId, date } } });
-    if (existing) throw BadRequest('那天已补签过');
-    if ((await usedThisWeek(tx, userId)) >= MAKEUP_PER_WEEK) {
-      throw BadRequest(`本周补签额度已用完（每周 ${MAKEUP_PER_WEEK} 次）`);
-    }
-    await tx.practiceMakeup.create({ data: { userId, date } });
-    return getMakeupStatus(tx, userId);
-  });
+  // Serializable + 重试：配额 count 的读-写依赖在并发「不同日期补签」时触发 abort，
+  //   防止两请求各读 used=0 双双通过、突破每周 1 次（@@unique[userId,date] 只挡同日）
+  return withSerializableRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const existing = await tx.practiceMakeup.findUnique({ where: { userId_date: { userId, date } } });
+      if (existing) throw BadRequest('那天已补签过');
+      if ((await usedThisWeek(tx, userId)) >= MAKEUP_PER_WEEK) {
+        throw BadRequest(`本周补签额度已用完（每周 ${MAKEUP_PER_WEEK} 次）`);
+      }
+      await tx.practiceMakeup.create({ data: { userId, date } });
+      return getMakeupStatus(tx, userId);
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }),
+  );
 }
 
 /**

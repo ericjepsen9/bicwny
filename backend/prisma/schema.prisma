@@ -144,6 +144,8 @@ model ClassMember {
   @@index([classId, role])
   // listMembers / removeMember 多按 (classId 或 userId, removedAt=null) 查活跃成员
   @@index([userId, removedAt])
+  // 全班 fan-out / 统计最热：where {classId, removedAt: null, role}
+  @@index([classId, removedAt, role])
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -163,6 +165,8 @@ model AuthSession {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
+  // 吊销会话（改密 / 登出 / 封号）多按 (userId, revokedAt=null)
+  @@index([userId, revokedAt])
 }
 
 // 密码找回 token · 明文发邮件 / 短信给用户，DB 只存 sha256

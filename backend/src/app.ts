@@ -288,6 +288,13 @@ export async function buildApp(): Promise<FastifyInstance> {
       });
     }
 
+    // Prisma 序列化失败 / 写冲突 / 死锁（Serializable 事务）· 映射为可重试 409 而非 500
+    // 服务层多数已用 withSerializableRetry 自动重试 · 这里兜底未包装的路径
+    if ((err as { code?: string }).code === 'P2034') {
+      req.log.warn('serialization conflict (P2034) → 409');
+      return reply.code(409).send({ error: 'CONFLICT_RETRY', message: '操作冲突 · 请重试' });
+    }
+
     req.log.error({ err }, 'Unhandled error');
     const e = err instanceof Error ? err : new Error(String(err));
 

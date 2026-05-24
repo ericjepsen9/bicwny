@@ -10,7 +10,8 @@ import { getUserRole, requireRole, requireUserId } from '../../lib/auth.js';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { dispatchToUsers } from '../scheduler/dispatch.js';
-import { dateKey, lastNDates } from './utils.js';
+import { dateKey } from './utils.js';
+import { periodStartDate } from '../../lib/period.js';
 
 const TAGS = ['Coach'];
 const SEC = [{ bearerAuth: [] as string[] }];
@@ -250,9 +251,8 @@ export const practiceCoachRoutes: FastifyPluginAsync = async (app) => {
     await assertClassCoach(pp.data.id, requireUserId(req), getUserRole(req) ?? '');
 
     const period = q.data.period ?? 'week';
-    const dateRange = period === 'week' ? lastNDates(7)
-      : period === 'month' ? lastNDates(30)
-      : null;
+    // 与学员侧排行口径统一：自然周（纽约周一起）/ 自然月（1 号起），非滚动 7/30 天
+    const periodFrom = periodStartDate(period);
 
     // 班级活跃成员（公开计数的）
     const members = await prisma.classMember.findMany({
@@ -272,7 +272,7 @@ export const practiceCoachRoutes: FastifyPluginAsync = async (app) => {
       by: ['userId'],
       where: {
         userId: { in: userIds },
-        ...(dateRange ? { date: { in: dateRange } } : {}),
+        ...(periodFrom ? { date: { gte: periodFrom } } : {}),
         ...(categoryFilter ? { categoryId: categoryFilter } : {}),
       },
       _sum: { count: true },

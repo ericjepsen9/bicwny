@@ -11,7 +11,7 @@
 
 import { Prisma, type Meditation, type MeditationSession } from '@prisma/client';
 import { BadRequest, NotFound } from '../../lib/errors.js';
-import { prisma } from '../../lib/prisma.js';
+import { prisma, withSerializableRetry } from '../../lib/prisma.js';
 
 const COMPLETION_THRESHOLD = 0.8;
 
@@ -187,7 +187,8 @@ async function markCourseEnrollmentMeditationDone(
 ): Promise<void> {
   if (!courseId) return;
   // 审计 D3：读-改-写进 Serializable 事务 · 防同课多观修并发完成时数组互相覆盖（丢更新）
-  await prisma.$transaction(async (tx) => {
+  // 冲突自动重试（学员可能短时连续完成多观修触发 P2034）
+  await withSerializableRetry(() => prisma.$transaction(async (tx) => {
     const enrollment = await tx.userCourseEnrollment.findUnique({
       where: { userId_courseId: { userId, courseId } },
       select: { meditationsCompleted: true },
@@ -201,7 +202,7 @@ async function markCourseEnrollmentMeditationDone(
         lastStudiedAt: new Date(),
       },
     });
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 }
 
 /** 我的观修历史 · 列出该用户完成过的所有观修（按 completedAt desc · 跨课程） */

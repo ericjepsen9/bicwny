@@ -4,8 +4,9 @@
 //   - 上报 entry 批次（写明细 + upsert daily summary）
 //   - 总汇 / 历史聚合 / streak
 //   - 目标 / 任务 CRUD（学员视角）
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { BadRequest, Forbidden, NotFound } from '../../lib/errors.js';
+import { withSerializableRetry } from '../../lib/prisma.js';
 import { calcStreak, dateKey, lastNDates } from './utils.js';
 import { MAKEUP_WINDOW_DAYS, getMakeupStatus, reserveBackfillMakeups } from './makeup.js';
 import { addDaysToDateKey } from '../../lib/timezone.js';
@@ -234,7 +235,9 @@ export async function submitEntries(
   // 过去日期（非今天）= 回填 · 占用每周补签配额（事务内校验 · 超额整批回滚）
   const pastDates = [...aggregateByDate.values()].map((a) => a.date).filter((d) => d !== today);
 
-  await prisma.$transaction(async (tx) => {
+  // 回填路径需 Serializable + 重试保护每周配额（reserveBackfillMakeups 的 count 校验）；
+  //   纯今日打卡走默认隔离级即可（daily summary 用原子 increment · 无需序列化）
+  const runTxn = () => prisma.$transaction(async (tx) => {
     if (pastDates.length > 0) await reserveBackfillMakeups(tx, userId, pastDates, today);
     // 写明细 · createdAt 用回填日期 UTC noon（避开 timezone 边界）
     await tx.practiceEntry.createMany({
@@ -267,7 +270,8 @@ export async function submitEntries(
         update: { count: { increment: agg.count } },
       });
     }
-  });
+  }, pastDates.length > 0 ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } : undefined);
+  await (pastDates.length > 0 ? withSerializableRetry(runTxn) : runTxn());
   return { ok: true, accepted: items.length };
 }
 

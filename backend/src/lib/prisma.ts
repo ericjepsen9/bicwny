@@ -80,3 +80,23 @@ export const prisma = globalForPrisma.prisma ?? createClient();
 if (!isProd) {
   globalForPrisma.prisma = prisma;
 }
+
+/**
+ * 包装 Serializable 事务：遇 P2034（序列化失败 / 写冲突 / 死锁）自动重试。
+ * 多处 Serializable 事务的注释承诺「让一方 abort 重试」· 此处兑现。
+ * 默认最多重试 3 次（共 4 次尝试）· 退避带抖动避免活锁。
+ */
+export async function withSerializableRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const code = (e as Prisma.PrismaClientKnownRequestError)?.code;
+      if (code === 'P2034' && attempt < retries) {
+        await new Promise((r) => setTimeout(r, 10 * (attempt + 1) + Math.random() * 10));
+        continue;
+      }
+      throw e;
+    }
+  }
+}

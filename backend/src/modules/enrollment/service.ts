@@ -3,7 +3,7 @@
 // 退课：硬删（历史若需要保留可再加 archivedAt，Sprint 3 暂不需要）。
 import { Prisma, type UserCourseEnrollment } from '@prisma/client';
 import { Conflict, NotFound } from '../../lib/errors.js';
-import { prisma } from '../../lib/prisma.js';
+import { prisma, withSerializableRetry } from '../../lib/prisma.js';
 
 export interface UpdateProgressInput {
   /** 推进到某课；传 null 代表清空 */
@@ -155,7 +155,8 @@ export async function updateProgress(
   }
 
   // 审计 D2：读-改-写进 Serializable 事务 · 防同课不同节并发完成时数组互相覆盖（丢更新）
-  return prisma.$transaction(async (tx) => {
+  // 冲突自动重试（学员可能短时连续完成多节触发 P2034）
+  return withSerializableRetry(() => prisma.$transaction(async (tx) => {
     const cur = await tx.userCourseEnrollment.findUnique({
       where: { userId_courseId: { userId, courseId } },
       select: { lessonsCompleted: true },
@@ -171,7 +172,7 @@ export async function updateProgress(
         lessonsCompleted,
       },
     });
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 }
 
 export async function markCompleted(

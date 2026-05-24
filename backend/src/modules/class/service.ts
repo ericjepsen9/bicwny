@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { type Class, type ClassMember, type ClassMemberRole, Prisma } from '@prisma/client';
 import { BadRequest, Conflict, Forbidden, Internal, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
+import { bumpRankingPrivacyVersion } from '../../lib/ranking-cache.js';
 import { migratePracticeOnLeave, migratePracticeOnArchive } from '../practice/migration.js';
 import { dispatchToUsers } from '../scheduler/dispatch.js';
 
@@ -225,6 +226,7 @@ export async function addMember(
     });
   }
 
+  bumpRankingPrivacyVersion(); // 成员集变动 · 失效排行缓存（移出/新增即时反映）
   return result;
 }
 
@@ -257,7 +259,7 @@ export async function setMemberRole(
   role: ClassMemberRole,
   opts: { actorAdminId?: string } = {},
 ): Promise<ClassMember> {
-  return prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
     const before = await tx.classMember.findUnique({
       where: { classId_userId: { classId, userId } },
     });
@@ -298,6 +300,8 @@ export async function setMemberRole(
     }
     return updated;
   });
+  bumpRankingPrivacyVersion(); // 角色变动影响排行可见成员集
+  return updated;
 }
 
 /**
@@ -371,6 +375,8 @@ export async function removeMember(
   }, {
     isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
   });
+
+  bumpRankingPrivacyVersion(); // 成员移出 · 失效排行缓存
 
   // spec §3 ⑨ MembershipChange · kicked tier · urgent
   // 仅 admin/coach 操作时通知（self-leave 即用户主动退班 · 不发通知 · 隐私原则）

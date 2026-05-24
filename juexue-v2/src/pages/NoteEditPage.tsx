@@ -142,6 +142,7 @@ export default function NoteEditPage() {
     onSuccess: (n) => {
       qc.invalidateQueries({ queryKey: ['/api/notes'] });
       qc.invalidateQueries({ queryKey: ['/api/notes', n.id] });
+      qc.invalidateQueries({ queryKey: ['/api/notes/shared'] }); // 分享/取消分享后刷新班级共享页
       toast.ok(isNew ? '✓ 已创建' : '✓ 已保存');
       if (isNew) {
         // 保留 backTo · 让保存后再按返回仍能跳回阅读页
@@ -156,6 +157,7 @@ export default function NoteEditPage() {
     mutationFn: () => api.del(`/api/notes/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/notes'] });
+      qc.invalidateQueries({ queryKey: ['/api/notes/shared'] });
       toast.ok('已删除');
       navigate('/notes', { replace: true });
     },
@@ -167,6 +169,7 @@ export default function NoteEditPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/notes'] });
       qc.invalidateQueries({ queryKey: ['/api/notes', id] });
+      qc.invalidateQueries({ queryKey: ['/api/notes/shared'] });
       toast.ok(isArchived ? '✓ 已取消归档' : '✓ 已归档');
     },
     onError: (e) => toast.error('归档失败: ' + (e as ApiError).message),
