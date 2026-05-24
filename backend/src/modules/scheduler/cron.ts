@@ -52,14 +52,15 @@ let timer: NodeJS.Timeout | null = null;
 let retentionTimer: NodeJS.Timeout | null = null;
 let running = false; // 防 tick 重入（上次没跑完下次就来了）
 
-async function tickClassSessions(prisma: PrismaClient): Promise<void> {
+async function tickClassSessions(prisma: PrismaClient, sinceMs: number): Promise<void> {
   const now = Date.now();
   // 分档窄窗 OR（审计）· 每档 [now+offset±90s] · 只取真正临近某档的 session ·
   //   旧实现一次扫 [now-90s, now+24h+90s] 全量 · 加 T-24h 后每 60s 拉 24h 内所有 session+成员 ·
   //   绝大多数会被内存窗口过滤掉 · 纯浪费 I/O。
+  // sinceMs：稳态 = now（窗口不变）· 启动补发 = 上次 tick（下界回扫 · DispatchLog 去重防双发）
   const tierWindows = (Object.values(TIER_OFFSETS) as number[]).map((offset) => ({
     startAt: {
-      gte: new Date(now + offset - WINDOW_MS),
+      gte: new Date(sinceMs + offset - WINDOW_MS),
       lte: new Date(now + offset + WINDOW_MS),
     },
   }));
@@ -97,8 +98,8 @@ async function tickClassSessions(prisma: PrismaClient): Promise<void> {
 
     for (const [tier, offset] of Object.entries(TIER_OFFSETS) as [ClassSessionTier, number][]) {
       const expected = startMs - offset; // 期望触发时刻（startAt - 偏移）
-      const diff = Math.abs(now - expected);
-      if (diff > WINDOW_MS) continue; // 不在该 tier 窗口
+      // 触发条件：期望时刻落在 [sinceMs-WINDOW, now+WINDOW]（稳态 sinceMs=now 即原 ±WINDOW）
+      if (expected > now + WINDOW_MS || expected < sinceMs - WINDOW_MS) continue;
 
       const notifType: NotifType = tier === 'T0' ? 'class_session' : 'class_session_soon';
       try {
@@ -135,11 +136,11 @@ async function tickClassSessions(prisma: PrismaClient): Promise<void> {
  *   - 缺点：已完成的学员会收到一次「确认」提醒（噪音较小 · 可接受）
  *   - TODO 优化：v3 时按 (userId, projectId) 聚合 PracticeEntry vs target 过滤
  */
-async function tickPracticeTasks(prisma: PrismaClient): Promise<void> {
+async function tickPracticeTasks(prisma: PrismaClient, sinceMs: number): Promise<void> {
   const now = Date.now();
   // 一次性查所有候选 · 内存中分档（避免双查询）
-  // 最远 = t24h + 90s · 最近 = t6h - 90s
-  const minEnd = new Date(now + PRACTICE_TASK_OFFSETS.task_t6h - WINDOW_MS);
+  // 最远 = t24h + 90s · 最近 = t6h - 90s（sinceMs 下界回扫支持启动补发）
+  const minEnd = new Date(sinceMs + PRACTICE_TASK_OFFSETS.task_t6h - WINDOW_MS);
   const maxEnd = new Date(now + PRACTICE_TASK_OFFSETS.task_t24h + WINDOW_MS);
 
   const tasks = await prisma.practiceTask.findMany({
@@ -177,7 +178,7 @@ async function tickPracticeTasks(prisma: PrismaClient): Promise<void> {
 
     for (const [tier, offset] of Object.entries(PRACTICE_TASK_OFFSETS) as [PracticeTaskTier, number][]) {
       const expected = endMs - offset; // 期望触发时刻
-      if (Math.abs(now - expected) > WINDOW_MS) continue; // 不在该 tier 窗口
+      if (expected > now + WINDOW_MS || expected < sinceMs - WINDOW_MS) continue; // 不在窗口（含补发回扫）
 
       try {
         const result = await dispatchToUsers({
@@ -343,18 +344,45 @@ async function tickDharmaAssemblies(prisma: PrismaClient): Promise<void> {
   }
 }
 
-async function tick(prisma: PrismaClient): Promise<void> {
+// 心跳（审计 4.2）· 存最近一次成功 tick 的时刻 · 供启动补发回扫 + /health 探测「调度器卡死/停摆」
+const HEARTBEAT_KEY = 'scheduler:lastTickAt';
+const CATCHUP_CAP_MS = 15 * 60_000; // 补发回扫上限 · 防停机过久后回放过期提醒
+
+async function writeHeartbeat(prisma: PrismaClient): Promise<void> {
+  // 心跳写失败不应中断 tick（best-effort）
+  await prisma.systemSetting.upsert({
+    where: { key: HEARTBEAT_KEY },
+    create: { key: HEARTBEAT_KEY, value: Date.now() },
+    update: { value: Date.now() },
+  }).catch(() => {});
+}
+
+async function readHeartbeat(prisma: PrismaClient): Promise<number | null> {
+  const row = await prisma.systemSetting.findUnique({ where: { key: HEARTBEAT_KEY } });
+  return typeof row?.value === 'number' ? row.value : null;
+}
+
+/** /health/detailed 用：调度器心跳新鲜度（staleSeconds 过大 = tick 卡死/停摆） */
+export async function getSchedulerHeartbeat(prisma: PrismaClient): Promise<{ lastTickAt: number | null; staleSeconds: number | null }> {
+  const last = await readHeartbeat(prisma);
+  return { lastTickAt: last, staleSeconds: last == null ? null : Math.round((Date.now() - last) / 1000) };
+}
+
+// sinceMs：稳态默认 now（窗口与原逻辑一致）· 启动补发传入更早的回扫起点
+async function tick(prisma: PrismaClient, sinceMs?: number): Promise<void> {
   if (running) {
     console.warn('[scheduler] previous tick still running · skipping');
     return;
   }
   running = true;
+  const since = sinceMs ?? Date.now();
   try {
-    await tickClassSessions(prisma);
-    await tickPracticeTasks(prisma);
-    await tickPersonalReminders(prisma);
-    await tickAchievementUnlocks(prisma);
-    await tickDharmaAssemblies(prisma);
+    await tickClassSessions(prisma, since);  // 支持补发回扫
+    await tickPracticeTasks(prisma, since);  // 支持补发回扫
+    await tickPersonalReminders(prisma);     // 时段型 · 稳态（补发意义小）
+    await tickAchievementUnlocks(prisma);    // cutoff 聚合型 · 天然幂等
+    await tickDharmaAssemblies(prisma);      // 窗口在 helper · 稳态
+    await writeHeartbeat(prisma);
   } catch (e) {
     reportJobError('tick', 'top-level tick error', e);
   } finally {
@@ -369,14 +397,28 @@ export function startScheduler(prisma: PrismaClient): void {
     console.log('[scheduler] disabled by CRON_ENABLED=false');
     return;
   }
-  // ⚠️ 已知限制（审计 · 决策：保持现状 + 文档说明）：无停机补发。
-  //   启动只跑一次当前 ±90s 窗口的 tick · 不回扫停机期间错过的窗口。
-  //   若进程停机 > ~3 分钟（窗口 180s）· 期间应触发的 T-30/T-5/T0 共修提醒、
-  //   个人提醒（30min 窗口）、法会 T1h 等会永久丢失 · 不补发。
-  //   缓解：pm2 reload 通常 < 1 分钟；T-24h 档为短停机提供 24h 提前量兜底。
-  //   如需补发 · 需实现启动回扫 + 谨慎处理重复推送边界（当前未做）。
-  // 立即跑一次 · 防止刚启动时漏掉窗口
-  tick(prisma).catch(() => {});
+  // 启动补发（审计 4.1）：回扫上次心跳以来错过的窗口（class session / practice task 两类）。
+  //   DispatchLog (eventKind,eventId,tier,userId,channel) unique 幂等 → 重放不会重复发。
+  //   回扫上限 CATCHUP_CAP_MS（15min）· 防停机过久后回放已过期的「现在开始」类提醒。
+  //   个人提醒 / 法会窗口在各自 helper · 暂不补发（时段型 · 短停机影响小 · 见 tick 注释）。
+  void (async () => {
+    try {
+      const last = await readHeartbeat(prisma);
+      const now = Date.now();
+      if (last != null && now - last > WINDOW_MS) {
+        const since = Math.max(last, now - CATCHUP_CAP_MS);
+        if (last < now - CATCHUP_CAP_MS) {
+          reportJobError('scheduler-catchup', `停机过久 · 早于 ${CATCHUP_CAP_MS / 60_000}min 的提醒窗口已跳过`, new Error('catch-up capped'), { lastTickAt: new Date(last).toISOString() });
+        }
+        console.log(`[scheduler] 补发回扫 since=${new Date(since).toISOString()}`);
+        await tick(prisma, since);
+      } else {
+        await tick(prisma); // 无心跳（首次部署）或间隔很短 · 正常跑一次
+      }
+    } catch (e) {
+      reportJobError('scheduler-startup', 'startup catch-up tick failed', e);
+    }
+  })();
   timer = setInterval(() => {
     tick(prisma).catch(() => {});
   }, 60_000);

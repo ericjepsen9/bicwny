@@ -5,8 +5,11 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { config } from '../../lib/config.js';
 import { prisma } from '../../lib/prisma.js';
+import { getSchedulerHeartbeat } from '../scheduler/cron.js';
 
 const TAGS = ['Health'];
+// 心跳超过 3 个 tick（180s）未更新 = 调度器卡死/停摆（审计 4.2）
+const SCHEDULER_STALE_SEC = 180;
 
 export const healthRoutes: FastifyPluginAsync = async (app) => {
   app.get('/health', {
@@ -30,10 +33,17 @@ export const healthRoutes: FastifyPluginAsync = async (app) => {
   app.get('/health/detailed', {
     schema: { tags: TAGS, summary: '详细健康检查：DB ping + LLM providers + 内存 + uptime' },
   }, async () => {
-    const [dbOk, providers] = await Promise.all([pingDb(), providerHealth()]);
+    const [dbOk, providers, hb] = await Promise.all([pingDb(), providerHealth(), getSchedulerHeartbeat(prisma)]);
     const mem = process.memoryUsage();
+    // 调度器健康：cron 禁用则 N/A 视为 ok；否则心跳须新鲜（刚启动还没写心跳时按 uptime 宽限）
+    const cronEnabled = config.CRON_ENABLED !== false;
+    const schedulerOk = !cronEnabled
+      ? true
+      : hb.staleSeconds != null
+        ? hb.staleSeconds <= SCHEDULER_STALE_SEC
+        : process.uptime() < SCHEDULER_STALE_SEC;
     return {
-      ok: dbOk && providers.every((p) => !p.isDown),
+      ok: dbOk && providers.every((p) => !p.isDown) && schedulerOk,
       env: config.NODE_ENV,
       uptimeSec: Math.round(process.uptime()),
       memory: {
@@ -43,6 +53,12 @@ export const healthRoutes: FastifyPluginAsync = async (app) => {
       },
       db: { ok: dbOk },
       llm: { providers },
+      scheduler: {
+        ok: schedulerOk,
+        enabled: cronEnabled,
+        lastTickAt: hb.lastTickAt ? new Date(hb.lastTickAt).toISOString() : null,
+        staleSeconds: hb.staleSeconds,
+      },
       checkedAt: new Date().toISOString(),
     };
   });
