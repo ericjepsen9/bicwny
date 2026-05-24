@@ -1,7 +1,7 @@
 // 表单字段组件 · label + input + error
 //   - 复用 base.css 已有 .input-field（如果没就用内联）
 //   - 一律 controlled · 父组件控值
-import { type InputHTMLAttributes } from 'react';
+import { useId, type InputHTMLAttributes } from 'react';
 
 interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> {
   label: string;
@@ -11,7 +11,10 @@ interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'o
 }
 
 export default function Field({ label, value, onChange, error, id, ...rest }: Props) {
-  const fieldId = id || `f-${label.replace(/\s/g, '')}`;
+  // useId 保证同页多个同 label 的 Field 不撞 id（旧实现按 label 生成会冲突）
+  const autoId = useId();
+  const fieldId = id || autoId;
+  const errorId = `${fieldId}-err`;
   return (
     <div>
       <label
@@ -31,6 +34,8 @@ export default function Field({ label, value, onChange, error, id, ...rest }: Pr
         id={fieldId}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
         style={{
           width: '100%',
           padding: '12px 14px',
@@ -46,6 +51,7 @@ export default function Field({ label, value, onChange, error, id, ...rest }: Pr
       />
       {error && (
         <p
+          id={errorId}
           style={{
             color: 'var(--crimson)',
             font: 'var(--text-caption)',
