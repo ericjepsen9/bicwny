@@ -3,7 +3,7 @@
 //   - 字段：dharmaName / 修学累计 / streak / 已读课时 / 答题数 / 正确率 / 班级任务完成度
 //   - 班级任务完成度：取该班所有 active class task · 计算该学员各任务进度均值
 import type { PrismaClient } from '@prisma/client';
-import { calcStreak, dateKey } from '../practice/utils.js';
+import { calcStreaksBatch, dateKey } from '../practice/utils.js';
 
 export interface DashboardRow {
   userId: string;
@@ -105,8 +105,9 @@ export async function getClassDashboard(prisma: PrismaClient, classId: string): 
     }
   }
 
-  // streak 是一对一查 · 100 个学员就 100 次查 · 性能可接受（≤ 90 天 daily summary）
-  const rows: DashboardRow[] = await Promise.all(members.map(async (m) => {
+  // streak 批量算（2 条查询）· 替代逐学员 calcStreak 的 N+1（100 人=200 并发查询打满连接池）
+  const streakMap = await calcStreaksBatch(prisma, members.map((m) => m.userId));
+  const rows: DashboardRow[] = members.map((m) => {
     const totalAnswers = answerMap.get(m.userId) ?? 0;
     const correctAnswers = correctMap.get(m.userId) ?? 0;
     const userTaskMap = taskProgressMap.get(m.userId) ?? new Map();
@@ -116,13 +117,13 @@ export async function getClassDashboard(prisma: PrismaClient, classId: string): 
       let pctSum = 0;
       for (const t of classTasks) {
         const p = userTaskMap.get(t.id) ?? 0;
-        const pct = Math.min(100, Math.round((p / t.target) * 100));
+        const pct = t.target > 0 ? Math.min(100, Math.round((p / t.target) * 100)) : 0;
         pctSum += pct;
         if (p >= t.target) doneCount++;
       }
       avgProgress = Math.round(pctSum / classTasks.length);
     }
-    const streak = await calcStreak(prisma, m.userId);
+    const streak = streakMap.get(m.userId) ?? 0;
     return {
       userId: m.userId,
       dharmaName: m.user.dharmaName,
@@ -137,7 +138,7 @@ export async function getClassDashboard(prisma: PrismaClient, classId: string): 
       classTaskAvgProgress: avgProgress,
       classTaskDoneCount: doneCount,
     };
-  }));
+  });
 
   return { taskCount: classTasks.length, rows };
 }

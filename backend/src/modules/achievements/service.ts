@@ -268,6 +268,27 @@ export async function detectAndPersistNewUnlocks(userId: string): Promise<number
   return detectAndPersistNewUnlocksFromBadges(userId, badges);
 }
 
+// 答题热路径去抖：rapid quiz 每题都会 fire-and-forget 触发 detectAndPersistNewUnlocks，
+//   其中 myProgress 含「全量历史 DISTINCT 日」扫描（streak/longest/totalDays 需要全史，不能加时间下界）。
+//   去抖把一轮 quiz 的 N 次扫描收敛成「最后一答 ~4s 后」跑一次（trailing · 末题解锁仍覆盖）。
+//   用户主动看成就页走 getAchievements 是同步检测 · 不受影响。
+//   注：进程级 in-memory（多实例各自去抖 · 仍正确 · 仅去重效果按实例算）· unref 不阻塞退出。
+const detectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const DETECT_DEBOUNCE_MS = 4000;
+
+export function queueDetectNewUnlocks(userId: string): void {
+  const existing = detectTimers.get(userId);
+  if (existing) clearTimeout(existing);
+  const t = setTimeout(() => {
+    detectTimers.delete(userId);
+    void detectAndPersistNewUnlocks(userId).catch((e) => {
+      console.error('[achievements] debounced detect failed:', e);
+    });
+  }, DETECT_DEBOUNCE_MS);
+  t.unref?.();
+  detectTimers.set(userId, t);
+}
+
 /** 内部 · 已计算 badges 时复用 · 返回新解锁数 */
 async function detectAndPersistNewUnlocksFromBadges(
   userId: string,

@@ -12,6 +12,7 @@ import { getAssembliesForT1hReminder } from '../dharma-assemblies/service.js';
 import { config } from '../../lib/config.js';
 import { reportJobError } from '../../lib/job-monitor.js';
 import { pruneOldLogs } from '../../lib/log-retention.js';
+import { pruneStaleSubscriptions } from '../push/service.js';
 
 type ClassSessionTier = 'T-24h' | 'T-30' | 'T-5' | 'T0';
 const TIER_OFFSETS: Record<ClassSessionTier, number> = {
@@ -388,11 +389,16 @@ export function startScheduler(prisma: PrismaClient): void {
     if (n > 0) console.log(`[scheduler] gcOrphanedFiles cleaned ${n} files at startup`);
   }).catch((e) => reportJobError('gc-orphaned-files', 'startup GC failed', e));
 
-  // 日志保留清理（审计）· 启动跑一次 + 每 24h 一次 · 防 ErrorLog/DispatchLog 无限膨胀
-  pruneOldLogs(prisma).catch(() => {});
-  retentionTimer = setInterval(() => {
+  // 日志保留清理（审计）+ 过期 push 订阅清理 · 启动跑一次 + 每 24h 一次
+  //   防 ErrorLog/DispatchLog 与 PushSubscription（410/404 软停用 + 30 天无活动）无限膨胀
+  const runDailyMaintenance = () => {
     pruneOldLogs(prisma).catch(() => {});
-  }, 24 * 60 * 60_000);
+    pruneStaleSubscriptions()
+      .then((n) => { if (n > 0) console.log(`[scheduler] pruned ${n} stale push subscriptions`); })
+      .catch((e) => reportJobError('prune-push', 'prune stale subscriptions failed', e));
+  };
+  runDailyMaintenance();
+  retentionTimer = setInterval(runDailyMaintenance, 24 * 60 * 60_000);
 }
 
 export function stopScheduler(): void {

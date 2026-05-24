@@ -40,3 +40,45 @@ export async function calcStreak(prisma: PrismaClient, userId: string): Promise<
   }
   return streak;
 }
+
+/**
+ * 批量算多用户 streak（班级 dashboard 用 · 替代逐人 calcStreak 的 N+1）。
+ * 全程 2 条查询（groupBy + findMany 各一），按用户在内存里折算。
+ */
+export async function calcStreaksBatch(
+  prisma: PrismaClient,
+  userIds: string[],
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (userIds.length === 0) return result;
+  const dates = lastNDates(90);
+  const [rows, makeups] = await Promise.all([
+    prisma.practiceDailySummary.groupBy({
+      by: ['userId', 'date'],
+      where: { userId: { in: userIds }, date: { in: dates }, count: { gt: 0 } },
+      _sum: { count: true },
+    }),
+    prisma.practiceMakeup.findMany({
+      where: { userId: { in: userIds }, date: { in: dates } },
+      select: { userId: true, date: true },
+    }),
+  ]);
+  const byUser = new Map<string, Set<string>>();
+  const mark = (uid: string, d: string) => {
+    let set = byUser.get(uid);
+    if (!set) { set = new Set(); byUser.set(uid, set); }
+    set.add(d);
+  };
+  for (const r of rows) mark(r.userId, r.date);
+  for (const m of makeups) mark(m.userId, m.date);
+  for (const uid of userIds) {
+    const set = byUser.get(uid) ?? new Set<string>();
+    let streak = 0;
+    for (let i = dates.length - 1; i >= 0; i--) {
+      if (set.has(dates[i]!)) streak++;
+      else break;
+    }
+    result.set(uid, streak);
+  }
+  return result;
+}

@@ -182,10 +182,9 @@ export async function submitAnswer(
   }
 
   // 副作用 · 检测新解锁的成就 badge（fire-and-forget · 不阻塞答题响应）
+  // 去抖：rapid quiz 收敛成最后一答后跑一次 · 避免每题全量历史扫描（见 queueDetectNewUnlocks）
   // 5min 后由 scheduler/cron.ts tickAchievementUnlocks 聚合 dispatch 通知
-  void import('../achievements/service.js').then((mod) => mod.detectAndPersistNewUnlocks(userId).catch((e) => {
-    console.error('[achievements] detect from submitAnswer failed:', e);
-  }));
+  void import('../achievements/service.js').then((mod) => mod.queueDetectNewUnlocks(userId));
 
   return { userAnswerId: ua.id, question, grade };
 }

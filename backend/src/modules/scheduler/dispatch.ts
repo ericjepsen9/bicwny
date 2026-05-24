@@ -141,10 +141,33 @@ export async function dispatchToUsers(input: DispatchInput): Promise<DispatchRes
   }
 
   try {
+    // 批量写：createManyAndReturn 拿回 notification id 再批量写 DispatchLog
+    //   替代「N 个用户串行 2 条 insert」的长事务（法会广播单批可达 ~1000 用户 = 2000 round-trip 持锁）
+    //   并发同事件重复派发（罕见）会在 DispatchLog unique 上 P2002 → 整事务回滚 → 落到下方逐条 fallback
     await prisma.$transaction(async (tx) => {
-      for (const uid of newUsers) {
-        await insertOne(tx, uid);
-      }
+      const notifs = await tx.notification.createManyAndReturn({
+        data: newUsers.map((uid) => ({
+          userId: uid,
+          type: input.notificationType as Prisma.NotificationCreateInput['type'],
+          title: input.title,
+          body: input.body,
+          link: input.link,
+          eventKind: eventKind as string,
+          eventId,
+          tier: tier as string,
+          severity,
+          contentHash: input.contentHash,
+        })),
+        select: { id: true, userId: true },
+      });
+      await tx.notificationDispatchLog.createMany({
+        data: notifs.map((n) => ({
+          eventKind, eventId, tier, userId: n.userId, channel,
+          notificationId: n.id,
+          success: true,
+          severity,
+        })),
+      });
     });
     result.newPushedUsers = newUsers.length;
   } catch (e) {
