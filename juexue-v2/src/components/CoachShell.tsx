@@ -70,6 +70,7 @@ export default function CoachShell() {
           <CoachNav to="/coach/courses"    label={s('闻思', '聞思', 'Texts')} icon={IconText} />
           <CoachNav to="/coach/questions"  label={s('题库', '題庫', 'Questions')} icon={IconBook} />
           <CoachNav to="/coach/review"     label={s('题目审核', '題目審核', 'Review')} icon={IconBook} />
+          <CoachNav to="/coach/note-reports" label={s('笔记举报', '筆記舉報', 'Note reports')} icon={IconBook} />
           <CoachNav to="/coach/calendar"   label={s('藏历', '藏曆', 'Calendar')} icon={IconCalendar} />
         </div>
 

@@ -92,6 +92,7 @@ const AdminNotificationRulesPage = lazy(() => import('./pages/AdminNotificationR
 const AdminSystemAnnouncementsPage = lazy(() => import('./pages/AdminSystemAnnouncementsPage'));
 const AdminDharmaAssembliesPage = lazy(() => import('./pages/AdminDharmaAssembliesPage'));
 const AdminReportsPage = lazy(() => import('./pages/AdminReportsPage'));
+const AdminNoteReportsPage = lazy(() => import('./pages/AdminNoteReportsPage'));
 const AdminLlmPage = lazy(() => import('./pages/AdminLlmPage'));
 const AdminCalendarPage = lazy(() => import('./pages/AdminCalendarPage'));
 const AdminCalendarYearPage = lazy(() => import('./pages/AdminCalendarYearPage'));
@@ -235,6 +236,8 @@ function CoachAppShell() {
               <Route path="/calendar" element={<CalendarPage />} />
               {/* 题目审核 · coach 也能进审核队列（决策 2） */}
               <Route path="/review" element={<AdminReviewPage />} />
+              {/* 笔记举报 · 复用同组件 · 后端按角色限定 coach 仅本班（审计 5.7） */}
+              <Route path="/note-reports" element={<AdminNoteReportsPage />} />
               {/* 观修管理 · 复用 admin 页 · 后端权限已放权 coach */}
               <Route path="/meditations" element={<MeditationsPage />} />
               <Route path="*" element={<Navigate to="/coach" replace />} />
@@ -279,6 +282,7 @@ function AdminAppShell() {
               <Route path="/questions/generate" element={<CoachQuestionGeneratePage />} />
               <Route path="/review" element={<AdminReviewPage />} />
               <Route path="/reports" element={<AdminReportsPage />} />
+              <Route path="/note-reports" element={<AdminNoteReportsPage />} />
               <Route path="/audit" element={<AdminAuditPage />} />
               <Route path="/logs" element={<AdminLogsPage />} />
               <Route path="/notification-rules" element={<AdminNotificationRulesPage />} />

@@ -3,14 +3,16 @@
 //   - 搜索 + tag chip 筛选 + 时间线 · pinned 置顶
 //   - 点笔记进 /notes/:id 编辑
 //   - 「+ 新建笔记」按钮 → /notes/new
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState, type MouseEvent } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import Skeleton from '@/components/Skeleton';
 import TopNav from '@/components/TopNav';
-import { api } from '@/lib/api';
+import { confirmAsync } from '@/components/ConfirmDialog';
+import { api, ApiError } from '@/lib/api';
 import { useLang } from '@/lib/i18n';
 import { relTime } from '@/lib/relTime';
+import { toast } from '@/lib/toast';
 
 interface Note {
   id: string;
@@ -50,6 +52,27 @@ export default function NotesPage() {
       { signal },
     ),
   });
+
+  // 举报同班共享笔记（卡片是 Link · 按钮需阻止冒泡）
+  const qc = useQueryClient();
+  const reportMut = useMutation({
+    mutationFn: (noteId: string) => api.post(`/api/notes/${encodeURIComponent(noteId)}/report`, {}),
+    onSuccess: () => {
+      toast.ok(s('已举报 · 辅导员/管理员会复核', '已舉報 · 輔導員/管理員會複核', 'Reported · staff will review'));
+      qc.invalidateQueries({ queryKey: ['/api/notes/shared'] });
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+  async function onReport(e: MouseEvent, noteId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    const ok = await confirmAsync({
+      title: s('举报这条共享笔记？', '舉報這條共享筆記？', 'Report this shared note?'),
+      body: s('辅导员/管理员会复核 · 不当内容会被下架', '輔導員/管理員會複核 · 不當內容會被下架', 'Coaches/admins will review; inappropriate content gets taken down.'),
+    });
+    if (!ok) return;
+    reportMut.mutate(noteId);
+  }
 
   const archived = useQuery({
     enabled: tab === 'archived',
@@ -193,6 +216,17 @@ export default function NotesPage() {
                     {tab === 'shared' && n.authorName ? `${n.authorName} · ` : ''}
                     {relTime(n.updatedAt, s)}
                   </span>
+                  {tab === 'shared' && n.authorName && (
+                    <button
+                      type="button"
+                      onClick={(e) => onReport(e, n.id)}
+                      disabled={reportMut.isPending}
+                      aria-label={s('举报', '舉報', 'Report')}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', font: 'var(--text-caption)', padding: '0 2px' }}
+                    >
+                      ⚐ {s('举报', '舉報', 'Report')}
+                    </button>
+                  )}
                 </div>
               </Link>
             ))}

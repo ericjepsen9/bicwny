@@ -862,6 +862,24 @@ export function useAdminReports(opts?: { limit?: number; reason?: ReportReason }
   });
 }
 
+// ── 班级共享笔记举报（审计 5.7）· admin 看全部 / coach 看本班（后端按角色限定）──
+export interface NoteReport {
+  id: string;
+  noteId: string;
+  noteTitle: string;
+  noteBody: string;
+  authorName: string | null;
+  reporterName: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+export function useNoteReports() {
+  return useQuery({
+    queryKey: ['/api/notes/reports'],
+    queryFn: ({ signal }) => api.get<NoteReport[]>('/api/notes/reports', { signal }),
+  });
+}
+
 // ── Admin · 闻思/章节/课时 三级 CRUD ──
 export interface AdminCourseRow {
   id: string;

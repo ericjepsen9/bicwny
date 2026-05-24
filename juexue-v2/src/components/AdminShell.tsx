@@ -61,6 +61,7 @@ export default function AdminShell() {
           <AdminNav to="/admin/questions" label={s('题库', '題庫', 'Questions')} icon={IconBook} />
           <AdminNav to="/admin/review"   label={s('题目审核', '題目審核', 'Review')} icon={IconCheck} />
           <AdminNav to="/admin/reports"  label={s('举报处理', '舉報處理', 'Reports')} icon={IconFlag} />
+          <AdminNav to="/admin/note-reports" label={s('笔记举报', '筆記舉報', 'Note reports')} icon={IconFlag} />
           <AdminNav to="/admin/audit"    label={s('审计日志', '審計日誌', 'Audit')} icon={IconClock} />
           <AdminNav to="/admin/logs"     label={s('运行日志', '運行日誌', 'Logs')} icon={IconAlert} />
           <AdminNav to="/admin/notification-rules" label={s('通知规则', '通知規則', 'Notif')} icon={IconAlert} />
