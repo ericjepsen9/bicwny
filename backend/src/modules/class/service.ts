@@ -5,7 +5,7 @@
 // 学员自助 join/leave（student 路由）不传 actorAdminId 则不污染 admin 审计。
 import { randomBytes } from 'node:crypto';
 import { type Class, type ClassMember, type ClassMemberRole, Prisma } from '@prisma/client';
-import { Conflict, Forbidden, Internal, NotFound } from '../../lib/errors.js';
+import { BadRequest, Conflict, Forbidden, Internal, NotFound } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import { migratePracticeOnLeave, migratePracticeOnArchive } from '../practice/migration.js';
 import { dispatchToUsers } from '../scheduler/dispatch.js';
@@ -298,6 +298,55 @@ export async function setMemberRole(
     }
     return updated;
   });
+}
+
+/**
+ * 更换班级辅导员（admin only · 一步替换 · 应对人员变动）
+ *   - 新辅导员：班内现有成员（升任）或班外平台账号（直接加入为 coach）皆可
+ *   - 旧辅导员去向由调用方指定：'demote' 降为学员留在班 / 'remove' 移出班级
+ *   - 顺序：先升/加新 coach → 再处置旧 coach · 全程班级至少 1 名 coach（不触发降到 0 守卫）
+ *   - 复用 addMember / setMemberRole / removeMember：各自事务 + 审计 + 退班联动（enrollment/practice）
+ *     非单一事务 · 但因「先加后撤」· 中途失败仅留下「多 1 名 coach」的安全态 · admin 可重试
+ */
+export async function replaceCoach(
+  classId: string,
+  params: {
+    newCoachUserId: string;
+    oldCoachUserId: string;
+    oldDisposition: 'demote' | 'remove';
+  },
+  opts: { actorAdminId?: string } = {},
+): Promise<void> {
+  const { newCoachUserId, oldCoachUserId, oldDisposition } = params;
+  if (newCoachUserId === oldCoachUserId) throw BadRequest('新旧辅导员不能是同一人');
+
+  const cls = await prisma.class.findUnique({ where: { id: classId }, select: { isActive: true } });
+  if (!cls || !cls.isActive) throw NotFound('班级不存在或已归档');
+
+  // 旧辅导员必须是该班当前活跃 coach
+  const oldM = await prisma.classMember.findUnique({
+    where: { classId_userId: { classId, userId: oldCoachUserId } },
+  });
+  if (!oldM || oldM.removedAt || oldM.role !== 'coach') {
+    throw BadRequest('指定的旧辅导员不是该班当前辅导员');
+  }
+
+  // 新辅导员账号须存在且启用（防把禁用账号设为辅导员）
+  const newUser = await prisma.user.findUnique({
+    where: { id: newCoachUserId },
+    select: { id: true, isActive: true },
+  });
+  if (!newUser) throw NotFound('新辅导员账号不存在');
+  if (!newUser.isActive) throw Conflict('新辅导员账号已禁用 · 不能指派');
+
+  // 先确保新 coach 就位（班内升任 / 班外加入均由 addMember 的 upsert 处理）
+  await addMember(classId, newCoachUserId, 'coach', { actorAdminId: opts.actorAdminId });
+  // 再处置旧 coach
+  if (oldDisposition === 'demote') {
+    await setMemberRole(classId, oldCoachUserId, 'student', { actorAdminId: opts.actorAdminId });
+  } else {
+    await removeMember(classId, oldCoachUserId, { actorAdminId: opts.actorAdminId });
+  }
 }
 
 export async function removeMember(

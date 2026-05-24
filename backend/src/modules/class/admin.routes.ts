@@ -18,6 +18,7 @@ import {
   getClass,
   listMembers,
   removeMember,
+  replaceCoach,
   setMemberRole,
   updateClass,
 } from './service.js';
@@ -56,6 +57,12 @@ const updateBody = z.object({
 const addMemberBody = z.object({
   userId: z.string().min(1),
   role: z.enum(['coach', 'student']),
+});
+
+const replaceCoachBody = z.object({
+  newCoachUserId: z.string().min(1),
+  oldCoachUserId: z.string().min(1),
+  oldDisposition: z.enum(['demote', 'remove']),
 });
 
 const TAGS = ['Admin'];
@@ -186,6 +193,26 @@ export const adminClassRoutes: FastifyPluginAsync = async (app) => {
       const adminId = await requireClassScope(req, pp.data.id);
       const m = await setMemberRole(pp.data.id, pp.data.userId, pb.data.role, { actorAdminId: adminId });
       return { data: m };
+    },
+  );
+
+  // 更换辅导员（一步替换 · 仅平台 admin · 应对人员变动）
+  //   新 coach 可班内升任或班外账号加入 · 旧 coach 可降为学员或移出班级
+  app.put(
+    '/api/admin/classes/:id/coach',
+    {
+      preHandler: requireRole('admin'),
+      schema: { tags: TAGS, summary: '更换辅导员（先加新后撤旧 · 仅 admin）', security: SEC },
+    },
+    async (req) => {
+      const pp = idParam.safeParse(req.params);
+      if (!pp.success) throw BadRequest('路径参数不合法');
+      const pb = replaceCoachBody.safeParse(req.body);
+      if (!pb.success) throw BadRequest('请求参数不合法', pb.error.flatten());
+      const adminId = requireUserId(req);
+      await getClass(pp.data.id);
+      await replaceCoach(pp.data.id, pb.data, { actorAdminId: adminId });
+      return { data: { ok: true } };
     },
   );
 

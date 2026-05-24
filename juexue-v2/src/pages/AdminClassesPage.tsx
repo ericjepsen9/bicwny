@@ -8,9 +8,11 @@ import Field from '@/components/Field';
 import Skeleton from '@/components/Skeleton';
 import { confirmAsync } from '@/components/ConfirmDialog';
 import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { useLang } from '@/lib/i18n';
 import {
   type AdminClass,
+  type AdminClassMember,
   type AdminUsersResp,
   useAdminClasses,
   useAdminClassMembers,
@@ -190,6 +192,8 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
   onClearFilter?: () => void;
 }) {
   const { s } = useLang();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const qc = useQueryClient();
   const members = useAdminClassMembers(cls.id);
   const [editing, setEditing] = useState(false);
@@ -392,6 +396,16 @@ function ClassDrawer({ cls, onClose, hiddenByFilter, onClearFilter }: {
           </div>
         )}
 
+        {/* 更换辅导员 · 仅平台 admin · 先加新后撤旧（应对人员变动） */}
+        {isAdmin && cls.isActive && (members.data ?? []).some((m) => m.role === 'coach') && (
+          <>
+            <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginTop: 'var(--sp-4)', marginBottom: 'var(--sp-2)' }}>
+              {s('更换辅导员', '更換輔導員', 'Replace coach')}
+            </h3>
+            <ReplaceCoachForm classId={cls.id} coaches={(members.data ?? []).filter((m) => m.role === 'coach')} />
+          </>
+        )}
+
         {cls.isActive && (
           <button
             type="button"
@@ -493,6 +507,129 @@ function AddMemberForm({ classId }: { classId: string }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// 更换辅导员表单 · 仅 admin 可见
+//   旧辅导员：从当前 coach 里选 · 去向 demote/remove 二选一
+//   新辅导员：用户搜索（班内学员升任 / 班外账号加入都走这一个 picker）
+function ReplaceCoachForm({ classId, coaches }: { classId: string; coaches: AdminClassMember[] }) {
+  const { s } = useLang();
+  const qc = useQueryClient();
+  const [oldCoachUserId, setOldCoachUserId] = useState(coaches[0]?.user.id ?? '');
+  const [disposition, setDisposition] = useState<'demote' | 'remove'>('demote');
+  const [search, setSearch] = useState('');
+  const [picked, setPicked] = useState<{ id: string; label: string } | null>(null);
+
+  const search$ = useQuery({
+    enabled: search.length >= 2 && !picked,
+    queryKey: ['/api/admin/users', 'pick-coach', search],
+    queryFn: ({ signal }) => api.get<AdminUsersResp>('/api/admin/users?limit=10&search=' + encodeURIComponent(search), { signal }),
+  });
+
+  const replace = useMutation({
+    mutationFn: () => api.put(`/api/admin/classes/${encodeURIComponent(classId)}/coach`, {
+      newCoachUserId: picked!.id,
+      oldCoachUserId,
+      oldDisposition: disposition,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/admin/classes', classId, 'members'] });
+      qc.invalidateQueries({ queryKey: ['/api/admin/classes'] });
+      qc.invalidateQueries({ queryKey: ['/api/classes', classId] }); // 同步学员端
+      toast.ok(s('辅导员已更换', '輔導員已更換', 'Coach replaced'));
+      setSearch(''); setPicked(null);
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
+  async function submit() {
+    if (!picked) return;
+    if (picked.id === oldCoachUserId) {
+      toast.error(s('新旧辅导员不能是同一人', '新舊輔導員不能是同一人', 'New and old coach must differ'));
+      return;
+    }
+    const dispo = disposition === 'demote'
+      ? s('降为学员留在班', '降為學員留在班', 'demoted to student')
+      : s('移出班级', '移出班級', 'removed from class');
+    const ok = await confirmAsync({
+      title: s('确认更换辅导员？', '確認更換輔導員？', 'Replace coach?'),
+      body: s(`「${picked.label}」将成为辅导员；旧辅导员将被${dispo}。`, `「${picked.label}」將成為輔導員；舊輔導員將被${dispo}。`, `${picked.label} becomes coach; old coach ${dispo}.`),
+    });
+    if (ok) replace.mutate();
+  }
+
+  const selectStyle = { padding: '6px 10px', borderRadius: 'var(--r-sm)', border: '1px solid var(--border)', font: 'var(--text-caption)', background: 'var(--bg-input)', width: '100%' } as const;
+  const labelStyle = { font: 'var(--text-caption)', color: 'var(--ink-3)', display: 'block', marginBottom: 4 } as const;
+
+  return (
+    <div className="glass-card-thick" style={{ padding: 'var(--sp-3)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
+      <div>
+        <label style={labelStyle}>{s('要替换的辅导员', '要替換的輔導員', 'Coach to replace')}</label>
+        <select value={oldCoachUserId} onChange={(e) => setOldCoachUserId(e.target.value)} style={selectStyle}>
+          {coaches.map((c) => (
+            <option key={c.user.id} value={c.user.id}>{c.user.dharmaName || '—'} · {c.user.email}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label style={labelStyle}>{s('旧辅导员去向', '舊輔導員去向', 'Old coach')}</label>
+        <select value={disposition} onChange={(e) => setDisposition(e.target.value as 'demote' | 'remove')} style={selectStyle}>
+          <option value="demote">{s('降为学员留在班', '降為學員留在班', 'Demote to student')}</option>
+          <option value="remove">{s('移出班级', '移出班級', 'Remove from class')}</option>
+        </select>
+      </div>
+
+      <div>
+        <label style={labelStyle}>{s('新辅导员（搜索班内/班外用户）', '新輔導員（搜尋班內/班外用戶）', 'New coach (search any user)')}</label>
+        {picked ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+            <span style={{ flex: 1, font: 'var(--text-body)', color: 'var(--ink)' }}>{picked.label}</span>
+            <button type="button" onClick={() => setPicked(null)} aria-label="cancel" style={{ background: 'transparent', border: 'none', color: 'var(--ink-3)', cursor: 'pointer' }}>✕</button>
+          </div>
+        ) : (
+          <>
+            <input
+              type="search"
+              placeholder={s('搜索邮箱 / 法名…', '搜尋郵箱 / 法名…', 'Search email / name…')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--r-pill)', border: '1px solid var(--glass-border)', background: 'var(--bg-input)', font: 'var(--text-caption)', outline: 'none' }}
+            />
+            {search.length >= 2 && search$.data && search$.data.items.length > 0 && (
+              <div style={{ marginTop: 6, maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {search$.data.items.map((u) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => setPicked({ id: u.id, label: (u.dharmaName || u.email) + ' · ' + u.email })}
+                    style={{ textAlign: 'left', padding: '6px 10px', background: 'transparent', border: '1px solid var(--glass-border)', borderRadius: 'var(--r-sm)', cursor: 'pointer', font: 'var(--text-caption)', color: 'var(--ink)' }}
+                  >
+                    <strong>{u.dharmaName || '—'}</strong> <span style={{ color: 'var(--ink-3)' }}>{u.email}</span> <span style={{ color: 'var(--ink-4)' }}>· {u.role}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={submit}
+        disabled={!picked || replace.isPending}
+        className="btn btn-pill"
+        style={{
+          padding: 10, justifyContent: 'center', border: 'none', fontWeight: 600,
+          color: (!picked || replace.isPending) ? 'var(--ink-4)' : '#fff',
+          background: (!picked || replace.isPending) ? 'var(--surface)' : 'linear-gradient(135deg, var(--saffron) 0%, var(--saffron-dark) 100%)',
+          cursor: (!picked || replace.isPending) ? 'default' : 'pointer',
+        }}
+      >
+        {replace.isPending ? s('更换中…', '更換中…', 'Replacing…') : s('更换辅导员', '更換輔導員', 'Replace coach')}
+      </button>
     </div>
   );
 }
