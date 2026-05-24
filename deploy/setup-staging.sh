@@ -56,16 +56,16 @@ else
   log "▸ $ENV_FILE 已存在 · 不覆盖"
 fi
 
-# 3. Prisma 同步 schema 到 staging 库
-log "▸ Prisma db push 到 $STAGING_DB"
+# 3. Prisma 应用 migrations 到 staging 库
+log "▸ Prisma migrate deploy 到 $STAGING_DB"
 cd "$PROJECT_DIR/backend"
-# 临时用 staging 的 DATABASE_URL 跑 db push
+# 临时用 staging 的 DATABASE_URL 跑 migrate deploy
 DATABASE_URL=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | cut -d= -f2- | tr -d '"' || true)
 if [ -z "$DATABASE_URL" ]; then
-  log "  ⚠️  $ENV_FILE 没 DATABASE_URL · 跳过 db push · 请手动跑"
+  log "  ⚠️  $ENV_FILE 没 DATABASE_URL · 跳过 migrate · 请手动跑"
 else
-  DATABASE_URL="$DATABASE_URL" pnpm prisma db push --skip-generate
-  log "  ✓ schema 已同步"
+  DATABASE_URL="$DATABASE_URL" pnpm prisma migrate deploy
+  log "  ✓ schema 已同步（如旧库由 db push 建 · 先 migrate resolve --applied 0_init）"
 fi
 
 # 4. pm2 启 staging 进程

@@ -1,10 +1,11 @@
 # 觉学 Backend · 人工验证清单
 
-> CI（`.github/workflows/test.yml`）已覆盖 typecheck + 单测 + 集成测试（自起 postgres + `db push` + seed）。
+> CI（`.github/workflows/test.yml`）已覆盖 typecheck + 单测 + 集成测试（自起 postgres + `migrate deploy` + seed）。
 > 本地首次跑或排查问题时，按下列步骤走一遍，每项执行完可勾掉。
 >
-> 注：本项目用 **`prisma db push`**（无 migrations 目录），下文命令已对齐；
-> 勿用 `npm run prisma:migrate`（= `migrate dev`，会在无 migrations 时尝试生成迁移，与现流程不符）。
+> 注：本项目已切到 **Prisma migrations**（审计 5.4 · `prisma/migrations/`）。
+> 建库用 `npx prisma migrate deploy`；改 schema 后用 `npm run prisma:migrate`（migrate dev）生成新迁移。
+> ⚠️ 旧 db-push 库首次切换需先 baseline：`npx prisma migrate resolve --applied 0_init`。
 
 ---
 
@@ -21,14 +22,14 @@ npm run prisma:generate
 
 ---
 
-## B. 建表（db push）
+## B. 建表（migrate deploy）
 
 ```bash
 docker compose up -d
-npx prisma db push   # 按 schema.prisma 同步表结构（非破坏式）
+npx prisma migrate deploy   # 应用 prisma/migrations/ 下所有迁移
 ```
 
-- [ ] 表结构同步成功，PostgreSQL 表结构与 `schema.prisma` 一致
+- [ ] 迁移应用成功，PostgreSQL 表结构与 `schema.prisma` 一致
 
 ---
 
@@ -141,7 +142,7 @@ scaffold 位置：`tests/integration/`
 ```bash
 # 建议 docker-compose 加 postgres_test 服务，或改用不同端口 / 库名
 export DATABASE_URL="postgresql://juexue:juexue_dev@localhost:5433/juexue_test?schema=public"
-npx prisma db push            # 按 schema 建表到测试库
+npx prisma migrate deploy     # 应用 migrations 到测试库
 npm run prisma:seed           # seed 一次（含 LLM 配置 · tests 不清 LLM 表，依赖其存在）
 ```
 

@@ -34,8 +34,11 @@ cd backend
 cp .env.example .env                    # 按需改 DATABASE_URL / JWT_SECRET
 pnpm install
 pnpm prisma generate
-pnpm prisma db push                     # 非破坏式同步 schema（首次）
+pnpm prisma migrate deploy              # 应用 migrations（审计 5.4 · 取代 db push）
+                                        # 旧 db-push 库首次切换先：pnpm prisma migrate resolve --applied 0_init
 pnpm prisma:seed                        # 写入法本 / 3 个 demo 账号 / LLM 模板
+
+# 前端原子部署（审计 5.3）：bash deploy/frontend-deploy.sh（symlink 切换 · 可 rollback-frontend.sh 回滚）
 
 # 3) 同时开两个进程
 pnpm dev                                # backend → :3000
@@ -107,9 +110,8 @@ ANTHROPIC_API_KEY=<...>
 
 ```bash
 cd /opt/juexue/backend
-pnpm prisma migrate deploy   # 若日后加了 migrations/
-# 或首次部署：
-pnpm prisma db push
+pnpm prisma migrate deploy   # 应用 migrations（审计 5.4）
+# 旧 db-push 库首次切换先：pnpm prisma migrate resolve --applied 0_init
 pnpm prisma:seed
 ```
 

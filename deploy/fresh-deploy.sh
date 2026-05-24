@@ -71,11 +71,13 @@ echo "    [5/6] 装依赖（pnpm install）..."
 pnpm install --silent
 echo "    [5/6] 同步 Prisma schema..."
 pnpm prisma generate >/dev/null
-pnpm prisma db push --skip-generate
+# migrations 取代 db push（审计 5.4）· ⚠️ 旧 db-push 库首次切换需先 baseline：
+#   pnpm prisma migrate resolve --applied 0_init
+pnpm prisma migrate deploy
 echo "    [5/6] 编译..."
 pnpm build
-echo "    [5/6] 重启 pm2..."
-pm2 restart juexue-api --update-env || pm2 start dist/server.js --name juexue-api --time
+echo "    [5/6] 重载 pm2（reload·零停机）..."
+pm2 reload juexue-api --update-env || pm2 start dist/server.js --name juexue-api --time
 pm2 save
 echo "✅ [5/6] 部署完成"
 

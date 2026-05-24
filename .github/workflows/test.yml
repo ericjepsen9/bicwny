@@ -53,8 +53,8 @@ jobs:
       - name: Prisma generate
         run: pnpm prisma generate
 
-      - name: Apply schema to test DB
-        run: pnpm prisma db push --skip-generate
+      - name: Apply migrations to test DB
+        run: pnpm prisma migrate deploy
 
       - name: Seed
         run: pnpm prisma:seed
@@ -115,7 +115,7 @@ jobs:
         working-directory: backend
         run: |
           pnpm prisma generate
-          pnpm prisma db push --skip-generate
+          pnpm prisma migrate deploy
           pnpm prisma:seed
 
       - name: Build backend

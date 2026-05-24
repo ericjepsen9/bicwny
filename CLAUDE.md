@@ -31,9 +31,10 @@ git pull origin <branch>
 # 2. 后端 · 仅在 schema 或后端代码变动时跑
 cd backend
 npx prisma generate
-npx prisma db push          # 非破坏式 · 不删字段不丢数据
+npx prisma migrate deploy   # 应用 migrations（审计 5.4 · 取代 db push · 有版本史/可回滚）
+                            # ⚠️ 旧 db-push 库首次切换：先 npx prisma migrate resolve --applied 0_init
 npm run build
-pm2 reload juexue-api
+pm2 reload juexue-api       # reload = 零停机优雅重启（非 restart · 审计 5.3）
 
 # 3. 前端 · 任何 juexue-v2/ 文件改动都要跑
 cd ../juexue-v2
