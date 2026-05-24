@@ -124,6 +124,7 @@ model Class {
   practiceTasks    PracticeTask[]
   announcements    ClassAnnouncement[]
   sessions         ClassSession[]
+  enrolledVia      UserCourseEnrollment[] @relation("EnrolledViaClass")
 
   @@index([courseId])
 }
@@ -487,7 +488,8 @@ model UserCourseEnrollment {
   userId               String
   courseId             String
   source               String    @default("self") // 'self' = 自学 · 'class' = 加入班级带来
-  enrolledViaClassId   String? // source='class' 时指向具体班级 · 用于退班联动
+  // source='class' 时指向具体班级 · 用于退班联动 · 班级物理删除时置空（软删不触发）
+  enrolledViaClassId   String?
   enrolledAt           DateTime  @default(now())
   lastStudiedAt        DateTime?
   completedAt          DateTime?
@@ -496,8 +498,9 @@ model UserCourseEnrollment {
   // 完成的观修 id 列表（meditation v1.0）
   meditationsCompleted String[]  @default([])
 
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user             User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course           Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrolledViaClass Class? @relation("EnrolledViaClass", fields: [enrolledViaClassId], references: [id], onDelete: SetNull)
 
   @@unique([userId, courseId])
   @@index([enrolledViaClassId])

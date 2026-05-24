@@ -17,8 +17,9 @@ const submitBody = z.object({
   classId: z.string().optional(),
   useLlm: z.boolean().optional(),
   removeFromMistakesOnCorrect: z.boolean().optional(),
+  // 幂等键（必填）：前端每次提交生成 uuid · 防双击/重试导致错题本&排程副作用倍增
   // 防恶意客户端用超长 requestId 让 unique 索引膨胀 · UUID 是 36 字节，留点余量
-  requestId: z.string().min(8).max(64).optional(),
+  requestId: z.string().min(8).max(64),
 });
 
 const TAGS = ['Answering'];

@@ -5,6 +5,7 @@
 //   - 答对高正确率 → accuracy_80 解锁逻辑（需 ≥50 题）
 //   - 本人隔离
 //   - 401
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '../../src/lib/prisma.js';
@@ -66,7 +67,7 @@ async function submit(u: RegisteredUser, questionId: string, selectedIndex: numb
     method: 'POST',
     url: '/api/answers',
     headers: authHeader(u),
-    payload: { questionId, answer: { selectedIndex }, timeSpentMs: 1000 },
+    payload: { questionId, answer: { selectedIndex }, timeSpentMs: 1000, requestId: randomUUID() },
   });
 }
 

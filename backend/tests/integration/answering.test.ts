@@ -6,6 +6,7 @@
 //   - /api/mistakes/:qid 含完整 question（含 correct 标记）· owner 隔离
 //   - DELETE /api/mistakes/:qid 软删除
 //   - /api/my/progress 字段齐全（totalAnswers / totalDays / todayAnswered / weekDays）
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -32,6 +33,7 @@ async function submit(u: { accessToken: string }, questionId: string, selectedIn
       questionId,
       answer: { selectedIndex },
       timeSpentMs: 1000,
+      requestId: randomUUID(), // 每次唯一 · 模拟前端每提交一次新幂等键
     },
   });
 }
@@ -88,6 +90,7 @@ describe('POST /api/answers (integration)', () => {
         answer: { selectedIndex: 0 },
         timeSpentMs: 1000,
         removeFromMistakesOnCorrect: true,
+        requestId: randomUUID(),
       },
     });
 
