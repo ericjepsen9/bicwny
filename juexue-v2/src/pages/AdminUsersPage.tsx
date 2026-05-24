@@ -1,0 +1,559 @@
+// AdminUsersPage · /admin/users
+//   role 过滤 + search + 列表 + 详情居中 Dialog（决策 4）· 新建独立页 /admin/users/new（决策 5）
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router-dom';
+import DailyBarChart from '@/components/DailyBarChart';
+import Dialog from '@/components/Dialog';
+import Skeleton from '@/components/Skeleton';
+import { confirmAsync } from '@/components/ConfirmDialog';
+import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { useLang } from '@/lib/i18n';
+import { type AdminUser, useAdminUserLearning, useAdminUsers } from '@/lib/queries';
+import { relTime } from '@/lib/relTime';
+import { toast } from '@/lib/toast';
+
+type RoleFilter = 'all' | 'admin' | 'coach' | 'student';
+
+export default function AdminUsersPage() {
+  const { s } = useLang();
+  const [sp, setSp] = useSearchParams();
+  const [role, setRole] = useState<RoleFilter>('all');
+  const [search, setSearch] = useState('');
+
+  const list = useAdminUsers({
+    limit: 50,
+    role: role === 'all' ? undefined : role,
+    search: search.trim() || undefined,
+  });
+
+  // 兼容老/新 shape：老后端返回 AdminUser[] · 新返回 { items, total }
+  const items: AdminUser[] = Array.isArray(list.data)
+    ? list.data
+    : (list.data?.items ?? []);
+  const total: number = Array.isArray(list.data)
+    ? list.data.length
+    : (list.data?.total ?? 0);
+
+  const openId = sp.get('id');
+
+  return (
+    <>
+      <div className="top-bar">
+        <div>
+          <h1 className="page-title">{s('用户管理', '用戶管理', 'Users')}</h1>
+          <p className="page-sub">
+            {list.data ? total + ' ' + s('用户', '用戶', 'users') : s('加载中…', '載入中…', 'Loading…')}
+          </p>
+        </div>
+        <div className="top-actions">
+          <Link to="/admin/users/new" className="btn btn-primary btn-pill" style={{ padding: '8px 16px' }}>
+            + {s('新建用户', '新建用戶', 'New user')}
+          </Link>
+        </div>
+      </div>
+
+      {/* 过滤 */}
+      <div className="glass-card-thick" style={{ padding: 'var(--sp-3) var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'flex', flexWrap: 'wrap', gap: 'var(--sp-3)', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {(['all', 'student', 'coach', 'admin'] as RoleFilter[]).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setRole(k)}
+              className="btn btn-pill"
+              style={{
+                padding: '5px 12px', font: 'var(--text-caption)', fontWeight: 600,
+                background: role === k ? 'var(--saffron-pale)' : 'transparent',
+                color: role === k ? 'var(--saffron-dark)' : 'var(--ink-3)',
+                border: '1px solid ' + (role === k ? 'var(--saffron-light)' : 'transparent'),
+              }}
+            >
+              {k === 'all' ? s('全部', '全部', 'All') : k}
+            </button>
+          ))}
+        </div>
+        <input
+          type="search"
+          placeholder={s('搜索邮箱 / 法名…', '搜尋郵箱 / 法名…', 'Search email / name')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ flex: 1, minWidth: 180, padding: '6px 12px', borderRadius: 'var(--r-pill)', border: '1px solid var(--glass-border)', background: 'var(--bg-input)', font: 'var(--text-caption)', outline: 'none' }}
+        />
+      </div>
+
+      {list.isLoading ? (
+        <Skeleton.Card />
+      ) : items.length === 0 ? (
+        <div style={{ padding: 'var(--sp-6)', textAlign: 'center', color: 'var(--ink-3)' }}>
+          {s('没有匹配的用户', '沒有匹配的用戶', 'No matches')}
+        </div>
+      ) : (
+        <div className="glass-card-thick" style={{ padding: 0, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead><tr style={{ background: 'var(--glass)', textAlign: 'left' }}>
+              <Th>{s('用户', '用戶', 'User')}</Th>
+              <Th>{s('角色', '角色', 'Role')}</Th>
+              <Th>{s('状态', '狀態', 'Status')}</Th>
+              <Th>{s('注册', '註冊', 'Signup')}</Th>
+              <Th>{s('上次登录', '上次登入', 'Last seen')}</Th>
+            </tr></thead>
+            <tbody>
+              {items.map((u) => (
+                <tr
+                  key={u.id}
+                  onClick={() => setSp({ id: u.id })}
+                  style={{ cursor: 'pointer', borderTop: '1px solid var(--border-light)', background: u.id === openId ? 'var(--saffron-pale)' : 'transparent' }}
+                >
+                  <Td>
+                    <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600, color: 'var(--ink)' }}>
+                      {u.dharmaName || '—'}
+                    </div>
+                    <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>{u.email}</div>
+                  </Td>
+                  <Td><RolePill role={u.role} /></Td>
+                  <Td><StatusPill active={u.isActive} /></Td>
+                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }} title={new Date(u.createdAt).toLocaleString()}>{new Date(u.createdAt).toLocaleDateString()}</span></Td>
+                  <Td><span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : ''}>{u.lastLoginAt ? relTime(u.lastLoginAt, s) : '—'}</span></Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {openId && items.find((u) => u.id === openId) && (
+        <UserDrawer
+          user={items.find((u) => u.id === openId)!}
+          onClose={() => setSp({})}
+        />
+      )}
+    </>
+  );
+}
+
+function Th({ children }: { children: React.ReactNode }) {
+  return <th style={{ padding: 'var(--sp-3) var(--sp-4)', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 700 }}>{children}</th>;
+}
+function Td({ children }: { children: React.ReactNode }) {
+  return <td style={{ padding: 'var(--sp-3) var(--sp-4)' }}>{children}</td>;
+}
+
+function RolePill({ role }: { role: string }) {
+  const map: Record<string, { bg: string; color: string }> = {
+    admin: { bg: 'var(--crimson-light)', color: 'var(--crimson)' },
+    coach: { bg: 'var(--saffron-pale)', color: 'var(--saffron-dark)' },
+    student: { bg: 'rgba(125,154,108,.15)', color: 'var(--sage-dark)' },
+  };
+  const m = map[role] ?? map.student!;
+  return (
+    <span style={{ padding: '2px 8px', borderRadius: 'var(--r-pill)', background: m.bg, color: m.color, font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1 }}>
+      {role}
+    </span>
+  );
+}
+function StatusPill({ active }: { active: boolean }) {
+  return (
+    <span style={{ padding: '2px 8px', borderRadius: 'var(--r-pill)', background: active ? 'rgba(125,154,108,.15)' : 'var(--crimson-light)', color: active ? 'var(--sage-dark)' : 'var(--crimson)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1 }}>
+      {active ? '✓ active' : '✗ inactive'}
+    </span>
+  );
+}
+
+function UserDrawer({ user, onClose }: { user: AdminUser; onClose: () => void }) {
+  const { s } = useLang();
+  const { user: me } = useAuth();
+  const qc = useQueryClient();
+  const [role, setRole] = useState(user.role);
+
+  const isSelf = me?.id === user.id;
+
+  const changeRole = useMutation({
+    mutationFn: (r: 'admin' | 'coach' | 'student') => api.patch(`/api/admin/users/${encodeURIComponent(user.id)}/role`, { role: r }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      qc.invalidateQueries({ queryKey: ['/api/admin/platform-stats'] });
+      toast.ok(s('角色已更新', '角色已更新', 'Role updated'));
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
+  const toggleActive = useMutation({
+    mutationFn: () => api.post(`/api/admin/users/${encodeURIComponent(user.id)}/active`, { isActive: !user.isActive }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/admin/users'] });
+      toast.ok(user.isActive ? s('已停用', '已停用', 'Disabled') : s('已启用', '已啟用', 'Enabled'));
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
+  const resetPassword = useMutation({
+    mutationFn: (newPwd: string) => api.post(`/api/admin/users/${encodeURIComponent(user.id)}/reset-password`, { password: newPwd }),
+    onSuccess: () => {
+      // 不需要 invalidate · 密码不在 list 显示
+      toast.ok(s('密码已重置 · 该用户所有 session 已吊销', '密碼已重置', 'Password reset · all sessions revoked'));
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
+  async function handleResetPassword() {
+    const pwd = window.prompt(s(
+      `输入 ${user.email || user.dharmaName || '用户'} 的新密码（≥6 位）：`,
+      `輸入新密碼（≥6 位）：`,
+      `New password for ${user.email || user.dharmaName || 'user'} (≥6):`,
+    ));
+    if (!pwd) return;
+    if (pwd.length < 6 || pwd.length > 200) {
+      toast.error(s('密码长度需 6-200 位', '密碼長度需 6-200 位', 'Password 6-200 chars'));
+      return;
+    }
+    if (!(await confirmAsync({
+      title: s('确认重置密码？该用户所有设备会被强制登出', '確認重置密碼？', 'Reset password? User sessions revoked.'),
+    }))) return;
+    resetPassword.mutate(pwd);
+  }
+
+  return (
+    <Dialog open onClose={onClose} title={s('用户详情', '用戶詳情', 'User')} variant="centered" width={720}>
+      <div>
+        <Link
+          to={`/admin/users/${encodeURIComponent(user.id)}/stats`}
+          onClick={onClose}
+          className="btn btn-pill"
+          style={{ display: 'inline-flex', padding: '6px 14px', font: 'var(--text-caption)', background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)', textDecoration: 'none', marginBottom: 'var(--sp-3)' }}
+        >
+          📊 {s('完整学修档案', '完整學修檔案', 'Full dossier')} ›
+        </Link>
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, var(--saffron), var(--saffron-dark))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.5rem' }}>
+            {(user.dharmaName || user.email).slice(0, 1)}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, color: 'var(--ink)', fontSize: '1rem', letterSpacing: 1.5 }}>
+              {user.dharmaName || s('未填法名', '未填法名', 'No name')}
+            </div>
+            <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)' }}>{user.email}</div>
+            <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 4 }}>
+              ID {user.id.slice(0, 8)} · {s('注册', '註冊', 'Joined')} {new Date(user.createdAt).toLocaleDateString()}
+            </div>
+          </div>
+        </div>
+
+        <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-2)' }}>
+          {s('角色', '角色', 'Role')}
+        </h3>
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
+          <div style={{ display: 'flex', gap: 'var(--sp-2)', marginBottom: 'var(--sp-2)' }}>
+            {(['student', 'coach', 'admin'] as const).map((r) => (
+              <button
+                key={r}
+                type="button"
+                disabled={changeRole.isPending || (isSelf && r !== 'admin')}
+                onClick={() => { setRole(r); if (r !== user.role) changeRole.mutate(r); }}
+                style={{
+                  flex: 1, padding: '8px 6px', borderRadius: 'var(--r-pill)',
+                  background: role === r ? 'var(--saffron-pale)' : 'var(--glass-thick)',
+                  color: role === r ? 'var(--saffron-dark)' : 'var(--ink-3)',
+                  border: '1px solid ' + (role === r ? 'var(--saffron-light)' : 'var(--glass-border)'),
+                  font: 'var(--text-caption)', fontWeight: 600, letterSpacing: 1,
+                  cursor: changeRole.isPending ? 'wait' : 'pointer',
+                  opacity: (isSelf && r !== 'admin') ? 0.5 : 1,
+                }}
+                title={isSelf && r !== 'admin' ? s('不能降低自己的权限', '不能降低自己的權限', "Can't downgrade self") : ''}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+          {isSelf && (
+            <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: '.5px' }}>
+              {s('当前是你自己的账户 · 不能降权', '當前是你自己的賬戶 · 不能降權', 'This is your own account · cannot downgrade')}
+            </p>
+          )}
+        </div>
+
+        <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-2)' }}>
+          {s('账户状态', '賬戶狀態', 'Status')}
+        </h3>
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+            <StatusPill active={user.isActive} />
+            <button
+              type="button"
+              disabled={toggleActive.isPending || isSelf}
+              onClick={async () => {
+                if (!(await confirmAsync({ title: user.isActive ? s('停用此账户？', '停用此賬戶？', 'Disable account?') : s('启用此账户？', '啟用此賬戶？', 'Enable account?') }))) return;
+                toggleActive.mutate();
+              }}
+              className="btn btn-pill"
+              style={{
+                marginLeft: 'auto',
+                padding: '6px 14px',
+                background: user.isActive ? 'transparent' : 'var(--sage-dark)',
+                color: user.isActive ? 'var(--crimson)' : '#fff',
+                border: user.isActive ? '1px solid rgba(192,57,43,.3)' : 'none',
+                opacity: isSelf ? 0.5 : 1,
+              }}
+              title={isSelf ? s('不能停用自己', '不能停用自己', "Can't disable self") : ''}
+            >
+              {toggleActive.isPending ? '…' : user.isActive ? s('停用', '停用', 'Disable') : s('启用', '啟用', 'Enable')}
+            </button>
+          </div>
+          {/* 重置密码 · 单独一行 · 因为它需要更慎重的提示 */}
+          <button
+            type="button"
+            disabled={resetPassword.isPending}
+            onClick={handleResetPassword}
+            className="btn btn-pill"
+            style={{
+              marginTop: 'var(--sp-3)',
+              padding: '6px 14px',
+              background: 'transparent',
+              color: 'var(--saffron-dark)',
+              border: '1px solid var(--saffron-light)',
+              alignSelf: 'flex-start',
+              font: 'var(--text-caption)',
+              fontWeight: 600,
+            }}
+          >
+            🔑 {resetPassword.isPending ? '…' : s('重置密码', '重置密碼', 'Reset password')}
+          </button>
+        </div>
+
+        <LearningSection userId={user.id} />
+      </div>
+    </Dialog>
+  );
+}
+
+function LearningSection({ userId }: { userId: string }) {
+  const { s } = useLang();
+  const { data, isLoading, isError, error, refetch } = useAdminUserLearning(userId);
+
+  function downloadCsv() {
+    if (!data) return;
+    const rows: string[] = [];
+    const csv = (s: string | number | boolean | null | undefined): string => {
+      if (s === null || s === undefined) return '';
+      const v = String(s);
+      return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    };
+    rows.push('# 账户基础信息');
+    rows.push('字段,值');
+    rows.push(`id,${csv(data.account.id)}`);
+    rows.push(`email,${csv(data.account.email)}`);
+    rows.push(`dharmaName,${csv(data.account.dharmaName)}`);
+    rows.push(`role,${csv(data.account.role)}`);
+    rows.push(`isActive,${csv(data.account.isActive)}`);
+    rows.push(`createdAt,${csv(data.account.createdAt)}`);
+    rows.push(`lastLoginAt,${csv(data.account.lastLoginAt)}`);
+    rows.push('');
+    rows.push('# 汇总');
+    rows.push('字段,值');
+    rows.push(`totalAnswers,${csv(data.summary.totalAnswers)}`);
+    rows.push(`correctAnswers,${csv(data.summary.correctAnswers)}`);
+    rows.push(`correctRate,${csv((data.summary.correctRate * 100).toFixed(1) + '%')}`);
+    rows.push(`firstAnswerAt,${csv(data.summary.firstAnswerAt)}`);
+    rows.push(`lastActiveAt,${csv(data.summary.lastActiveAt)}`);
+    rows.push('');
+    rows.push('# SM-2 卡片状态');
+    rows.push('状态,数量');
+    rows.push(`新卡 new,${csv(data.sm2Progress.new)}`);
+    rows.push(`学习中 learning,${csv(data.sm2Progress.learning)}`);
+    rows.push(`复习 review,${csv(data.sm2Progress.review)}`);
+    rows.push(`已掌握 mastered,${csv(data.sm2Progress.mastered)}`);
+    rows.push(`今日到期 due,${csv(data.sm2Progress.due)}`);
+    rows.push(`总计 total,${csv(data.sm2Progress.total)}`);
+    rows.push('');
+    rows.push('# 按闻思统计');
+    rows.push('闻思ID,闻思标题,答过题数,答对题数,已掌握,最近学习');
+    for (const c of data.byCourse) {
+      rows.push([c.courseId, c.title, c.answered, c.correct, c.masteredCount, c.lastStudiedAt ?? ''].map(csv).join(','));
+    }
+    rows.push('');
+    rows.push('# 班级关系');
+    rows.push('班级ID,班级名,角色,加入时间');
+    for (const m of data.classMemberships) {
+      rows.push([m.classId, m.className, m.role, m.joinedAt].map(csv).join(','));
+    }
+    rows.push('');
+    rows.push('# 每日活跃');
+    rows.push('日期,答题数,答对数');
+    for (const d of data.dailySeries) {
+      rows.push([d.date, d.count, d.correct].map(csv).join(','));
+    }
+
+    // BOM + UTF-8 让 Excel 中文不乱码
+    const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.download = `learning-${data.account.dharmaName || data.account.email || data.account.id}-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-2)' }}>
+        <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, margin: 0 }}>
+          {s('学习记录', '學習記錄', 'Learning')}
+        </h3>
+        {data && (
+          <button
+            type="button"
+            onClick={downloadCsv}
+            className="btn btn-pill"
+            style={{ padding: '4px 10px', font: 'var(--text-caption)', fontWeight: 600, background: 'transparent', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)' }}
+          >
+            ⬇ {s('下载 CSV', '下載 CSV', 'Download CSV')}
+          </button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
+          <Skeleton.Card />
+        </div>
+      ) : isError || !data ? (
+        <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', color: 'var(--crimson)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-3)' }}>
+          <span>{(error as ApiError | undefined)?.message ?? s('加载失败', '載入失敗', 'Failed')}</span>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="btn btn-pill"
+            style={{ padding: '4px 12px', font: 'var(--text-caption)', fontWeight: 600, background: 'var(--saffron-pale)', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-light)' }}
+          >
+            {s('重试', '重試', 'Retry')}
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* 总览 + 精确时间 */}
+          <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--sp-3)' }}>
+            <DrawerStat value={String(data.summary.totalAnswers)} label={s('累计答题', '累計答題', 'Total')} />
+            <DrawerStat value={Math.round(data.summary.correctRate * 100) + '%'} label={s('正确率', '正確率', 'Accuracy')} color="var(--sage-dark)" />
+            <DrawerStat
+              value={data.summary.firstAnswerAt ? new Date(data.summary.firstAnswerAt).toLocaleDateString() : '—'}
+              label={s('首次答题', '首次答題', 'First')}
+              tooltip={data.summary.firstAnswerAt ? new Date(data.summary.firstAnswerAt).toLocaleString() : undefined}
+              small
+            />
+            <DrawerStat
+              value={data.summary.lastActiveAt ? relTime(data.summary.lastActiveAt, s) : '—'}
+              label={s('最近活跃', '最近活躍', 'Last seen')}
+              tooltip={data.summary.lastActiveAt ? new Date(data.summary.lastActiveAt).toLocaleString() : undefined}
+              color="var(--ink)"
+              small
+            />
+          </div>
+
+          {/* 30 天活跃柱图 */}
+          <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)' }}>
+            <DailyBarChart
+              data={data.dailySeries}
+              emptyLabel={s('近 30 天暂无答题', '近 30 天暫無答題', 'No activity in last 30 days')}
+            />
+          </div>
+
+          {/* SM-2 状态 */}
+          <div className="glass-card-thick" style={{ padding: 'var(--sp-4)', marginBottom: 'var(--sp-4)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)' }}>
+            <DrawerStat value={String(data.sm2Progress.new)} label={s('新卡', '新卡', 'New')} small />
+            <DrawerStat value={String(data.sm2Progress.learning)} label={s('学习', '學習', 'Learn')} small />
+            <DrawerStat value={String(data.sm2Progress.review)} label={s('复习', '複習', 'Review')} small />
+            <DrawerStat value={String(data.sm2Progress.mastered)} label={s('掌握', '掌握', 'Mastered')} color="var(--sage-dark)" small />
+            <DrawerStat value={String(data.sm2Progress.due)} label={s('到期', '到期', 'Due')} color="var(--gold-dark)" small />
+            <DrawerStat value={String(data.sm2Progress.total)} label={s('总计', '總計', 'Total')} small />
+          </div>
+
+          {/* 按闻思分列 */}
+          {data.byCourse.length > 0 && (
+            <>
+              <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-2)' }}>
+                {s('按闻思', '按聞思', 'By text')}
+              </h3>
+              <div className="glass-card-thick" style={{ padding: 0, marginBottom: 'var(--sp-4)' }}>
+                {data.byCourse.map((c, i) => {
+                  const rate = c.answered > 0 ? Math.round((c.correct / c.answered) * 100) : 0;
+                  return (
+                    <div key={c.courseId} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)', borderTop: i === 0 ? 'none' : '1px solid var(--border-light)' }}>
+                      <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>{c.coverEmoji}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 600, color: 'var(--ink)', fontSize: '0.875rem', letterSpacing: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {c.title}
+                        </div>
+                        <div style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', marginTop: 2 }}>
+                          {s(`${c.answered} 题 · 掌握 ${c.masteredCount}`, `${c.answered} 題 · 掌握 ${c.masteredCount}`, `${c.answered} ans · ${c.masteredCount} mastered`)}
+                          {c.lastStudiedAt && (
+                            <> · <span title={new Date(c.lastStudiedAt).toLocaleString()}>{relTime(c.lastStudiedAt, s)}</span></>
+                          )}
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          flexShrink: 0,
+                          padding: '2px 8px',
+                          borderRadius: 'var(--r-pill)',
+                          font: 'var(--text-caption)',
+                          fontWeight: 700,
+                          letterSpacing: 1,
+                          background: rate >= 80 ? 'rgba(125,154,108,.18)' : rate >= 60 ? 'var(--gold-pale)' : 'var(--crimson-light)',
+                          color: rate >= 80 ? 'var(--sage-dark)' : rate >= 60 ? 'var(--gold-dark)' : 'var(--crimson)',
+                        }}
+                      >
+                        {rate}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* 班级 memberships */}
+          {data.classMemberships.length > 0 && (
+            <>
+              <h3 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, marginBottom: 'var(--sp-2)' }}>
+                {s('班级', '班級', 'Classes')}
+              </h3>
+              <div className="glass-card-thick" style={{ padding: 0, marginBottom: 'var(--sp-4)' }}>
+                {data.classMemberships.map((m, i) => (
+                  <div key={m.classId} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)', borderTop: i === 0 ? 'none' : '1px solid var(--border-light)' }}>
+                    <span style={{ fontSize: '1rem', flexShrink: 0 }}>{m.coverEmoji}</span>
+                    <span style={{ flex: 1, fontFamily: 'var(--font-serif)', color: 'var(--ink)', fontSize: '0.875rem', letterSpacing: 1.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {m.className}
+                    </span>
+                    <span style={{ padding: '2px 8px', borderRadius: 'var(--r-pill)', background: m.role === 'coach' ? 'var(--gold-pale)' : 'var(--saffron-pale)', color: m.role === 'coach' ? 'var(--gold-dark)' : 'var(--saffron-dark)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1 }}>
+                      {m.role}
+                    </span>
+                    <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }} title={new Date(m.joinedAt).toLocaleString()}>
+                      {relTime(m.joinedAt, s)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+function DrawerStat({ value, label, color, small, tooltip }: { value: string; label: string; color?: string; small?: boolean; tooltip?: string }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div title={tooltip} style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: small ? '1rem' : '1.25rem', color: color ?? 'var(--ink)', lineHeight: 1.2 }}>
+        {value}
+      </div>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+

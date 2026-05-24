@@ -1,0 +1,337 @@
+// 客观题判分（5 种题型，纯函数）
+// 不碰 DB，不调 LLM，便于单测。
+// 输入：Question 记录 + 用户 answer（Json shape 由前端按协议提交）
+// 输出：{ isCorrect, score 0-100, feedback? }
+import type { Question } from '@prisma/client';
+import { BadRequest } from '../../lib/errors.js';
+import type { GradingStrategy } from './grading.strategy.js';
+
+export interface GradeResult {
+  isCorrect: boolean;
+  score: number;
+  feedback?: string;
+}
+
+type P = Record<string, unknown>;
+
+export function gradeObjective(q: Question, answer: unknown): GradeResult {
+  const payload = (q.payload ?? {}) as P;
+  switch (q.type) {
+    case 'single':
+      return gradeSingle(payload, answer);
+    case 'fill':
+      return gradeFill(payload, answer);
+    case 'multi':
+      return gradeMulti(payload, answer);
+    case 'sort':
+      return gradeSort(payload, answer);
+    case 'match':
+      return gradeMatch(payload, answer);
+    // v2.0 ──────────────────────────────────────────
+    case 'image':
+      return gradeSingle(payload, answer); // 图像选择：语义等同 single
+    case 'listen':
+      return gradeSingle(payload, answer); // 音频选择：语义等同 single
+    case 'scenario':
+      return gradeScenario(payload, answer);
+    case 'flow':
+      return gradeFlow(payload, answer);
+    case 'verse':
+      return gradeVerse(payload, answer);
+    case 'chain':
+      return gradeChain(payload, answer);
+    default:
+      throw BadRequest(`gradeObjective 不支持题型: ${q.type}`);
+  }
+}
+
+// ───── chain · 颂词续接 ─────
+// payload: {
+//   previousLine: string;      // 上一句（仅展示）
+//   nextLines: string[];       // 1-N 句标准答案
+//   matchMode?: 'full' | 'startsWith';   // 默认 startsWith
+//   minMatchLength?: number;   // startsWith 模式下每行最少字数（默认 4）
+// }
+// answer: { lines: string[] }   // 学员逐行输入
+// 评分：每行 hits/total · 全对 100 / 部分对按比例 · normalize 去标点空白
+function gradeChain(p: P, a: unknown): GradeResult {
+  const nextLines = ((p.nextLines as string[] | undefined) ?? []).map((l) => String(l ?? ''));
+  const userLines = ((a as { lines?: string[] })?.lines ?? []).map((l) => String(l ?? ''));
+  const mode = (p.matchMode as string) === 'full' ? 'full' : 'startsWith';
+  const minLen = Number(p.minMatchLength) > 0 ? Number(p.minMatchLength) : 4;
+
+  if (nextLines.length === 0) {
+    throw BadRequest('payload.nextLines 缺失');
+  }
+
+  let hits = 0;
+  for (let i = 0; i < nextLines.length; i++) {
+    const refNorm = normalizeFillAnswer(nextLines[i]!);
+    const userNorm = normalizeFillAnswer(userLines[i] ?? '');
+    if (userNorm.length === 0) continue;
+    if (mode === 'full') {
+      if (userNorm === refNorm) hits++;
+    } else {
+      // startsWith：必达 minLen · 且 ref 以 user 开头
+      if (userNorm.length >= minLen && refNorm.startsWith(userNorm)) hits++;
+    }
+  }
+  const score = Math.round((hits / nextLines.length) * 100);
+  const exact = hits === nextLines.length;
+  return {
+    isCorrect: exact,
+    score,
+    feedback: exact ? undefined : `部分正确：${hits} / ${nextLines.length}`,
+  };
+}
+
+// ───── verse · 颂词组句 ─────
+// payload: { tokens: string[]; distractors?: string[]; hintText?: string }
+// answer:  { tokens: string[] }   按用户点击顺序的词块
+// 评分：长度 + 每位都对 = 100；否则按正确位数比例给分（部分得分鼓励重答）
+function gradeVerse(p: P, a: unknown): GradeResult {
+  const correct = ((p.tokens as string[] | undefined) ?? []).map(normalizeVerseToken);
+  const userTokens = ((a as { tokens?: string[] })?.tokens ?? []).map(normalizeVerseToken);
+  if (correct.length === 0) {
+    throw BadRequest('payload.tokens 缺失');
+  }
+  if (userTokens.length === 0) {
+    return { isCorrect: false, score: 0, feedback: '未拼词' };
+  }
+  // 长度不一致：错位评分（保护提交流程，但 isCorrect=false）
+  let hits = 0;
+  const len = Math.min(correct.length, userTokens.length);
+  for (let i = 0; i < len; i++) {
+    if (correct[i] === userTokens[i]) hits++;
+  }
+  const score = Math.round((hits / correct.length) * 100);
+  const exact = correct.length === userTokens.length && hits === correct.length;
+  return {
+    isCorrect: exact,
+    score,
+    feedback: exact ? undefined : `部分正确：${hits} / ${correct.length}`,
+  };
+}
+
+// 颂词词块对比归一化 · trim + 去全角空格 · 不动标点（颂词内标点是节奏标记）
+function normalizeVerseToken(s: string): string {
+  return String(s ?? '').trim().replace(/[\s　]+/g, '');
+}
+
+// ───── single ─────
+// payload: { options: [{text, correct}] }
+// answer:  { selectedIndex: number }
+interface Option {
+  text: string;
+  correct: boolean;
+}
+function gradeSingle(p: P, a: unknown): GradeResult {
+  const options = (p.options ?? []) as Option[];
+  const idx = (a as { selectedIndex?: number })?.selectedIndex ?? -1;
+  const isCorrect = options[idx]?.correct === true;
+  return { isCorrect, score: isCorrect ? 100 : 0 };
+}
+
+// ───── fill ─────
+// payload: { correctWord, options: string[] }
+// answer:  { value?: string } 或 { selectedOption?: number }
+function gradeFill(p: P, a: unknown): GradeResult {
+  const correct = String(p.correctWord ?? '');
+  const ans = (a ?? {}) as { value?: string; selectedOption?: number };
+  let picked = '';
+  if (typeof ans.value === 'string') {
+    picked = ans.value;
+  } else if (typeof ans.selectedOption === 'number') {
+    const opts = (p.options ?? []) as string[];
+    picked = opts[ans.selectedOption] ?? '';
+  }
+  const correctNorm = normalizeFillAnswer(correct);
+  const pickedNorm = normalizeFillAnswer(picked);
+  // 接受多种合法答案（payload.acceptableAnswers · 兼容简繁体 / 异写 / 简称）
+  const accepts = ((p.acceptableAnswers as string[] | undefined) ?? [correct])
+    .map(normalizeFillAnswer)
+    .filter((s) => s.length > 0);
+  if (accepts.length === 0) accepts.push(correctNorm);
+  const isCorrect = pickedNorm.length > 0 && accepts.includes(pickedNorm);
+  return {
+    isCorrect,
+    score: isCorrect ? 100 : 0,
+    feedback: isCorrect ? undefined : `正确答案：${correct}`,
+  };
+}
+
+// 填空判分归一化 · 统一去差异 · 防止「无垢光尊者。」vs「无垢光尊者」误判
+//   - trim + 去全部空白（含全角空格）
+//   - 全角字母/数字 → 半角
+//   - 去常见中英标点
+//   - 小写
+// 不做：简繁体转换（含义可能不同 · 应在 acceptableAnswers 里多列变体）
+function normalizeFillAnswer(s: string): string {
+  return s
+    .trim()
+    .replace(/[\s　]+/g, '')
+    .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[，。！？、：；""''「」『』《》〈〉,.!?;:"'()<>·\-—_]/g, '')
+    .toLowerCase();
+}
+
+// ───── multi ─────
+// payload: { options, scoringMode: 'strict'|'partial' }
+// answer:  { selectedIndexes: number[] }
+function gradeMulti(p: P, a: unknown): GradeResult {
+  const options = (p.options ?? []) as Option[];
+  const mode = ((p.scoringMode as string) ?? 'strict') as 'strict' | 'partial';
+  const rawSelected = (a as { selectedIndexes?: number[] })?.selectedIndexes ?? [];
+  const filtered = rawSelected.filter((i) => typeof i === 'number');
+  // 至少选 1 项 · 防止误触提交 0 分（前端 disable 提交按钮也好 · 服务端再兜一道底）
+  if (filtered.length === 0) {
+    throw BadRequest('请至少选择一个选项再提交');
+  }
+  const selected = new Set(filtered);
+  const correctSet = new Set(
+    options.map((o, i) => (o.correct ? i : -1)).filter((i) => i >= 0),
+  );
+
+  if (mode === 'strict') {
+    const same =
+      selected.size === correctSet.size &&
+      [...selected].every((i) => correctSet.has(i));
+    return { isCorrect: same, score: same ? 100 : 0 };
+  }
+
+  // partial：命中 +1，错选 -1，漏选不扣；归一到 0..100
+  let points = 0;
+  for (let i = 0; i < options.length; i++) {
+    const hit = selected.has(i);
+    const expected = correctSet.has(i);
+    if (expected && hit) points++;
+    else if (!expected && hit) points--;
+  }
+  const max = Math.max(1, correctSet.size);
+  const score = Math.max(0, Math.round((points / max) * 100));
+  return {
+    isCorrect: score === 100,
+    score,
+    feedback: score === 100 ? undefined : `部分得分：${score} / 100`,
+  };
+}
+
+// ───── sort ─────
+// payload: { items: [{text, order}] }  order 为正确位次（1-based）
+// answer:  { order: number[] }         用户的排列，值为 items 的索引
+// Sort 题答案约定（前后端必须一致 · 修改前看 components/quiz/Sort.tsx 注释）：
+//   payload.items: [{ text, order }] · order 1-based 是正确顺序（i.e. order=1 应排第 1 位）
+//   answer.order: number[] · 用户的排序 · order[i] = 排第 i+1 位的「原始 items 索引」
+//   评分：items[answer.order[i]].order === i + 1 → 该位正确 · 全对得 100
+//
+// 例：payload.items = [A(order=2), B(order=1), C(order=3)]
+//     正确顺序：B → A → C
+//     用户提交 answer.order = [1, 0, 2]（B在原数组下标1 · A在0 · C在2）
+//     items[1].order=1 === 1 ✓
+//     items[0].order=2 === 2 ✓
+//     items[2].order=3 === 3 ✓ · 100分
+function gradeSort(p: P, a: unknown): GradeResult {
+  const items = (p.items ?? []) as Array<{ text: string; order: number }>;
+  const userOrder = ((a as { order?: number[] })?.order ?? []).filter(
+    (n) => typeof n === 'number',
+  );
+  if (userOrder.length !== items.length) {
+    return { isCorrect: false, score: 0, feedback: '排序项数不正确' };
+  }
+  let hits = 0;
+  for (let i = 0; i < userOrder.length; i++) {
+    const item = items[userOrder[i]];
+    if (item && item.order === i + 1) hits++;
+  }
+  const score = Math.round((hits / items.length) * 100);
+  return { isCorrect: score === 100, score };
+}
+
+// ───── match ─────
+// payload: { left, right: [{id, text, match}] }  match 指向左侧 id
+// answer:  { pairs: Record<leftId, rightId> }
+function gradeMatch(p: P, a: unknown): GradeResult {
+  const right = (p.right ?? []) as Array<{ id: string; match: string }>;
+  const pairs = ((a as { pairs?: Record<string, string> })?.pairs ?? {});
+  const total = right.length;
+  if (total === 0) return { isCorrect: false, score: 0 };
+  let hits = 0;
+  for (const r of right) {
+    if (pairs[r.match] === r.id) hits++;
+  }
+  const score = Math.round((hits / total) * 100);
+  return { isCorrect: score === 100, score };
+}
+
+// ───── scenario (v2.0) ─────
+// 语义与 multi 近似（可多正确），但每个选项带 reason 供前端展开解释。
+// payload: { scenario, options: [{text, correct, reason}] }
+// answer:  { selectedIndexes: number[] }
+// 评分：严格模式（所选集合必须等于正确集合才满分，否则按命中比例给部分分）
+function gradeScenario(p: P, a: unknown): GradeResult {
+  const options = (p.options ?? []) as Option[];
+  const selected = new Set(
+    ((a as { selectedIndexes?: number[] })?.selectedIndexes ?? []).filter(
+      (i) => typeof i === 'number',
+    ),
+  );
+  const correctSet = new Set(
+    options.map((o, i) => (o.correct ? i : -1)).filter((i) => i >= 0),
+  );
+  if (correctSet.size === 0) return { isCorrect: false, score: 0 };
+
+  // 部分得分：命中 +1，误选 -1，归一到 0..100；全等才 isCorrect
+  let points = 0;
+  for (let i = 0; i < options.length; i++) {
+    const hit = selected.has(i);
+    const expected = correctSet.has(i);
+    if (expected && hit) points++;
+    else if (!expected && hit) points--;
+  }
+  const score = Math.max(0, Math.round((points / correctSet.size) * 100));
+  const exact =
+    selected.size === correctSet.size &&
+    [...selected].every((i) => correctSet.has(i));
+  return {
+    isCorrect: exact,
+    score,
+    feedback: exact ? undefined : `部分正确：${score} / 100`,
+  };
+}
+
+// ───── flow (v2.0) ─────
+// payload: {
+//   canvas:{width,height,backgroundImage?},
+//   slots:[{id,x,y,correctItem}],
+//   items:[{text}]
+// }
+// answer:  { placements: Record<slotId, itemText> }
+// 评分：每个 slot 放对 +1，全对满分；顺序无关（slot 位置是 payload 定的）
+interface FlowSlot {
+  id: string;
+  correctItem: string;
+}
+function gradeFlow(p: P, a: unknown): GradeResult {
+  const slots = (p.slots ?? []) as FlowSlot[];
+  const placements = ((a as { placements?: Record<string, string> })?.placements ?? {});
+  const total = slots.length;
+  if (total === 0) return { isCorrect: false, score: 0 };
+  let hits = 0;
+  for (const s of slots) {
+    if (placements[s.id] === s.correctItem) hits++;
+  }
+  const score = Math.round((hits / total) * 100);
+  return {
+    isCorrect: score === 100,
+    score,
+    feedback: score === 100 ? undefined : `放置正确：${hits} / ${total}`,
+  };
+}
+
+export const objectiveStrategy: GradingStrategy = {
+  types: ['single', 'fill', 'multi', 'sort', 'match', 'image', 'listen', 'scenario', 'flow', 'verse', 'chain'],
+  async grade(q, answer) {
+    const r = gradeObjective(q, answer);
+    return { ...r, source: 'objective' };
+  },
+};

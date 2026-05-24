@@ -1,0 +1,17 @@
+# Caddy 反代示例：把 HTTPS 终结后转发到本地 8080
+# 把 asia-relay.your-domain.com 换成你买的子域名（DNS A 记录指向本机公网 IP）
+# Caddy 会自动签发 / 续 Let's Encrypt 证书
+asia-relay.your-domain.com {
+    encode gzip
+    reverse_proxy 127.0.0.1:8080 {
+        # 中转可能耗时（重定向 + 慢站），放宽到 30s
+        transport http {
+            response_header_timeout 30s
+            read_timeout 30s
+        }
+    }
+    log {
+        output file /var/log/caddy/asia-relay.access.log
+        format json
+    }
+}
