@@ -221,3 +221,126 @@ export async function deleteNote(prisma: PrismaClient, userId: string, noteId: s
   if (existing.userId !== userId) throw Forbidden('无权删除');
   await prisma.note.delete({ where: { id: noteId } });
 }
+
+// ───── 班级共享笔记举报（审计 5.7 · UGC 审核闭环）─────
+
+export interface NoteReportDto {
+  id: string;
+  noteId: string;
+  noteTitle: string;
+  noteBody: string;
+  authorName: string | null;
+  reporterName: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+/** 学员举报一条同班可见的共享笔记 · 同一人对同一笔记只记一次（幂等） */
+export async function reportNote(prisma: PrismaClient, reporterId: string, noteId: string, reason?: string): Promise<void> {
+  const note = await prisma.note.findUnique({
+    where: { id: noteId },
+    select: { id: true, userId: true, visibility: true },
+  });
+  if (!note) throw NotFound('笔记不存在');
+  if (note.visibility !== 'class') throw BadRequest('该笔记未共享 · 无需举报');
+  if (note.userId === reporterId) throw BadRequest('不能举报自己的笔记');
+  // 必须与作者同班（与可见性一致 · 防越权举报看不到的笔记）
+  const shared = await prisma.classMember.findFirst({
+    where: {
+      userId: reporterId,
+      removedAt: null,
+      class: { members: { some: { userId: note.userId, removedAt: null } } },
+    },
+    select: { id: true },
+  });
+  if (!shared) throw Forbidden('非同班 · 无权举报');
+  await prisma.noteReport.upsert({
+    where: { noteId_reporterId: { noteId, reporterId } },
+    create: { noteId, reporterId, reason: reason?.slice(0, 200) ?? null },
+    update: {}, // 已举报过 · 幂等不覆盖
+  });
+}
+
+/** coach 作用域过滤：仅「作者在该 coach 所带班级里」的笔记 */
+function coachScopedNoteFilter(coachUserId: string): Prisma.NoteWhereInput {
+  return {
+    user: {
+      memberships: {
+        some: {
+          removedAt: null,
+          class: { members: { some: { userId: coachUserId, role: 'coach', removedAt: null } } },
+        },
+      },
+    },
+  };
+}
+
+/** 列出待处理（open）举报 · admin 看全部 · coach 仅看自己班 */
+export async function listNoteReports(prisma: PrismaClient, opts: { coachUserId?: string } = {}): Promise<NoteReportDto[]> {
+  const rows = await prisma.noteReport.findMany({
+    where: {
+      status: 'open',
+      ...(opts.coachUserId ? { note: coachScopedNoteFilter(opts.coachUserId) } : {}),
+    },
+    orderBy: { createdAt: 'asc' },
+    take: 200,
+    include: {
+      note: { select: { id: true, title: true, body: true, user: { select: { dharmaName: true } } } },
+      reporter: { select: { dharmaName: true } },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    noteId: r.noteId,
+    noteTitle: r.note.title,
+    noteBody: r.note.body,
+    authorName: r.note.user?.dharmaName ?? null,
+    reporterName: r.reporter?.dharmaName ?? null,
+    reason: r.reason,
+    createdAt: r.createdAt.toISOString(),
+  }));
+}
+
+/**
+ * 处理举报：takedown = 把笔记转回 private（移出共享流 · 作者仍保留），dismiss = 驳回。
+ * coach 调用时校验该笔记作者确在其所带班级。takedown 同时把该笔记其余 open 举报一并结案。
+ */
+export async function actionNoteReport(
+  prisma: PrismaClient,
+  reportId: string,
+  action: 'takedown' | 'dismiss',
+  handlerId: string,
+  opts: { coachUserId?: string } = {},
+): Promise<void> {
+  const report = await prisma.noteReport.findUnique({
+    where: { id: reportId },
+    include: { note: { select: { id: true, userId: true } } },
+  });
+  if (!report) throw NotFound('举报不存在');
+  if (opts.coachUserId) {
+    const ok = await prisma.classMember.findFirst({
+      where: {
+        userId: opts.coachUserId,
+        role: 'coach',
+        removedAt: null,
+        class: { members: { some: { userId: report.note.userId, removedAt: null } } },
+      },
+      select: { id: true },
+    });
+    if (!ok) throw Forbidden('无权处理该班级外的举报');
+  }
+  if (action === 'takedown') {
+    await prisma.$transaction([
+      prisma.note.update({ where: { id: report.noteId }, data: { visibility: 'private' } }),
+      prisma.noteReport.updateMany({
+        where: { noteId: report.noteId, status: 'open' },
+        data: { status: 'actioned', handledById: handlerId, handledAt: new Date() },
+      }),
+    ]);
+  } else {
+    await prisma.noteReport.update({
+      where: { id: reportId },
+      data: { status: 'dismissed', handledById: handlerId, handledAt: new Date() },
+    });
+  }
+}

@@ -8,15 +8,18 @@
 //   POST   /api/notes/llm-assist             LLM 5 个 action
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { requireUserId } from '../../lib/auth.js';
-import { BadRequest } from '../../lib/errors.js';
+import { getUserRole, requireUserId } from '../../lib/auth.js';
+import { BadRequest, Forbidden } from '../../lib/errors.js';
 import { prisma } from '../../lib/prisma.js';
 import {
+  actionNoteReport,
   createNote,
   deleteNote,
   getNote,
   listMyNotes,
+  listNoteReports,
   listSharedNotes,
+  reportNote,
   updateNote,
 } from './service.js';
 import { llmAssist } from './llm-assist.service.js';
@@ -115,6 +118,45 @@ export const notesRoutes: FastifyPluginAsync = async (app) => {
     const pp = z.object({ id: z.string().min(1) }).safeParse(req.params);
     if (!pp.success) throw BadRequest('路径参数不合法');
     await deleteNote(prisma, requireUserId(req), pp.data.id);
+    return { data: { ok: true } };
+  });
+
+  // ── 举报（UGC 审核闭环 · 审计 5.7）──
+  // 注：/api/notes/reports 是静态路由 · Fastify 优先于 /api/notes/:id 匹配 · 不冲突
+
+  app.post('/api/notes/:id/report', {
+    schema: { tags: TAGS, summary: '举报同班共享笔记', security: SEC },
+    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+  }, async (req) => {
+    const pp = z.object({ id: z.string().min(1) }).safeParse(req.params);
+    if (!pp.success) throw BadRequest('路径参数不合法');
+    const body = z.object({ reason: z.string().max(200).optional() }).safeParse(req.body ?? {});
+    if (!body.success) throw BadRequest('参数不合法');
+    await reportNote(prisma, requireUserId(req), pp.data.id, body.data.reason);
+    return { data: { ok: true } };
+  });
+
+  app.get('/api/notes/reports', {
+    schema: { tags: TAGS, summary: '待处理举报列表（admin 全部 / coach 仅本班）', security: SEC },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const role = getUserRole(req);
+    if (role !== 'admin' && role !== 'coach') throw Forbidden('无权查看举报');
+    const data = await listNoteReports(prisma, role === 'coach' ? { coachUserId: userId } : {});
+    return { data };
+  });
+
+  app.post('/api/notes/reports/:id/action', {
+    schema: { tags: TAGS, summary: '处理举报：takedown(下架) / dismiss(驳回)', security: SEC },
+  }, async (req) => {
+    const userId = requireUserId(req);
+    const role = getUserRole(req);
+    if (role !== 'admin' && role !== 'coach') throw Forbidden('无权处理举报');
+    const pp = z.object({ id: z.string().min(1) }).safeParse(req.params);
+    if (!pp.success) throw BadRequest('路径参数不合法');
+    const body = z.object({ action: z.enum(['takedown', 'dismiss']) }).safeParse(req.body);
+    if (!body.success) throw BadRequest('参数不合法', body.error.flatten());
+    await actionNoteReport(prisma, pp.data.id, body.data.action, userId, role === 'coach' ? { coachUserId: userId } : {});
     return { data: { ok: true } };
   });
 

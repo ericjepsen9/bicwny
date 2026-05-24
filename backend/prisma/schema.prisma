@@ -89,6 +89,7 @@ model User {
   readingProgress        LessonReadingProgress[]
   notes                  Note[]
   highlights             Highlight[]
+  noteReports            NoteReport[]
   achievementUnlocks     UserAchievementUnlock[]
   notificationPreference NotificationPreference?
 
@@ -1425,11 +1426,31 @@ model Note {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  reports       NoteReport[]
+
   @@index([userId, updatedAt])
   @@index([userId, lessonId])
   @@index([userId, archivedAt])
   @@index([visibility, updatedAt])
   @@index([lessonId, anchorIndex])
+}
+
+// 班级共享笔记举报（审计 5.7 · UGC 审核闭环）
+// 学员举报同班可见的不当分享笔记 · admin / 该笔记作者所在班的辅导员处理（下架 = 转回 private）
+model NoteReport {
+  id          String    @id @default(cuid())
+  noteId      String
+  note        Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  reporterId  String
+  reporter    User      @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reason      String? // 可选 · ≤ 200
+  status      String    @default("open") // 'open' | 'actioned'（已下架）| 'dismissed'（驳回）
+  createdAt   DateTime  @default(now())
+  handledById String? // 处理人（admin/coach）userId · 不设 FK 简化
+  handledAt   DateTime?
+
+  @@unique([noteId, reporterId]) // 同一人对同一笔记只举报一次
+  @@index([status, createdAt])
 }
 
 // ═══════════════════════════════════════════════════════════════
