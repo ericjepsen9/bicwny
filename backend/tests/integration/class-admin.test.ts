@@ -287,3 +287,98 @@ describe('Admin class operations · AuditLog', () => {
     expect(logs.length).toBe(0);
   });
 });
+
+describe('PUT /api/admin/classes/:id/coach · 更换辅导员（replaceCoach · 此前零覆盖）', () => {
+  async function addMember(admin: { accessToken: string }, classId: string, userId: string, role: 'coach' | 'student') {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/admin/classes/${classId}/members`,
+      headers: authHeader(admin),
+      payload: { userId, role },
+    });
+    expect(res.statusCode).toBeLessThan(400);
+  }
+  function member(classId: string, userId: string) {
+    return prisma.classMember.findUnique({ where: { classId_userId: { classId, userId } } });
+  }
+
+  it('demote：新 coach 班外账号加入接任 · 旧 coach 降为学员留班', async () => {
+    const admin = await registerAs(app, 'admin');
+    const coachA = await registerAs(app, 'coach');
+    const coachB = await registerAs(app, 'coach'); // 班外平台账号
+    const { courseId } = await seedCourseLesson();
+    const cls = await adminCreateClass(admin, courseId);
+    await addMember(admin, cls.id, coachA.userId, 'coach');
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/classes/${cls.id}/coach`,
+      headers: authHeader(admin),
+      payload: { newCoachUserId: coachB.userId, oldCoachUserId: coachA.userId, oldDisposition: 'demote' },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const mB = await member(cls.id, coachB.userId);
+    const mA = await member(cls.id, coachA.userId);
+    expect(mB?.role).toBe('coach');
+    expect(mB?.removedAt).toBeNull();
+    expect(mA?.role).toBe('student'); // 降级留班
+    expect(mA?.removedAt).toBeNull();
+  });
+
+  it('remove：旧 coach 移出班级 · 新 coach 接任', async () => {
+    const admin = await registerAs(app, 'admin');
+    const coachA = await registerAs(app, 'coach');
+    const coachB = await registerAs(app, 'coach');
+    const { courseId } = await seedCourseLesson();
+    const cls = await adminCreateClass(admin, courseId);
+    await addMember(admin, cls.id, coachA.userId, 'coach');
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/classes/${cls.id}/coach`,
+      headers: authHeader(admin),
+      payload: { newCoachUserId: coachB.userId, oldCoachUserId: coachA.userId, oldDisposition: 'remove' },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const mB = await member(cls.id, coachB.userId);
+    const mA = await member(cls.id, coachA.userId);
+    expect(mB?.role).toBe('coach');
+    expect(mB?.removedAt).toBeNull();
+    expect(mA?.removedAt).not.toBeNull(); // 移出
+  });
+
+  it('新旧辅导员同一人 → 400', async () => {
+    const admin = await registerAs(app, 'admin');
+    const coachA = await registerAs(app, 'coach');
+    const { courseId } = await seedCourseLesson();
+    const cls = await adminCreateClass(admin, courseId);
+    await addMember(admin, cls.id, coachA.userId, 'coach');
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/classes/${cls.id}/coach`,
+      headers: authHeader(admin),
+      payload: { newCoachUserId: coachA.userId, oldCoachUserId: coachA.userId, oldDisposition: 'demote' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('指定的旧辅导员不是当前 coach → 400', async () => {
+    const admin = await registerAs(app, 'admin');
+    const coachA = await registerAs(app, 'coach');
+    const stranger = await registerAs(app, 'student');
+    const { courseId } = await seedCourseLesson();
+    const cls = await adminCreateClass(admin, courseId);
+    await addMember(admin, cls.id, coachA.userId, 'coach');
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/api/admin/classes/${cls.id}/coach`,
+      headers: authHeader(admin),
+      payload: { newCoachUserId: coachA.userId, oldCoachUserId: stranger.userId, oldDisposition: 'demote' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});

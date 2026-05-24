@@ -146,6 +146,33 @@ jobs:
           path: e2e/playwright-report/
           retention-days: 14
 
+  # juexue-v2 前端门禁：CLAUDE.md 要求的 typecheck/lint/build 三件套（此前 CI 完全没跑）
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: juexue-v2
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: juexue-v2/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
   frontend-syntax:
     runs-on: ubuntu-latest
     steps:
