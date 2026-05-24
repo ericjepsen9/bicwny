@@ -5,7 +5,7 @@
 //   - 单个 JSON · 不打 zip（多 GB 题库不会落到单用户 · 几 MB 内）
 //   - 包含：profile / answers / mistakes / favorites / sm2 / enrollments
 //          / memberships / sessions / pushSubs / notifications / reports
-//          / analytics / experimentExposures
+//          / analytics / experimentExposures / notes / highlights
 //   - 不含：他人产生的内容（题目本身 / 班级 / 法本）· 用户只是引用
 //   - 大字段（answer payload）按原样保留 · 数据可移植性优先
 //   - 不暴露其他用户 id / passwordHash 等敏感字段
@@ -44,6 +44,8 @@ interface UserExportPayload {
   questionReports: Array<Record<string, unknown>>;
   analyticsEvents: Array<Record<string, unknown>>;
   experimentExposures: Array<Record<string, unknown>>;
+  notes: Array<Record<string, unknown>>;
+  highlights: Array<Record<string, unknown>>;
 }
 
 function toIso(d: Date | null): string | null {
@@ -73,6 +75,8 @@ export async function exportUserData(userId: string): Promise<UserExportPayload>
     reports,
     analytics,
     exposures,
+    notes,
+    highlights,
   ] = await Promise.all([
     prisma.userAnswer.findMany({
       where: { userId },
@@ -145,6 +149,17 @@ export async function exportUserData(userId: string): Promise<UserExportPayload>
       where: { userId },
       orderBy: { firstSeenAt: 'desc' },
     }),
+    // 用户原创内容：笔记（可设 visibility='class' 分享）+ 阅读划线
+    prisma.note.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      take: 50_000,
+    }),
+    prisma.highlight.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 50_000,
+    }),
   ]);
 
   const serialize = (rows: Array<Record<string, unknown>>) =>
@@ -190,6 +205,8 @@ export async function exportUserData(userId: string): Promise<UserExportPayload>
     questionReports: serialize(reports as Array<Record<string, unknown>>),
     analyticsEvents: serialize(analytics as Array<Record<string, unknown>>),
     experimentExposures: serialize(exposures as Array<Record<string, unknown>>),
+    notes: serialize(notes as Array<Record<string, unknown>>),
+    highlights: serialize(highlights as Array<Record<string, unknown>>),
   };
 }
 

@@ -1,7 +1,10 @@
-# 觉学 Backend · 待人工验证清单
+# 觉学 Backend · 人工验证清单
 
-> 由于开发环境无 Node.js / Docker，以下步骤全部 **尚未实际执行过**。
-> 当你在本机或 CI 拿到环境后，按顺序走一遍。每项执行完可勾掉。
+> CI（`.github/workflows/test.yml`）已覆盖 typecheck + 单测 + 集成测试（自起 postgres + `db push` + seed）。
+> 本地首次跑或排查问题时，按下列步骤走一遍，每项执行完可勾掉。
+>
+> 注：本项目用 **`prisma db push`**（无 migrations 目录），下文命令已对齐；
+> 勿用 `npm run prisma:migrate`（= `migrate dev`，会在无 migrations 时尝试生成迁移，与现流程不符）。
 
 ---
 
@@ -18,15 +21,14 @@ npm run prisma:generate
 
 ---
 
-## B. 首次迁移
+## B. 建表（db push）
 
 ```bash
 docker compose up -d
-npm run prisma:migrate   # Sprint 1+2+3+3.5，建议命名 `sprint_1_to_3_5_baseline`
+npx prisma db push   # 按 schema.prisma 同步表结构（非破坏式）
 ```
 
-- [ ] 迁移成功应用，PostgreSQL 表结构含 **23 个表 / 11 个 enum**
-      （含 Sprint 3.5 新增的 `ErrorLog` + `LogKind`）
+- [ ] 表结构同步成功，PostgreSQL 表结构与 `schema.prisma` 一致
 
 ---
 
@@ -139,11 +141,8 @@ scaffold 位置：`tests/integration/`
 ```bash
 # 建议 docker-compose 加 postgres_test 服务，或改用不同端口 / 库名
 export DATABASE_URL="postgresql://juexue:juexue_dev@localhost:5433/juexue_test?schema=public"
-npx prisma migrate deploy     # 建表
-npx prisma db execute --file /dev/stdin <<< 'TRUNCATE llm_provider_config RESTART IDENTITY CASCADE;'
-# 或最简单：
-# npm run prisma:migrate  # dev 库和 test 库都建
-# 然后 seed 一次 LLM 配置到 test 库（tests 不清 LLM 表，依赖存在）
+npx prisma db push            # 按 schema 建表到测试库
+npm run prisma:seed           # seed 一次（含 LLM 配置 · tests 不清 LLM 表，依赖其存在）
 ```
 
 ### 运行命令
