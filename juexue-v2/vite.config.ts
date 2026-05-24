@@ -47,7 +47,9 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: isNative ? 'dist-native' : 'dist',
-      sourcemap: true,
+      // 关掉 prod sourcemap：dist/ 会被 rsync 到 nginx 公开目录，.map 会泄漏源码
+      // （未接 Sentry 源码上传 · 没有保留 map 的收益）
+      sourcemap: false,
       target: 'es2020',
       rollupOptions: {
         output: {
