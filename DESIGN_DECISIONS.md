@@ -125,10 +125,12 @@
 - 新增 `SelfStudyRecord` 表（userId / classId? / bookId / status）
 - 新增 `ProgramWeekSelfStudy` 表（周 ↔ 书的映射）
 
-### 4F · 观修引导内容 ✅
+### 4F · 观修引导内容 ❌ 已被冲突 2 覆盖
 
-- 新增 `PracticeGuide` 表（practiceId / contentNumber / title / videoUrl / guideText）
-- 92修法打卡**必须**选 contentNumber（practiceGuideId 不可为空）
+> ~~新增 `PracticeGuide` 表（practiceId / contentNumber / title / videoUrl / guideText）~~  
+> ~~92修法打卡必须选 contentNumber（practiceGuideId 不可为空）~~
+>
+> **冲突 2 决议**：删除 PracticeGuide 表，功能并入 `Meditation`（新增 `seriesKey / seriesNumber` 字段）。92修法"第几法"通过 `PracticeLog.meditationId` 关联 Meditation 表。
 
 ---
 
@@ -138,19 +140,20 @@
 
 新增 `StudyRecord` 表，studyType 枚举：
 
-| 类型 | 说明 |
-|---|---|
-| `listen` | 听课 |
-| `read_notes` | 读讲记 |
-| `speaking_present` | 讲考：主讲 |
-| `speaking_question` | 讲考：提问 |
-| `speaking_observe` | 讲考：旁听 |
-| `group_attend` | 共修：出席 |
-| `group_absent` | 共修：缺席 |
-| `group_review` | 共修：复习 |
-| `group_summary` | 共修：总结 |
+| 类型 | 说明 | |
+|---|---|---|
+| ~~`listen`~~ | ~~听课~~ | ❌ 已移除（新逻辑：轻量完成标记，不走 StudyRecord，见"新逻辑"节）|
+| ~~`read_notes`~~ | ~~读讲记~~ | ❌ 已移除（同上）|
+| `speaking_present` | 讲考：主讲 | ✅ |
+| `speaking_question` | 讲考：提问 | ✅ |
+| `speaking_observe` | 讲考：旁听 | ✅ |
+| `group_attend` | 共修：出席 | ✅ |
+| `group_absent` | 共修：缺席 | ✅ |
+| `group_review` | 共修：复习 | ✅ |
+| `group_summary` | 共修：总结 | ✅ |
 
-讲考 3 种类型互斥（三选一）；共修 attend/absent 互斥（二选一）。
+讲考 3 种类型互斥（三选一）；共修 attend/absent 互斥（二选一）。  
+**StudyRecord 最终只覆盖讲考 + 共修，内容消费（听/读/观修）走轻量标记，不审核。**
 
 ### 5B · 讲考场次 ✅ 来自测试场景文档
 
@@ -161,7 +164,7 @@
 ### 5C · 共修场次 ✅
 
 - 复用现有 `ClassSession` 表，新增 `lessonId String?` + `sessionEndAt DateTime?` 字段
-- 不新建 group_sessions 表
+- ❌ 不新建 group_sessions 表
 
 ### 5D · 审核态机制 ✅ 来自测试场景文档
 
@@ -213,11 +216,13 @@
 
 > 以 DB_DIFF 阈值为准（30/15 分钟），测试场景文档的 45/20 数值为举例，非阈值。
 
-### 6E · 修持打卡（PracticeLog）✅
+### 6E · 修持打卡（PracticeLog）✅（部分被冲突 2 覆盖）
 
-- 新增 `PracticeLog` 表，每条打卡必须关联一条愿（vowId 非空）
-- 92修法打卡：`practiceGuideId` **必填**（选第几法）
-- 同日可多次打卡（sessionAttempt 记录当日第几次）
+- 新增 `PracticeLog` 表
+- ~~每条打卡必须关联一条愿（vowId 非空）~~ → **vowId 可空**（冲突 2：支持日常裸打卡 + 随喜参与法会，不强制先发愿）
+- ~~92修法打卡：`practiceGuideId` 必填~~ → **改为 `meditationId` 可空**，指向 Meditation.seriesNumber（冲突 2：PracticeGuide 删除）
+- 同日可多次打卡（`source` 字段记录 manual/bulk/tap/shake）
+- 完整结构见冲突 2 § PracticeLog 自描述模型
 
 ### 6F · 修持日记（PracticeJournal）✅
 
@@ -644,6 +649,29 @@ Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ Pract
 **新增表净变化**：原 28 张 → 删 PracticeGuide → **27 张**（PracticeGuide 功能并入 Meditation 扩展）。
 
 ---
+
+---
+
+## ❌ 明确不做清单（全文汇总）
+
+> 每条都有对应章节，此处集中索引，避免重复建表或重新讨论。
+
+| ❌ 不做 | 原因 / 替代方案 | 出处 |
+|---|---|---|
+| Academy 表 | 不建，Program 上预留 `academyId String?` | 第 1 组 |
+| PracticeGuide 表 | 删除，功能并入 `Meditation.seriesKey/seriesNumber` | 4F / 冲突 2 |
+| StudyRecord.listen 类型 | 轻量完成标记替代，不走审核态 | 5A / 新逻辑 |
+| StudyRecord.read_notes 类型 | 同上 | 5A / 新逻辑 |
+| group_sessions 独立表 | 复用现有 ClassSession，加两字段即可 | 5C |
+| 法会发愿独立表 | 法会愿就是 UserPracticeVow（context=event），无需另表 | 冲突 1 |
+| PracticeEntry 新写入 | 历史数据保留，新打卡一律走 PracticeLog | 冲突 2 |
+| UserCourseEnrollment.selfStudy* 三字段 | 自学走 UserSelfStudyProgram（科系级），字段重复废弃 | 冲突 3 |
+| PracticeProject.scope 在新系统使用 | 历史包袱，新愿归属完全由 UserPracticeVow 表达 | 冲突 5 |
+| ClassAdminRole 枚举（zhumai/aixin）| 改为 RBAC flags，admin 后台细粒度分配 | A3 |
+| 约修审批流 | 无审批、无推送、不比先后 | 7B |
+| 打卡报数新增表 | 纯前端生成文字，无 DB | 7D |
+| 批量补录新增表 | 前端 + 后端批量写入 StudyRecord，无新表 | 8D |
+| 三殊胜精神框架新增表 | 回向为前端 UI，发心语开关用 User.preferShowFaxin | 7C |
 
 ---
 
