@@ -21,7 +21,7 @@
 2. [数据库改动](#二数据库改动)
    - 2.1 新增枚举
    - 2.2 现有表字段扩展
-   - 2.3 新增表（42 张，含完整 Prisma schema）
+   - 2.3 新增表（44 张，含完整 Prisma schema）
    - 2.4 新增 SQL 视图
 3. [后端改动范围](#三后端改动范围)
 4. [前端改动范围](#四前端改动范围)
@@ -39,7 +39,7 @@
 |---|---|---|
 | 新增 Prisma 枚举 | 7 个 | 见 2.1 |
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
-| 新增表 | 42 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount + ClassPost 系列 4 张 + Discussion 系列 4 张 + AI 助手 5 张 新增 = 净 42）|
+| 新增表 | 44 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount + ClassPost 系列 4 张 + Discussion 系列 4 张 + AI 助手 5 张 + LessonMediaChapter + LessonTextBlock 新增 = 净 44）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 16 个 | 见 3.1 |
@@ -271,7 +271,7 @@ model PracticeProject {
 
 ---
 
-### 2.3 新增表（42 张）
+### 2.3 新增表（44 张）
 
 #### 组织层级（1 张）
 
@@ -384,22 +384,62 @@ model UserSelfStudyRestWeek {
 }
 ```
 
-#### 课程内容扩展（1 张）
+#### 课程内容扩展（3 张）✅ 已实现（migration_001_lesson_resources · commit ca0e975）
 
 ```prisma
-// 课时多讲者讲解资源
-// 替代 Lesson 上的固定 teacher 槽位，原有 teacher 字段保留不删（存量数据兼容）
+// 课时媒体资源（讲法音视频 + YouTube 链接）
+// ✅ 已实现：DB + 后端 API（GET/POST/DELETE /api/admin/lessons/:id/resources）+ Admin UI
+// 支持 type: "youtube" | "audio" | "video"
+// YouTube：后端提取 videoId 存储，前端用 <iframe> 渲染
+// audio/video：存 OSS URL（上传逻辑 ⏸ 暂缓 Phase 6）
 model LessonResource {
-  id          String   @id @default(cuid())
-  lessonId    String
-  speakerName String   // 讲者全名（含尊称），如"索达吉堪布"
-  videoUrl    String?
-  audioUrl    String?
-  notes       String?  // 讲记（富文本）
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  lessonId  String
+  type      String   // "youtube" | "audio" | "video"
+  url       String   // YouTube videoId 或 OSS URL
+  label     String?  // 可选显示名称（如"索达吉堪布讲授"）
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  lesson      Lesson   @relation(fields: [lessonId], references: [id])
+  lesson   Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  chapters LessonMediaChapter[]
+
+  @@index([lessonId, sortOrder])
+}
+
+// 媒体章节标记（C/D 模式：音频章节导航 + 文字同步）
+// ✅ 已实现：DB only（migration_001_lesson_resources）
+// API + UI ⏸ 暂缓（Phase 6）
+model LessonMediaChapter {
+  id               String         @id @default(cuid())
+  lessonResourceId String
+  title            String         // 章节名（如"第一节：皈依发心"）
+  startSec         Float          // 章节开始时间（秒）
+  sortOrder        Int
+  createdAt        DateTime       @default(now())
+
+  lessonResource LessonResource @relation(fields: [lessonResourceId], references: [id], onDelete: Cascade)
+
+  @@index([lessonResourceId, sortOrder])
+}
+
+// 段落级文字块，与音频时间戳对齐（B/C 模式用）
+// ✅ 已实现：DB only（migration_001_lesson_resources）
+// API + UI ⏸ 暂缓（Phase 6）
+model LessonTextBlock {
+  id            String   @id @default(cuid())
+  lessonId      String
+  blockIndex    Int      // 段落顺序（0-based）
+  content       String   // 段落原文
+  audioStartSec Float?   // 对应音频开始时间（秒）
+  audioEndSec   Float?   // 对应音频结束时间（秒）
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId, blockIndex])
 }
 ```
 
@@ -1373,7 +1413,7 @@ DELETE /api/admin/events/:id（软删：isActive=false）
 | `classes` | 创建/编辑支持 programId / startDate / city / timezone |
 | `class-members` | 状态机操作（pause / hold-back / graduate / leave）；isPrimary 切换事务；ClassAdmin flags 验证 |
 | `courses` | **所有学员侧查询加 isTantric 过滤**：未授权学员的任何 Course 查询排除密法；管理端不过滤 |
-| `lessons` | 返回 sourceText 字段；关联 LessonResource |
+| `lessons` | 返回 sourceText 字段；关联 LessonResource ✅ Admin 端 LessonResource YouTube 管理 UI 已实现（AdminCoursesPage · commit ca0e975）|
 | `question-references` | 新接口：admin 管理参考答案；师兄提交答案后解锁查看 |
 
 ### 3.3 核心业务逻辑
@@ -1790,7 +1830,8 @@ migration_007_extend_classsession.sql ClassSession 加 2 个字段
 migration_008_extend_meditation.sql   Meditation 加 3 个字段（seriesKey/seriesNumber/isTantric）
 migration_009_extend_practice.sql     PracticeProject 加 1 个字段（isTantric）
 migration_009_pgvector.sql            启用 pgvector 扩展（CREATE EXTENSION IF NOT EXISTS vector）
-migration_010_new_tables.sql          建 42 张新表（含 EventCount / ClassPost 系列 / Discussion 系列 / AI 助手 5 张；PracticeGuide 未进入生产，无需 DROP）
+migration_001_lesson_resources.sql    ✅ 已跑 · 建 LessonResource / LessonMediaChapter / LessonTextBlock 3 张表（对应 backend/prisma/migrations/1_lesson_resources/）
+migration_010_new_tables.sql          建 44 张新表（含 EventCount / ClassPost 系列 / Discussion 系列 / AI 助手 5 张 / LessonMediaChapter / LessonTextBlock；PracticeGuide 未进入生产，无需 DROP）
 migration_011_views.sql               建 2 个 SQL 视图
 ```
 
@@ -1897,7 +1938,10 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 任务 | 类型 |
 |---|---|
 | 排表模板 API（6 张表）| 后端 |
-| 多讲者 LessonResource API | 后端 |
+| LessonResource API（YouTube 链接 + audio/video · GET/POST/DELETE）✅ 已实现 | 后端 |
+| LessonResource 音频/视频文件上传（OSS · type=audio/video）⏸ 暂缓 | 后端 |
+| LessonMediaChapter API（章节标记 · C/D 模式）⏸ 暂缓 | 后端 |
+| LessonTextBlock API（段落同步 · B/C 模式）⏸ 暂缓 | 后端 |
 | 自学读物 SelfStudyRecord API | 后端 |
 | 参考答案 QuestionReference API | 后端 |
 | 课程详情多讲者展示（学员端）| 前端 |
