@@ -44,8 +44,8 @@
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 22 个 | 见 3.1 |
 | 修改后端模块 | 6 个 | 见 3.2 |
-| 新增前端页面（学员端）| 8 个 | 含活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice，不单设页）|
-| 修改前端页面（学员端）| 6 个 | 首页（活动药丸 + 通知移我的）+ 修学计数页（统一中枢）+ 课程详情 + 打卡记录 + 思考题 + 个人设置 |
+| 新增前端页面（学员端）| 7 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice、日记嵌入 /calendar，不单设页）|
+| 修改前端页面（学员端）| 7 个 | 首页 + 修学计数页 + 藏历日历页（嵌日记）+ 课程详情 + 打卡记录 + 思考题 + 个人设置 |
 | 新增前端页面（管理端 /coach/*）| 5 个 | |
 | 新增前端页面（Admin 端）| 7 个 | |
 
@@ -604,8 +604,7 @@ model PracticeLog {
   sessionCount    Decimal?  // 座次（自动计算：≥30min=1, ≥15min=0.5, <15min=0）
 
   source        String   @default("manual") // manual / bulk / tap / shake
-  reflection    String?
-  reflectionAt  DateTime? // 填写反思的时间戳，服务端写反思时自动赋值
+  // 注：打卡反思字段已移除（决策）；反思统一写入当日 PracticeJournal（藏历日历内）
   logDate       DateTime  // UTC 时间戳；可补填历史日期；显示层按 User.timezone 或 Class.timezone 转换
 
   // 审核态
@@ -681,11 +680,13 @@ model SpeakingSession {
 }
 
 // 每日修持日记（与现有 Note 课时笔记完全不同：日记绑日期，笔记绑课时）
+// UI 入口：嵌入藏历日历页（/calendar）——点某天 → 查看/编写当天日记；不单设 /journals 页
+// 唯一反思载体：打卡反思已移除，反思统一写这里
 model PracticeJournal {
   id          String   @id @default(cuid())
   userId      String
   classId     String?
-  journalDate DateTime // 对应日期
+  journalDate DateTime // 对应日期（日历所选日 → User.timezone 本地日期）
   content     String
   visibility  String   @default("private")
   // private / visible_to_coach
@@ -1265,7 +1266,8 @@ SELECT
 FROM event_counts ec
 GROUP BY ec.event_id, ec.practice_project_id;
 
--- 每周回向聚合视图（班级层 + 全会层）
+-- 每周回向聚合视图（按 class_id 分组）
+-- 学员端 /class/:id/dedication 仅消费班级级（WHERE class_id = :id）；全平台聚合 ⏸ 暂缓
 -- 数据源：PracticeLog（日常修持）；EventCount 不计入此视图（有意设计：法会参与独立在 /events/:id 展示）
 -- 密法打卡同样计入
 CREATE VIEW v_weekly_dedication_totals AS
@@ -1390,7 +1392,7 @@ model PracticeTemplate {
 | StudyRecords | `/api/study-records` | 闻思打卡（App 内自助，需登录，校验时间窗口）|
 | SpeakingSessions | `/api/classes/:id/speaking-sessions` | 讲考场次管理（含生成签到 token）|
 | CheckIn | `/api/checkin/:token` | **公开端点（无需登录）** 签到链接页数据 + 提交；时间窗口校验 |
-| PracticeJournals | `/api/journals` | 修持日记 CRUD |
+| PracticeJournals | `/api/journals` | 修持日记 CRUD（UI 嵌藏历日历，upsert 一天一篇）|
 | SelfStudy | `/api/self-study` | 自学师兄管理 + 读物记录 |
 | Events | `/api/events` | 法会活动（admin CRUD）+ 学员端列表/详情/集体回向/打卡/发愿 |
 | Appointments | `/api/appointments` | 约修创建/加入/关闭 ⏸ 暂缓（Phase 5：后端 API 先做，学员端 UI 暂缓）|
@@ -1705,14 +1707,14 @@ care-followup.middleware.ts
 
 ## 四、前端改动范围
 
-### 4.1 学员端新增页面（8 个）
+### 4.1 学员端新增页面（7 个）
 
-> 注：修持愿与修持打卡**合并进现有 `/practice` 页**（见 §4.2 修学计数页改造），不再单设 `/vows` 独立页。
+> 注 1：修持愿与修持打卡**合并进现有 `/practice` 页**（见 §4.2 修学计数页改造），不再单设 `/vows` 独立页。
+> 注 2：修持日记**嵌入藏历日历页 `/calendar`**（见 §4.2），不再单设 `/journals` 独立页。
 
 | 页面 | 路由 | 说明 |
 |---|---|---|
-| 修持日记 | `/journals` | 每日一篇，private / visible_to_coach |
-| 每周回向 | `/dedication` | 跨法会每周修持总量汇总（只显总数，不露个体）；法会专项回向在 `/events/:id` 内展示 |
+| 每周回向 | `/class/:id/dedication` | **班级级**本周修持总量汇总（只显总数，不露个体）；**入口：班级页**；法会专项回向在 `/events/:id` 内展示 |
 | 自学读物 | `/books` | 18 本读物阅读进度 |
 | 约修 | `/appointments` | 查看班级约修 + 加入 ⏸ 暂缓（Phase 5）|
 | 活动中心 | `/events` | 3 Tab：法会 / 共修 / 讲考；每 Tab 内分 进行中 / 即将开始 / 往期；**入口：首页药丸卡片** |
@@ -1839,16 +1841,33 @@ care-followup.middleware.ts
   - 提交 → 写 `UserPracticeVow { context: 'event', eventId, source: 'custom' }`
   - 提交成功 → 状态切换到「有愿」状态
 
-### 4.2 学员端修改页面（6 个）
+### 4.2 学员端修改页面（7 个）
 
 | 页面 | 改动 |
 |---|---|
 | 首页 | 顶部「活动按钮 + 通知铃」合并为药丸卡片（显示平台法会/共修/讲考，常驻）；通知入口移入「我的」；头像挂未读红点 badge 补偿；点击药丸跳 `/events` 活动中心 |
 | 修学计数页 `/practice` | **改造为统一修学中枢**（合并修持愿 + 修持打卡）；见下方详细设计 |
+| 藏历日历页 `/calendar` | **嵌入每日修持日记**（PracticeJournal）；点某天 → 藏历信息 + 当天日记查看/编写；见下方详细设计 |
 | 课程详情 | 多讲者 LessonResource 展示；按 Class.timezone 显示共修时间；「已学完/已听完/已看完」确认按钮（见下方流程）|
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | 提交后解锁参考答案入口（QuestionReference）|
 | 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择 |
+
+#### 藏历日历页嵌入日记（`/calendar` · Feature 10）
+
+```
+点日历某天
+  → 上半：藏历信息（TibetanDay：藏历日期 / 节日 / 吉日，现有）
+  → 下半：当天修持日记（PracticeJournal）
+      有日记 → 显示内容 + 编辑按钮
+      无日记 → 「写今日修持感想」入口
+  → 编辑：文本 + 可见性开关（private / visible_to_coach）
+  → 保存 → upsert PracticeJournal（@@unique userId+journalDate 保障一天一篇）
+journalDate = 所选日历日按 User.timezone 取本地日期
+```
+
+- 唯一反思载体：打卡反思已移除，所有修持感想统一写当天日记
+- visible_to_coach 的日记 → 辅导员端「学员修行数据」可见（需 canViewStudents）
 
 #### 修学计数页改造（`/practice` 统一中枢 · Feature 9）
 
@@ -2171,7 +2190,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 法会详情页 `/events/:id`（含计数提交 Sheet + 回向 Sheet + 发愿 Sheet）| 前端 |
 | 平台场次详情页 `/events/sessions/:id`（App 内签到入口）| 前端 |
 | 首页活动药丸卡片 + 通知移入「我的」+ 头像未读红点 | 前端 |
-| 每周回向页面 `/dedication` | 前端 |
+| 每周回向页面 `/class/:id/dedication`（班级级，入口班级页）| 前端 |
+| 藏历日历嵌入修持日记 `/calendar` + PracticeJournals API | 前端+后端 |
 | 关怀跟进 API（canCareFollowup 专属）| 后端 |
 | 约修 API（创建/加入/关闭）| 后端 |
 | 班级周汇总生成 + 复制 | 后端 |
@@ -2212,6 +2232,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | PracticeTask / PracticeGoal 迁移为愿 | 原地保留只读；新目标全走 UserPracticeVow，不迁移旧任务/目标 |
 | PracticeDailySummary 新写入 | 停更；KPI/streak 实时从 PracticeLog 按 User.timezone 聚合 |
 | 裸打卡补发愿（追溯历史）| 不支持；发愿须新建 isPledged=true 的愿，历史裸打卡不关联 |
+| PracticeLog.reflection 打卡反思 | 移除；反思统一写当日 PracticeJournal（藏历日历内），单一载体 |
+| 修持日记独立页 /journals | 不单设；嵌入藏历日历页 /calendar |
 | UserCourseEnrollment.selfStudy* 三字段 | 自学走 UserSelfStudyProgram（科系级），字段重复废弃 |
 | PracticeProject.scope 在新系统使用 | 历史包袱；新愿归属完全由 UserPracticeVow 表达 |
 | ClassAdminRole 枚举（zhumai/aixin）| 改为 RBAC flags，admin 后台细粒度分配 |
