@@ -826,6 +826,8 @@ model Event {
   isActive       Boolean  @default(true)
   createdBy      String   // admin userId
   createdAt      DateTime @default(now())
+
+  eventCounts    EventCount[]
 }
 
 // 约修 ⏸ 暂缓（Phase 5）：DB + 后台 API 先建，学员端 UI 暂缓
@@ -1122,6 +1124,8 @@ model AiUsage {
   tokenInput  Int      @default(0)
   tokenOutput Int      @default(0)
 
+  user User @relation(fields: [userId], references: [id])
+
   @@unique([userId, date])
 }
 ```
@@ -1199,6 +1203,95 @@ SELECT
   COUNT(DISTINCT pl.user_id) AS participant_count
 FROM practice_logs pl
 GROUP BY DATE_TRUNC('week', pl.log_date), pl.class_id, pl.practice_project_id;
+```
+
+---
+
+### 2.5 现有表反向关联字段（配合 2.3 新增表）
+
+> 2.3 新增表的 `@relation` 字段指向现有模型（User / Class / Lesson / Course / Event / PracticeTemplate），
+> 这些现有模型需在 migration_010 时补充对应反向字段，否则 Prisma schema 无法通过校验。
+
+#### `User` 表新增反向关联
+
+```prisma
+model User {
+  // ... 现有字段 + 2.2 新增字段 ...
+
+  // 新增反向关联
+  classAdmins          ClassAdmin[]
+  selfStudyPrograms    UserSelfStudyProgram[]
+  vows                 UserPracticeVow[]
+  practiceLog          PracticeLog[]
+  studyRecords         StudyRecord[]
+  journals             PracticeJournal[]
+  eventCounts          EventCount[]
+  careStudentRecords   CareFollowup[]        @relation("CareStudent")
+  careWorkerRecords    CareFollowup[]        @relation("CareWorker")
+  authoredPosts        ClassPost[]
+  postReactions        ClassPostReaction[]
+  postComments         ClassPostComment[]
+  postShares           ClassPostShare[]
+  authoredDiscussions  Discussion[]
+  discussionVotes      DiscussionVote[]
+  discussionComments   DiscussionComment[]
+  aiConversations      AiConversation[]
+  aiUsage              AiUsage[]
+  tantricGrants        TantricAccessGrant[]
+}
+```
+
+> `CareFollowup` 中 `studentId` 和 `careWorkerId` 均指向 User，
+> 需在 CareFollowup 上显式命名 `@relation("CareStudent")` / `@relation("CareWorker")`：
+>
+> ```prisma
+> student    User @relation("CareStudent",  fields: [studentId],    references: [id])
+> careWorker User @relation("CareWorker",   fields: [careWorkerId], references: [id])
+> ```
+
+#### `Class` 表新增反向关联
+
+```prisma
+model Class {
+  // ... 现有字段 + 2.2 新增字段 ...
+  admins               ClassAdmin[]
+  restWeeks            CohortRestWeek[]
+  recommendedTemplates CohortRecommendedTemplate[]
+  careFollowups        CareFollowup[]
+  posts                ClassPost[]
+  discussions          Discussion[]
+  weeklySummaries      CohortWeeklySummary[]
+}
+```
+
+#### `Lesson` 表新增反向关联
+
+```prisma
+model Lesson {
+  // ... 现有字段 + 2.2 新增字段 ...
+  speakingSessions     SpeakingSession[]
+  studyRecords         StudyRecord[]
+  contentChunks        ContentChunk[]
+}
+```
+
+#### `Course` 表新增反向关联
+
+```prisma
+model Course {
+  // ... 现有字段 + 2.2 新增字段 ...
+  contentChunks        ContentChunk[]
+  tantricGrants        TantricAccessGrant[]
+}
+```
+
+#### `PracticeTemplate` 表新增反向关联
+
+```prisma
+model PracticeTemplate {
+  // ... 现有字段 ...
+  cohortBindings       CohortRecommendedTemplate[]
+}
 ```
 
 ---
@@ -1634,8 +1727,8 @@ care-followup.middleware.ts
 |---|---|
 | 同一时刻只有一个主班 | 事务：先 `isPrimary=false`（全班），再 `isPrimary=true`（新主班）|
 | 92修法打卡建议关联第几法 | Zod schema：meditationId 可空，但 seriesKey='92xiufa' 时建议不为空 |
-| 讲考三选一互斥 | 后端：同一场次同一人只能有一条 speaking_* 记录 |
-| 共修出席/缺席二选一 | 后端：同一场次同一人只能有一条 group_attend/absent 记录 |
+| 讲考三选一互斥 | DB：`@@unique([classSessionId, userId, studyType])`；应用层校验 studyType 为讲考类之一（speaking_pass/speaking_fail/speaking_absent） |
+| 共修出席/缺席二选一 | DB：`@@unique([classSessionId, userId, studyType])`；应用层校验 studyType 为共修类之一（group_attend/group_absent） |
 | 每日日记一人一天一篇 | DB：`@@unique([userId, journalDate])` |
 | 学号全局唯一 | DB：`studentId @unique` |
 | isPublic 仅限 personal/appointment 愿 | Zod schema：context=class 或 context=event 时强制 isPublic=false，忽略传入值 |
@@ -1767,6 +1860,7 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 任务 | 类型 |
 |---|---|
 | 课程进度算法（getCurrentLessonNumber）| 后端 |
+| CurrentLesson API（`/api/classes/:id/current-lesson`）| 后端 |
 | CohortRestWeek API | 后端 |
 | UserSelfStudyProgram API | 后端 |
 | 班级休息周管理（Admin，含实时预览）| 前端 |
