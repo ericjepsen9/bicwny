@@ -505,6 +505,7 @@ model UserPracticeVow {
   template    PracticeTemplate? @relation(fields: [templateId], references: [id])
   appointment PracticeAppointment? @relation(fields: [appointmentId], references: [id])
   logs        PracticeLog[]
+  eventCounts EventCount[]      // context=event 愿的计数来源（非 PracticeLog）
 }
 
 // 修持打卡记录（自描述模型，vowId 可空）
@@ -946,6 +947,7 @@ FROM event_counts ec
 GROUP BY ec.event_id, ec.practice_project_id;
 
 -- 每周回向聚合视图（班级层 + 全会层）
+-- 数据源：PracticeLog（日常修持）；EventCount 不计入此视图（有意设计：法会参与独立在 /events/:id 展示）
 -- 密法打卡同样计入
 CREATE VIEW v_weekly_dedication_totals AS
 SELECT
@@ -998,7 +1000,8 @@ GET  /api/events/:id
         按 practiceProjectId 分组）
 
 GET  /api/events/:id/my-participation
-  响应：vow（UserPracticeVow，有愿时）/ logCount / totalCount / totalMinutes
+  响应：vow（UserPracticeVow，有愿时）/ submissionCount / totalCount
+  // submissionCount：提交次数；totalCount：累计遍数（EventCount 无时长字段）
   用于前端判断「我的参与」状态机
 
 POST /api/events/:id/count
@@ -1013,7 +1016,8 @@ POST /api/events/:id/count
 POST /api/events/:id/vow
   body: { practiceProjectId, targetCount?, targetPeriod='lifetime' }
   写 UserPracticeVow { context: 'event', eventId, source: 'custom',
-    startDate: max(event.startDate, today) }
+    startDate: max(event.startDate, toLocalDate(now, event.timezone)) }
+  // "today" 以 event.timezone 为准（如法会在 Asia/Shanghai，上海时间的今天）
   响应：UserPracticeVow
 
 // Admin only
@@ -1097,7 +1101,8 @@ async function generateStudentId(tx: PrismaTransaction): Promise<string> {
 #### 修持愿状态机（打卡后实时重算）
 
 **重算触发点**（全部实现）：
-- 每次提交 PracticeLog 后
+- 每次提交 PracticeLog 后（context≠event 愿）
+- 每次提交 EventCount 后（context=event 愿）
 - 主麦修改愿的到期日（currentEndDate）后
 - 师兄暂停/恢复愿后
 - 补录历史打卡后
@@ -1108,12 +1113,16 @@ async function generateStudentId(tx: PrismaTransaction): Promise<string> {
 async function recalcVowStatus(vowId: string): Promise<VowStatus> {
   const vow = await prisma.userPracticeVow.findUnique({
     where: { id: vowId },
-    include: { logs: true }
+    include: { logs: true, eventCounts: true }
   })
 
   if (!vow || vow.status === 'paused') return 'paused'
 
-  const totalCount = vow.logs.reduce((s, l) => s + (l.count ?? 0), 0)
+  // context=event 愿：计数来源是 EventCount；其他愿来源是 PracticeLog
+  const totalCount = vow.context === 'event'
+    ? vow.eventCounts.reduce((s, ec) => s + ec.count, 0)
+    : vow.logs.reduce((s, l) => s + (l.count ?? 0), 0)
+
   if (vow.targetCount && totalCount >= vow.targetCount) return 'completed'
 
   const now = new Date()
@@ -1123,8 +1132,10 @@ async function recalcVowStatus(vowId: string): Promise<VowStatus> {
   const actualProgress = vow.targetCount ? totalCount / vow.targetCount : 1
   const ratio = expectedProgress > 0 ? actualProgress / expectedProgress : 1
 
-  // 近 7 天日均速度预测
-  const recent7dayCount = countLogsInLast7Days(vow.logs)
+  // 近 7 天日均速度预测（event 愿用 eventCounts，其他用 logs）
+  const recent7dayCount = vow.context === 'event'
+    ? countEventCountsInLast7Days(vow.eventCounts)
+    : countLogsInLast7Days(vow.logs)
   const dailyRate = recent7dayCount / 7
   const remaining = (vow.targetCount ?? 0) - totalCount
   const daysToFinish = dailyRate > 0 ? remaining / dailyRate : Infinity
@@ -1140,6 +1151,8 @@ async function recalcVowStatus(vowId: string): Promise<VowStatus> {
 }
 // 进度计算乐观：未确认（isConfirmed=false）的打卡立即计入，不等主麦确认
 // 阈值（0.5/0.7/0.9，近7天窗口）上线前可配置调整
+// ⚠️ context=event 愿：用户在发愿之前提交的 EventCount（vowId=null）不会回溯关联
+//    此为有意设计：发愿前的随喜计数仅计入集体总量，不纳入个人愿进度
 ```
 
 **掉队检测**（独立系统，每日凌晨定时任务）：
@@ -1355,7 +1368,7 @@ care-followup.middleware.ts
 | 关怀记录对学员不可见 | CareFollowup 路由：仅 canCareFollowup=true 可访问 |
 | 掉队状态对学员不可见 | Vow API 响应：学员端不返回 currentStatus 字段 |
 
-### 数据完整性约束（6 条）
+### 数据完整性约束（7 条）
 
 | 规则 | 实现 |
 |---|---|
@@ -1365,6 +1378,7 @@ care-followup.middleware.ts
 | 共修出席/缺席二选一 | 后端：同一场次同一人只能有一条 group_attend/absent 记录 |
 | 每日日记一人一天一篇 | DB：`@@unique([userId, journalDate])` |
 | 学号全局唯一 | DB：`studentId @unique` |
+| isPublic 仅限 personal/appointment 愿 | Zod schema：context=class 或 context=event 时强制 isPublic=false，忽略传入值 |
 
 ### 到期日与目标量变更权限
 
@@ -1422,7 +1436,7 @@ migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
 migration_007_extend_classsession.sql ClassSession 加 2 个字段
 migration_008_extend_meditation.sql   Meditation 加 3 个字段（seriesKey/seriesNumber/isTantric）
 migration_009_extend_practice.sql     PracticeProject 加 1 个字段（isTantric）
-migration_010_new_tables.sql          建 28 张新表
+migration_010_new_tables.sql          建 29 张新表（含 EventCount；PracticeGuide 未进入生产，无需 DROP）
 migration_011_views.sql               建 2 个 SQL 视图
 ```
 
@@ -1501,11 +1515,14 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 
 | 任务 | 类型 |
 |---|---|
-| 集体回向 SQL 视图 + API | 后端 |
+| EventCount 表（migration_010 含）+ Events API 学员端端点 | 后端 |
+| 集体回向 SQL 视图（v_event_dedication_totals + v_weekly_dedication_totals）| 后端 |
+| 法会列表页 `/events` | 前端 |
+| 法会详情页 `/events/:id`（含回向 Sheet + 发愿 Sheet）| 前端 |
+| 每周回向页面 `/dedication` | 前端 |
 | 关怀跟进 API（canCareFollowup 专属）| 后端 |
 | 约修 API（创建/加入/关闭）| 后端 |
 | 班级周汇总生成 + 复制 | 后端 |
-| 集体回向页面（学员端）| 前端 |
 | 关怀跟进页面（管理端，canCareFollowup）| 前端 |
 | 掉队名单（管理端，canViewStudents）| 前端 |
 | 约修页面（⏸ 学员端 UI 暂缓）| ⏸ |
