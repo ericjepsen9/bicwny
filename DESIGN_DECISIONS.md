@@ -131,12 +131,22 @@
 
 ## 第 4 组：课程内容扩展
 
-### 4A · 密法完整设计 ✅ 已确认
+### 4A · 密法完整设计 ⏸ DB + 后台已确认，前端 UI 暂不做
+
+> **上线策略**：数据库结构和 Admin 后台管理先建好，学员端/辅导员端 UI 暂缓。
+
+| 层 | 状态 |
+|---|---|
+| DB（isTantric 字段 + TantricAccessGrant 表）| ✅ 建 |
+| 后端过滤逻辑（学员侧零痕迹 + 管理端不过滤）| ✅ 建 |
+| Admin 后台：管理 TantricAccessGrant 授权 | ✅ 建 |
+| 学员端 UI（查看/使用密法内容）| ⏸ 暂不做 |
+| 辅导员端 UI（查看密法愿/打卡）| ⏸ 暂不做 |
 
 **isTantric 作用范围（三张表）：**
 - ✅ `Course.isTantric Boolean @default(false)`（已有）
-- ✅ `Meditation.isTantric Boolean @default(false)`（新增）— 密法观修视频对未授权用户不可见
-- ✅ `PracticeProject.isTantric Boolean @default(false)`（新增）— 密法修法类型不出现在未授权用户的打卡选项
+- ✅ `Meditation.isTantric Boolean @default(false)`（新增）
+- ✅ `PracticeProject.isTantric Boolean @default(false)`（新增）
 
 **可见性矩阵：**
 
@@ -152,17 +162,16 @@
 > 管理端（主麦/辅导员/admin）无需此授权即可查看数据。
 
 **密法计数规则：**
-- ✅ 密法打卡**计入**集体回向（7A 已更新）
-- ✅ 密法打卡**参与**报数生成（7D 已更新）
+- ✅ 密法打卡计入集体回向（7A 已更新）
+- ✅ 密法打卡参与报数生成（7D 已更新）
 - ✅ 密法打卡计入个人愿进度
 - ✅ 密法 auto 愿对主麦/辅导员可见
 
 **授权撤销：**
-- ✅ 撤销后历史打卡和愿记录**保留**
-- ✅ 用户失去内容访问权，零痕迹过滤重新生效
+- ✅ 撤销后历史打卡和愿记录保留，用户失去内容访问权
 
 **后端实现：**
-- ✅ 所有涉及 Course/Meditation/PracticeProject 的查询，若 `isTantric=true` 则验证 TantricAccessGrant，无记录直接过滤（学员侧）
+- ✅ 学员侧：isTantric=true 的内容验证 TantricAccessGrant，无记录直接过滤
 - ✅ 管理端 API 不做 isTantric 过滤
 - ✅ 授权：Admin 直接在后台 INSERT TantricAccessGrant（无申请、无审批流程）
 
@@ -352,7 +361,17 @@
 
 **每周回向**：聚合全班 + 全会层总数，`v_weekly_dedication_totals` SQL 视图，密法同样计入。
 
-### 7B · 约修系统 ✅ 完整设计已确认
+### 7B · 约修系统 ⏸ DB + 后台已确认，前端 UI 暂不做
+
+> **上线策略**：数据库结构和 Admin 后台管理先建好，学员端/班级页 UI 暂缓。
+
+| 层 | 状态 |
+|---|---|
+| DB（PracticeAppointment 表 + UserPracticeVow context=appointment）| ✅ 建 |
+| 后端 API（创建/加入/关闭/取消）| ✅ 建 |
+| Admin 后台：查看/管理约修 | ✅ 建 |
+| 学员端 UI（班级页约修区块、创建/加入）| ⏸ 暂不做 |
+| 辅导员端 UI（查看班级约修进度）| ⏸ 暂不做 |
 
 **Schema：**
 
