@@ -49,10 +49,11 @@
 
 ### 2D · 学号自动生成 ✅ 来自测试场景文档
 
-- 格式：`{年份4位}{序号3位}`，如 `2026001`
-- 新注册：后端自动生成（事务保证序号唯一）
-- 老学员批量植入：传入原学号，**系统不覆盖**，保留原值
-- **DB 改动**：`User` 新增 `studentId String? @unique`
+- ✅ 格式：`{年份4位}{序号3位}`，如 `2026001`
+- ✅ 新注册：后端自动生成（事务保证序号唯一）
+- ✅ 老学员批量植入：传入原学号，**系统不覆盖**，保留原值
+- ✅ **DB 改动**：`User` 新增 `studentId String? @unique`
+- ⚠️ **上线前必须完成历史数据导入**：若上线后新注册用户先占用了序号，旧学号再导入会冲突。历史数据导入必须在开放注册之前执行。
 
 ---
 
@@ -367,8 +368,15 @@
 
 ### 8G · 数据来源标记 ✅
 
-- `User` 新增 `dataSource String @default("self_register")`
-- 取值：`self_register / imported / admin_created`
+- ✅ `User` 新增 `dataSource String @default("self_register")`
+- ✅ 取值：`self_register / imported / admin_created`
+
+### 8H · 批量导入 CSV ✅（C1 已确认）
+
+- ✅ **冲突处理**：CSV 里 `studentId` 已被占用时，跳过冲突行，继续处理其余行，返回成功数 + 失败行列表（❌ 不整批终止）
+- ✅ **最少必填列**：`name` + `phone 或 email`；`studentId` 可选（不传则系统自动生成）
+- ✅ **无新增表**，后端批量写入 User 表，`dataSource=imported`
+- ⚠️ **运营约束**：历史数据导入必须在开放新用户注册之前完成，否则自动生成的序号可能与历史学号冲突
 
 ---
 
