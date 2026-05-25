@@ -182,6 +182,32 @@
 新增 `UserPracticeVow` 表，7 个状态：
 `on_track / slightly_behind / falling_behind / at_risk / will_overdue / completed / paused`
 
+**状态触发条件**（B2 补充，打卡后实时重算）：
+
+| 状态 | 触发条件 | 标注 |
+|---|---|---|
+| `completed` | 累计打卡量 ≥ 愿目标总量 | ✅ |
+| `paused` | 师兄手动暂停，不参与计算 | ✅ |
+| `on_track` | 当前进度 ≥ 预期进度 90% | ⏸ 阈值上线前可调 |
+| `slightly_behind` | 当前进度 70–89% | ⏸ 阈值上线前可调 |
+| `falling_behind` | 当前进度 50–69% | ⏸ 阈值上线前可调 |
+| `at_risk` | 当前进度 < 50% | ⏸ 阈值上线前可调 |
+| `will_overdue` | 按近 7 天日均速度，预计完成日 > 到期日 | ⏸ 时间窗口上线前可调 |
+
+> 预期进度 = `(今日 − 愿开始日) / 愿总天数 × 目标总量`  
+> `will_overdue` 可与 `at_risk/falling_behind` 并存，显示时优先展示 `will_overdue`。  
+> 任何时候加速打卡（包括一天完成全部愿量）→ 下次打卡后立即重算 → 可直接跳 `completed`。
+
+**重算触发点**（✅ 全部做）：
+- 每次提交 PracticeLog 后
+- 主麦修改愿的到期日（6C）后
+- 师兄暂停/恢复愿（6G）后
+- 补录历史打卡后
+
+**进度计算口径**：
+- ✅ 未确认（isConfirmed=false）的打卡**立即计入进度**（乐观计算，不等主麦确认）
+- ❌ 不做"仅确认后才计入"逻辑（避免师兄困惑：刚打完进度没动）
+
 愿的来源（VowSource）：
 - `auto`：入班时按班级模板自动创建，主麦可见
 - `custom`：师兄自发创建，**主麦不可见**
