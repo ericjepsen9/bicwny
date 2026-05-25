@@ -39,10 +39,10 @@
 |---|---|---|
 | 新增 Prisma 枚举 | 7 个 | 见 2.1 |
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
-| 新增表 | 41 张 | 见 2.3（自学读物复用 Course，砍 SelfStudyBook + SelfStudyRecord + ProgramWeekSelfStudy 3 张 → 净 41）|
+| 新增表 | 42 张 | 见 2.3（自学读物复用 Course 砍 3 张；密法按组加 TantricGroup 1 张 → 净 42）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
-| 新增后端模块 | 22 个 | 见 3.1 |
+| 新增后端模块 | 23 个 | 见 3.1 |
 | 修改后端模块 | 6 个 | 见 3.2 |
 | 新增前端页面（学员端）| 6 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
 | 修改前端页面（学员端）| 9 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 |
@@ -195,7 +195,7 @@ model ClassMember {
 }
 ```
 
-#### `Course` 表（+4 个字段）
+#### `Course` 表（+5 个字段）
 
 ```prisma
 model Course {
@@ -216,7 +216,11 @@ model Course {
   // 内容类别：dharma_text（法本，默认）| self_study_book（自学读物，18本大学演讲系列）
   // 闻思页可据此分组；读物复用 Course 全套（阅读器/报名/进度），不单设表
 
+  tantricGroupId    String?
+  // 密法组（灌顶单位）；仅 isTantric=true 时填；授权按组而非按法本（见 TantricGroup）
+
   programSemester ProgramSemester? @relation(fields: [programSemesterId], references: [id])
+  tantricGroup    TantricGroup?    @relation(fields: [tantricGroupId], references: [id])
 }
 ```
 
@@ -255,7 +259,7 @@ model ClassSession {
 }
 ```
 
-#### `Meditation` 表（+3 个字段）
+#### `Meditation` 表（+4 个字段）
 
 ```prisma
 model Meditation {
@@ -266,12 +270,14 @@ model Meditation {
   seriesNumber Int?     // 第几法（92修法为 1-92；其他修法为 null）
   isTantric    Boolean  @default(false)
   // 密法标识：同 Course.isTantric，未授权学员查询全过滤
+  tantricGroupId String?  // 密法组（灌顶单位）；仅 isTantric=true 时填；按组授权
+  tantricGroup   TantricGroup? @relation(fields: [tantricGroupId], references: [id])
 
   @@unique([seriesKey, seriesNumber])
 }
 ```
 
-#### `PracticeProject` 表（+1 个字段）
+#### `PracticeProject` 表（+2 个字段）
 
 ```prisma
 model PracticeProject {
@@ -280,6 +286,8 @@ model PracticeProject {
   // 新增
   isTantric Boolean @default(false)
   // 密法标识：此项目产生的 PracticeLog 在管理端始终可见
+  tantricGroupId String?  // 密法组（灌顶单位）；仅 isTantric=true 时填；按组授权
+  tantricGroup   TantricGroup? @relation(fields: [tantricGroupId], references: [id])
 }
 ```
 
@@ -1169,46 +1177,71 @@ model AiUsage {
 }
 ```
 
-#### 权限控制（1 张）
+#### 权限控制（2 张）
 
 ```prisma
-// 密法白名单（admin 直接 INSERT，无申请审批）
-// 作用：控制学员是否能访问和使用密法内容（Course/Meditation/PracticeProject.isTantric=true）
-// 未在白名单的学员：所有密法查询均过滤（零痕迹）
+// 密法组（灌顶单位）：一次灌顶覆盖该修法的「法本 + 观修 + 念诵」一整套
+// admin 管理；Course/Meditation/PracticeProject 通过 tantricGroupId 归组
+model TantricGroup {
+  id          String   @id @default(cuid())
+  key         String   @unique // "guru_yoga" / "vajrasattva"
+  name        String   // "上师瑜伽"
+  description String?
+  createdBy   String   // admin userId
+  createdAt   DateTime @default(now())
+
+  courses          Course[]
+  meditations      Meditation[]
+  practiceProjects PracticeProject[]
+  grants           TantricAccessGrant[]
+}
+
+// 密法白名单（admin 直接 INSERT，无申请审批；按修法组授权 = 灌顶单位）
+// 作用：控制学员能否访问密法内容（Course/Meditation/PracticeProject.isTantric=true）
+// 授权判定：内容.tantricGroupId 在用户的 grants 中 → 可见；否则零痕迹过滤
 // 管理端（主麦/辅导员/admin）无需授权即可查看所有密法数据
 // 撤销后：历史打卡和愿记录保留，学员失去内容访问权
 model TantricAccessGrant {
-  id        String   @id @default(cuid())
-  userId    String
-  courseId  String
-  grantedAt DateTime @default(now())
-  grantedBy String   // admin userId
+  id             String   @id @default(cuid())
+  userId         String
+  tantricGroupId String   // 按组授权（一次灌顶覆盖该组全部内容）
+  grantedAt      DateTime @default(now())
+  grantedBy      String   // admin userId
 
-  user   User   @relation(fields: [userId], references: [id])
-  course Course @relation(fields: [courseId], references: [id])
+  user  User         @relation(fields: [userId], references: [id])
+  group TantricGroup @relation(fields: [tantricGroupId], references: [id])
 
-  @@unique([userId, courseId])
+  @@unique([userId, tantricGroupId])
 }
 ```
 
 #### 汇总缓存（1 张）
 
 ```prisma
-// 班级周修持汇总（主麦生成后复制到 WhatsApp）
+// 班级周修持汇总（每周日凌晨定时自动生成；主麦在管理端复制到 WhatsApp）
 model CohortWeeklySummary {
   id            String   @id @default(cuid())
   classId       String
   weekStartDate DateTime // Class.timezone 所在地的周一日期
   weekEndDate   DateTime
-  summaryData   Json     // 结构化汇总（修持总量 / 闻思打卡人数等）
+  summaryData   Json     // 结构化汇总（见下方 summaryData 结构）
   generatedAt   DateTime @default(now())
-  sharedAt      DateTime?
+  sharedAt      DateTime?  // 主麦点「复制」时写
   sharedBy      String?  // 管理员 userId
 
   class Class @relation(fields: [classId], references: [id])
 
   @@unique([classId, weekStartDate])
 }
+// summaryData JSON 结构：
+//   practiceTotals: [{ projectName, totalCount, totalSessions }]  // 本周修持总量（按项目）
+//   speakingAttend: Int    // 讲考出席人数
+//   groupAttend:    Int    // 共修出席人数
+//   currentLesson:  Int    // 本周该学到第几课（getCurrentLessonNumber）
+//   activeCount:    Int    // 活跃人数
+//   behindCount:    Int    // 掉队人数
+//   journalCount:   Int    // 日记提交人数
+// 生成方式：每周日凌晨定时任务，按各班 Class.timezone 判断"上一周"已结束后生成
 ```
 
 ---
@@ -1320,9 +1353,9 @@ model Lesson {
 
 ```prisma
 model Course {
-  // ... 现有字段 + 2.2 新增字段 ...
+  // ... 现有字段 + 2.2 新增字段（含 tantricGroup TantricGroup? 正向关联）...
   contentChunks        ContentChunk[]
-  tantricGrants        TantricAccessGrant[]
+  // 注：密法授权改按修法组（TantricGroup），Course 不再直接持有 TantricAccessGrant[]
 }
 ```
 
@@ -1339,7 +1372,7 @@ model PracticeTemplate {
 
 ## 三、后端改动范围
 
-### 3.1 新增 API 模块（22 个）
+### 3.1 新增 API 模块（23 个）
 
 | 模块 | 路由前缀 | 主要功能 |
 |---|---|---|
@@ -1360,7 +1393,8 @@ model PracticeTemplate {
 | Events | `/api/events` | 法会活动（admin CRUD）+ 学员端列表/详情/集体回向/打卡/发愿 |
 | Appointments | `/api/appointments` | 约修创建/加入/关闭 ⏸ 暂缓（Phase 5：后端 API 先做，学员端 UI 暂缓）|
 | CareFollowups | `/api/care-followups` | 关怀跟进（canCareFollowup=true 专属）|
-| TantricGrants | `/api/admin/tantric-grants` | 密法白名单（admin 专属）|
+| TantricGroups | `/api/admin/tantric-groups` | 密法组 CRUD（灌顶单位，admin 专属）|
+| TantricGrants | `/api/admin/tantric-grants` | 密法白名单按组授权 INSERT/DELETE（admin 专属）|
 | ClassPosts | `/api/classes/:id/posts` | 学修感想发布/列表/软删除 + 点赞/评论/转发记录（UI ⏸ 暂缓，API 当前阶段预留）|
 | ClassDiscussions | `/api/classes/:id/discussions` | 话题 CRUD + 投票 + 评论（UI ⏸ 暂缓，API 当前阶段预留）|
 | AiAssistant | `/api/ai` | 对话 CRUD + SSE 流式问答 + 用量检查（UI ⏸ 暂缓）|
@@ -1652,7 +1686,8 @@ class-admin.middleware.ts
 
 tantric-filter.middleware.ts
   学员侧所有 Course / Meditation / PracticeProject 查询：
-    isTantric=true 时验证 TantricAccessGrant，无记录直接过滤（零痕迹）
+    isTantric=true 时，校验内容.tantricGroupId 是否在该用户的 TantricAccessGrant 组列表中
+    不在 → 直接过滤（零痕迹）；按修法组授权（一次灌顶覆盖该组全部内容）
   管理端 API 不挂此中间件
 
 vow-visibility.middleware.ts
@@ -1948,7 +1983,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 | 打卡审核中心 | 批量确认 StudyRecord + PracticeLog；可取消确认；需 canAuditPractice |
 | 掉队名单 | 按掉队状态排序；查看详情；需 canViewStudents |
 | 修持愿管理 | 查看本班 auto 愿；修改到期日/每日目标量；需 canEditGoals |
-| 班级周汇总 | 生成本周汇总数据；一键复制到 WhatsApp；需 canViewStudents |
+| 班级周汇总 | 展示定时任务自动生成的本周汇总；一键复制到 WhatsApp（写 sharedAt/sharedBy）；需 canViewStudents |
 
 ### 4.4 Admin 端新增页面（7 个）
 
@@ -1956,7 +1991,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 |---|---|
 | 科系管理 | Program CRUD（code 唯一）+ 科目/周排表 |
 | 修持模板管理 | PracticeTemplate CRUD + 班级绑定 |
-| 密法授权管理 | TantricAccessGrant：直接 INSERT/DELETE ⏸ 暂缓（Phase 5：后台先做，学员端 UI 暂缓）|
+| 密法组 + 授权管理 | TantricGroup CRUD（灌顶单位）+ 内容归组 + 按组授权 INSERT/DELETE ⏸ 暂缓（Phase 5：后台先做）|
 | 班级休息周 | CohortRestWeek 管理；实时预览课程进度效果 |
 | 参考答案管理 | QuestionReference CRUD；发布后师兄答题后可查看 |
 | 法会活动管理 | Event CRUD（法会回向依赖）+ 藏历日期展示字段 |
@@ -1986,7 +2021,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 | 跨班师兄互不可见愿 | API：验证 classId 归属 |
 | 管理员看本班 auto 愿，不看 custom 愿 | API：`where source='auto' AND classId IN (...)` |
 | 管理员不能跨班操作 | 中间件：验证 ClassAdmin 记录 |
-| 密法零痕迹（学员侧）| 所有学员侧 Course/Meditation/PracticeProject 查询：isTantric=true 过滤 |
+| 密法零痕迹（学员侧）| 所有学员侧 Course/Meditation/PracticeProject 查询：isTantric=true 且内容.tantricGroupId 不在用户授权组中 → 过滤 |
 | 关怀记录对学员不可见 | CareFollowup 路由：仅 canCareFollowup=true 可访问 |
 | 掉队状态对学员不可见 | Vow API 响应：学员端不返回 currentStatus 字段 |
 | 法会字段写权限限 admin | 中间件：admin 路由 `requireRole('admin')`；学员侧只有 GET 端点，无 POST/PUT/DELETE |
@@ -2033,8 +2068,8 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 
 | 角色 | 密法内容（Course/Meditation）| 密法愿 | 密法打卡 |
 |---|---|---|---|
-| 未授权学员 | ❌ 零痕迹（列表/搜索/关联全过滤）| ❌ | ❌ |
-| 授权学员（TantricAccessGrant）| ✅ | ✅ 自己的 | ✅ 自己的 |
+| 未授权该组学员 | ❌ 零痕迹（列表/搜索/关联全过滤）| ❌ | ❌ |
+| 已授权该组学员（TantricAccessGrant 含该 tantricGroupId）| ✅ | ✅ 自己的 | ✅ 自己的 |
 | 管理员（任何 flag）| ✅ 始终可见 | ✅ 全班 | ✅ 全班 |
 | Admin | ✅ 全平台 | ✅ 全平台 | ✅ 全平台 |
 
@@ -2060,14 +2095,14 @@ migration_001_add_enums.sql           新增 7 个枚举
 migration_002_extend_user.sql         User 加 6 个字段
 migration_003_extend_class.sql        Class 加 4 个字段
 migration_004_extend_classmember.sql  ClassMember 加 7 个字段
-migration_005_extend_course.sql       Course 加 4 个字段（author + isTantric + programSemesterId + category）
+migration_005_extend_course.sql       Course 加 5 个字段（author + isTantric + programSemesterId + category + tantricGroupId）
 migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
 migration_007_extend_classsession.sql ClassSession 加 3 个字段（lessonId / sessionEndAt / checkInToken）+ classId 改可空（ALTER COLUMN classId DROP NOT NULL）
-migration_008_extend_meditation.sql   Meditation 加 3 个字段（seriesKey/seriesNumber/isTantric）
-migration_009_extend_practice.sql     PracticeProject 加 1 个字段（isTantric）
+migration_008_extend_meditation.sql   Meditation 加 4 个字段（seriesKey/seriesNumber/isTantric/tantricGroupId）
+migration_009_extend_practice.sql     PracticeProject 加 2 个字段（isTantric/tantricGroupId）
 migration_009_pgvector.sql            启用 pgvector 扩展（CREATE EXTENSION IF NOT EXISTS vector）
 migration_001_lesson_resources.sql    ✅ 已跑 · 建 LessonResource / LessonMediaChapter / LessonTextBlock 3 张表（对应 backend/prisma/migrations/1_lesson_resources/）
-migration_010_new_tables.sql          建 44 张新表（含 EventCount / ClassPost 系列 / Discussion 系列 / AI 助手 5 张 / LessonMediaChapter / LessonTextBlock；PracticeGuide 未进入生产，无需 DROP）
+migration_010_new_tables.sql          建 42 张新表（含 EventCount / ClassPost 系列 / Discussion 系列 / AI 助手 5 张 / TantricGroup / LessonMediaChapter / LessonTextBlock；PracticeGuide 未进入生产，无需 DROP）
 migration_011_views.sql               建 2 个 SQL 视图
 ```
 
@@ -2178,11 +2213,12 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 藏历日历嵌入修持日记 `/calendar` + PracticeJournals API | 前端+后端 |
 | 关怀跟进 API（canCareFollowup 专属）| 后端 |
 | 约修 API（创建/加入/关闭）| 后端 |
-| 班级周汇总生成 + 复制 | 后端 |
+| 班级周汇总定时生成（每周日凌晨，按班级时区）+ 复制接口 | 后端 |
 | 关怀跟进页面（管理端，canCareFollowup）| 前端 |
 | 掉队名单（管理端，canViewStudents）| 前端 |
 | 约修页面（学员端）⏸ 暂缓（后续 Phase）| ⏸ |
-| 密法授权管理 Admin 后台 ⏸ 暂缓（Phase 5，后台先做）| ⏸ |
+| TantricGroup + TantricGrants API（密法组 CRUD + 内容归组 + 按组授权）| 后端 |
+| 密法组 + 授权管理 Admin 后台 ⏸ 暂缓（Phase 5，后台先做）| ⏸ |
 
 ### Phase 6 · 内容与排表
 
