@@ -13,7 +13,7 @@
 |---|---|---|
 | Academy 表 | ❌ 不建 | Program 上预留 `academyId String?` 字段 |
 | Program 表 | ✅ 建轻量版 | 字段：id / name / code（唯一）/ description / academyId（可空） |
-| ClassAdmin 表 | ✅ 新建 | 字段：classId / userId / role(zhumai\|aixin) / assignedAt / assignedBy |
+| ClassAdmin 表 | ✅ 新建（A3 更新）| RBAC flags 结构，见 A3 节；原 role(zhumai\|aixin) 枚举废弃 |
 | 现有 ClassMember.role | 保留字段 | Migration 时将现有 coach 数据迁移到 ClassAdmin 表，role=zhumai |
 
 ---
@@ -352,7 +352,7 @@
 
 | 类型 | 数量 | 内容 |
 |---|---|---|
-| 新增枚举 | 7 个 | ClassAdminRole / LearningMode / CohortMemberStatus / VowStatus / VowSource / PracticeMeasurement / ProfileStatus |
+| 新增枚举 | 6 个 | LearningMode / CohortMemberStatus / VowStatus / VowSource / PracticeMeasurement / ProfileStatus（ClassAdminRole 已废弃，改为 flags）|
 | 现有表新增字段 | 7 张表 | User(+7) / Class(+4) / ClassMember(+7) / Course(+2) / Lesson(+1) / ClassSession(+2) / UserCourseEnrollment(+3) |
 | 新增表 | 29 张 | 见各组 |
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
@@ -645,6 +645,123 @@ Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ Pract
 
 ---
 
+---
+
+## 现有功能去留 ✅ 已确认
+
+### A1 · 现有辅助功能 · 全部保留
+
+| 功能 | 决定 |
+|---|---|
+| SM-2 间隔复习算法 | ✅ 保留 |
+| LLM 评分 | ✅ 保留 |
+| 错题本 | ✅ 保留 |
+| 收藏 | ✅ 保留 |
+| Web Push 通知 | ✅ 保留 |
+| 全部通知逻辑 | ✅ 保留 |
+
+### A2 · 题目系统 · 全部保留
+
+- 14 种题型全部保留
+- AI 评分全部保留
+- 无任何删减
+
+---
+
+## A3 · 角色系统前端重构 ✅ 已确认
+
+### 核心决定：从固定角色 → 细粒度权限 flags
+
+**放弃方案**：固定的 `role: zhumai | aixin` 枚举。  
+**采用方案**：Admin 后台直接分配子账号权限，可逐模块授权 + 指定能否编辑/删除。
+
+### ClassAdmin 表（更新，替代第 1 组旧设计）
+
+```prisma
+model ClassAdmin {
+  id      String @id @default(cuid())
+  classId String
+  userId  String
+
+  // 模块权限（admin 后台逐项勾选）
+  canManageMembers  Boolean @default(false)  // 成员管理
+  canManageExams    Boolean @default(false)  // 讲考管理
+  canAuditPractice  Boolean @default(false)  // 审核打卡
+  canViewStudents   Boolean @default(false)  // 查看学员修行数据
+  canCareFollowup   Boolean @default(false)  // 关怀跟进记录
+  canEditGoals      Boolean @default(false)  // 编辑每日目标量
+  canManageCourse   Boolean @default(false)  // 课程进度/法本切换
+
+  // 操作级权限（全局，作用于已开放的模块）
+  canEdit   Boolean @default(true)
+  canDelete Boolean @default(false)
+
+  assignedAt DateTime @default(now())
+  assignedBy String?
+
+  createdAt DateTime @default(now())
+  @@unique([classId, userId])
+}
+```
+
+**预设含义（参考，无需写进表）：**
+
+| 原概念 | 对应 flags |
+|---|---|
+| 主麦（全权班管）| 全部 true |
+| 爱心（关怀跟进）| canViewStudents + canCareFollowup = true，其余 false |
+| 自定义子角色 | admin 后台任意组合 |
+
+同一人在同一班只有一条记录（`@@unique([classId, userId])`）；跨班各自独立一条。
+
+### 前端路由结构
+
+**不拆分路由**：`/coach/*` 维持单一入口，UI 根据 `ClassAdmin` 权限 flags 决定显示/隐藏各模块。
+
+```
+/coach/                      落地页：列出此人是管理员的所有班级
+/coach/:classId/             班级首页（显示有权限的模块列表）
+/coach/:classId/members      需要 canManageMembers
+/coach/:classId/exams        需要 canManageExams
+/coach/:classId/audit        需要 canAuditPractice
+/coach/:classId/students     需要 canViewStudents
+/coach/:classId/care         需要 canCareFollowup
+/coach/:classId/goals        需要 canEditGoals
+/coach/:classId/course       需要 canManageCourse
+```
+
+无权限的模块：前端不渲染（隐藏），后端 API 也守卫（双重保障）。
+
+### Admin 后台新增功能
+
+`/admin/classes/:id/admins`：
+- 搜索用户 → 加为本班管理员
+- 逐模块 checkbox 勾选权限
+- 设置 canEdit / canDelete
+- 移除管理员
+
+### 影响范围
+
+| 层 | 影响 | 说明 |
+|---|---|---|
+| DB | 中 | ClassAdmin 结构变更（去枚举，加 9 个 boolean 字段）|
+| 后端 | 大 | 所有 `/api/classes/:id/*` 辅导员接口换权限 middleware |
+| 前端 | 大 | 所有 `/coach/*` 页面加 permission guard；新增 admin 权限分配 UI |
+| 学员端 | 不影响 | 三端分离铁律不变 |
+
+### 连带更新（第 1 组 ClassAdmin + 第 8 组 8C）
+
+- 第 1 组 `ClassAdmin.role(zhumai|aixin)` 字段**废弃**，改为上述 flags 结构
+- 第 8 组 `8C 关怀跟进`：访问限制从 `role=aixin` 改为 `canCareFollowup=true`
+
+---
+
 ## 待确认事项
 
-> 8 组讨论已全部确认。冲突核查中：冲突 1 已决议，冲突 2-5 待讨论。
+> 8 组讨论已全部确认。冲突核查（5处）已全部决议。A1/A2/A3 已全部确认。
+>
+> **剩余待讨论项：**
+> - **B 类（算法细节）**：辍修检测阈值 / 愿 7 态计算阈值 / 跨科目全局周编号
+> - **C 类（流程细节）**：批量导入 CSV + 学号保留 / 每学期 2 次补录限制实现 / 四层时区规则 / 精神框架放置位置
+> - **听课完成存储结构**：待定（轻量落点，倾向新增 LessonCompletion 表或扩展现有字段，未最终确认）
+> - **FINAL_DESIGN_SANSUSHENG.md**：需根据所有决策重新生成（当前版本为冲突决议前的旧版）
