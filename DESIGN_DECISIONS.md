@@ -46,12 +46,37 @@
 
 **DB 改动**：`ClassMember` 新增 `isPrimary Boolean @default(false)`，不用数据库唯一索引，由应用层保证。
 
-### 2C · 班级时区 ✅ 已确认
+### 2C · 班级时区 ✅ 已确认（C2 补充修订）
 
 - ✅ 有跨时区班级（如北京班、纽约班同时运营）
 - ✅ **DB 改动**：`Class` 新增 `city String?` + `timezone String?`（IANA 格式，如 `America/New_York`）
-- ✅ 共修/讲考场次时间按 `Class.timezone` 显示给师兄
-- ✅ 自学师兄用设备时区，无班级时区约束
+- ✅ 共修/讲考场次时间按 `Class.timezone` 转换后显示给师兄
+- ✅ **DB 改动**：`User` 新增 `timezone String?`（IANA 格式），自学进度和个人愿打卡的时区基准
+- ~~自学师兄用设备时区~~ → **改为用 `User.timezone`**（用户在设置页选择，默认取注册时设备时区，持久存储）
+
+**C2 · 五层时区统一规则 ✅ 已确认**
+
+| 场景 | 存储格式 | 时区基准 | 显示层处理 |
+|---|---|---|---|
+| 班级共修/讲考场次 | UTC timestamp | `Class.timezone` | 前端按班级时区转换显示 |
+| 打卡时间戳 `PracticeLog.logDate` | UTC timestamp | — | 前端按 `User.timezone` 或 `Class.timezone` 显示 |
+| 周汇总边界 `CohortWeeklySummary.weekStartDate` | `Class.timezone` 的周一日期字符串 | `Class.timezone` | 直接展示 |
+| 自学进度计算 | UTC timestamp | `User.timezone` | 前端按 `User.timezone` 显示 |
+| 法会时间 `Event.startDate/endDate` | DATE 字符串（`Event.timezone` 的本地日期）| `Event.timezone` | 前端按用户时区换算显示，标注法会时区 |
+
+**统一原则**：
+- ✅ 时间戳类（有具体时刻）→ 存 UTC，显示层按对应时区转换
+- ✅ 全天日期类（法会等）→ 存 `Event.timezone` 的本地日期字符串，边界判断按 `Event.timezone` 做
+- ❌ 不再用前端本地日期字符串作为 `logDate`（跨时区班级会造成打卡日期漂移）
+
+**法会边界判断**：
+- ✅ 服务器将 `PracticeLog.logDate`（UTC）转换为 `Event.timezone` 的本地日期，再与 `Event.startDate/endDate` 比较
+
+**藏历处理**：
+- ✅ `Event.tibetanDate String?`：仅作展示文字（如"藏历四月十五"），不参与任何计算
+- ✅ `Event.timezone String`：法会主办方时区（必填）
+- ✅ Admin 创建法会时填入公历日期，前端提供藏历参考对照（前端展示，无后端换算）
+- ❌ 不做后端藏历-公历自动换算
 
 ### 2D · 学号自动生成 ✅ 来自测试场景文档
 
@@ -422,7 +447,7 @@
 | 类型 | 数量 | 内容 |
 |---|---|---|
 | 新增枚举 | 6 个 | LearningMode / CohortMemberStatus / VowStatus / VowSource / PracticeMeasurement / ProfileStatus（ClassAdminRole 已废弃，改为 flags）|
-| 现有表新增字段 | 7 张表 | User(+7) / Class(+4) / ClassMember(+7) / Course(+2) / Lesson(+1) / ClassSession(+2) / UserCourseEnrollment(+3) |
+| 现有表新增字段 | 7 张表 | User(+8, 含 timezone) / Class(+4) / ClassMember(+7) / Course(+2) / Lesson(+1) / ClassSession(+2) / UserCourseEnrollment(+3) |
 | 新增表 | 29 张 | 见各组 |
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 所有现有功能保留 |
@@ -440,7 +465,7 @@
 | 思考题 | QuestionReference |
 | 排表模板 | ProgramSemester / ProgramWeek / ProgramWeekCourse / ProgramWeekPractice / ProgramWeekSelfStudy / ProgramStudyType |
 | 自学读物 | SelfStudyBook / SelfStudyRecord |
-| 集体功能 | Event / PracticeAppointment / CareFollowup |
+| 集体功能 | Event（含 timezone / tibetanDate / startDate / endDate）/ PracticeAppointment / CareFollowup |
 | 权限控制 | TantricAccessGrant |
 | 汇总缓存 | CohortWeeklySummary |
 
@@ -565,7 +590,7 @@ model PracticeLog {
 
   source      String   @default("manual") // manual / bulk / tap / shake
   reflection  String?
-  logDate     DateTime // 可补填历史日期
+  logDate     DateTime // UTC timestamp；可补填历史日期；显示层按 User.timezone 或 Class.timezone 转换
 
   // 审核态
   isConfirmed Boolean   @default(false)
@@ -741,6 +766,8 @@ Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ Pract
 | 批量补录新增表 | 前端 + 后端批量写入轻量完成字段，无新表 | 8D |
 | 批量补录每学期 2 次限制 | 轻量完成标记无审核，随时可点，无需次数约束 | 8D / 新逻辑 |
 | 三殊胜精神框架新增表 | 回向为前端 UI，发心语开关用 User.preferShowFaxin | 7C |
+| logDate 前端本地日期字符串方案 | 跨时区班级打卡日期漂移，改为 UTC timestamp | C2 |
+| 后端藏历-公历自动换算 | 前端展示参考对照，admin 手动确认公历日期 | C2 |
 
 ---
 
