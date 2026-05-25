@@ -663,11 +663,15 @@ Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ Pract
    - **辅导员/主麦端**：在当前科目的法本里切换本班"当前主修法本"（改 `Class.courseId`）
 
 **连带 schema 调整：**
-- `ProgramSemester`：字段语义改为科目（semesterNumber → 科目序号，semesterName → 科目名）；保留 startsWeek/endsWeek 做全科系周编号
+- `ProgramSemester`：字段语义改为科目（semesterNumber → 科目序号，semesterName → 科目名）；`startsWeek/endsWeek` 作为**科系模板结构**（描述该科目持续多少周），❌ 不做跨班级全局周编号
 - `Course`：加 `programSemesterId`（科目归属）；`programId` 改为派生或冗余
-- `Class`：`courseId` 语义=当前主修法本（辅导员可改）；`programId`=科系
+- `Class`：`courseId` 语义=当前主修法本（辅导员可改）；`programId`=科系；当前科目从 `courseId → Course.programSemesterId` 派生，❌ 不新增 `currentProgramSemesterId` 字段
 - `UserCourseEnrollment`：去掉 selfStudy* 三字段
 - 自学走 `UserSelfStudyProgram`（科系级）
+
+**B3 · 周编号与升科目 ✅ 已确认：**
+- ✅ 周编号每班独立，从本班 `startDate` 起算，不跨班共享
+- ✅ 升科目 = 主麦手动操作（需 `canManageCourse` 权限），❌ 不自动触发
 
 ### 冲突 5 · PracticeProject.scope 与愿重叠 ✅ 已决议
 
