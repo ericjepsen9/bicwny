@@ -36,7 +36,7 @@
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 16 个 | 见 3.1 |
 | 修改后端模块 | 6 个 | 见 3.2 |
-| 新增前端页面（学员端）| 6 个 | |
+| 新增前端页面（学员端）| 8 个 | 含法会列表 + 法会详情 |
 | 新增前端页面（管理端 /coach/*）| 5 个 | |
 | 新增前端页面（Admin 端）| 7 个 | |
 
@@ -803,17 +803,18 @@ model SelfStudyRecord {
 // 藏历法会：timezone = "Asia/Shanghai"（西藏时间 = 北京时间 UTC+8）
 // 法会边界判断：服务器将 PracticeLog.logDate（UTC）转为 Event.timezone 本地日期后比较
 model Event {
-  id          String   @id @default(cuid())
-  title       String
-  eventType   String   // puja / dharma_assembly / weekly
-  startDate   DateTime // Event.timezone 所在地的日期（全天事件）
-  endDate     DateTime
-  timezone    String   // 必填，IANA 格式（藏历法会固定填 Asia/Shanghai）
-  tibetanDate String?  // 纯展示文字（如"藏历四月十五"），不参与任何计算
-  description String?
-  isActive    Boolean  @default(true)
-  createdBy   String   // admin userId
-  createdAt   DateTime @default(now())
+  id             String   @id @default(cuid())
+  title          String
+  eventType      String   // puja / dharma_assembly / weekly
+  coverImageUrl  String?  // 封面图（法会列表卡片 + 详情页顶部）
+  startDate      DateTime // Event.timezone 所在地的日期（全天事件）
+  endDate        DateTime
+  timezone       String   // 必填，IANA 格式（藏历法会固定填 Asia/Shanghai）
+  tibetanDate    String?  // 纯展示文字（如"藏历四月十五"），不参与任何计算
+  description    String?
+  isActive       Boolean  @default(true)
+  createdBy      String   // admin userId
+  createdAt      DateTime @default(now())
 }
 
 // 约修（⏸ DB + 后台先建，学员端 UI 暂缓）
@@ -958,10 +959,45 @@ GROUP BY DATE_TRUNC('week', pl.log_date), pl.class_id, pl.practice_project_id;
 | SpeakingSessions | `/api/classes/:id/speaking-sessions` | 讲考场次管理 |
 | PracticeJournals | `/api/journals` | 修持日记 CRUD |
 | SelfStudy | `/api/self-study` | 自学师兄管理 + 读物记录 |
-| Events | `/api/events` | 法会活动（admin）+ 回向聚合 |
+| Events | `/api/events` | 法会活动（admin CRUD）+ 学员端列表/详情/集体回向/打卡/发愿 |
 | Appointments | `/api/appointments` | 约修创建/加入/关闭（⏸ UI 后做）|
 | CareFollowups | `/api/care-followups` | 关怀跟进（canCareFollowup=true 专属）|
 | TantricGrants | `/api/admin/tantric-grants` | 密法白名单（admin 专属）|
+
+#### Events 模块端点明细
+
+```
+GET  /api/events
+  query: status=upcoming|active|ended|all（默认 all）
+  学员端：只返回 isActive=true 的事件
+  响应：id / title / eventType / coverImageUrl / startDate / endDate /
+        timezone / tibetanDate / status（服务端计算）/ participantCount
+
+GET  /api/events/:id
+  响应：同上 + description + dedicationTotals（来自 v_event_dedication_totals，
+        按 practiceProjectId 分组）
+
+GET  /api/events/:id/my-participation
+  响应：vow（UserPracticeVow，有愿时）/ logCount / totalCount / totalMinutes
+  用于前端判断「我的参与」状态机
+
+POST /api/events/:id/log
+  body: { practiceProjectId, count?, durationMinutes?, reflection? }
+  写 PracticeLog { eventId, vowId（有愿时从 my-participation 取）, classId（主班）}
+  后置：若 vowId 存在，触发 recalcVowStatus
+  响应：PracticeLog + 更新后的 dedicationTotals
+
+POST /api/events/:id/vow
+  body: { practiceProjectId, targetCount?, targetPeriod='lifetime' }
+  写 UserPracticeVow { context: 'event', eventId, source: 'custom',
+    startDate: max(event.startDate, today) }
+  响应：UserPracticeVow
+
+// Admin only
+POST   /api/admin/events
+PUT    /api/admin/events/:id
+DELETE /api/admin/events/:id（软删：isActive=false）
+```
 
 ### 3.2 修改现有模块（6 个）
 
@@ -1152,16 +1188,75 @@ care-followup.middleware.ts
 
 ## 四、前端改动范围
 
-### 4.1 学员端新增页面（6 个）
+### 4.1 学员端新增页面（8 个）
 
 | 页面 | 路由 | 说明 |
 |---|---|---|
 | 修持愿列表 | `/vows` | 查看自己全部愿（auto + custom）+ 进度条 |
 | 修持打卡 | `/vows/:id/log` | 打卡（含座次自动计算）+ 回向 UI |
 | 修持日记 | `/journals` | 每日一篇，private / visible_to_coach |
-| 集体回向 | `/dedication` | 法会 + 每周总量（只显总数，不露个体）|
+| 每周回向 | `/dedication` | 跨法会每周修持总量汇总（只显总数，不露个体）；法会专项回向在 `/events/:id` 内展示 |
 | 自学读物 | `/books` | 18 本读物阅读进度 |
 | 约修 | `/appointments` | 查看班级约修 + 加入（⏸ UI 暂缓）|
+| 法会列表 | `/events` | 三分区：正在进行 / 即将开始 / 往期 |
+| 法会详情 | `/events/:id` | 见下方详细设计 |
+
+#### 法会列表页（`/events`）
+
+三个分区，垂直排列：
+
+| 分区 | 数据条件 | 排序 | 卡片内容 |
+|---|---|---|---|
+| 正在进行 | `startDate ≤ 今天 ≤ endDate` | startDate asc | 封面图 + 标题 + 藏历日期 + 「还剩 N 天」倒计时 + 橙色「参与」按钮 |
+| 即将开始 | `startDate > 今天` | startDate asc | 同上，按钮文案改为「预发愿」 |
+| 往期法会 | `endDate < 今天` | endDate desc | 折叠态；展开后纯列表：标题 + 日期区间 + 参与人数 |
+
+#### 法会详情页（`/events/:id`）
+
+**区块 1：法会基本信息**
+- 封面图（`coverImageUrl`，全宽 16:9；无图时用主题色占位块）
+- 标题（大字）
+- 藏历日期（`tibetanDate`）+ 公历日期区间
+- 时区说明：小字「以北京时间为准」（`timezone=Asia/Shanghai` 时自动显示）
+- 活动描述（超过 3 行折叠，点击展开）
+- 状态 badge：`即将开始` / `进行中` / `已结束`
+
+**区块 2：集体回向**
+- 按 `practiceProjectId` 分组，每项显示：修法名 + 遍数或座次合计 + 参与人数
+- 示例：「上师瑜伽 · 共 12,450 遍 · 38 人参与」
+- 数据来源：`v_event_dedication_totals` 视图（只显总量，不透露个人）
+- 进行中时 30 秒轮询刷新；已结束时静态展示
+
+**区块 3：我的参与（状态机）**
+
+| 用户状态 | 区块展示 | 可用操作 |
+|---|---|---|
+| 未发愿、未打卡 | 两个并排按钮 | 「发法会愿」/ 「随喜打卡」|
+| 已发法会愿（进行中）| 愿进度条（已完成量 / 目标量）+ 按钮 | 「去打卡」|
+| 仅随喜（无愿）| 「已随喜 N 次，合计 X 遍」 | 「继续打卡」|
+| 已发愿且法会已结束 | 愿最终进度 | 无操作按钮 |
+| 未发愿且法会已结束 | 「此法会已结束」 | 无操作按钮 |
+
+**即将开始时**：「发法会愿」按钮正常可用（`vow.startDate = event.startDate`，提前建愿）；「随喜打卡」按钮不可用（法会未开始不能打卡，tooltip 提示）。
+
+**打卡 Sheet（区块 3 内联，不跳转新页）：**
+- 点击「随喜打卡」或「去打卡」→ 底部 Sheet 弹出（桌面用 centered Dialog，见 CSS-GOTCHAS.md §7）
+- Sheet 内容：
+  - 修法项目选择（`PracticeProject` 下拉，pre-filter 常用项）
+  - 数量输入（遍数 或 时长分钟，根据 PracticeProject.measurement 显示对应输入）
+  - 座次自动计算展示（`≥30min=1座，≥15min=0.5座`，实时更新）
+  - 选填：反思文字
+  - 提交 → 写 `PracticeLog { eventId, vowId（有愿时填）, classId（当前主班）}`
+  - 提交成功 → Sheet 关闭，区块 2 集体回向数字 +1 动效
+
+**发愿 Sheet（区块 3 内联）：**
+- 点击「发法会愿」→ 底部 Sheet 弹出
+- Sheet 内容：
+  - 修法项目选择
+  - 目标量输入（targetPeriod 固定为 `lifetime`，整个法会期间完成）
+  - startDate 只读显示（= event.startDate 或 today，取较大值）
+  - 提交 → 写 `UserPracticeVow { context: 'event', eventId, source: 'custom' }`
+  - 提交成功 → 状态切换到「已发法会愿」状态
 
 ### 4.2 学员端修改页面（4 个）
 
