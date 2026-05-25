@@ -39,13 +39,13 @@
 |---|---|---|
 | 新增 Prisma 枚举 | 7 个 | 见 2.1 |
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
-| 新增表 | 44 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount + ClassPost 系列 4 张 + Discussion 系列 4 张 + AI 助手 5 张 + LessonMediaChapter + LessonTextBlock 新增 = 净 44）|
+| 新增表 | 41 张 | 见 2.3（自学读物复用 Course，砍 SelfStudyBook + SelfStudyRecord + ProgramWeekSelfStudy 3 张 → 净 41）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 22 个 | 见 3.1 |
 | 修改后端模块 | 6 个 | 见 3.2 |
-| 新增前端页面（学员端）| 7 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice、日记嵌入 /calendar，不单设页）|
-| 修改前端页面（学员端）| 7 个 | 首页 + 修学计数页 + 藏历日历页（嵌日记）+ 课程详情 + 打卡记录 + 思考题 + 个人设置 |
+| 新增前端页面（学员端）| 6 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
+| 修改前端页面（学员端）| 9 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 |
 | 新增前端页面（管理端 /coach/*）| 5 个 | |
 | 新增前端页面（Admin 端）| 7 个 | |
 
@@ -195,7 +195,7 @@ model ClassMember {
 }
 ```
 
-#### `Course` 表（+3 个字段）
+#### `Course` 表（+4 个字段）
 
 ```prisma
 model Course {
@@ -211,6 +211,10 @@ model Course {
 
   programSemesterId String?
   // 归属科目（ProgramSemester）；通过科目派生 programId，不再直接存 programId
+
+  category          String   @default("dharma_text")
+  // 内容类别：dharma_text（法本，默认）| self_study_book（自学读物，18本大学演讲系列）
+  // 闻思页可据此分组；读物复用 Course 全套（阅读器/报名/进度），不单设表
 
   programSemester ProgramSemester? @relation(fields: [programSemesterId], references: [id])
 }
@@ -749,7 +753,7 @@ model QuestionReference {
 }
 ```
 
-#### 排表模板系统（6 张）
+#### 排表模板系统（5 张）
 
 ```prisma
 // 科目（最小排课单位；语义=科目/年级，下面直接是周，不再分上下学期）
@@ -781,9 +785,8 @@ model ProgramWeek {
 
   program   Program          @relation(fields: [programId], references: [id])
   semester  ProgramSemester  @relation(fields: [semesterId], references: [id])
-  courses   ProgramWeekCourse[]
+  courses   ProgramWeekCourse[]   // 周排课程/法本/自学读物（读物 category=self_study_book）
   practices ProgramWeekPractice[]
-  selfStudy ProgramWeekSelfStudy[]
 
   @@unique([programId, globalWeekNum])
 }
@@ -814,18 +817,7 @@ model ProgramWeekPractice {
   @@unique([weekId, practiceId, meditationId])
 }
 
-// 周 ↔ 自学读物映射
-model ProgramWeekSelfStudy {
-  id           String @id @default(cuid())
-  weekId       String
-  bookId       String
-  displayOrder Int    @default(0)
-
-  week ProgramWeek   @relation(fields: [weekId], references: [id])
-  book SelfStudyBook @relation(fields: [bookId], references: [id])
-
-  @@unique([weekId, bookId])
-}
+// 注：周 ↔ 自学读物映射不单设表，读物即 Course（category=self_study_book），走 ProgramWeekCourse
 
 // 各科系打卡要求声明（数据驱动，不硬编码）
 model ProgramStudyType {
@@ -841,45 +833,16 @@ model ProgramStudyType {
 }
 ```
 
-#### 自学读物（2 张）
+#### 自学读物 —— 不新建表，复用 Course
 
-```prisma
-// 18 本《大学演讲系列》种子数据（预置内容）
-model SelfStudyBook {
-  id           String @id @default(cuid())
-  bookNumber   Int    // 1-18
-  title        String
-  author       String @default("索达吉堪布")
-  description  String?
-  displayOrder Int    @default(0)
-
-  records  SelfStudyRecord[]
-  weekPlan ProgramWeekSelfStudy[]
-
-  @@unique([bookNumber])
-}
-
-// 师兄阅读记录
-model SelfStudyRecord {
-  id          String    @id @default(cuid())
-  userId      String
-  classId     String?
-  bookId      String
-  status      String    @default("not_started")
-  // not_started / reading / completed
-  startedAt   DateTime?
-  completedAt DateTime?
-  notes       String?   // 读后感
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User          @relation(fields: [userId], references: [id])
-  book SelfStudyBook @relation(fields: [bookId], references: [id])
-
-  @@unique([userId, classId, bookId])
-}
-```
+> 决策：18 本《大学演讲系列》既然要 App 内可读、且与法本同在闻思页展示，本质就是法本的一种。
+> 不新建 `SelfStudyBook` / `SelfStudyRecord` 表，全部复用现有 Course 基础设施：
+> - 18 本读物 = 18 个 Course，标记 `Course.category='self_study_book'`（见 §2.2 Course 字段扩展）
+> - 阅读：复用现有阅读器（ScriptureReadingPage）
+> - 报名 + 进度：复用 UserCourseEnrollment（lessonsCompleted / currentLessonId）
+> - 读后感：复用现有 Note（绑课时），或写当日 PracticeJournal
+> - 周排读物：复用 `ProgramWeekCourse`（无需 ProgramWeekSelfStudy）
+> - 种子：seed 把 18 本作为 Course 录入（category=self_study_book）
 
 #### 集体功能（3 张）
 
@@ -1393,7 +1356,7 @@ model PracticeTemplate {
 | SpeakingSessions | `/api/classes/:id/speaking-sessions` | 讲考场次管理（含生成签到 token）|
 | CheckIn | `/api/checkin/:token` | **公开端点（无需登录）** 签到链接页数据 + 提交；时间窗口校验 |
 | PracticeJournals | `/api/journals` | 修持日记 CRUD（UI 嵌藏历日历，upsert 一天一篇）|
-| SelfStudy | `/api/self-study` | 自学师兄管理 + 读物记录 |
+| SelfStudy | `/api/self-study` | 自学师兄科系学习管理（UserSelfStudyProgram + 个人休息周 + 自学进度算法）；读物走现有 Course/enrollment 接口 |
 | Events | `/api/events` | 法会活动（admin CRUD）+ 学员端列表/详情/集体回向/打卡/发愿 |
 | Appointments | `/api/appointments` | 约修创建/加入/关闭 ⏸ 暂缓（Phase 5：后端 API 先做，学员端 UI 暂缓）|
 | CareFollowups | `/api/care-followups` | 关怀跟进（canCareFollowup=true 专属）|
@@ -1707,15 +1670,15 @@ care-followup.middleware.ts
 
 ## 四、前端改动范围
 
-### 4.1 学员端新增页面（7 个）
+### 4.1 学员端新增页面（6 个）
 
 > 注 1：修持愿与修持打卡**合并进现有 `/practice` 页**（见 §4.2 修学计数页改造），不再单设 `/vows` 独立页。
 > 注 2：修持日记**嵌入藏历日历页 `/calendar`**（见 §4.2），不再单设 `/journals` 独立页。
+> 注 3：自学读物**复用 Course，在闻思页展示**（见 §4.2 闻思页改造），不再单设 `/books` 独立页。
 
 | 页面 | 路由 | 说明 |
 |---|---|---|
 | 每周回向 | `/class/:id/dedication` | **班级级**本周修持总量汇总（只显总数，不露个体）；**入口：班级页**；法会专项回向在 `/events/:id` 内展示 |
-| 自学读物 | `/books` | 18 本读物阅读进度 |
 | 约修 | `/appointments` | 查看班级约修 + 加入 ⏸ 暂缓（Phase 5）|
 | 活动中心 | `/events` | 3 Tab：法会 / 共修 / 讲考；每 Tab 内分 进行中 / 即将开始 / 往期；**入口：首页药丸卡片** |
 | 法会详情 | `/events/:id` | 见下方详细设计 |
@@ -1841,17 +1804,35 @@ care-followup.middleware.ts
   - 提交 → 写 `UserPracticeVow { context: 'event', eventId, source: 'custom' }`
   - 提交成功 → 状态切换到「有愿」状态
 
-### 4.2 学员端修改页面（7 个）
+### 4.2 学员端修改页面（9 个）
 
 | 页面 | 改动 |
 |---|---|
 | 首页 | 顶部「活动按钮 + 通知铃」合并为药丸卡片（显示平台法会/共修/讲考，常驻）；通知入口移入「我的」；头像挂未读红点 badge 补偿；点击药丸跳 `/events` 活动中心 |
 | 修学计数页 `/practice` | **改造为统一修学中枢**（合并修持愿 + 修持打卡）；见下方详细设计 |
 | 藏历日历页 `/calendar` | **嵌入每日修持日记**（PracticeJournal）；点某天 → 藏历信息 + 当天日记查看/编写；见下方详细设计 |
-| 课程详情 | 多讲者 LessonResource 展示；按 Class.timezone 显示共修时间；「已学完/已听完/已看完」确认按钮（见下方流程）|
+| 闻思页 `/courses` | 自学读物（Course category=self_study_book）与法本同页展示，可按 category 分组；复用现有阅读器/报名/进度 |
+| 课程详情 | 多讲者 LessonResource 展示；按 Class.timezone 显示共修时间；「已学完/已听完/已看完」确认按钮（见下方流程）；**显示班级进度基准线**（见下方）|
+| 课程阅读页 | **顶部显示本周班级进度**（"本周该学到第 N 课"，来自 getCurrentLessonNumber）；自学师兄按个人 startDate 算 |
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | 提交后解锁参考答案入口（QuestionReference）|
-| 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择 |
+| 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择；学习模式（learningMode）|
+
+#### 班级进度基准线展示（Feature 11 · 双模式学习）
+
+```
+跟班学员（learningMode=class/both）：
+  课程页/阅读页顶部 → "本周班级进度：第 N 课"
+  N = getCurrentLessonNumber(classId, today)（班级 startDate + 班级休息周）
+  对比个人 lessonsCompleted → 提示"你在第 M 课"（落后/同步/超前）
+
+自学师兄（learningMode=self_study/both）：
+  同一基准线算法，但用 UserSelfStudyProgram.startDate + 个人休息周（UserSelfStudyRestWeek）
+  N = getCurrentLessonNumber 变体（个人起修日 + 个人休息周）
+
+both 模式：班级科系按班级基准线，自学科系按个人基准线，两条独立展示
+进度仅作"节奏感"提示，不强制；掉队检测在后台（辅导员端，学员不可见状态）
+```
 
 #### 藏历日历页嵌入日记（`/calendar` · Feature 10）
 
@@ -2095,7 +2076,7 @@ migration_011_views.sql               建 2 个 SQL 视图
 ```
 seed_001_programs.ts         录入科系种子数据（加行/净土/入行论等）
 seed_002_class_admins.ts     ClassMember.role='coach' 数据 → ClassAdmin（canManageCourse + canAuditPractice 等全部 true）
-seed_003_self_study_books.ts 18 本《大学演讲系列》种子数据
+seed_003_self_study_books.ts 18 本《大学演讲系列》录为 Course（category=self_study_book）+ 章节课时
 seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册时间排序）
                              ⚠️ 必须在开放新用户注册之前执行
 ```
@@ -2123,7 +2104,6 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 跑 Migration 第一层（结构，11 个文件）| DB |
 | 录入科系种子数据（Program）| DB |
 | ClassAdmin 数据迁移（coach → RBAC flags 全开）| DB |
-| 自学读物种子数据（18 本）| DB |
 | 密法零痕迹中间件（所有学员侧 Course/Meditation 查询加过滤）| 后端 |
 | 班级管理：timezone / programId / startDate 字段支持（admin 建班）| 后端+前端 |
 | ClassAdmin RBAC 权限分配 UI（/admin/classes/:id/admins）| 前端 Admin |
@@ -2162,10 +2142,14 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 
 | 任务 | 类型 |
 |---|---|
-| 课程进度算法（getCurrentLessonNumber）| 后端 |
+| 课程进度算法（getCurrentLessonNumber，班级版 + 自学个人版）| 后端 |
 | CurrentLesson API（`/api/classes/:id/current-lesson`）| 后端 |
-| CohortRestWeek API | 后端 |
-| UserSelfStudyProgram API | 后端 |
+| CohortRestWeek API + UserSelfStudyRestWeek | 后端 |
+| UserSelfStudyProgram API（自学科系报名 + 进度）| 后端 |
+| Course.category 字段 + 18 本读物录为 Course（seed）| DB |
+| learningMode 字段支持（个人设置切换）| 后端+前端 |
+| 班级进度基准线展示（课程页/阅读页顶部"本周第 N 课"）| 前端 |
+| 闻思页自学读物分组展示（category=self_study_book）| 前端 |
 | 班级休息周管理（Admin，含实时预览）| 前端 |
 | 自学师兄管理（Admin）| 前端 |
 
@@ -2204,15 +2188,13 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 
 | 任务 | 类型 |
 |---|---|
-| 排表模板 API（6 张表）| 后端 |
+| 排表模板 API（5 张表）| 后端 |
 | LessonResource API（YouTube 链接 + audio/video · GET/POST/DELETE）✅ 已实现 | 后端 |
 | LessonResource 音频/视频文件上传（OSS · type=audio/video）⏸ 暂缓 | 后端 |
 | LessonMediaChapter API（章节标记 · C/D 模式）⏸ 暂缓 | 后端 |
 | LessonTextBlock API（段落同步 · B/C 模式）⏸ 暂缓 | 后端 |
-| 自学读物 SelfStudyRecord API | 后端 |
 | 参考答案 QuestionReference API | 后端 |
 | 课程详情多讲者展示（学员端）| 前端 |
-| 自学读物页面（学员端）| 前端 |
 | 参考答案管理（Admin）| 前端 |
 | Meditation.seriesKey/seriesNumber 管理（Admin）| 前端 |
 
