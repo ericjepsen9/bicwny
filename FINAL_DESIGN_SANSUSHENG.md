@@ -5,6 +5,14 @@
 > 策略：现有表只增字段不删，冲突表新建独立表，历史数据原地保留
 > 生成日期：2026-05-25（全部决策确认后最终版）
 
+**功能标签说明**
+
+| 标签 | 含义 |
+|---|---|
+| `⏸ 暂缓（Phase N）` | 计划做，但不在当前阶段；Phase N 实施 |
+| `❌ 不做` | 永久决策，不会实现；见 §八 |
+| `⚠️ 待决策` | 需要用户拍板才能推进 |
+
 ---
 
 ## 目录
@@ -818,7 +826,7 @@ model Event {
   createdAt      DateTime @default(now())
 }
 
-// 约修（⏸ DB + 后台先建，学员端 UI 暂缓）
+// 约修 ⏸ 暂缓（Phase 5）：DB + 后台 API 先建，学员端 UI 暂缓
 // 可见性：仅本班成员可见（classId 必填，不跨班）
 // 总目标：集体目标，无个人指标
 // 自动关闭：endDate 到期（expired）或 currentTotal ≥ totalTarget（completed）
@@ -982,7 +990,7 @@ GROUP BY DATE_TRUNC('week', pl.log_date), pl.class_id, pl.practice_project_id;
 | PracticeJournals | `/api/journals` | 修持日记 CRUD |
 | SelfStudy | `/api/self-study` | 自学师兄管理 + 读物记录 |
 | Events | `/api/events` | 法会活动（admin CRUD）+ 学员端列表/详情/集体回向/打卡/发愿 |
-| Appointments | `/api/appointments` | 约修创建/加入/关闭（⏸ UI 后做）|
+| Appointments | `/api/appointments` | 约修创建/加入/关闭 ⏸ 暂缓（Phase 5：后端 API 先做，学员端 UI 暂缓）|
 | CareFollowups | `/api/care-followups` | 关怀跟进（canCareFollowup=true 专属）|
 | TantricGrants | `/api/admin/tantric-grants` | 密法白名单（admin 专属）|
 
@@ -1233,7 +1241,7 @@ care-followup.middleware.ts
 | 修持日记 | `/journals` | 每日一篇，private / visible_to_coach |
 | 每周回向 | `/dedication` | 跨法会每周修持总量汇总（只显总数，不露个体）；法会专项回向在 `/events/:id` 内展示 |
 | 自学读物 | `/books` | 18 本读物阅读进度 |
-| 约修 | `/appointments` | 查看班级约修 + 加入（⏸ UI 暂缓）|
+| 约修 | `/appointments` | 查看班级约修 + 加入 ⏸ 暂缓（Phase 5）|
 | 法会列表 | `/events` | 三分区：正在进行 / 即将开始 / 往期 |
 | 法会详情 | `/events/:id` | 见下方详细设计 |
 
@@ -1333,7 +1341,7 @@ care-followup.middleware.ts
 |---|---|
 | 科系管理 | Program CRUD（code 唯一）+ 科目/周排表 |
 | 修持模板管理 | PracticeTemplate CRUD + 班级绑定 |
-| 密法授权管理 | TantricAccessGrant：直接 INSERT/DELETE（⏸ 学员 UI 暂缓，后台先做）|
+| 密法授权管理 | TantricAccessGrant：直接 INSERT/DELETE ⏸ 暂缓（Phase 5：后台先做，学员端 UI 暂缓）|
 | 班级休息周 | CohortRestWeek 管理；实时预览课程进度效果 |
 | 参考答案管理 | QuestionReference CRUD；发布后师兄答题后可查看 |
 | 法会活动管理 | Event CRUD（法会回向依赖）+ 藏历日期展示字段 |
@@ -1525,8 +1533,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 班级周汇总生成 + 复制 | 后端 |
 | 关怀跟进页面（管理端，canCareFollowup）| 前端 |
 | 掉队名单（管理端，canViewStudents）| 前端 |
-| 约修页面（⏸ 学员端 UI 暂缓）| ⏸ |
-| 密法授权管理（Admin，⏸ 学员端 UI 暂缓）| ⏸ 后台先做 |
+| 约修页面（学员端）⏸ 暂缓（后续 Phase）| ⏸ |
+| 密法授权管理 Admin 后台 ⏸ 暂缓（Phase 5，后台先做）| ⏸ |
 
 ### Phase 6 · 内容与排表
 
@@ -1567,8 +1575,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | LessonReadingProgress 扩展字段方案 | 无法扩展音频/视频课程；改用 LessonCompletion 统一表 |
 | logDate 前端本地日期字符串方案 | 跨时区班级打卡日期漂移；改为 UTC timestamp |
 | 后端藏历-公历自动换算 | 前端展示参考对照；admin 手动确认公历日期 |
-| 密法排除集体回向 | ~~已废弃~~：密法打卡计入集体回向 |
-| 密法排除打卡报数 | ~~已废弃~~：密法参与报数生成 |
+| 密法排除集体回向 | 决策已逆转：密法打卡**计入**集体回向（见 DESIGN_DECISIONS.md 7A）|
+| 密法排除打卡报数 | 决策已逆转：密法**参与**打卡报数生成 |
 | EventCount 与 PracticeLog 同步 | 两套记录完全独立，法会计数不影响日常修持愿进度 |
 | 法会补录宽松模式 | 严格模式：`today > event.endDate`（按 event.timezone）即禁止提交，页面只读 |
 | 全局周编号跨班共享 | 周编号每班独立，从本班 startDate 起算 |
