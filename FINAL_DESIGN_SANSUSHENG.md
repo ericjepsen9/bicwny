@@ -225,11 +225,16 @@ model Lesson {
 }
 ```
 
-#### `ClassSession` 表（+3 个字段）
+#### `ClassSession` 表（+3 个字段，+1 个字段类型变更）
 
 ```prisma
 model ClassSession {
   // ... 现有字段保留（classId / title / startAt / durationMin / liveLink 等）...
+
+  // 字段类型变更（兼容平台级共修）
+  classId       String?
+  // 原为 String 非空；改为可空：null = 平台级共修（admin 发起，全平台学员可参与）
+  // 有值 = 班级共修（原有逻辑不变）
 
   // 新增（扩展 ClassSession 承载共修场次）
   lessonId      String?
@@ -237,7 +242,7 @@ model ClassSession {
   sessionEndAt  DateTime?
   // 结束时刻（签到时间窗口使用）
   checkInToken  String?   @unique
-  // 共修签到 token（辅导员生成，分享链接用）
+  // 共修签到 token（辅导员/admin 生成，分享链接用）
 
   lesson        Lesson? @relation(fields: [lessonId], references: [id])
 }
@@ -638,22 +643,25 @@ model StudyRecord {
 }
 
 // 讲考场次
+// classId = null → 平台级讲考（admin 发起，全平台学员可参与）
+// classId 有值 → 班级讲考（原有逻辑）
 model SpeakingSession {
-  id            String   @id @default(cuid())
-  classId       String
+  id            String    @id @default(cuid())
+  classId       String?   // 可空：null = 平台级，有值 = 班级级
   lessonId      String
-  startAt       DateTime // 讲考开始时间（签到窗口起点）
-  sessionEndAt  DateTime // 签到窗口截止时间
-  checkInToken  String?  @unique
-  // 讲考签到 token（辅导员生成，上课时分享链接）
+  startAt       DateTime  // 讲考开始时间（签到窗口起点）
+  sessionEndAt  DateTime  // 签到窗口截止时间
+  checkInToken  String?   @unique
+  // 讲考签到 token（辅导员/admin 生成，上课时分享链接）
   notes         String?
-  createdBy     String   // 管理员 userId
-  createdAt     DateTime @default(now())
+  createdBy     String    // 操作人 userId
+  createdAt     DateTime  @default(now())
 
-  class  Class  @relation(fields: [classId], references: [id])
-  lesson Lesson @relation(fields: [lessonId], references: [id])
+  class  Class?  @relation(fields: [classId], references: [id])
+  lesson Lesson  @relation(fields: [lessonId], references: [id])
 
-  @@unique([classId, lessonId])
+  // @@unique([classId, lessonId]) 已移除：classId 可空时唯一约束失效
+  @@index([classId, lessonId])
 }
 
 // 每日修持日记（与现有 Note 课时笔记完全不同：日记绑日期，笔记绑课时）
@@ -1425,15 +1433,20 @@ GET  /api/checkin/:token
   先校验 token 对应场次时间窗口：
     · startAt > now → { status: 'not_started', startsAt }
     · sessionEndAt < now → { status: 'closed', endedAt }
-    · 否则 → { status: 'open', sessionType, title, lessonTitle,
-               members: [{id, name, studentId, hasCheckedIn}] }
+    · 否则 → { status: 'open', sessionType, title, lessonTitle, isplatform,
+               members: [{id, name, studentId, programName, hasCheckedIn}] }
+  成员列表来源：
+    · classId 有值 → 该班活跃成员（原有逻辑）
+    · classId = null（平台级）→ 全平台活跃学员；前端加搜索框 + 按科系筛选
+  query param: ?programId=&search= （平台级场次用，班级场次忽略）
 
 POST /api/checkin/:token
   公开端点，无需登录
   body: { userId }
   校验：
     1. 时间窗口（同上）
-    2. userId 属于本场次所在班级的活跃成员
+    2. 班级场次：userId 属于本班活跃成员
+       平台级场次：userId 为任意活跃学员（isActive=true）
     3. 同一 userId 未重复打卡（StudyRecord @@unique 保障）
   写入 StudyRecord：
     · speaking session → studyType='speaking_pass', isConfirmed=true
@@ -1800,7 +1813,8 @@ care-followup.middleware.ts
 | 讨论一人一票 | DB：`@@unique([discussionId, userId])`；换投：应用层先删旧票再插新票 |
 | 签到时间窗口 | 后端：`now < session.startAt → 403 未开始`；`now > session.sessionEndAt → 403 已关闭`；公开端点同样校验 |
 | 签到防重复 | DB：StudyRecord `@@unique([classSessionId, userId, studyType])` 保障；重复提交返回 409 |
-| 签到 token 作用域 | token 只对本场次成员有效；非本班成员 userId → 403；token 不过期，由辅导员手动刷新 |
+| 签到 token 作用域 | 班级场次：userId 须属于本班活跃成员；平台级场次：任意活跃学员均可；token 不过期，由操作人手动刷新 |
+| 平台级场次创建权限 | ClassSession / SpeakingSession 的 classId=null 仅 admin 可设；classId 有值时 admin 或 canManageExams 均可 |
 
 ### 数据完整性约束（7 条）
 
@@ -1867,7 +1881,7 @@ migration_003_extend_class.sql        Class 加 4 个字段
 migration_004_extend_classmember.sql  ClassMember 加 7 个字段
 migration_005_extend_course.sql       Course 加 3 个字段（author + isTantric + programSemesterId）
 migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
-migration_007_extend_classsession.sql ClassSession 加 3 个字段（lessonId / sessionEndAt / checkInToken）
+migration_007_extend_classsession.sql ClassSession 加 3 个字段（lessonId / sessionEndAt / checkInToken）+ classId 改可空（ALTER COLUMN classId DROP NOT NULL）
 migration_008_extend_meditation.sql   Meditation 加 3 个字段（seriesKey/seriesNumber/isTantric）
 migration_009_extend_practice.sql     PracticeProject 加 1 个字段（isTantric）
 migration_009_pgvector.sql            启用 pgvector 扩展（CREATE EXTENSION IF NOT EXISTS vector）
@@ -1919,8 +1933,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | StudyRecord API（讲考+共修，App 内自助，含时间窗口校验）| 后端 |
 | SpeakingSession API（场次管理 + 生成签到 token）| 后端 |
 | CheckIn API（公开端点：GET + POST `/api/checkin/:token`）| 后端 |
-| SpeakingSession.startAt / checkInToken 字段（migration）| DB |
-| ClassSession.checkInToken 字段（migration）| DB |
+| SpeakingSession.startAt / checkInToken 字段，classId 改可空（migration）| DB |
+| ClassSession.checkInToken 字段，classId 改可空（migration）| DB |
 | 审核态（isConfirmed）API（确认/取消确认）| 后端 |
 | LessonCompletion API（轻量听/读/观修完成标记，含批量补录）| 后端 |
 | 讲考/共修打卡 UI（学员端 App 内）| 前端 |
