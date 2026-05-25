@@ -42,10 +42,10 @@
 | 新增表 | 44 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount + ClassPost 系列 4 张 + Discussion 系列 4 张 + AI 助手 5 张 + LessonMediaChapter + LessonTextBlock 新增 = 净 44）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
-| 新增后端模块 | 21 个 | 见 3.1 |
+| 新增后端模块 | 22 个 | 见 3.1 |
 | 修改后端模块 | 6 个 | 见 3.2 |
-| 新增前端页面（学员端）| 9 个 | 含法会列表 + 法会详情 + 签到链接页 |
-| 修改前端页面（学员端）| 5 个 | 首页（法会 FAB）+ 课程详情 + 打卡记录 + 思考题 + 个人设置 |
+| 新增前端页面（学员端）| 10 个 | 含活动中心 + 法会详情 + 平台场次详情 + 签到链接页 |
+| 修改前端页面（学员端）| 5 个 | 首页（活动药丸 + 通知移我的）+ 课程详情 + 打卡记录 + 思考题 + 个人设置 |
 | 新增前端页面（管理端 /coach/*）| 5 个 | |
 | 新增前端页面（Admin 端）| 7 个 | |
 
@@ -1361,11 +1361,12 @@ model PracticeTemplate {
 
 ## 三、后端改动范围
 
-### 3.1 新增 API 模块（21 个）
+### 3.1 新增 API 模块（22 个）
 
 | 模块 | 路由前缀 | 主要功能 |
 |---|---|---|
 | Programs | `/api/programs` | 科系 CRUD（admin）|
+| PlatformActivities | `/api/activities` | 首页药丸 summary + 活动中心聚合（平台级法会/共修/讲考）|
 | ClassAdmins | `/api/classes/:id/admins` | ClassAdmin RBAC 分配管理 |
 | CohortRestWeeks | `/api/classes/:id/rest-weeks` | 班级休息周管理 |
 | CurrentLesson | `/api/classes/:id/current-lesson` | 当前课时号查询（进度算法）|
@@ -1462,6 +1463,31 @@ POST /api/checkin/:token
     · group session    → studyType='group_attend',  isConfirmed=true
   打卡时间 = StudyRecord.createdAt（自动记录）
   响应：{ ok: true, checkedInAt }
+```
+
+#### PlatformActivities 模块端点明细
+
+```
+GET /api/activities/summary
+  用于首页药丸卡片，聚合平台级活动（法会 Event + 平台级 ClassSession/SpeakingSession）
+  仅统计 classId=null 的场次 + isActive=true 的法会
+  响应：{
+    top: { type: 'event'|'group'|'speaking', id, title, status, startAt } | null,
+    totalCount,   // 进行中 + 即将开始的平台活动总数（角标用）
+    isEmpty       // true 时药丸显示「平台活动」+ 日历图标
+  }
+  优先级：进行中法会 > 进行中共修/讲考 > 即将开始（按时间近）
+
+GET /api/activities
+  活动中心三 Tab 数据，按 type 分组返回
+  query: type=event|group|speaking（默认全返回）, status=active|upcoming|past|all
+  响应：{
+    events:   [...] | undefined,   // 法会（同 GET /api/events）
+    groups:   [...] | undefined,   // 平台级 ClassSession（classId=null）
+    speakings:[...] | undefined    // 平台级 SpeakingSession（classId=null）
+  }
+  // 平台级共修/讲考的 App 内签到走 StudyRecords 模块（需登录）；
+  // 签到链接（无需登录）走 CheckIn 模块；两者共用 StudyRecord @@unique 防重复
 ```
 
 ### 3.2 修改现有模块（6 个）
@@ -1662,7 +1688,7 @@ care-followup.middleware.ts
 
 ## 四、前端改动范围
 
-### 4.1 学员端新增页面（9 个）
+### 4.1 学员端新增页面（10 个）
 
 | 页面 | 路由 | 说明 |
 |---|---|---|
@@ -1672,26 +1698,61 @@ care-followup.middleware.ts
 | 每周回向 | `/dedication` | 跨法会每周修持总量汇总（只显总数，不露个体）；法会专项回向在 `/events/:id` 内展示 |
 | 自学读物 | `/books` | 18 本读物阅读进度 |
 | 约修 | `/appointments` | 查看班级约修 + 加入 ⏸ 暂缓（Phase 5）|
-| 法会列表 | `/events` | 三分区：正在进行 / 即将开始 / 往期；**入口：首页浮动按钮** |
+| 活动中心 | `/events` | 3 Tab：法会 / 共修 / 讲考；每 Tab 内分 进行中 / 即将开始 / 往期；**入口：首页药丸卡片** |
 | 法会详情 | `/events/:id` | 见下方详细设计 |
-| 签到链接页 | `/checkin/:token` | **无需登录**；显示场次信息 + 班级成员列表；学员点名字完成打卡；时间窗口外显示「未开始」或「已关闭」 |
+| 平台场次详情 | `/events/sessions/:id` | 平台级共修/讲考场次信息 + App 内签到入口（时间窗口内）|
+| 签到链接页 | `/checkin/:token` | **无需登录**；显示场次信息 + 成员列表；学员点名字完成打卡；时间窗口外显示「未开始」或「已关闭」 |
 
-#### 法会列表页（`/events`）
+#### 首页活动入口（药丸卡片）
 
-**首页入口（液态玻璃卡片）：**
-- 显示条件：`GET /api/events?status=active,upcoming` 返回至少一条数据时渲染，否则不显示
-- 位置：首页上半部分，嵌入正常文档流（非 fixed，无需 createPortal）
-- 样式：液态玻璃效果圆角矩形（backdrop-filter: blur + 半透明背景 + 高光边框）
-- 内容：法会标题 + 状态（进行中 / 距开始 N 天）+ 参与人数
-- 点击 → 跳转 `/events`（列表页）
+替代原顶部「活动按钮 + 通知铃」两个圆按钮，合并为一个药丸卡片；通知移入「我的」。
 
-三个分区，垂直排列：
+**布局变化：**
+```
+现状：[头像→我的]              [活动→/events] [🔔通知→/notifications]
+新版：[头像→我的（挂未读红点）]  [═══ 药丸卡片：平台活动 ═══]
+      通知入口移入「我的」页面
+```
+
+**药丸卡片规则：**
+- 数据源：`GET /api/activities/summary`（聚合平台级法会 + 共修 + 讲考）
+- 显示优先级最高的一个活动 + 角标提示总数：
+  - 优先级：进行中法会 > 进行中共修/讲考 > 即将开始（按时间近）
+  - 示例：`[🪷 极乐法会 · 进行中] ·³`（角标 3 = 共 3 个平台活动）
+- 空状态（无任何平台活动）：显示「平台活动」+ 日历图标，**常驻不隐藏**（点进去是往期列表）
+- 点击 → 统一跳 `/events` 活动中心（不直跳具体详情，因药丸只能高亮一个）
+
+**通知降级补偿（必做）：**
+- 通知入口移入「我的」页面
+- 首页头像挂未读红点 badge（`useUnreadNotifCount`），用户进首页即知有未读
+
+#### 活动中心页（`/events`）
+
+3 个 Tab，平台级活动统一容器（**班级级共修/讲考不在此，仍在班级页「共修安排」卡**）：
+
+| Tab | 数据源 | 卡片动作 |
+|---|---|---|
+| 法会 | Event + EventCount | 回向计数（见法会详情设计）|
+| 共修 | 平台级 ClassSession（classId=null）| 签到出勤 → 场次详情 |
+| 讲考 | 平台级 SpeakingSession（classId=null）| 签到出勤 → 场次详情 |
+
+每个 Tab 内三分区：进行中 / 即将开始 / 往期。
+
+**法会 Tab 三分区：**
 
 | 分区 | 数据条件 | 排序 | 卡片内容 |
 |---|---|---|---|
 | 正在进行 | `startDate ≤ 今天 ≤ endDate` | startDate asc | 封面图 + 标题 + 藏历日期 + 「还剩 N 天」倒计时 + 橙色「参与」按钮 |
 | 即将开始 | `startDate > 今天` | startDate asc | 同上，按钮文案改为「预发愿」 |
 | 往期法会 | `endDate < 今天` | endDate desc | 折叠态；展开后纯列表：标题 + 日期区间 + 参与人数 |
+
+**共修 / 讲考 Tab 三分区：**
+
+| 分区 | 数据条件 | 排序 | 卡片内容 |
+|---|---|---|---|
+| 进行中 | `startAt ≤ now ≤ sessionEndAt` | startAt asc | 标题 + 课时 + 时间窗口 + 「去签到」按钮（App 内签到）|
+| 即将开始 | `startAt > now` | startAt asc | 标题 + 课时 + 开始时间 + 「设提醒」|
+| 往期 | `sessionEndAt < now` | startAt desc | 折叠态；标题 + 日期 + 我的出勤状态 |
 
 #### 法会详情页（`/events/:id`）
 
@@ -1765,7 +1826,7 @@ care-followup.middleware.ts
 
 | 页面 | 改动 |
 |---|---|
-| 首页 | 法会入口卡片：有活跃/即将开始的法会时渲染，位于首页上半部分；液态玻璃效果圆角矩形；点击跳转 `/events` |
+| 首页 | 顶部「活动按钮 + 通知铃」合并为药丸卡片（显示平台法会/共修/讲考，常驻）；通知入口移入「我的」；头像挂未读红点 badge 补偿；点击药丸跳 `/events` 活动中心 |
 | 课程详情 | 多讲者 LessonResource 展示；按 Class.timezone 显示共修时间；「已学完/已听完/已看完」确认按钮（见下方流程）|
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | 提交后解锁参考答案入口（QuestionReference）|
@@ -2030,8 +2091,12 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | AI Tier 2 功能导航（FeatureEntry catalog + 意图分类）⏸ 暂缓（后续 Phase）| ⏸ |
 | AI Tier 3-4（课时内联 / 辅导员洞察 / 个性化 / 语音）⏸ 暂缓（后续 Phase）| ⏸ |
 | 集体回向 SQL 视图（v_event_dedication_totals + v_weekly_dedication_totals）| 后端 |
-| 法会列表页 `/events` | 前端 |
-| 法会详情页 `/events/:id`（含回向 Sheet + 发愿 Sheet）| 前端 |
+| PlatformActivities API（/api/activities summary + 活动中心聚合）| 后端 |
+| 平台级共修/讲考场次发起（ClassSession/SpeakingSession classId=null，仅 admin）| 后端 |
+| 活动中心页 `/events`（3 Tab：法会/共修/讲考）| 前端 |
+| 法会详情页 `/events/:id`（含计数提交 Sheet + 回向 Sheet + 发愿 Sheet）| 前端 |
+| 平台场次详情页 `/events/sessions/:id`（App 内签到入口）| 前端 |
+| 首页活动药丸卡片 + 通知移入「我的」+ 头像未读红点 | 前端 |
 | 每周回向页面 `/dedication` | 前端 |
 | 关怀跟进 API（canCareFollowup 专属）| 后端 |
 | 约修 API（创建/加入/关闭）| 后端 |
