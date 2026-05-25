@@ -42,7 +42,7 @@
 | 新增表 | 44 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount + ClassPost 系列 4 张 + Discussion 系列 4 张 + AI 助手 5 张 + LessonMediaChapter + LessonTextBlock 新增 = 净 44）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
-| 新增后端模块 | 17 个 | 见 3.1 |
+| 新增后端模块 | 21 个 | 见 3.1 |
 | 修改后端模块 | 6 个 | 见 3.2 |
 | 新增前端页面（学员端）| 9 个 | 含法会列表 + 法会详情 + 签到链接页 |
 | 新增前端页面（管理端 /coach/*）| 5 个 | |
@@ -1314,6 +1314,7 @@ model Class {
 ```prisma
 model Lesson {
   // ... 现有字段 + 2.2 新增字段 ...
+  classSessions        ClassSession[]
   speakingSessions     SpeakingSession[]
   studyRecords         StudyRecord[]
   contentChunks        ContentChunk[]
@@ -1343,7 +1344,7 @@ model PracticeTemplate {
 
 ## 三、后端改动范围
 
-### 3.1 新增 API 模块（17 个）
+### 3.1 新增 API 模块（21 个）
 
 | 模块 | 路由前缀 | 主要功能 |
 |---|---|---|
@@ -1866,7 +1867,7 @@ migration_003_extend_class.sql        Class 加 4 个字段
 migration_004_extend_classmember.sql  ClassMember 加 7 个字段
 migration_005_extend_course.sql       Course 加 3 个字段（author + isTantric + programSemesterId）
 migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
-migration_007_extend_classsession.sql ClassSession 加 2 个字段
+migration_007_extend_classsession.sql ClassSession 加 3 个字段（lessonId / sessionEndAt / checkInToken）
 migration_008_extend_meditation.sql   Meditation 加 3 个字段（seriesKey/seriesNumber/isTantric）
 migration_009_extend_practice.sql     PracticeProject 加 1 个字段（isTantric）
 migration_009_pgvector.sql            启用 pgvector 扩展（CREATE EXTENSION IF NOT EXISTS vector）
