@@ -21,7 +21,7 @@
 2. [数据库改动](#二数据库改动)
    - 2.1 新增枚举
    - 2.2 现有表字段扩展
-   - 2.3 新增表（33 张，含完整 Prisma schema）
+   - 2.3 新增表（37 张，含完整 Prisma schema）
    - 2.4 新增 SQL 视图
 3. [后端改动范围](#三后端改动范围)
 4. [前端改动范围](#四前端改动范围)
@@ -39,7 +39,7 @@
 |---|---|---|
 | 新增 Prisma 枚举 | 7 个 | 见 2.1 |
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
-| 新增表 | 33 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount + ClassPost/Reaction/Comment/Share 新增 = 净 33）|
+| 新增表 | 37 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount + ClassPost 系列 4 张 + Discussion 系列 4 张 新增 = 净 37）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 16 个 | 见 3.1 |
@@ -271,7 +271,7 @@ model PracticeProject {
 
 ---
 
-### 2.3 新增表（33 张）
+### 2.3 新增表（37 张）
 
 #### 组织层级（1 张）
 
@@ -960,6 +960,78 @@ model ClassPostShare {
 }
 ```
 
+#### 班级讨论（4 张）
+
+```prisma
+// 班级讨论话题（UI ⏸ 暂缓，DB + API 当前阶段预留）
+// 创建权限：ClassAdmin（任意 flag）或 admin；投票/评论：班级任意成员
+model Discussion {
+  id          String    @id @default(cuid())
+  classId     String
+  authorId    String    // 仅 ClassAdmin 或 admin
+  title       String
+  description String?
+  lessonId    String?   // 可选关联课时
+  courseId    String?   // 可选关联法本
+  status      String    @default("open")  // open / closed
+  closedAt    DateTime?
+  closedBy    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  class      Class                 @relation(fields: [classId], references: [id])
+  author     User                  @relation(fields: [authorId], references: [id])
+  lesson     Lesson?               @relation(fields: [lessonId], references: [id])
+  course     Course?               @relation(fields: [courseId], references: [id])
+  viewpoints DiscussionViewpoint[]
+  comments   DiscussionComment[]
+}
+
+// 可投票的观点选项
+model DiscussionViewpoint {
+  id           String   @id @default(cuid())
+  discussionId String
+  content      String
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  discussion Discussion      @relation(fields: [discussionId], references: [id])
+  votes      DiscussionVote[]
+}
+
+// 投票记录（一人只能投一个观点；换投时先删再插）
+model DiscussionVote {
+  id           String   @id @default(cuid())
+  discussionId String   // 冗余存储，方便查「我在本话题投了哪个观点」
+  viewpointId  String
+  userId       String
+  createdAt    DateTime @default(now())
+
+  viewpoint  DiscussionViewpoint @relation(fields: [viewpointId], references: [id])
+  user       User                @relation(fields: [userId], references: [id])
+
+  @@unique([discussionId, userId])  // DB 层保证一人一票
+}
+
+// 讨论评论（支持一级回复，应用层拒绝二级嵌套）
+model DiscussionComment {
+  id           String    @id @default(cuid())
+  discussionId String
+  authorId     String
+  content      String
+  parentId     String?   // 一级回复；parent 不能再有 parentId（应用层校验）
+  isDeleted    Boolean   @default(false)
+  deletedBy    String?   // 本人 or canManageMembers=true 的 ClassAdmin
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  discussion Discussion          @relation(fields: [discussionId], references: [id])
+  author     User                @relation(fields: [authorId], references: [id])
+  parent     DiscussionComment?  @relation("Replies", fields: [parentId], references: [id])
+  replies    DiscussionComment[] @relation("Replies")
+}
+```
+
 #### 权限控制（1 张）
 
 ```prisma
@@ -1060,6 +1132,7 @@ GROUP BY DATE_TRUNC('week', pl.log_date), pl.class_id, pl.practice_project_id;
 | CareFollowups | `/api/care-followups` | 关怀跟进（canCareFollowup=true 专属）|
 | TantricGrants | `/api/admin/tantric-grants` | 密法白名单（admin 专属）|
 | ClassPosts | `/api/classes/:id/posts` | 学修感想发布/列表/软删除 + 点赞/评论/转发记录（UI ⏸ 暂缓，API 当前阶段预留）|
+| ClassDiscussions | `/api/classes/:id/discussions` | 话题 CRUD + 投票 + 评论（UI ⏸ 暂缓，API 当前阶段预留）|
 
 #### Events 模块端点明细
 
@@ -1456,6 +1529,8 @@ care-followup.middleware.ts
 | 关怀记录对学员不可见 | CareFollowup 路由：仅 canCareFollowup=true 可访问 |
 | 掉队状态对学员不可见 | Vow API 响应：学员端不返回 currentStatus 字段 |
 | 法会字段写权限限 admin | Event CRUD（含 liveStreamUrl / recordingUrl）仅 admin 角色可写；学员侧 API 只读 |
+| 讨论话题创建权限 | Discussion 创建/关闭：ClassAdmin（任意 flag）或 admin；投票/评论：班级任意成员 |
+| 讨论一人一票 | DB：`@@unique([discussionId, userId])`；换投：应用层先删旧票再插新票 |
 
 ### 数据完整性约束（7 条）
 
@@ -1525,7 +1600,7 @@ migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
 migration_007_extend_classsession.sql ClassSession 加 2 个字段
 migration_008_extend_meditation.sql   Meditation 加 3 个字段（seriesKey/seriesNumber/isTantric）
 migration_009_extend_practice.sql     PracticeProject 加 1 个字段（isTantric）
-migration_010_new_tables.sql          建 33 张新表（含 EventCount / ClassPost + Reaction + Comment + Share；PracticeGuide 未进入生产，无需 DROP）
+migration_010_new_tables.sql          建 37 张新表（含 EventCount / ClassPost 系列 / Discussion 系列；PracticeGuide 未进入生产，无需 DROP）
 migration_011_views.sql               建 2 个 SQL 视图
 ```
 
@@ -1605,8 +1680,10 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 任务 | 类型 |
 |---|---|
 | EventCount 表（migration_010 含）+ Events API 学员端端点 | 后端 |
-| ClassPost 表 + ClassPosts API（发帖/列表/删除）| 后端 |
+| ClassPost 表 + ClassPosts API（发帖/列表/删除/点赞/评论/转发）| 后端 |
 | ClassPost UI（班级页感想动态区）⏸ 暂缓（后续 Phase）| ⏸ |
+| Discussion 系列 4 张表 + ClassDiscussions API（话题/投票/评论）| 后端 |
+| Discussion UI（班级讨论页）⏸ 暂缓（后续 Phase）| ⏸ |
 | 集体回向 SQL 视图（v_event_dedication_totals + v_weekly_dedication_totals）| 后端 |
 | 法会列表页 `/events` | 前端 |
 | 法会详情页 `/events/:id`（含回向 Sheet + 发愿 Sheet）| 前端 |
