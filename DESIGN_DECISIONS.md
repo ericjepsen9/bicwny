@@ -34,18 +34,18 @@
 
 ### 2B · 主班标识 ✅ 来自测试场景文档
 
-- 一个师兄可同时在多个班（都 active）
-- 任一时刻只有一个主班（`isPrimary = true`，应用层保证唯一）
-- 换主班：先把旧主班 isPrimary 改为 false，再设新主班 true（事务操作）
+- ✅ 一个师兄可同时在多个班（都 active）
+- ✅ 任一时刻只有一个主班（`isPrimary = true`，应用层保证唯一）
+- ✅ 换主班：先把旧主班 isPrimary 改为 false，再设新主班 true（事务操作）
 
 **DB 改动**：`ClassMember` 新增 `isPrimary Boolean @default(false)`，不用数据库唯一索引，由应用层保证。
 
 ### 2C · 班级时区 ✅ 已确认
 
 - ✅ 有跨时区班级（如北京班、纽约班同时运营）
-- **DB 改动**：`Class` 新增 `city String?` + `timezone String?`（IANA 格式，如 `America/New_York`）
-- 共修/讲考场次时间按 `Class.timezone` 显示给师兄
-- 自学师兄用设备时区，无班级时区约束
+- ✅ **DB 改动**：`Class` 新增 `city String?` + `timezone String?`（IANA 格式，如 `America/New_York`）
+- ✅ 共修/讲考场次时间按 `Class.timezone` 显示给师兄
+- ✅ 自学师兄用设备时区，无班级时区约束
 
 ### 2D · 学号自动生成 ✅ 来自测试场景文档
 
@@ -107,13 +107,13 @@
 
 ### 4B · 多讲者结构 ✅
 
-- 新增 `LessonResource` 表（lessonId / speakerName / videoUrl / audioUrl / notes / sortOrder）
-- 替代现有 Lesson 上的固定 teacher 槽位，但原有字段**保留不删**（存量数据兼容）
+- ✅ 新增 `LessonResource` 表（lessonId / speakerName / videoUrl / audioUrl / notes / sortOrder）
+- ✅ 替代现有 Lesson 上的固定 teacher 槽位，但原有字段**保留不删**（存量数据兼容）
 
 ### 4C · 课程法本原文 ✅
 
-- `Lesson` 新增 `sourceText String?`（法本原文正文）
-- 现有 `referenceText` 字段**保留不废弃**
+- ✅ `Lesson` 新增 `sourceText String?`（法本原文正文）
+- ✅ 现有 `referenceText` 字段**保留不废弃**
 
 ### 4D · 排表模板系统 ✅
 
@@ -157,9 +157,9 @@
 
 ### 5B · 讲考场次 ✅ 来自测试场景文档
 
-- 4 种状态：空白（未参与）/ 主讲 / 提问 / 旁听
-- 新增 `SpeakingSession` 表（classId / lessonId / sessionEndAt / createdBy）
-- `StudyRecord` 通过 `speakingSessionId` 关联具体场次
+- ✅ 4 种状态：空白（未参与）/ 主讲 / 提问 / 旁听
+- ✅ 新增 `SpeakingSession` 表（classId / lessonId / sessionEndAt / createdBy）
+- ✅ `StudyRecord` 通过 `speakingSessionId` 关联具体场次
 
 ### 5C · 共修场次 ✅
 
@@ -168,10 +168,10 @@
 
 ### 5D · 审核态机制 ✅ 来自测试场景文档
 
-- **规则**：打卡默认 `isConfirmed=false`（师兄可随时改/删）
-- **主麦确认后**：`isConfirmed=true`，师兄不能再修改
-- **适用范围**：`StudyRecord` + `PracticeLog` 各加 3 字段（isConfirmed / confirmedAt / confirmedBy）
-- 可取消确认（每次操作写 AuditLog）
+- ✅ **规则**：打卡默认 `isConfirmed=false`（师兄可随时改/删）
+- ✅ **主麦确认后**：`isConfirmed=true`，师兄不能再修改
+- ✅ **适用范围**：`StudyRecord` + `PracticeLog` 各加 3 字段（isConfirmed / confirmedAt / confirmedBy）
+- ✅ 可取消确认（每次操作写 AuditLog）
 
 ---
 
@@ -344,13 +344,16 @@
 
 - 新增 `CareFollowup` 表（studentId / classId / careWorkerId / contactedAt / summary / followUpStatus）
 - 师兄端**完全不可见**（应用层严格过滤）
-- 仅爱心师兄（ClassAdmin.role=aixin）可填写
+- 仅 `canCareFollowup=true` 的 ClassAdmin 可填写（A3 更新：原 role=aixin 改为权限 flag）
 
-### 8D · 批量补录 ✅
+### 8D · 批量补录 ✅（部分被新逻辑覆盖）
 
-- 师兄可批量勾选多节课的 `listen / read_notes` 类型补录（每学期 2 次机会）
-- **仅限闻思类**，修持类不允许补打（原则 6）
-- **无新增表**，前端功能 + 后端批量写入 StudyRecord
+- ~~师兄可批量勾选多节课的 `listen / read_notes` 类型补录（每学期 2 次机会）~~
+- **新逻辑覆盖**：`listen / read_notes` 已从 StudyRecord 移除，改为轻量完成标记（随时可点，无审核）
+- ✅ 批量补录改为：批量勾选多节课，一次性写入轻量完成标记（`LessonReadingProgress.isCompleted` 等）
+- ❌ 每学期 2 次机会限制**不再适用**——轻量标记无审核，无需次数约束
+- ✅ **仅限闻思类**，修持类不允许补打（原则保留）
+- ✅ **无新增表**，前端 + 后端批量写入轻量完成字段
 
 ### 8E · 班级周汇总缓存 ✅
 
@@ -417,7 +420,7 @@
 | 组织层级 | Program |
 | 班级管理员 | ClassAdmin |
 | 双模式学习 | CohortRestWeek / UserSelfStudyProgram / UserSelfStudyRestWeek |
-| 课程内容 | LessonResource / PracticeGuide |
+| 课程内容 | LessonResource |
 | 修持愿 | PracticeTemplate / CohortRecommendedTemplate / UserPracticeVow / PracticeLog |
 | 闻思打卡 | StudyRecord / SpeakingSession / PracticeJournal |
 | 思考题 | QuestionReference |
@@ -721,7 +724,8 @@ Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ Pract
 | ClassAdminRole 枚举（zhumai/aixin）| 改为 RBAC flags，admin 后台细粒度分配 | A3 |
 | 约修审批流 | 无审批、无推送、不比先后 | 7B |
 | 打卡报数新增表 | 纯前端生成文字，无 DB | 7D |
-| 批量补录新增表 | 前端 + 后端批量写入 StudyRecord，无新表 | 8D |
+| 批量补录新增表 | 前端 + 后端批量写入轻量完成字段，无新表 | 8D |
+| 批量补录每学期 2 次限制 | 轻量完成标记无审核，随时可点，无需次数约束 | 8D / 新逻辑 |
 | 三殊胜精神框架新增表 | 回向为前端 UI，发心语开关用 User.preferShowFaxin | 7C |
 
 ---
