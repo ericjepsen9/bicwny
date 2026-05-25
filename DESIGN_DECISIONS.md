@@ -324,12 +324,50 @@
 
 **每周回向**：聚合全班 + 全会层总数，`v_weekly_dedication_totals` SQL 视图。
 
-### 7B · 约修系统 ✅ 来自测试场景文档
+### 7B · 约修系统 ✅ 完整设计已确认
 
-- 新增 `PracticeAppointment` 表（发起人 / classId? / 目标量 / 修法）
-- **N 人加入 = N 条 custom 愿**（每人各建一条，互不关联）
-- 打卡走现有愿系统，累计正确（13k + 13k + 14k = 40k）
-- 无审批、无推送、不比先后
+**Schema：**
+
+```prisma
+model PracticeAppointment {
+  id                String   @id @default(cuid())
+  creatorId         String
+  classId           String   // 必填，仅对该班成员可见（❌ 不跨班）
+
+  practiceProjectId String   // 修什么
+  totalTarget       Int      // 集体总目标量
+  currentTotal      Int      @default(0)  // 缓存累计量，每次打卡后更新
+
+  startDate         DateTime?
+  endDate           DateTime  // 必填，到期自动关闭
+
+  description       String?
+  status            String   @default("active")
+  // active | completed（目标达成）| expired（到期未完成）| cancelled（创建者取消）
+
+  createdAt         DateTime @default(now())
+
+  vows              UserPracticeVow[]
+  @@index([classId, status])
+}
+```
+
+**流程规则：**
+
+| 步骤 | 规则 | 标注 |
+|---|---|---|
+| 创建 | 班级任意成员可创建 | ✅ |
+| 可见性 | 仅本班成员可见，显示在班级页约修区块 | ✅ |
+| 加入 | 点"加入" → 创建 UserPracticeVow（context=appointment, source=custom）| ✅ |
+| 打卡 | 走正常 PracticeLog，vowId 指向本人约修愿 | ✅ |
+| 总量聚合 | currentTotal 每次打卡后累加；定期从 PracticeLog 重算兜底 | ✅ |
+| 提前完成 | currentTotal ≥ totalTarget → status=completed，关联愿关闭 | ✅ |
+| 到期关闭 | 每日凌晨定时任务检查 endDate，status → expired，关联愿关闭 | ✅ |
+| 取消 | 创建者可取消（status=cancelled），关联愿关闭 | ✅ |
+| 退出 | 参与者可退出，其愿改 paused，历史打卡保留 | ✅ |
+| 加入通知推送 | ❌ 不做，用户自行浏览班级页发现 | ❌ |
+| 跨班可见 | ❌ classId 必填，不支持跨班 | ❌ |
+| 个人强制目标量 | ❌ 总目标由创建者设，参与者无个人指标 | ❌ |
 
 ### 7C · 三殊胜精神框架 ✅（C3 补充前端放置）
 
@@ -478,7 +516,7 @@
 | 思考题 | QuestionReference |
 | 排表模板 | ProgramSemester / ProgramWeek / ProgramWeekCourse / ProgramWeekPractice / ProgramWeekSelfStudy / ProgramStudyType |
 | 自学读物 | SelfStudyBook / SelfStudyRecord |
-| 集体功能 | Event（含 timezone / tibetanDate / startDate / endDate）/ PracticeAppointment / CareFollowup |
+| 集体功能 | Event（含 timezone / tibetanDate / startDate / endDate）/ PracticeAppointment（含 classId必填 / totalTarget / currentTotal / status / endDate必填）/ CareFollowup |
 | 权限控制 | TantricAccessGrant |
 | 汇总缓存 | CohortWeeklySummary |
 
