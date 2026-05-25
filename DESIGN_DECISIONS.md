@@ -394,7 +394,7 @@
 
 - ~~师兄可批量勾选多节课的 `listen / read_notes` 类型补录（每学期 2 次机会）~~
 - **新逻辑覆盖**：`listen / read_notes` 已从 StudyRecord 移除，改为轻量完成标记（随时可点，无审核）
-- ✅ 批量补录改为：批量勾选多节课，一次性写入轻量完成标记（`LessonReadingProgress.isCompleted` 等）
+- ✅ 批量补录改为：批量勾选多节课，一次性写入 `LessonCompletion`（type=listen 或 type=read）
 - ❌ 每学期 2 次机会限制**不再适用**——轻量标记无审核，无需次数约束
 - ✅ **仅限闻思类**，修持类不允许补打（原则保留）
 - ✅ **无新增表**，前端 + 后端批量写入轻量完成字段
@@ -460,7 +460,7 @@
 |---|---|---|
 | 新增枚举 | 6 个 | LearningMode / CohortMemberStatus / VowStatus / VowSource / PracticeMeasurement / ProfileStatus（ClassAdminRole 已废弃，改为 flags）|
 | 现有表新增字段 | 7 张表 | User(+8, 含 timezone) / Class(+4) / ClassMember(+7) / Course(+2) / Lesson(+1) / ClassSession(+2) / UserCourseEnrollment(+3) |
-| 新增表 | 29 张 | 见各组 |
+| 新增表 | 28 张 | 见各组（含 LessonCompletion；PracticeGuide 已删除）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 所有现有功能保留 |
 
@@ -474,6 +474,7 @@
 | 课程内容 | LessonResource |
 | 修持愿 | PracticeTemplate / CohortRecommendedTemplate / UserPracticeVow / PracticeLog |
 | 闻思打卡 | StudyRecord / SpeakingSession / PracticeJournal |
+| 内容完成标记 | LessonCompletion（统一听/读/观修/音频/视频完成，含统计聚合）|
 | 思考题 | QuestionReference |
 | 排表模板 | ProgramSemester / ProgramWeek / ProgramWeekCourse / ProgramWeekPractice / ProgramWeekSelfStudy / ProgramStudyType |
 | 自学读物 | SelfStudyBook / SelfStudyRecord |
@@ -658,24 +659,52 @@ Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ Pract
 
 **背景**：学习常在 App 外发生（纸质书读法本、别处听课）。需要手动「已学完」按钮补录完成。
 
-**决议：三类内容消费统一为轻量完成标记，方案 X（不走 StudyRecord）**
+**决议：三类内容消费统一为轻量完成标记，方案 X（不走 StudyRecord）✅**
 
 | 行为 | 落点 | 自动 | 手动按钮 | 审核 | 来源区分 |
 |---|---|---|---|---|---|
-| 读法本 | `LessonReadingProgress.isCompleted`（现有）| 滚动+时长达标 | 「已学习」按钮 | ❌ | ❌ |
-| 观修 | `MeditationSession`（现有）| 看≥80% | 已有手动按钮 | ❌ | ❌ |
-| 听课 | **新增轻量落点（待定结构）** | 听完音视频 | 「已学完」按钮 | ❌ | ❌ |
+| 读法本 | `LessonCompletion`（type=read）| 滚动+时长达标 | 「已学习」按钮 | ❌ | ❌ |
+| 观修 | `MeditationSession`（≥80% 触发）+ 写入 `LessonCompletion`（type=meditation）| 看≥80% | 已有手动按钮 | ❌ | ❌ |
+| 听课 | `LessonCompletion`（type=listen）| 听完音视频 | 「已学完」按钮 | ❌ | ❌ |
+| 音频课程（未来）| `LessonCompletion`（type=audio）| 播放完成 | 「已完成」按钮 | ❌ | ❌ |
+| 视频课程（未来）| `LessonCompletion`（type=video）| 播放完成 | 「已完成」按钮 | ❌ | ❌ |
 
-- 自动完成与手动声明**同等对待**，不分来源，即时生效，不挂 isConfirmed
-- 主麦可查看完成情况（统计），但**不审核**
+**新增 `LessonCompletion` 表 ✅（统一内容消费完成标记，预留音频/视频扩展）**
+
+```prisma
+model LessonCompletion {
+  id          String   @id @default(cuid())
+  userId      String
+  classId     String?  // 班级归属，用于后台/班级统计聚合
+
+  // 内容定位（二选一必填）
+  lessonId    String?  // 法本课时（听课/读法本）
+  contentRef  String?  // 通用内容 ID（Meditation.id / 未来 AudioCourse.id 等）
+
+  type        String   // 'listen' | 'read' | 'meditation' | 'audio' | 'video'
+  completedAt DateTime
+  durationSec Int?     // 实际消耗时长（音频/视频自动记录）
+
+  @@unique([userId, contentRef, type])
+}
+```
+
+**统计接口统一从 `LessonCompletion` 聚合：**
+- ✅ 个人统计：`WHERE userId = ? GROUP BY type`
+- ✅ 班级统计：`WHERE classId = ? GROUP BY type, week`
+- ✅ 后台统计：`GROUP BY classId, type, month`
+
+**与现有表的关系：**
+- ✅ `LessonReadingProgress`：保留，继续记录细粒度滚动进度（scrollPercent / totalSeconds）
+- ✅ `MeditationSession`：保留，继续记录视频观看进度（≥80% 自动触发），同时写一条 `LessonCompletion(type=meditation)`
+- ❌ 不在 `LessonReadingProgress` 上加 `isListenCompleted` 等字段（方案 A 废弃）
+
+**自动完成与手动声明同等对待**，不分来源，即时生效，不挂 isConfirmed。  
+主麦可查看完成情况（统计），但**不审核**。
 
 **连带简化：StudyRecord（审核态）收窄**
-- studyType **去掉 `listen` / `read_notes`**
-- StudyRecord 只覆盖：`speaking_present/question/observe`（讲考）+ `group_attend/absent/review/summary`（共修）
-- 即审核态系统只管"参与类活动"，不管"内容消费"
-- 影响原 Group 5A（studyType 枚举精简）/ 5D（审核范围缩小）
-
-**待定**：听课完成的存储结构 🔲（见下方提问）
+- ✅ studyType **去掉 `listen` / `read_notes`**
+- ✅ StudyRecord 只覆盖：`speaking_present/question/observe`（讲考）+ `group_attend/absent/review/summary`（共修）
 
 ### 冲突 3 + 冲突 4 · 科系绑定 + 三层课程结构 ✅ 已决议
 
@@ -751,7 +780,7 @@ Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ Pract
 | 4 班级绑定 | 科系绑定；三层结构 科系/科目/法本；科目用 ProgramSemester；班级 courseId=当前主修法本可切换 |
 | 5 scope 重叠 | 职责分离：项目=修什么（无归属），愿=谁为何在修（带归属）|
 
-**新增表净变化**：原 28 张 → 删 PracticeGuide → **27 张**（PracticeGuide 功能并入 Meditation 扩展）。
+**新增表净变化**：原 28 张 → 删 PracticeGuide + 加 LessonCompletion → **28 张**。
 
 ---
 
@@ -778,6 +807,7 @@ Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ Pract
 | 批量补录新增表 | 前端 + 后端批量写入轻量完成字段，无新表 | 8D |
 | 批量补录每学期 2 次限制 | 轻量完成标记无审核，随时可点，无需次数约束 | 8D / 新逻辑 |
 | 三殊胜精神框架新增表 | 回向为前端 UI，发心语开关用 User.preferShowFaxin | 7C |
+| LessonReadingProgress 扩展字段方案（方案 A）| 无法扩展音频/视频课程，改用 LessonCompletion 统一表 | 听课完成 |
 | logDate 前端本地日期字符串方案 | 跨时区班级打卡日期漂移，改为 UTC timestamp | C2 |
 | 后端藏历-公历自动换算 | 前端展示参考对照，admin 手动确认公历日期 | C2 |
 
@@ -894,10 +924,10 @@ model ClassAdmin {
 
 ## 待确认事项
 
-> 8 组讨论已全部确认。冲突核查（5处）已全部决议。A1/A2/A3 已全部确认。
+> 8 组 + A1/A2/A3 + B1/B2/B3 + C1/C2/C3 全部确认。冲突核查（5处）全部决议。
 >
-> **剩余待讨论项：**
-> - **B 类（算法细节）**：辍修检测阈值 / 愿 7 态计算阈值 / 跨科目全局周编号
-> - **C 类（流程细节）**：批量导入 CSV + 学号保留 / 每学期 2 次补录限制实现 / 四层时区规则 / 精神框架放置位置
-> - **听课完成存储结构**：待定（轻量落点，倾向新增 LessonCompletion 表或扩展现有字段，未最终确认）
+> **剩余待处理项：**
+> - ⏸ **藏历时区归属**：以藏历所在地（上海时区）为准 vs 参与者本地时区，最后讨论
+> - ⏸ **B1/B2 阈值**：辍修检测 + 愿 7 态阈值，上线前可调整
+> - ⏸ **A3 RBAC 权限 UI**：ClassAdmin 权限分配界面具体 DB 字段，上线前讨论
 > - **FINAL_DESIGN_SANSUSHENG.md**：需根据所有决策重新生成（当前版本为冲突决议前的旧版）
