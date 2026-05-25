@@ -21,7 +21,7 @@
 2. [数据库改动](#二数据库改动)
    - 2.1 新增枚举
    - 2.2 现有表字段扩展
-   - 2.3 新增表（28 张，含完整 Prisma schema）
+   - 2.3 新增表（33 张，含完整 Prisma schema）
    - 2.4 新增 SQL 视图
 3. [后端改动范围](#三后端改动范围)
 4. [前端改动范围](#四前端改动范围)
@@ -39,7 +39,7 @@
 |---|---|---|
 | 新增 Prisma 枚举 | 7 个 | 见 2.1 |
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
-| 新增表 | 29 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount 新增 = 净 29）|
+| 新增表 | 33 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount + ClassPost/Reaction/Comment/Share 新增 = 净 33）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 16 个 | 见 3.1 |
@@ -271,7 +271,7 @@ model PracticeProject {
 
 ---
 
-### 2.3 新增表（28 张）
+### 2.3 新增表（33 张）
 
 #### 组织层级（1 张）
 
@@ -896,6 +896,70 @@ model CareFollowup {
 }
 ```
 
+#### 班级动态（1 张）
+
+```prisma
+// 学修感想 / 班级动态（UI ⏸ 暂缓，DB + API 当前阶段预留）
+// 互动：点赞 + 评论 + 转发（转发见 ClassPostShare）
+// 删除权限：本人 或 ClassAdmin（canManageMembers=true）
+model ClassPost {
+  id        String    @id @default(cuid())
+  classId   String
+  authorId  String
+  content   String
+  isDeleted Boolean   @default(false)
+  deletedBy String?   // 操作者 userId
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  class     Class              @relation(fields: [classId], references: [id])
+  author    User               @relation(fields: [authorId], references: [id])
+  reactions ClassPostReaction[]
+  comments  ClassPostComment[]
+  shares    ClassPostShare[]
+}
+
+// 点赞（一人一赞，可取消）
+model ClassPostReaction {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post ClassPost @relation(fields: [postId], references: [id])
+  user User      @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+// 评论（支持管理员软删除）
+model ClassPostComment {
+  id        String    @id @default(cuid())
+  postId    String
+  authorId  String
+  content   String
+  isDeleted Boolean   @default(false)
+  deletedBy String?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  post   ClassPost @relation(fields: [postId], references: [id])
+  author User      @relation(fields: [authorId], references: [id])
+}
+
+// 转发记录（⚠️ 待决策：站内转发 or 仅复制文本到剪贴板？当前只记录行为）
+model ClassPostShare {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post ClassPost @relation(fields: [postId], references: [id])
+  user User      @relation(fields: [userId], references: [id])
+}
+```
+
 #### 权限控制（1 张）
 
 ```prisma
@@ -995,6 +1059,7 @@ GROUP BY DATE_TRUNC('week', pl.log_date), pl.class_id, pl.practice_project_id;
 | Appointments | `/api/appointments` | 约修创建/加入/关闭 ⏸ 暂缓（Phase 5：后端 API 先做，学员端 UI 暂缓）|
 | CareFollowups | `/api/care-followups` | 关怀跟进（canCareFollowup=true 专属）|
 | TantricGrants | `/api/admin/tantric-grants` | 密法白名单（admin 专属）|
+| ClassPosts | `/api/classes/:id/posts` | 学修感想发布/列表/软删除 + 点赞/评论/转发记录（UI ⏸ 暂缓，API 当前阶段预留）|
 
 #### Events 模块端点明细
 
@@ -1460,7 +1525,7 @@ migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
 migration_007_extend_classsession.sql ClassSession 加 2 个字段
 migration_008_extend_meditation.sql   Meditation 加 3 个字段（seriesKey/seriesNumber/isTantric）
 migration_009_extend_practice.sql     PracticeProject 加 1 个字段（isTantric）
-migration_010_new_tables.sql          建 29 张新表（含 EventCount；PracticeGuide 未进入生产，无需 DROP）
+migration_010_new_tables.sql          建 33 张新表（含 EventCount / ClassPost + Reaction + Comment + Share；PracticeGuide 未进入生产，无需 DROP）
 migration_011_views.sql               建 2 个 SQL 视图
 ```
 
@@ -1540,6 +1605,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 任务 | 类型 |
 |---|---|
 | EventCount 表（migration_010 含）+ Events API 学员端端点 | 后端 |
+| ClassPost 表 + ClassPosts API（发帖/列表/删除）| 后端 |
+| ClassPost UI（班级页感想动态区）⏸ 暂缓（后续 Phase）| ⏸ |
 | 集体回向 SQL 视图（v_event_dedication_totals + v_weekly_dedication_totals）| 后端 |
 | 法会列表页 `/events` | 前端 |
 | 法会详情页 `/events/:id`（含回向 Sheet + 发愿 Sheet）| 前端 |
