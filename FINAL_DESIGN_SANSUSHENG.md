@@ -43,7 +43,7 @@
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 23 个 | 见 3.1 |
-| 修改后端模块 | 6 个 | 见 3.2 |
+| 修改后端模块 | 7 个 | 见 3.2 |
 | 新增前端页面（学员端）| 6 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
 | 修改前端页面（学员端）| 9 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 |
 | 新增前端页面（管理端 /coach/*）| 5 个 | |
@@ -748,18 +748,29 @@ model LessonCompletion {
 
 ```prisma
 // 参考答案独立表（替代 Question.payload.referenceAnswer，payload 字段保留）
-// 师兄提交答案后才能查看；答案全局唯一（一题一份）；师兄修改答案无次数限制
+// 思考题 = 现有 open 题型，但关闭 AI 评分（payload.noScoring=true）：
+//   学员写下思考 → 提交（记 UserAnswer，不打分）→ 立即显示参考答案供自行对照
+// 解锁条件：学员对该题已有 UserAnswer 即解锁（不要求 admin 先发布）
+//   QuestionReference 不存在时 → 显示「参考答案待整理」
+//   publishedAt 仅作元数据（admin 何时定稿），不作解锁门槛
+// 答案全局唯一（一题一份，@@unique questionId）；师兄修改自己答案无次数限制
 model QuestionReference {
   id            String    @id @default(cuid())
   questionId    String    @unique
   referenceText String
-  publishedAt   DateTime?
+  publishedAt   DateTime?  // admin 定稿时间戳（元数据，不控解锁）
   publishedBy   String?   // admin userId
   updatedAt     DateTime  @updatedAt
 
   question Question @relation(fields: [questionId], references: [id])
 }
 ```
+
+**思考题与现有 open 题型的关系：**
+- 思考题复用 `Question`（type=open），通过 `payload.noScoring=true` 标记（参照 flip 的 noScoring）
+- noScoring=true 时：跳过 `gradeOpenWithLlm` AI 评分，UserAnswer 只存答案不存 score/aiGrade
+- 参考答案来源：`QuestionReference.referenceText`（学员可见）；普通 open 题的 `payload.referenceAnswer`（AI 评分内部用）两者互不影响
+- correctText/wrongText 对思考题可留空（无对错反馈）
 
 #### 排表模板系统（5 张）
 
@@ -1502,7 +1513,7 @@ GET /api/activities
   // 签到链接（无需登录）走 CheckIn 模块；两者共用 StudyRecord @@unique 防重复
 ```
 
-### 3.2 修改现有模块（6 个）
+### 3.2 修改现有模块（7 个）
 
 | 模块 | 改动内容 |
 |---|---|
@@ -1511,7 +1522,8 @@ GET /api/activities
 | `class-members` | 状态机操作（pause / hold-back / graduate / leave）；isPrimary 切换事务；ClassAdmin flags 验证 |
 | `courses` | **所有学员侧查询加 isTantric 过滤**：未授权学员的任何 Course 查询排除密法；管理端不过滤 |
 | `lessons` | 返回 sourceText 字段；关联 LessonResource ✅ Admin 端 LessonResource YouTube 管理 UI 已实现（AdminCoursesPage · commit ca0e975）|
-| `question-references` | 新接口：admin 管理参考答案；师兄提交答案后解锁查看 |
+| `answering` | open 题 payload.noScoring=true（思考题）时跳过 gradeOpenWithLlm，UserAnswer 只存答案；提交后返回 QuestionReference.referenceText |
+| `question-references` | 新接口：admin 管理参考答案（CRUD）；师兄提交答案后解锁查看（GET 校验该题已有 UserAnswer）|
 
 ### 3.3 核心业务逻辑
 
@@ -1850,7 +1862,7 @@ care-followup.middleware.ts
 | 课程详情 | 多讲者 LessonResource 展示；按 Class.timezone 显示共修时间；「已学完/已听完/已看完」确认按钮（见下方流程）；**显示班级进度基准线**（见下方）|
 | 课程阅读页 | **顶部显示本周班级进度**（"本周该学到第 N 课"，来自 getCurrentLessonNumber）；自学师兄按个人 startDate 算 |
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
-| 思考题 | 提交后解锁参考答案入口（QuestionReference）|
+| 思考题 | open 题型关闭 AI 评分（noScoring）；写下思考 → 提交 → 显示参考答案自行对照；双入口：法本课时末尾「思考题」区 + QuizPage 答题流 |
 | 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择；学习模式（learningMode）|
 
 #### 班级进度基准线展示（Feature 11 · 双模式学习）
@@ -1993,7 +2005,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 | 修持模板管理 | PracticeTemplate CRUD + 班级绑定 |
 | 密法组 + 授权管理 | TantricGroup CRUD（灌顶单位）+ 内容归组 + 按组授权 INSERT/DELETE ⏸ 暂缓（Phase 5：后台先做）|
 | 班级休息周 | CohortRestWeek 管理；实时预览课程进度效果 |
-| 参考答案管理 | QuestionReference CRUD；发布后师兄答题后可查看 |
+| 参考答案管理 | QuestionReference CRUD（一题一份）；师兄提交答案即解锁查看（无需先发布；未整理则显示「待整理」）|
 | 法会活动管理 | Event CRUD（法会回向依赖）+ 藏历日期展示字段 |
 | 自学师兄管理 | 全局查看自学进度；修改 status |
 | ClassAdmin 权限分配 | `/admin/classes/:id/admins`：搜索用户 → 逐 flag 勾选 → 保存 |
@@ -2229,8 +2241,10 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | LessonResource 音频/视频文件上传（OSS · type=audio/video）⏸ 暂缓 | 后端 |
 | LessonMediaChapter API（章节标记 · C/D 模式）⏸ 暂缓 | 后端 |
 | LessonTextBlock API（段落同步 · B/C 模式）⏸ 暂缓 | 后端 |
-| 参考答案 QuestionReference API | 后端 |
+| 参考答案 QuestionReference API（admin CRUD + 提交后解锁查看）| 后端 |
+| answering 模块改造：open 题 noScoring 跳过 AI 评分 | 后端 |
 | 课程详情多讲者展示（学员端）| 前端 |
+| 思考题 UI（写思考 → 提交 → 对照参考答案；法本课时末尾 + QuizPage 双入口）| 前端 |
 | 参考答案管理（Admin）| 前端 |
 | Meditation.seriesKey/seriesNumber 管理（Admin）| 前端 |
 
