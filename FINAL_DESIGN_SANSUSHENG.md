@@ -142,7 +142,9 @@ model User {
   // class / self_study / both
 
   preferShowFaxin    Boolean  @default(true)
-  // 打卡前是否显示发心语（三殊胜精神框架）
+  // 三殊胜框架总开关：false 时跳过发心语和回向 Sheet（适用于所有学修打卡场景）
+  // 控制范围：修持打卡（PracticeLog）前的发心语 + 内容完成（LessonCompletion）后的回向 Sheet
+  // 个人设置页提供开关；默认开启
 
   timezone           String?
   // IANA 格式（如 America/New_York），用户设置页选择，自学进度和个人愿打卡时区基准
@@ -699,15 +701,21 @@ model LessonCompletion {
   lessonId    String?  // 法本课时（听课/读法本）
   contentRef  String?  // 通用内容 ID（Meditation.id / 未来 AudioCourse.id 等）
 
-  type        String   // 'listen' | 'read' | 'meditation' | 'audio' | 'video'
+  type        String   // 'read' | 'audio' | 'video' | 'meditation'
+  // read        → lessonId，手动点「已读完」
+  // audio/video → contentRef=LessonResource.id，手动点「已听完/已看完」
+  // meditation  → contentRef=Meditation.id，≥80% 自动 或 手动点「完成观修」
+  // 重复确认：upsert 语义，只更新 completedAt（不新增行）
   completedAt DateTime
-  durationSec Int?     // 实际消耗时长（音频/视频自动记录）
+  durationSec Int?     // 实际消耗时长（audio/video 自动记录；read/meditation 不填）
 
-  @@unique([userId, contentRef, type])
+  // 两条唯一约束覆盖两种内容定位方式
+  @@unique([userId, lessonId, type])    // read 场景（lessonId 非空，contentRef 为空）
+  @@unique([userId, contentRef, type])  // audio/video/meditation 场景（contentRef 非空）
 }
 ```
 
-**批量补录说明：** 批量勾选多节课 → 一次性写入 `LessonCompletion`（type=listen 或 type=read），无次数限制，无审核。
+**批量补录说明：** 批量勾选多节课 → 一次性写入 `LessonCompletion`（type=read），无次数限制，无审核。
 
 #### 思考题（1 张）
 
@@ -1739,10 +1747,33 @@ care-followup.middleware.ts
 
 | 页面 | 改动 |
 |---|---|
-| 课程详情 | 多讲者 LessonResource 展示；按 Class.timezone 显示共修时间；「已学完」轻量按钮 |
+| 课程详情 | 多讲者 LessonResource 展示；按 Class.timezone 显示共修时间；「已学完/已听完/已看完」确认按钮（见下方流程）|
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | 提交后解锁参考答案入口（QuestionReference）|
-| 个人设置 | 发心语开关（preferShowFaxin）；timezone 选择 |
+| 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择 |
+
+#### 学修确认完成流程（Feature 6）
+
+```
+用户点击确认按钮（已读完 / 已听完 / 已看完 / 完成观修）
+  → 后端 upsert LessonCompletion（重复点只更新 completedAt）
+  → preferShowFaxin=true：弹回向 Sheet
+      内容：固定回向文字（前端常量）+ 「已回向」按钮
+      用户点「已回向」→ Sheet 关闭
+    preferShowFaxin=false：直接关闭，无 Sheet
+  → 回到原页面，现有页面导航接管（例：读法本页面底部「进入观修」入口依然可见）
+
+下一环节推导：沿用现有页面导航设计
+  读法本页  → ReadingBottomNav 已有「进入观修」入口（如该课时有关联 Meditation）
+  观修页    → MeditationPlayerPage 完成后返回课程
+  各页底部  → 思考题入口 + 下一课入口（已有）
+  无需新增 next-step API，前端现有导航结构覆盖
+```
+
+**观修完成触发说明：**
+- 进度 ≥ 80% → 系统自动写 `LessonCompletion(type=meditation)`，触发回向 Sheet（若 preferShowFaxin=true）
+- 手动点「完成观修」按钮 → 同上触发（兜底，不依赖进度）
+- 两条路径均 upsert，不重复写入
 
 ### 4.3 管理端（/coach/*）新增页面（5 个）
 
@@ -1787,8 +1818,7 @@ care-followup.middleware.ts
 |---|---|
 | 打卡报数文本生成 | 打卡后从 PracticeLog 组装文字，复制到剪贴板；密法参与报数 |
 | 批量补录 | 多选课时 → 批量 POST 写入 LessonCompletion；无次数限制 |
-| 打卡前发心语 | 读 User.preferShowFaxin；preferShowFaxin=false 时隐藏；文案配置在前端常量 |
-| 打卡后回向 UI | 打卡成功确认页，可选点击，不强制；无新增表 |
+| 三殊胜框架（发心语 + 回向）| preferShowFaxin=true 时：修持打卡（PracticeLog）前显示发心语；内容完成（LessonCompletion read/audio/video/meditation）后弹回向 Sheet；文案配置在前端常量；无新增表 |
 | 掉队检测计算 | 后端定时任务，结果写掉队状态字段 |
 
 ---
