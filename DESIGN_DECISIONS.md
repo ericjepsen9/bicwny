@@ -131,12 +131,40 @@
 
 ## 第 4 组：课程内容扩展
 
-### 4A · 密法零痕迹 ✅ 来自测试场景文档（高优先）
+### 4A · 密法完整设计 ✅ 已确认
 
-- 未授权师兄：**所有查询（列表、搜索、关联）都不返回密法课程**，不是"看到但打不开"
-- 后端实现：所有涉及 Course 的查询，若 `isTantric=true` 则验证 TantricAccessGrant，无记录直接过滤
-- 授权：Admin 直接在后台 INSERT TantricAccessGrant（无申请、无审批流程）
-- **DB 改动**：`Course` 新增 `isTantric Boolean @default(false)` + 新增 `TantricAccessGrant` 表
+**isTantric 作用范围（三张表）：**
+- ✅ `Course.isTantric Boolean @default(false)`（已有）
+- ✅ `Meditation.isTantric Boolean @default(false)`（新增）— 密法观修视频对未授权用户不可见
+- ✅ `PracticeProject.isTantric Boolean @default(false)`（新增）— 密法修法类型不出现在未授权用户的打卡选项
+
+**可见性矩阵：**
+
+| 角色 | 密法内容 | 密法愿 | 密法打卡 |
+|---|---|---|---|
+| 未授权学员 | ❌ 零痕迹（列表/搜索/关联全过滤）| ❌ | ❌ |
+| 授权学员 | ✅ | ✅ 自己的 | ✅ 自己的 |
+| 主麦 | ✅ | ✅ 全班 | ✅ 全班 |
+| 辅导员（canViewStudents）| ✅ | ✅ 全班 | ✅ 全班 |
+| Admin | ✅ | ✅ 全平台 | ✅ 全平台 |
+
+> `TantricAccessGrant` 职责：授予学员访问和使用密法内容的权限。  
+> 管理端（主麦/辅导员/admin）无需此授权即可查看数据。
+
+**密法计数规则：**
+- ✅ 密法打卡**计入**集体回向（7A 已更新）
+- ✅ 密法打卡**参与**报数生成（7D 已更新）
+- ✅ 密法打卡计入个人愿进度
+- ✅ 密法 auto 愿对主麦/辅导员可见
+
+**授权撤销：**
+- ✅ 撤销后历史打卡和愿记录**保留**
+- ✅ 用户失去内容访问权，零痕迹过滤重新生效
+
+**后端实现：**
+- ✅ 所有涉及 Course/Meditation/PracticeProject 的查询，若 `isTantric=true` 则验证 TantricAccessGrant，无记录直接过滤（学员侧）
+- ✅ 管理端 API 不做 isTantric 过滤
+- ✅ 授权：Admin 直接在后台 INSERT TantricAccessGrant（无申请、无审批流程）
 
 ### 4B · 多讲者结构 ✅
 
@@ -314,15 +342,15 @@
 
 ## 第 7 组：集体功能
 
-### 7A · 集体回向 ✅ 来自测试场景文档
+### 7A · 集体回向 ✅（密法规则已更新）
 
 **法会回向规则**：
-- 多人的愿挂同一法会（eventId）→ 回向总数 = 各人打卡之和
-- 参与人数统计正确
-- **密法的愿（isTantric=true 的课程对应的愿）不计入集体回向总数**
-- 实现：`v_event_dedication_totals` SQL 视图 + `WHERE vow.practiceProject.isTantric = false`
+- ✅ 多人的愿挂同一法会（eventId）→ 回向总数 = 各人打卡之和
+- ✅ 参与人数统计正确
+- ✅ **密法打卡计入集体回向总数**（~~原规则"密法不计入"已废弃~~）
+- `v_event_dedication_totals` SQL 视图：❌ 不再过滤 `isTantric`，直接全量聚合
 
-**每周回向**：聚合全班 + 全会层总数，`v_weekly_dedication_totals` SQL 视图。
+**每周回向**：聚合全班 + 全会层总数，`v_weekly_dedication_totals` SQL 视图，密法同样计入。
 
 ### 7B · 约修系统 ✅ 完整设计已确认
 
@@ -388,9 +416,9 @@ model PracticeAppointment {
 
 ### 7D · 打卡报数文本生成 ✅
 
-- 打卡后一键生成今日修持报数文字，复制到 WhatsApp
-- 密法不参与生成
-- **无新增表**，纯前端功能
+- ✅ 打卡后一键生成今日修持报数文字，复制到 WhatsApp
+- ✅ **密法参与报数生成**（~~原规则"密法不参与"已废弃~~）
+- ✅ **无新增表**，纯前端功能
 
 ---
 
@@ -497,7 +525,7 @@ model PracticeAppointment {
 | 类型 | 数量 | 内容 |
 |---|---|---|
 | 新增枚举 | 6 个 | LearningMode / CohortMemberStatus / VowStatus / VowSource / PracticeMeasurement / ProfileStatus（ClassAdminRole 已废弃，改为 flags）|
-| 现有表新增字段 | 7 张表 | User(+8, 含 timezone) / Class(+4) / ClassMember(+7) / Course(+2) / Lesson(+1) / ClassSession(+2) / UserCourseEnrollment(+3) |
+| 现有表新增字段 | 9 张表 | User(+8, 含 timezone) / Class(+4) / ClassMember(+7) / Course(+2) / Lesson(+1) / ClassSession(+2) / UserCourseEnrollment(+3) / Meditation(+2: isTantric, seriesKey/seriesNumber 已含) / PracticeProject(+1: isTantric) |
 | 新增表 | 28 张 | 见各组（含 LessonCompletion；PracticeGuide 已删除）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 所有现有功能保留 |
@@ -848,6 +876,8 @@ model LessonCompletion {
 | LessonReadingProgress 扩展字段方案（方案 A）| 无法扩展音频/视频课程，改用 LessonCompletion 统一表 | 听课完成 |
 | logDate 前端本地日期字符串方案 | 跨时区班级打卡日期漂移，改为 UTC timestamp | C2 |
 | 后端藏历-公历自动换算 | 前端展示参考对照，admin 手动确认公历日期 | C2 |
+| ~~密法不计入集体回向~~ | ~~已废弃~~：密法打卡计入集体回向 | 7A 更新 |
+| ~~密法不参与打卡报数~~ | ~~已废弃~~：密法参与报数生成 | 7D 更新 |
 
 ---
 
