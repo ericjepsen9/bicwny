@@ -42,9 +42,9 @@
 | 新增表 | 44 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount + ClassPost 系列 4 张 + Discussion 系列 4 张 + AI 助手 5 张 + LessonMediaChapter + LessonTextBlock 新增 = 净 44）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
-| 新增后端模块 | 16 个 | 见 3.1 |
+| 新增后端模块 | 17 个 | 见 3.1 |
 | 修改后端模块 | 6 个 | 见 3.2 |
-| 新增前端页面（学员端）| 8 个 | 含法会列表 + 法会详情 |
+| 新增前端页面（学员端）| 9 个 | 含法会列表 + 法会详情 + 签到链接页 |
 | 新增前端页面（管理端 /coach/*）| 5 个 | |
 | 新增前端页面（Admin 端）| 7 个 | |
 
@@ -225,19 +225,21 @@ model Lesson {
 }
 ```
 
-#### `ClassSession` 表（+2 个字段）
+#### `ClassSession` 表（+3 个字段）
 
 ```prisma
 model ClassSession {
   // ... 现有字段保留（classId / title / startAt / durationMin / liveLink 等）...
 
   // 新增（扩展 ClassSession 承载共修场次）
-  lessonId     String?
+  lessonId      String?
   // 本次共修对应哪节课（不新建 group_sessions 表）
-  sessionEndAt DateTime?
-  // 结束时刻（审核态时间窗口使用）
+  sessionEndAt  DateTime?
+  // 结束时刻（签到时间窗口使用）
+  checkInToken  String?   @unique
+  // 共修签到 token（辅导员生成，分享链接用）
 
-  lesson       Lesson? @relation(fields: [lessonId], references: [id])
+  lesson        Lesson? @relation(fields: [lessonId], references: [id])
 }
 ```
 
@@ -637,13 +639,16 @@ model StudyRecord {
 
 // 讲考场次
 model SpeakingSession {
-  id           String   @id @default(cuid())
-  classId      String
-  lessonId     String
-  sessionEndAt DateTime // 审核窗口截止时间
-  notes        String?
-  createdBy    String   // 管理员 userId
-  createdAt    DateTime @default(now())
+  id            String   @id @default(cuid())
+  classId       String
+  lessonId      String
+  startAt       DateTime // 讲考开始时间（签到窗口起点）
+  sessionEndAt  DateTime // 签到窗口截止时间
+  checkInToken  String?  @unique
+  // 讲考签到 token（辅导员生成，上课时分享链接）
+  notes         String?
+  createdBy     String   // 管理员 userId
+  createdAt     DateTime @default(now())
 
   class  Class  @relation(fields: [classId], references: [id])
   lesson Lesson @relation(fields: [lessonId], references: [id])
@@ -1338,7 +1343,7 @@ model PracticeTemplate {
 
 ## 三、后端改动范围
 
-### 3.1 新增 API 模块（16 个）
+### 3.1 新增 API 模块（17 个）
 
 | 模块 | 路由前缀 | 主要功能 |
 |---|---|---|
@@ -1350,8 +1355,9 @@ model PracticeTemplate {
 | Vows | `/api/vows` | 修持愿 CRUD + 状态机 |
 | VowLogs | `/api/vows/:id/logs` | 修持打卡 |
 | VowPause | `/api/vows/:id/pause` + `/resume` | 愿暂停/恢复（自助，无审批）|
-| StudyRecords | `/api/study-records` | 闻思打卡（讲考+共修，含批量）|
-| SpeakingSessions | `/api/classes/:id/speaking-sessions` | 讲考场次管理 |
+| StudyRecords | `/api/study-records` | 闻思打卡（App 内自助，需登录，校验时间窗口）|
+| SpeakingSessions | `/api/classes/:id/speaking-sessions` | 讲考场次管理（含生成签到 token）|
+| CheckIn | `/api/checkin/:token` | **公开端点（无需登录）** 签到链接页数据 + 提交；时间窗口校验 |
 | PracticeJournals | `/api/journals` | 修持日记 CRUD |
 | SelfStudy | `/api/self-study` | 自学师兄管理 + 读物记录 |
 | Events | `/api/events` | 法会活动（admin CRUD）+ 学员端列表/详情/集体回向/打卡/发愿 |
@@ -1403,6 +1409,36 @@ POST /api/events/:id/vow
 POST   /api/admin/events
 PUT    /api/admin/events/:id
 DELETE /api/admin/events/:id（软删：isActive=false）
+```
+
+#### CheckIn 模块端点明细
+
+```
+POST /api/admin/sessions/:id/checkin-token
+  生成或刷新本场次的签到 token（辅导员/admin 操作）
+  sessionType query param: "speaking" | "group"
+  响应：{ token, checkInUrl }
+
+GET  /api/checkin/:token
+  公开端点，无需登录
+  先校验 token 对应场次时间窗口：
+    · startAt > now → { status: 'not_started', startsAt }
+    · sessionEndAt < now → { status: 'closed', endedAt }
+    · 否则 → { status: 'open', sessionType, title, lessonTitle,
+               members: [{id, name, studentId, hasCheckedIn}] }
+
+POST /api/checkin/:token
+  公开端点，无需登录
+  body: { userId }
+  校验：
+    1. 时间窗口（同上）
+    2. userId 属于本场次所在班级的活跃成员
+    3. 同一 userId 未重复打卡（StudyRecord @@unique 保障）
+  写入 StudyRecord：
+    · speaking session → studyType='speaking_pass', isConfirmed=true
+    · group session    → studyType='group_attend',  isConfirmed=true
+  打卡时间 = StudyRecord.createdAt（自动记录）
+  响应：{ ok: true, checkedInAt }
 ```
 
 ### 3.2 修改现有模块（6 个）
@@ -1603,7 +1639,7 @@ care-followup.middleware.ts
 
 ## 四、前端改动范围
 
-### 4.1 学员端新增页面（8 个）
+### 4.1 学员端新增页面（9 个）
 
 | 页面 | 路由 | 说明 |
 |---|---|---|
@@ -1615,6 +1651,7 @@ care-followup.middleware.ts
 | 约修 | `/appointments` | 查看班级约修 + 加入 ⏸ 暂缓（Phase 5）|
 | 法会列表 | `/events` | 三分区：正在进行 / 即将开始 / 往期 |
 | 法会详情 | `/events/:id` | 见下方详细设计 |
+| 签到链接页 | `/checkin/:token` | **无需登录**；显示场次信息 + 班级成员列表；学员点名字完成打卡；时间窗口外显示「未开始」或「已关闭」 |
 
 #### 法会列表页（`/events`）
 
@@ -1760,6 +1797,9 @@ care-followup.middleware.ts
 | 法会字段写权限限 admin | Event CRUD（含 liveStreamUrl / recordingUrl）仅 admin 角色可写；学员侧 API 只读 |
 | 讨论话题创建权限 | Discussion 创建/关闭：ClassAdmin（任意 flag）或 admin；投票/评论：班级任意成员 |
 | 讨论一人一票 | DB：`@@unique([discussionId, userId])`；换投：应用层先删旧票再插新票 |
+| 签到时间窗口 | 后端：`now < session.startAt → 403 未开始`；`now > session.sessionEndAt → 403 已关闭`；公开端点同样校验 |
+| 签到防重复 | DB：StudyRecord `@@unique([classSessionId, userId, studyType])` 保障；重复提交返回 409 |
+| 签到 token 作用域 | token 只对本场次成员有效；非本班成员 userId → 403；token 不过期，由辅导员手动刷新 |
 
 ### 数据完整性约束（7 条）
 
@@ -1875,11 +1915,15 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 
 | 任务 | 类型 |
 |---|---|
-| StudyRecord API（讲考+共修，含批量）| 后端 |
-| SpeakingSession API | 后端 |
+| StudyRecord API（讲考+共修，App 内自助，含时间窗口校验）| 后端 |
+| SpeakingSession API（场次管理 + 生成签到 token）| 后端 |
+| CheckIn API（公开端点：GET + POST `/api/checkin/:token`）| 后端 |
+| SpeakingSession.startAt / checkInToken 字段（migration）| DB |
+| ClassSession.checkInToken 字段（migration）| DB |
 | 审核态（isConfirmed）API（确认/取消确认）| 后端 |
 | LessonCompletion API（轻量听/读/观修完成标记，含批量补录）| 后端 |
-| 讲考/共修打卡 UI（学员端）| 前端 |
+| 讲考/共修打卡 UI（学员端 App 内）| 前端 |
+| 签到链接页（`/checkin/:token`，无需登录）| 前端 |
 | 「已学完」轻量按钮（课程详情页）| 前端 |
 | 打卡审核中心（管理端）| 前端 |
 
