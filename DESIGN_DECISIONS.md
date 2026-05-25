@@ -548,9 +548,30 @@ Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ Pract
 - **班级观修排行**：保留（基于 MeditationSession 看视频完成度，逻辑不变）
 - **观修计数反转**：旧注释"观修不做计数"只对"看视频"成立；"做 92修法"计入修持大类，走 PracticeLog
 
-### 冲突 3 · 自学模式重复 🔲 待讨论
+### 新逻辑 · 学习完成 = 轻量手动标记（听/读/观修不审核）✅ 已决议
 
-> UserCourseEnrollment 加字段 vs 新建 UserSelfStudyProgram，二选一
+**背景**：学习常在 App 外发生（纸质书读法本、别处听课）。需要手动「已学完」按钮补录完成。
+
+**决议：三类内容消费统一为轻量完成标记，方案 X（不走 StudyRecord）**
+
+| 行为 | 落点 | 自动 | 手动按钮 | 审核 | 来源区分 |
+|---|---|---|---|---|---|
+| 读法本 | `LessonReadingProgress.isCompleted`（现有）| 滚动+时长达标 | 「已学习」按钮 | ❌ | ❌ |
+| 观修 | `MeditationSession`（现有）| 看≥80% | 已有手动按钮 | ❌ | ❌ |
+| 听课 | **新增轻量落点（待定结构）** | 听完音视频 | 「已学完」按钮 | ❌ | ❌ |
+
+- 自动完成与手动声明**同等对待**，不分来源，即时生效，不挂 isConfirmed
+- 主麦可查看完成情况（统计），但**不审核**
+
+**连带简化：StudyRecord（审核态）收窄**
+- studyType **去掉 `listen` / `read_notes`**
+- StudyRecord 只覆盖：`speaking_present/question/observe`（讲考）+ `group_attend/absent/review/summary`（共修）
+- 即审核态系统只管"参与类活动"，不管"内容消费"
+- 影响原 Group 5A（studyType 枚举精简）/ 5D（审核范围缩小）
+
+**待定**：听课完成的存储结构 🔲（见下方提问）
+
+### 冲突 3 · 自学模式重复 🔲 待讨论
 
 ### 冲突 4 · 班级绑课 vs 绑科系 🔲 待讨论
 
