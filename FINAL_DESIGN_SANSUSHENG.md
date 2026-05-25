@@ -184,13 +184,16 @@ model ClassMember {
 }
 ```
 
-#### `Course` 表（+2 个字段）
+#### `Course` 表（+3 个字段）
 
 ```prisma
 model Course {
   // ... 现有字段保留 ...
 
   // 新增
+  author            String?
+  // 造论者（如"索达吉堪布"/"寂天菩萨"），学员端法本详情页展示用
+
   isTantric         Boolean  @default(false)
   // 密法标识：未授权师兄所有查询均不返回（零痕迹，非"看到但打不开"）
   // 管理端（主麦/辅导员/admin）不过滤，始终可见
@@ -410,10 +413,12 @@ model PracticeTemplate {
   startsOffsetDays    Int?     // 距班级 startDate 多少天后起修
   durationDays        Int?     // 起修后多少天内完成
   appliesToPrograms   String[] // 适用科系 code 列表
-  isActive            Boolean  @default(true)
-  displayOrder        Int      @default(0)
-  createdBy           String   // admin userId
-  createdAt           DateTime @default(now())
+  isActive                Boolean  @default(true)
+  displayOrder            Int      @default(0)
+  isRequiredForPromotion  Boolean  @default(false)
+  // 此模板对应的愿为升科目必修条件；UserPracticeVow 从关联 template 读取，不冗余存储
+  createdBy               String   // admin userId
+  createdAt               DateTime @default(now())
 
   cohortBindings      CohortRecommendedTemplate[]
   vows                UserPracticeVow[]
@@ -450,6 +455,10 @@ model UserPracticeVow {
   eventId        String?  // 法会愿
   appointmentId  String?  // 约修愿
 
+  // 可见性（仅适用于 context=personal / context=appointment；共修愿和法会愿不适用此开关）
+  isPublic Boolean @default(false)
+  // false（默认）：仅自己和管理员可见；true：班级内其他成员可见愿名和进度条
+
   // 修持内容
   practiceProjectId String   // 修什么（关联现有 PracticeProject）
   customName        String?  // custom 愿自定义名称
@@ -478,6 +487,8 @@ model UserPracticeVow {
   // 仅管理者可见，师兄端 API 不返回此字段
   currentStatus      VowStatus @default(on_track)
   statusCalculatedAt DateTime?
+  statusNote         String?
+  // 管理员可选填状态备注（如"最近出差，落后属正常"）；师兄端不可见
 
   // 生命周期
   status       String    @default("active") // active / paused / completed / abandoned
@@ -520,9 +531,10 @@ model PracticeLog {
   durationMinutes Int?      // 时长（座次类）
   sessionCount    Decimal?  // 座次（自动计算：≥30min=1, ≥15min=0.5, <15min=0）
 
-  source      String   @default("manual") // manual / bulk / tap / shake
-  reflection  String?
-  logDate     DateTime // UTC 时间戳；可补填历史日期；显示层按 User.timezone 或 Class.timezone 转换
+  source        String   @default("manual") // manual / bulk / tap / shake
+  reflection    String?
+  reflectionAt  DateTime? // 填写反思的时间戳，服务端写反思时自动赋值
+  logDate       DateTime  // UTC 时间戳；可补填历史日期；显示层按 User.timezone 或 Class.timezone 转换
 
   // 审核态
   isConfirmed Boolean   @default(false)
@@ -812,6 +824,7 @@ model PracticeAppointment {
   id                String   @id @default(cuid())
   creatorId         String   // 创建者（班级任意成员）
   classId           String   // 必填，仅对该班成员可见
+  title             String   // 约修标题，如"三月上师瑜伽共修"（列表展示用，必填）
 
   practiceProjectId String   // 修什么（关联 PracticeProject）
   totalTarget       Int      // 集体总目标量
@@ -1286,7 +1299,7 @@ migration_001_add_enums.sql           新增 7 个枚举
 migration_002_extend_user.sql         User 加 6 个字段
 migration_003_extend_class.sql        Class 加 4 个字段
 migration_004_extend_classmember.sql  ClassMember 加 7 个字段
-migration_005_extend_course.sql       Course 加 2 个字段（isTantric + programSemesterId）
+migration_005_extend_course.sql       Course 加 3 个字段（author + isTantric + programSemesterId）
 migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
 migration_007_extend_classsession.sql ClassSession 加 2 个字段
 migration_008_extend_meditation.sql   Meditation 加 3 个字段（seriesKey/seriesNumber/isTantric）
