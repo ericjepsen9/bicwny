@@ -31,7 +31,7 @@
 |---|---|---|
 | 新增 Prisma 枚举 | 7 个 | 见 2.1 |
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
-| 新增表 | 28 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion 新增 = 净 28）|
+| 新增表 | 29 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount 新增 = 净 29）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 16 个 | 见 3.1 |
@@ -508,10 +508,10 @@ model UserPracticeVow {
 }
 
 // 修持打卡记录（自描述模型，vowId 可空）
-// 三种打卡场景：
-//   日常裸打卡：vowId=null, eventId=null
-//   发愿修持（含法会）：vowId=有, eventId=有（法会愿时）
-//   随喜参与法会（不发愿）：vowId=null, eventId=有
+// 两种打卡场景：
+//   日常裸打卡：vowId=null
+//   发愿修持：vowId=有
+// ⚠️ 法会计数不走此表，走独立的 EventCount 表
 // 现有 PracticeEntry 停止新写入（历史数据保留）；新打卡一律走 PracticeLog
 model PracticeLog {
   id     String @id @default(cuid())
@@ -523,7 +523,7 @@ model PracticeLog {
 
   // 可选关联层
   vowId   String?  // 有发愿才挂（日常裸打卡为空）
-  eventId String?  // 随喜法会直接挂，不必先发愿
+  eventId String?  // 保留字段（旧数据兼容），新系统法会计数走 EventCount，不再写此字段
   classId String?  // 班级归属（无愿也能算班级/每周回向）
 
   // 双计量
@@ -845,6 +845,28 @@ model PracticeAppointment {
   @@index([classId, status])
 }
 
+// 法会计数（完全独立于 PracticeLog，不同步，不合并）
+// 职责：记录用户在法会期间的修持贡献量，驱动集体回向实时总量
+// 严格补录规则：今天 > event.endDate（按 event.timezone 计算）后禁止新提交，页面只读
+// 有法会愿时 vowId 自动填入，愿进度 = SUM(count) WHERE vowId = :id（不走 PracticeLog）
+// 与日常修持愿（PracticeLog）完全独立，不同步
+model EventCount {
+  id                String   @id @default(cuid())
+  eventId           String
+  userId            String
+  practiceProjectId String
+  count             Int
+  vowId             String?  // 有法会愿时自动关联
+  submittedAt       DateTime @default(now())
+
+  event Event            @relation(fields: [eventId], references: [id])
+  user  User             @relation(fields: [userId], references: [id])
+  vow   UserPracticeVow? @relation(fields: [vowId], references: [id])
+
+  @@index([eventId, practiceProjectId])
+  @@index([userId, eventId])
+}
+
 // 关怀跟进记录（仅 canCareFollowup=true 的 ClassAdmin 可填写，师兄端完全不可见）
 model CareFollowup {
   id             String   @id @default(cuid())
@@ -913,17 +935,15 @@ model CohortWeeklySummary {
 
 ```sql
 -- 法会回向聚合视图（只显总量，不露个人）
--- 密法打卡计入集体回向（不再过滤 isTantric）
+-- 数据源：EventCount 表（独立于 PracticeLog，密法计入集体回向）
 CREATE VIEW v_event_dedication_totals AS
 SELECT
-  pl.event_id,
-  pl.practice_project_id,
-  SUM(pl.count)              AS total_count,
-  SUM(pl.duration_minutes)   AS total_minutes,
-  COUNT(DISTINCT pl.user_id) AS participant_count
-FROM practice_logs pl
-WHERE pl.event_id IS NOT NULL
-GROUP BY pl.event_id, pl.practice_project_id;
+  ec.event_id,
+  ec.practice_project_id,
+  SUM(ec.count)              AS total_count,
+  COUNT(DISTINCT ec.user_id) AS participant_count
+FROM event_counts ec
+GROUP BY ec.event_id, ec.practice_project_id;
 
 -- 每周回向聚合视图（班级层 + 全会层）
 -- 密法打卡同样计入
@@ -981,11 +1001,14 @@ GET  /api/events/:id/my-participation
   响应：vow（UserPracticeVow，有愿时）/ logCount / totalCount / totalMinutes
   用于前端判断「我的参与」状态机
 
-POST /api/events/:id/log
-  body: { practiceProjectId, count?, durationMinutes?, reflection? }
-  写 PracticeLog { eventId, vowId（有愿时从 my-participation 取）, classId（主班）}
-  后置：若 vowId 存在，触发 recalcVowStatus
-  响应：PracticeLog + 更新后的 dedicationTotals
+POST /api/events/:id/count
+  前置校验：toLocalDate(now, event.timezone) <= event.endDate，否则 403「法会已结束，不接受新提交」
+  body: { practiceProjectId, count }
+  写 EventCount { eventId, userId, practiceProjectId, count,
+    vowId: 自动查询用户当前有效法会愿（context=event AND eventId=:id AND status=active），有则填入 }
+  后置：若 vowId 存在，更新 UserPracticeVow.currentCount（= SUM EventCount.count WHERE vowId）
+  响应：EventCount + 更新后的 dedicationTotals（eventId 维度聚合）
+  注：不写 PracticeLog，不影响日常修持愿进度，两套记录完全独立
 
 POST /api/events/:id/vow
   body: { practiceProjectId, targetCount?, targetPeriod='lifetime' }
@@ -1239,15 +1262,15 @@ care-followup.middleware.ts
 
 **即将开始时**：「发法会愿」按钮正常可用（`vow.startDate = event.startDate`，提前建愿）；「随喜打卡」按钮不可用（法会未开始不能打卡，tooltip 提示）。
 
-**打卡 Sheet（区块 3 内联，不跳转新页）：**
-- 点击「随喜打卡」或「去打卡」→ 底部 Sheet 弹出（桌面用 centered Dialog，见 CSS-GOTCHAS.md §7）
-- Sheet 内容：
-  - 修法项目选择（`PracticeProject` 下拉，pre-filter 常用项）
-  - 数量输入（遍数 或 时长分钟，根据 PracticeProject.measurement 显示对应输入）
-  - 座次自动计算展示（`≥30min=1座，≥15min=0.5座`，实时更新）
-  - 选填：反思文字
-  - 提交 → 写 `PracticeLog { eventId, vowId（有愿时填）, classId（当前主班）}`
-  - 提交成功 → Sheet 关闭，区块 2 集体回向数字 +1 动效
+**回向 Sheet（区块 3 内联，不跳转新页）：**
+- 点击「回向」或「继续回向」→ 底部 Sheet 弹出（桌面用 centered Dialog，见 CSS-GOTCHAS.md §7）
+- Sheet 内容（极简，无反思/审核字段）：
+  - 修法项目选择（有法会愿时 pre-fill 愿的 practiceProjectId，可修改）
+  - 遍数输入（Int，必填；法会计数以遍数为单位，不记时长/座次）
+  - 提交 → 写 `EventCount { eventId, userId, practiceProjectId, count, vowId（自动）}`
+  - 提交成功 → Sheet 关闭，区块 2 集体总量实时 +N 动效
+- **法会结束后**：「回向」按钮不渲染，区块 3 显示「法会已结束」，仅展示最终贡献量
+- ⚠️ 此提交不写 PracticeLog，不影响日常修持愿，与学修计数模块完全隔离
 
 **发愿 Sheet（区块 3 内联）：**
 - 点击「发法会愿」→ 底部 Sheet 弹出
@@ -1529,6 +1552,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 后端藏历-公历自动换算 | 前端展示参考对照；admin 手动确认公历日期 |
 | 密法排除集体回向 | ~~已废弃~~：密法打卡计入集体回向 |
 | 密法排除打卡报数 | ~~已废弃~~：密法参与报数生成 |
+| EventCount 与 PracticeLog 同步 | 两套记录完全独立，法会计数不影响日常修持愿进度 |
+| 法会补录宽松模式 | 严格模式：`today > event.endDate`（按 event.timezone）即禁止提交，页面只读 |
 | 全局周编号跨班共享 | 周编号每班独立，从本班 startDate 起算 |
 | 升科目自动触发 | 主麦手动操作（canManageCourse），不自动 |
 | 历史数据强删（PracticeEntry 等）| 保留历史数据，旧统计继续读 |
