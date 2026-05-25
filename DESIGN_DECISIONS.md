@@ -438,14 +438,108 @@ enum VowContext {
 
 **法会愿计数模型：模型 1（独立专属发心）** ✅
 - 法会愿是单独一笔愿，单独打卡，不与班级愿混算
-- `PracticeLog.vowId` 保持单一外键（一条打卡归属一个愿）
-- 集体回向 = 挂同一 eventId 的愿之和（密法愿不计入）
+- `PracticeLog.vowId` 单一外键，一条打卡最多归属一个愿
+  - 注：冲突 2 后细化为**可空**（支持日常裸打卡 + 法会随喜），详见冲突 2 决议
+- 集体回向 = 挂同一 eventId 的打卡之和（密法不计入）
 
 **法会愿来源**：以师兄自愿发（custom+event）为主，admin 派发全班（auto+event）能力由 source 维度天然支持，纯功能开关，不影响表结构。
 
-### 冲突 2 · 观修系统双轨 🔲 待讨论
+### 冲突 2 · 观修系统双轨 + 打卡统一模型 ✅ 已决议
 
-> Meditation/MeditationSession（现有，含班级排行）vs PracticeGuide/PracticeLog（新，92修法打卡）
+**问题**：92修法内容用现有 Meditation 还是新建 PracticeGuide？打卡用 MeditationSession 还是 PracticeLog？打卡是否必须挂愿？
+
+**决议拆三部分：**
+
+#### (1) 内容库：扩展 Meditation，删掉 PracticeGuide 表
+
+现有 `Meditation` 已有视频/转图PPT/章节/字幕/发布管理，新建 PracticeGuide 是更弱的平行表。92修法套进 Meditation，只补两个归组字段：
+
+```prisma
+model Meditation {
+  // ... 现有字段全部保留 ...
+  seriesKey    String?  // "92xiufa"，标记属于哪个修法系列
+  seriesNumber Int?     // 第几法（1-92）
+}
+```
+
+→ **新增表清单删除 PracticeGuide（少建 1 张表）。**
+
+#### (2) 打卡记录：统一走 PracticeLog（方案乙）
+
+- `MeditationSession` 是被动判定（看视频≥80%自动完成），**保留原样**用于"看引导视频进度"
+- 实际修持打卡（手动补录时长/遍数）走 `PracticeLog`
+- **咒语打卡也统一走 PracticeLog**：因为法会回向必须能聚合咒语，而现有 PracticeEntry 没有 vowId/eventId 接不进去；若日常走 PracticeEntry、法会走 PracticeLog 会把同一修法劈成两表
+- **迁移策略**：现有 `PracticeEntry` 历史数据原地保留（老统计能读），新打卡一律写 PracticeLog，tap/shake/+10 UI 改写 PracticeLog，PracticeEntry 停止新写入逐步退役（不强删）
+
+#### (3) 打卡不强制挂愿 · PracticeLog 自描述模型
+
+打卡是常态行为（事后手动补录，法会时人在 Zoom/现场数完咒语再填数），不能要求"必须先发愿"。最终 PracticeLog 结构：
+
+```prisma
+model PracticeLog {
+  id     String @id @default(cuid())
+  userId String
+
+  // 修什么（必填，自描述，独立于愿）
+  practiceProjectId String
+  meditationId      String?  // 92修法第几法（指向 Meditation）
+
+  // 可选关联层
+  vowId   String?  // 有目标才挂愿（日常裸打卡为空）
+  eventId String?  // 随喜参与法会直接挂，不必发愿
+  classId String?  // 班级归属（无愿也能算班级/每周回向）
+
+  // 双计量
+  count           Int?      // 遍数（咒语，最常用）
+  durationMinutes Int?      // 时长（座次类）
+  sessionCount    Decimal?  // 座次：≥30min=1, ≥15min=0.5, <15min=0
+
+  source      String   @default("manual") // manual / bulk / tap / shake
+  reflection  String?
+  logDate     DateTime // 可补填历史日期
+
+  // 审核态
+  isConfirmed Boolean   @default(false)
+  confirmedAt DateTime?
+  confirmedBy String?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  vow  UserPracticeVow? @relation(fields: [vowId], references: [id])
+}
+```
+
+**三种打卡场景全覆盖：**
+
+| 场景 | vowId | eventId |
+|---|---|---|
+| 日常裸打卡 | 空 | 空 |
+| 发愿修持（含法会发愿）| 有 | 有（法会愿时）|
+| 随喜参与法会（不发愿）| 空 | 有 |
+
+发愿者打卡时，把愿的 eventId 复制到打卡上，聚合永远只看 `log.eventId`。
+
+#### (4) 法会发愿 = 挂 eventId 的愿（无独立表）
+
+确认原需求文档设计：**没有独立的法会发愿表**，法会发愿就是 `UserPracticeVow` 的一条记录（`context=event` + `eventId`）。三层结构：
+
+```
+Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ PracticeLog（打卡，带 eventId）→ 视图聚合
+```
+
+#### (5) 聚合视图全部从 PracticeLog 直接读
+
+| 回向 | 聚合方式 | 密法过滤 |
+|---|---|---|
+| 法会回向 | `GROUP BY eventId` | 靠 practiceProjectId → isTantric |
+| 每周回向 | `GROUP BY 周, classId, practiceProjectId` | 同上 |
+| 愿进度 | `GROUP BY vowId` | — |
+
+#### (6) 待你拍板的产品方向（不影响表结构）🔲
+
+- **Q-观修排行**：现有"班级观修排行"保留还是关闭？（新原则"不排名"）
+- **Q-观修计数**：现有注释"观修不做计数"反转为"92修法计入修持大类"，确认吗？
 
 ### 冲突 3 · 自学模式重复 🔲 待讨论
 
