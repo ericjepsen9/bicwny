@@ -507,3 +507,92 @@ export async function deleteLesson(adminId: string, id: string) {
     });
   });
 }
+
+// ─── LessonResource ──────────────────────────────────────────────
+
+const VALID_RESOURCE_TYPES = ['youtube', 'audio', 'video'] as const;
+type ResourceType = (typeof VALID_RESOURCE_TYPES)[number];
+
+function extractYoutubeId(url: string): string | null {
+  const m = url.match(
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+  );
+  return m?.[1] ?? null;
+}
+
+export interface CreateLessonResourceInput {
+  type: ResourceType;
+  url: string;
+  label?: string | null;
+  sortOrder?: number;
+}
+
+export async function listLessonResources(lessonId: string) {
+  const lesson = await prisma.lesson.findUnique({ where: { id: lessonId }, select: { id: true } });
+  if (!lesson) throw NotFound('课时不存在');
+  return prisma.lessonResource.findMany({
+    where: { lessonId },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+  });
+}
+
+export async function createLessonResource(
+  adminId: string,
+  lessonId: string,
+  input: CreateLessonResourceInput,
+) {
+  const lesson = await prisma.lesson.findUnique({ where: { id: lessonId }, select: { id: true } });
+  if (!lesson) throw NotFound('课时不存在');
+
+  if (!VALID_RESOURCE_TYPES.includes(input.type as ResourceType)) {
+    throw BadRequest(`type 必须是 ${VALID_RESOURCE_TYPES.join(' / ')}`);
+  }
+
+  let url = input.url.trim();
+  if (input.type === 'youtube') {
+    const vid = extractYoutubeId(url);
+    if (!vid) throw BadRequest('不是有效的 YouTube 链接（支持 youtube.com/watch?v= 和 youtu.be/ 格式）');
+    url = vid;
+  } else if (!url.startsWith('http')) {
+    throw BadRequest('url 格式不合法');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const r = await tx.lessonResource.create({
+      data: {
+        lessonId,
+        type: input.type,
+        url,
+        label: input.label ?? null,
+        sortOrder: input.sortOrder ?? 0,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: 'lesson.resource.create',
+        targetType: 'lessonResource',
+        targetId: r.id,
+        after: { lessonId, type: input.type, url } as Prisma.InputJsonValue,
+      },
+    });
+    return r;
+  });
+}
+
+export async function deleteLessonResource(adminId: string, id: string) {
+  const r = await prisma.lessonResource.findUnique({ where: { id } });
+  if (!r) throw NotFound('资源不存在');
+  await prisma.$transaction(async (tx) => {
+    await tx.lessonResource.delete({ where: { id } });
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: 'lesson.resource.delete',
+        targetType: 'lessonResource',
+        targetId: id,
+        before: { lessonId: r.lessonId, type: r.type, url: r.url } as Prisma.InputJsonValue,
+      },
+    });
+  });
+}

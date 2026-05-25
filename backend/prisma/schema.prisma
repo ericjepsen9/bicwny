@@ -480,8 +480,55 @@ model Lesson {
   readingProgress LessonReadingProgress[]
   notes           Note[]
   highlights      Highlight[]
+  resources       LessonResource[]
+  textBlocks      LessonTextBlock[]
 
   @@unique([chapterId, order])
+}
+
+model LessonResource {
+  id        String   @id @default(cuid())
+  lessonId  String
+  type      String   // "youtube" | "audio" | "video"
+  url       String   // YouTube videoId or OSS URL
+  label     String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lesson   Lesson               @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  chapters LessonMediaChapter[]
+
+  @@index([lessonId, sortOrder])
+}
+
+model LessonMediaChapter {
+  id               String         @id @default(cuid())
+  lessonResourceId String
+  title            String
+  startSec         Float
+  sortOrder        Int
+  createdAt        DateTime       @default(now())
+
+  lessonResource LessonResource @relation(fields: [lessonResourceId], references: [id], onDelete: Cascade)
+
+  @@index([lessonResourceId, sortOrder])
+}
+
+// 段落级文字块 · 与音频时间戳对齐（B/C 模式用）⏸ 暂缓（Phase 3）
+model LessonTextBlock {
+  id            String   @id @default(cuid())
+  lessonId      String
+  blockIndex    Int
+  content       String
+  audioStartSec Float?
+  audioEndSec   Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId, blockIndex])
 }
 
 model UserCourseEnrollment {

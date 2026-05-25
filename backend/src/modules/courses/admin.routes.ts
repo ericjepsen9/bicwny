@@ -24,13 +24,16 @@ import {
   createChapter,
   createCourse,
   createLesson,
+  createLessonResource,
   deleteChapter,
   getChapterDependencies,
   getLessonDependencies,
   deleteCourse,
   deleteLesson,
+  deleteLessonResource,
   getCourseTreeAdmin,
   listAllCoursesAdmin,
+  listLessonResources,
   updateChapter,
   updateCourse,
   updateLesson,
@@ -247,6 +250,51 @@ export const adminCoursesRoutes: FastifyPluginAsync = async (app) => {
     if (!pp.success) throw BadRequest('路径参数不合法');
     const adminId = requireUserId(req);
     await deleteLesson(adminId, pp.data.id);
+    reply.code(204);
+    return null;
+  });
+
+  // ─── Lesson Resources ─────────────────────────────────────────────
+  const ridParam = z.object({ id: z.string().min(1), rid: z.string().min(1) });
+
+  const createResourceBody = z.object({
+    type: z.enum(['youtube', 'audio', 'video']),
+    url: z.string().trim().min(1).max(2000),
+    label: z.string().max(100).nullable().optional(),
+    sortOrder: z.number().int().optional(),
+  });
+
+  app.get('/api/admin/lessons/:id/resources', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: '课时媒体资源列表', security: SEC },
+  }, async (req) => {
+    const pp = idParam.safeParse(req.params);
+    if (!pp.success) throw BadRequest('路径参数不合法');
+    return { data: await listLessonResources(pp.data.id) };
+  });
+
+  app.post('/api/admin/lessons/:id/resources', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: '添加课时媒体资源（YouTube / 音频 / 视频）', security: SEC },
+  }, async (req, reply) => {
+    const pp = idParam.safeParse(req.params);
+    if (!pp.success) throw BadRequest('路径参数不合法');
+    const pb = createResourceBody.safeParse(req.body);
+    if (!pb.success) throw BadRequest('参数不合法', pb.error.flatten());
+    const adminId = requireUserId(req);
+    const r = await createLessonResource(adminId, pp.data.id, pb.data);
+    reply.code(201);
+    return { data: r };
+  });
+
+  app.delete('/api/admin/lessons/:id/resources/:rid', {
+    preHandler: adminGuard,
+    schema: { tags: TAGS, summary: '删除课时媒体资源', security: SEC },
+  }, async (req, reply) => {
+    const pp = ridParam.safeParse(req.params);
+    if (!pp.success) throw BadRequest('路径参数不合法');
+    const adminId = requireUserId(req);
+    await deleteLessonResource(adminId, pp.data.rid);
     reply.code(204);
     return null;
   });

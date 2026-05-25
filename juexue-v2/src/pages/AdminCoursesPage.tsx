@@ -15,11 +15,13 @@ import {
   type AdminChapter,
   type AdminCourseDetail,
   type AdminLesson,
+  type AdminLessonResource,
   type AdminMeditation,
   fetchChapterDependencies,
   fetchLessonDependencies,
   useAdminCourseDetail,
   useAdminCourses,
+  useAdminLessonResources,
   useAdminMeditations,
 } from '@/lib/queries';
 import { MeditationFullEditor } from '@/components/MeditationAdmin';
@@ -749,6 +751,9 @@ function LessonRow({ l, courseId, chapterId }: { l: AdminLesson; courseId: strin
 
         {/* 题目副行 · 跨 coach 视角 · 弹窗管理 */}
         <LessonQuestionsSlot courseId={courseId} chapterId={chapterId} lessonId={l.id} />
+
+        {/* 讲法媒体副行 */}
+        <LessonResourcesSlot lessonId={l.id} />
       </div>
 
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={s(`编辑课时 · ${l.order}. ${l.title}`, `編輯課時 · ${l.order}. ${l.title}`, `Edit lesson · ${l.order}. ${l.title}`)} variant="centered">
@@ -993,6 +998,149 @@ function FormButtons({ cancel, pending, confirmLabel }: { cancel: () => void; pe
         {pending ? '…' : s(cl[0], cl[1], cl[2])}
       </button>
     </div>
+  );
+}
+
+// ── 讲法媒体 slot（YouTube 链接管理）
+function LessonResourcesSlot({ lessonId }: { lessonId: string }) {
+  const { s } = useLang();
+  const qc = useQueryClient();
+  const [expanded, setExpanded] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [ytUrl, setYtUrl] = useState('');
+  const [ytLabel, setYtLabel] = useState('');
+  const [err, setErr] = useState('');
+
+  const resources = useAdminLessonResources(lessonId);
+  const list: AdminLessonResource[] = resources.data ?? [];
+
+  const addResource = useMutation({
+    mutationFn: () =>
+      api.post(`/api/admin/lessons/${encodeURIComponent(lessonId)}/resources`, {
+        type: 'youtube',
+        url: ytUrl.trim(),
+        label: ytLabel.trim() || null,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/admin/lessons', lessonId, 'resources'] });
+      setYtUrl('');
+      setYtLabel('');
+      setAddOpen(false);
+      setExpanded(true);
+      toast.ok(s('已添加', '已添加', 'Added'));
+    },
+    onError: (e) => setErr((e as ApiError).message),
+  });
+
+  const delResource = useMutation({
+    mutationFn: (rid: string) =>
+      api.del(
+        `/api/admin/lessons/${encodeURIComponent(lessonId)}/resources/${encodeURIComponent(rid)}`,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['/api/admin/lessons', lessonId, 'resources'] });
+      toast.ok(s('已删除', '已刪除', 'Deleted'));
+    },
+    onError: (e) => toast.error((e as ApiError).message),
+  });
+
+  return (
+    <>
+      <div
+        style={{
+          borderTop: '1px solid var(--border-light)',
+          padding: 'var(--sp-2) var(--sp-3)',
+          paddingLeft: 'calc(var(--sp-3) + 32px)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--sp-2)',
+        }}
+      >
+        {list.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            style={{ background: 'transparent', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', font: 'var(--text-caption)' }}
+          >
+            {expanded ? '▾' : '▸'}
+          </button>
+        )}
+        <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+          🎬{' '}
+          {list.length > 0
+            ? s(`${list.length} 个讲法媒体`, `${list.length} 個講法媒體`, `${list.length} media`)
+            : s('暂无讲法媒体', '暫無講法媒體', 'No media')}
+        </span>
+        <button
+          type="button"
+          onClick={() => { setAddOpen(true); setErr(''); }}
+          style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: 'var(--saffron-dark)', cursor: 'pointer', font: 'var(--text-caption)', letterSpacing: 1 }}
+        >
+          + {s('添加 YouTube', '添加 YouTube', 'Add YouTube')}
+        </button>
+      </div>
+
+      {expanded && list.length > 0 && (
+        <div
+          style={{
+            padding: 'var(--sp-2) var(--sp-3)',
+            paddingLeft: 'calc(var(--sp-3) + 32px)',
+            background: 'var(--bg)',
+            borderTop: '1px solid var(--border-light)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+          }}
+        >
+          {list.map((r) => (
+            <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, font: 'var(--text-caption)', color: 'var(--ink-2)' }}>
+              <span style={{ color: 'var(--ink-4)' }}>
+                {r.type === 'youtube' ? '▶ YT' : r.type === 'audio' ? '🎵' : '🎬'}
+              </span>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {r.label || (r.type === 'youtube' ? `youtu.be/${r.url}` : r.url)}
+              </span>
+              <button
+                type="button"
+                onClick={() => delResource.mutate(r.id)}
+                disabled={delResource.isPending}
+                style={{ background: 'transparent', border: 'none', color: 'var(--crimson)', cursor: 'pointer', font: 'var(--text-caption)', flexShrink: 0 }}
+              >
+                {s('删除', '刪除', 'Del')}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title={s('添加 YouTube 讲法', '添加 YouTube 講法', 'Add YouTube teaching')}
+        variant="centered"
+      >
+        <form
+          onSubmit={(e) => { e.preventDefault(); setErr(''); addResource.mutate(); }}
+          style={{ padding: 'var(--sp-2) 0 var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}
+        >
+          <Field
+            label="YouTube 链接"
+            value={ytUrl}
+            onChange={setYtUrl}
+            required
+            placeholder="https://youtu.be/... 或 youtube.com/watch?v=..."
+          />
+          <Field
+            label={s('显示名称（可选）', '顯示名稱（可選）', 'Label (opt)')}
+            value={ytLabel}
+            onChange={setYtLabel}
+            maxLength={100}
+          />
+          {err && <p style={{ color: 'var(--crimson)', font: 'var(--text-caption)' }}>{err}</p>}
+          <FormButtons cancel={() => setAddOpen(false)} pending={addResource.isPending} confirmLabel={['添加', '添加', 'Add']} />
+        </form>
+      </Dialog>
+    </>
   );
 }
 

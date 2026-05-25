@@ -931,6 +931,28 @@ export interface AdminLesson {
   teachingSummary: string | null;
 }
 
+export interface AdminLessonResource {
+  id: string;
+  lessonId: string;
+  type: 'youtube' | 'audio' | 'video';
+  url: string;
+  label: string | null;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export function useAdminLessonResources(lessonId: string | null | undefined) {
+  return useQuery({
+    enabled: !!lessonId,
+    queryKey: ['/api/admin/lessons', lessonId, 'resources'],
+    queryFn: ({ signal }) =>
+      api.get<AdminLessonResource[]>(
+        `/api/admin/lessons/${encodeURIComponent(lessonId!)}/resources`,
+        { signal },
+      ),
+  });
+}
+
 export function useAdminCourses() {
   return useQuery({
     queryKey: ['/api/admin/courses'],
