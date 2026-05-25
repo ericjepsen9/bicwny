@@ -387,6 +387,80 @@
 
 ---
 
+## 一致性核查与冲突决议
+
+> 方案生成后，对照现有 schema 做的整体核查，发现 5 处与现有表的重叠冲突，逐个决议。
+
+### 冲突 1 · 修持系统三轨重叠 ✅ 已决议
+
+**问题**：新建的 `UserPracticeVow / PracticeLog` 与现有 `PracticeTask / PracticeGoal / PracticeEntry / PracticeDailySummary` 高度重叠。
+
+**决议：采用 A 方案（新建独立表），不扩展现有表。**
+
+理由：
+1. 现有 `PracticeTask` 在 scope=class 时是"一行管全班"，而 auto 愿需"每人一条 + 独立状态机"，结构性矛盾，扩展无法解决
+2. 愿是多场景的（班级/法会/约修/个人），现有 PracticeTask 只有 user/class 两种 scope，根本容不下法会、约修
+3. 复用 PracticeEntry 会污染现有排行/streak/日聚合查询（生产数据，回归风险高）
+4. 新建表 → 现有功能零回归
+
+**愿的多态设计**：一张 `UserPracticeVow` 表 + `VowContext` 枚举，不拆多表。
+
+```prisma
+enum VowContext {
+  class        // 班级修学愿
+  event        // 法会愿
+  appointment  // 约修愿
+  personal     // 纯个人愿
+}
+```
+
+两个正交维度：
+- `source`（auto/custom）= 怎么建的
+- `context`（class/event/appointment/personal）= 为什么发、挂在哪
+
+按 context 填对应可空外键（classId / eventId / appointmentId），应用层校验。
+
+**可见性矩阵**：
+
+| context | 本人 | 主麦 | 公开聚合 |
+|---|---|---|---|
+| class（auto）| ✅ | ✅（掉队检测）| ❌ |
+| class（custom）| ✅ | ❌ | ❌ |
+| event（法会）| ✅ | ❌ 不看个体 | ✅ 只显总量+人数 |
+| appointment | ✅ | ❌ | ✅ 约修总量 |
+| personal | ✅ | ❌ | ❌ |
+
+**生命周期**：
+- class：班级 startDate + 模板 offset，主麦可改到期日
+- event：跟 Event.startDate ~ endDate，法会结束愿自动 completed
+- appointment：跟约修 scheduledDate
+- personal：师兄自管
+
+**法会愿计数模型：模型 1（独立专属发心）** ✅
+- 法会愿是单独一笔愿，单独打卡，不与班级愿混算
+- `PracticeLog.vowId` 保持单一外键（一条打卡归属一个愿）
+- 集体回向 = 挂同一 eventId 的愿之和（密法愿不计入）
+
+**法会愿来源**：以师兄自愿发（custom+event）为主，admin 派发全班（auto+event）能力由 source 维度天然支持，纯功能开关，不影响表结构。
+
+### 冲突 2 · 观修系统双轨 🔲 待讨论
+
+> Meditation/MeditationSession（现有，含班级排行）vs PracticeGuide/PracticeLog（新，92修法打卡）
+
+### 冲突 3 · 自学模式重复 🔲 待讨论
+
+> UserCourseEnrollment 加字段 vs 新建 UserSelfStudyProgram，二选一
+
+### 冲突 4 · 班级绑课 vs 绑科系 🔲 待讨论
+
+> Class.courseId（一班一课）vs Class.programId（一班一科系多门课）
+
+### 冲突 5 · PracticeProject.scope 与愿 🔲 待讨论
+
+> 现有 PracticeProject.scope（user/class）与愿的 classId 概念重叠
+
+---
+
 ## 待确认事项
 
-> 所有问题已全部确认，无遗留待确认项。✅
+> 8 组讨论已全部确认。冲突核查中：冲突 1 已决议，冲突 2-5 待讨论。
