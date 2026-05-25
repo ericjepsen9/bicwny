@@ -1808,8 +1808,8 @@ care-followup.middleware.ts
 | 密法零痕迹（学员侧）| 所有学员侧 Course/Meditation/PracticeProject 查询：isTantric=true 过滤 |
 | 关怀记录对学员不可见 | CareFollowup 路由：仅 canCareFollowup=true 可访问 |
 | 掉队状态对学员不可见 | Vow API 响应：学员端不返回 currentStatus 字段 |
-| 法会字段写权限限 admin | Event CRUD（含 liveStreamUrl / recordingUrl）仅 admin 角色可写；学员侧 API 只读 |
-| 讨论话题创建权限 | Discussion 创建/关闭：ClassAdmin（任意 flag）或 admin；投票/评论：班级任意成员 |
+| 法会字段写权限限 admin | 中间件：admin 路由 `requireRole('admin')`；学员侧只有 GET 端点，无 POST/PUT/DELETE |
+| 讨论话题创建权限 | 应用层：创建/关闭前查 ClassAdmin 记录（任意 flag）或 role='admin'；投票/评论不做额外校验（班级成员身份由 ClassMember 已保障）|
 | 讨论一人一票 | DB：`@@unique([discussionId, userId])`；换投：应用层先删旧票再插新票 |
 | 签到时间窗口 | 后端：`now < session.startAt → 403 未开始`；`now > session.sessionEndAt → 403 已关闭`；公开端点同样校验 |
 | 签到防重复 | DB：StudyRecord `@@unique([classSessionId, userId, studyType])` 保障；重复提交返回 409 |
