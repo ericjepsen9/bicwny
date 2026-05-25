@@ -44,8 +44,8 @@
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 22 个 | 见 3.1 |
 | 修改后端模块 | 6 个 | 见 3.2 |
-| 新增前端页面（学员端）| 10 个 | 含活动中心 + 法会详情 + 平台场次详情 + 签到链接页 |
-| 修改前端页面（学员端）| 5 个 | 首页（活动药丸 + 通知移我的）+ 课程详情 + 打卡记录 + 思考题 + 个人设置 |
+| 新增前端页面（学员端）| 8 个 | 含活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice，不单设页）|
+| 修改前端页面（学员端）| 6 个 | 首页（活动药丸 + 通知移我的）+ 修学计数页（统一中枢）+ 课程详情 + 打卡记录 + 思考题 + 个人设置 |
 | 新增前端页面（管理端 /coach/*）| 5 个 | |
 | 新增前端页面（Admin 端）| 7 个 | |
 
@@ -509,9 +509,15 @@ model UserPracticeVow {
 
   // 可空外键（按 context 填对应项，应用层校验）
   templateId     String?  // auto 愿关联模板
-  classId        String?  // 班级愿（auto/custom 均可）
+  classId        String?  // 班级愿（仅 source=auto 使用；custom 自建一律 context=personal，不填 classId）
   eventId        String?  // 法会愿
   appointmentId  String?  // 约修愿
+
+  // 发愿标识（合并方案核心：本表同时承载「发愿」和「裸追踪项」）
+  isPledged Boolean @default(false)
+  // true  = 发愿：有目标 + 进度条 + 生命周期（auto 愿恒为 true）
+  // false = 裸追踪项：无目标，仅作「我的修学」快捷打卡列表锚点（target 字段全 null，不算状态）
+  //         裸打卡不可补发愿（决策）：要发愿须新建一条 isPledged=true 的愿，历史裸打卡不追溯
 
   // 可见性（仅适用于 context=personal / context=appointment；共修愿和法会愿不适用此开关）
   isPublic Boolean @default(false)
@@ -521,12 +527,17 @@ model UserPracticeVow {
   practiceProjectId String   // 修什么（关联现有 PracticeProject）
   customName        String?  // custom 愿自定义名称
 
-  // 目标
+  // 目标（isPledged=false 时全部 null）
+  // targetPeriod 决定主目标字段（避免多字段语义重叠）：
+  //   lifetime → 看 targetCount（进度 = currentCount / targetCount）
+  //   daily    → 看 dailyTarget（进度 = 今日 count / dailyTarget）
+  //   weekly   → 看 weeklyTarget（进度 = 本周 count / weeklyTarget）
+  // 非主目标字段仅作「建议节奏」参考，不参与进度/状态判定
   targetCount       Int?
-  targetPeriod      String   // daily / weekly / lifetime
+  targetPeriod      String?  // daily / weekly / lifetime（isPledged=false 时 null）
   dailyTarget       Int?
   weeklyTarget      Int?
-  minSessionMinutes Int      @default(30)
+  minSessionMinutes Int      @default(30)  // 仅 duration 计量的修法生效；遍数类（念咒）忽略
 
   // 节奏历史（每次调整自动追加）
   paceHistory       Json?    // [{set_at, daily_target, changed_by, reason}]
@@ -543,6 +554,7 @@ model UserPracticeVow {
 
   // 状态（7 态，打卡后实时重算；优先级：will_overdue > at_risk > falling_behind > slightly_behind > on_track）
   // 仅管理者可见，师兄端 API 不返回此字段
+  // ⚠️ 仅 source=auto（班级愿）重算；personal/custom 愿无人管理，跳过重算（留默认值，省 CPU）
   currentStatus      VowStatus @default(on_track)
   statusCalculatedAt DateTime?
   statusNote         String?
@@ -567,9 +579,10 @@ model UserPracticeVow {
 }
 
 // 修持打卡记录（自描述模型，vowId 可空）
-// 两种打卡场景：
-//   日常裸打卡：vowId=null
-//   发愿修持：vowId=有
+// 合并方案后的打卡场景：
+//   发愿打卡：vowId = isPledged=true 的 vow（带进度条）
+//   裸追踪打卡：vowId = isPledged=false 的 vow（我的修学列表锚点，仅累计数）
+//   纯临时计数：vowId=null（不进列表的一次性散修，可选保留）
 // ⚠️ 法会计数不走此表，走独立的 EventCount 表
 // 现有 PracticeEntry 停止新写入（历史数据保留）；新打卡一律走 PracticeLog
 model PracticeLog {
@@ -581,7 +594,7 @@ model PracticeLog {
   meditationId      String?  // 92修法第几法（指向 Meditation.id，seriesNumber 表示第几法）
 
   // 可选关联层
-  vowId   String?  // 有发愿才挂（日常裸打卡为空）
+  vowId   String?  // 挂到 vow（发愿或裸追踪项）；纯临时计数为 null
   eventId String?  // 保留字段（旧数据兼容），新系统法会计数走 EventCount，不再写此字段
   classId String?  // 班级归属（无愿也能算班级/每周回向）
 
@@ -1371,8 +1384,8 @@ model PracticeTemplate {
 | CohortRestWeeks | `/api/classes/:id/rest-weeks` | 班级休息周管理 |
 | CurrentLesson | `/api/classes/:id/current-lesson` | 当前课时号查询（进度算法）|
 | VowTemplates | `/api/practice-templates` | 修持模板管理（admin）|
-| Vows | `/api/vows` | 修持愿 CRUD + 状态机 |
-| VowLogs | `/api/vows/:id/logs` | 修持打卡 |
+| Vows | `/api/vows` | 修持愿 + 裸追踪项 CRUD（isPledged 区分）+ 状态机（仅 auto 重算）|
+| VowLogs | `/api/vows/:id/logs` | 修持打卡（发愿/裸追踪共用；座次自动算）|
 | VowPause | `/api/vows/:id/pause` + `/resume` | 愿暂停/恢复（自助，无审批）|
 | StudyRecords | `/api/study-records` | 闻思打卡（App 内自助，需登录，校验时间窗口）|
 | SpeakingSessions | `/api/classes/:id/speaking-sessions` | 讲考场次管理（含生成签到 token）|
@@ -1564,7 +1577,7 @@ async function generateStudentId(tx: PrismaTransaction): Promise<string> {
 
 #### 修持愿状态机（打卡后实时重算）
 
-**重算触发点**（全部实现）：
+**重算触发点**（仅作用于 source=auto 班级愿；其他愿/裸追踪项跳过）：
 - 每次提交 PracticeLog 后（context≠event 愿）
 - 每次提交 EventCount 后（context=event 愿）
 - 主麦修改愿的到期日（currentEndDate）后
@@ -1581,6 +1594,10 @@ async function recalcVowStatus(vowId: string): Promise<VowStatus> {
   })
 
   if (!vow || vow.status === 'paused') return 'paused'
+
+  // ⚠️ 仅班级愿（source=auto）算状态：只有它们有辅导员管理、师兄端也不看此字段
+  // personal/custom 愿 + 裸追踪项（isPledged=false）一律跳过，节省每次打卡的重算开销
+  if (vow.source !== 'auto') return vow.currentStatus
 
   // context=event 愿：计数来源是 EventCount；其他愿来源是 PracticeLog
   const totalCount = vow.context === 'event'
@@ -1688,12 +1705,12 @@ care-followup.middleware.ts
 
 ## 四、前端改动范围
 
-### 4.1 学员端新增页面（10 个）
+### 4.1 学员端新增页面（8 个）
+
+> 注：修持愿与修持打卡**合并进现有 `/practice` 页**（见 §4.2 修学计数页改造），不再单设 `/vows` 独立页。
 
 | 页面 | 路由 | 说明 |
 |---|---|---|
-| 修持愿列表 | `/vows` | 查看自己全部愿（auto + custom）+ 进度条 |
-| 修持打卡 | `/vows/:id/log` | 打卡（含座次自动计算）+ 回向 UI |
 | 修持日记 | `/journals` | 每日一篇，private / visible_to_coach |
 | 每周回向 | `/dedication` | 跨法会每周修持总量汇总（只显总数，不露个体）；法会专项回向在 `/events/:id` 内展示 |
 | 自学读物 | `/books` | 18 本读物阅读进度 |
@@ -1822,15 +1839,69 @@ care-followup.middleware.ts
   - 提交 → 写 `UserPracticeVow { context: 'event', eventId, source: 'custom' }`
   - 提交成功 → 状态切换到「有愿」状态
 
-### 4.2 学员端修改页面（5 个）
+### 4.2 学员端修改页面（6 个）
 
 | 页面 | 改动 |
 |---|---|
 | 首页 | 顶部「活动按钮 + 通知铃」合并为药丸卡片（显示平台法会/共修/讲考，常驻）；通知入口移入「我的」；头像挂未读红点 badge 补偿；点击药丸跳 `/events` 活动中心 |
+| 修学计数页 `/practice` | **改造为统一修学中枢**（合并修持愿 + 修持打卡）；见下方详细设计 |
 | 课程详情 | 多讲者 LessonResource 展示；按 Class.timezone 显示共修时间；「已学完/已听完/已看完」确认按钮（见下方流程）|
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | 提交后解锁参考答案入口（QuestionReference）|
 | 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择 |
+
+#### 修学计数页改造（`/practice` 统一中枢 · Feature 9）
+
+合并修持愿与修持打卡为一页，旧 `/practice` 升级，不新设 `/vows`。
+
+**页面结构（上下两区块）：**
+
+```
+KPI 卡（今日 / streak / 本周 / 累计）
+  实时从 PracticeLog 按 User.timezone 聚合（PracticeDailySummary 停更）
+
+区块 ① 班级修学愿（source=auto）
+  - 来源：入班按 PracticeTemplate 自动建愿，用户不可增删
+  - 每条：愿名 + 进度条（按 targetPeriod 取主目标）+「去打卡」
+  - 用户只能调每日目标量（节奏自主）；到期日由辅导员管（canEditGoals）
+  - currentStatus 不下发给师兄端
+
+区块 ② 我的修学（source=custom，用户自建）
+  - 列出 isPledged=true（发愿，带进度条）+ isPledged=false（裸追踪项，仅累计数）
+  - 「+ 添加修学」按钮见下方创建流程
+  - 全部用户自管（增删改）
+```
+
+**创建流程（+ 添加修学）：**
+
+```
++ 添加修学
+  → 选修法项目（PracticeProject，如金刚萨埵心咒）
+  → 计量方式由项目决定（遍数 / 时长座次）
+  → [开关] 我要为此发愿？
+      关 → 建 UserPracticeVow{ source=custom, context=personal, isPledged=false, target 全 null }
+            = 裸追踪项，进我的修学列表，打卡只累计数
+      开 → 填主目标（按 targetPeriod：lifetime 填 targetCount / daily 填 dailyTarget / weekly 填 weeklyTarget）
+            + 到期日（可选）
+            → 建 UserPracticeVow{ source=custom, context=personal, isPledged=true }
+            = 发愿，带进度条
+  → 保存
+```
+
+**打卡流程（点「去打卡」/ 裸追踪项的 + 号）：**
+
+```
+preferShowFaxin=true → 先显示发心语
+  → 输入遍数 / 时长（座次自动算：≥30min=1, ≥15min=0.5）
+  → 提交 → 写 PracticeLog{ vowId（裸追踪/发愿均填本条 vow.id）, count/durationMinutes, logDate }
+  → 乐观更新 vow.currentCount / currentSessionCount
+  → source=auto 愿才触发 recalcVowStatus
+preferShowFaxin=true → 打卡成功弹回向 Sheet
+```
+
+> ⚠️ 裸打卡也挂在一条 isPledged=false 的 vow 上（vowId 非 null），与"无锚点的纯 PracticeLog"区别：
+> 旧设计 vowId=null 表示日常裸打卡；合并后裸打卡统一有锚点 vow（isPledged=false），
+> vowId=null 仅保留给"完全临时、不进列表"的一次性计数（如法会随喜外的散修，可选保留或弃用）。
 
 #### 学修确认完成流程（Feature 6）
 
@@ -2015,6 +2086,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 - `removedAt` 字段保留（旧退班数据兼容），新退班用 `cohortStatus='left'`
 - 现有 `ClassMember.role='coach'` 字段保留，但权限管理转移到 `ClassAdmin` 表
 - 现有 `PracticeEntry` 数据原地保留（旧统计继续读），新打卡走 `PracticeLog`
+- 现有 `PracticeTask` / `PracticeGoal` 数据**原地保留只读**（旧统计继续读），**不迁移**为 UserPracticeVow；新目标全走愿系统（auto 愿 = 班级派下，custom 愿/裸追踪 = 用户自建）
+- 合并后 `/practice` 的 KPI（今日/streak/本周/累计）**实时从 PracticeLog 按 `User.timezone` 聚合**；`PracticeDailySummary` 停止新写入（旧数据保留供历史查询）；streak 以 `logDate` 转 User.timezone 本地日期计算连续天数
 - 密法 migration 不需要：`isTantric` 默认 `false`，现有数据默认非密法
 - `UserCourseEnrollment` 上的 `selfStudyStartDate/selfStudyPace/selfStudyStatus` 三字段**不添加**（自学功能走 `UserSelfStudyProgram`）
 
@@ -2057,12 +2130,13 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 任务 | 类型 |
 |---|---|
 | PracticeTemplate API（admin）| 后端 |
-| UserPracticeVow API + 状态机（打卡后实时重算）| 后端 |
+| UserPracticeVow API（isPledged 区分发愿/裸追踪）+ 状态机（仅 source=auto 重算）| 后端 |
 | PracticeLog API + 座次计算 | 后端 |
+| KPI/streak 实时聚合（PracticeLog 按 User.timezone；PracticeDailySummary 停更）| 后端 |
 | 愿暂停/恢复 | 后端 |
 | 每日定时任务（约修自动关闭 + 掉队检测）| 后端 |
-| 修持愿列表/详情（学员端）| 前端 |
-| 修持打卡 UI + 发心语 + 回向 | 前端 |
+| `/practice` 统一中枢改造（班级愿区 + 我的修学区 + 添加修学 + 打卡 Sheet）| 前端 |
+| 修持打卡 UI + 发心语 + 回向（合并进 /practice）| 前端 |
 | 修持愿管理（管理端）| 前端 |
 
 ### Phase 4 · 双模式学习
@@ -2135,6 +2209,9 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | group_sessions 独立表 | 复用现有 ClassSession，加两字段即可 |
 | 法会发愿独立表 | 法会愿就是 UserPracticeVow（context=event），无需另表 |
 | PracticeEntry 新写入 | 历史数据保留；新打卡一律走 PracticeLog |
+| PracticeTask / PracticeGoal 迁移为愿 | 原地保留只读；新目标全走 UserPracticeVow，不迁移旧任务/目标 |
+| PracticeDailySummary 新写入 | 停更；KPI/streak 实时从 PracticeLog 按 User.timezone 聚合 |
+| 裸打卡补发愿（追溯历史）| 不支持；发愿须新建 isPledged=true 的愿，历史裸打卡不关联 |
 | UserCourseEnrollment.selfStudy* 三字段 | 自学走 UserSelfStudyProgram（科系级），字段重复废弃 |
 | PracticeProject.scope 在新系统使用 | 历史包袱；新愿归属完全由 UserPracticeVow 表达 |
 | ClassAdminRole 枚举（zhumai/aixin）| 改为 RBAC flags，admin 后台细粒度分配 |
