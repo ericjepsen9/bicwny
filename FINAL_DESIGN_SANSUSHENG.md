@@ -21,7 +21,7 @@
 2. [数据库改动](#二数据库改动)
    - 2.1 新增枚举
    - 2.2 现有表字段扩展
-   - 2.3 新增表（37 张，含完整 Prisma schema）
+   - 2.3 新增表（42 张，含完整 Prisma schema）
    - 2.4 新增 SQL 视图
 3. [后端改动范围](#三后端改动范围)
 4. [前端改动范围](#四前端改动范围)
@@ -39,7 +39,7 @@
 |---|---|---|
 | 新增 Prisma 枚举 | 7 个 | 见 2.1 |
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
-| 新增表 | 37 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount + ClassPost 系列 4 张 + Discussion 系列 4 张 新增 = 净 37）|
+| 新增表 | 42 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion + EventCount + ClassPost 系列 4 张 + Discussion 系列 4 张 + AI 助手 5 张 新增 = 净 42）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 16 个 | 见 3.1 |
@@ -271,7 +271,7 @@ model PracticeProject {
 
 ---
 
-### 2.3 新增表（37 张）
+### 2.3 新增表（42 张）
 
 #### 组织层级（1 张）
 
@@ -1032,6 +1032,100 @@ model DiscussionComment {
 }
 ```
 
+#### AI 助手（5 张）
+
+> 详细设计见 `docs/AI_ASSISTANT_PLAN.md`（决策定型，暂未实施）。
+> ⚠️ 依赖：需先启用 pgvector 扩展（`CREATE EXTENSION IF NOT EXISTS vector;`，单独 migration）。
+> UI ⏸ 暂缓；Tier 2（功能导航）⏸ 暂缓；Tier 3-4 ⏸ 暂缓。
+
+```prisma
+// 法本切片 + RAG 检索（pgvector embedding）
+model ContentChunk {
+  id        String  @id @default(cuid())
+  courseId  String
+  lessonId  String?
+  chapterId String?
+  text      String  @db.Text
+  textNorm  String  @db.Text
+  charStart Int
+  charEnd   Int
+  lang      String                        // sc | tc | en
+  embedding Unsupported("vector(1536)")?
+  metadata  Json?
+
+  course Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lesson Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@index([lessonId])
+}
+
+// 功能 catalog（功能导航；Tier 2 ⏸ 暂缓，DB 当前预留）
+model FeatureEntry {
+  id        String   @id @default(cuid())
+  nameSc    String
+  nameTc    String?
+  nameEn    String?
+  descSc    String
+  descTc    String?
+  descEn    String?
+  keywords  String[]
+  url       String
+  icon      String?
+  category  String                        // learning | practice | account | help
+  isActive  Boolean  @default(true)
+  embedding Unsupported("vector(1536)")?
+}
+
+// AI 对话会话（历史保存，用户可清空）
+model AiConversation {
+  id              String   @id @default(cuid())
+  userId          String
+  title           String?
+  contextCourseId String?
+  contextLessonId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AiMessage[]
+
+  @@index([userId, updatedAt])
+}
+
+// AI 消息（含 RAG 引用 / 功能跳转 / 用户反馈 / token 统计）
+model AiMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String                  // user | assistant | system
+  content        String   @db.Text
+  sources        Json?                   // [{lessonId, courseId, chunkId, snippet, relevance}]
+  navTarget      Json?                   // [{url, label, icon}]
+  feedback       Int?                    // 1=helpful | -1=unhelpful
+  feedbackText   String?
+  llmModel       String?
+  tokenInput     Int?
+  tokenOutput    Int?
+  createdAt      DateTime @default(now())
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+// 用量统计（rate limit + 每日成本；与 LlmProviderUsage 不重叠：前者按用户/日，后者按 provider）
+model AiUsage {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime @db.Date
+  queryCount  Int      @default(0)
+  tokenInput  Int      @default(0)
+  tokenOutput Int      @default(0)
+
+  @@unique([userId, date])
+}
+```
+
 #### 权限控制（1 张）
 
 ```prisma
@@ -1133,6 +1227,8 @@ GROUP BY DATE_TRUNC('week', pl.log_date), pl.class_id, pl.practice_project_id;
 | TantricGrants | `/api/admin/tantric-grants` | 密法白名单（admin 专属）|
 | ClassPosts | `/api/classes/:id/posts` | 学修感想发布/列表/软删除 + 点赞/评论/转发记录（UI ⏸ 暂缓，API 当前阶段预留）|
 | ClassDiscussions | `/api/classes/:id/discussions` | 话题 CRUD + 投票 + 评论（UI ⏸ 暂缓，API 当前阶段预留）|
+| AiAssistant | `/api/ai` | 对话 CRUD + SSE 流式问答 + 用量检查（UI ⏸ 暂缓）|
+| AiAdmin | `/api/admin/ai` | LLM 配置 / 法本索引触发 / 功能 catalog 管理 / 用量 dashboard（UI ⏸ 暂缓）|
 
 #### Events 模块端点明细
 
@@ -1600,7 +1696,8 @@ migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
 migration_007_extend_classsession.sql ClassSession 加 2 个字段
 migration_008_extend_meditation.sql   Meditation 加 3 个字段（seriesKey/seriesNumber/isTantric）
 migration_009_extend_practice.sql     PracticeProject 加 1 个字段（isTantric）
-migration_010_new_tables.sql          建 37 张新表（含 EventCount / ClassPost 系列 / Discussion 系列；PracticeGuide 未进入生产，无需 DROP）
+migration_009_pgvector.sql            启用 pgvector 扩展（CREATE EXTENSION IF NOT EXISTS vector）
+migration_010_new_tables.sql          建 42 张新表（含 EventCount / ClassPost 系列 / Discussion 系列 / AI 助手 5 张；PracticeGuide 未进入生产，无需 DROP）
 migration_011_views.sql               建 2 个 SQL 视图
 ```
 
@@ -1684,6 +1781,11 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | ClassPost UI（班级页感想动态区）⏸ 暂缓（后续 Phase）| ⏸ |
 | Discussion 系列 4 张表 + ClassDiscussions API（话题/投票/评论）| 后端 |
 | Discussion UI（班级讨论页）⏸ 暂缓（后续 Phase）| ⏸ |
+| pgvector 扩展 migration（migration_009）| DB |
+| AI 助手 5 张表 + /api/ai + /api/admin/ai API | 后端 |
+| AI 助手 UI（浮动按钮 + 聊天面板）⏸ 暂缓（后续 Phase）| ⏸ |
+| AI Tier 2 功能导航（FeatureEntry catalog + 意图分类）⏸ 暂缓（后续 Phase）| ⏸ |
+| AI Tier 3-4（课时内联 / 辅导员洞察 / 个性化 / 语音）⏸ 暂缓（后续 Phase）| ⏸ |
 | 集体回向 SQL 视图（v_event_dedication_totals + v_weekly_dedication_totals）| 后端 |
 | 法会列表页 `/events` | 前端 |
 | 法会详情页 `/events/:id`（含回向 Sheet + 发愿 Sheet）| 前端 |
