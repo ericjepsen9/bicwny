@@ -571,15 +571,53 @@ Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ Pract
 
 **待定**：听课完成的存储结构 🔲（见下方提问）
 
-### 冲突 3 · 自学模式重复 🔲 待讨论
+### 冲突 3 + 冲突 4 · 科系绑定 + 三层课程结构 ✅ 已决议
 
-### 冲突 4 · 班级绑课 vs 绑科系 🔲 待讨论
+**判定依据**：三殊胜原设计有 `program_week_courses`（周↔课程映射）+ `get_current_lesson_number(program_id)` 算法 + 8学期×26周，证明是科系绑定（一科系跨多法本按周排）。用户确认。
 
-> Class.courseId（一班一课）vs Class.programId（一班一科系多门课）
+**三层结构（用小学比喻）：**
+
+| 层级 | 比喻 | 表 | 例子 |
+|---|---|---|---|
+| 科系 | 小学 | `Program` | 加行系 |
+| 科目 | 一年级 | `ProgramSemester`（语义=科目/年级）| 一年级、二年级 |
+| 法本 | 课本 | `Course` | 前行第一册、前行第二册 |
+
+```
+科系 Program
+  └─ 科目 ProgramSemester（最小排课单位，直接到周，无上/下学期）
+       └─ 周 ProgramWeek
+            └─ ProgramWeekCourse（这周学哪本哪课）
+```
+
+**关键决定：**
+
+1. **科目层用 ProgramSemester 承载**，不新增表。语义明确为"科目/年级"。科目是**最小排课单位**，下面直接是周（`ProgramWeek`），不再分上/下学期。
+
+2. **法本（Course）归属到科目**：`Course` 关联 `ProgramSemester`（科目），1:N（一科目多法本）。原计划的 `Course.programId` 改为通过科目派生（或保留 programId 做冗余查询，二选一，倾向只留科目链接保持一致）。
+
+3. **冲突 4 · 班级绑科系**：
+   - `Class.programId` = 所属科系（新增，已在方案）
+   - `Class.courseId` **保留**，语义变为"当前主修法本"
+   - 班级从一年级起逐科目往上读，当前位置 = 当前科目 + 当前法本 + 当前课时（由 startDate + 休息周算法推出，或显式记录）
+
+4. **冲突 3 · 自学 = 科系级**：
+   - 用 `UserSelfStudyProgram`（关联 Program），自学师兄选一个科系，按个人 startDate + 个人休息周推进，算法与班级相同
+   - **移除** `UserCourseEnrollment` 上原计划的 `selfStudyStartDate / selfStudyPace / selfStudyStatus` 三个字段（重复，废弃）
+   - `UserCourseEnrollment` 回归原职责（课程报名/进度），不承载自学时间推进
+
+5. **更换法本管理需求**：
+   - **Admin 后台**：管理科系 → 科目 → 法本的整个组成（增删法本、调顺序、排周表）
+   - **辅导员/主麦端**：在当前科目的法本里切换本班"当前主修法本"（改 `Class.courseId`）
+
+**连带 schema 调整：**
+- `ProgramSemester`：字段语义改为科目（semesterNumber → 科目序号，semesterName → 科目名）；保留 startsWeek/endsWeek 做全科系周编号
+- `Course`：加 `programSemesterId`（科目归属）；`programId` 改为派生或冗余
+- `Class`：`courseId` 语义=当前主修法本（辅导员可改）；`programId`=科系
+- `UserCourseEnrollment`：去掉 selfStudy* 三字段
+- 自学走 `UserSelfStudyProgram`（科系级）
 
 ### 冲突 5 · PracticeProject.scope 与愿 🔲 待讨论
-
-> 现有 PracticeProject.scope（user/class）与愿的 classId 概念重叠
 
 ---
 
