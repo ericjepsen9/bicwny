@@ -821,6 +821,8 @@ model Event {
   timezone       String   // 必填，IANA 格式（藏历法会固定填 Asia/Shanghai）
   tibetanDate    String?  // 纯展示文字（如"藏历四月十五"），不参与任何计算
   description    String?
+  liveStreamUrl  String?  // 直播链接（Zoom / YouTube Live / 腾讯会议等），进行中时展示「进入直播」按钮
+  recordingUrl   String?  // 录像链接，法会结束后 admin 补填，展示「观看回放」按钮
   isActive       Boolean  @default(true)
   createdBy      String   // admin userId
   createdAt      DateTime @default(now())
@@ -1001,11 +1003,13 @@ GET  /api/events
   query: status=upcoming|active|ended|all（默认 all）
   学员端：只返回 isActive=true 的事件
   响应：id / title / eventType / coverImageUrl / startDate / endDate /
-        timezone / tibetanDate / status（服务端计算）/ participantCount
+        timezone / tibetanDate / status（服务端计算）/ participantCount /
+        liveStreamUrl / recordingUrl
 
 GET  /api/events/:id
   响应：同上 + description + dedicationTotals（来自 v_event_dedication_totals，
         按 practiceProjectId 分组）
+  // liveStreamUrl / recordingUrl 直接透传，前端按状态决定按钮显示
 
 GET  /api/events/:id/my-participation
   响应：vow（UserPracticeVow，有愿时）/ submissionCount / totalCount
@@ -1264,6 +1268,17 @@ care-followup.middleware.ts
 - 时区说明：小字「以北京时间为准」（`timezone=Asia/Shanghai` 时自动显示）
 - 活动描述（超过 3 行折叠，点击展开）
 - 状态 badge：`即将开始` / `进行中` / `已结束`
+- 入口按钮（按状态和字段是否填写控制显示）：
+
+  | 状态 | liveStreamUrl | recordingUrl | 显示 |
+  |---|---|---|---|
+  | 进行中 | 有 | — | 「进入直播」（主色，prominent）|
+  | 进行中 | 空 | — | 不显示 |
+  | 已结束 | — | 有 | 「观看回放」|
+  | 已结束 | — | 空 | 不显示 |
+  | 即将开始 | 有 | — | 「直播链接」（次要样式，提前展示）|
+
+  点击均在新标签页打开，不做 in-app 播放。
 
 **区块 2：集体回向**
 - 按 `practiceProjectId` 分组，每项显示：修法名 + 遍数或座次合计 + 参与人数
@@ -1375,6 +1390,7 @@ care-followup.middleware.ts
 | 密法零痕迹（学员侧）| 所有学员侧 Course/Meditation/PracticeProject 查询：isTantric=true 过滤 |
 | 关怀记录对学员不可见 | CareFollowup 路由：仅 canCareFollowup=true 可访问 |
 | 掉队状态对学员不可见 | Vow API 响应：学员端不返回 currentStatus 字段 |
+| 法会字段写权限限 admin | Event CRUD（含 liveStreamUrl / recordingUrl）仅 admin 角色可写；学员侧 API 只读 |
 
 ### 数据完整性约束（7 条）
 
