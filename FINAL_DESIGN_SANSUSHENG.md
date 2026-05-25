@@ -1397,8 +1397,8 @@ GET  /api/events
         liveStreamUrl / recordingUrl
 
 GET  /api/events/:id
-  响应：同上 + description + dedicationTotals（来自 v_event_dedication_totals，
-        按 practiceProjectId 分组）
+  响应：同上 + description + groupTotals（来自 v_event_dedication_totals，
+        按 practiceProjectId 分组，字段名改为 groupTotals 对应「共修总量」语义）
   // liveStreamUrl / recordingUrl 直接透传，前端按状态决定按钮显示
 
 GET  /api/events/:id/my-participation
@@ -1412,8 +1412,8 @@ POST /api/events/:id/count
   写 EventCount { eventId, userId, practiceProjectId, count,
     vowId: 自动查询用户当前有效法会愿（context=event AND eventId=:id AND status=active），有则填入 }
   后置：若 vowId 存在，更新 UserPracticeVow.currentCount（= SUM EventCount.count WHERE vowId）
-  响应：EventCount + 更新后的 dedicationTotals（eventId 维度聚合）
-  注：不写 PracticeLog，不影响日常修持愿进度，两套记录完全独立
+  响应：EventCount + 更新后的 groupTotals（eventId 维度聚合）
+  注：不写 PracticeLog，不影响日常修持愿；回向为法会结束后的纯 UI 仪式，此接口不触发回向
 
 POST /api/events/:id/vow
   body: { practiceProjectId, targetCount?, targetPeriod='lifetime' }
@@ -1706,33 +1706,43 @@ care-followup.middleware.ts
 
   点击均在新标签页打开，不做 in-app 播放。
 
-**区块 2：集体回向**
-- 按 `practiceProjectId` 分组，每项显示：修法名 + 遍数或座次合计 + 参与人数
+**区块 2：共修总量**
+- 按 `practiceProjectId` 分组，每项显示：修法名 + 遍数合计 + 参与人数
 - 示例：「上师瑜伽 · 共 12,450 遍 · 38 人参与」
-- 数据来源：`v_event_dedication_totals` 视图（只显总量，不透露个人）
-- 进行中时 30 秒轮询刷新；已结束时静态展示
+- 数据来源：`v_event_dedication_totals` 视图（只显聚合总量，不透露个人）
+- 进行中时 30 秒轮询刷新；已结束时静态展示（最终总量，供回向时参考）
 
 **区块 3：我的参与（状态机）**
 
 | 用户状态 | 区块展示 | 可用操作 |
 |---|---|---|
-| 未发愿、未打卡 | 两个并排按钮 | 「发法会愿」/ 「随喜打卡」|
-| 已发法会愿（进行中）| 愿进度条（已完成量 / 目标量）+ 按钮 | 「去打卡」|
-| 仅随喜（无愿）| 「已随喜 N 次，合计 X 遍」 | 「继续打卡」|
-| 已发愿且法会已结束 | 愿最终进度 | 无操作按钮 |
-| 未发愿且法会已结束 | 「此法会已结束」 | 无操作按钮 |
+| 法会未开始，无愿 | 「发法会愿」按钮 | 发愿（提前建愿）；打卡按钮不可用 |
+| 法会未开始，有愿 | 愿进度条（0 / 目标量）| 同上 |
+| 进行中，未提交 | 两个并排按钮 | 「发法会愿」/ 「去打卡」|
+| 进行中，有愿 | 愿进度条（已完成 / 目标量）+ 按钮 | 「去打卡」|
+| 进行中，无愿 | 「已提交 N 次，合计 X 遍」| 「继续打卡」|
+| 已结束，有提交记录 | 我的最终总量：X 遍 | 「回向」按钮（仅法会结束后出现）|
+| 已结束，无提交记录 | 「此法会已结束」| 无操作按钮 |
 
-**即将开始时**：「发法会愿」按钮正常可用（`vow.startDate = event.startDate`，提前建愿）；「随喜打卡」按钮不可用（法会未开始不能打卡，tooltip 提示）。
+**即将开始时**：「发法会愿」按钮正常可用（`vow.startDate = event.startDate`，提前建愿）；「去打卡」按钮不可用（tooltip 提示）。
 
-**回向 Sheet（区块 3 内联，不跳转新页）：**
-- 点击「回向」或「继续回向」→ 底部 Sheet 弹出（桌面用 centered Dialog，见 CSS-GOTCHAS.md §7）
-- Sheet 内容（极简，无反思/审核字段）：
+**计数提交 Sheet（进行中时，区块 3 内联）：**
+- 点击「去打卡」/ 「继续打卡」→ 底部 Sheet 弹出（桌面用 centered Dialog，见 CSS-GOTCHAS.md §7）
+- Sheet 内容：
   - 修法项目选择（有法会愿时 pre-fill 愿的 practiceProjectId，可修改）
   - 遍数输入（Int，必填；法会计数以遍数为单位，不记时长/座次）
   - 提交 → 写 `EventCount { eventId, userId, practiceProjectId, count, vowId（自动）}`
-  - 提交成功 → Sheet 关闭，区块 2 集体总量实时 +N 动效
-- **法会结束后**：「回向」按钮不渲染，区块 3 显示「法会已结束」，仅展示最终贡献量
+  - 提交成功 → Sheet 关闭，区块 2 共修总量实时 +N 动效；**不弹回向**
 - ⚠️ 此提交不写 PracticeLog，不影响日常修持愿，与学修计数模块完全隔离
+
+**回向 Sheet（仅法会已结束时，区块 3 内联）：**
+- 点击「回向」→ 底部 Sheet 弹出（桌面用 centered Dialog）
+- Sheet 内容：
+  - 此次法会共修总量展示（来自区块 2 最终数据）
+  - 固定回向文字（前端常量）
+  - 「完成回向」按钮 → Sheet 关闭
+- preferShowFaxin=false 时「回向」按钮不显示（三殊胜框架总开关）
+- 回向为纯 UI 仪式，**不写 DB**（计数已在 EventCount，无需新表）
 
 **发愿 Sheet（区块 3 内联）：**
 - 点击「发法会愿」→ 底部 Sheet 弹出
@@ -1741,7 +1751,7 @@ care-followup.middleware.ts
   - 目标量输入（targetPeriod 固定为 `lifetime`，整个法会期间完成）
   - startDate 只读显示（= event.startDate 或 today，取较大值）
   - 提交 → 写 `UserPracticeVow { context: 'event', eventId, source: 'custom' }`
-  - 提交成功 → 状态切换到「已发法会愿」状态
+  - 提交成功 → 状态切换到「有愿」状态
 
 ### 4.2 学员端修改页面（4 个）
 
