@@ -1,9 +1,9 @@
-# 三殊胜整合设计方案
+# 三殊胜整合设计方案（最终版）
 
-> 基于：三殊胜测试场景文档 + 8 组逐项讨论决策  
-> 技术栈：维持现有 Fastify + Prisma + PostgreSQL + JWT  
-> 策略：现有表保留不动，新增表支持新功能，存在重叠的表在原表上加字段  
-> 生成日期：2026-05-25
+> 基于：DESIGN_DECISIONS.md 全部确认决策（8 组 + A1/A2/A3 + B1/B2/B3 + C1/C2/C3 + 5 处一致性冲突决议）
+> 技术栈：维持现有 Fastify + Prisma + PostgreSQL + JWT，扩展不重建
+> 策略：现有表只增字段不删，冲突表新建独立表，历史数据原地保留
+> 生成日期：2026-05-25（全部决策确认后最终版）
 
 ---
 
@@ -11,32 +11,39 @@
 
 1. [改动总览](#一改动总览)
 2. [数据库改动](#二数据库改动)
-   - 新增枚举
-   - 现有表字段扩展
-   - 新增表（28 张，含完整 Prisma schema）
-   - 新增 SQL 视图
+   - 2.1 新增枚举
+   - 2.2 现有表字段扩展
+   - 2.3 新增表（28 张，含完整 Prisma schema）
+   - 2.4 新增 SQL 视图
 3. [后端改动范围](#三后端改动范围)
 4. [前端改动范围](#四前端改动范围)
 5. [业务规则与权限约束](#五业务规则与权限约束)
 6. [Migration 策略](#六migration-策略)
 7. [分阶段实施计划](#七分阶段实施计划)
+8. [明确不做清单](#八明确不做清单)
+9. [现有功能保留清单](#九现有功能保留清单)
 
 ---
 
 ## 一、改动总览
 
-| 类型 | 数量 |
-|---|---|
-| 新增 Prisma 枚举 | 7 个 |
-| 现有表新增字段 | 7 张表，共 24 个字段 |
-| 新增表 | 28 张 |
-| 新增 SQL 视图 | 2 个 |
-| 现有表不动 | 50+ 张（全部保留） |
-| 新增后端模块 | 16 个 |
-| 修改后端模块 | 6 个 |
-| 新增前端页面（师兄端） | 6 个 |
-| 新增前端页面（主麦端） | 5 个 |
-| 新增前端页面（Admin 端） | 7 个 |
+| 类型 | 数量 | 说明 |
+|---|---|---|
+| 新增 Prisma 枚举 | 7 个 | 见 2.1 |
+| 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
+| 新增表 | 28 张 | 见 2.3（PracticeGuide 删除 + LessonCompletion 新增 = 净 28）|
+| 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
+| 现有表不动 | 50+ 张 | 全部保留，零回归 |
+| 新增后端模块 | 16 个 | 见 3.1 |
+| 修改后端模块 | 6 个 | 见 3.2 |
+| 新增前端页面（学员端）| 6 个 | |
+| 新增前端页面（管理端 /coach/*）| 5 个 | |
+| 新增前端页面（Admin 端）| 7 个 | |
+
+**核心策略说明：**
+- 修持系统（UserPracticeVow / PracticeLog）与现有 PracticeTask / PracticeGoal / PracticeEntry 并存，新功能全走新表，旧功能零回归
+- PracticeEntry 停止新写入，历史数据原地保留供旧统计使用
+- 密法（isTantric）对未授权学员零痕迹，对管理端不过滤
 
 ---
 
@@ -45,12 +52,6 @@
 ### 2.1 新增枚举
 
 ```prisma
-// 班级管理员角色
-enum ClassAdminRole {
-  zhumai  // 主麦：班级运营 + 讲考管理 + 审核打卡
-  aixin   // 爱心师兄：关怀跟进
-}
-
 // 学习模式
 enum LearningMode {
   class       // 跟班学习
@@ -61,19 +62,19 @@ enum LearningMode {
 // 班级成员状态（替代 removedAt 二态）
 enum CohortMemberStatus {
   active      // 正常学习
-  paused      // 暂停（师兄自助，可恢复）
+  paused      // 暂停（自助，可恢复）
   held_back   // 留级（移至下一届）
   graduated   // 毕业
   left        // 退班
 }
 
-// 修持愿 7 态状态机
+// 修持愿 7 态状态（打卡后实时重算；掉队检测系统独立使用同名状态，语义不同）
 enum VowStatus {
   on_track        // 正常
   slightly_behind // 略微落后
   falling_behind  // 明显落后
   at_risk         // 高风险
-  will_overdue    // 即将超期
+  will_overdue    // 即将超期（优先级最高）
   completed       // 已完成
   paused          // 已暂停
 }
@@ -84,13 +85,21 @@ enum VowSource {
   custom  // 师兄自发建
 }
 
-// 修持计量方式
+// 修持愿场景（多态单表）
+enum VowContext {
+  class        // 班级修学愿
+  event        // 法会愿
+  appointment  // 约修愿
+  personal     // 纯个人愿
+}
+
+// 修持计量方式（模板层声明）
 enum PracticeMeasurement {
   count     // 遍数（念诵类）
   duration  // 座次 + 时长（禅修类）
 }
 
-// 账号状态（扩展现有 status 字段语义）
+// 账号状态
 enum ProfileStatus {
   active
   suspended
@@ -103,28 +112,32 @@ enum ProfileStatus {
 
 ### 2.2 现有表字段扩展
 
-#### `User` 表（+5 个字段）
+#### `User` 表（+6 个字段）
 
 ```prisma
 model User {
   // ... 现有所有字段保留 ...
 
   // 新增
-  studentId          String?      @unique
+  studentId          String?  @unique
   // 格式：{年份4位}{序号3位}，如 2026001
   // 新注册：后端事务自动生成；老学员植入：传入原值，系统不覆盖
+  // ⚠️ 上线前必须完成历史数据导入（开放注册前）
 
-  accessibilityNeeds String[]     @default([])
+  accessibilityNeeds String[] @default([])
   // 取值约束：['blind', 'deaf']，应用层校验
 
-  dataSource         String       @default("self_register")
+  dataSource         String   @default("self_register")
   // 取值：self_register / imported / admin_created
 
   learningMode       LearningMode @default(class)
   // class / self_study / both
 
-  preferShowFaxin    Boolean      @default(true)
+  preferShowFaxin    Boolean  @default(true)
   // 打卡前是否显示发心语（三殊胜精神框架）
+
+  timezone           String?
+  // IANA 格式（如 America/New_York），用户设置页选择，自学进度和个人愿打卡时区基准
 }
 ```
 
@@ -133,15 +146,20 @@ model User {
 ```prisma
 model Class {
   // ... 现有字段保留（joinCode / name / courseId 等）...
+  // courseId 保留，语义更新为"当前主修法本"，辅导员可切换
 
   // 新增
   programId  String?
+  // 所属科系（关联 Program）
+
   startDate  DateTime?
   // 班级起始日期，算法基准：当前课时号 = 自然周数 - 休息周数
+
   city       String?
   // 班级所在城市（北京 / 纽约 / 香港等）
+
   timezone   String?
-  // IANA 时区，如 America/New_York。共修/讲考时间按此时区显示
+  // IANA 时区（如 America/New_York）；共修/讲考场次时间按此时区展示
 
   program    Program? @relation(fields: [programId], references: [id])
 }
@@ -152,12 +170,12 @@ model Class {
 ```prisma
 model ClassMember {
   // ... 现有字段保留（classId / userId / role / joinedAt / removedAt）...
-  // removedAt 保留不删，存量数据兼容
+  // removedAt 保留，旧退班数据兼容；新退班用 cohortStatus='left'
 
   // 新增
   cohortStatus       CohortMemberStatus @default(active)
   isPrimary          Boolean            @default(false)
-  // 同一时刻一个师兄只有一个主班，应用层事务保证唯一（不用 DB 唯一索引）
+  // 同一时刻一个师兄只有一个主班，应用层事务保证（不用 DB 唯一索引）
   heldBackCount      Int                @default(0)
   statusChangedAt    DateTime?
   statusChangedBy    String?            // 操作人 userId
@@ -173,10 +191,14 @@ model Course {
   // ... 现有字段保留 ...
 
   // 新增
-  isTantric  Boolean  @default(false)
+  isTantric         Boolean  @default(false)
   // 密法标识：未授权师兄所有查询均不返回（零痕迹，非"看到但打不开"）
-  programId  String?
-  program    Program? @relation(fields: [programId], references: [id])
+  // 管理端（主麦/辅导员/admin）不过滤，始终可见
+
+  programSemesterId String?
+  // 归属科目（ProgramSemester）；通过科目派生 programId，不再直接存 programId
+
+  programSemester ProgramSemester? @relation(fields: [programSemesterId], references: [id])
 }
 ```
 
@@ -188,8 +210,7 @@ model Lesson {
 
   // 新增
   sourceText String?
-  // 法本原文正文（造论者所著）
-  // 与现有 referenceText 并存，referenceText 不废弃
+  // 法本原文正文（造论者所著），与现有 referenceText 并存，referenceText 不废弃
 }
 ```
 
@@ -199,9 +220,9 @@ model Lesson {
 model ClassSession {
   // ... 现有字段保留（classId / title / startAt / durationMin / liveLink 等）...
 
-  // 新增（将 ClassSession 扩展为"共修场次"）
+  // 新增（扩展 ClassSession 承载共修场次）
   lessonId     String?
-  // 本次共修对应哪节课
+  // 本次共修对应哪节课（不新建 group_sessions 表）
   sessionEndAt DateTime?
   // 结束时刻（审核态时间窗口使用）
 
@@ -209,17 +230,31 @@ model ClassSession {
 }
 ```
 
-#### `UserCourseEnrollment` 表（+3 个字段）
+#### `Meditation` 表（+3 个字段）
 
 ```prisma
-model UserCourseEnrollment {
-  // ... 现有字段保留（source / enrolledViaClassId 等）...
+model Meditation {
+  // ... 现有字段全部保留（视频/转图PPT/章节/字幕/发布管理等）...
 
-  // 新增（自学模式时间推进）
-  selfStudyStartDate DateTime?
-  selfStudyPace      String?   // standard / fast / custom
-  selfStudyStatus    String    @default("active")
-  // active / paused / completed / abandoned
+  // 新增（92修法系列归组；替代已删除的 PracticeGuide 表）
+  seriesKey    String?  // 修法系列标识（如 "92xiufa"）
+  seriesNumber Int?     // 第几法（92修法为 1-92；其他修法为 null）
+  isTantric    Boolean  @default(false)
+  // 密法标识：同 Course.isTantric，未授权学员查询全过滤
+
+  @@unique([seriesKey, seriesNumber])
+}
+```
+
+#### `PracticeProject` 表（+1 个字段）
+
+```prisma
+model PracticeProject {
+  // ... 现有字段保留（含 scope，新系统不依赖 scope，历史数据兼容）...
+
+  // 新增
+  isTantric Boolean @default(false)
+  // 密法标识：此项目产生的 PracticeLog 在管理端始终可见
 }
 ```
 
@@ -231,7 +266,8 @@ model UserCourseEnrollment {
 
 ```prisma
 // 科系（加行 / 净土 / 入行论 / 基础等）
-// Academy 层暂不建表，此处预留 academyId 字段
+// 三层结构：科系（Program）→ 科目（ProgramSemester）→ 法本（Course）
+// Academy 层暂不建表，预留 academyId 字段
 model Program {
   id          String   @id @default(cuid())
   name        String   // "加行"
@@ -242,33 +278,54 @@ model Program {
   createdAt   DateTime @default(now())
 
   classes     Class[]
-  courses     Course[]
-  selfStudy   UserSelfStudyProgram[]
   semesters   ProgramSemester[]
   weeks       ProgramWeek[]
   studyTypes  ProgramStudyType[]
+  selfStudy   UserSelfStudyProgram[]
 }
 ```
 
 #### 班级管理员（1 张）
 
 ```prisma
-// 主麦 / 爱心师兄（从 ClassMember.role=coach 独立出来）
-// Migration：现有 ClassMember.role='coach' 数据批量写入此表，role=zhumai
+// 细粒度 RBAC flags（替代旧的 role=zhumai|aixin 枚举方案）
+// Admin 后台逐模块分配权限，灵活组合
+// 同一人同一班只有一条记录（@@unique([classId, userId])），跨班各自独立
 model ClassAdmin {
-  id         String         @id @default(cuid())
-  classId    String
-  userId     String
-  role       ClassAdminRole // zhumai / aixin
-  assignedAt DateTime       @default(now())
-  assignedBy String?        // 操作人 admin userId
+  id      String @id @default(cuid())
+  classId String
+  userId  String
 
-  class      Class          @relation(fields: [classId], references: [id])
-  user       User           @relation(fields: [userId], references: [id])
+  // 模块权限（admin 后台逐项勾选）
+  canManageMembers  Boolean @default(false)  // 成员管理（暂停/留级/毕业/退班）
+  canManageExams    Boolean @default(false)  // 讲考场次管理
+  canAuditPractice  Boolean @default(false)  // 审核打卡（StudyRecord + PracticeLog）
+  canViewStudents   Boolean @default(false)  // 查看学员修行数据（愿/打卡/日记）
+  canCareFollowup   Boolean @default(false)  // 关怀跟进记录（CareFollowup）
+  canEditGoals      Boolean @default(false)  // 编辑愿的每日目标量
+  canManageCourse   Boolean @default(false)  // 课程进度/法本切换/升科目
 
-  @@unique([classId, userId, role])
+  // 操作级权限（作用于已开放的所有模块）
+  canEdit   Boolean @default(true)
+  canDelete Boolean @default(false)
+
+  assignedAt DateTime @default(now())
+  assignedBy String?  // 操作人 admin userId
+  createdAt  DateTime @default(now())
+
+  class Class @relation(fields: [classId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([classId, userId])
 }
 ```
+
+**预设含义（参考，无需写进表）：**
+| 原概念 | 对应 flags |
+|---|---|
+| 主麦（全权班管）| 全部 true |
+| 爱心（关怀跟进）| canViewStudents + canCareFollowup = true，其余 false |
+| 自定义子角色 | admin 后台任意组合 |
 
 #### 双模式学习（3 张）
 
@@ -285,7 +342,8 @@ model CohortRestWeek {
   class         Class    @relation(fields: [classId], references: [id])
 }
 
-// 自学师兄的科系学习记录
+// 自学师兄的科系学习记录（科系级）
+// 自学进度算法 = 班级进度算法，但用个人 startDate + 个人休息周
 model UserSelfStudyProgram {
   id        String   @id @default(cuid())
   userId    String
@@ -315,11 +373,11 @@ model UserSelfStudyRestWeek {
 }
 ```
 
-#### 课程内容扩展（2 张）
+#### 课程内容扩展（1 张）
 
 ```prisma
 // 课时多讲者讲解资源
-// 替代 Lesson 上的固定 teacher 槽位，原有 teacher 字段保留不删
+// 替代 Lesson 上的固定 teacher 槽位，原有 teacher 字段保留不删（存量数据兼容）
 model LessonResource {
   id          String   @id @default(cuid())
   lessonId    String
@@ -332,22 +390,9 @@ model LessonResource {
 
   lesson      Lesson   @relation(fields: [lessonId], references: [id])
 }
-
-// 观修引导内容（92修法等 duration 类修法）
-model PracticeGuide {
-  id            String   @id @default(cuid())
-  practiceId    String   // 关联现有 PracticeProject.id
-  contentNumber Int?     // 第几法（92修法：1-92；其他可为 null）
-  title         String
-  videoUrl      String?
-  guideText     String?
-  sortOrder     Int      @default(0)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-
-  @@unique([practiceId, contentNumber])
-}
 ```
+
+注：`PracticeGuide` 表已删除，功能并入 `Meditation.seriesKey/seriesNumber`（见冲突 2 决议）。
 
 #### 修持愿系统（4 张）
 
@@ -390,16 +435,20 @@ model CohortRecommendedTemplate {
 }
 
 // 修持愿（7 态状态机核心表）
+// 两正交维度：source（怎么建的）× context（为什么发、挂在哪）
 model UserPracticeVow {
-  id    String    @id @default(cuid())
+  id     String    @id @default(cuid())
   userId String
   source VowSource // auto / custom
 
-  // 关联
-  templateId        String?  // auto 愿关联模板
-  classId           String?  // auto 愿关联班级（custom 愿可为 null）
-  eventId           String?  // 法会回向标签
-  appointmentId     String?  // 约修关联
+  // 场景（多态单表）
+  context VowContext // class / event / appointment / personal
+
+  // 可空外键（按 context 填对应项，应用层校验）
+  templateId     String?  // auto 愿关联模板
+  classId        String?  // 班级愿（auto/custom 均可）
+  eventId        String?  // 法会愿
+  appointmentId  String?  // 约修愿
 
   // 修持内容
   practiceProjectId String   // 修什么（关联现有 PracticeProject）
@@ -415,92 +464,97 @@ model UserPracticeVow {
   // 节奏历史（每次调整自动追加）
   paceHistory       Json?    // [{set_at, daily_target, changed_by, reason}]
 
-  // 时间
+  // 时间（UTC 时间戳）
   startDate         DateTime
   currentEndDate    DateTime?
-  // auto 愿：仅主麦可改（自动写 AuditLog）
+  // auto 愿：仅 canEditGoals=true 的管理员可改（自动写 AuditLog）
   // custom 愿：师兄自己可改
 
-  // 进度
+  // 进度（乐观计算：未确认打卡立即计入）
   currentCount        Int     @default(0)
   currentSessionCount Decimal @default(0)
 
-  // 状态（仅主麦/爱心可见，师兄端 API 不返回）
+  // 状态（7 态，打卡后实时重算；优先级：will_overdue > at_risk > falling_behind > slightly_behind > on_track）
+  // 仅管理者可见，师兄端 API 不返回此字段
   currentStatus      VowStatus @default(on_track)
   statusCalculatedAt DateTime?
 
   // 生命周期
-  status      String    @default("active") // active / paused / completed / abandoned
-  pausedAt    DateTime?
-  pausedBy    String?   // 暂停人 userId
+  status       String    @default("active") // active / paused / completed / abandoned
+  pausedAt     DateTime?
+  pausedBy     String?   // 暂停人 userId
   pausedReason String?
-  resumedAt   DateTime?
-  completedAt DateTime?
+  resumedAt    DateTime?
+  completedAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user     User              @relation(fields: [userId], references: [id])
-  template PracticeTemplate? @relation(fields: [templateId], references: [id])
-  logs     PracticeLog[]
+  user        User              @relation(fields: [userId], references: [id])
+  template    PracticeTemplate? @relation(fields: [templateId], references: [id])
+  appointment PracticeAppointment? @relation(fields: [appointmentId], references: [id])
+  logs        PracticeLog[]
 }
 
-// 修持打卡记录
+// 修持打卡记录（自描述模型，vowId 可空）
+// 三种打卡场景：
+//   日常裸打卡：vowId=null, eventId=null
+//   发愿修持（含法会）：vowId=有, eventId=有（法会愿时）
+//   随喜参与法会（不发愿）：vowId=null, eventId=有
+// 现有 PracticeEntry 停止新写入（历史数据保留）；新打卡一律走 PracticeLog
 model PracticeLog {
   id     String @id @default(cuid())
   userId String
-  vowId  String // 必须关联一条愿（非空）
 
-  // 计量
-  count           Int?
-  durationMinutes Int?
-  sessionCount    Decimal?
-  // 自动计算：≥30min=1座, ≥15min=0.5座, <15min=0座
+  // 修什么（必填，自描述，独立于愿）
+  practiceProjectId String
+  meditationId      String?  // 92修法第几法（指向 Meditation.id，seriesNumber 表示第几法）
 
-  sessionAttempt  Int      @default(1) // 同日第几次打卡
+  // 可选关联层
+  vowId   String?  // 有发愿才挂（日常裸打卡为空）
+  eventId String?  // 随喜法会直接挂，不必先发愿
+  classId String?  // 班级归属（无愿也能算班级/每周回向）
 
-  // 92修法：必填
-  practiceGuideId String?  // 选的第几法（92修法时不可为 null）
+  // 双计量
+  count           Int?      // 遍数（咒语）
+  durationMinutes Int?      // 时长（座次类）
+  sessionCount    Decimal?  // 座次（自动计算：≥30min=1, ≥15min=0.5, <15min=0）
 
-  // 反思
-  reflection   String?
-  reflectionAt DateTime?
-
-  logDate   DateTime
-  logTime   DateTime?
+  source      String   @default("manual") // manual / bulk / tap / shake
+  reflection  String?
+  logDate     DateTime // UTC 时间戳；可补填历史日期；显示层按 User.timezone 或 Class.timezone 转换
 
   // 审核态
-  isConfirmed  Boolean   @default(false)
-  confirmedAt  DateTime?
-  confirmedBy  String?   // 主麦 userId
+  isConfirmed Boolean   @default(false)
+  confirmedAt DateTime?
+  confirmedBy String?   // 管理员 userId
 
   createdAt DateTime @default(now())
 
-  user User            @relation(fields: [userId], references: [id])
-  vow  UserPracticeVow @relation(fields: [vowId], references: [id])
+  user User             @relation(fields: [userId], references: [id])
+  vow  UserPracticeVow? @relation(fields: [vowId], references: [id])
 }
 ```
 
 #### 闻思打卡系统（3 张）
 
 ```prisma
-// 闻思类打卡（听课 / 讲记 / 讲考 / 共修）
+// 闻思类打卡（仅覆盖讲考 + 共修；听/读/观修走轻量 LessonCompletion，不审核）
 model StudyRecord {
-  id      String @id @default(cuid())
-  userId  String
-  classId String?  // 自学师兄可为 null
-  lessonId String  // 所有打卡必须绑定课时
+  id       String  @id @default(cuid())
+  userId   String
+  classId  String?  // 自学师兄可为 null
+  lessonId String   // 所有打卡必须绑定课时
 
   studyType String
-  // listen            听课
-  // read_notes        读讲记
-  // speaking_present  讲考：主讲（三选一）
-  // speaking_question 讲考：提问（三选一）
-  // speaking_observe  讲考：旁听（三选一）
-  // group_attend      共修：出席（二选一）
-  // group_absent      共修：缺席（二选一）
+  // speaking_present  讲考：主讲（三选一，互斥）
+  // speaking_question 讲考：提问（三选一，互斥）
+  // speaking_observe  讲考：旁听（三选一，互斥）
+  // group_attend      共修：出席（二选一，互斥）
+  // group_absent      共修：缺席（二选一，互斥）
   // group_review      共修：复习
   // group_summary     共修：总结
+  // 注：listen 和 read_notes 已从此表移除，走 LessonCompletion
 
   lessonResourceId  String?  // 听课/读讲记：选哪位讲者版本
   classSessionId    String?  // 共修：关联 ClassSession
@@ -510,9 +564,9 @@ model StudyRecord {
   createdBy String?  // 本人或主麦代录
 
   // 审核态
-  isConfirmed  Boolean   @default(false)
-  confirmedAt  DateTime?
-  confirmedBy  String?   // 主麦 userId
+  isConfirmed Boolean   @default(false)
+  confirmedAt DateTime?
+  confirmedBy String?   // 管理员 userId
 
   createdAt DateTime @default(now())
 
@@ -527,7 +581,7 @@ model SpeakingSession {
   lessonId     String
   sessionEndAt DateTime // 审核窗口截止时间
   notes        String?
-  createdBy    String   // 主麦 userId
+  createdBy    String   // 管理员 userId
   createdAt    DateTime @default(now())
 
   class  Class  @relation(fields: [classId], references: [id])
@@ -536,13 +590,12 @@ model SpeakingSession {
   @@unique([classId, lessonId])
 }
 
-// 每日修持日记
-// 与现有 Note（课时笔记）完全不同：日记绑日期，笔记绑课时
+// 每日修持日记（与现有 Note 课时笔记完全不同：日记绑日期，笔记绑课时）
 model PracticeJournal {
   id          String   @id @default(cuid())
   userId      String
   classId     String?
-  journalDate DateTime // 对应日期（不含时间）
+  journalDate DateTime // 对应日期
   content     String
   visibility  String   @default("private")
   // private / visible_to_coach
@@ -556,14 +609,40 @@ model PracticeJournal {
 }
 ```
 
+#### 内容完成标记（1 张）
+
+```prisma
+// 轻量内容消费完成标记（听/读/观修/音频/视频，不审核，即时生效）
+// 预留音频课程和视频课程扩展（type=audio / type=video）
+// 与现有 LessonReadingProgress（细粒度滚动进度）并存，不替代
+// MeditationSession（视频观看进度，≥80% 自动完成）并存，完成后写一条此表（type=meditation）
+model LessonCompletion {
+  id          String   @id @default(cuid())
+  userId      String
+  classId     String?  // 班级归属，用于后台/班级统计聚合
+
+  // 内容定位（二选一必填）
+  lessonId    String?  // 法本课时（听课/读法本）
+  contentRef  String?  // 通用内容 ID（Meditation.id / 未来 AudioCourse.id 等）
+
+  type        String   // 'listen' | 'read' | 'meditation' | 'audio' | 'video'
+  completedAt DateTime
+  durationSec Int?     // 实际消耗时长（音频/视频自动记录）
+
+  @@unique([userId, contentRef, type])
+}
+```
+
+**批量补录说明：** 批量勾选多节课 → 一次性写入 `LessonCompletion`（type=listen 或 type=read），无次数限制，无审核。
+
 #### 思考题（1 张）
 
 ```prisma
-// 参考答案独立表（替代 Question.payload.referenceAnswer）
-// 现有 Question.payload 字段保留，此表作为正式来源
+// 参考答案独立表（替代 Question.payload.referenceAnswer，payload 字段保留）
+// 师兄提交答案后才能查看；答案全局唯一（一题一份）；师兄修改答案无次数限制
 model QuestionReference {
   id            String    @id @default(cuid())
-  questionId    String    @unique // 每题唯一一份参考答案
+  questionId    String    @unique
   referenceText String
   publishedAt   DateTime?
   publishedBy   String?   // admin userId
@@ -576,33 +655,35 @@ model QuestionReference {
 #### 排表模板系统（6 张）
 
 ```prisma
-// 学期模板（第几学期，第几周到第几周）
+// 科目（最小排课单位；语义=科目/年级，下面直接是周，不再分上下学期）
+// 示例：加行一年级（第1-26周）、加行二年级（第27-52周）
 model ProgramSemester {
   id             String   @id @default(cuid())
   programId      String
-  semesterNumber Int      // 第几学期
-  semesterName   String?
+  semesterNumber Int      // 科目序号（1=一年级）
+  semesterName   String?  // 科目名（如"加行一年级"）
   startsWeek     Int      // 全程第几周开始
   endsWeek       Int      // 全程第几周结束
 
-  program Program       @relation(fields: [programId], references: [id])
-  weeks   ProgramWeek[]
+  program  Program        @relation(fields: [programId], references: [id])
+  weeks    ProgramWeek[]
+  courses  Course[]
 
   @@unique([programId, semesterNumber])
 }
 
-// 周模板（不存具体日历日期，只存内容序号）
+// 周模板（不存具体日历日期，只存内容序号；周编号每班独立，从本班 startDate 起算）
 model ProgramWeek {
   id            String   @id @default(cuid())
   programId     String
   semesterId    String
-  weekNumber    Int      // 学期内第几周
-  globalWeekNum Int      // 全程第几周
+  weekNumber    Int      // 科目内第几周
+  globalWeekNum Int      // 科系全程第几周
   isHoliday     Boolean  @default(false)
   notes         String?
 
-  program   Program         @relation(fields: [programId], references: [id])
-  semester  ProgramSemester @relation(fields: [semesterId], references: [id])
+  program   Program          @relation(fields: [programId], references: [id])
+  semester  ProgramSemester  @relation(fields: [semesterId], references: [id])
   courses   ProgramWeekCourse[]
   practices ProgramWeekPractice[]
   selfStudy ProgramWeekSelfStudy[]
@@ -624,16 +705,16 @@ model ProgramWeekCourse {
 
 // 周 ↔ 修法建议（92修法 / 上师瑜伽等）
 model ProgramWeekPractice {
-  id              String @id @default(cuid())
-  weekId          String
-  practiceId      String // 关联现有 PracticeProject
-  practiceGuideId String? // 具体第几法
-  displayOrder    Int     @default(0)
-  notes           String?
+  id           String  @id @default(cuid())
+  weekId       String
+  practiceId   String  // 关联现有 PracticeProject
+  meditationId String? // 92修法时：指向 Meditation（含 seriesNumber，即第几法）
+  displayOrder Int     @default(0)
+  notes        String?
 
   week ProgramWeek @relation(fields: [weekId], references: [id])
 
-  @@unique([weekId, practiceId, practiceGuideId])
+  @@unique([weekId, practiceId, meditationId])
 }
 
 // 周 ↔ 自学读物映射
@@ -652,7 +733,7 @@ model ProgramWeekSelfStudy {
 // 各科系打卡要求声明（数据驱动，不硬编码）
 model ProgramStudyType {
   programId    String
-  studyType    String  // listen / read_notes / speaking_present 等
+  studyType    String  // speaking_present / group_attend 等
   requirement  String  // required / recommended
   displayOrder Int     @default(0)
   displayLabel String  // 前端显示名
@@ -666,7 +747,7 @@ model ProgramStudyType {
 #### 自学读物（2 张）
 
 ```prisma
-// 18 本《大学演讲系列》种子数据
+// 18 本《大学演讲系列》种子数据（预置内容）
 model SelfStudyBook {
   id           String @id @default(cuid())
   bookNumber   Int    // 1-18
@@ -706,43 +787,56 @@ model SelfStudyRecord {
 #### 集体功能（3 张）
 
 ```prisma
-// 法会活动（集体回向依赖此表）
-// 与现有 DharmaAssembly 并存：DharmaAssembly 用于展示，Event 用于回向统计
+// 法会活动（集体回向依赖此表；与现有 DharmaAssembly 并存）
+// 藏历法会：timezone = "Asia/Shanghai"（西藏时间 = 北京时间 UTC+8）
+// 法会边界判断：服务器将 PracticeLog.logDate（UTC）转为 Event.timezone 本地日期后比较
 model Event {
   id          String   @id @default(cuid())
   title       String
   eventType   String   // puja / dharma_assembly / weekly
-  startDate   DateTime
+  startDate   DateTime // Event.timezone 所在地的日期（全天事件）
   endDate     DateTime
+  timezone    String   // 必填，IANA 格式（藏历法会固定填 Asia/Shanghai）
+  tibetanDate String?  // 纯展示文字（如"藏历四月十五"），不参与任何计算
   description String?
   isActive    Boolean  @default(true)
   createdBy   String   // admin userId
   createdAt   DateTime @default(now())
 }
 
-// 约修（师兄发起，加入 = 自动建一条 custom 愿）
+// 约修（⏸ DB + 后台先建，学员端 UI 暂缓）
+// 可见性：仅本班成员可见（classId 必填，不跨班）
+// 总目标：集体目标，无个人指标
+// 自动关闭：endDate 到期（expired）或 currentTotal ≥ totalTarget（completed）
 model PracticeAppointment {
-  id            String    @id @default(cuid())
-  initiatorId   String
-  classId       String?
-  title         String
-  targetCount   Int?
-  practiceId    String    // 关联 PracticeProject
-  scheduledDate DateTime?
-  notes         String?
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
+  id                String   @id @default(cuid())
+  creatorId         String   // 创建者（班级任意成员）
+  classId           String   // 必填，仅对该班成员可见
 
-  initiator User @relation(fields: [initiatorId], references: [id])
-  // 参与者通过 UserPracticeVow.appointmentId 关联，N 人加入 = N 条 custom 愿
+  practiceProjectId String   // 修什么（关联 PracticeProject）
+  totalTarget       Int      // 集体总目标量
+  currentTotal      Int      @default(0)  // 缓存累计量，每次打卡后更新
+
+  startDate         DateTime?
+  endDate           DateTime  // 必填，到期自动关闭
+
+  description       String?
+  status            String   @default("active")
+  // active | completed（目标达成）| expired（到期未完成）| cancelled（创建者取消）
+
+  createdAt         DateTime @default(now())
+
+  vows UserPracticeVow[]
+
+  @@index([classId, status])
 }
 
-// 关怀跟进记录（仅爱心师兄填写，师兄端完全不可见）
+// 关怀跟进记录（仅 canCareFollowup=true 的 ClassAdmin 可填写，师兄端完全不可见）
 model CareFollowup {
   id             String   @id @default(cuid())
   studentId      String   // 被关怀的师兄 userId
   classId        String
-  careWorkerId   String   // 爱心师兄 userId
+  careWorkerId   String   // 关怀人 userId
   contactedAt    DateTime
   summary        String
   followUpStatus String   @default("pending")
@@ -759,7 +853,10 @@ model CareFollowup {
 
 ```prisma
 // 密法白名单（admin 直接 INSERT，无申请审批）
-// 未在白名单的师兄，所有 Course 查询均过滤掉密法（零痕迹）
+// 作用：控制学员是否能访问和使用密法内容（Course/Meditation/PracticeProject.isTantric=true）
+// 未在白名单的学员：所有密法查询均过滤（零痕迹）
+// 管理端（主麦/辅导员/admin）无需授权即可查看所有密法数据
+// 撤销后：历史打卡和愿记录保留，学员失去内容访问权
 model TantricAccessGrant {
   id        String   @id @default(cuid())
   userId    String
@@ -781,12 +878,12 @@ model TantricAccessGrant {
 model CohortWeeklySummary {
   id            String   @id @default(cuid())
   classId       String
-  weekStartDate DateTime
+  weekStartDate DateTime // Class.timezone 所在地的周一日期
   weekEndDate   DateTime
   summaryData   Json     // 结构化汇总（修持总量 / 闻思打卡人数等）
   generatedAt   DateTime @default(now())
   sharedAt      DateTime?
-  sharedBy      String?  // 主麦 userId
+  sharedBy      String?  // 管理员 userId
 
   class Class @relation(fields: [classId], references: [id])
 
@@ -802,35 +899,30 @@ model CohortWeeklySummary {
 
 ```sql
 -- 法会回向聚合视图（只显总量，不露个人）
--- 密法愿（practiceProject.isTantric=true）不计入
+-- 密法打卡计入集体回向（不再过滤 isTantric）
 CREATE VIEW v_event_dedication_totals AS
 SELECT
-  v.event_id,
-  v.practice_project_id,
-  SUM(pl.count)            AS total_count,
-  SUM(pl.duration_minutes) AS total_minutes,
-  COUNT(DISTINCT v.user_id) AS participant_count
-FROM user_practice_vows v
-JOIN practice_logs pl ON pl.vow_id = v.id
-JOIN practice_projects pp ON pp.id = v.practice_project_id
-WHERE v.event_id IS NOT NULL
-  AND pp.is_tantric = false
-GROUP BY v.event_id, v.practice_project_id;
+  pl.event_id,
+  pl.practice_project_id,
+  SUM(pl.count)              AS total_count,
+  SUM(pl.duration_minutes)   AS total_minutes,
+  COUNT(DISTINCT pl.user_id) AS participant_count
+FROM practice_logs pl
+WHERE pl.event_id IS NOT NULL
+GROUP BY pl.event_id, pl.practice_project_id;
 
 -- 每周回向聚合视图（班级层 + 全会层）
+-- 密法打卡同样计入
 CREATE VIEW v_weekly_dedication_totals AS
 SELECT
   DATE_TRUNC('week', pl.log_date) AS week_start,
-  v.class_id,
-  v.practice_project_id,
-  SUM(pl.count)            AS total_count,
-  SUM(pl.duration_minutes) AS total_minutes,
-  COUNT(DISTINCT v.user_id) AS participant_count
+  pl.class_id,
+  pl.practice_project_id,
+  SUM(pl.count)              AS total_count,
+  SUM(pl.duration_minutes)   AS total_minutes,
+  COUNT(DISTINCT pl.user_id) AS participant_count
 FROM practice_logs pl
-JOIN user_practice_vows v ON pl.vow_id = v.id
-JOIN practice_projects pp ON pp.id = v.practice_project_id
-WHERE pp.is_tantric = false
-GROUP BY DATE_TRUNC('week', pl.log_date), v.class_id, v.practice_project_id;
+GROUP BY DATE_TRUNC('week', pl.log_date), pl.class_id, pl.practice_project_id;
 ```
 
 ---
@@ -842,39 +934,38 @@ GROUP BY DATE_TRUNC('week', pl.log_date), v.class_id, v.practice_project_id;
 | 模块 | 路由前缀 | 主要功能 |
 |---|---|---|
 | Programs | `/api/programs` | 科系 CRUD（admin）|
-| ClassAdmins | `/api/classes/:id/admins` | 主麦/爱心分配管理 |
+| ClassAdmins | `/api/classes/:id/admins` | ClassAdmin RBAC 分配管理 |
 | CohortRestWeeks | `/api/classes/:id/rest-weeks` | 班级休息周管理 |
 | CurrentLesson | `/api/classes/:id/current-lesson` | 当前课时号查询（进度算法）|
 | VowTemplates | `/api/practice-templates` | 修持模板管理（admin）|
 | Vows | `/api/vows` | 修持愿 CRUD + 状态机 |
 | VowLogs | `/api/vows/:id/logs` | 修持打卡 |
-| VowPause | `/api/vows/:id/pause` + `/resume` | 愿暂停/恢复 |
-| StudyRecords | `/api/study-records` | 闻思打卡（含批量补录）|
+| VowPause | `/api/vows/:id/pause` + `/resume` | 愿暂停/恢复（自助，无审批）|
+| StudyRecords | `/api/study-records` | 闻思打卡（讲考+共修，含批量）|
 | SpeakingSessions | `/api/classes/:id/speaking-sessions` | 讲考场次管理 |
 | PracticeJournals | `/api/journals` | 修持日记 CRUD |
 | SelfStudy | `/api/self-study` | 自学师兄管理 + 读物记录 |
 | Events | `/api/events` | 法会活动（admin）+ 回向聚合 |
-| Appointments | `/api/appointments` | 约修发起 / 加入 |
-| CareFollowups | `/api/care-followups` | 关怀跟进（爱心师兄专属）|
+| Appointments | `/api/appointments` | 约修创建/加入/关闭（⏸ UI 后做）|
+| CareFollowups | `/api/care-followups` | 关怀跟进（canCareFollowup=true 专属）|
 | TantricGrants | `/api/admin/tantric-grants` | 密法白名单（admin 专属）|
 
 ### 3.2 修改现有模块（6 个）
 
 | 模块 | 改动内容 |
 |---|---|
-| `users` | 注册时自动生成 studentId；返回 learningMode / preferShowFaxin；accessibilityNeeds 校验 |
+| `users` | 注册时自动生成 studentId；返回 learningMode / preferShowFaxin / timezone；accessibilityNeeds 校验 |
 | `classes` | 创建/编辑支持 programId / startDate / city / timezone |
-| `class-members` | 状态机操作（pause / hold-back / graduate / leave）；isPrimary 切换事务 |
-| `courses` | **所有查询加 isTantric 过滤**：未授权师兄的任何 Course 查询排除密法 |
+| `class-members` | 状态机操作（pause / hold-back / graduate / leave）；isPrimary 切换事务；ClassAdmin flags 验证 |
+| `courses` | **所有学员侧查询加 isTantric 过滤**：未授权学员的任何 Course 查询排除密法；管理端不过滤 |
 | `lessons` | 返回 sourceText 字段；关联 LessonResource |
 | `question-references` | 新接口：admin 管理参考答案；师兄提交答案后解锁查看 |
 
-### 3.3 核心业务逻辑实现
+### 3.3 核心业务逻辑
 
-#### 课程进度算法
+#### 课程进度算法（TS 函数，非 SQL 函数）
 
 ```typescript
-// 计算某班级在指定日期应学第几课
 async function getCurrentLessonNumber(
   classId: string,
   targetDate: Date
@@ -886,6 +977,7 @@ async function getCurrentLessonNumber(
   const targetMonday = getMonday(targetDate)
   const naturalWeeks = weeksBetween(startMonday, targetMonday) + 1
 
+  // 只计算目标日期之前的休息周（当天及之后不算）
   const restWeeks = await prisma.cohortRestWeek.count({
     where: {
       classId,
@@ -895,10 +987,12 @@ async function getCurrentLessonNumber(
 
   return Math.max(1, naturalWeeks - restWeeks)
 }
-// 验证：+2周无休息=第3课 ✓ | +1休息周后+2周=第2课 ✓
+// 验证：+2周无休息=第3课 ✓ | 中间1个休息周后+2周=第2课 ✓
+// 周编号每班独立，从本班 startDate 起算，不跨班共享
+// 升科目 = 主麦手动操作（需 canManageCourse=true），不自动触发
 ```
 
-#### 座次计算
+#### 座次计算（每次打卡调用）
 
 ```typescript
 function calcSessionCount(durationMinutes: number): number {
@@ -906,9 +1000,10 @@ function calcSessionCount(durationMinutes: number): number {
   if (durationMinutes >= 15) return 0.5
   return 0
 }
+// 阈值 30/15 分钟为确认值（测试场景文档 45/20 为举例，非阈值）
 ```
 
-#### 学号自动生成
+#### 学号自动生成（事务内调用）
 
 ```typescript
 async function generateStudentId(tx: PrismaTransaction): Promise<string> {
@@ -924,37 +1019,119 @@ async function generateStudentId(tx: PrismaTransaction): Promise<string> {
     : 1
   return `${prefix}${String(seq).padStart(3, '0')}`
 }
+// ⚠️ 历史数据导入必须在开放注册前完成，否则序号冲突
 ```
 
-#### 修持愿状态机更新（定时任务）
+#### 修持愿状态机（打卡后实时重算）
 
-- 每天凌晨 0 点跑一次（或按需触发）
-- 对 `status=active` 的愿计算 currentStatus：
-  - 当前进度 / 预期进度 ≥ 1.0 → `on_track`
-  - 0.8-1.0 → `slightly_behind`
-  - 0.6-0.8 → `falling_behind`
-  - 0.4-0.6 → `at_risk`
-  - < 0.4 → `will_overdue`
-- 结果写入 `currentStatus` + `statusCalculatedAt`
+**重算触发点**（全部实现）：
+- 每次提交 PracticeLog 后
+- 主麦修改愿的到期日（currentEndDate）后
+- 师兄暂停/恢复愿后
+- 补录历史打卡后
+
+**重算逻辑**：
+
+```typescript
+async function recalcVowStatus(vowId: string): Promise<VowStatus> {
+  const vow = await prisma.userPracticeVow.findUnique({
+    where: { id: vowId },
+    include: { logs: true }
+  })
+
+  if (!vow || vow.status === 'paused') return 'paused'
+
+  const totalCount = vow.logs.reduce((s, l) => s + (l.count ?? 0), 0)
+  if (vow.targetCount && totalCount >= vow.targetCount) return 'completed'
+
+  const now = new Date()
+  const totalDays = daysBetween(vow.startDate, vow.currentEndDate ?? now)
+  const elapsedDays = daysBetween(vow.startDate, now)
+  const expectedProgress = totalDays > 0 ? elapsedDays / totalDays : 1
+  const actualProgress = vow.targetCount ? totalCount / vow.targetCount : 1
+  const ratio = expectedProgress > 0 ? actualProgress / expectedProgress : 1
+
+  // 近 7 天日均速度预测
+  const recent7dayCount = countLogsInLast7Days(vow.logs)
+  const dailyRate = recent7dayCount / 7
+  const remaining = (vow.targetCount ?? 0) - totalCount
+  const daysToFinish = dailyRate > 0 ? remaining / dailyRate : Infinity
+  const daysLeft = daysBetween(now, vow.currentEndDate ?? now)
+  const willOverdue = daysToFinish > daysLeft
+
+  // 优先级链：will_overdue > at_risk > falling_behind > slightly_behind > on_track
+  if (willOverdue) return 'will_overdue'
+  if (ratio < 0.5) return 'at_risk'
+  if (ratio < 0.7) return 'falling_behind'
+  if (ratio < 0.9) return 'slightly_behind'
+  return 'on_track'
+}
+// 进度计算乐观：未确认（isConfirmed=false）的打卡立即计入，不等主麦确认
+// 阈值（0.5/0.7/0.9，近7天窗口）上线前可配置调整
+```
+
+**掉队检测**（独立系统，每日凌晨定时任务）：
+- 计算对象：学员在班级的综合学习状态（非单条愿）
+- 结果写入另一字段/表（与愿状态独立）
+- 4 级：on_track / slightly_behind / falling_behind / at_risk
+- 阈值基准：近 2 周修持达标率（实际/本班设定目标），⏸ 上线前可调
+
+**约修自动关闭**（每日凌晨定时任务）：
+
+```typescript
+async function closeExpiredAppointments() {
+  const now = new Date()
+  const expired = await prisma.practiceAppointment.findMany({
+    where: { status: 'active', endDate: { lt: now } }
+  })
+  for (const apt of expired) {
+    await prisma.$transaction([
+      prisma.practiceAppointment.update({
+        where: { id: apt.id },
+        data: { status: 'expired' }
+      }),
+      prisma.userPracticeVow.updateMany({
+        where: { appointmentId: apt.id, status: 'active' },
+        data: { status: 'paused' }
+      })
+    ])
+  }
+}
+```
+
+**法会边界判断（五层时区）**：
+
+```typescript
+function isPracticeLogInEvent(log: PracticeLog, event: Event): boolean {
+  // logDate 为 UTC，转为 event.timezone 本地日期后与 event 日期比较
+  const logLocalDate = toLocalDate(log.logDate, event.timezone)
+  return logLocalDate >= event.startDate && logLocalDate <= event.endDate
+}
+// 藏历法会 event.timezone = "Asia/Shanghai"
+// 纽约参与者在北京时间 00:00 之前的打卡不计入当天法会
+```
 
 ### 3.4 权限中间件（新增）
 
 ```
-vow-visibility.middleware.ts
-  师兄：where userId = currentUser.id
-  主麦：where source='auto' AND classId IN (主麦管理的班级)
-  跨班：禁止
-
-tantric-filter.middleware.ts
-  所有 Course 查询：若 isTantric=true，验证 TantricAccessGrant，无记录过滤掉
-  影响：courses 列表、搜索、lesson 关联的 course、class 关联的 course
-
 class-admin.middleware.ts
   验证 ClassAdmin 表中的 classId + userId 关系
-  zhumai / aixin 分别检查
+  按路由需求检查对应 flag（canManageMembers / canAuditPractice 等）
+  无记录或 flag=false → 403
+
+tantric-filter.middleware.ts
+  学员侧所有 Course / Meditation / PracticeProject 查询：
+    isTantric=true 时验证 TantricAccessGrant，无记录直接过滤（零痕迹）
+  管理端 API 不挂此中间件
+
+vow-visibility.middleware.ts
+  师兄：where userId = currentUser.id
+  管理员（canViewStudents=true）：where source='auto' AND classId IN (管理的班级)
+  custom 愿对管理员不可见
+  跨班禁止
 
 care-followup.middleware.ts
-  仅 ClassAdmin.role=aixin 可访问
+  仅 ClassAdmin.canCareFollowup=true 可访问
   师兄端路由不挂载此接口
 ```
 
@@ -962,97 +1139,135 @@ care-followup.middleware.ts
 
 ## 四、前端改动范围
 
-### 4.1 师兄端新增页面（6 个）
+### 4.1 学员端新增页面（6 个）
 
 | 页面 | 路由 | 说明 |
 |---|---|---|
-| 修持愿列表 | `/vows` | 查看自己全部愿（auto + custom）+ 进度 |
+| 修持愿列表 | `/vows` | 查看自己全部愿（auto + custom）+ 进度条 |
 | 修持打卡 | `/vows/:id/log` | 打卡（含座次自动计算）+ 回向 UI |
 | 修持日记 | `/journals` | 每日一篇，private / visible_to_coach |
-| 集体回向 | `/dedication` | 法会 + 每周总量（只显总数）|
+| 集体回向 | `/dedication` | 法会 + 每周总量（只显总数，不露个体）|
 | 自学读物 | `/books` | 18 本读物阅读进度 |
-| 约修 | `/appointments` | 查看约修 + 加入（自动建 custom 愿）|
+| 约修 | `/appointments` | 查看班级约修 + 加入（⏸ UI 暂缓）|
 
-### 4.2 师兄端修改页面（4 个）
+### 4.2 学员端修改页面（4 个）
 
 | 页面 | 改动 |
 |---|---|
-| 课程详情 | 多讲者 LessonResource 展示；按班级时区显示共修时间 |
+| 课程详情 | 多讲者 LessonResource 展示；按 Class.timezone 显示共修时间；「已学完」轻量按钮 |
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
-| 思考题 | 提交后解锁参考答案入口 |
-| 个人设置 | 发心语开关（preferShowFaxin）；学习模式展示 |
+| 思考题 | 提交后解锁参考答案入口（QuestionReference）|
+| 个人设置 | 发心语开关（preferShowFaxin）；timezone 选择 |
 
-### 4.3 主麦端新增页面（5 个）
+### 4.3 管理端（/coach/*）新增页面（5 个）
 
-| 页面 | 说明 |
-|---|---|
-| 师兄状态管理 | 批量操作：暂停 / 留级 / 毕业 / 退班 + 原因填写 |
-| 打卡审核中心 | 批量确认 StudyRecord + PracticeLog；可取消确认 |
-| 掉队名单 | 按 currentStatus 排序（at_risk 优先）；查看详情 |
-| 修持愿管理 | 查看本班所有 auto 愿；修改到期日 / 每日目标量 |
-| 班级周汇总 | 生成本周汇总数据；一键复制到 WhatsApp |
+```
+/coach/                            落地页：此人管理的班级列表
+/coach/:classId/                   班级首页（仅显示有权限的模块）
+/coach/:classId/members            canManageMembers（暂停/留级/毕业/退班）
+/coach/:classId/exams              canManageExams（讲考场次管理）
+/coach/:classId/audit              canAuditPractice（批量确认 StudyRecord + PracticeLog）
+/coach/:classId/students           canViewStudents（学员修行数据 + 掉队名单）
+/coach/:classId/care               canCareFollowup（关怀跟进记录）
+/coach/:classId/goals              canEditGoals（愿每日目标量）
+/coach/:classId/course             canManageCourse（法本切换/升科目，手动操作）
+```
 
-### 4.4 爱心师兄端新增页面（1 个）
-
-| 页面 | 说明 |
-|---|---|
-| 关怀跟进记录 | 填写联系记录；按 followUpStatus 筛选；师兄端入口不存在 |
-
-### 4.5 Admin 端新增页面（7 个）
+无权限的模块：前端不渲染（隐藏），后端 API 也守卫（双重保障，三端分离铁律不变）。
 
 | 页面 | 说明 |
 |---|---|
-| 科系管理 | Program CRUD（code 唯一）|
+| 成员状态管理 | 批量操作：暂停/留级/毕业/退班 + 原因填写；需 canManageMembers |
+| 打卡审核中心 | 批量确认 StudyRecord + PracticeLog；可取消确认；需 canAuditPractice |
+| 掉队名单 | 按掉队状态排序；查看详情；需 canViewStudents |
+| 修持愿管理 | 查看本班 auto 愿；修改到期日/每日目标量；需 canEditGoals |
+| 班级周汇总 | 生成本周汇总数据；一键复制到 WhatsApp；需 canViewStudents |
+
+### 4.4 Admin 端新增页面（7 个）
+
+| 页面 | 说明 |
+|---|---|
+| 科系管理 | Program CRUD（code 唯一）+ 科目/周排表 |
 | 修持模板管理 | PracticeTemplate CRUD + 班级绑定 |
-| 密法授权管理 | TantricAccessGrant：直接 INSERT/DELETE，无审批 |
-| 班级休息周 | CohortRestWeek 管理；实时预览算法效果 |
+| 密法授权管理 | TantricAccessGrant：直接 INSERT/DELETE（⏸ 学员 UI 暂缓，后台先做）|
+| 班级休息周 | CohortRestWeek 管理；实时预览课程进度效果 |
 | 参考答案管理 | QuestionReference CRUD；发布后师兄答题后可查看 |
-| 法会活动管理 | Event CRUD（法会回向依赖）|
+| 法会活动管理 | Event CRUD（法会回向依赖）+ 藏历日期展示字段 |
 | 自学师兄管理 | 全局查看自学进度；修改 status |
+| ClassAdmin 权限分配 | `/admin/classes/:id/admins`：搜索用户 → 逐 flag 勾选 → 保存 |
 
-### 4.6 无新增表的纯前端功能（3 个）
+### 4.5 无新增表的纯前端/后端逻辑（5 个）
 
 | 功能 | 实现方式 |
 |---|---|
-| 打卡报数文本生成 | 打卡后从 PracticeLog 组装文字，复制到剪贴板；密法不参与 |
-| 批量补录 | 多选课时 → 批量 POST /api/study-records；仅 listen/read_notes 类型 |
-| 打卡前发心语 | 读 User.preferShowFaxin；文案配置在前端常量或 SystemSetting |
+| 打卡报数文本生成 | 打卡后从 PracticeLog 组装文字，复制到剪贴板；密法参与报数 |
+| 批量补录 | 多选课时 → 批量 POST 写入 LessonCompletion；无次数限制 |
+| 打卡前发心语 | 读 User.preferShowFaxin；preferShowFaxin=false 时隐藏；文案配置在前端常量 |
+| 打卡后回向 UI | 打卡成功确认页，可选点击，不强制；无新增表 |
+| 掉队检测计算 | 后端定时任务，结果写掉队状态字段 |
 
 ---
 
 ## 五、业务规则与权限约束
 
-> 我们使用应用层中间件实现，不依赖数据库 RLS。
+> 使用应用层中间件实现，不依赖数据库 RLS。
 
 ### 权限红线（7 条）
 
 | 规则 | 实现 |
 |---|---|
 | 师兄只能看自己的愿 | API：`where userId = req.user.id` |
-| 跨班师兄互不可见 | API：验证 classId 归属 |
-| 主麦看本班 auto 愿，不看 custom 愿 | API：`where source='auto' AND classId IN (...)` |
-| 主麦不能跨班操作 | 中间件：验证 ClassAdmin 表记录 |
-| 密法零痕迹 | 所有 Course 查询：未授权则过滤 isTantric=true |
-| 关怀记录对师兄不可见 | CareFollowup 路由：仅 aixin 角色可访问 |
-| 掉队状态对师兄不可见 | Vow API 响应：师兄端不返回 currentStatus 字段 |
+| 跨班师兄互不可见愿 | API：验证 classId 归属 |
+| 管理员看本班 auto 愿，不看 custom 愿 | API：`where source='auto' AND classId IN (...)` |
+| 管理员不能跨班操作 | 中间件：验证 ClassAdmin 记录 |
+| 密法零痕迹（学员侧）| 所有学员侧 Course/Meditation/PracticeProject 查询：isTantric=true 过滤 |
+| 关怀记录对学员不可见 | CareFollowup 路由：仅 canCareFollowup=true 可访问 |
+| 掉队状态对学员不可见 | Vow API 响应：学员端不返回 currentStatus 字段 |
 
 ### 数据完整性约束（6 条）
 
 | 规则 | 实现 |
 |---|---|
 | 同一时刻只有一个主班 | 事务：先 `isPrimary=false`（全班），再 `isPrimary=true`（新主班）|
-| 92修法打卡必须选第几法 | Zod schema：`practiceGuideId` required when practiceType='92修法' |
+| 92修法打卡建议关联第几法 | Zod schema：meditationId 可空，但 seriesKey='92xiufa' 时建议不为空 |
 | 讲考三选一互斥 | 后端：同一场次同一人只能有一条 speaking_* 记录 |
 | 共修出席/缺席二选一 | 后端：同一场次同一人只能有一条 group_attend/absent 记录 |
 | 每日日记一人一天一篇 | DB：`@@unique([userId, journalDate])` |
 | 学号全局唯一 | DB：`studentId @unique` |
 
-### to期日变更权限
+### 到期日与目标量变更权限
 
 | 愿类型 | 谁能改到期日 | 谁能改每日目标量 |
 |---|---|---|
-| auto 愿 | 主麦（自动写 AuditLog）| 主麦 + 师兄自己 |
+| auto 愿 | canEditGoals=true 的管理员（自动写 AuditLog）| 管理员 + 师兄自己（节奏自主原则）|
 | custom 愿 | 师兄自己 | 师兄自己 |
+| 所有改动 | — | 自动写 AuditLog |
+
+### 五层时区规则
+
+| 场景 | 存储格式 | 时区基准 | 显示层处理 |
+|---|---|---|---|
+| 班级共修/讲考场次 | UTC timestamp | `Class.timezone` | 前端按班级时区转换显示 |
+| 打卡时间戳 `PracticeLog.logDate` | UTC timestamp | — | 前端按 `User.timezone` 或 `Class.timezone` 显示 |
+| 周汇总边界 `CohortWeeklySummary.weekStartDate` | `Class.timezone` 的周一日期 | `Class.timezone` | 直接展示 |
+| 自学进度计算 | UTC timestamp | `User.timezone` | 前端按 `User.timezone` 显示 |
+| 法会时间 `Event.startDate/endDate` | `Event.timezone` 的本地日期 | `Event.timezone` | 前端同时展示法会时区 + 用户本地时间，标注"以藏历所在地时间为准" |
+
+**藏历法会**：`Event.timezone` 固定填 `Asia/Shanghai`（西藏时间 = 北京时间 UTC+8）。法会日期边界按上海时间子夜（00:00 CST）起算。
+
+### 密法可见性矩阵
+
+| 角色 | 密法内容（Course/Meditation）| 密法愿 | 密法打卡 |
+|---|---|---|---|
+| 未授权学员 | ❌ 零痕迹（列表/搜索/关联全过滤）| ❌ | ❌ |
+| 授权学员（TantricAccessGrant）| ✅ | ✅ 自己的 | ✅ 自己的 |
+| 管理员（任何 flag）| ✅ 始终可见 | ✅ 全班 | ✅ 全班 |
+| Admin | ✅ 全平台 | ✅ 全平台 | ✅ 全平台 |
+
+**密法计数规则**：
+- ✅ 密法打卡计入集体回向
+- ✅ 密法打卡参与打卡报数生成
+- ✅ 密法打卡计入个人愿进度
 
 ---
 
@@ -1061,38 +1276,42 @@ care-followup.middleware.ts
 ### 原则
 
 - **只增不删**：不删除任何现有字段/表，新字段全部可空或有默认值
-- **两层分离**：先跑纯新增 migration，再跑数据迁移脚本
+- **两层分离**：先跑纯新增 migration（结构），再跑数据迁移脚本（种子/历史数据）
 - **现有功能零中断**：migration 期间现有功能不受影响
 
 ### 第一层：结构 Migration（无破坏性，可随时跑）
 
 ```
-migration_001_add_enums.sql         新增 7 个枚举
-migration_002_extend_user.sql       User 加 5 个字段
-migration_003_extend_class.sql      Class 加 4 个字段
-migration_004_extend_classmember.sql ClassMember 加 7 个字段
-migration_005_extend_course.sql     Course 加 2 个字段
-migration_006_extend_lesson.sql     Lesson 加 1 个字段
+migration_001_add_enums.sql           新增 7 个枚举
+migration_002_extend_user.sql         User 加 6 个字段
+migration_003_extend_class.sql        Class 加 4 个字段
+migration_004_extend_classmember.sql  ClassMember 加 7 个字段
+migration_005_extend_course.sql       Course 加 2 个字段（isTantric + programSemesterId）
+migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
 migration_007_extend_classsession.sql ClassSession 加 2 个字段
-migration_008_extend_enrollment.sql  UserCourseEnrollment 加 3 个字段
-migration_009_new_tables.sql        建 28 张新表
-migration_010_views.sql             建 2 个 SQL 视图
+migration_008_extend_meditation.sql   Meditation 加 3 个字段（seriesKey/seriesNumber/isTantric）
+migration_009_extend_practice.sql     PracticeProject 加 1 个字段（isTantric）
+migration_010_new_tables.sql          建 28 张新表
+migration_011_views.sql               建 2 个 SQL 视图
 ```
 
-### 第二层：数据 Migration（一次性脚本）
+### 第二层：数据 Migration（一次性脚本，按顺序执行）
 
 ```
 seed_001_programs.ts         录入科系种子数据（加行/净土/入行论等）
-seed_002_class_admins.ts     ClassMember.role='coach' → ClassAdmin(role=zhumai)
+seed_002_class_admins.ts     ClassMember.role='coach' 数据 → ClassAdmin（canManageCourse + canAuditPractice 等全部 true）
 seed_003_self_study_books.ts 18 本《大学演讲系列》种子数据
 seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册时间排序）
+                             ⚠️ 必须在开放新用户注册之前执行
 ```
 
 ### 注意事项
 
 - `removedAt` 字段保留（旧退班数据兼容），新退班用 `cohortStatus='left'`
-- 现有 `ClassMember.role='coach'` 字段保留，但主权转移到 ClassAdmin 表
-- 密法 migration 不需要：`isTantric` 默认 false，现有课程默认非密法
+- 现有 `ClassMember.role='coach'` 字段保留，但权限管理转移到 `ClassAdmin` 表
+- 现有 `PracticeEntry` 数据原地保留（旧统计继续读），新打卡走 `PracticeLog`
+- 密法 migration 不需要：`isTantric` 默认 `false`，现有数据默认非密法
+- `UserCourseEnrollment` 上的 `selfStudyStartDate/selfStudyPace/selfStudyStatus` 三字段**不添加**（自学功能走 `UserSelfStudyProgram`）
 
 ---
 
@@ -1100,78 +1319,66 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 
 ### Phase 1 · 基础架构（建议先做）
 
-**目标**：为后续所有功能打地基，本阶段完成后现有功能不受影响
-
-| 任务 | 类型 | 说明 |
-|---|---|---|
-| 跑 Migration 第一层（结构）| DB | 28 张新表 + 字段扩展 |
-| 录入科系种子数据 | DB | Program 表 |
-| ClassAdmin 数据迁移 | DB | coach → zhumai |
-| 自学读物种子数据 | DB | 18 本 |
-| 密法零痕迹中间件 | 后端 | 所有 Course 查询加过滤 |
-| 班级管理：时区/科系字段 | 后端+前端 | Admin 建班时可填 |
-
----
-
-### Phase 2 · 闻思打卡系统
-
-**目标**：替代现有零散的打卡记录方式
+**目标**：打地基，本阶段完成后现有功能不受影响
 
 | 任务 | 类型 |
 |---|---|
-| StudyRecord API（含批量补录）| 后端 |
-| SpeakingSession API | 后端 |
-| 审核态（isConfirmed）API | 后端 |
-| 讲考/共修打卡 UI（师兄端）| 前端 |
-| 打卡审核中心（主麦端）| 前端 |
+| 跑 Migration 第一层（结构，11 个文件）| DB |
+| 录入科系种子数据（Program）| DB |
+| ClassAdmin 数据迁移（coach → RBAC flags 全开）| DB |
+| 自学读物种子数据（18 本）| DB |
+| 密法零痕迹中间件（所有学员侧 Course/Meditation 查询加过滤）| 后端 |
+| 班级管理：timezone / programId / startDate 字段支持（admin 建班）| 后端+前端 |
+| ClassAdmin RBAC 权限分配 UI（/admin/classes/:id/admins）| 前端 Admin |
 
----
+### Phase 2 · 闻思打卡系统
+
+| 任务 | 类型 |
+|---|---|
+| StudyRecord API（讲考+共修，含批量）| 后端 |
+| SpeakingSession API | 后端 |
+| 审核态（isConfirmed）API（确认/取消确认）| 后端 |
+| LessonCompletion API（轻量听/读/观修完成标记，含批量补录）| 后端 |
+| 讲考/共修打卡 UI（学员端）| 前端 |
+| 「已学完」轻量按钮（课程详情页）| 前端 |
+| 打卡审核中心（管理端）| 前端 |
 
 ### Phase 3 · 修持愿系统
-
-**目标**：核心新功能，替代现有 PracticeEntry 简单计数
 
 | 任务 | 类型 |
 |---|---|
 | PracticeTemplate API（admin）| 后端 |
-| UserPracticeVow API + 状态机 | 后端 |
+| UserPracticeVow API + 状态机（打卡后实时重算）| 后端 |
 | PracticeLog API + 座次计算 | 后端 |
 | 愿暂停/恢复 | 后端 |
-| 愿状态机定时任务 | 后端 |
-| 修持愿列表/详情（师兄端）| 前端 |
-| 修持打卡 UI + 发心语 | 前端 |
-| 修持愿管理（主麦端）| 前端 |
-
----
+| 每日定时任务（约修自动关闭 + 掉队检测）| 后端 |
+| 修持愿列表/详情（学员端）| 前端 |
+| 修持打卡 UI + 发心语 + 回向 | 前端 |
+| 修持愿管理（管理端）| 前端 |
 
 ### Phase 4 · 双模式学习
 
-**目标**：课程进度算法 + 自学师兄独立管理
-
 | 任务 | 类型 |
 |---|---|
-| 课程进度算法 | 后端 |
+| 课程进度算法（getCurrentLessonNumber）| 后端 |
 | CohortRestWeek API | 后端 |
 | UserSelfStudyProgram API | 后端 |
-| 班级休息周管理（Admin）| 前端 |
+| 班级休息周管理（Admin，含实时预览）| 前端 |
 | 自学师兄管理（Admin）| 前端 |
-
----
 
 ### Phase 5 · 集体功能与管理工具
 
 | 任务 | 类型 |
 |---|---|
-| 集体回向视图 + API | 后端 |
-| 约修 API | 后端 |
-| 关怀跟进 API（爱心）| 后端 |
-| 班级周汇总生成 | 后端 |
-| 集体回向页面 | 前端 |
-| 约修页面 | 前端 |
-| 关怀跟进页面（爱心）| 前端 |
-| 掉队名单（主麦）| 前端 |
-
----
+| 集体回向 SQL 视图 + API | 后端 |
+| 关怀跟进 API（canCareFollowup 专属）| 后端 |
+| 约修 API（创建/加入/关闭）| 后端 |
+| 班级周汇总生成 + 复制 | 后端 |
+| 集体回向页面（学员端）| 前端 |
+| 关怀跟进页面（管理端，canCareFollowup）| 前端 |
+| 掉队名单（管理端，canViewStudents）| 前端 |
+| 约修页面（⏸ 学员端 UI 暂缓）| ⏸ |
+| 密法授权管理（Admin，⏸ 学员端 UI 暂缓）| ⏸ 后台先做 |
 
 ### Phase 6 · 内容与排表
 
@@ -1181,14 +1388,71 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 多讲者 LessonResource API | 后端 |
 | 自学读物 SelfStudyRecord API | 后端 |
 | 参考答案 QuestionReference API | 后端 |
-| 课程详情多讲者展示 | 前端 |
-| 自学读物页面 | 前端 |
+| 课程详情多讲者展示（学员端）| 前端 |
+| 自学读物页面（学员端）| 前端 |
 | 参考答案管理（Admin）| 前端 |
+| Meditation.seriesKey/seriesNumber 管理（Admin）| 前端 |
 
 ---
 
-## 附：不改动的现有功能
+## 八、明确不做清单
+
+| ❌ 不做 | 原因 / 替代方案 |
+|---|---|
+| Academy 表 | 不建；Program 上预留 `academyId String?` |
+| PracticeGuide 表 | 删除，功能并入 `Meditation.seriesKey/seriesNumber` |
+| StudyRecord.listen 类型 | 轻量 LessonCompletion 替代，不走审核态 |
+| StudyRecord.read_notes 类型 | 同上 |
+| group_sessions 独立表 | 复用现有 ClassSession，加两字段即可 |
+| 法会发愿独立表 | 法会愿就是 UserPracticeVow（context=event），无需另表 |
+| PracticeEntry 新写入 | 历史数据保留；新打卡一律走 PracticeLog |
+| UserCourseEnrollment.selfStudy* 三字段 | 自学走 UserSelfStudyProgram（科系级），字段重复废弃 |
+| PracticeProject.scope 在新系统使用 | 历史包袱；新愿归属完全由 UserPracticeVow 表达 |
+| ClassAdminRole 枚举（zhumai/aixin）| 改为 RBAC flags，admin 后台细粒度分配 |
+| 约修审批流 / 推送通知 | 无审批、无推送；用户自行浏览班级页发现 |
+| 约修个人指标 | 总目标由创建者设；参与者无个人强制指标 |
+| 约修跨班可见 | classId 必填，不支持跨班 |
+| 打卡报数新增表 | 纯前端生成文字，无 DB |
+| 批量补录新增表 | 前端 + 后端批量写入 LessonCompletion，无新表 |
+| 批量补录每学期 2 次限制 | 轻量完成标记无审核，随时可点，无需次数约束 |
+| 三殊胜精神框架新增表 | 回向为前端 UI；发心语开关用 User.preferShowFaxin |
+| LessonReadingProgress 扩展字段方案 | 无法扩展音频/视频课程；改用 LessonCompletion 统一表 |
+| logDate 前端本地日期字符串方案 | 跨时区班级打卡日期漂移；改为 UTC timestamp |
+| 后端藏历-公历自动换算 | 前端展示参考对照；admin 手动确认公历日期 |
+| 密法排除集体回向 | ~~已废弃~~：密法打卡计入集体回向 |
+| 密法排除打卡报数 | ~~已废弃~~：密法参与报数生成 |
+| 全局周编号跨班共享 | 周编号每班独立，从本班 startDate 起算 |
+| 升科目自动触发 | 主麦手动操作（canManageCourse），不自动 |
+| 历史数据强删（PracticeEntry 等）| 保留历史数据，旧统计继续读 |
+
+---
+
+## 九、现有功能保留清单
 
 以下所有现有表和功能**保持原样**，不受影响：
 
-`AuthSession` · `PasswordResetToken` · `EmailVerificationToken` · `DeletedEmail` · `Note` · `Highlight` · `NoteReport` · `TibetanDay` · `DharmaAssembly` · `Meditation` · `MeditationSession` · `Sm2Card` · `UserFavorite` · `UserMistakeBook` · `QuestionReport` · `LlmProviderConfig` · `LlmProviderUsage` · `LlmScenarioConfig` · `LlmPromptTemplate` · `LlmCallLog` · `AuditLog` · `ErrorLog` · `SystemSetting` · `ContentSeed` · `ContentRelease` · `Experiment` · `ExperimentExposure` · `Feedback` · `PracticeCategory` · `PracticeProject` · `PracticeEntry` · `PracticeDailySummary` · `PracticeGoal` · `PracticeTask` · `PracticeMakeup` · `ClassAnnouncement` · `LessonReadingProgress` · `HomePoster` · `NotificationPreference` · `UserAchievementUnlock` · `SystemAnnouncement` · `OrphanedFile` · `PushSubscription` · `Notification` · `NotificationDispatchLog` · `NotificationRule` · `AnalyticsEvent`
+**认证与安全**：`AuthSession` · `PasswordResetToken` · `EmailVerificationToken` · `DeletedEmail`
+
+**学习内容**：`Note` · `Highlight` · `NoteReport` · `LessonReadingProgress`（继续记录滚动进度）
+
+**题目系统**（14 种题型全部保留，AI 评分全部保留）：`Sm2Card` · `UserFavorite` · `UserMistakeBook` · `QuestionReport`
+
+**藏历与法会**：`TibetanDay` · `DharmaAssembly`（展示用，与新 Event 并存）
+
+**观修**：`Meditation`（新增 3 字段，其余保留）· `MeditationSession`（保留，继续驱动班级观修排行）
+
+**AI 功能**：`LlmProviderConfig` · `LlmProviderUsage` · `LlmScenarioConfig` · `LlmPromptTemplate` · `LlmCallLog`
+
+**现有修持记录**：`PracticeCategory` · `PracticeProject`（新增 1 字段，其余保留）· `PracticeEntry`（历史数据保留，停止新写入）· `PracticeDailySummary` · `PracticeGoal` · `PracticeTask` · `PracticeMakeup`
+
+**班级管理**：`ClassAnnouncement` · `HomePoster`
+
+**通知系统**：`NotificationPreference` · `PushSubscription` · `Notification` · `NotificationDispatchLog` · `NotificationRule`
+
+**用户成就**：`UserAchievementUnlock` · `SystemAnnouncement`
+
+**运营支撑**：`AuditLog` · `ErrorLog` · `SystemSetting` · `ContentSeed` · `ContentRelease` · `Experiment` · `ExperimentExposure` · `Feedback` · `OrphanedFile` · `AnalyticsEvent`
+
+---
+
+*本文档为所有决策确认后的最终版，DESIGN_DECISIONS.md 为决策过程记录，两者共同构成完整的设计依据。*
