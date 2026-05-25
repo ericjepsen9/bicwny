@@ -2060,7 +2060,7 @@ migration_001_add_enums.sql           新增 7 个枚举
 migration_002_extend_user.sql         User 加 6 个字段
 migration_003_extend_class.sql        Class 加 4 个字段
 migration_004_extend_classmember.sql  ClassMember 加 7 个字段
-migration_005_extend_course.sql       Course 加 3 个字段（author + isTantric + programSemesterId）
+migration_005_extend_course.sql       Course 加 4 个字段（author + isTantric + programSemesterId + category）
 migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
 migration_007_extend_classsession.sql ClassSession 加 3 个字段（lessonId / sessionEndAt / checkInToken）+ classId 改可空（ALTER COLUMN classId DROP NOT NULL）
 migration_008_extend_meditation.sql   Meditation 加 3 个字段（seriesKey/seriesNumber/isTantric）
