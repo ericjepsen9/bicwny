@@ -1678,12 +1678,12 @@ care-followup.middleware.ts
 
 #### 法会列表页（`/events`）
 
-**首页入口（浮动按钮）：**
-- 显示条件：`GET /api/events?status=active,upcoming` 返回至少一条数据时渲染按钮
-- 无活跃/即将开始的法会时：按钮不渲染（不显示）
-- 按钮位置：首页右下角浮动（FAB 样式，不与其他固定元素重叠；实现时用 `createPortal` 渲到 document.body，避免父容器 transform 干掉 fixed 定位，见 CSS-GOTCHAS.md §1）
-- 按钮内容：「参与法会」+ 法会图标；进行中时高亮显示
-- 点击 → 跳转 `/events`（列表页，用户自选法会）
+**首页入口（液态玻璃卡片）：**
+- 显示条件：`GET /api/events?status=active,upcoming` 返回至少一条数据时渲染，否则不显示
+- 位置：首页上半部分，嵌入正常文档流（非 fixed，无需 createPortal）
+- 样式：液态玻璃效果圆角矩形（backdrop-filter: blur + 半透明背景 + 高光边框）
+- 内容：法会标题 + 状态（进行中 / 距开始 N 天）+ 参与人数
+- 点击 → 跳转 `/events`（列表页）
 
 三个分区，垂直排列：
 
@@ -1765,7 +1765,7 @@ care-followup.middleware.ts
 
 | 页面 | 改动 |
 |---|---|
-| 首页 | 法会浮动按钮（FAB）：有活跃/即将开始的法会时渲染，否则不显示；点击跳转 `/events` |
+| 首页 | 法会入口卡片：有活跃/即将开始的法会时渲染，位于首页上半部分；液态玻璃效果圆角矩形；点击跳转 `/events` |
 | 课程详情 | 多讲者 LessonResource 展示；按 Class.timezone 显示共修时间；「已学完/已听完/已看完」确认按钮（见下方流程）|
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | 提交后解锁参考答案入口（QuestionReference）|
