@@ -617,7 +617,31 @@ Event（法会）→ UserPracticeVow（发愿，挂 eventId，可选）→ Pract
 - `UserCourseEnrollment`：去掉 selfStudy* 三字段
 - 自学走 `UserSelfStudyProgram`（科系级）
 
-### 冲突 5 · PracticeProject.scope 与愿 🔲 待讨论
+### 冲突 5 · PracticeProject.scope 与愿重叠 ✅ 已决议
+
+**决议：职责分离——项目 = 修什么（无归属）；愿 = 谁为了什么在修（带归属）**
+
+- `PracticeProject` 退回纯粹的"修法类型库"（金刚萨埵心咒就是个咒，不分班不分人）
+- `PracticeProject.scope` 字段对新愿系统**不再使用**（现有数据/功能保留，新愿不依赖 scope）
+- "属于谁/哪个班/什么场景"完全由 `UserPracticeVow` 表达（context + classId + userId）
+- `PracticeLog.practiceProjectId` 引用的 project 视为纯类型，归属看 vow/log 自身字段
+
+→ `PracticeProject.scope` 在新系统里是历史包袱，不影响新逻辑。
+
+---
+
+## 一致性核查总结 ✅ 全部完成
+
+| 冲突 | 决议要点 |
+|---|---|
+| 1 修持愿三轨 | A 方案新建独立表；多态单表 UserPracticeVow + VowContext；法会愿模型1 |
+| 2 观修双轨 | 内容扩展 Meditation（删 PracticeGuide）；打卡统一 PracticeLog（自描述，vowId/eventId 可空）；看视频不计/喂排行，做92修法计入 |
+| 新逻辑 学习完成 | 听/读/观修轻量手动标记不审核；StudyRecord 收窄为只覆盖讲考+共修 |
+| 3 自学重复 | 自学走 UserSelfStudyProgram（科系级）；去掉 UserCourseEnrollment.selfStudy* |
+| 4 班级绑定 | 科系绑定；三层结构 科系/科目/法本；科目用 ProgramSemester；班级 courseId=当前主修法本可切换 |
+| 5 scope 重叠 | 职责分离：项目=修什么（无归属），愿=谁为何在修（带归属）|
+
+**新增表净变化**：原 28 张 → 删 PracticeGuide → **27 张**（PracticeGuide 功能并入 Meditation 扩展）。
 
 ---
 
