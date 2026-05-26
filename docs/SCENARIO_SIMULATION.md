@@ -224,24 +224,46 @@
 
 #### S-009 创建自定义修学（+ 添加修学） 🔵 已设计未实现
 
-**触发**：PracticePage 点「+ 添加修学」。
+> 全局 UX 规范（决策 FE-9）：多字段操作均采用分步 Sheet，先确认意图再展示详情。
 
-**创建流程 Sheet**
+**触发**：修持 Tab → 「我的修学」区块 → `[ + 添加修学 ]`
 
-**步骤 1：选修法项目**
-- 🖥️ 看到：PracticeProject 列表（密法项目已按授权过滤）
-- 👆 可以做：选择修法（如「金刚萨埵心咒」）
-- ➡️ 之后：计量方式自动决定（遍数/时长），进入步骤 2
+**步骤 1 · 选修法项目**
+- 🖥️ 看到：PracticeProject 列表（密法项目已按授权过滤），每项显示项目名 + 计量类型标注（遍数 / 时长）
+- 👆 可以做：点选修法（如「金刚萨埵心咒」）
+- ➡️ 进入步骤 2
 
-**步骤 2：是否发愿**
-- 🖥️ 看到：开关「我要为此发愿？」
-- 关闭（裸追踪）：建 `UserPracticeVow{ source=custom, context=personal, isPledged=false, target 全 null }`
-- 开启（发愿）：
-  - 填主目标：lifetime→ targetCount / daily→ dailyTarget / weekly→ weeklyTarget
-  - 到期日（可选）
-  - 建 `UserPracticeVow{ source=custom, context=personal, isPledged=true }`
-- ➡️ 之后：保存，返回 PracticePage，新条目出现在「我的修学」区块
-- ⚠️ 边缘情况：裸追踪记录不可补发愿（有意设计）；要发愿须新建 isPledged=true 的愿，历史裸追踪记录不追溯
+**步骤 2 · 是否发愿（意图确认，不展示详情）**
+- 🖥️ 看到：
+  ```
+  为「金刚萨埵心咒」发愿吗？
+
+  发愿：设定修习目标，追踪完成进度
+  只记录：累积记数，不设目标
+
+  [ 发 愿 ]       [ 只记录 ]
+  ```
+- 选「只记录」→ 直接建 `UserPracticeVow{ isPledged=false }`，完成，返回修持 Tab
+- 选「发愿」→ 进入步骤 3
+
+**步骤 3 · 填写发愿目标（仅选「发愿」时展示）**
+- 🖥️ 看到：
+  ```
+  设定修愿目标
+
+  目标类型   [ 总量 ][ 每日 ][ 每周 ]   ← 三选一
+  目标遍数   [ 滚轮 ]  10,800 遍
+  到期日     [ 可选 · 点击选日期 ]
+
+  [ 确认发愿 ]
+  ```
+- ➡️ 提交：建 `UserPracticeVow{ source=custom, context=personal, isPledged=true, targetCount/dailyTarget/weeklyTarget, endDate }`
+- 返回修持 Tab，新条目出现在「我的修学」区块，显示进度条
+
+- ⚠️ 边缘情况：
+  - 「只记录」的条目之后不可改为发愿（有意设计）；要发愿须新建一条，历史记录不追溯
+  - 到期日不填：愿为持续型，无截止状态（`endDate=null`）
+  - 目标遍数滚轮同 S-007，使用 WheelPicker 预设常用数值
 
 ---
 
