@@ -44,7 +44,7 @@
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 26 个 | 见 3.1 |
 | 修改后端模块 | 7 个 | 见 3.2 |
-| 新增前端页面（学员端）| 8 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页 + 讲考历史统计页 + 考试成绩页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
+| 新增前端页面（学员端）| 9 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页 + 讲考历史统计页 + 考试成绩页 + 法会历史记录页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
 | 修改前端页面（学员端）| 10 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 + 「我的」页面（讲考记录入口）|
 | 新增前端页面（管理端 /coach/*）| 4 个 | 成员状态/掉队名单/修持愿管理/班级周汇总（打卡审核中心已砍）|
 | 新增前端页面（Admin 端）| 10 个 | 科系/修持模板/密法组/班级休息周/参考答案/法会活动/自学师兄/ClassAdmin 权限分配/讲考成绩统计/考试管理 |
@@ -968,6 +968,9 @@ model Event {
   id             String   @id @default(cuid())
   title          String
   eventType      String   // puja / dharma_assembly / weekly
+  classId        String?  // null → 平台级（全平台参与，共修总量显示「全平台」标签）
+                          // 有值 → 班级级（仅本班参与，共修总量显示「本班」标签）
+                          // 班级级法会仅 admin 可创建（与 SpeakingSession 保持一致）
   coverImageUrl  String?  // 封面图（法会列表卡片 + 详情页顶部）
   startDate      DateTime // Event.timezone 所在地的日期（全天事件）
   endDate        DateTime
@@ -980,6 +983,7 @@ model Event {
   createdBy      String   // admin userId
   createdAt      DateTime @default(now())
 
+  class          Class?       @relation(fields: [classId], references: [id])
   eventCounts    EventCount[]
 }
 
@@ -1484,6 +1488,7 @@ model Class {
   speakingSessions     SpeakingSession[]
   exams                Exam[]
   examGrades           ExamGrade[]
+  events               Event[]
 }
 ```
 
@@ -1611,17 +1616,27 @@ GET    /api/my/exam-grades
 GET  /api/events
   query: status=upcoming|active|ended|all（默认 all）
   学员端：只返回 isActive=true 的事件
-  响应：id / title / eventType / coverImageUrl / startDate / endDate /
+  响应：id / title / eventType / classId / coverImageUrl / startDate / endDate /
         timezone / tibetanDate / status（服务端计算）/ participantCount /
         liveStreamUrl / recordingUrl
 
 GET  /api/events/:id
   响应：同上 + description + groupTotals（来自 v_event_dedication_totals，
         按 practiceProjectId 分组，字段名改为 groupTotals 对应「共修总量」语义）
+  groupTotals 标签规则：
+    classId=null → 前端显示「全平台」标签（如「全平台 · 892,340 遍 · 138 人参与」）
+    classId 有值  → 前端显示「本班」标签（如「本班 · 12,450 遍 · 38 人参与」）
   // liveStreamUrl / recordingUrl 直接透传，前端按状态决定按钮显示
 
 GET  /api/events/:id/my-participation
   响应：vow（UserPracticeVow，有愿时）/ submissionCount / totalCount
+
+GET  /api/my/event-history
+  query: page / limit（默认 20）, year?（按 startDate 年份筛选）
+  返回当前用户参与过的法会记录，按 startDate 倒序
+  响应：[{ eventId, title, classId, startDate, endDate,
+           myTotalCount, mySubmissionCount,
+           vowCompleted: boolean | null }]  // vowCompleted: 有愿时计算，无愿时 null
   // submissionCount：提交次数；totalCount：累计遍数（EventCount 无时长字段）
   用于前端判断「我的参与」状态机
 
@@ -2282,7 +2297,7 @@ care-followup.middleware.ts
 
 ## 四、前端改动范围
 
-### 4.1 学员端新增页面（8 个）
+### 4.1 学员端新增页面（9 个）
 
 > 注 1：修持愿与修持打卡**合并进现有 `/practice` 页**（见 §4.2 修学计数页改造），不再单设 `/vows` 独立页。
 > 注 2：修持日记**嵌入藏历日历页 `/calendar`**（见 §4.2），不再单设 `/journals` 独立页。
@@ -2298,6 +2313,7 @@ care-followup.middleware.ts
 | 签到链接页 | `/checkin/:token` | **无需登录**；显示场次信息 + 成员列表；学员点名字完成打卡；时间窗口外显示「未开始」或「已关闭」 |
 | 讲考历史统计 | `/my/speaking-history` | 个人所有讲考记录列表 + 顶部统计概览（参与场次数 / 通过率 badge / 成绩分布）+ 每条记录可展开评语详情；**入口：「我的」页面「讲考记录」入口** |
 | 考试成绩 | `/my/exam-grades` | 个人所有考试成绩列表（按 examDate 倒序）+ 每条显示考试名称 / 日期 / 关联法本 / 百分制分数 / 评语；**入口：「我的」页面「考试成绩」入口** |
+| 法会历史记录 | `/my/event-history` | 个人参与过的所有法会列表（按 startDate 倒序）+ 每条显示法会名 / 日期区间 / 我的总遍数 / 愿完成情况；支持按年份筛选；点击 → 法会详情页只读模式；**入口：「我的」页面「法会记录」入口** + 活动中心法会 Tab 往期折叠区 |
 
 #### 首页活动入口（药丸卡片）⚠️ 布局待定
 
@@ -2405,7 +2421,9 @@ care-followup.middleware.ts
 
 **区块 2：共修总量**
 - 按 `practiceProjectId` 分组，每项显示：修法名 + 遍数合计 + 参与人数
-- 示例：「上师瑜伽 · 共 12,450 遍 · 38 人参与」
+- 标签规则（由 `Event.classId` 决定，前端读 classId 字段判断）：
+  - `classId=null`（平台级）→ 「全平台 · 892,340 遍 · 138 人参与」
+  - `classId` 有值（班级级）→ 「本班 · 12,450 遍 · 38 人参与」
 - 数据来源：`v_event_dedication_totals` 视图（只显聚合总量，不透露个人）
 - 进行中时 30 秒轮询刷新；已结束时静态展示（最终总量，供回向时参考）
 
@@ -2414,12 +2432,16 @@ care-followup.middleware.ts
 | 用户状态 | 区块展示 | 可用操作 |
 |---|---|---|
 | 法会未开始，无愿 | 「发法会愿」按钮 | 发愿（提前建愿）；打卡按钮不可用 |
-| 法会未开始，有愿 | 愿进度条（0 / 目标量）| 同上 |
-| 进行中，未提交 | 两个并排按钮 | 「发法会愿」/ 「去打卡」|
-| 进行中，有愿 | 愿进度条（已完成 / 目标量）+ 按钮 | 「去打卡」|
-| 进行中，无愿 | 「已提交 N 次，合计 X 遍」| 「继续打卡」|
-| 已结束，有提交记录 | 我的最终总量：X 遍 | 「回向」按钮（仅法会结束后出现）|
-| 已结束，无提交记录 | 「此法会已结束」| 无操作按钮 |
+| 法会未开始，有愿 | 愿进度条（0 / 目标量）| 调整愿；打卡按钮不可用 |
+| 进行中，无愿无提交 | 两个并排按钮 | 「发法会愿」/ 「去打卡」|
+| 进行中，有愿有提交 | 愿进度条（已完成 / 目标量）| 「去打卡」/ 「回向」|
+| 进行中，有愿无提交 | 愿进度条（0 / 目标量）| 「去打卡」|
+| 进行中，无愿有提交 | 「已提交 N 次，合计 X 遍」| 「继续打卡」/ 「回向」|
+| 已结束，有提交记录 | 我的最终总量：X 遍 | 「回向」|
+| 已结束，无提交记录 | 「此法会已结束」 | 无操作按钮 |
+
+> **决策（2026-05-26）**：「回向」按钮不限法会状态，法会进行中有提交记录即可点击。
+> 理由：回向是修行仪式，不应强制等到法会结束，随修随向更符合修行习惯。
 
 **即将开始时**：「发法会愿」按钮正常可用（`vow.startDate = event.startDate`，提前建愿）；「去打卡」按钮不可用（tooltip 提示）。
 
@@ -2432,10 +2454,10 @@ care-followup.middleware.ts
   - 提交成功 → Sheet 关闭，区块 2 共修总量实时 +N 动效；**不弹回向**
 - ⚠️ 此提交不写 PracticeLog，不影响日常修持愿，与学修计数模块完全隔离
 
-**回向 Sheet（仅法会已结束时，区块 3 内联）：**
+**回向 Sheet（法会进行中或已结束均可触发，有提交记录时区块 3 内联显示按钮）：**
 - 点击「回向」→ 底部 Sheet 弹出（桌面用 centered Dialog）
 - Sheet 内容：
-  - 此次法会共修总量展示（来自区块 2 最终数据）
+  - 此次法会共修总量展示（进行中时为实时总量，已结束时为最终总量；均来自区块 2 数据）
   - 固定回向文字（前端常量）
   - 「完成回向」按钮 → Sheet 关闭
 - preferShowFaxin=false 时「回向」按钮不显示（三殊胜框架总开关）
@@ -2463,7 +2485,7 @@ care-followup.middleware.ts
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | open 题型关闭 AI 评分（noScoring）；写下思考 → 提交 → 显示参考答案自行对照；双入口：法本课时末尾「思考题」区 + QuizPage 答题流 |
 | 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择；学习模式（learningMode）；班级学习暂停/恢复自助（cohortStatus active↔paused，级联 auto 愿）|
-| 「我的」页面（ProfilePage）| 新增「讲考记录」入口 → 跳转 `/my/speaking-history`（入口旁展示通过率 badge，graded=0 时隐藏）；新增「考试成绩」入口 → 跳转 `/my/exam-grades`（入口旁展示最近一次分数，无成绩时隐藏）|
+| 「我的」页面（ProfilePage）| 新增「讲考记录」入口 → 跳转 `/my/speaking-history`（入口旁展示通过率 badge，graded=0 时隐藏）；新增「考试成绩」入口 → 跳转 `/my/exam-grades`（入口旁展示最近一次分数，无成绩时隐藏）；新增「法会记录」入口 → 跳转 `/my/event-history` |
 
 #### 班级进度基准线展示（Feature 11 · 双模式学习 + 排表驱动）
 
