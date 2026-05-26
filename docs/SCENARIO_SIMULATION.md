@@ -29,40 +29,62 @@
 
 ---
 
-#### S-001 新学员注册账号 🔵 已设计未实现（studentId 自动生成）
+#### S-001 新学员注册账号 🔵 已设计未实现（注册简化 + studentId/nickname 自动生成）
+
+> 决策 FE-4（2026-05-26）：注册只填邮箱 + 密码，昵称自动生成，姓名移到入班时收集。
 
 **触发**：新学员访问 `/auth` 或收到邀请链接。
 
 **AuthPage（注册表单）**
-- 🖥️ 看到：邮箱 / 密码 / 姓名输入框，「注册」按钮
-- 👆 可以做：填写基本信息，提交注册
-- ➡️ 之后：
-  1. 后端事务内自动生成 `studentId`（格式：`{年份4位}{序号3位}`，如 `2026001`）
-  2. `User.learningMode` 默认 `class`，`User.preferShowFaxin` 默认 `true`
-  3. 跳转 `/onboarding` 引导页
+- 🖥️ 看到：邮箱输入框 + 密码输入框，「注册」按钮（无姓名输入框）
+- 👆 可以做：填写邮箱 + 密码，提交注册
+- ➡️ 之后（后端事务内，原子完成）：
+  1. 生成 `studentId`（格式：`{年份4位}{序号3位}`，如 `2026001`）
+  2. 生成 `nickname`（格式：「行者」+ 4位零补序号，如「行者0001`」，序号与 studentId 共享）
+  3. `User.learningMode` 默认 `class`，`User.preferShowFaxin` 默认 `true`
+  4. 跳转 `/onboarding` 引导页
 - ⚠️ 边缘情况：
   - 邮箱已被注册 → 提示「此邮箱已注册」
-  - studentId 序号生成依赖事务内 `SELECT ... FOR UPDATE`，高并发重复注册时须 Serializable 隔离
+  - nickname 唯一冲突（极低概率）→ 与 studentId 一样用重试机制处理
+  - studentId / nickname 序号生成依赖事务内 `SELECT ... FOR UPDATE`，高并发须 Serializable 隔离
   - ⚠️ **历史数据导入必须在开放注册前完成**（seed_004_student_ids.ts），否则序号冲突
 
 ---
 
-#### S-002 加入班级 ✅ 已实现（基础加班） / 🔵 自动建愿未实现
+#### S-002 加入班级 ✅ 邀请码逻辑已实现 / 🔵 完善信息步骤 + 自动建愿未实现
 
-**触发**：学员有班级邀请码，访问 `/join-class`。
+> 决策 FE-5（2026-05-26）：输入邀请码成功后增加「完善个人信息」步骤。
 
-**JoinClassPage**
-- 🖥️ 看到：输入邀请码的输入框
-- 👆 可以做：输入 `Class.joinCode`，点击「加入」
+**触发**：学员在 OnboardingPage 选择「加入班级」。
+
+**屏幕 1 · 邀请码输入（OnboardingPage · class 分支）**
+- 🖥️ 看到：邀请码输入框（6-8 位字母数字），提示「向辅导员索取邀请码」
+- 邀请码来源：辅导员在 `/coach/:classId/settings` 看到 `Class.joinCode`；admin 在 `/admin/classes` 看到
+- 👆 可以做：输入邀请码 → 「确认加入」
 - ➡️ 之后：
-  1. 后端 `POST /api/classes/:id/members` 创建 `ClassMember`（`cohortStatus=active`）
-  2. **同一事务内**调用 `createAutoVows`，按班级绑定模板自动建 `UserPracticeVow`（source=auto）
-  3. 若 `isPrimary=true`（首次入班默认），先清除旧主班标记，再设新主班
-  4. 返回班级首页 `/class/:id`
+  - `POST /api/classes/join { joinCode }` → 后端创建 `ClassMember`（cohortStatus=active）+ 自动建愿
+  - 跳转「完善个人信息」表单（不直接进首页）
+
+**屏幕 2 · 完善个人信息（新增步骤）**
+- 🖥️ 看到：标题「完善个人信息」+ 以下表单项：
+  - 姓名 \*（文本输入，必填）
+  - 手机号 \*（国家/地区选择 + 号码输入，默认 🇺🇸 美国 +1，必填）
+  - 法名（文本输入，选填）
+  - 皈依情况 \*（单选：已皈依 / 未皈依 / 不确定，必填）
+  - 所在城市 \*（文本输入，必填）
+  - 修行背景（多行文本，选填）
+- 👆 可以做：填写上述信息 → 「提交」
+- ➡️ 之后：
+  1. `PATCH /api/users/me/profile` 保存 6 个字段
+  2. `POST /api/auth/onboarding-done`
+  3. 进入首页 `/`
 - ⚠️ 边缘情况：
-  - 班级无绑定 `binding='auto'` 模板 → 静默跳过，ClassMember 正常创建，无愿建立
+  - 必填项未填 → 前端校验阻止提交，标红对应字段
+  - 手机号格式不合法 → Zod 校验报错
+  - 班级无绑定 `binding='auto'` 模板 → 静默跳过建愿，ClassMember 正常创建
   - 退班后重新入班 → 幂等保护：已有 templateId 的愿跳过，仅为新模板建愿
   - 班级有密法模板且学员无授权 → 密法愿不建（`tantricFilter` 过滤）
+  - 自学学员（选「自由学习」）→ 跳过屏幕 2，所有新字段可为空
 
 ---
 

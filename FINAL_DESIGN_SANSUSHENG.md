@@ -37,7 +37,7 @@
 
 | 类型 | 数量 | 说明 |
 |---|---|---|
-| 新增 Prisma 枚举 | 8 个 | 见 2.1（含掉队检测 LagStatus）|
+| 新增 Prisma 枚举 | 9 个 | 见 2.1（含掉队检测 LagStatus · 皈依情况 RefugeStatus）|
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
 | 新增表 | 47 张 | 见 2.3（自学读物复用 Course 砍 3 张；密法加 TantricGroup +1；掉队检测加 CohortLagSnapshot +1；讲考报名 SpeakingRegistration +1；讲考评分 SpeakingGrade +1；考试 Exam +1；考试成绩 ExamGrade +1 → 净 47）|
 | 新增 SQL 视图 | 3 个 | v_event_dedication_totals / v_weekly_dedication_totals / v_practice_daily（物化视图，替代 PracticeDailySummary）|
@@ -124,23 +124,34 @@ enum ProfileStatus {
   inactive
   graduated
 }
+
+// 皈依情况（加入班级时收集）
+enum RefugeStatus {
+  taken      // 已皈依
+  not_taken  // 未皈依
+  unsure     // 不确定
+}
 ```
 
 ---
 
 ### 2.2 现有表字段扩展
 
-#### `User` 表（+6 个字段）
+#### `User` 表（+13 个字段）
 
 ```prisma
 model User {
   // ... 现有所有字段保留 ...
 
-  // 新增
+  // ── 注册时自动生成 ──
   studentId          String?  @unique
   // 格式：{年份4位}{序号3位}，如 2026001
   // 新注册：后端事务自动生成；老学员植入：传入原值，系统不覆盖
   // ⚠️ 上线前必须完成历史数据导入（开放注册前）
+
+  nickname           String?  @unique
+  // 注册时与 studentId 同事务自动生成，格式：「行者」+ 4位零补序号，如「行者0001」
+  // 用户不可自行修改；admin 可手动更改（异常处理）
 
   accessibilityNeeds String[] @default([])
   // 取值约束：['blind', 'deaf']，应用层校验
@@ -158,6 +169,26 @@ model User {
 
   timezone           String?
   // IANA 格式（如 America/New_York），用户设置页选择，自学进度和个人愿打卡时区基准
+
+  // ── 加入班级时收集（自学学员可空）──
+  realName           String?
+  // 真实姓名；辅导员 / admin 可见；前端「完善个人信息」步骤必填
+
+  phone              String?
+  // 手机号码（不含国家代码）；与 phoneRegion 组合使用
+
+  phoneRegion        String?  @default("US")
+  // 国家代码（ISO 3166-1 alpha-2），如 "US" / "CN" / "TW"
+  // 前端默认选美国；显示为对应国旗 + 拨号前缀
+
+  refugeStatus       RefugeStatus?
+  // 皈依情况；前端单选：已皈依 / 未皈依 / 不确定
+
+  city               String?
+  // 所在城市（自由文本）
+
+  practiceBackground String?
+  // 修行背景（自由文本，可选）；辅导员了解学员背景用
 }
 ```
 
