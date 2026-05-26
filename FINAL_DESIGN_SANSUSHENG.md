@@ -2552,7 +2552,7 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 法会补录宽松模式 | 严格模式：`today > event.endDate`（按 event.timezone）即禁止提交，页面只读 |
 | 全局周编号跨班共享 | 周编号每班独立，从本班 startDate 起算 |
 | 升科目自动触发 | 主麦手动操作（canManageCourse），不自动 |
-| 历史数据强删（PracticeEntry 等）| 保留历史数据，旧统计继续读 |
+| 历史数据强删（PracticeEntry 等）| ✅ **决策逆转（见 §十）**：项目处于开发阶段，无生产数据，冗余表直接删除合并 |
 
 ---
 
@@ -2566,13 +2566,14 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 
 **题目系统**（14 种题型全部保留，AI 评分全部保留）：`Sm2Card` · `UserFavorite` · `UserMistakeBook` · `QuestionReport`
 
-**藏历与法会**：`TibetanDay` · `DharmaAssembly`（展示用，与新 Event 并存）
+**藏历与法会**：`TibetanDay`（`DharmaAssembly` 已并入 `Event` 表，见 §十）
 
 **观修**：`Meditation`（新增 3 字段，其余保留）· `MeditationSession`（保留，继续驱动班级观修排行）
 
 **AI 功能**：`LlmProviderConfig` · `LlmProviderUsage` · `LlmScenarioConfig` · `LlmPromptTemplate` · `LlmCallLog`
 
-**现有修持记录**：`PracticeCategory` · `PracticeProject`（新增 1 字段，其余保留）· `PracticeEntry`（历史数据保留，停止新写入）· `PracticeDailySummary` · `PracticeGoal` · `PracticeTask` · `PracticeMakeup`
+**现有修持记录**：`PracticeCategory` · `PracticeProject`（新增 `categoryId` 字段，其余保留）
+（`PracticeEntry` · `PracticeDailySummary` · `PracticeGoal` · `PracticeTask` · `PracticeMakeup` 已删除，见 §十）
 
 **班级管理**：`ClassAnnouncement` · `HomePoster`
 
@@ -2581,6 +2582,218 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 **用户成就**：`UserAchievementUnlock` · `SystemAnnouncement`
 
 **运营支撑**：`AuditLog` · `ErrorLog` · `SystemSetting` · `ContentSeed` · `ContentRelease` · `Experiment` · `ExperimentExposure` · `Feedback` · `OrphanedFile` · `AnalyticsEvent`
+
+---
+
+## 十、优化方案（开发阶段·合并重构计划）
+
+### 背景与决策依据
+
+项目处于**开发阶段（无生产数据）**。原设计中"扩展不重建 / 保留历史数据 / 旧表并存"策略是为已上线系统制定的迁移安全边界，在开发阶段该约束不成立。
+
+**决策**：对冗余表和功能采用**合并替换**（直接删除 + 迁移）策略，不做并存过渡。
+
+理由：
+- 并存方案需在代码层维护两套读写逻辑，技术债大
+- 开发阶段可执行清洁 Prisma migration（无需 `migrate resolve`）
+- 新功能代码本来就需要重写相关模块，净额外工作量约 20%
+
+---
+
+### 一、Schema 变更摘要
+
+#### 1.1 删除的表（6 张）
+
+| 表名 | 原用途 | 替代方案 |
+|---|---|---|
+| `PracticeTask` | 固定任务（系统分配） | `UserPracticeVow`（`isPledged=false, source=auto, endDate` 支持区间）|
+| `PracticeGoal` | 目标设定（用户自填） | `UserPracticeVow`（`isPledged=true`）|
+| `PracticeEntry` | 打卡记录 | `PracticeLog` |
+| `PracticeDailySummary` | 日汇总（快速聚合） | 物化视图 `v_practice_daily` + 索引 |
+| `PracticeMakeup` | 补签记录 | `PracticeLog`（`source='makeup'`，配额逻辑保留）|
+| `DharmaAssembly` | 法会（独立表） | `Event`（`type='dharma_assembly'`）|
+
+#### 1.2 扩展的现有表（字段新增）
+
+| 表名 | 新增字段 | 原因 |
+|---|---|---|
+| `UserPracticeVow` | `endDate DateTime?` | 支持固定区间愿（如"闭关 7 天持咒 10 万"）|
+| `PracticeProject` | `categoryId String?` (FK→PracticeCategory) | 支持按科目筛选排行榜 |
+| `ClassSession` | `classId` 改为 `classId String?`（可空）| 法会场次无需绑定班级 |
+
+#### 1.3 保留不动的表
+
+`PracticeCategory` · `PracticeProject` · `MeditationSession` · `LessonReadingProgress` · `ClassAnnouncement` · 认证表 · AI 表 · 题目表 · 通知表 · 成就表 · 运营支撑表（完整列表见 §九）
+
+---
+
+### 二、修持系统功能对接
+
+#### 2.1 连签（streak）计算移植
+
+**旧实现**：读 `PracticeDailySummary.count > 0`，90 天窗口，`PracticeMakeup` 行计入天数。
+
+**新实现**（基于 `PracticeLog`）：
+
+```typescript
+// 以 User.timezone 为边界划天，连续有记录（含 source='makeup'）的天数
+async function calcStreak(userId: string, tz: string): Promise<number> {
+  const rows = await prisma.$queryRaw<{ logDay: string }[]>`
+    SELECT DISTINCT
+      (logDate AT TIME ZONE ${tz})::date AS "logDay"
+    FROM "PracticeLog"
+    WHERE "userId" = ${userId}
+    ORDER BY "logDay" DESC
+    LIMIT 90
+  `
+  let streak = 0
+  let expected = today(tz)        // 今日日期字符串
+  for (const { logDay } of rows) {
+    if (logDay === expected || logDay === dayBefore(expected)) {
+      streak++
+      expected = dayBefore(logDay)
+    } else break
+  }
+  return streak
+}
+```
+
+补签行（`source='makeup'`）自动计入，无需特殊处理（`WHERE` 条件不过滤 source）。
+
+#### 2.2 补签配额移植
+
+**旧实现**：`PracticeMakeup` 表，每周 ET 配额 1 次，Serializable 事务防并发。
+
+**新实现**（基于 `PracticeLog`）：
+
+- 补签写入：`PracticeLog.source = 'makeup'`，`logDate` 指向补签**目标日期**（非提交日期）
+- 补签窗口：`logDate ≥ today - 7 days`（按 `User.timezone` 计算）
+- 配额检查：查当前 ET 周内 `source='makeup'` 的行数 ≥ 1 则拒绝
+
+```typescript
+// 补签配额检查（事务内执行，Serializable 隔离级别）
+const makeupThisWeek = await tx.practiceLog.count({
+  where: {
+    userId,
+    source: 'makeup',
+    createdAt: { gte: startOfEasternWeek() }   // ET 周一 00:00
+  }
+})
+if (makeupThisWeek >= 1) throw new ForbiddenError('本周补签配额已用')
+```
+
+#### 2.3 固定区间愿（`UserPracticeVow.endDate`）
+
+| 字段 | 值 | 含义 |
+|---|---|---|
+| `endDate = null` | 持续性愿 | 无结束时间，愿一直有效 |
+| `endDate` 有值 | 区间愿 | 达到 endDate 后 cron 自动标 `status='completed'` |
+
+区间愿进度 = `[vow.startDate, vow.endDate]` 内的 `PracticeLog` 累加。
+
+#### 2.4 科目排行筛选
+
+查询路径：`PracticeLog → PracticeProject.categoryId → PracticeCategory.key`
+
+```sql
+-- 按科目 key 过滤排行（?categoryKey= 参数）
+SELECT pl."userId", SUM(pl."count") AS total
+FROM "PracticeLog" pl
+JOIN "PracticeProject" pp ON pp.id = pl."practiceProjectId"
+JOIN "PracticeCategory" pc ON pc.id = pp."categoryId"
+WHERE pc.key = $1
+  AND pl."logDate" >= $2
+GROUP BY pl."userId"
+ORDER BY total DESC
+```
+
+`PracticeProject.categoryId` 字段通过 §一 字段扩展（新增 1 字段）已涵盖。
+
+#### 2.5 O(1) 排行聚合（替代 PracticeDailySummary）
+
+新建物化视图 `v_practice_daily`（通过 migration `$executeRaw` 创建，不是 Prisma 管理的表）：
+
+```sql
+CREATE MATERIALIZED VIEW v_practice_daily AS
+SELECT
+  pl."userId",
+  pl."practiceProjectId",
+  (pl."logDate" AT TIME ZONE u.timezone)::date AS "logDay",
+  SUM(pl."count")           AS "totalCount",
+  SUM(pl."durationMinutes") AS "totalMinutes"
+FROM "PracticeLog" pl
+JOIN "User" u ON u.id = pl."userId"
+GROUP BY pl."userId", pl."practiceProjectId", "logDay";
+
+CREATE UNIQUE INDEX ON v_practice_daily ("userId", "practiceProjectId", "logDay");
+```
+
+刷新策略：
+- 排行榜读视图（允许 15 分钟延迟）
+- 今日 KPI 卡读实时 `PracticeLog`（不读视图）
+- `REFRESH MATERIALIZED VIEW CONCURRENTLY v_practice_daily` 每 15 分钟 cron 执行
+
+---
+
+### 三、DharmaAssembly → Event 迁移
+
+| 步骤 | 操作 |
+|---|---|
+| 1 | `EventType` 枚举新增 `dharma_assembly` 值 |
+| 2 | `Event` 新增独有字段：`tibetanDate String?` · `timezone String` · `isGlobal Boolean @default(false)` |
+| 3 | 后端 `dharma-assemblies/` 模块重写为 `events/` 子路由（`/api/events?type=dharma_assembly`）|
+| 4 | 前端 `AssemblyDetailPage` 迁移为 `EventDetailPage`（复用 EventsPage 现有 kind 合并逻辑）|
+| 5 | Migration DROP `"DharmaAssembly"` 表 |
+| 6 | 删除旧模块目录 `backend/src/modules/dharma-assemblies/` |
+
+> 前端 `EventsPage` 已合并展示 ClassSession + DharmaAssembly（via kind discriminator）。迁移后数据来源从两张表过滤为一张表，改动量小。
+
+---
+
+### 四、Coach RBAC 替换
+
+| 步骤 | 操作 |
+|---|---|
+| 1 | `ClassAdmin` 表（9 个 flags）替换 `ClassMember.role='coach'` 作为鉴权依据 |
+| 2 | 后端所有 `/api/classes/:id/*` coach 路由改用 `ClassAdmin` flags 做 permission check |
+| 3 | `seed_002`：将现有 `ClassMember.role='coach'` 数据写入 `ClassAdmin`（默认全部 flags=true）|
+| 4 | 前端 `/coach/*` 页面从 `CoachContext` API 读 flags，不再读 `ClassMember.role` |
+| 5 | `ClassMember.role` 字段保留不删（历史兼容），但不再作为任何鉴权判断 |
+
+---
+
+### 五、代码影响范围
+
+| 模块 | 操作 | 文件数估算 |
+|---|---|---|
+| `practice/`（student + makeup + ranking） | 重写 | ~9 文件 |
+| `dharma-assemblies/` | 删除，迁至 events/ | ~4 文件 |
+| `class-members/` + `classes/` | ClassAdmin flags 接入 | ~3 文件 |
+| `classes/sessions/` | classId null guard + 字段扩展 | ~2 文件 |
+| 前端 `/coach/*` 页面 | RBAC guard 接入 | ~8 页面 |
+| 前端 EventsPage / AssemblyDetailPage | DharmaAssembly 迁移 | ~2 页面 |
+| `prisma/schema.prisma` | 删表 + 扩展 + 新 43 张表 | 1 文件 |
+| Migrations | 清洁 rebuild | ~15 个 migration 文件 |
+
+**合计**：约 44 个文件，大部分与新功能开发工作重叠，净额外工作量约 20% 增量。
+
+---
+
+### 六、迁移执行策略（开发阶段清洁 rebuild）
+
+开发阶段无需 `prisma migrate resolve --applied` 技巧，直接：
+
+```bash
+# 方案 A：重置整库（推荐，开发阶段首选）
+npx prisma migrate reset   # 清空所有表 + 重跑全部 migration
+
+# 方案 B：追加 migration（保留现有数据）
+npx prisma migrate dev --name "consolidate_practice_tables"
+npx prisma migrate dev --name "merge_dharma_assembly_to_event"
+npx prisma migrate dev --name "add_vow_end_date_and_project_category"
+```
+
+§六 Migration 计划中"旧库首次切换说明"仅适用于上线后追加，开发阶段忽略。
 
 ---
 

@@ -1013,9 +1013,112 @@ model ClassAdmin {
 
 ---
 
+---
+
+## 第 F15 组：班级动态 + 讨论 ✅ 已确认
+
+| 内容 | 决定 | 备注 |
+|---|---|---|
+| 动态转发 | ✅ 支持站内转发 | 生成新 ClassPost（type='shared_post'），关联原帖 sourcePostId |
+| 转发跨班 | ❌ 不做 | 转发只在同班内，不跨班传播 |
+| ClassPost UI | ⏸ 暂缓（Phase 5）| DB + API 先建，前端后排期 |
+| 讨论区 UI | ⏸ 暂缓（Phase 5）| 同上 |
+
+---
+
+## 第 F16 组：掉队检测 ✅ 已确认
+
+| 内容 | 决定 | 备注 |
+|---|---|---|
+| 快照存储方案 | ✅ 独立快照表（一人一行最新）| `CohortLagSnapshot`，`@@unique([classId,studentId])`，upsert 更新 |
+| 维度权重 | ✅ 多维独立，无权重 | 4 个维度各自独立计算 lag 等级，不做加权合并 |
+| 基准来源 | ✅ 关联排表 | `computeLagSnapshot()` 调用 `getCurrentWeekContent()` 取本周预期进度 |
+| 检测触发时机 | ✅ 每日 cron（Phase 5）| 依赖共修/日记数据，Phase 5 才有完整信号 |
+| 掉队等级 | 4 级 | `on_track / slightly_behind / falling_behind / at_risk` |
+
+---
+
+## 第 F17 组：排表 ✅ 已确认
+
+| 内容 | 决定 | 备注 |
+|---|---|---|
+| 排表作为真相源 | ✅ 是 | 本周学习基准来自 ProgramWeek，不由班级自由设置 |
+| 学员阅读自由 | ✅ 是 | 不锁学员进度；LessonCompletion 记完成，但不限制阅读顺序 |
+| ProgramStudyType 用途 | ✅ 仅后端检测 | 不在前端展示"该学什么"，只在后端计算掉队维度 |
+| 展示基准线 | ✅ 给学员看 | 辅导员端和学员端都可见"本周计划进度" |
+| 班级进度分叉处理 | ✅ 共享排表 + 手动覆盖 | `Class.currentWeekOverride` 由 `canManageCourse` 手动设置 |
+| 班级放假（科系级）| ✅ ProgramWeek.isHoliday | 整个科系统一放假 |
+| 班级放假（班级级）| ✅ CohortRestWeek 表 | 某班单独放假，不影响其他班进度 |
+| `getCurrentLessonNumber()` | ✅ 优先 currentWeekOverride | 如有覆盖取覆盖值，否则按 `startDate` 起算周数 |
+
+---
+
+## 第 F18 组：成员状态机 + RBAC ✅ 已确认
+
+| 内容 | 决定 | 备注 |
+|---|---|---|
+| 留级处理 | ✅ 仅标记 + 手动转班 | 标记 `cohortStatus='held_back'`，转下届班由辅导员/admin 手动操作，系统不自动建关联 |
+| 暂停权限 | ✅ 学员自助 + 辅导员均可 | 学员可自助暂停（无审批）；辅导员也可代为操作 |
+| 恢复权限 | ✅ 同暂停 | 学员或辅导员均可恢复 |
+| 毕业权限 | ✅ 仅辅导员/admin | 学员不能自己标毕业 |
+| RBAC 分配权限 | ✅ 仅平台 admin | 辅导员不能给自己或他人分配/修改权限 |
+| 状态变更 cascade | ✅ changeMemberStatus() 处理 | paused 时自动暂停 source=auto 的愿；恢复时自动恢复 |
+
+---
+
+## 第 F19 组：/coach 架构 ✅ 已确认
+
+| 内容 | 决定 | 备注 |
+|---|---|---|
+| Admin 身份 | ✅ 超级用户 | admin 可访问所有班的 /coach 视图，无需加入 ClassAdmin |
+| /coach 入口 | ✅ 无显式入口 | 默认跳转到 admin/辅导员的第一个班（按 classId 排序）|
+| CoachContext 显示自身 | ✅ 显示自己 | 返回当前用户作为辅导员的身份信息（name、avatar、flags）|
+| CoachContext 数据结构 | ✅ 已确认 | `{isAdmin, classes:[{classId,className,flags}]}`，flags 为 ClassAdmin 9 个布尔值 |
+
+---
+
+## 架构决策：开发阶段 → 合并替换策略 ✅ 已确认
+
+**时间**：全文档一致性扫描后、制定优化方案前。
+
+**触发**：用户确认项目处于**开发阶段（无生产数据）**。
+
+### 原策略（已废弃）
+
+"扩展不重建"：旧表保留只读，新表并存，双写过渡。适合已上线系统的零停机迁移。
+
+### 新策略（已采用）
+
+**合并替换**：直接删除冗余表，重写相关模块，清洁 Prisma migration rebuild。
+
+### 删除的 6 张冗余表
+
+| 表 | 替代 |
+|---|---|
+| `PracticeTask` | `UserPracticeVow`（source=auto, endDate 支持区间）|
+| `PracticeGoal` | `UserPracticeVow`（isPledged=true）|
+| `PracticeEntry` | `PracticeLog` |
+| `PracticeDailySummary` | 物化视图 `v_practice_daily` |
+| `PracticeMakeup` | `PracticeLog.source='makeup'` |
+| `DharmaAssembly` | `Event.type='dharma_assembly'` |
+
+### 三个配套产品决策（用户确认）
+
+| 决策点 | 决定 |
+|---|---|
+| Streak + 补签 | ✅ 保留并移植到新系统（逻辑不变，数据来源换 PracticeLog）|
+| 固定区间任务 | ✅ 给 `UserPracticeVow` 加 `endDate DateTime?` 支持任意区间 |
+| DharmaAssembly | ✅ 并入 `Event` 表（`type='dharma_assembly'`），旧模块删除 |
+
+### 影响范围（见 §十 详细清单）
+
+约 44 个文件，大部分与新功能开发工作重叠，净额外工作量约 20% 增量。
+
+---
+
 ## 待确认事项
 
-> 8 组 + A1/A2/A3 + B1/B2/B3 + C1/C2/C3 全部确认。冲突核查（5处）全部决议。
+> 8 组 + A1/A2/A3 + B1/B2/B3 + C1/C2/C3 + F15/F16/F17/F18/F19 全部确认。冲突核查（5处）全部决议。架构优化方案已确认。
 >
 > **所有设计决策已全部完成。**
 >
@@ -1023,6 +1126,3 @@ model ClassAdmin {
 > - ⏸ B1/B2 阈值：辍修检测 + 愿 7 态百分比阈值，上线前可配置调整
 > - ⏸ A3 RBAC 权限 UI：ClassAdmin 权限分配界面具体交互，上线前讨论
 > - ⏸ 密宗 + 约修前端 UI：DB 和后台先建，UI 后续单独排期
->
-> **待执行：**
-> - **FINAL_DESIGN_SANSUSHENG.md**：需根据所有决策重新生成（当前版本为冲突决议前的旧版）
