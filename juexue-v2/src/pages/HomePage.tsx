@@ -23,6 +23,7 @@ import {
   useEnrollments,
   useProgress,
   useUnreadNotifCount,
+  useUpcomingEvents,
 } from '@/lib/queries';
 
 const MONTH_SC = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
@@ -209,10 +210,7 @@ export default function HomePage() {
             )}
           </Link>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-          <EventsButton />
-          <NotificationBell unread={unreadNotifs} />
-        </div>
+        <ActivityPill />
       </div>
 
       {/* 诗句 caption · 浮在画报上半区 · 让画报作品+诗句呼吸 */}
@@ -370,89 +368,121 @@ function ProfileAvatar({ dharmaName, unread }: { dharmaName: string; unread: num
   );
 }
 
-function EventsButton() {
+function ActivityPill() {
+  const eventsQ = useUpcomingEvents(7 * 24 * 60);
+  const events = eventsQ.data ?? [];
+  const [idx, setIdx] = useState(0);
+  const [fading, setFading] = useState(false);
+
+  const sorted = useMemo(() => {
+    const now = new Date();
+    return [...events].sort((a, b) => {
+      const aOngoing = new Date(a.startAt) <= now;
+      const bOngoing = new Date(b.startAt) <= now;
+      if (aOngoing !== bOngoing) return aOngoing ? -1 : 1;
+      if (aOngoing && a.kind !== b.kind) return a.kind === 'dharma_assembly' ? -1 : 1;
+      return new Date(a.startAt).getTime() - new Date(b.startAt).getTime();
+    });
+  }, [events]);
+
+  useEffect(() => {
+    if (sorted.length <= 1) return;
+    let swTimeout: ReturnType<typeof setTimeout>;
+    const timer = setInterval(() => {
+      setFading(true);
+      swTimeout = setTimeout(() => {
+        setIdx(i => (i + 1) % sorted.length);
+        setFading(false);
+      }, 250);
+    }, 3000);
+    return () => {
+      clearInterval(timer);
+      clearTimeout(swTimeout);
+    };
+  }, [sorted.length]);
+
+  const safeIdx = sorted.length > 0 ? idx % sorted.length : 0;
+  const cur = sorted[safeIdx];
+  const now = new Date();
+
+  const emoji = cur?.kind === 'dharma_assembly' ? '🪷' : cur ? '📿' : '📅';
+  let text: string;
+  if (!cur) {
+    text = '平台活动';
+  } else {
+    const start = new Date(cur.startAt);
+    const ongoing = start <= now;
+    const name = cur.title.length > 7 ? cur.title.slice(0, 7) + '…' : cur.title;
+    if (ongoing) {
+      text = `${name} · 进行中`;
+    } else {
+      const isToday = start.toDateString() === now.toDateString();
+      const hh = start.getHours().toString().padStart(2, '0');
+      const mm = start.getMinutes().toString().padStart(2, '0');
+      const time = isToday ? `今天 ${hh}:${mm}` : `${start.getMonth() + 1}月${start.getDate()}日`;
+      text = `${name} · ${time}`;
+    }
+  }
+
   return (
     <Link
       to="/events"
-      aria-label="活动"
+      aria-label="活动中心"
       style={{
-        width: 38,
-        height: 38,
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.2)',
-        backdropFilter: 'blur(8px)',
-        border: '1px solid rgba(255,255,255,0.3)',
-        color: '#fff',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        textDecoration: 'none',
-        textShadow: 'none',
-      }}
-    >
-      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-        <rect x="3" y="4" width="18" height="18" rx="2" />
-        <line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" />
-        <line x1="3" y1="10" x2="21" y2="10" />
-      </svg>
-    </Link>
-  );
-}
-
-function NotificationBell({ unread }: { unread: number }) {
-  return (
-    <Link
-      to="/notifications"
-      aria-label={'通知' + (unread > 0 ? ` · ${unread} 条未读` : '')}
-      style={{
-        position: 'relative',
-        width: 38,
+        gap: 5,
         height: 38,
-        borderRadius: '50%',
+        padding: '0 12px',
+        borderRadius: 999,
         background: 'rgba(255,255,255,0.2)',
         backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
         border: '1px solid rgba(255,255,255,0.3)',
         color: '#fff',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
         textDecoration: 'none',
         textShadow: 'none',
+        flexShrink: 0,
       }}
     >
-      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-      </svg>
-      {unread > 0 && (
+      <span style={{ fontSize: '0.85rem', flexShrink: 0, lineHeight: 1 }}>{emoji}</span>
+      <span
+        style={{
+          fontSize: '0.68rem',
+          fontWeight: 600,
+          letterSpacing: 0.5,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: 120,
+          opacity: fading ? 0 : 1,
+          transition: 'opacity 0.25s ease',
+        }}
+      >
+        {text}
+      </span>
+      {sorted.length > 1 && (
         <span
-          aria-hidden
           style={{
-            position: 'absolute',
-            top: 2,
-            right: 2,
+            fontSize: '0.6rem',
+            fontWeight: 700,
+            lineHeight: '14px',
             minWidth: 14,
             height: 14,
-            padding: '0 4px',
             borderRadius: 999,
-            background: 'var(--crimson)',
-            border: '2px solid rgba(255,255,255,0.4)',
-            color: '#fff',
-            fontSize: 9,
-            fontWeight: 700,
-            lineHeight: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            background: 'rgba(255,255,255,0.3)',
+            textAlign: 'center',
+            padding: '0 3px',
+            flexShrink: 0,
           }}
         >
-          {unread > 9 ? '9+' : unread}
+          {sorted.length}
         </span>
       )}
     </Link>
   );
 }
+
 
 function BigCard({ to, onClick, icon, title, sub }: {
   to?: string;
