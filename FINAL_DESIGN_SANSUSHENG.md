@@ -44,10 +44,10 @@
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 25 个 | 见 3.1 |
 | 修改后端模块 | 7 个 | 见 3.2 |
-| 新增前端页面（学员端）| 6 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
+| 新增前端页面（学员端）| 7 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页 + 讲考历史统计页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
 | 修改前端页面（学员端）| 10 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 + 「我的」页面（讲考记录入口）|
 | 新增前端页面（管理端 /coach/*）| 4 个 | 成员状态/掉队名单/修持愿管理/班级周汇总（打卡审核中心已砍）|
-| 新增前端页面（Admin 端）| 8 个 | 科系/修持模板/密法组/班级休息周/参考答案/法会活动/自学师兄/ClassAdmin 权限分配 |
+| 新增前端页面（Admin 端）| 9 个 | 科系/修持模板/密法组/班级休息周/参考答案/法会活动/自学师兄/ClassAdmin 权限分配/讲考成绩统计 |
 
 **核心策略说明：**
 - 项目处于**开发阶段（无生产数据）**，采用**合并替换**策略：冗余表直接删除，不做并存过渡（见 §十）
@@ -1651,6 +1651,67 @@ GET /api/my/speaking-history
   返回当前用户参与过的所有讲考记录（含报名、签到、评分状态）
   用于「我的」页面讲考历史列表
   响应：[{ sessionId, title, lessonTitle, startAt, registered, checkedIn, grade }]
+
+// 统计端点（直接聚合查询，不缓存；⏸ 暂缓缓存表至平台规模增大后再评估）
+GET /api/my/speaking-stats
+  返回当前用户讲考统计摘要（需登录）
+  响应：{
+    totalSessions: Int,           // 报名过的场次总数
+    checkedIn: Int,               // 其中完成签到的场次数
+    graded: Int,                  // 其中已收到评分的场次数
+    passRate: Float | null,       // (pass+excellent)/graded；graded=0 时为 null
+    distribution: { excellent: Int, pass: Int, fail: Int }
+  }
+  // 详细历次列表仍由 GET /api/my/speaking-history 返回
+
+GET /api/speaking-sessions/:id/stats
+  单场次统计（权限：canManageExams 或 admin）
+  响应：{
+    sessionId: String,
+    title: String,
+    startAt: DateTime,
+    registered: Int,              // 报名人数
+    checkedIn: Int,               // 完成签到人数（StudyRecord.speakingSessionId 匹配）
+    graded: Int,                  // 已评分人数
+    attendanceRate: Float | null, // checkedIn / registered（registered=0 时为 null）
+    passRate: Float | null,       // (pass+excellent) / graded（graded=0 时为 null）
+    distribution: { excellent: Int, pass: Int, fail: Int, ungraded: Int }
+  }
+
+GET /api/classes/:classId/speaking-stats
+  班级讲考汇总统计（权限：canManageExams）
+  响应：{
+    sessions: [{                  // 班内所有讲考场次，按 startAt 倒序
+      sessionId: String, title: String, startAt: DateTime,
+      registered: Int, checkedIn: Int, graded: Int,
+      attendanceRate: Float | null,
+      passRate: Float | null,
+      distribution: { excellent: Int, pass: Int, fail: Int }
+    }],
+    members: [{                   // 班内成员维度，按 passRate 倒序（null 排末位）
+      userId: String, name: String,
+      sessionsRegistered: Int, sessionsCheckedIn: Int, sessionsGraded: Int,
+      passRate: Float | null,
+      distribution: { excellent: Int, pass: Int, fail: Int }
+    }]
+  }
+
+GET /api/admin/speaking-stats
+  平台讲考汇总统计（权限：admin）
+  query: from?, to?（ISO 日期字符串，默认全部）
+  响应：{
+    totalSessions: Int,
+    totalRegistrations: Int,
+    totalCheckIns: Int,
+    overallPassRate: Float | null,
+    distribution: { excellent: Int, pass: Int, fail: Int },
+    sessionList: [{               // 所有场次概览，按 startAt 倒序
+      sessionId: String, title: String, classId: String | null,
+      startAt: DateTime,
+      registered: Int, graded: Int,
+      passRate: Float | null
+    }]
+  }
 ```
 
 ### 3.2 修改现有模块（7 个）
@@ -2126,7 +2187,7 @@ care-followup.middleware.ts
 
 ## 四、前端改动范围
 
-### 4.1 学员端新增页面（6 个）
+### 4.1 学员端新增页面（7 个）
 
 > 注 1：修持愿与修持打卡**合并进现有 `/practice` 页**（见 §4.2 修学计数页改造），不再单设 `/vows` 独立页。
 > 注 2：修持日记**嵌入藏历日历页 `/calendar`**（见 §4.2），不再单设 `/journals` 独立页。
@@ -2140,6 +2201,7 @@ care-followup.middleware.ts
 | 法会详情 | `/events/:id` | 见下方详细设计 |
 | 平台场次详情 | `/events/sessions/:id` | 平台级共修/讲考场次信息 + App 内签到入口（时间窗口内）|
 | 签到链接页 | `/checkin/:token` | **无需登录**；显示场次信息 + 成员列表；学员点名字完成打卡；时间窗口外显示「未开始」或「已关闭」 |
+| 讲考历史统计 | `/my/speaking-history` | 个人所有讲考记录列表 + 顶部统计概览（参与场次数 / 通过率 badge / 成绩分布）+ 每条记录可展开评语详情；**入口：「我的」页面「讲考记录」入口** |
 
 #### 首页活动入口（药丸卡片）⚠️ 布局待定
 
@@ -2305,7 +2367,7 @@ care-followup.middleware.ts
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | open 题型关闭 AI 评分（noScoring）；写下思考 → 提交 → 显示参考答案自行对照；双入口：法本课时末尾「思考题」区 + QuizPage 答题流 |
 | 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择；学习模式（learningMode）；班级学习暂停/恢复自助（cohortStatus active↔paused，级联 auto 愿）|
-| 「我的」页面（ProfilePage）| 新增「讲考记录」入口 → 列表页（复用 `/api/my/speaking-history` 数据）；每条显示场次标题 + 日期 + 评分结果 badge；点击展开评语详情 |
+| 「我的」页面（ProfilePage）| 新增「讲考记录」入口 → 跳转 `/my/speaking-history`；入口旁展示个人通过率 badge（调用 `/api/my/speaking-stats`，如「通过率 75%」；graded=0 时不显示 badge）|
 
 #### 班级进度基准线展示（Feature 11 · 双模式学习 + 排表驱动）
 
@@ -2438,7 +2500,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 /coach/                            落地页：此人管理的班级列表
 /coach/:classId/                   班级首页（仅显示有权限的模块）
 /coach/:classId/members            canManageMembers（留级/毕业/退班 + 代操作暂停/恢复；学员自助暂停在学员端 /profile）
-/coach/:classId/exams              canManageExams（讲考场次管理 + 报名名单查看 + 评分录入）
+/coach/:classId/exams              canManageExams（讲考场次管理 + 报名名单查看 + 评分录入 + 顶部班级统计视图：各场次出勤率/通过率/成绩分布卡片 + 学员维度汇总表，调用 /api/classes/:classId/speaking-stats）
 /coach/:classId/students           canViewStudents（学员修行数据 + 掉队名单）
 /coach/:classId/care               canCareFollowup（关怀跟进记录）
 /coach/:classId/goals              canEditGoals（愿每日目标量）
@@ -2504,7 +2566,7 @@ admin 超级用户（决策）
 
 > 打卡审核：已砍。签到自助免审、修持打卡乐观计入，无审核环节（见 §4.3 移除 canAuditPractice）。
 
-### 4.4 Admin 端新增页面（8 个）
+### 4.4 Admin 端新增页面（9 个）
 
 | 页面 | 说明 |
 |---|---|
@@ -2516,6 +2578,7 @@ admin 超级用户（决策）
 | 法会活动管理 | Event CRUD（法会回向依赖）+ 藏历日期展示字段 |
 | 自学师兄管理 | 全局查看自学进度；修改 status |
 | ClassAdmin 权限分配 | `/admin/classes/:id/admins`：搜索用户 → 逐 flag 勾选 → 保存 |
+| 讲考成绩统计 | `/admin/speaking-stats`：平台汇总（总场次/总报名/总签到/整体通过率/成绩分布）+ 各场次概览列表（可按日期范围筛选）+ 点击场次展开单场详情（复用 `/api/speaking-sessions/:id/stats`）|
 
 ### 4.5 无新增表的纯前端/后端逻辑（5 个）
 
@@ -2698,6 +2761,11 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 讲考报名 API（POST/DELETE `/api/speaking-sessions/:id/register`）| 后端 |
 | 讲考评分 API（POST `/api/classes/:id/speaking-sessions/:id/grade`）| 后端 |
 | 讲考历史 API（GET `/api/my/speaking-history`）| 后端 |
+| 讲考统计 API（4 端点：`/api/my/speaking-stats` + `/api/speaking-sessions/:id/stats` + `/api/classes/:classId/speaking-stats` + `/api/admin/speaking-stats`）| 后端 |
+| 讲考历史统计页（`/my/speaking-history`：历次列表 + 顶部统计概览）| 前端 |
+| 「我的」页面通过率 badge（`/api/my/speaking-stats`）| 前端 |
+| `/coach/:classId/exams` 顶部班级统计视图（`/api/classes/:classId/speaking-stats`）| 前端 |
+| Admin 讲考成绩统计页（`/admin/speaking-stats`，`/api/admin/speaking-stats`）| 前端 |
 | CheckIn API（公开端点：GET + POST `/api/checkin/:token`）| 后端 |
 | SpeakingSession.startAt / checkInToken 字段，classId 改可空（含在 migration_009）| DB |
 | ClassSession.checkInToken 字段，classId 改可空（migration）| DB |
