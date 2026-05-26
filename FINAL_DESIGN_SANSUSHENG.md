@@ -21,7 +21,7 @@
 2. [数据库改动](#二数据库改动)
    - 2.1 新增枚举
    - 2.2 现有表字段扩展
-   - 2.3 新增表（43 张，含完整 Prisma schema）
+   - 2.3 新增表（45 张，含完整 Prisma schema）
    - 2.4 新增 SQL 视图
 3. [后端改动范围](#三后端改动范围)
 4. [前端改动范围](#四前端改动范围)
@@ -39,7 +39,7 @@
 |---|---|---|
 | 新增 Prisma 枚举 | 8 个 | 见 2.1（含掉队检测 LagStatus）|
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
-| 新增表 | 43 张 | 见 2.3（自学读物复用 Course 砍 3 张；密法加 TantricGroup +1；掉队检测加 CohortLagSnapshot +1 → 净 43）|
+| 新增表 | 45 张 | 见 2.3（自学读物复用 Course 砍 3 张；密法加 TantricGroup +1；掉队检测加 CohortLagSnapshot +1；讲考报名 SpeakingRegistration +1；讲考评分 SpeakingGrade +1 → 净 45）|
 | 新增 SQL 视图 | 3 个 | v_event_dedication_totals / v_weekly_dedication_totals / v_practice_daily（物化视图，替代 PracticeDailySummary）|
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 25 个 | 见 3.1 |
@@ -311,7 +311,7 @@ model PracticeProject {
 
 ---
 
-### 2.3 新增表（43 张）
+### 2.3 新增表（45 张）
 
 #### 组织层级（1 张）
 
@@ -650,7 +650,7 @@ model PracticeLog {
 }
 ```
 
-#### 闻思打卡系统（3 张）
+#### 闻思打卡系统（5 张）
 
 ```prisma
 // 闻思类打卡（仅覆盖讲考 + 共修；听/读/观修走轻量 LessonCompletion，不审核）
@@ -703,11 +703,46 @@ model SpeakingSession {
   createdBy     String    // 操作人 userId
   createdAt     DateTime  @default(now())
 
-  class  Class?  @relation(fields: [classId], references: [id])
-  lesson Lesson  @relation(fields: [lessonId], references: [id])
+  class         Class?                @relation(fields: [classId], references: [id])
+  lesson        Lesson                @relation(fields: [lessonId], references: [id])
+  registrations SpeakingRegistration[]
+  grades        SpeakingGrade[]
 
   // @@unique([classId, lessonId]) 已移除：classId 可空时唯一约束失效
   @@index([classId, lessonId])
+}
+
+// 讲考报名（学员自主报名）
+// 报名后辅导员可见报名名单；报名是签到的前提信息（非强制前置校验，但影响卡片状态显示）
+// 截止时间：sessionEndAt（不单设 registrationDeadline，简化逻辑）
+model SpeakingRegistration {
+  id                String          @id @default(cuid())
+  speakingSessionId String
+  userId            String
+  registeredAt      DateTime        @default(now())
+
+  session SpeakingSession @relation(fields: [speakingSessionId], references: [id])
+  user    User            @relation(fields: [userId], references: [id])
+
+  @@unique([speakingSessionId, userId])
+}
+
+// 讲考评分（辅导员给自己班参与学员评分 + 文字评语）
+// 评分在 sessionEndAt 之后进行；学员可通过通知 + 往期记录查看结果
+model SpeakingGrade {
+  id                String          @id @default(cuid())
+  speakingSessionId String
+  userId            String
+  classId           String          // 辅导员所在班级（用于权限范围限定）
+  score             String          // 取值：pass（通过）/ fail（不通过）/ excellent（优秀）
+  comment           String?         // 文字评语（可选）
+  gradedBy          String          // 辅导员 userId
+  gradedAt          DateTime        @default(now())
+
+  session SpeakingSession @relation(fields: [speakingSessionId], references: [id])
+  user    User            @relation(fields: [userId], references: [id])
+
+  @@unique([speakingSessionId, userId])  // 每场每人只有一条评分
 }
 
 // 每日修持日记（与现有 Note 课时笔记完全不同：日记绑日期，笔记绑课时）
@@ -1378,6 +1413,8 @@ model User {
   aiConversations      AiConversation[]
   aiUsage              AiUsage[]
   tantricGrants        TantricAccessGrant[]
+  speakingRegistrations SpeakingRegistration[]
+  speakingGrades       SpeakingGrade[]
 }
 ```
 
@@ -1455,7 +1492,7 @@ model PracticeTemplate {
 | VowLogs | `/api/vows/:id/logs` | 修持打卡（发愿/裸追踪共用；座次自动算）|
 | VowPause | `/api/vows/:id/pause` + `/resume` | 愿暂停/恢复（自助，无审批）|
 | StudyRecords | `/api/study-records` | 闻思打卡（App 内自助，需登录，校验时间窗口）|
-| SpeakingSessions | `/api/classes/:id/speaking-sessions` | 讲考场次管理（含生成签到 token）|
+| SpeakingSessions | `/api/classes/:id/speaking-sessions` + `/api/speaking-sessions` | 讲考场次管理（含生成签到 token）+ 学员报名 + 辅导员评分 |
 | CheckIn | `/api/checkin/:token` | **公开端点（无需登录）** 签到链接页数据 + 提交；时间窗口校验 |
 | PracticeJournals | `/api/journals` | 修持日记 CRUD（UI 嵌藏历日历，upsert 一天一篇）|
 | SelfStudy | `/api/self-study` | 自学师兄科系学习管理（UserSelfStudyProgram + 个人休息周 + 自学进度算法）；读物走现有 Course/enrollment 接口 |
@@ -1570,6 +1607,47 @@ GET /api/activities
   }
   // 平台级共修/讲考的 App 内签到走 StudyRecords 模块（需登录）；
   // 签到链接（无需登录）走 CheckIn 模块；两者共用 StudyRecord @@unique 防重复
+```
+
+#### SpeakingSessions 模块端点明细（报名 + 评分）
+
+```
+// 学员报名端点（需登录）
+POST /api/speaking-sessions/:id/register
+  校验：session 存在 + sessionEndAt > now（未结束）
+  写 SpeakingRegistration { speakingSessionId, userId }
+  幂等：@@unique 约束，重复报名返回 200（不报错）
+  响应：{ registered: true, registeredAt }
+
+DELETE /api/speaking-sessions/:id/register
+  取消报名；仅 sessionEndAt > now 时可取消
+  删除对应 SpeakingRegistration 行
+  响应：{ registered: false }
+
+GET /api/speaking-sessions/:id/my-status
+  响应：{ registered: boolean, checkedIn: boolean, grade: SpeakingGrade | null }
+  grade 字段仅 sessionEndAt < now 后有值（辅导员已打分才显示）
+
+// 辅导员评分端点（canManageExams 权限）
+GET /api/classes/:classId/speaking-sessions/:id/registrations
+  返回本班已报名且参与本场次的学员列表（含签到状态）
+  仅列 classId 有值时 classId 匹配的班级成员（平台级场次则筛 classId 字段）
+  响应：[{ userId, name, studentId, registered, checkedIn, grade }]
+
+POST /api/classes/:classId/speaking-sessions/:id/grade
+  body: { userId, score, comment? }
+  score 取值：'pass' | 'fail' | 'excellent'
+  权限：gradedBy 必须是本班 canManageExams 的 ClassAdmin（或 admin）
+  写 SpeakingGrade（upsert：同一 session+user 只保留最新一条评分）
+  后置：向被评分学员推送通知（通知模块，站内消息）
+  响应：SpeakingGrade
+
+// 学员历史记录端点（需登录）
+GET /api/my/speaking-history
+  query: page / limit（默认 20）
+  返回当前用户参与过的所有讲考记录（含报名、签到、评分状态）
+  用于「我的」页面讲考历史列表
+  响应：[{ sessionId, title, lessonTitle, startAt, registered, checkedIn, grade }]
 ```
 
 ### 3.2 修改现有模块（7 个）
@@ -2116,13 +2194,32 @@ care-followup.middleware.ts
 | 即将开始 | `startDate > 今天` | startDate asc | 同上，按钮文案改为「预发愿」 |
 | 往期法会 | `endDate < 今天` | endDate desc | 折叠态；展开后纯列表：标题 + 日期区间 + 参与人数 |
 
-**共修 / 讲考 Tab 三分区：**
+**共修 Tab 三分区：**
 
 | 分区 | 数据条件 | 排序 | 卡片内容 |
 |---|---|---|---|
 | 进行中 | `startAt ≤ now ≤ sessionEndAt` | startAt asc | 标题 + 课时 + 时间窗口 + 「去签到」按钮（App 内签到）|
 | 即将开始 | `startAt > now` | startAt asc | 标题 + 课时 + 开始时间 + 「设提醒」|
 | 往期 | `sessionEndAt < now` | startAt desc | 折叠态；标题 + 日期 + 我的出勤状态 |
+
+**讲考 Tab 三分区（卡片状态机，依赖 `/api/speaking-sessions/:id/my-status`）：**
+
+| 分区 | 数据条件 | 我的状态 | 按钮 |
+|---|---|---|---|
+| 即将开始 | `startAt > now` | 未报名 | 「报名」（主色按钮）|
+| 即将开始 | `startAt > now` | 已报名 | 「已报名 ✓」（次要按钮，可点击取消报名）|
+| 进行中 | `startAt ≤ now ≤ sessionEndAt` | 已报名 + 未签到 | 「去签到」（链接或 App 内）|
+| 进行中 | `startAt ≤ now ≤ sessionEndAt` | 已签到 | 「已签到 ✓」（不可操作）|
+| 进行中 | `startAt ≤ now ≤ sessionEndAt` | 未报名 | 「旁听报名」（次要按钮，报名后可签到）|
+| 往期 | `sessionEndAt < now` | 有签到 + 待评分 | 「待评分」（信息 badge，灰色）|
+| 往期 | `sessionEndAt < now` | 有评分 | 「查看结果」（可点击，弹 Sheet 展示评分）|
+| 往期 | `sessionEndAt < now` | 未签到 | 仅显示日期 + 「未参与」标签 |
+
+**查看结果 Sheet 内容（往期讲考卡片点击触发）：**
+- 讲考场次标题 + 日期
+- 评分：通过 / 不通过 / 优秀（对应 pass / fail / excellent，大字显示）
+- 评语：辅导员文字评语（无评语时不显示此区块）
+- 辅导员姓名 + 评分日期（小字）
 
 #### 法会详情页（`/events/:id`）
 
@@ -2205,6 +2302,7 @@ care-followup.middleware.ts
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | open 题型关闭 AI 评分（noScoring）；写下思考 → 提交 → 显示参考答案自行对照；双入口：法本课时末尾「思考题」区 + QuizPage 答题流 |
 | 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择；学习模式（learningMode）；班级学习暂停/恢复自助（cohortStatus active↔paused，级联 auto 愿）|
+| 「我的」页面（ProfilePage）| 新增「讲考记录」入口 → 列表页（复用 `/api/my/speaking-history` 数据）；每条显示场次标题 + 日期 + 评分结果 badge；点击展开评语详情 |
 
 #### 班级进度基准线展示（Feature 11 · 双模式学习 + 排表驱动）
 
@@ -2337,7 +2435,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 /coach/                            落地页：此人管理的班级列表
 /coach/:classId/                   班级首页（仅显示有权限的模块）
 /coach/:classId/members            canManageMembers（留级/毕业/退班 + 代操作暂停/恢复；学员自助暂停在学员端 /profile）
-/coach/:classId/exams              canManageExams（讲考场次管理）
+/coach/:classId/exams              canManageExams（讲考场次管理 + 报名名单查看 + 评分录入）
 /coach/:classId/students           canViewStudents（学员修行数据 + 掉队名单）
 /coach/:classId/care               canCareFollowup（关怀跟进记录）
 /coach/:classId/goals              canEditGoals（愿每日目标量）
@@ -2588,6 +2686,10 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 |---|---|
 | StudyRecord API（讲考+共修，App 内自助，含时间窗口校验）| 后端 |
 | SpeakingSession API（场次管理 + 生成签到 token）| 后端 |
+| SpeakingRegistration + SpeakingGrade 表（migration）| DB |
+| 讲考报名 API（POST/DELETE `/api/speaking-sessions/:id/register`）| 后端 |
+| 讲考评分 API（POST `/api/classes/:id/speaking-sessions/:id/grade`）| 后端 |
+| 讲考历史 API（GET `/api/my/speaking-history`）| 后端 |
 | CheckIn API（公开端点：GET + POST `/api/checkin/:token`）| 后端 |
 | SpeakingSession.startAt / checkInToken 字段，classId 改可空（migration）| DB |
 | ClassSession.checkInToken 字段，classId 改可空（migration）| DB |
