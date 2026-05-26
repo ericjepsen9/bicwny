@@ -46,7 +46,7 @@
 | 修改后端模块 | 7 个 | 见 3.2 |
 | 新增前端页面（学员端）| 6 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
 | 修改前端页面（学员端）| 9 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 |
-| 新增前端页面（管理端 /coach/*）| 5 个 | |
+| 新增前端页面（管理端 /coach/*）| 4 个 | 成员状态/掉队名单/修持愿管理/班级周汇总（打卡审核中心已砍）|
 | 新增前端页面（Admin 端）| 7 个 | |
 
 **核心策略说明：**
@@ -332,11 +332,11 @@ model ClassAdmin {
   // 模块权限（admin 后台逐项勾选）
   canManageMembers  Boolean @default(false)  // 成员管理（暂停/留级/毕业/退班）
   canManageExams    Boolean @default(false)  // 讲考场次管理
-  canAuditPractice  Boolean @default(false)  // 审核打卡（StudyRecord + PracticeLog）
   canViewStudents   Boolean @default(false)  // 查看学员修行数据（愿/打卡/日记）
   canCareFollowup   Boolean @default(false)  // 关怀跟进记录（CareFollowup）
   canEditGoals      Boolean @default(false)  // 编辑愿的每日目标量
   canManageCourse   Boolean @default(false)  // 课程进度/法本切换/升科目
+  // 注：原 canAuditPractice 已移除 —— 签到自助免审、修持打卡乐观计入，无审核环节
 
   // 操作级权限（作用于已开放的所有模块）
   canEdit   Boolean @default(true)
@@ -619,7 +619,8 @@ model PracticeLog {
   // 注：打卡反思字段已移除（决策）；反思统一写入当日 PracticeJournal（藏历日历内）
   logDate       DateTime  // UTC 时间戳；可补填历史日期；显示层按 User.timezone 或 Class.timezone 转换
 
-  // 审核态
+  // 审核态（字段保留，当前无审核 UI —— 审核中心已砍）
+  // 修持打卡乐观计入，isConfirmed 恒 false；字段留作未来可选背书，不影响进度计算
   isConfirmed Boolean   @default(false)
   confirmedAt DateTime?
   confirmedBy String?   // 管理员 userId
@@ -658,10 +659,10 @@ model StudyRecord {
   studyDate DateTime
   createdBy String?  // 本人或主麦代录
 
-  // 审核态
+  // 审核态（字段保留，无审核 UI）：签到自助打卡置 isConfirmed=true；无需辅导员审核
   isConfirmed Boolean   @default(false)
   confirmedAt DateTime?
-  confirmedBy String?   // 管理员 userId
+  confirmedBy String?   // 管理员 userId（保留字段）
 
   createdAt DateTime @default(now())
 
@@ -1693,7 +1694,7 @@ function isPracticeLogInEvent(log: PracticeLog, event: Event): boolean {
 ```
 class-admin.middleware.ts
   验证 ClassAdmin 表中的 classId + userId 关系
-  按路由需求检查对应 flag（canManageMembers / canAuditPractice 等）
+  按路由需求检查对应 flag（canManageMembers / canEditGoals / canViewStudents 等）
   无记录或 flag=false → 403
 
 tantric-filter.middleware.ts
@@ -1973,14 +1974,13 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 - 手动点「完成观修」按钮 → 同上触发（兜底，不依赖进度）
 - 两条路径均 upsert，不重复写入
 
-### 4.3 管理端（/coach/*）新增页面（5 个）
+### 4.3 管理端（/coach/*）新增页面（4 个）
 
 ```
 /coach/                            落地页：此人管理的班级列表
 /coach/:classId/                   班级首页（仅显示有权限的模块）
 /coach/:classId/members            canManageMembers（暂停/留级/毕业/退班）
 /coach/:classId/exams              canManageExams（讲考场次管理）
-/coach/:classId/audit              canAuditPractice（批量确认 StudyRecord + PracticeLog）
 /coach/:classId/students           canViewStudents（学员修行数据 + 掉队名单）
 /coach/:classId/care               canCareFollowup（关怀跟进记录）
 /coach/:classId/goals              canEditGoals（愿每日目标量）
@@ -1992,10 +1992,30 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 | 页面 | 说明 |
 |---|---|
 | 成员状态管理 | 批量操作：暂停/留级/毕业/退班 + 原因填写；需 canManageMembers |
-| 打卡审核中心 | 批量确认 StudyRecord + PracticeLog；可取消确认；需 canAuditPractice |
 | 掉队名单 | 按掉队状态排序；查看详情；需 canViewStudents |
 | 修持愿管理 | 查看本班 auto 愿；修改到期日/每日目标量；需 canEditGoals |
 | 班级周汇总 | 展示定时任务自动生成的本周汇总；一键复制到 WhatsApp（写 sharedAt/sharedBy）；需 canViewStudents |
+
+#### 修持愿管理页详细（`/coach/:classId/goals` · Feature 14）
+
+```
+可见范围（严格）：
+  仅 source=auto 的班级愿（PracticeTemplate 派生）
+  ❌ 个人 custom 愿 + 裸追踪项（source=custom）完全不可见，私有
+
+列表：本班学员 × 各自的 auto 愿
+  每行：学员名 + 修法项目 + 进度（currentCount/目标）+ currentStatus（7态，仅此页可见）
+  可按 currentStatus 筛选/排序（will_overdue / at_risk 优先）
+
+可改字段（canEditGoals）：
+  - currentEndDate 到期日 → 改后自动 recalcVowStatus + 写 AuditLog
+  - dailyTarget 每日目标量 → 师兄自己也能改（节奏自主），管理员改写 paceHistory + AuditLog
+  - statusNote 状态备注（如"出差中，落后正常"，仅管理端可见）
+
+不做：审核打卡（审核中心已砍）；个人愿干预
+```
+
+> 打卡审核：已砍。签到自助免审、修持打卡乐观计入，无审核环节（见 §4.3 移除 canAuditPractice）。
 
 ### 4.4 Admin 端新增页面（7 个）
 
@@ -2122,7 +2142,7 @@ migration_011_views.sql               建 2 个 SQL 视图
 
 ```
 seed_001_programs.ts         录入科系种子数据（加行/净土/入行论等）
-seed_002_class_admins.ts     ClassMember.role='coach' 数据 → ClassAdmin（canManageCourse + canAuditPractice 等全部 true）
+seed_002_class_admins.ts     ClassMember.role='coach' 数据 → ClassAdmin（canManageCourse + canViewStudents 等全部 true）
 seed_003_self_study_books.ts 18 本《大学演讲系列》录为 Course（category=self_study_book）+ 章节课时
 seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册时间排序）
                              ⚠️ 必须在开放新用户注册之前执行
@@ -2164,12 +2184,10 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | CheckIn API（公开端点：GET + POST `/api/checkin/:token`）| 后端 |
 | SpeakingSession.startAt / checkInToken 字段，classId 改可空（migration）| DB |
 | ClassSession.checkInToken 字段，classId 改可空（migration）| DB |
-| 审核态（isConfirmed）API（确认/取消确认）| 后端 |
 | LessonCompletion API（轻量听/读/观修完成标记，含批量补录）| 后端 |
 | 讲考/共修打卡 UI（学员端 App 内）| 前端 |
 | 签到链接页（`/checkin/:token`，无需登录）| 前端 |
 | 「已学完」轻量按钮（课程详情页）| 前端 |
-| 打卡审核中心（管理端）| 前端 |
 
 ### Phase 3 · 修持愿系统
 
