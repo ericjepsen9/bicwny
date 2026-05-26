@@ -42,7 +42,7 @@
 | 新增表 | 43 张 | 见 2.3（自学读物复用 Course 砍 3 张；密法加 TantricGroup +1；掉队检测加 CohortLagSnapshot +1 → 净 43）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
-| 新增后端模块 | 24 个 | 见 3.1 |
+| 新增后端模块 | 25 个 | 见 3.1 |
 | 修改后端模块 | 7 个 | 见 3.2 |
 | 新增前端页面（学员端）| 6 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
 | 修改前端页面（学员端）| 9 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 |
@@ -1440,12 +1440,13 @@ model PracticeTemplate {
 
 ## 三、后端改动范围
 
-### 3.1 新增 API 模块（24 个）
+### 3.1 新增 API 模块（25 个）
 
 | 模块 | 路由前缀 | 主要功能 |
 |---|---|---|
 | Programs | `/api/programs` | 科系 CRUD + 排表模板嵌套 CRUD（科目 ProgramSemester / 周 ProgramWeek / 周课程 ProgramWeekCourse / 周修法 ProgramWeekPractice / 打卡要求 ProgramStudyType）；admin 专属 |
 | PlatformActivities | `/api/activities` | 首页药丸 summary + 活动中心聚合（平台级法会/共修/讲考）|
+| CoachContext | `/api/coach/context` | 管理端 bootstrap：返回当前用户管理的班级 + 各班 flag（驱动 /coach 落地页 + 模块可见性 + 路由守卫）。admin → isAdmin=true，列全部班级、flag 全开；ClassAdmin → 列其记录、按 flag；都不是 → classes=[]（前端守卫重定向学员首页）|
 | ClassAdmins | `/api/classes/:id/admins` | ClassAdmin RBAC 分配管理；**仅平台 admin**（requireRole('admin')），全权主麦也不能分配（决策：不加 canManageAdmins flag）|
 | CohortRestWeeks | `/api/classes/:id/rest-weeks` | 班级休息周管理 |
 | CurrentLesson | `/api/classes/:id/current-lesson` | 当前课时号查询（进度算法）|
@@ -1886,7 +1887,8 @@ function isPracticeLogInEvent(log: PracticeLog, event: Event): boolean {
 
 ```
 class-admin.middleware.ts
-  验证 ClassAdmin 表中的 classId + userId 关系
+  超级用户：role='admin' 直接放行（所有 flag 视为 true，任意班；决策：admin 是超级用户）
+  否则验证 ClassAdmin 表中的 classId + userId 关系
   按路由需求检查对应 flag（canManageMembers / canEditGoals / canViewStudents 等）
   无记录或 flag=false → 403
   例外：成员 pause/resume 自身 membership 允许本人自助（不查 flag，见 changeMemberStatus）
@@ -2189,6 +2191,35 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 
 无权限的模块：前端不渲染（隐藏），后端 API 也守卫（双重保障，三端分离铁律不变）。
 
+#### /coach/* 架构（路由守卫 + bootstrap + 三端分离）
+
+```
+入口（决策：无显式入口）
+  学员端无任何「管理」按钮（守护铁律：学员端永远是学员视图）
+  ClassAdmin / admin 直接访问 /coach URL 进入；不知道的人看不到入口
+
+bootstrap（进入 /coach/* 时）
+  GET /api/coach/context → { isAdmin, classes:[{classId, className, flags{6 个}}] }
+  classes 为空（既非 ClassAdmin 也非 admin）→ 前端守卫 redirect 到 /（学员首页）
+
+CoachLayout（包裹所有 /coach/* 路由，与学员端 / Admin 端布局完全隔离）
+  路由守卫 RequireCoach：context.classes 为空 → 踢回学员首页
+  /coach/        落地页：渲染 context.classes 列表（多班各自卡片，点进切班）
+  /coach/:classId/  班级首页：只渲染 flags=true 的模块磁贴（admin → 全开）
+  /coach/:classId/:module  进入前校验该班对应 flag；无权 → 隐藏/403
+
+admin 超级用户（决策）
+  context.isAdmin=true → classes 列全部班级、6 个 flag 全 true
+  后端 class-admin.middleware 对 role='admin' 直接放行（见 §3.4）
+  admin 无需被分配 ClassAdmin 记录即可管理任意班
+
+三端分离铁律（CLAUDE.md）
+  学员端组件**绝不** import /coach 组件（曾在 ClassDetailPage 泄露管理操作，commit 1507921 清除）
+  后端每个 /coach API 挂 class-admin.middleware（按 flag）；双重保障
+  辅导员若也是本班学员：学员数据 / 掉队名单**包含其本人**（决策：显示自己）；
+    其个人修学在学员端 /practice 照常，两端数据同源不互斥
+```
+
 | 页面 | 说明 |
 |---|---|
 | 成员状态管理 | 批量操作：代操作暂停/恢复 + 留级/毕业/退班 + 原因填写；留级仅标记（heldBackCount+1），转下一届班为手动（到目标班手动加新成员）；需 canManageMembers |
@@ -2245,7 +2276,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 
 > 使用应用层中间件实现，不依赖数据库 RLS。
 
-### 权限红线（16 条）
+### 权限红线（18 条）
 
 | 规则 | 实现 |
 |---|---|
@@ -2265,6 +2296,8 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 | 平台级场次创建权限 | ClassSession / SpeakingSession 的 classId=null 仅 admin 可设；classId 有值时 admin 或 canManageExams 均可 |
 | 成员状态转换权限 | 应用层 changeMemberStatus：pause/resume 允许本人自助（actor=member.userId）或 canManageMembers；held_back/graduate/leave 限 canManageMembers/admin；复活（→active）限 admin |
 | RBAC 分配仅 admin | ClassAdmins 路由 `requireRole('admin')`；ClassAdmin flag（含全权主麦）均无分配权；不设 canManageAdmins flag |
+| /coach 访问守卫 | 前端 RequireCoach：/api/coach/context.classes 为空 → redirect 学员首页；学员端无管理入口（无显式入口） |
+| admin 超级用户 | role='admin' 在 class-admin.middleware 直接放行（所有 flag 视为 true、任意班）；CoachContext 对 admin 返回全部班级 + flag 全开 |
 
 ### 数据完整性约束（7 条）
 
@@ -2402,6 +2435,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 愿暂停/恢复 | 后端 |
 | 每日定时任务（愿状态重算：will_overdue/at_risk 按日推进，仅 source=auto）| 后端 |
 | 成员状态机 API（changeMemberStatus：5 态转换 + 权限守卫 + paused↔active 级联 source=auto 愿；留级仅标记）| 后端 |
+| CoachContext API（/api/coach/context：管理班级 + flag；admin 超级用户全开）+ class-admin.middleware admin 放行 | 后端 |
+| /coach 架构基座（CoachLayout + RequireCoach 守卫 + 落地页切班 + flag 驱动模块磁贴；无显式入口）| 前端 |
 | 成员状态管理页（/coach/:classId/members，canManageMembers：代操作暂停/恢复 + 留级/毕业/退班 + 原因）| 前端 |
 | 学员自助暂停/恢复（/profile，cohortStatus active↔paused，级联 auto 愿）| 前端 |
 | `/practice` 统一中枢改造（班级愿区 + 我的修学区 + 添加修学 + 打卡 Sheet）| 前端 |
