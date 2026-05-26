@@ -40,7 +40,7 @@
 | 新增 Prisma 枚举 | 8 个 | 见 2.1（含掉队检测 LagStatus）|
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
 | 新增表 | 43 张 | 见 2.3（自学读物复用 Course 砍 3 张；密法加 TantricGroup +1；掉队检测加 CohortLagSnapshot +1 → 净 43）|
-| 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
+| 新增 SQL 视图 | 3 个 | v_event_dedication_totals / v_weekly_dedication_totals / v_practice_daily（物化视图，替代 PracticeDailySummary）|
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 25 个 | 见 3.1 |
 | 修改后端模块 | 7 个 | 见 3.2 |
@@ -50,8 +50,8 @@
 | 新增前端页面（Admin 端）| 8 个 | 科系/修持模板/密法组/班级休息周/参考答案/法会活动/自学师兄/ClassAdmin 权限分配 |
 
 **核心策略说明：**
-- 修持系统（UserPracticeVow / PracticeLog）与现有 PracticeTask / PracticeGoal / PracticeEntry 并存，新功能全走新表，旧功能零回归
-- PracticeEntry 停止新写入，历史数据原地保留供旧统计使用
+- 项目处于**开发阶段（无生产数据）**，采用**合并替换**策略：冗余表直接删除，不做并存过渡（见 §十）
+- 删除 6 张冗余表：`PracticeTask` · `PracticeGoal` · `PracticeEntry` · `PracticeDailySummary` · `PracticeMakeup` · `DharmaAssembly`；修持系统全走 `UserPracticeVow / PracticeLog`，法会全走 `Event`
 - 密法（isTantric）对未授权学员零痕迹，对管理端不过滤
 
 ---
@@ -2351,13 +2351,14 @@ admin 超级用户（决策）
 
 ### 原则
 
-- **只增不删**：不删除任何现有字段/表，新字段全部可空或有默认值
-- **两层分离**：先跑纯新增 migration（结构），再跑数据迁移脚本（种子/历史数据）
-- **现有功能零中断**：migration 期间现有功能不受影响
+- **开发阶段清洁重建**：无生产数据约束，直接删除冗余表，不做"只增不删"保守策略（见 §十）
+- **两层分离**：先跑结构 migration（建表 / 删表 / 字段扩展），再跑数据种子脚本
+- **按 Phase 顺序跑**：每层 migration 完成后运行 `npx prisma validate` 和现有功能冒烟测试，验证无回归再继续
 
-### 第一层：结构 Migration（无破坏性，可随时跑）
+### 第一层：结构 Migration（按顺序执行）
 
 ```
+migration_001_lesson_resources.sql    ✅ 已跑 · 建 LessonResource / LessonMediaChapter / LessonTextBlock 3 张表
 migration_001_add_enums.sql           新增 8 个枚举（含 LagStatus）
 migration_002_extend_user.sql         User 加 6 个字段
 migration_003_extend_class.sql        Class 加 5 个字段（programId / startDate / city / timezone / currentWeekOverride）
@@ -2365,12 +2366,28 @@ migration_004_extend_classmember.sql  ClassMember 加 7 个字段
 migration_005_extend_course.sql       Course 加 5 个字段（author + isTantric + programSemesterId + category + tantricGroupId）
 migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
 migration_007_extend_classsession.sql ClassSession 加 3 个字段（lessonId / sessionEndAt / checkInToken）+ classId 改可空（ALTER COLUMN classId DROP NOT NULL）
+                                      ⚠️ 改可空前须全量审计现有 JOIN 查询，将 INNER JOIN classes 改为 LEFT JOIN 或加 WHERE classId IS NOT NULL
 migration_008_extend_meditation.sql   Meditation 加 4 个字段（seriesKey/seriesNumber/isTantric/tantricGroupId）
-migration_009_extend_practice.sql     PracticeProject 加 2 个字段（isTantric/tantricGroupId）
+migration_009_extend_practice.sql     PracticeProject 加 3 个字段（isTantric / tantricGroupId / categoryId）
 migration_009_pgvector.sql            启用 pgvector 扩展（CREATE EXTENSION IF NOT EXISTS vector）
-migration_001_lesson_resources.sql    ✅ 已跑 · 建 LessonResource / LessonMediaChapter / LessonTextBlock 3 张表（对应 backend/prisma/migrations/1_lesson_resources/）
-migration_010_new_tables.sql          建 43 张新表（含 EventCount / CareFollowup / CohortLagSnapshot / ClassPost 系列 / Discussion 系列 / AI 助手 5 张 / TantricGroup / LessonMediaChapter / LessonTextBlock；PracticeGuide 未进入生产，无需 DROP）
-migration_011_views.sql               建 2 个 SQL 视图
+migration_010_delete_old_tables.sql   DROP 6 张冗余表（开发阶段清洁删除）：
+                                        DROP TABLE IF EXISTS "PracticeMakeup" CASCADE;
+                                        DROP TABLE IF EXISTS "PracticeDailySummary" CASCADE;
+                                        DROP TABLE IF EXISTS "PracticeEntry" CASCADE;
+                                        DROP TABLE IF EXISTS "PracticeGoal" CASCADE;
+                                        DROP TABLE IF EXISTS "PracticeTask" CASCADE;
+                                        DROP TABLE IF EXISTS "DharmaAssembly" CASCADE;
+                                      顺序：先删有 FK 依赖的子表（PracticeMakeup → PracticeDailySummary → PracticeEntry），再删父表
+                                      CASCADE 处理残余 FK 引用
+migration_011_new_tables.sql          建 43 张新表
+                                        · Event 表含 DharmaAssembly 迁入字段：tibetanDate / isGlobal / timezone
+                                        · UserPracticeVow 含 endDate DateTime?（区间愿）
+                                        · 含 EventCount / CareFollowup / CohortLagSnapshot / ClassPost 系列 /
+                                          Discussion 系列 / AI 助手 5 张 / TantricGroup 等
+migration_012_views.sql               建 3 个 SQL 视图：
+                                        · v_event_dedication_totals（法会回向聚合）
+                                        · v_weekly_dedication_totals（每周回向聚合）
+                                        · v_practice_daily（物化视图，替代 PracticeDailySummary；含 UNIQUE INDEX）
 ```
 
 ### 第二层：数据 Migration（一次性脚本，按顺序执行）
@@ -2385,12 +2402,12 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 
 ### 注意事项
 
-- `removedAt` 字段保留（旧退班数据兼容），新退班用 `cohortStatus='left'`
-- 现有 `ClassMember.role='coach'` 字段保留，但权限管理转移到 `ClassAdmin` 表
-- 现有 `PracticeEntry` 数据原地保留（旧统计继续读），新打卡走 `PracticeLog`
-- 现有 `PracticeTask` / `PracticeGoal` 数据**原地保留只读**（旧统计继续读），**不迁移**为 UserPracticeVow；新目标全走愿系统（auto 愿 = 班级派下，custom 愿/裸追踪 = 用户自建）
-- 合并后 `/practice` 的 KPI（今日/streak/本周/累计）**实时从 PracticeLog 按 `User.timezone` 聚合**；`PracticeDailySummary` 停止新写入（旧数据保留供历史查询）；streak 以 `logDate` 转 User.timezone 本地日期计算连续天数
-- 密法 migration 不需要：`isTantric` 默认 `false`，现有数据默认非密法
+- `removedAt` 字段保留（字段本身不删，不影响 schema），新退班用 `cohortStatus='left'`
+- `ClassMember.role='coach'` 字段保留（字段本身不删），但权限管理转移到 `ClassAdmin` 表；字段不再作为任何鉴权判断
+- `PracticeEntry` · `PracticeTask` · `PracticeGoal` · `PracticeDailySummary` · `PracticeMakeup`：**全部删除**（migration_010）；新修持系统全走 `UserPracticeVow / PracticeLog`（见 §十）
+- `DharmaAssembly`：**删除**（migration_010）；法会功能全走 `Event`（`type='dharma_assembly'`）
+- `v_practice_daily` 物化视图需 cron 每 15 分钟刷新（`REFRESH MATERIALIZED VIEW CONCURRENTLY`）；排行榜读视图，今日 KPI 卡读实时 `PracticeLog`
+- 密法 migration 不需要额外操作：`isTantric` 默认 `false`，现有数据默认非密法
 - `UserCourseEnrollment` 上的 `selfStudyStartDate/selfStudyPace/selfStudyStatus` 三字段**不添加**（自学功能走 `UserSelfStudyProgram`）
 
 ---
@@ -2403,7 +2420,7 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 
 | 任务 | 类型 |
 |---|---|
-| 跑 Migration 第一层（结构，11 个文件）| DB |
+| 跑 Migration 第一层（结构，12 个文件：migration_001~012，其中 migration_001_lesson_resources 已跑）| DB |
 | 录入科系种子数据（Program）| DB |
 | ClassAdmin 数据迁移（coach → RBAC flags 全开）| DB |
 | 密法零痕迹中间件（所有学员侧 Course/Meditation 查询加过滤）| 后端 |
@@ -2524,9 +2541,7 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | StudyRecord.read_notes 类型 | 同上 |
 | group_sessions 独立表 | 复用现有 ClassSession，加两字段即可 |
 | 法会发愿独立表 | 法会愿就是 UserPracticeVow（context=event），无需另表 |
-| PracticeEntry 新写入 | 历史数据保留；新打卡一律走 PracticeLog |
-| PracticeTask / PracticeGoal 迁移为愿 | 原地保留只读；新目标全走 UserPracticeVow，不迁移旧任务/目标 |
-| PracticeDailySummary 新写入 | 停更；KPI/streak 实时从 PracticeLog 按 User.timezone 聚合 |
+| PracticeEntry / PracticeTask / PracticeGoal / PracticeDailySummary / PracticeMakeup 保留 | ✅ **决策逆转（见 §十）**：开发阶段，全部删除；新修持系统全走 UserPracticeVow / PracticeLog |
 | 裸打卡补发愿（追溯历史）| 不支持；发愿须新建 isPledged=true 的愿，历史裸打卡不关联 |
 | PracticeLog.reflection 打卡反思 | 移除；反思统一写当日 PracticeJournal（藏历日历内），单一载体 |
 | 修持日记独立页 /journals | 不单设；嵌入藏历日历页 /calendar |
