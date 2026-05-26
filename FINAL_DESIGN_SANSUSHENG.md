@@ -161,7 +161,7 @@ model User {
 }
 ```
 
-#### `Class` 表（+4 个字段）
+#### `Class` 表（+5 个字段）
 
 ```prisma
 model Class {
@@ -173,13 +173,19 @@ model Class {
   // 所属科系（关联 Program）
 
   startDate  DateTime?
-  // 班级起始日期，算法基准：当前课时号 = 自然周数 - 休息周数
+  // 班级起始日期，算法基准：当前周号 = 自然周数 - 休息周数
 
   city       String?
   // 班级所在城市（北京 / 纽约 / 香港等）
 
   timezone   String?
   // IANA 时区（如 America/New_York）；共修/讲考场次时间按此时区展示
+
+  currentWeekOverride Int?
+  // 辅导员手动覆盖的「本班当前周号」（canManageCourse）。
+  // null = 用 startDate 自动算（同科系各班按各自开课日错峰）；
+  // 非 null = 本班节奏与排表分叉，锁定为该周号，自动算停用，辅导员后续手动推进/清空恢复自动。
+  // 解决「同科系不同班节奏不一」：科系排表给推荐基准，本字段给本班真相。
 
   program    Program? @relation(fields: [programId], references: [id])
 }
@@ -849,12 +855,14 @@ model ProgramWeekPractice {
 // 注：周 ↔ 自学读物映射不单设表，读物即 Course（category=self_study_book），走 ProgramWeekCourse
 
 // 各科系打卡要求声明（数据驱动，不硬编码）
+// 消费方：仅后端掉队检测（CohortLagSnapshot 出勤维度据此判断本科系「应打哪些卡」）。
+// 不在学员前端展示（决策）；displayLabel 仅供管理端排表编辑界面识别用。
 model ProgramStudyType {
   programId    String
   studyType    String  // speaking_present / group_attend 等
   requirement  String  // required / recommended
   displayOrder Int     @default(0)
-  displayLabel String  // 前端显示名
+  displayLabel String  // 管理端识别名（非学员端展示）
 
   program Program @relation(fields: [programId], references: [id])
 
@@ -1433,7 +1441,7 @@ model PracticeTemplate {
 
 | 模块 | 路由前缀 | 主要功能 |
 |---|---|---|
-| Programs | `/api/programs` | 科系 CRUD（admin）|
+| Programs | `/api/programs` | 科系 CRUD + 排表模板嵌套 CRUD（科目 ProgramSemester / 周 ProgramWeek / 周课程 ProgramWeekCourse / 周修法 ProgramWeekPractice / 打卡要求 ProgramStudyType）；admin 专属 |
 | PlatformActivities | `/api/activities` | 首页药丸 summary + 活动中心聚合（平台级法会/共修/讲考）|
 | ClassAdmins | `/api/classes/:id/admins` | ClassAdmin RBAC 分配管理 |
 | CohortRestWeeks | `/api/classes/:id/rest-weeks` | 班级休息周管理 |
@@ -1577,6 +1585,8 @@ GET /api/activities
 #### 课程进度算法（TS 函数，非 SQL 函数）
 
 ```typescript
+// 返回「本班当前周号」（effective week number），即排表 ProgramWeek.globalWeekNum 的索引。
+// 无排表班：周号在「1周=1课」线性假设下等同当前课时号。
 async function getCurrentLessonNumber(
   classId: string,
   targetDate: Date
@@ -1584,11 +1594,14 @@ async function getCurrentLessonNumber(
   const cls = await prisma.class.findUnique({ where: { id: classId } })
   if (!cls?.startDate) return 1
 
+  // 手动覆盖优先：本班节奏与排表分叉时，辅导员锁定的周号直接返回（自动算停用）
+  if (cls.currentWeekOverride != null) return cls.currentWeekOverride
+
   const startMonday = getMonday(cls.startDate)
   const targetMonday = getMonday(targetDate)
   const naturalWeeks = weeksBetween(startMonday, targetMonday) + 1
 
-  // 只计算目标日期之前的休息周（当天及之后不算）
+  // 只计算目标日期之前的休息周（当天及之后不算）—— 班级级临时休息
   const restWeeks = await prisma.cohortRestWeek.count({
     where: {
       classId,
@@ -1598,9 +1611,44 @@ async function getCurrentLessonNumber(
 
   return Math.max(1, naturalWeeks - restWeeks)
 }
-// 验证：+2周无休息=第3课 ✓ | 中间1个休息周后+2周=第2课 ✓
+// 验证：+2周无休息=第3周 ✓ | 中间1个休息周后+2周=第2周 ✓
 // 周编号每班独立，从本班 startDate 起算，不跨班共享
 // 升科目 = 主麦手动操作（需 canManageCourse=true），不自动触发
+// 两层假期：科系统一假期 = ProgramWeek.isHoliday（排表预设，全科系班共享）；
+//          单班临时休息 = CohortRestWeek（仅本班，自动算时减去）
+```
+
+#### 本周基准内容（排表驱动 · 新增）
+
+```typescript
+// 排表是「本周班级应学什么」的唯一真相源（喂基准线 + 喂掉队检测）；
+// 学员实际阅读仍自由（走 LessonCompletion，不被排表锁课，符合「节奏感不强制」）。
+async function getCurrentWeekContent(classId: string, targetDate: Date) {
+  const cls = await prisma.class.findUnique({ where: { id: classId } })
+  if (!cls?.programId || !cls.startDate) return null  // 未排表的班：无基准线，学员端不显示
+
+  const weekNum = await getCurrentLessonNumber(classId, targetDate)  // 本班当前周号（含手动覆盖）
+
+  const week = await prisma.programWeek.findUnique({
+    where: { programId_globalWeekNum: { programId: cls.programId, globalWeekNum: weekNum } },
+    include: {
+      courses:   { include: { course: true }, orderBy: { displayOrder: 'asc' } }, // 本周法本 + 课时
+      practices: { orderBy: { displayOrder: 'asc' } },                            // 本周修法
+    }
+  })
+  if (!week) return { weekNum, beyondSchedule: true }   // 超出排表范围（科系排完）：无新基准
+  if (week.isHoliday) return { weekNum, isHoliday: true } // 科系统一假期：本周无新内容
+
+  return {
+    weekNum,
+    isHoliday: false,
+    beyondSchedule: false,
+    courses:   week.courses,    // 基准线：本周应学法本 + 课时号（学员进度条对照用）
+    practices: week.practices,  // 本周应修的修法（92修法第几法等）
+  }
+}
+// 学员端：课程页/阅读页顶部展示 courses[].lessonId 作为「本周班级进度：第 N 课」基准线
+// 后端掉队检测：闻思维度「应完成」来自本周 courses；出勤维度「应打哪些卡」来自 ProgramStudyType
 ```
 
 #### 座次计算（每次打卡调用）
@@ -1711,12 +1759,20 @@ function lagFromRate(rate: number): LagStatus {
 }
 
 async function computeLagSnapshot(member: ClassMember): Promise<void> {
+  // 排表驱动「应完成什么」：本周基准内容（含闻思应学课时）
+  const wk = await getCurrentWeekContent(member.classId, now)  // 排表班才有；无排表班见下方降级
+  // 科系打卡要求：本科系应打哪些卡（ProgramStudyType，仅后端消费）
+  const studyTypes = await prisma.programStudyType.findMany({
+    where: { programId: cls.programId, requirement: 'required' }
+  })
+
   // 维度 1 修持：近2周 PracticeLog 达标天数 / 班级设定应打卡天数
   const practiceRate = practiceDaysHit / practiceDaysExpected
-  // 维度 2 闻思：近2周 (答题数 + StudyRecord 数) / 应完成课时关联题量
+  // 维度 2 闻思：近2周 (答题数 + StudyRecord 数) / 排表本周基准应完成量（wk.courses 关联课时题量）
+  //   无排表班降级：用线性「1周=1课」估算应完成量
   const studyRate    = studyDone / studyExpected
-  // 维度 3 出勤：近2周 (应到场次 - 缺席) / 应到场次（讲考 + 共修签到）
-  //   无任何场次时该维度恒 on_track（rate=1）
+  // 维度 3 出勤：仅统计 ProgramStudyType.required 的场次类型（如加行必修讲考、净土必修共修）
+  //   应到场次 = 近2周本科系 required 类型的场次数；无该类场次时该维度恒 on_track（rate=1）
   const attendRate   = sessionsExpected > 0 ? (sessionsExpected - absent) / sessionsExpected : 1
   // 维度 4 日记：近2周 PracticeJournal 提交天数 / 14
   const journalRate  = journalDays / 14
@@ -1728,14 +1784,17 @@ async function computeLagSnapshot(member: ClassMember): Promise<void> {
       studyLag:      lagFromRate(studyRate),
       attendanceLag: lagFromRate(attendRate),
       journalLag:    lagFromRate(journalRate),
-      detail: { practice:{rate:practiceRate}, study:{rate:studyRate},
-                attendance:{absent, expected:sessionsExpected}, journal:{days:journalDays} },
+      detail: { practice:{rate:practiceRate}, study:{rate:studyRate, baselineWeek:wk?.weekNum},
+                attendance:{absent, expected:sessionsExpected, requiredTypes:studyTypes.map(t=>t.studyType)},
+                journal:{days:journalDays} },
       computedAt: now,
     }
   })
 }
 // 注：at_risk 额外硬条件 —— 某维度近2周完全零记录时直接置 at_risk（rate 计算已覆盖：0/N=0）
 // 注：进度乐观计入，未确认（isConfirmed=false）的打卡同样计入达标
+// 注：闻思「应完成量」与出勤「应到场次类型」均来自排表 / ProgramStudyType —— 排表是检测基准源
+```
 
 **约修自动关闭**（每日凌晨定时任务）：
 
@@ -1944,25 +2003,30 @@ care-followup.middleware.ts
 | 藏历日历页 `/calendar` | **嵌入每日修持日记**（PracticeJournal）；点某天 → 藏历信息 + 当天日记查看/编写；见下方详细设计 |
 | 闻思页 `/courses` | 自学读物（Course category=self_study_book）与法本同页展示，可按 category 分组；复用现有阅读器/报名/进度 |
 | 课程详情 | 多讲者 LessonResource 展示；按 Class.timezone 显示共修时间；「已学完/已听完/已看完」确认按钮（见下方流程）；**显示班级进度基准线**（见下方）|
-| 课程阅读页 | **顶部显示本周班级进度**（"本周该学到第 N 课"，来自 getCurrentLessonNumber）；自学师兄按个人 startDate 算 |
+| 课程阅读页 | **顶部显示本周班级进度**（"本周该学到第 N 课"，来自 getCurrentWeekContent 排表驱动；假期/超范围则不显示）；自学师兄按个人 startDate 算 |
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | open 题型关闭 AI 评分（noScoring）；写下思考 → 提交 → 显示参考答案自行对照；双入口：法本课时末尾「思考题」区 + QuizPage 答题流 |
 | 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择；学习模式（learningMode）|
 
-#### 班级进度基准线展示（Feature 11 · 双模式学习）
+#### 班级进度基准线展示（Feature 11 · 双模式学习 + 排表驱动）
 
 ```
 跟班学员（learningMode=class/both）：
   课程页/阅读页顶部 → "本周班级进度：第 N 课"
-  N = getCurrentLessonNumber(classId, today)（班级 startDate + 班级休息周）
+  基准来源：getCurrentWeekContent(classId, today)（排表驱动）
+    有排表 → courses[].lessonId 即本周应学课时（基准线）+ practices 本周应修
+    科系统一假期（week.isHoliday）→ 显示"本周休息"
+    超出排表范围（beyondSchedule）/ 未排表班 → 不显示基准线
+  周号 N = getCurrentLessonNumber（startDate - 休息周；辅导员手动覆盖优先）
   对比个人 lessonsCompleted → 提示"你在第 M 课"（落后/同步/超前）
 
 自学师兄（learningMode=self_study/both）：
-  同一基准线算法，但用 UserSelfStudyProgram.startDate + 个人休息周（UserSelfStudyRestWeek）
-  N = getCurrentLessonNumber 变体（个人起修日 + 个人休息周）
+  同一周号算法，但用 UserSelfStudyProgram.startDate + 个人休息周（UserSelfStudyRestWeek）
+  排表查询同样按科系 ProgramWeek（自学走个人起修日定位周号）
 
 both 模式：班级科系按班级基准线，自学科系按个人基准线，两条独立展示
-进度仅作"节奏感"提示，不强制；掉队检测在后台（辅导员端，学员不可见状态）
+进度仅作"节奏感"提示，不强制（排表不锁课，学员可自由超前/落后阅读）
+掉队检测在后台（辅导员端，学员不可见状态），基准源同为排表 / ProgramStudyType
 ```
 
 #### 藏历日历页嵌入日记（`/calendar` · Feature 10）
@@ -2067,7 +2131,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 /coach/:classId/students           canViewStudents（学员修行数据 + 掉队名单）
 /coach/:classId/care               canCareFollowup（关怀跟进记录）
 /coach/:classId/goals              canEditGoals（愿每日目标量）
-/coach/:classId/course             canManageCourse（法本切换/升科目，手动操作）
+/coach/:classId/course             canManageCourse（法本切换/升科目/手动设本班当前周 currentWeekOverride，手动操作）
 ```
 
 无权限的模块：前端不渲染（隐藏），后端 API 也守卫（双重保障，三端分离铁律不变）。
@@ -2104,7 +2168,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 
 | 页面 | 说明 |
 |---|---|
-| 科系管理 | Program CRUD（code 唯一）+ 科目/周排表 |
+| 科系管理 | Program CRUD（code 唯一）+ 科目/周排表（周排课程+修法+假期标记）+ 打卡要求 ProgramStudyType 配置 |
 | 修持模板管理 | PracticeTemplate CRUD + 班级绑定 |
 | 密法组 + 授权管理 | TantricGroup CRUD（灌顶单位）+ 内容归组 + 按组授权 INSERT/DELETE ⏸ 暂缓（Phase 5：后台先做）|
 | 班级休息周 | CohortRestWeek 管理；实时预览课程进度效果 |
@@ -2208,7 +2272,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 ```
 migration_001_add_enums.sql           新增 8 个枚举（含 LagStatus）
 migration_002_extend_user.sql         User 加 6 个字段
-migration_003_extend_class.sql        Class 加 4 个字段
+migration_003_extend_class.sql        Class 加 5 个字段（programId / startDate / city / timezone / currentWeekOverride）
 migration_004_extend_classmember.sql  ClassMember 加 7 个字段
 migration_005_extend_course.sql       Course 加 5 个字段（author + isTantric + programSemesterId + category + tantricGroupId）
 migration_006_extend_lesson.sql       Lesson 加 1 个字段（sourceText）
@@ -2290,13 +2354,15 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 
 | 任务 | 类型 |
 |---|---|
-| 课程进度算法（getCurrentLessonNumber，班级版 + 自学个人版）| 后端 |
-| CurrentLesson API（`/api/classes/:id/current-lesson`）| 后端 |
+| 课程进度算法（getCurrentLessonNumber 返回周号，支持 currentWeekOverride 手动覆盖；班级版 + 自学个人版）| 后端 |
+| getCurrentWeekContent（排表驱动「本周基准内容」读取：周号 → ProgramWeek → 课程/修法；含假期/超范围降级）| 后端 |
+| Class.currentWeekOverride 字段 + 辅导员手动设当前周（/coach course，canManageCourse）| 后端+前端 |
+| CurrentLesson API（`/api/classes/:id/current-lesson`，返回周号 + 本周基准内容）| 后端 |
 | CohortRestWeek API + UserSelfStudyRestWeek | 后端 |
 | UserSelfStudyProgram API（自学科系报名 + 进度）| 后端 |
 | Course.category 字段 + 18 本读物录为 Course（seed）| DB |
 | learningMode 字段支持（个人设置切换）| 后端+前端 |
-| 班级进度基准线展示（课程页/阅读页顶部"本周第 N 课"）| 前端 |
+| 班级进度基准线展示（课程页/阅读页顶部"本周第 N 课"，排表驱动；排表数据待 Phase 6 录入后生效）| 前端 |
 | 闻思页自学读物分组展示（category=self_study_book）| 前端 |
 | 班级休息周管理（Admin，含实时预览）| 前端 |
 | 自学师兄管理（Admin）| 前端 |
@@ -2340,7 +2406,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 
 | 任务 | 类型 |
 |---|---|
-| 排表模板 API（5 张表）| 后端 |
+| 排表模板录入 CRUD（5 张表，嵌套于 /api/programs：科目/周/周课程/周修法/打卡要求）| 后端 |
+| 科系排表编辑 UI（Admin：科系 → 科目 → 周 → 每周排课程+修法+假期标记）| 前端 Admin |
 | LessonResource API（YouTube 链接 + audio/video · GET/POST/DELETE）✅ 已实现 | 后端 |
 | LessonResource 音频/视频文件上传（OSS · type=audio/video）⏸ 暂缓 | 后端 |
 | LessonMediaChapter API（章节标记 · C/D 模式）⏸ 暂缓 | 后端 |
