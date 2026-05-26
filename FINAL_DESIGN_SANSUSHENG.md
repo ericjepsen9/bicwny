@@ -71,8 +71,8 @@ enum LearningMode {
 // 班级成员状态（替代 removedAt 二态）
 enum CohortMemberStatus {
   active      // 正常学习
-  paused      // 暂停（自助，可恢复）
-  held_back   // 留级（移至下一届）
+  paused      // 暂停（学员自助 或 canManageMembers 代操作，可恢复）
+  held_back   // 留级（仅标记；转下一届班为手动操作，系统不建班级关联）
   graduated   // 毕业
   left        // 退班
 }
@@ -201,10 +201,13 @@ model ClassMember {
   // 新增
   cohortStatus       CohortMemberStatus @default(active)
   isPrimary          Boolean            @default(false)
-  // 同一时刻一个师兄只有一个主班，应用层事务保证（不用 DB 唯一索引）
+  // 主班：师兄可同属多班（跟班 + 自学多科系），isPrimary 标主班，决定首页默认展示哪个班的进度/排行。
+  // 同一时刻一个师兄只有一个主班，应用层事务保证（不用 DB 唯一索引）。
+  // 仅 active 成员有意义；主班转非 active 时应用层提示重设主班（或清 isPrimary）。
   heldBackCount      Int                @default(0)
+  // 留级累计次数；转 held_back 时 +1。转下一届班为手动操作（辅导员/admin 在目标班手动加新 active 成员）。
   statusChangedAt    DateTime?
-  statusChangedBy    String?            // 操作人 userId
+  statusChangedBy    String?            // 操作人 userId（学员自助暂停时 = 本人）
   statusChangeReason String?
   graduatedAt        DateTime?
 }
@@ -1443,7 +1446,7 @@ model PracticeTemplate {
 |---|---|---|
 | Programs | `/api/programs` | 科系 CRUD + 排表模板嵌套 CRUD（科目 ProgramSemester / 周 ProgramWeek / 周课程 ProgramWeekCourse / 周修法 ProgramWeekPractice / 打卡要求 ProgramStudyType）；admin 专属 |
 | PlatformActivities | `/api/activities` | 首页药丸 summary + 活动中心聚合（平台级法会/共修/讲考）|
-| ClassAdmins | `/api/classes/:id/admins` | ClassAdmin RBAC 分配管理 |
+| ClassAdmins | `/api/classes/:id/admins` | ClassAdmin RBAC 分配管理；**仅平台 admin**（requireRole('admin')），全权主麦也不能分配（决策：不加 canManageAdmins flag）|
 | CohortRestWeeks | `/api/classes/:id/rest-weeks` | 班级休息周管理 |
 | CurrentLesson | `/api/classes/:id/current-lesson` | 当前课时号查询（进度算法）|
 | VowTemplates | `/api/practice-templates` | 修持模板管理（admin）|
@@ -1574,7 +1577,7 @@ GET /api/activities
 |---|---|
 | `users` | 注册时自动生成 studentId；返回 learningMode / preferShowFaxin / timezone；accessibilityNeeds 校验 |
 | `classes` | 创建/编辑支持 programId / startDate / city / timezone |
-| `class-members` | 状态机操作（pause / hold-back / graduate / leave）；isPrimary 切换事务；ClassAdmin flags 验证 |
+| `class-members` | 状态机操作（changeMemberStatus：pause/resume 学员自助+canManageMembers，held_back/graduate/leave 限 canManageMembers/admin，复活限 admin）；paused↔active 级联 source=auto 愿；isPrimary 切换事务（仅 active）；留级仅标记不转班 |
 | `courses` | **所有学员侧查询加 isTantric 过滤**：未授权学员的任何 Course 查询排除密法；管理端不过滤 |
 | `lessons` | 返回 sourceText 字段；关联 LessonResource ✅ Admin 端 LessonResource YouTube 管理 UI 已实现（AdminCoursesPage · commit ca0e975）|
 | `answering` | open 题 payload.noScoring=true（思考题）时跳过 gradeOpenWithLlm，UserAnswer 只存答案；提交后返回 QuestionReference.referenceText |
@@ -1649,6 +1652,54 @@ async function getCurrentWeekContent(classId: string, targetDate: Date) {
 }
 // 学员端：课程页/阅读页顶部展示 courses[].lessonId 作为「本周班级进度：第 N 课」基准线
 // 后端掉队检测：闻思维度「应完成」来自本周 courses；出勤维度「应打哪些卡」来自 ProgramStudyType
+```
+
+#### 成员状态机（CohortMemberStatus）
+
+合法转换与发起方（应用层校验，非 DB 约束）：
+
+| 从 → 到 | 发起方 | 数据效果 |
+|---|---|---|
+| active → paused | 学员自助 **或** canManageMembers | 写 statusChanged*；级联：该成员 source=auto 愿同步 paused（custom 愿不受影响） |
+| paused → active | 学员自助 **或** canManageMembers | 写 statusChanged*；级联：source=auto 愿同步恢复 active |
+| active/paused → held_back | canManageMembers / admin | heldBackCount+1，写 statusChanged*；历史数据原地保留只读；**转下一届班为手动**（在目标班手动加新 active 成员，系统不建关联） |
+| active/paused → graduated | canManageMembers / admin | 写 graduatedAt + statusChanged*；历史只读 |
+| active/paused → left | canManageMembers / admin | 写 statusChanged*（removedAt 旧字段兼容可一并写）；历史只读 |
+| held_back/graduated/left → active | **仅 admin** | 重新激活（少见）；或更常见走「重新入班 = 新建 ClassMember」 |
+
+```typescript
+// 状态转换守卫（伪代码）
+async function changeMemberStatus(
+  member: ClassMember, to: CohortMemberStatus, actor: User, reason?: string
+) {
+  // 权限：paused/恢复 允许本人自助；其余需 canManageMembers 或 admin
+  const selfServiceOk = (to === 'paused' || (member.cohortStatus === 'paused' && to === 'active'))
+                        && actor.id === member.userId
+  if (!selfServiceOk && !hasFlag(actor, member.classId, 'canManageMembers') && !isAdmin(actor))
+    throw forbidden()
+  // active 复活仅 admin
+  if (['held_back','graduated','left'].includes(member.cohortStatus) && to === 'active' && !isAdmin(actor))
+    throw forbidden()
+
+  await prisma.$transaction(async (tx) => {
+    await tx.classMember.update({ where: { id: member.id },
+      data: { cohortStatus: to, statusChangedAt: now, statusChangedBy: actor.id,
+              statusChangeReason: reason,
+              ...(to === 'graduated' ? { graduatedAt: now } : {}),
+              ...(to === 'held_back' ? { heldBackCount: { increment: 1 } } : {}) } })
+    // 级联：成员 paused ↔ active 时，同步其 source=auto 愿（custom 愿/裸追踪不动）
+    if (to === 'paused')
+      await tx.userPracticeVow.updateMany({
+        where: { userId: member.userId, classId: member.classId, source: 'auto', status: 'active' },
+        data: { status: 'paused' } })
+    if (to === 'active' && member.cohortStatus === 'paused')
+      await tx.userPracticeVow.updateMany({
+        where: { userId: member.userId, classId: member.classId, source: 'auto', status: 'paused' },
+        data: { status: 'active' } })
+  })
+}
+// 非 active 成员一律排除：掉队检测 / 班级排行 / 周汇总 / auto 愿管理列表
+// 留级转下一届：无自动建成员，无 nextClassId 关联（决策：仅标记 + 手动转班）
 ```
 
 #### 座次计算（每次打卡调用）
@@ -1838,6 +1889,8 @@ class-admin.middleware.ts
   验证 ClassAdmin 表中的 classId + userId 关系
   按路由需求检查对应 flag（canManageMembers / canEditGoals / canViewStudents 等）
   无记录或 flag=false → 403
+  例外：成员 pause/resume 自身 membership 允许本人自助（不查 flag，见 changeMemberStatus）
+  例外：RBAC 分配（ClassAdmins）不走本中间件，改用 requireRole('admin')（仅平台 admin）
 
 tantric-filter.middleware.ts
   学员侧所有 Course / Meditation / PracticeProject 查询：
@@ -2006,7 +2059,7 @@ care-followup.middleware.ts
 | 课程阅读页 | **顶部显示本周班级进度**（"本周该学到第 N 课"，来自 getCurrentWeekContent 排表驱动；假期/超范围则不显示）；自学师兄按个人 startDate 算 |
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | open 题型关闭 AI 评分（noScoring）；写下思考 → 提交 → 显示参考答案自行对照；双入口：法本课时末尾「思考题」区 + QuizPage 答题流 |
-| 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择；学习模式（learningMode）|
+| 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择；学习模式（learningMode）；班级学习暂停/恢复自助（cohortStatus active↔paused，级联 auto 愿）|
 
 #### 班级进度基准线展示（Feature 11 · 双模式学习 + 排表驱动）
 
@@ -2126,7 +2179,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 ```
 /coach/                            落地页：此人管理的班级列表
 /coach/:classId/                   班级首页（仅显示有权限的模块）
-/coach/:classId/members            canManageMembers（暂停/留级/毕业/退班）
+/coach/:classId/members            canManageMembers（留级/毕业/退班 + 代操作暂停/恢复；学员自助暂停在学员端 /profile）
 /coach/:classId/exams              canManageExams（讲考场次管理）
 /coach/:classId/students           canViewStudents（学员修行数据 + 掉队名单）
 /coach/:classId/care               canCareFollowup（关怀跟进记录）
@@ -2138,7 +2191,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 
 | 页面 | 说明 |
 |---|---|
-| 成员状态管理 | 批量操作：暂停/留级/毕业/退班 + 原因填写；需 canManageMembers |
+| 成员状态管理 | 批量操作：代操作暂停/恢复 + 留级/毕业/退班 + 原因填写；留级仅标记（heldBackCount+1），转下一届班为手动（到目标班手动加新成员）；需 canManageMembers |
 | 掉队名单 | 读 CohortLagSnapshot；四维度（修持/闻思/出勤/日记）分列展示，可按任一维度筛选/排序；查看 detail 明细；一键发起关怀（带入当前快照）；需 canViewStudents |
 | 修持愿管理 | 查看本班 auto 愿；修改到期日/每日目标量；需 canEditGoals |
 | 班级周汇总 | 展示定时任务自动生成的本周汇总；一键复制到 WhatsApp（写 sharedAt/sharedBy）；需 canViewStudents |
@@ -2192,7 +2245,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 
 > 使用应用层中间件实现，不依赖数据库 RLS。
 
-### 权限红线（14 条）
+### 权限红线（16 条）
 
 | 规则 | 实现 |
 |---|---|
@@ -2210,6 +2263,8 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 | 签到防重复 | DB：StudyRecord `@@unique([classSessionId, userId, studyType])` 保障；重复提交返回 409 |
 | 签到 token 作用域 | 班级场次：userId 须属于本班活跃成员；平台级场次：任意活跃学员均可；token 不过期，由操作人手动刷新 |
 | 平台级场次创建权限 | ClassSession / SpeakingSession 的 classId=null 仅 admin 可设；classId 有值时 admin 或 canManageExams 均可 |
+| 成员状态转换权限 | 应用层 changeMemberStatus：pause/resume 允许本人自助（actor=member.userId）或 canManageMembers；held_back/graduate/leave 限 canManageMembers/admin；复活（→active）限 admin |
+| RBAC 分配仅 admin | ClassAdmins 路由 `requireRole('admin')`；ClassAdmin flag（含全权主麦）均无分配权；不设 canManageAdmins flag |
 
 ### 数据完整性约束（7 条）
 
@@ -2346,6 +2401,9 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | KPI/streak 实时聚合（PracticeLog 按 User.timezone；PracticeDailySummary 停更）| 后端 |
 | 愿暂停/恢复 | 后端 |
 | 每日定时任务（愿状态重算：will_overdue/at_risk 按日推进，仅 source=auto）| 后端 |
+| 成员状态机 API（changeMemberStatus：5 态转换 + 权限守卫 + paused↔active 级联 source=auto 愿；留级仅标记）| 后端 |
+| 成员状态管理页（/coach/:classId/members，canManageMembers：代操作暂停/恢复 + 留级/毕业/退班 + 原因）| 前端 |
+| 学员自助暂停/恢复（/profile，cohortStatus active↔paused，级联 auto 愿）| 前端 |
 | `/practice` 统一中枢改造（班级愿区 + 我的修学区 + 添加修学 + 打卡 Sheet）| 前端 |
 | 修持打卡 UI + 发心语 + 回向（合并进 /practice）| 前端 |
 | 修持愿管理（管理端）| 前端 |
@@ -2440,6 +2498,9 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | UserCourseEnrollment.selfStudy* 三字段 | 自学走 UserSelfStudyProgram（科系级），字段重复废弃 |
 | PracticeProject.scope 在新系统使用 | 历史包袱；新愿归属完全由 UserPracticeVow 表达 |
 | ClassAdminRole 枚举（zhumai/aixin）| 改为 RBAC flags，admin 后台细粒度分配 |
+| 班级间「下一届」关联（nextClassId 等）| 留级仅标记 held_back，转下一届班为手动操作，系统不建班级关联 |
+| canManageAdmins flag（主麦分配下级）| RBAC 分配仅平台 admin，全权主麦也不能分配 |
+| 留级自动建下一届成员 | 仅标记 + 手动转班（辅导员/admin 在目标班手动加新 active 成员）|
 | 约修审批流 / 推送通知 | 无审批、无推送；用户自行浏览班级页发现 |
 | 约修个人指标 | 总目标由创建者设；参与者无个人强制指标 |
 | 约修跨班可见 | classId 必填，不支持跨班 |
