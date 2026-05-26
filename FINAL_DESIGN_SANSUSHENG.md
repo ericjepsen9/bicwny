@@ -45,7 +45,7 @@
 | 新增后端模块 | 25 个 | 见 3.1 |
 | 修改后端模块 | 7 个 | 见 3.2 |
 | 新增前端页面（学员端）| 6 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
-| 修改前端页面（学员端）| 9 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 |
+| 修改前端页面（学员端）| 10 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 + 「我的」页面（讲考记录入口）|
 | 新增前端页面（管理端 /coach/*）| 4 个 | 成员状态/掉队名单/修持愿管理/班级周汇总（打卡审核中心已砍）|
 | 新增前端页面（Admin 端）| 8 个 | 科系/修持模板/密法组/班级休息周/参考答案/法会活动/自学师兄/ClassAdmin 权限分配 |
 
@@ -1439,6 +1439,7 @@ model Class {
   posts                ClassPost[]
   discussions          Discussion[]
   weeklySummaries      CohortWeeklySummary[]
+  speakingSessions     SpeakingSession[]
 }
 ```
 
@@ -1460,6 +1461,8 @@ model Lesson {
 model Course {
   // ... 现有字段 + 2.2 新增字段（含 tantricGroup TantricGroup? 正向关联）...
   contentChunks        ContentChunk[]
+  programWeekCourses   ProgramWeekCourse[]
+  discussions          Discussion[]       // courseId? 可空，课时关联讨论
   // 注：密法授权改按修法组（TantricGroup），Course 不再直接持有 TantricAccessGrant[]
 }
 ```
@@ -1562,7 +1565,7 @@ GET  /api/checkin/:token
   先校验 token 对应场次时间窗口：
     · startAt > now → { status: 'not_started', startsAt }
     · sessionEndAt < now → { status: 'closed', endedAt }
-    · 否则 → { status: 'open', sessionType, title, lessonTitle, isplatform,
+    · 否则 → { status: 'open', sessionType, title, lessonTitle, isPlatform,
                members: [{id, name, studentId, programName, hasCheckedIn}] }
   成员列表来源：
     · classId 有值 → 该班活跃成员（原有逻辑）
@@ -2289,7 +2292,7 @@ care-followup.middleware.ts
   - 提交 → 写 `UserPracticeVow { context: 'event', eventId, source: 'custom' }`
   - 提交成功 → 状态切换到「有愿」状态
 
-### 4.2 学员端修改页面（9 个）
+### 4.2 学员端修改页面（10 个）
 
 | 页面 | 改动 |
 |---|---|
@@ -2552,7 +2555,7 @@ admin 超级用户（决策）
 | /coach 访问守卫 | 前端 RequireCoach：/api/coach/context.classes 为空 → redirect 学员首页；学员端无管理入口（无显式入口） |
 | admin 超级用户 | role='admin' 在 class-admin.middleware 直接放行（所有 flag 视为 true、任意班）；CoachContext 对 admin 返回全部班级 + flag 全开 |
 
-### 数据完整性约束（7 条）
+### 数据完整性约束（10 条）
 
 | 规则 | 实现 |
 |---|---|
@@ -2563,6 +2566,9 @@ admin 超级用户（决策）
 | 每日日记一人一天一篇 | DB：`@@unique([userId, journalDate])` |
 | 学号全局唯一 | DB：`studentId @unique` |
 | isPublic 仅限 personal/appointment 愿 | Zod schema：context=class 或 context=event 时强制 isPublic=false，忽略传入值 |
+| 同一讲考一人只能报名一次 | DB：`SpeakingRegistration @@unique([speakingSessionId, userId])`；幂等写入（重复报名返回 200 不报错）|
+| 同一讲考一人只有一条评分 | DB：`SpeakingGrade @@unique([speakingSessionId, userId])`；upsert 语义（辅导员可改分）|
+| 讲考报名截止：session 未结束时才可报名/取消 | 应用层：POST/DELETE register 前校验 `sessionEndAt > now`，超时返回 403 |
 
 ### 到期日与目标量变更权限
 
@@ -2622,7 +2628,9 @@ migration_007_extend_classsession.sql ClassSession 加 3 个字段（lessonId / 
                                       ⚠️ 改可空前须全量审计现有 JOIN 查询，将 INNER JOIN classes 改为 LEFT JOIN 或加 WHERE classId IS NOT NULL
 migration_008_extend_meditation.sql   Meditation 加 4 个字段（seriesKey/seriesNumber/isTantric/tantricGroupId）
 migration_009_extend_practice.sql     PracticeProject 加 3 个字段（isTantric / tantricGroupId / categoryId）
-migration_009_pgvector.sql            启用 pgvector 扩展（CREATE EXTENSION IF NOT EXISTS vector）
+                                      + SpeakingSession 加 startAt / sessionEndAt / checkInToken 字段，classId 改可空
+migration_009b_pgvector.sql           启用 pgvector 扩展（CREATE EXTENSION IF NOT EXISTS vector）
+                                      ⚠️ 需与 migration_009 分开：pgvector 是 DB 扩展操作，不属于 schema 变更
 migration_010_delete_old_tables.sql   DROP 6 张冗余表（开发阶段清洁删除）：
                                         DROP TABLE IF EXISTS "PracticeMakeup" CASCADE;
                                         DROP TABLE IF EXISTS "PracticeDailySummary" CASCADE;
@@ -2632,7 +2640,7 @@ migration_010_delete_old_tables.sql   DROP 6 张冗余表（开发阶段清洁�
                                         DROP TABLE IF EXISTS "DharmaAssembly" CASCADE;
                                       顺序：先删有 FK 依赖的子表（PracticeMakeup → PracticeDailySummary → PracticeEntry），再删父表
                                       CASCADE 处理残余 FK 引用
-migration_011_new_tables.sql          建 43 张新表
+migration_011_new_tables.sql          建 45 张新表（含 SpeakingRegistration / SpeakingGrade）
                                         · Event 表含 DharmaAssembly 迁入字段：tibetanDate / isGlobal / timezone
                                         · UserPracticeVow 含 endDate DateTime?（区间愿）
                                         · 含 EventCount / CareFollowup / CohortLagSnapshot / ClassPost 系列 /
@@ -2686,12 +2694,12 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 |---|---|
 | StudyRecord API（讲考+共修，App 内自助，含时间窗口校验）| 后端 |
 | SpeakingSession API（场次管理 + 生成签到 token）| 后端 |
-| SpeakingRegistration + SpeakingGrade 表（migration）| DB |
+| SpeakingRegistration / SpeakingGrade 表含在 migration_011_new_tables | DB |
 | 讲考报名 API（POST/DELETE `/api/speaking-sessions/:id/register`）| 后端 |
 | 讲考评分 API（POST `/api/classes/:id/speaking-sessions/:id/grade`）| 后端 |
 | 讲考历史 API（GET `/api/my/speaking-history`）| 后端 |
 | CheckIn API（公开端点：GET + POST `/api/checkin/:token`）| 后端 |
-| SpeakingSession.startAt / checkInToken 字段，classId 改可空（migration）| DB |
+| SpeakingSession.startAt / checkInToken 字段，classId 改可空（含在 migration_009）| DB |
 | ClassSession.checkInToken 字段，classId 改可空（migration）| DB |
 | LessonCompletion API（轻量听/读/观修完成标记，含批量补录）| 后端 |
 | 讲考/共修打卡 UI（学员端 App 内）| 前端 |
