@@ -961,24 +961,28 @@ model CareFollowup {
 
 ```prisma
 // 学修感想 / 班级动态（UI ⏸ 暂缓，DB + API 当前阶段预留）
-// 互动：点赞 + 评论 + 转发（转发见 ClassPostShare）
+// 互动：点赞 + 评论 + 站内转发（转发见 ClassPostShare）
 // 删除权限：本人 或 ClassAdmin（canManageMembers=true）
+// sharedFromId 非空时表示该帖是转发帖，内容来自原帖；UI 渲染时嵌入原帖预览
 model ClassPost {
-  id        String    @id @default(cuid())
-  classId   String
-  authorId  String
-  content   String
-  isDeleted Boolean   @default(false)
-  deletedBy String?   // 操作者 userId
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  classId      String
+  authorId     String
+  content      String
+  sharedFromId String?   // 站内转发来源 postId；null 表示原创帖
+  isDeleted    Boolean   @default(false)
+  deletedBy    String?   // 操作者 userId
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  class     Class              @relation(fields: [classId], references: [id])
-  author    User               @relation(fields: [authorId], references: [id])
-  reactions ClassPostReaction[]
-  comments  ClassPostComment[]
-  shares    ClassPostShare[]
+  class      Class              @relation(fields: [classId], references: [id])
+  author     User               @relation(fields: [authorId], references: [id])
+  sharedFrom ClassPost?         @relation("PostShares", fields: [sharedFromId], references: [id])
+  reshares   ClassPost[]        @relation("PostShares")
+  reactions  ClassPostReaction[]
+  comments   ClassPostComment[]
+  shares     ClassPostShare[]
 }
 
 // 点赞（一人一赞，可取消）
@@ -1009,7 +1013,7 @@ model ClassPostComment {
   author User      @relation(fields: [authorId], references: [id])
 }
 
-// 转发记录（⚠️ 待决策：站内转发 or 仅复制文本到剪贴板？当前只记录行为）
+// 站内转发记录（决策：站内转发；转发时创建 sharedFromId 非空的新 ClassPost，本表记录行为用于统计）
 model ClassPostShare {
   id        String   @id @default(cuid())
   postId    String
