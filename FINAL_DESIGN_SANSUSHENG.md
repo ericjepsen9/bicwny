@@ -39,15 +39,15 @@
 |---|---|---|
 | 新增 Prisma 枚举 | 8 个 | 见 2.1（含掉队检测 LagStatus）|
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
-| 新增表 | 45 张 | 见 2.3（自学读物复用 Course 砍 3 张；密法加 TantricGroup +1；掉队检测加 CohortLagSnapshot +1；讲考报名 SpeakingRegistration +1；讲考评分 SpeakingGrade +1 → 净 45）|
+| 新增表 | 47 张 | 见 2.3（自学读物复用 Course 砍 3 张；密法加 TantricGroup +1；掉队检测加 CohortLagSnapshot +1；讲考报名 SpeakingRegistration +1；讲考评分 SpeakingGrade +1；考试 Exam +1；考试成绩 ExamGrade +1 → 净 47）|
 | 新增 SQL 视图 | 3 个 | v_event_dedication_totals / v_weekly_dedication_totals / v_practice_daily（物化视图，替代 PracticeDailySummary）|
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
-| 新增后端模块 | 25 个 | 见 3.1 |
+| 新增后端模块 | 26 个 | 见 3.1 |
 | 修改后端模块 | 7 个 | 见 3.2 |
-| 新增前端页面（学员端）| 7 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页 + 讲考历史统计页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
+| 新增前端页面（学员端）| 8 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页 + 讲考历史统计页 + 考试成绩页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
 | 修改前端页面（学员端）| 10 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 + 「我的」页面（讲考记录入口）|
 | 新增前端页面（管理端 /coach/*）| 4 个 | 成员状态/掉队名单/修持愿管理/班级周汇总（打卡审核中心已砍）|
-| 新增前端页面（Admin 端）| 9 个 | 科系/修持模板/密法组/班级休息周/参考答案/法会活动/自学师兄/ClassAdmin 权限分配/讲考成绩统计 |
+| 新增前端页面（Admin 端）| 10 个 | 科系/修持模板/密法组/班级休息周/参考答案/法会活动/自学师兄/ClassAdmin 权限分配/讲考成绩统计/考试管理 |
 
 **核心策略说明：**
 - 项目处于**开发阶段（无生产数据）**，采用**合并替换**策略：冗余表直接删除，不做并存过渡（见 §十）
@@ -745,6 +745,45 @@ model SpeakingGrade {
   @@unique([speakingSessionId, userId])  // 每场每人只有一条评分
 }
 
+// 考试（纯成绩录入型；无报名/签到流程，与讲考 SpeakingSession 分开）
+// classId = null → 平台级考试（admin 创建，全平台学员可被录入成绩）
+// classId 有值 → 班级级考试（canManageExams 辅导员可为本班学员录入成绩）
+model Exam {
+  id          String    @id @default(cuid())
+  title       String    // 考试名称（如「2026 年第一次法义考试」）
+  description String?   // 考试说明（可选）
+  examDate    DateTime  // 考试日期（UTC；展示时转 class/user timezone）
+  classId     String?   // null = 平台级；有值 = 班级级
+  courseId    String?   // 可选关联法本（用于在法本页展示成绩入口）
+  createdBy   String    // admin/coach userId
+  createdAt   DateTime  @default(now())
+
+  class   Class?  @relation(fields: [classId], references: [id])
+  course  Course? @relation(fields: [courseId], references: [id])
+  creator User    @relation("ExamCreator", fields: [createdBy], references: [id])
+  grades  ExamGrade[]
+}
+
+// 考试成绩（每场考试每位学员一条记录）
+// score 百分制 0-100；admin 或 canManageExams 辅导员录入（辅导员只能录本班学员）
+model ExamGrade {
+  id        String   @id @default(cuid())
+  examId    String
+  userId    String
+  classId   String   // 学员所在班级（辅导员权限校验 + 班级统计维度）
+  score     Int      // 0-100，整数
+  comment   String?  // 文字评语（可选）
+  gradedBy  String   // admin/coach userId
+  gradedAt  DateTime @default(now())
+
+  exam    Exam  @relation(fields: [examId], references: [id])
+  user    User  @relation(fields: [userId], references: [id])
+  class   Class @relation(fields: [classId], references: [id])
+  grader  User  @relation("ExamGrader", fields: [gradedBy], references: [id])
+
+  @@unique([examId, userId])  // 每场每人只有一条成绩记录（upsert 更新）
+}
+
 // 每日修持日记（与现有 Note 课时笔记完全不同：日记绑日期，笔记绑课时）
 // UI 入口：嵌入藏历日历页（/calendar）——点某天 → 查看/编写当天日记；不单设 /journals 页
 // 唯一反思载体：打卡反思已移除，反思统一写这里
@@ -1414,7 +1453,10 @@ model User {
   aiUsage              AiUsage[]
   tantricGrants        TantricAccessGrant[]
   speakingRegistrations SpeakingRegistration[]
-  speakingGrades       SpeakingGrade[]
+  speakingGrades        SpeakingGrade[]
+  createdExams          Exam[]        @relation("ExamCreator")
+  gradedExams           ExamGrade[]   @relation("ExamGrader")
+  examGrades            ExamGrade[]
 }
 ```
 
@@ -1440,6 +1482,8 @@ model Class {
   discussions          Discussion[]
   weeklySummaries      CohortWeeklySummary[]
   speakingSessions     SpeakingSession[]
+  exams                Exam[]
+  examGrades           ExamGrade[]
 }
 ```
 
@@ -1463,6 +1507,7 @@ model Course {
   contentChunks        ContentChunk[]
   programWeekCourses   ProgramWeekCourse[]
   discussions          Discussion[]       // courseId? 可空，课时关联讨论
+  exams                Exam[]             // 可选关联到法本的考试
   // 注：密法授权改按修法组（TantricGroup），Course 不再直接持有 TantricAccessGrant[]
 }
 ```
@@ -1480,7 +1525,7 @@ model PracticeTemplate {
 
 ## 三、后端改动范围
 
-### 3.1 新增 API 模块（25 个）
+### 3.1 新增 API 模块（26 个）
 
 | 模块 | 路由前缀 | 主要功能 |
 |---|---|---|
@@ -1509,6 +1554,56 @@ model PracticeTemplate {
 | ClassDiscussions | `/api/classes/:id/discussions` | 话题 CRUD + 投票 + 评论（UI ⏸ 暂缓，API 当前阶段预留）|
 | AiAssistant | `/api/ai` | 对话 CRUD + SSE 流式问答 + 用量检查（UI ⏸ 暂缓）|
 | AiAdmin | `/api/admin/ai` | LLM 配置 / 法本索引触发 / 功能 catalog 管理 / 用量 dashboard（UI ⏸ 暂缓）|
+| Exams | `/api/admin/exams` + `/api/classes/:id/exams` + `/api/my/exam-grades` | 考试管理（admin CRUD + 成绩批量录入）+ 辅导员本班成绩录入 + 学员查看个人成绩 |
+
+#### Exams 模块端点明细
+
+```
+// Admin 管理端点（requireRole('admin')）
+POST   /api/admin/exams
+  body: { title, description?, examDate, classId?, courseId? }
+  创建考试（classId=null → 平台级；有值 → 班级级）
+  响应：Exam
+
+GET    /api/admin/exams
+  query: classId?（不传返回全部）, from?, to?（按 examDate 范围筛选）
+  响应：[{ examId, title, examDate, classId, courseId, gradeCount, avgScore }]
+
+PUT    /api/admin/exams/:id
+  body: { title?, description?, examDate?, courseId? }
+  不允许修改 classId（防止成绩归属混乱）
+  响应：Exam
+
+DELETE /api/admin/exams/:id
+  级联删除所有 ExamGrade（开发阶段无生产数据，可直接删）
+
+GET    /api/admin/exams/:id/grades
+  返回本场考试所有学员成绩（含 userId, name, classId, score, comment, gradedAt）
+  响应：[{ userId, name, classId, score, comment, gradedAt, graderName }]
+
+POST   /api/admin/exams/:id/grades
+  body: [{ userId, classId, score, comment? }]
+  批量 upsert 成绩（同一 examId+userId 唯一约束，重复录入覆盖旧值）
+  响应：{ upserted: Int }
+
+// 辅导员端点（canManageExams）
+GET    /api/classes/:classId/exams
+  返回与本班相关的考试列表：classId 匹配 OR classId=null（平台级）
+  每场考试附带本班学员成绩摘要（已录入数 / 总人数 / 平均分）
+  响应：[{ examId, title, examDate, courseId, gradeCount, totalMembers, avgScore }]
+
+POST   /api/classes/:classId/exams/:examId/grades
+  body: [{ userId, score, comment? }]
+  批量 upsert 本班学员成绩（classId 自动填入本班；不能录入其他班学员）
+  权限校验：每个 userId 必须是本班活跃成员
+  响应：{ upserted: Int }
+
+// 学员查看端点（需登录）
+GET    /api/my/exam-grades
+  query: page / limit（默认 20）
+  返回当前用户所有考试成绩，按 examDate 倒序
+  响应：[{ examId, title, examDate, courseTitle?, score, comment, gradedAt }]
+```
 
 #### Events 模块端点明细
 
@@ -2187,7 +2282,7 @@ care-followup.middleware.ts
 
 ## 四、前端改动范围
 
-### 4.1 学员端新增页面（7 个）
+### 4.1 学员端新增页面（8 个）
 
 > 注 1：修持愿与修持打卡**合并进现有 `/practice` 页**（见 §4.2 修学计数页改造），不再单设 `/vows` 独立页。
 > 注 2：修持日记**嵌入藏历日历页 `/calendar`**（见 §4.2），不再单设 `/journals` 独立页。
@@ -2202,6 +2297,7 @@ care-followup.middleware.ts
 | 平台场次详情 | `/events/sessions/:id` | 平台级共修/讲考场次信息 + App 内签到入口（时间窗口内）|
 | 签到链接页 | `/checkin/:token` | **无需登录**；显示场次信息 + 成员列表；学员点名字完成打卡；时间窗口外显示「未开始」或「已关闭」 |
 | 讲考历史统计 | `/my/speaking-history` | 个人所有讲考记录列表 + 顶部统计概览（参与场次数 / 通过率 badge / 成绩分布）+ 每条记录可展开评语详情；**入口：「我的」页面「讲考记录」入口** |
+| 考试成绩 | `/my/exam-grades` | 个人所有考试成绩列表（按 examDate 倒序）+ 每条显示考试名称 / 日期 / 关联法本 / 百分制分数 / 评语；**入口：「我的」页面「考试成绩」入口** |
 
 #### 首页活动入口（药丸卡片）⚠️ 布局待定
 
@@ -2367,7 +2463,7 @@ care-followup.middleware.ts
 | 打卡记录 | 讲考 3 选 1 UI；共修出席/缺席 UI；审核锁定状态显示 |
 | 思考题 | open 题型关闭 AI 评分（noScoring）；写下思考 → 提交 → 显示参考答案自行对照；双入口：法本课时末尾「思考题」区 + QuizPage 答题流 |
 | 个人设置 | 三殊胜框架开关（preferShowFaxin，控制发心语 + 回向 Sheet）；timezone 选择；学习模式（learningMode）；班级学习暂停/恢复自助（cohortStatus active↔paused，级联 auto 愿）|
-| 「我的」页面（ProfilePage）| 新增「讲考记录」入口 → 跳转 `/my/speaking-history`；入口旁展示个人通过率 badge（调用 `/api/my/speaking-stats`，如「通过率 75%」；graded=0 时不显示 badge）|
+| 「我的」页面（ProfilePage）| 新增「讲考记录」入口 → 跳转 `/my/speaking-history`（入口旁展示通过率 badge，graded=0 时隐藏）；新增「考试成绩」入口 → 跳转 `/my/exam-grades`（入口旁展示最近一次分数，无成绩时隐藏）|
 
 #### 班级进度基准线展示（Feature 11 · 双模式学习 + 排表驱动）
 
@@ -2500,7 +2596,9 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 /coach/                            落地页：此人管理的班级列表
 /coach/:classId/                   班级首页（仅显示有权限的模块）
 /coach/:classId/members            canManageMembers（留级/毕业/退班 + 代操作暂停/恢复；学员自助暂停在学员端 /profile）
-/coach/:classId/exams              canManageExams（讲考场次管理 + 报名名单查看 + 评分录入 + 顶部班级统计视图：各场次出勤率/通过率/成绩分布卡片 + 学员维度汇总表，调用 /api/classes/:classId/speaking-stats）
+/coach/:classId/exams              canManageExams（两 Tab：
+                                     Tab 1「讲考」：场次管理 + 报名名单查看 + 评分录入 + 班级统计视图（各场次出勤率/通过率/成绩分布卡片 + 学员维度汇总表）
+                                     Tab 2「考试成绩」：本班相关考试列表（班级级 + 平台级）+ 学员成绩录入表格（用户名行 × 考试列，inline 录入 0-100 分数 + 评语）+ 每场汇总均分）
 /coach/:classId/students           canViewStudents（学员修行数据 + 掉队名单）
 /coach/:classId/care               canCareFollowup（关怀跟进记录）
 /coach/:classId/goals              canEditGoals（愿每日目标量）
@@ -2566,7 +2664,7 @@ admin 超级用户（决策）
 
 > 打卡审核：已砍。签到自助免审、修持打卡乐观计入，无审核环节（见 §4.3 移除 canAuditPractice）。
 
-### 4.4 Admin 端新增页面（9 个）
+### 4.4 Admin 端新增页面（10 个）
 
 | 页面 | 说明 |
 |---|---|
@@ -2579,6 +2677,7 @@ admin 超级用户（决策）
 | 自学师兄管理 | 全局查看自学进度；修改 status |
 | ClassAdmin 权限分配 | `/admin/classes/:id/admins`：搜索用户 → 逐 flag 勾选 → 保存 |
 | 讲考成绩统计 | `/admin/speaking-stats`：平台汇总（总场次/总报名/总签到/整体通过率/成绩分布）+ 各场次概览列表（可按日期范围筛选）+ 点击场次展开单场详情（复用 `/api/speaking-sessions/:id/stats`）|
+| 考试管理 | `/admin/exams`：考试列表（可按班级/法本/日期筛选）+ 新建/编辑考试 Sheet + 单场成绩录入表格（按班级分组展示学员行，批量提交 `/api/admin/exams/:id/grades`）|
 
 ### 4.5 无新增表的纯前端/后端逻辑（5 个）
 
@@ -2766,6 +2865,11 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 「我的」页面通过率 badge（`/api/my/speaking-stats`）| 前端 |
 | `/coach/:classId/exams` 顶部班级统计视图（`/api/classes/:classId/speaking-stats`）| 前端 |
 | Admin 讲考成绩统计页（`/admin/speaking-stats`，`/api/admin/speaking-stats`）| 前端 |
+| Exam / ExamGrade 表含在 migration_011_new_tables | DB |
+| 考试 API（admin CRUD + 成绩批量录入 + 辅导员本班录入 + 学员查看：6 端点）| 后端 |
+| Admin 考试管理页（`/admin/exams`：考试 CRUD + 成绩录入）| 前端 |
+| Coach 考试成绩 Tab（`/coach/:classId/exams` Tab 2：列表 + inline 录入）| 前端 |
+| 学员考试成绩页（`/my/exam-grades`）+ 「我的」页面「考试成绩」入口 badge | 前端 |
 | CheckIn API（公开端点：GET + POST `/api/checkin/:token`）| 后端 |
 | SpeakingSession.startAt / checkInToken 字段，classId 改可空（含在 migration_009）| DB |
 | ClassSession.checkInToken 字段，classId 改可空（migration）| DB |
