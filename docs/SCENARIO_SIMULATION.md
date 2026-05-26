@@ -1051,7 +1051,7 @@
   3. copyText 格式：`🙏 [班级名] 本周修学汇报（第 N 课 · M月D日-M月D日）...`
 - ⚠️ 边缘情况：
   - 若定时任务当周尚未运行（班级时区内周日未到）→ 显示上周汇总
-  - copyText 由前端拼接模板，后端只返回 summaryData 结构
+  - copyText 由**后端**生成并随 `POST .../share` 响应返回；前端直接写剪贴板
 
 ---
 
@@ -1107,6 +1107,7 @@
   - `Class.city`（所在城市）
   - `Class.timezone`（IANA 时区）
   - `Class.currentWeekOverride`（手动覆盖当前周号，admin 也可操作）
+  - `Class.lagPracticeDaysExpected`（掉队检测修持任务阈值，默认 10；密集班 14 / 轻松班 6）
 
 ---
 
