@@ -1723,7 +1723,7 @@ POST /api/checkin/:token
        平台级场次：userId 为任意活跃学员（isActive=true）
     3. 同一 userId 未重复打卡（StudyRecord @@unique 保障）
   写入 StudyRecord：
-    · speaking session → studyType='speaking_pass', isConfirmed=true
+    · speaking session → studyType='speaking_present', isConfirmed=true
     · group session    → studyType='group_attend',  isConfirmed=true
   打卡时间 = StudyRecord.createdAt（自动记录）
   响应：{ ok: true, checkedInAt }
@@ -2780,7 +2780,7 @@ admin 超级用户（决策）
 |---|---|
 | 同一时刻只有一个主班 | 事务：先 `isPrimary=false`（全班），再 `isPrimary=true`（新主班）|
 | 92修法打卡建议关联第几法 | Zod schema：meditationId 可空，但 seriesKey='92xiufa' 时建议不为空 |
-| 讲考三选一互斥 | DB：`@@unique([classSessionId, userId, studyType])`；应用层校验 studyType 为讲考类之一（speaking_pass/speaking_fail/speaking_absent） |
+| 讲考三选一互斥 | DB：`@@unique([classSessionId, userId, studyType])`；应用层校验 studyType 为讲考类之一（speaking_present/speaking_question/speaking_observe） |
 | 共修出席/缺席二选一 | DB：`@@unique([classSessionId, userId, studyType])`；应用层校验 studyType 为共修类之一（group_attend/group_absent） |
 | 每日日记一人一天一篇 | DB：`@@unique([userId, journalDate])` |
 | 学号全局唯一 | DB：`studentId @unique` |
