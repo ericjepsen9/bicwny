@@ -1257,3 +1257,31 @@ model ClassAdmin {
 | 适用场景 | 法会发愿（S-014 步骤 2）· 自定义修学发愿目标（S-009 步骤 3）|
 | **不适用** | 单次计数输入（S-007 修持记录、S-015 法会记数）→ 维持 FE-7 单轮 |
 | 理由 | 基数 × 单位更符合念诵习惯（"108遍 × 100倍 = 一万零八百"）；比万/千/百/个位四轮输入认知更自然 |
+
+---
+
+## 掉队检测重设计（场景走查 · 2026-05-26）
+
+> 来源：辅导员/admin 场景走查中，用户明确指出现有 4 维度设计不合理。
+
+### 决策 G-006 · 掉队检测五维度重设计 ✅ 已确认
+
+**背景**：原设计 4 维度（修持/闻思/出勤/日记）；用户明确要求重构。
+
+| 项 | 决定 |
+|---|---|
+| 移除维度 | ~~修持（practiceLag）~~ / ~~闻思（studyLag）~~ / ~~日记（journalLag）~~ |
+| **新增五维度** | 出勤 / 闻思内容 / 答题 / 观修 / 修持任务 |
+| 维度 1 · 出勤（attendanceLag）| 近 2 周必修场次签到率；无必修场次时恒 on_track |
+| 维度 2 · 闻思内容（contentLag）| 近 2 周法本阅读/音频/视频「已学习」完成率；无排表 → 恒 on_track |
+| 维度 3 · 答题（quizLag）| 近 2 周排表课时关联题目完成率；无排表 → 恒 on_track |
+| 维度 4 · 观修（meditationLag）| 近 2 周观修「已完成」完成率；无排表 → 恒 on_track |
+| 维度 5 · 修持任务（taskLag）| 近 2 周有 source=auto 愿打卡记录的天数 / `lagPracticeDaysExpected` |
+| 阈值配置 | `lagPracticeDaysExpected`（新字段加入 `Class` 表）：默认 10，admin 可按班调；密集班 14 / 轻松班 6 |
+| 无排表班降级 | contentLag / quizLag / meditationLag 恒 on_track（分母=0 → rate=1）|
+| 修持任务范围 | 仅 source=auto 的班级派发愿；个人自发愿不计入 |
+| 排除日记的理由 | 日记是自选性习惯，强制纳入掉队检测会误判真实修学状态 |
+| 闻思/答题拆分的理由 | 阅读 vs 答题完成情况不同步（有人读但不答），分开检测更精准 |
+| 观修独立的理由 | 观修是单独修法环节，与法本阅读/答题性质不同 |
+| DB 影响 | `CohortLagSnapshot` 字段：`practiceLag/studyLag/journalLag` → `contentLag/quizLag/meditationLag/taskLag`；`Class` 表新增 `lagPracticeDaysExpected Int @default(10)` |
+| Migration | `migration_003_extend_class.sql` 加 `lagPracticeDaysExpected`；`migration_011_new_tables.sql` 内 `CohortLagSnapshot` 用新字段 |
