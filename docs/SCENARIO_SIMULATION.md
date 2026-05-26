@@ -559,7 +559,7 @@
 
 #### S-024 讲考历史统计页（/my/speaking-history） 🔵 已设计未实现
 
-**触发**：ProfilePage 点「讲考记录」入口（入口旁显示通过率 badge；graded=0 时隐藏）。
+**触发**：我的 Tab（`/me`）→ 学修记录区块 → 点「讲考记录」（入口旁显示通过率 badge；graded=0 时隐藏）。
 
 **SpeakingHistoryPage（新建）**
 - 🖥️ 看到：
@@ -700,7 +700,7 @@
 
 #### S-032 平台场次详情页 🔵 已设计未实现
 
-**触发**：共修 / 讲考 Tab 点某个场次 → `/events/sessions/:id`（新建页）。
+**触发**：班级 Tab `/class` 共修区块 → 点「去签到」→ `/assemblies/:id`（平台级场次详情，新建页）。
 
 **PlatformSessionDetailPage（新建）**
 - 🖥️ 看到：场次标题 + 课时名 + 时间窗口 + 签到状态
@@ -715,22 +715,30 @@
 
 ---
 
-#### S-033 ProfilePage 新增入口 🔵 已设计未实现
+#### S-033 我的 Tab 根页（`/me`） 🔵 已设计未实现
 
-**触发**：点底部导航「我的」→ ProfilePage。
+> 导航变更（5-Tab，2026-05-26）：「我的」Tab 根页从 `/profile` 改为 `/me`（新建页）；`/profile` 重定向至 `/me`。
 
-**ProfilePage（修改后）**
-- 🖥️ 看到（新增入口）：
-  - 「讲考记录」入口（旁边显示通过率 badge；graded=0 时 badge 隐藏）→ `/my/speaking-history`
-  - 「考试成绩」入口（旁边显示最近一次分数；无成绩时隐藏）→ `/my/exam-grades`
-  - 通知入口（从首页移入）+ 未读红点（`useUnreadNotifCount`）
+**触发**：点底部导航「我的」→ `/me`。
+
+**MePage（新建）**
+- 🖥️ 看到：
+  - 顶部：头像 + 昵称（行者0001）+ 姓名 / 法名 / 城市 + 已皈依 · 学员 2026001
+  - 「编辑个人信息」按钮 → `/profile`（原有页面复用）
+  - 学修记录区块：
+    - 「讲考记录」→ `/my/speaking-history`（旁边显示通过率 badge；graded=0 时 badge 隐藏）
+    - 「考试成绩」→ `/my/exam-grades`（旁边显示最近一次分数；无成绩时隐藏）
+    - 「法会记录」→ `/my/event-history`
+    - 「打卡历史」→ `/practice/history`
+  - 右上角通知铃（`🔔`）+ 未读红点（从首页移入；`useUnreadNotifCount`）
+  - 账号区块：设置 / 隐私 / 帮助 / 退出登录
 - ⚠️ 边缘情况：无讲考记录时通过率 badge 不显示，不显示「0%」
 
 ---
 
 #### S-034 考试成绩页（/my/exam-grades） 🔵 已设计未实现
 
-**触发**：ProfilePage 点「考试成绩」入口。
+**触发**：我的 Tab（`/me`）→ 学修记录区块 → 点「考试成绩」。
 
 **ExamGradesPage（新建）**
 - 🖥️ 看到：所有考试成绩列表（按 examDate 倒序）
@@ -742,7 +750,7 @@
 
 #### S-035 个人设置（三殊胜开关 + 时区 + 暂停） 🔵 已设计未实现（新字段）
 
-**触发**：SettingsPage。
+**触发**：我的 Tab（`/me`）→ 账号区块 → 「设置」→ `/settings`（SettingsPage）。
 
 **SettingsPage（修改后）**
 - 🖥️ 看到（新增设置项）：
