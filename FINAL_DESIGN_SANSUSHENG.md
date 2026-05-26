@@ -1908,6 +1908,22 @@ async function recalcVowStatus(vowId: string): Promise<VowStatus> {
 //    此为有意设计：发愿前的随喜计数仅计入集体总量，不纳入个人愿进度
 ```
 
+**Event / Appointment 愿的状态生命周期（不走 recalcVowStatus）**：
+
+`recalcVowStatus` 仅覆盖 `source=auto` 的班级愿。Event 和 Appointment 愿（`source='custom'`）使用以下独立规则，由**每日凌晨定时任务**维护：
+
+| 时间条件 | 动作 |
+|---|---|
+| 现在 < event.startDate | status 保持 `on_track`（预发愿期，不做状态判断）|
+| event.startDate ≤ 现在 ≤ event.endDate，且 currentCount ≥ targetCount | 标 `completed` |
+| event.endDate < 现在（法会结束），不管是否完成目标 | 标 `completed`（法会已结束，愿自然收官）|
+| 约修（context=appointment）endDate < 现在 | 同上：标 `completed` |
+
+**UI 层不依赖 vow.currentStatus 展示法会愿进度**：
+- 法会详情页直接读 `SUM(EventCount.count WHERE vowId=x)` 作为已完成量
+- `vow.currentStatus` 字段对 event/appointment 愿仅用于辅导员端愿管理列表的状态筛选
+- 师兄端不展示 event/appointment 愿的 currentStatus（与班级愿一致，currentStatus 不下发学员端）
+
 **掉队检测**（独立系统，每日凌晨定时任务，写 `CohortLagSnapshot` 表）：
 - 计算对象：班级内 `cohortStatus=active` 的每个学员（非单条愿；paused/留级/毕业/退班不计算）
 - 存储：`CohortLagSnapshot`（一人一行最新，upsert by `@@unique([classId, studentId])`），与 `VowStatus` 完全独立
@@ -2256,10 +2272,22 @@ KPI 卡（今日 / streak / 本周 / 累计）
 
 ```
 preferShowFaxin=true → 先显示发心语
+
+  → practiceProjectId 来源（PracticeLog.practiceProjectId 为 DB 非空约束，必须填入）：
+      vow.practiceProjectId 有值 → 预填修法项目（仅展示，不可修改）
+      vow.practiceProjectId 为空 → 弹项目选择器（必填，不可跳过提交）
+
   → 输入遍数 / 时长（座次自动算：≥30min=1, ≥15min=0.5）
-  → 提交 → 写 PracticeLog{ vowId（裸追踪/发愿均填本条 vow.id）, count/durationMinutes, logDate }
+
+  → 提交 → 写 PracticeLog {
+        vowId:             vow.id,          // 裸追踪/发愿均填，非 null
+        practiceProjectId: <上述规则确定>,  // DB 非空，必填
+        count/durationMinutes/sessionCount,
+        logDate:           now()            // UTC；显示层按 User.timezone 转换
+     }
   → 乐观更新 vow.currentCount / currentSessionCount
   → source=auto 愿才触发 recalcVowStatus
+
 preferShowFaxin=true → 打卡成功弹回向 Sheet
 ```
 
@@ -2563,8 +2591,9 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | UserPracticeVow API（isPledged 区分发愿/裸追踪）+ 状态机（仅 source=auto 重算）| 后端 |
 | PracticeLog API + 座次计算 | 后端 |
 | KPI/streak 实时聚合（PracticeLog 按 User.timezone；PracticeDailySummary 停更）| 后端 |
+| v_practice_daily 物化视图 + 刷新 cron（每 15 分钟 `REFRESH MATERIALIZED VIEW CONCURRENTLY`；排行榜读视图，KPI 读实时 PracticeLog）| 后端 |
 | 愿暂停/恢复 | 后端 |
-| 每日定时任务（愿状态重算：will_overdue/at_risk 按日推进，仅 source=auto）| 后端 |
+| 每日定时任务（愿状态重算：will_overdue/at_risk 按日推进，仅 source=auto；event/appointment 愿到期自动标 completed）| 后端 |
 | 成员状态机 API（changeMemberStatus：5 态转换 + 权限守卫 + paused↔active 级联 source=auto 愿；留级仅标记）| 后端 |
 | CoachContext API（/api/coach/context：管理班级 + flag；admin 超级用户全开）+ class-admin.middleware admin 放行 | 后端 |
 | /coach 架构基座（CoachLayout + RequireCoach 守卫 + 落地页切班 + flag 驱动模块磁贴；无显式入口）| 前端 |
@@ -2619,12 +2648,52 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 关怀跟进 API（canCareFollowup 专属；新建时拷贝最新 CohortLagSnapshot 到 lagSnapshotAtContact）| 后端 |
 | 约修自动关闭定时任务（每日凌晨，过期 active 约修置 expired + 关联愿 paused）| 后端 |
 | 约修 API（创建/加入/关闭）| 后端 |
-| 班级周汇总定时生成（每周日凌晨，按班级时区）+ 复制接口 | 后端 |
+| 班级周汇总定时生成（每周日凌晨，按班级时区）+ 复制接口（API 规格见下方）| 后端 |
 | 关怀跟进页面（管理端，canCareFollowup；可见学员各维度掉队状态 + 历史关怀记录）| 前端 |
 | 掉队名单（管理端，canViewStudents；四维度分列展示 + 按维度筛选/排序 → 一键发起关怀）| 前端 |
 | 约修页面（学员端）⏸ 暂缓（后续 Phase）| ⏸ |
 | TantricGroup + TantricGrants API（密法组 CRUD + 内容归组 + 按组授权）| 后端 |
 | 密法组 + 授权管理 Admin 后台 ⏸ 暂缓（Phase 5，后台先做）| ⏸ |
+
+#### 班级周汇总 API 规格
+
+```
+GET  /api/classes/:id/weekly-summary
+  权限：canViewStudents=true
+  行为：返回最新一条 CohortWeeklySummary（weekStartDate 最大的那条）
+  响应：{ weekStartDate, weekEndDate, summaryData, sharedAt, sharedBy }
+
+GET  /api/classes/:id/weekly-summary/history
+  权限：canViewStudents=true
+  行为：返回最近 N 周汇总列表（分页，默认 page=1 size=12）
+
+POST /api/classes/:id/weekly-summary/share
+  权限：canViewStudents=true（任意可见数据的管理员均可触发复制）
+  行为：更新 sharedAt = now()，sharedBy = req.user.id；返回 copyText（见下方格式）
+  响应：{ copyText: string }
+```
+
+**copyText 格式（一键复制到 WhatsApp）**：
+
+```
+🙏 [班级名] 本周修学汇报（第 N 课 · M月D日-M月D日）
+
+📿 本周修持
+  [项目名]：共 X 遍 / X 座
+  [项目名]：共 X 遍
+  ...（按 practiceTotals 逐项列出）
+
+📚 本周闻思
+  共修出席：N 人   讲考出席：N 人
+
+📔 修持日记：N 人提交
+
+活跃师兄：N 人 | 掉队提示：N 人
+
+#觉学 #[班级名]
+```
+
+> 格式为前端拼接（后端只返回 summaryData 结构 + weekStartDate/End，前端按固定模板 render copyText）；`POST /share` 写 sharedAt 并返回已 render 好的 copyText，前端直接复制到剪贴板。
 
 ### Phase 6 · 内容与排表
 
