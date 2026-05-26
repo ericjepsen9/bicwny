@@ -181,14 +181,21 @@
 - 👆 可以做：阅读后点确认
 - ➡️ 之后：进入计数输入界面
 
-**步骤 2：计数输入 Sheet**
+**步骤 2：计数输入 Sheet（遍数类）**
 - 🖥️ 看到：
-  - 修法项目（`vow.practiceProjectId` 有值时预填仅展示；为空时弹项目选择器，必填）
-  - 遍数输入框（遍数类项目）
-  - 时长输入（时长座次类项目）+ 自动显示「座次：X 座」（≥30min=1, ≥15min=0.5, <15min=0）
-- 👆 可以做：输入数量，点「提交」
-- ➡️ 之后：
-  1. `POST /api/vows/:id/logs` 写 `PracticeLog { vowId, practiceProjectId, count/durationMinutes/sessionCount, logDate=now() }`
+  - 修法项目（`vow.practiceProjectId` 有值时预填+锁定仅展示；为空时弹项目选择器，必填）
+  - **遍数滚轮**（WheelPicker）：预设常用遍数（1 · 7 · 21 · 27 · 49 · 108 · 1080 · 10800 等），iOS 风 scroll-snap，中间槽位高亮
+  - 不显示「今日已记」（决策 FE-7）
+- 👆 可以做：滑动滚轮选遍数，点「提交」
+
+**步骤 2：记录输入 Sheet（时长类，如禅修）**
+- 🖥️ 看到：
+  - 修法项目（同上）
+  - **双滚轮**：左轮 小时（0–4）/ 右轮 分钟（0·5·10·…·55），自动计算座次显示在轮下方「座次：X 座」（≥30min=1, ≥15min=0.5, <15min=0）
+  - 不显示「今日已记」
+
+- ➡️ 两种类型提交后：
+  1. `POST /api/vows/:id/logs` 写 `PracticeLog { vowId, practiceProjectId, count / durationMinutes / sessionCount, logDate=now() }`
   2. 乐观更新：`vow.currentCount` 立即刷新（未等后端 recalc）
   3. source=auto 愿：触发 `recalcVowStatus`（后端异步）
   4. preferShowFaxin=true → 进入步骤 3
