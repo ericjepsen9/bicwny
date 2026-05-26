@@ -2766,6 +2766,11 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 
 ```typescript
 // 以 User.timezone 为边界划天，连续有记录（含 source='makeup'）的天数
+//
+// 规则：
+//   · 第一行允许是「今天」或「昨天」—— 今天还没打卡时从昨天算起，不断连
+//   · 第一行之后必须严格连续，每行恰好是上一行的前一天（不允许跳过任何一天）
+//   · 补签行（source='makeup'）天数自动计入（WHERE 不过滤 source）
 async function calcStreak(userId: string, tz: string): Promise<number> {
   const rows = await prisma.$queryRaw<{ logDay: string }[]>`
     SELECT DISTINCT
@@ -2775,17 +2780,36 @@ async function calcStreak(userId: string, tz: string): Promise<number> {
     ORDER BY "logDay" DESC
     LIMIT 90
   `
-  let streak = 0
-  let expected = today(tz)        // 今日日期字符串
-  for (const { logDay } of rows) {
-    if (logDay === expected || logDay === dayBefore(expected)) {
+  if (rows.length === 0) return 0
+
+  const todayStr     = toLocalDateStr(new Date(), tz)   // e.g. "2026-05-26"
+  const yesterdayStr = dayBefore(todayStr)               // e.g. "2026-05-25"
+
+  // 第一行必须是今天或昨天，否则已断签（streak=0）
+  const firstDay = rows[0].logDay
+  if (firstDay !== todayStr && firstDay !== yesterdayStr) return 0
+
+  // 从第一行起，往后逐行严格校验：rows[i] 必须恰好是 rows[i-1] 的前一天
+  let streak = 1
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].logDay === dayBefore(rows[i - 1].logDay)) {
       streak++
-      expected = dayBefore(logDay)
-    } else break
+    } else {
+      break   // 出现缺口，停止计数
+    }
   }
   return streak
 }
 ```
+
+**正确性验证（4 个 case）**：
+
+| 场景 | rows（DESC）| 期望 streak | 算法结果 |
+|---|---|---|---|
+| 今天已打卡，连续3天 | `[05-26, 05-25, 05-24]` | 3 | ✅ 3 |
+| 今天未打卡，昨天连续3天 | `[05-25, 05-24, 05-23]` | 3 | ✅ 3 |
+| 中间有缺口（05-24 缺失）| `[05-25, 05-23]` | 1 | ✅ 1（旧算法错误返回 2）|
+| 最近一次打卡在2天前 | `[05-24, 05-23]` | 0 | ✅ 0 |
 
 补签行（`source='makeup'`）自动计入，无需特殊处理（`WHERE` 条件不过滤 source）。
 
