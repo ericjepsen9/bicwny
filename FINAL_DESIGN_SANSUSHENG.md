@@ -1859,7 +1859,7 @@ GET /api/admin/speaking-stats
 
 | 模块 | 改动内容 |
 |---|---|
-| `users` | 注册时自动生成 studentId；返回 learningMode / preferShowFaxin / timezone；accessibilityNeeds 校验 |
+| `users` | 注册时同事务生成 studentId + nickname（行者+4位序号）；`POST /api/auth/register` body 移除 name 字段；新增 `PATCH /api/users/me/profile` 接受 realName / phone / phoneRegion / refugeStatus / city / practiceBackground；GET /api/users/me 返回所有新字段；accessibilityNeeds 校验 |
 | `classes` | 创建/编辑支持 programId / startDate / city / timezone |
 | `class-members` | 状态机操作（changeMemberStatus：pause/resume 学员自助+canManageMembers，held_back/graduate/leave 限 canManageMembers/admin，复活限 admin）；paused↔active 级联 source=auto 愿；isPrimary 切换事务（仅 active）；留级仅标记不转班 |
 | `courses` | **所有学员侧查询加 isTantric 过滤**：未授权学员的任何 Course 查询排除密法；管理端不过滤 |
@@ -2770,7 +2770,7 @@ admin 超级用户（决策）
 | /coach 访问守卫 | 前端 RequireCoach：/api/coach/context.classes 为空 → redirect 学员首页；学员端无管理入口（无显式入口） |
 | admin 超级用户 | role='admin' 在 class-admin.middleware 直接放行（所有 flag 视为 true、任意班）；CoachContext 对 admin 返回全部班级 + flag 全开 |
 
-### 数据完整性约束（10 条）
+### 数据完整性约束（15 条）
 
 | 规则 | 实现 |
 |---|---|
@@ -2780,10 +2780,15 @@ admin 超级用户（决策）
 | 共修出席/缺席二选一 | DB：`@@unique([classSessionId, userId, studyType])`；应用层校验 studyType 为共修类之一（group_attend/group_absent） |
 | 每日日记一人一天一篇 | DB：`@@unique([userId, journalDate])` |
 | 学号全局唯一 | DB：`studentId @unique` |
+| 昵称全局唯一 | DB：`nickname @unique`；高并发重复时后端重试（同 studentId 机制）|
 | isPublic 仅限 personal/appointment 愿 | Zod schema：context=class 或 context=event 时强制 isPublic=false，忽略传入值 |
 | 同一讲考一人只能报名一次 | DB：`SpeakingRegistration @@unique([speakingSessionId, userId])`；幂等写入（重复报名返回 200 不报错）|
 | 同一讲考一人只有一条评分 | DB：`SpeakingGrade @@unique([speakingSessionId, userId])`；upsert 语义（辅导员可改分）|
 | 讲考报名截止：session 未结束时才可报名/取消 | 应用层：POST/DELETE register 前校验 `sessionEndAt > now`，超时返回 403 |
+| 手机号格式 | Zod schema：`phone` 非空字符串（不含空格 / 连字符）；`phoneRegion` 枚举白名单（ISO 3166-1 alpha-2，至少支持 US / CN / TW / HK / SG / CA / AU）|
+| 入班必填字段完整性 | 应用层：`PATCH /api/users/me/profile` 在 `hasOnboarded=false` + `learningMode=class` 时校验 realName / phone / phoneRegion / refugeStatus / city 非空；自学（self_study）用户跳过此校验 |
+| 个人信息字段编辑权限 | 应用层：realName / phone / phoneRegion / refugeStatus / city / practiceBackground 学员本人可更新；辅导员只读；admin 可任意改 |
+| 昵称不可学员自改 | 应用层：`PATCH /api/users/me/profile` body 中 nickname 字段被忽略；仅 admin 可通过独立接口更改 |
 
 ### 到期日与目标量变更权限
 
@@ -2833,8 +2838,8 @@ admin 超级用户（决策）
 
 ```
 migration_001_lesson_resources.sql    ✅ 已跑 · 建 LessonResource / LessonMediaChapter / LessonTextBlock 3 张表
-migration_001_add_enums.sql           新增 8 个枚举（含 LagStatus）
-migration_002_extend_user.sql         User 加 6 个字段
+migration_001_add_enums.sql           新增 9 个枚举（含 LagStatus / RefugeStatus）
+migration_002_extend_user.sql         User 加 13 个字段（studentId / nickname / accessibilityNeeds / dataSource / learningMode / preferShowFaxin / timezone / realName / phone / phoneRegion / refugeStatus / city / practiceBackground）
 migration_003_extend_class.sql        Class 加 5 个字段（programId / startDate / city / timezone / currentWeekOverride）
 migration_004_extend_classmember.sql  ClassMember 加 7 个字段
 migration_005_extend_course.sql       Course 加 5 个字段（author + isTantric + programSemesterId + category + tantricGroupId）
@@ -2902,6 +2907,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 密法零痕迹中间件（所有学员侧 Course/Meditation 查询加过滤）| 后端 |
 | 班级管理：timezone / programId / startDate 字段支持（admin 建班）| 后端+前端 |
 | ClassAdmin RBAC 权限分配 UI（/admin/classes/:id/admins）| 前端 Admin |
+| 注册流程简化：移除姓名输入框；后端同事务生成 nickname + studentId（PATCH /api/users/me/profile 新接口）| 后端+前端 |
+| 入班 Onboarding 流程：邀请码成功后新增「完善个人信息」步骤（realName / phone / phoneRegion / refugeStatus / city / practiceBackground）| 前端 |
 
 ### Phase 2 · 闻思打卡系统
 
