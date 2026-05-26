@@ -21,7 +21,7 @@
 2. [数据库改动](#二数据库改动)
    - 2.1 新增枚举
    - 2.2 现有表字段扩展
-   - 2.3 新增表（44 张，含完整 Prisma schema）
+   - 2.3 新增表（43 张，含完整 Prisma schema）
    - 2.4 新增 SQL 视图
 3. [后端改动范围](#三后端改动范围)
 4. [前端改动范围](#四前端改动范围)
@@ -37,12 +37,12 @@
 
 | 类型 | 数量 | 说明 |
 |---|---|---|
-| 新增 Prisma 枚举 | 7 个 | 见 2.1 |
+| 新增 Prisma 枚举 | 8 个 | 见 2.1（含掉队检测 LagStatus）|
 | 现有表字段扩展 | 8 张表 | User / Class / ClassMember / Course / Lesson / ClassSession / Meditation / PracticeProject |
-| 新增表 | 42 张 | 见 2.3（自学读物复用 Course 砍 3 张；密法按组加 TantricGroup 1 张 → 净 42）|
+| 新增表 | 43 张 | 见 2.3（自学读物复用 Course 砍 3 张；密法加 TantricGroup +1；掉队检测加 CohortLagSnapshot +1 → 净 43）|
 | 新增 SQL 视图 | 2 个 | v_event_dedication_totals / v_weekly_dedication_totals |
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
-| 新增后端模块 | 23 个 | 见 3.1 |
+| 新增后端模块 | 24 个 | 见 3.1 |
 | 修改后端模块 | 7 个 | 见 3.2 |
 | 新增前端页面（学员端）| 6 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
 | 修改前端页面（学员端）| 9 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 |
@@ -106,6 +106,15 @@ enum VowContext {
 enum PracticeMeasurement {
   count     // 遍数（念诵类）
   duration  // 座次 + 时长（禅修类）
+}
+
+// 掉队检测状态（独立于 VowStatus —— 这是「学员在班级综合学习」的状态，非单条愿）
+// 多维独立：修持/闻思/出勤/日记各维度各自取一个 LagStatus，名单页分列展示，不加权
+enum LagStatus {
+  on_track        // 跟得上
+  slightly_behind // 略微落后
+  falling_behind  // 明显落后
+  at_risk         // 高风险（连续掉队或长期零打卡）
 }
 
 // 账号状态
@@ -293,7 +302,7 @@ model PracticeProject {
 
 ---
 
-### 2.3 新增表（44 张）
+### 2.3 新增表（43 张）
 
 #### 组织层级（1 张）
 
@@ -939,21 +948,51 @@ model EventCount {
   @@index([userId, eventId])
 }
 
+```
+
+#### 关怀与掉队检测（2 张）
+
+```prisma
 // 关怀跟进记录（仅 canCareFollowup=true 的 ClassAdmin 可填写，师兄端完全不可见）
 model CareFollowup {
-  id             String   @id @default(cuid())
-  studentId      String   // 被关怀的师兄 userId
-  classId        String
-  careWorkerId   String   // 关怀人 userId
-  contactedAt    DateTime
-  summary        String
-  followUpStatus String   @default("pending")
+  id                  String   @id @default(cuid())
+  studentId           String   // 被关怀的师兄 userId
+  classId             String
+  careWorkerId        String   // 关怀人 userId
+  contactedAt         DateTime
+  summary             String
+  followUpStatus      String   @default("pending")
   // pending / resolved / escalated
-  createdAt      DateTime @default(now())
+  lagSnapshotAtContact Json?   // 关怀时该学员各维度掉队状态快照（记录「因何掉队而关怀」）
+  // 结构同 CohortLagSnapshot：{ practiceLag, studyLag, attendanceLag, journalLag }
+  // 填写时由后端从最新 CohortLagSnapshot 拷贝定格，事后名单变化不影响此历史值
+  createdAt           DateTime @default(now())
 
   student    User  @relation("CareStudent",  fields: [studentId],  references: [id])
   careWorker User  @relation("CareWorker",   fields: [careWorkerId], references: [id])
   class      Class @relation(fields: [classId], references: [id])
+}
+
+// 掉队检测快照（每日凌晨定时任务重算；一人一行只存最新，computed state 与成员生命周期表解耦）
+// 多维独立：四个维度各取一个 LagStatus，名单页分列展示，不加权汇总
+// 仅对 cohortStatus=active 成员计算；paused/held_back/graduated/left 不入表（或定时清理）
+// 对学员端完全不可见（无 API 返回）；仅 canViewStudents=true 的 ClassAdmin 可读
+model CohortLagSnapshot {
+  id            String    @id @default(cuid())
+  classId       String
+  studentId     String    // 被检测的师兄 userId
+  practiceLag   LagStatus @default(on_track)  // 修持维度（近2周 PracticeLog 达标率）
+  studyLag      LagStatus @default(on_track)  // 闻思维度（近2周答题 + StudyRecord 达标率）
+  attendanceLag LagStatus @default(on_track)  // 出勤维度（近2周讲考/共修签到缺席数）
+  journalLag    LagStatus @default(on_track)  // 日记维度（近2周 PracticeJournal 提交天数）
+  detail        Json?     // 各维度明细：{ practice:{rate,target}, study:{...}, attendance:{absent}, journal:{days} }
+  computedAt    DateTime  @default(now())
+
+  class   Class @relation(fields: [classId], references: [id])
+  student User  @relation(fields: [studentId], references: [id])
+
+  @@unique([classId, studentId])  // 一人一行最新
+  @@index([classId])              // 名单页按班查询
 }
 ```
 
@@ -1317,6 +1356,7 @@ model User {
   eventCounts          EventCount[]
   careStudentRecords   CareFollowup[]        @relation("CareStudent")
   careWorkerRecords    CareFollowup[]        @relation("CareWorker")
+  lagSnapshots         CohortLagSnapshot[]
   authoredPosts        ClassPost[]
   postReactions        ClassPostReaction[]
   postComments         ClassPostComment[]
@@ -1347,6 +1387,7 @@ model Class {
   restWeeks            CohortRestWeek[]
   recommendedTemplates CohortRecommendedTemplate[]
   careFollowups        CareFollowup[]
+  lagSnapshots         CohortLagSnapshot[]
   posts                ClassPost[]
   discussions          Discussion[]
   weeklySummaries      CohortWeeklySummary[]
@@ -1388,7 +1429,7 @@ model PracticeTemplate {
 
 ## 三、后端改动范围
 
-### 3.1 新增 API 模块（23 个）
+### 3.1 新增 API 模块（24 个）
 
 | 模块 | 路由前缀 | 主要功能 |
 |---|---|---|
@@ -1408,7 +1449,8 @@ model PracticeTemplate {
 | SelfStudy | `/api/self-study` | 自学师兄科系学习管理（UserSelfStudyProgram + 个人休息周 + 自学进度算法）；读物走现有 Course/enrollment 接口 |
 | Events | `/api/events` | 法会活动（admin CRUD）+ 学员端列表/详情/集体回向/打卡/发愿 |
 | Appointments | `/api/appointments` | 约修创建/加入/关闭 ⏸ 暂缓（Phase 5：后端 API 先做，学员端 UI 暂缓）|
-| CareFollowups | `/api/care-followups` | 关怀跟进（canCareFollowup=true 专属）|
+| CohortLag | `/api/classes/:id/lag` | 掉队名单读取（canViewStudents 专属）：返回 CohortLagSnapshot 多维状态，可按维度筛选/排序；学员端零返回 |
+| CareFollowups | `/api/care-followups` | 关怀跟进（canCareFollowup=true 专属）：新建时后端从最新 CohortLagSnapshot 拷贝 lagSnapshotAtContact |
 | TantricGroups | `/api/admin/tantric-groups` | 密法组 CRUD（灌顶单位，admin 专属）|
 | TantricGrants | `/api/admin/tantric-grants` | 密法白名单按组授权 INSERT/DELETE（admin 专属）|
 | ClassPosts | `/api/classes/:id/posts` | 学修感想发布/列表/软删除 + 点赞/评论/转发记录（UI ⏸ 暂缓，API 当前阶段预留）|
@@ -1652,11 +1694,48 @@ async function recalcVowStatus(vowId: string): Promise<VowStatus> {
 //    此为有意设计：发愿前的随喜计数仅计入集体总量，不纳入个人愿进度
 ```
 
-**掉队检测**（独立系统，每日凌晨定时任务）：
-- 计算对象：学员在班级的综合学习状态（非单条愿）
-- 结果写入另一字段/表（与愿状态独立）
-- 4 级：on_track / slightly_behind / falling_behind / at_risk
-- 阈值基准：近 2 周修持达标率（实际/本班设定目标），⏸ 上线前可调
+**掉队检测**（独立系统，每日凌晨定时任务，写 `CohortLagSnapshot` 表）：
+- 计算对象：班级内 `cohortStatus=active` 的每个学员（非单条愿；paused/留级/毕业/退班不计算）
+- 存储：`CohortLagSnapshot`（一人一行最新，upsert by `@@unique([classId, studentId])`），与 `VowStatus` 完全独立
+- **多维独立**：四个维度各自取一个 `LagStatus`，名单页分列展示，**不加权汇总**（不出"综合掉队分"）
+- 状态级别：`on_track` / `slightly_behind` / `falling_behind` / `at_risk`
+- 窗口：近 2 周（14 天，按 `Class.timezone` 切日）；阈值 ⏸ 上线前可配置
+
+```typescript
+// 每维度统一映射：rate = 实际 / 应达标；越低越掉队
+function lagFromRate(rate: number): LagStatus {
+  if (rate >= 0.9) return 'on_track'
+  if (rate >= 0.7) return 'slightly_behind'
+  if (rate >= 0.5) return 'falling_behind'
+  return 'at_risk'
+}
+
+async function computeLagSnapshot(member: ClassMember): Promise<void> {
+  // 维度 1 修持：近2周 PracticeLog 达标天数 / 班级设定应打卡天数
+  const practiceRate = practiceDaysHit / practiceDaysExpected
+  // 维度 2 闻思：近2周 (答题数 + StudyRecord 数) / 应完成课时关联题量
+  const studyRate    = studyDone / studyExpected
+  // 维度 3 出勤：近2周 (应到场次 - 缺席) / 应到场次（讲考 + 共修签到）
+  //   无任何场次时该维度恒 on_track（rate=1）
+  const attendRate   = sessionsExpected > 0 ? (sessionsExpected - absent) / sessionsExpected : 1
+  // 维度 4 日记：近2周 PracticeJournal 提交天数 / 14
+  const journalRate  = journalDays / 14
+
+  await prisma.cohortLagSnapshot.upsert({
+    where: { classId_studentId: { classId: member.classId, studentId: member.userId } },
+    create/update: {
+      practiceLag:   lagFromRate(practiceRate),
+      studyLag:      lagFromRate(studyRate),
+      attendanceLag: lagFromRate(attendRate),
+      journalLag:    lagFromRate(journalRate),
+      detail: { practice:{rate:practiceRate}, study:{rate:studyRate},
+                attendance:{absent, expected:sessionsExpected}, journal:{days:journalDays} },
+      computedAt: now,
+    }
+  })
+}
+// 注：at_risk 额外硬条件 —— 某维度近2周完全零记录时直接置 at_risk（rate 计算已覆盖：0/N=0）
+// 注：进度乐观计入，未确认（isConfirmed=false）的打卡同样计入达标
 
 **约修自动关闭**（每日凌晨定时任务）：
 
@@ -1996,7 +2075,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 | 页面 | 说明 |
 |---|---|
 | 成员状态管理 | 批量操作：暂停/留级/毕业/退班 + 原因填写；需 canManageMembers |
-| 掉队名单 | 按掉队状态排序；查看详情；需 canViewStudents |
+| 掉队名单 | 读 CohortLagSnapshot；四维度（修持/闻思/出勤/日记）分列展示，可按任一维度筛选/排序；查看 detail 明细；一键发起关怀（带入当前快照）；需 canViewStudents |
 | 修持愿管理 | 查看本班 auto 愿；修改到期日/每日目标量；需 canEditGoals |
 | 班级周汇总 | 展示定时任务自动生成的本周汇总；一键复制到 WhatsApp（写 sharedAt/sharedBy）；需 canViewStudents |
 
@@ -2041,7 +2120,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 | 打卡报数文本生成 | 打卡后从 PracticeLog 组装文字，复制到剪贴板；密法参与报数 |
 | 批量补录 | 多选课时 → 批量 POST 写入 LessonCompletion；无次数限制 |
 | 三殊胜框架（发心语 + 回向）| preferShowFaxin=true 时：修持打卡（PracticeLog）前显示发心语；内容完成（LessonCompletion read/audio/video/meditation）后弹回向 Sheet；文案配置在前端常量；无新增表 |
-| 掉队检测计算 | 后端定时任务，结果写掉队状态字段 |
+| 掉队检测计算 | 后端每日凌晨定时任务，多维独立（修持/闻思/出勤/日记）upsert 写 CohortLagSnapshot（一人一行最新），与 VowStatus 独立 |
 
 ---
 
@@ -2049,7 +2128,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 
 > 使用应用层中间件实现，不依赖数据库 RLS。
 
-### 权限红线（7 条）
+### 权限红线（14 条）
 
 | 规则 | 实现 |
 |---|---|
@@ -2059,7 +2138,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 | 管理员不能跨班操作 | 中间件：验证 ClassAdmin 记录 |
 | 密法零痕迹（学员侧）| 所有学员侧 Course/Meditation/PracticeProject 查询：isTantric=true 且内容.tantricGroupId 不在用户授权组中 → 过滤 |
 | 关怀记录对学员不可见 | CareFollowup 路由：仅 canCareFollowup=true 可访问 |
-| 掉队状态对学员不可见 | Vow API 响应：学员端不返回 currentStatus 字段 |
+| 掉队状态对学员不可见 | CohortLagSnapshot 无任何学员端入口；CohortLag API 仅 canViewStudents=true 可读；Vow API 学员端响应亦不返回 currentStatus 字段 |
 | 法会字段写权限限 admin | 中间件：admin 路由 `requireRole('admin')`；学员侧只有 GET 端点，无 POST/PUT/DELETE |
 | 讨论话题创建权限 | 应用层：创建/关闭前查 ClassAdmin 记录（任意 flag）或 role='admin'；投票/评论不做额外校验（班级成员身份由 ClassMember 已保障）|
 | 讨论一人一票 | DB：`@@unique([discussionId, userId])`；换投：应用层先删旧票再插新票 |
@@ -2127,7 +2206,7 @@ preferShowFaxin=true → 打卡成功弹回向 Sheet
 ### 第一层：结构 Migration（无破坏性，可随时跑）
 
 ```
-migration_001_add_enums.sql           新增 7 个枚举
+migration_001_add_enums.sql           新增 8 个枚举（含 LagStatus）
 migration_002_extend_user.sql         User 加 6 个字段
 migration_003_extend_class.sql        Class 加 4 个字段
 migration_004_extend_classmember.sql  ClassMember 加 7 个字段
@@ -2138,7 +2217,7 @@ migration_008_extend_meditation.sql   Meditation 加 4 个字段（seriesKey/ser
 migration_009_extend_practice.sql     PracticeProject 加 2 个字段（isTantric/tantricGroupId）
 migration_009_pgvector.sql            启用 pgvector 扩展（CREATE EXTENSION IF NOT EXISTS vector）
 migration_001_lesson_resources.sql    ✅ 已跑 · 建 LessonResource / LessonMediaChapter / LessonTextBlock 3 张表（对应 backend/prisma/migrations/1_lesson_resources/）
-migration_010_new_tables.sql          建 42 张新表（含 EventCount / ClassPost 系列 / Discussion 系列 / AI 助手 5 张 / TantricGroup / LessonMediaChapter / LessonTextBlock；PracticeGuide 未进入生产，无需 DROP）
+migration_010_new_tables.sql          建 43 张新表（含 EventCount / CareFollowup / CohortLagSnapshot / ClassPost 系列 / Discussion 系列 / AI 助手 5 张 / TantricGroup / LessonMediaChapter / LessonTextBlock；PracticeGuide 未进入生产，无需 DROP）
 migration_011_views.sql               建 2 个 SQL 视图
 ```
 
@@ -2202,7 +2281,7 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | PracticeLog API + 座次计算 | 后端 |
 | KPI/streak 实时聚合（PracticeLog 按 User.timezone；PracticeDailySummary 停更）| 后端 |
 | 愿暂停/恢复 | 后端 |
-| 每日定时任务（约修自动关闭 + 掉队检测）| 后端 |
+| 每日定时任务（愿状态重算：will_overdue/at_risk 按日推进，仅 source=auto）| 后端 |
 | `/practice` 统一中枢改造（班级愿区 + 我的修学区 + 添加修学 + 打卡 Sheet）| 前端 |
 | 修持打卡 UI + 发心语 + 回向（合并进 /practice）| 前端 |
 | 修持愿管理（管理端）| 前端 |
@@ -2245,11 +2324,14 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | 首页活动药丸卡片 + 通知移入「我的」+ 头像未读红点 | 前端 |
 | 每周回向页面 `/class/:id/dedication`（班级级，入口班级页）| 前端 |
 | 藏历日历嵌入修持日记 `/calendar` + PracticeJournals API | 前端+后端 |
-| 关怀跟进 API（canCareFollowup 专属）| 后端 |
+| CohortLagSnapshot 表（migration_010 含）+ 掉队检测定时任务（每日凌晨，多维独立写快照，仅 active 成员）| 后端 |
+| CohortLag API（`/api/classes/:id/lag` 掉队名单读取，canViewStudents 专属，学员端零返回）| 后端 |
+| 关怀跟进 API（canCareFollowup 专属；新建时拷贝最新 CohortLagSnapshot 到 lagSnapshotAtContact）| 后端 |
+| 约修自动关闭定时任务（每日凌晨，过期 active 约修置 expired + 关联愿 paused）| 后端 |
 | 约修 API（创建/加入/关闭）| 后端 |
 | 班级周汇总定时生成（每周日凌晨，按班级时区）+ 复制接口 | 后端 |
-| 关怀跟进页面（管理端，canCareFollowup）| 前端 |
-| 掉队名单（管理端，canViewStudents）| 前端 |
+| 关怀跟进页面（管理端，canCareFollowup；可见学员各维度掉队状态 + 历史关怀记录）| 前端 |
+| 掉队名单（管理端，canViewStudents；四维度分列展示 + 按维度筛选/排序 → 一键发起关怀）| 前端 |
 | 约修页面（学员端）⏸ 暂缓（后续 Phase）| ⏸ |
 | TantricGroup + TantricGrants API（密法组 CRUD + 内容归组 + 按组授权）| 后端 |
 | 密法组 + 授权管理 Admin 后台 ⏸ 暂缓（Phase 5，后台先做）| ⏸ |
