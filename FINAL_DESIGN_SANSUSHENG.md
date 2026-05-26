@@ -2499,9 +2499,9 @@ care-followup.middleware.ts
 
 **发愿 Sheet（区块 3 内联）：**
 - 点击「发法会愿」→ 底部 Sheet 弹出
-- Sheet 内容：
-  - 修法项目选择
-  - 目标量输入（targetPeriod 固定为 `lifetime`，整个法会期间完成）
+- Sheet 内容（分步骤，FE-9）：
+  - 步骤1：修法项目选择
+  - 步骤2：目标量输入（**双轮 TargetCountPicker，FE-10**；基数轮 × 单位轮，实时预览合计遍数；targetPeriod 固定 `lifetime`，整个法会期间完成）
   - startDate 只读显示（= event.startDate 或 today，取较大值）
   - 提交 → 写 `UserPracticeVow { context: 'event', eventId, source: 'custom' }`
   - 提交成功 → 状态切换到「有愿」状态
@@ -2590,6 +2590,7 @@ KPI 卡（今日 / streak / 本周 / 累计）
       关 → 建 UserPracticeVow{ source=custom, context=personal, isPledged=false, target 全 null }
             = 裸追踪项，进我的修学列表，打卡只累计数
       开 → 填主目标（按 targetPeriod：lifetime 填 targetCount / daily 填 dailyTarget / weekly 填 weeklyTarget）
+            输入控件：**双轮 TargetCountPicker（FE-10）**，基数 × 单位，实时预览合计遍数
             + 到期日（可选）
             → 建 UserPracticeVow{ source=custom, context=personal, isPledged=true }
             = 发愿，带进度条
