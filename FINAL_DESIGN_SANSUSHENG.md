@@ -1733,6 +1733,120 @@ async function generateStudentId(tx: PrismaTransaction): Promise<string> {
 // ⚠️ 历史数据导入必须在开放注册前完成，否则序号冲突
 ```
 
+#### Auto Vow 自动建愿（入班事务内调用）
+
+**触发时机**：`POST /api/classes/:id/members` handler 内，与 `ClassMember` 创建在**同一 Prisma 事务**中执行。事务失败则双方同时回滚，保证原子性。
+
+```typescript
+// 调用方：class-members 模块的 addMember handler
+// 事务保障：ClassMember 建立失败 → 愿不落库；愿建立失败 → ClassMember 回滚
+async function createAutoVows(
+  tx: PrismaTransaction,
+  userId: string,
+  classId: string
+): Promise<void> {
+  // 1. 查班级 startDate（计算愿的起修日期）
+  const cls = await tx.class.findUnique({
+    where: { id: classId },
+    select: { startDate: true }
+  })
+  const classStart = cls?.startDate ?? new Date()   // 无 startDate 时退化为今天
+
+  // 2. 查该班所有 binding='auto' 的模板绑定，按 displayOrder 排序
+  const bindings = await tx.cohortRecommendedTemplate.findMany({
+    where: { classId, binding: 'auto' },
+    include: { template: true },
+    orderBy: { displayOrder: 'asc' }
+  })
+  if (bindings.length === 0) return   // 无绑定模板：静默跳过，不报错
+
+  // 3. 幂等保护：查已有 auto 愿，跳过已建过的模板（处理退班后重新入班）
+  const existing = await tx.userPracticeVow.findMany({
+    where: { userId, classId, source: 'auto' },
+    select: { templateId: true }
+  })
+  const existingIds = new Set(existing.map(v => v.templateId).filter(Boolean))
+  const toCreate = bindings.filter(b => !existingIds.has(b.templateId))
+  if (toCreate.length === 0) return   // 全部已建过（重复入班场景），跳过
+
+  // 4. 按模板字段构造愿数据
+  const vowData = toCreate.map(({ template }) => {
+    const startDate = addDays(classStart, template.startsOffsetDays ?? 0)
+    const endDate   = template.durationDays
+      ? addDays(startDate, template.durationDays)
+      : null                          // null = 持续性愿（无截止日）
+    return {
+      userId,
+      classId,
+      source:            'auto'   as const,
+      context:           'class'  as const,
+      templateId:        template.id,
+      practiceProjectId: template.practiceProjectId ?? undefined,
+      isPledged:         true,        // auto 愿默认为正式发愿（非裸追踪）
+      targetCount:       template.targetCount ?? undefined,
+      targetPeriod:      template.targetPeriod,
+      dailyTarget:       template.defaultDailyTarget ?? undefined,
+      currentCount:      0,
+      currentStatus:     'on_track' as const,
+      startDate,
+      endDate,
+    }
+  })
+
+  await tx.userPracticeVow.createMany({ data: vowData })
+}
+```
+
+**addMember handler 框架**（class-members 模块）：
+
+```typescript
+// POST /api/classes/:id/members
+async function addMember(req, reply) {
+  const { userId, isPrimary } = req.body
+
+  const member = await prisma.$transaction(async (tx) => {
+    // 若 isPrimary=true，先把该学员在其他班的 isPrimary 清掉（应用层保证唯一）
+    if (isPrimary) {
+      await tx.classMember.updateMany({
+        where: { userId, isPrimary: true },
+        data:  { isPrimary: false }
+      })
+    }
+
+    // 建 ClassMember
+    const member = await tx.classMember.create({
+      data: {
+        classId:      req.params.id,
+        userId,
+        cohortStatus: 'active',
+        isPrimary:    isPrimary ?? false,
+        joinedAt:     new Date(),
+      }
+    })
+
+    // 同一事务内建 auto 愿（失败则整体回滚）
+    await createAutoVows(tx, userId, req.params.id)
+
+    return member
+  })
+
+  reply.send(member)
+}
+```
+
+**边界情况一览**：
+
+| 场景 | 行为 |
+|---|---|
+| 班级无绑定模板（`binding='auto'` 为空）| 静默跳过，不报错，ClassMember 正常创建 |
+| 退班后重新入班（`cohortStatus: left → active`）| 幂等保护：已建过的 templateId 跳过，只为新增模板建愿 |
+| 学员同时在多个班 | 每班独立建愿（classId 不同），互不影响 |
+| `practiceProjectId` 为空 | 允许（裸追踪模板，修法项目由学员打卡时自选）|
+| `createAutoVows` 抛出异常 | 事务整体回滚，ClassMember 不落库，接口返回 500 |
+| `startsOffsetDays=null, durationDays=null` | startDate=classStart，endDate=null（持续性愿，最常见）|
+
+> **注意**：`held_back → active`（重新激活）也可触发入班，但一般走「到目标班手动加新 ClassMember」，新成员创建同样会调用 `createAutoVows`，幂等逻辑保障不重复建愿。
+
 #### 修持愿状态机（打卡后实时重算）
 
 **重算触发点**（仅作用于 source=auto 班级愿；其他愿/裸追踪项跳过）：
