@@ -44,7 +44,7 @@
 | 现有表不动 | 50+ 张 | 全部保留，零回归 |
 | 新增后端模块 | 26 个 | 见 3.1 |
 | 修改后端模块 | 7 个 | 见 3.2 |
-| 新增前端页面（学员端）| 9 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页 + 讲考历史统计页 + 考试成绩页 + 法会历史记录页（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
+| 新增前端页面（学员端）| 11 个 | 含每周回向 + 活动中心 + 法会详情 + 平台场次详情 + 签到链接页 + 讲考历史统计页 + 考试成绩页 + 法会历史记录页 + **班级Tab根页 `/class`** + **我的Tab根页 `/me`**（修持愿/打卡合并进 /practice、日记嵌 /calendar、自学读物复用 Course，不单设页）|
 | 修改前端页面（学员端）| 10 个 | 首页 + 修学计数页 + 藏历日历页 + 闻思页 + 课程详情 + 课程阅读页 + 打卡记录 + 思考题 + 个人设置 + 「我的」页面（讲考记录入口）|
 | 新增前端页面（管理端 /coach/*）| 4 个 | 成员状态/掉队名单/修持愿管理/班级周汇总（打卡审核中心已砍）|
 | 新增前端页面（Admin 端）| 10 个 | 科系/修持模板/密法组/班级休息周/参考答案/法会活动/自学师兄/ClassAdmin 权限分配/讲考成绩统计/考试管理 |
@@ -699,6 +699,7 @@ model StudyRecord {
   // group_absent      共修：缺席（二选一，互斥）
   // group_review      共修：复习
   // group_summary     共修：总结
+  // self_checkin      首页日常签到（无 classSessionId，一人一天一次）
   // 注：listen 和 read_notes 已从此表移除，走 LessonCompletion
 
   lessonResourceId  String?  // 听课/读讲记：选哪位讲者版本
@@ -1859,7 +1860,7 @@ GET /api/admin/speaking-stats
 
 | 模块 | 改动内容 |
 |---|---|
-| `users` | 注册时同事务生成 studentId + nickname（行者+4位序号）；`POST /api/auth/register` body 移除 name 字段；新增 `PATCH /api/users/me/profile` 接受 realName / phone / phoneRegion / refugeStatus / city / practiceBackground；GET /api/users/me 返回所有新字段；accessibilityNeeds 校验 |
+| `users` | 注册时同事务生成 studentId + nickname（行者+4位序号）；`POST /api/auth/register` body 移除 name 字段；新增 `PATCH /api/users/me/profile` 接受 realName / phone / phoneRegion / refugeStatus / city / practiceBackground；新增 `POST /api/me/checkin`（日常签到，studyType='self_checkin'，幂等）；GET /api/users/me 返回所有新字段；accessibilityNeeds 校验 |
 | `classes` | 创建/编辑支持 programId / startDate / city / timezone |
 | `class-members` | 状态机操作（changeMemberStatus：pause/resume 学员自助+canManageMembers，held_back/graduate/leave 限 canManageMembers/admin，复活限 admin）；paused↔active 级联 source=auto 愿；isPrimary 切换事务（仅 active）；留级仅标记不转班 |
 | `courses` | **所有学员侧查询加 isTantric 过滤**：未授权学员的任何 Course 查询排除密法；管理端不过滤 |
@@ -2328,7 +2329,7 @@ care-followup.middleware.ts
 
 ## 四、前端改动范围
 
-### 4.1 学员端新增页面（9 个）
+### 4.1 学员端新增页面（11 个）
 
 > 注 1：修持愿与修持打卡**合并进现有 `/practice` 页**（见 §4.2 修学计数页改造），不再单设 `/vows` 独立页。
 > 注 2：修持日记**嵌入藏历日历页 `/calendar`**（见 §4.2），不再单设 `/journals` 独立页。
@@ -2345,6 +2346,8 @@ care-followup.middleware.ts
 | 讲考历史统计 | `/my/speaking-history` | 个人所有讲考记录列表 + 顶部统计概览（参与场次数 / 通过率 badge / 成绩分布）+ 每条记录可展开评语详情；**入口：「我的」页面「讲考记录」入口** |
 | 考试成绩 | `/my/exam-grades` | 个人所有考试成绩列表（按 examDate 倒序）+ 每条显示考试名称 / 日期 / 关联法本 / 百分制分数 / 评语；**入口：「我的」页面「考试成绩」入口** |
 | 法会历史记录 | `/my/event-history` | 个人参与过的所有法会列表（按 startDate 倒序）+ 每条显示法会名 / 日期区间 / 我的总遍数 / 愿完成情况；支持按年份筛选；点击 → 法会详情页只读模式；**入口：「我的」页面「法会记录」入口** + 活动中心法会 Tab 往期折叠区 |
+| 班级 Tab 根页 | `/class` | 底部导航「班级」Tab 落地页；默认显示主班信息 + 法会/共修活动 + 班级动态；多班用户顶部可切换班级（Sheet 选择器）；无班级时显示引导卡 |
+| 我的 Tab 根页 | `/me` | 底部导航「我的」Tab 落地页；替代 `/profile` 作为个人信息入口；含通知入口 + 学修记录（讲考/考试/法会历史）+ 账号设置；`/profile` → 301 redirect 到 `/me` |
 
 #### 首页活动入口（药丸卡片）✅ 已确认
 
@@ -2770,7 +2773,7 @@ admin 超级用户（决策）
 | /coach 访问守卫 | 前端 RequireCoach：/api/coach/context.classes 为空 → redirect 学员首页；学员端无管理入口（无显式入口） |
 | admin 超级用户 | role='admin' 在 class-admin.middleware 直接放行（所有 flag 视为 true、任意班）；CoachContext 对 admin 返回全部班级 + flag 全开 |
 
-### 数据完整性约束（15 条）
+### 数据完整性约束（16 条）
 
 | 规则 | 实现 |
 |---|---|
@@ -2789,6 +2792,7 @@ admin 超级用户（决策）
 | 入班必填字段完整性 | 应用层：`PATCH /api/users/me/profile` 在 `hasOnboarded=false` + `learningMode=class` 时校验 realName / phone / phoneRegion / refugeStatus / city 非空；自学（self_study）用户跳过此校验 |
 | 个人信息字段编辑权限 | 应用层：realName / phone / phoneRegion / refugeStatus / city / practiceBackground 学员本人可更新；辅导员只读；admin 可任意改 |
 | 昵称不可学员自改 | 应用层：`PATCH /api/users/me/profile` body 中 nickname 字段被忽略；仅 admin 可通过独立接口更改 |
+| 首页日常签到每人每天一次 | 应用层：`POST /api/me/checkin` 写入前检查当日（按 User.timezone 取 logDate）是否已有 `studyType='self_checkin'` 记录；已有则幂等返回 200 不报错；Partial unique index：`UNIQUE(userId, logDate) WHERE studyType='self_checkin'`（Postgres 部分索引，应用层额外防守）|
 
 ### 到期日与目标量变更权限
 
@@ -2931,6 +2935,10 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | Coach 考试成绩 Tab（`/coach/:classId/exams` Tab 2：列表 + inline 录入）| 前端 |
 | 学员考试成绩页（`/my/exam-grades`）+ 「我的」页面「考试成绩」入口 badge | 前端 |
 | CheckIn API（公开端点：GET + POST `/api/checkin/:token`）| 后端 |
+| 日常签到 API（`POST /api/me/checkin`，studyType='self_checkin'，幂等，按 User.timezone 取当日）| 后端 |
+| 5 Tab 导航改造（TabBar 3→5 Tab；新建 `/class` 班级根页 + `/me` 我的根页；详见 `docs/TAB_NAVIGATION_DESIGN.md`）| 前端 |
+| 首页今日修学卡（全宽卡片，位于原 4 卡上方；显示当日闻思进度 + 修持遍数 + 日常签到按钮）| 前端 |
+| 闻思 Tab 子 Tab 切换（法本 / 复习 两个子 Tab）| 前端 |
 | SpeakingSession.startAt / checkInToken 字段，classId 改可空（含在 migration_009）| DB |
 | ClassSession.checkInToken 字段，classId 改可空（migration）| DB |
 | LessonCompletion API（轻量听/读/观修完成标记，含批量补录）| 后端 |
