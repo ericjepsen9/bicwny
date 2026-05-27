@@ -1324,3 +1324,37 @@ model ClassAdmin {
 | 打卡要求可配置 | admin 可在排表编辑器科系根节点处调整各打卡类型的 required / recommended / 不要求 |
 | 假期周行为 | `ProgramWeek.isHoliday=true` → 掉队检测跳过该周 content/quiz/meditation 三维度计算 |
 | 排表作用 | 掉队检测 content/quiz/meditation 基准 + 学员端本周进度基准线；学员阅读不被锁课 |
+
+---
+
+## PostgreSQL RLS（行级安全）⏸ 暂缓（实现阶段评估）
+
+### 决策 SEC-001 · 数据隔离策略 ⏸ 暂缓
+
+**背景**：觉学使用 PostgreSQL，但当前设计全部依赖应用层中间件做数据隔离（BL-13 四层 + BL-14 十八条红线），未启用 PostgreSQL RLS。
+
+**已知风险**：
+- 若某条路由漏挂 middleware，或 Prisma 查询忘写 `where userId = req.user.id`，数据库层无兜底
+- 敏感表：`CareFollowup`（关怀记录）/ `CohortLagSnapshot`（掉队快照）/ `PracticeJournal`（日记）
+
+**为何暂缓（不是不做）**：
+
+| 风险项 | 说明 |
+|---|---|
+| Prisma 连接池 + 会话变量泄漏 | RLS 需 `SET LOCAL app.current_user_id = X`；Prisma 连接池复用连接，若未用事务包裹则上一个用户的上下文可能泄漏到下一个请求，比无 RLS 更危险 |
+| 每请求强制事务 | 安全做法要求每个 API 请求包在 `prisma.$transaction` 里；改造面大，引入新风险 |
+| 三角色 policy 复杂 | admin 全看 / 辅导员看本班 / 学员看自己，policy 本身可写错 |
+| Migration 管理 | Prisma migration 不原生管理 RLS policy，需额外裸 SQL 文件维护 |
+
+**当前替代方案（实现阶段执行）**：
+
+| 措施 | 效果 |
+|---|---|
+| 集成测试：每个敏感接口验证 403/空响应 | 直接覆盖权限红线 |
+| Code review checklist：新路由必须挂对应 middleware | 防漏挂 |
+| 定期 audit：grep 所有 Prisma 查询，检查裸 `findMany` 有无 userId 过滤 | 防遗漏 |
+
+**实现阶段再评估时的判断依据**：
+- 若出现因漏挂 middleware 导致的权限 bug → 优先级升高
+- 若团队扩大、PR 审查压力增大 → 优先级升高
+- 若 Prisma 官方对 RLS 提供原生支持 → 直接启用
