@@ -1211,19 +1211,55 @@
 
 #### S-058 排表编辑（科系→科目→周→内容） 🔵 已设计未实现
 
-**触发**：点某科系 → 进入排表编辑器。
+**触发**：点某科系 → 进入排表编辑器（`/admin/programs/:id/schedule`）。
 
-**排表编辑器（嵌套结构）**
-- 🖥️ 看到：科系 → 科目（ProgramSemester）→ 周（ProgramWeek）→ 每周内容
+**排表编辑器布局（方案 A：左树 + 右区）**
+
+```
+┌─────────────────┬──────────────────────────────────────┐
+│ 左栏（树形导航）   │ 右区（编辑区，随左栏选中状态切换）          │
+│                 │                                      │
+│ ● [科系根节点] ←  │  右区状态①：打卡要求配置                  │
+│   ▼ 第一学期      │  （见下方「打卡要求」说明）                 │
+│     ▼ 第 1 周    │                                      │
+│     ▶ 第 2 周    │  右区状态②：周内容编辑器                  │
+│     ● 第 3 周 ←  │  （见下方「周内容编辑器」说明）              │
+│   ▶ 第二学期      │                                      │
+│ + 新建科目        │                                      │
+└─────────────────┴──────────────────────────────────────┘
+```
+
+**左栏交互**
+- 科系根节点：点击 → 右区切换为「打卡要求配置」
+- ProgramSemester 节点：展开/折叠，可编辑名称 / 开始周 / 结束周（inline）
+- ProgramWeek 节点：点击 → 右区切换为「周内容编辑器」；假期周显示灰色标记
+- 操作：「+ 新建科目」+ 科目节点右键「+ 新建周」「重命名」「删除」
+
+**右区状态①：打卡要求配置（选中科系根节点时显示）**
+- 🖥️ 看到：各打卡类型 × required / recommended / 不要求 三档配置表
+  | 打卡类型 | 级别 |
+  |---|---|
+  | speaking_present（讲考签到）| required ▾ |
+  | group_attend（共修签到）| recommended ▾ |
+  | self_checkin（日常签到）| 不要求 ▾ |
+  | group_session_absent（缺席标记）| recommended ▾ |
+- 👆 可以做：每行下拉选 required / recommended / 不要求 → 保存写/更新 `ProgramStudyType`
+- ⚠️ 此配置是掉队检测出勤维度的基准源（仅 required 类型计入「应到场次」）
+
+**右区状态②：周内容编辑器（选中某 ProgramWeek 时显示）**
+- 🖥️ 看到：
+  - 课程排表区：本周已排课时列表（法本名 + 课时号）
+  - 修法排表区：本周已排修法列表（修法项目 + 观修）
+  - 底部：是否假期周 ☑ + 备注文字框
 - 👆 可以做：
-  - 新建/编辑科目（ProgramSemester：名称 / 开始周 / 结束周）
-  - 新建/编辑周（ProgramWeek：周号 / 是否假期 / 备注）
-  - 周排课程（ProgramWeekCourse：关联 Course + Lesson）
-  - 周排修法（ProgramWeekPractice：关联 PracticeProject + Meditation）
-  - 打卡要求配置（ProgramStudyType：studyType / required/recommended）
+  - 课程排表：「+ 添加课时」→ 选法本（Course）→ 选课时（Lesson）→ 保存 `ProgramWeekCourse`；可删除已排条目
+  - 修法排表：「+ 添加修法」→ 选修法项目（PracticeProject）→ 选观修（Meditation，选填）→ 保存 `ProgramWeekPractice`；可删除
+  - 假期周切换：写 `ProgramWeek.isHoliday`（假期周时掉队检测跳过该周 content/quiz/meditation 计算）
+  - 备注编辑：写 `ProgramWeek.note`
 - ⚠️ 边缘情况：
   - 排表是「本周基准内容」的唯一真相源（喂基准线 + 喂掉队检测）
   - 学员实际阅读自由（不被排表锁课）
+  - 同科系各班按各自 startDate 错峰使用同一排表
   - 同科系各班按各自 startDate 错峰使用同一排表
 
 ---
@@ -1386,7 +1422,7 @@
 | G-004 | S-022 讲考签到 | ✅ 已解决（2026-05-26）：统一用 `speaking_present`；CheckIn API + §5 规则均已修正 |
 | G-005 | S-040 成员留级 | ✅ 已解决（2026-05-27）：留级弹二步 Sheet，步骤二可选目标班；选了则 `POST .../held-back-transfer` 原子事务：held_back 标记 + 新班 active 成员 + source=auto 活跃愿 classId 迁移（进度保留）；不选则仅标记 |
 | G-006 | S-046 掉队检测 | ✅ 已解决（2026-05-26）：掉队检测重设计为五维度（出勤/闻思内容/答题/观修/修持任务）；`lagPracticeDaysExpected` 默认 10 天，admin 可按班调；日记维度移除 |
-| G-007 | S-058 排表管理 | 排表编辑器 UI 复杂度高（多层嵌套：科系→科目→周→课程/修法），分页/交互设计未详述 |
+| G-007 | S-058 排表管理 | ✅ 已解决（2026-05-27）：左树（科系根/科目/周）+ 右区双状态（打卡要求配置 / 周内容编辑器）；打卡要求挂科系级，admin 可按科系独立配置 required/recommended/不要求 |
 | G-008 | 全局 | ✅ 已解决（2026-05-26）：同 G-004，统一为 `speaking_present`（见 §2.3 枚举定义）|
 | G-009 | S-020 讲考入口 | ✅ 已解决（2026-05-26）：讲考入口改为 `/class/:id` 班级详情页，不在 EventsPage Tab |
 

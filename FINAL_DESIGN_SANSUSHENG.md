@@ -2296,22 +2296,25 @@ function lagFromRate(rate: number): LagStatus {
 async function computeLagSnapshot(member: ClassMember): Promise<void> {
   const cls = await prisma.class.findUniqueOrThrow({ where: { id: member.classId } })
   // 排表驱动「应完成什么」：近2周排表内容（ProgramWeek → ProgramWeekCourse/ProgramWeekPractice）
-  const wk = await getScheduledContent(member.classId, twoWeeksAgo, now)
+  // ⚠️ isHoliday=true 的周直接排除：不计入 contentExpected / quizExpected / meditationExpected 分母
+  //   假期周学员无需完成排表内容，纳入分母会导致掉队判定偏严
+  const wk = await getScheduledContent(member.classId, twoWeeksAgo, now, { excludeHolidays: true })
 
   // 维度 1 出勤：近2周必修场次签到率
   //   仅统计 required 类型场次（如加行必修讲考、净土必修共修）；无该类场次时恒 on_track
+  //   假期周通常无必修场次，自然不计入 sessionsExpected；无需额外过滤
   const attendRate = sessionsExpected > 0 ? (sessionsExpected - absent) / sessionsExpected : 1
 
   // 维度 2 闻思内容：近2周 LessonCompletion(type=read|audio|video) / 排表应完成课时数
-  //   contentExpected = wk 内排表课时 lessonId 去重数；无排表班（wk=null）→ rate=1（恒 on_track）
+  //   contentExpected = wk（已排除假期周）内排表课时 lessonId 去重数；无排表班 → rate=1
   const contentRate = contentExpected > 0 ? contentDone / contentExpected : 1
 
   // 维度 3 答题：近2周 UserAnswer / 排表课时关联的题目总数
-  //   quizExpected = wk 内排表课时各自 question 数之和；无排表班 → rate=1
+  //   quizExpected = wk（已排除假期周）内排表课时各自 question 数之和；无排表班 → rate=1
   const quizRate = quizExpected > 0 ? quizDone / quizExpected : 1
 
   // 维度 4 观修：近2周 LessonCompletion(type=meditation) / 排表应完成观修数
-  //   meditationExpected = wk 内 ProgramWeekPractice 安排的观修数；无排表班 → rate=1
+  //   meditationExpected = wk（已排除假期周）内 ProgramWeekPractice 安排的观修数；无排表班 → rate=1
   const meditationRate = meditationExpected > 0 ? meditationDone / meditationExpected : 1
 
   // 维度 5 修持任务：近2周有 source=auto 愿 PracticeLog 的天数 / cls.lagPracticeDaysExpected
@@ -2339,7 +2342,7 @@ async function computeLagSnapshot(member: ClassMember): Promise<void> {
 }
 // 注：at_risk 额外硬条件 —— 某维度近2周完全零记录时直接置 at_risk（rate 计算已覆盖：0/N=0）
 // 注：progress 乐观计入，未确认（isConfirmed=false）的打卡同样计入达标
-// 注：content/quiz/meditation 基准来自排表（ProgramWeek）；无排表班三维恒 on_track
+// 注：content/quiz/meditation 基准来自排表（ProgramWeek，已排除 isHoliday=true 的周）；无排表班三维恒 on_track
 // 注：task 维度仅统计 source=auto 的班级派发愿；个人自发愿不计入
 ```
 

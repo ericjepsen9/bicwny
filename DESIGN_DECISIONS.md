@@ -1305,3 +1305,22 @@ model ClassAdmin {
 | isPrimary | 转班后不自动切换，辅导员手动操作 |
 | 新 API | `POST /api/classes/:classId/members/:userId/held-back-transfer`（body: `{ targetClassId?, reason? }`；权限 canManageMembers / admin）|
 | DB 影响 | 无新字段；`heldBackTransfer` 是纯应用层事务逻辑 |
+
+---
+
+## 排表编辑器 UI 设计（场景走查 · 2026-05-27）
+
+### 决策 G-007 · 排表编辑器导航与打卡要求配置位置 ✅ 已确认
+
+**背景**：排表编辑器嵌套四层（科系→科目→周→内容），交互设计未详述。
+
+| 项 | 决定 |
+|---|---|
+| 导航方案 | **方案 A：左树 + 右区**（三级树形左栏 + 右侧随选中节点切换编辑区）|
+| 左树节点 | 科系根节点 / ProgramSemester（科目）/ ProgramWeek（周）三级；科目和周节点支持 inline 重命名 |
+| 右区状态一 | 选中科系根节点 → 打卡要求配置（ProgramStudyType 列表，required / recommended / 不要求 三档）|
+| 右区状态二 | 选中某 ProgramWeek → 周内容编辑器（课程排表 + 修法排表 + 假期周 + 备注）|
+| 打卡要求配置位置 | **科系级（ProgramStudyType）**，不放每周——打卡类型与科系绑定，不随周变化 |
+| 打卡要求可配置 | admin 可在排表编辑器科系根节点处调整各打卡类型的 required / recommended / 不要求 |
+| 假期周行为 | `ProgramWeek.isHoliday=true` → 掉队检测跳过该周 content/quiz/meditation 三维度计算 |
+| 排表作用 | 掉队检测 content/quiz/meditation 基准 + 学员端本周进度基准线；学员阅读不被锁课 |
