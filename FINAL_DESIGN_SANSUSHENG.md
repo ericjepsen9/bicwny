@@ -1957,7 +1957,7 @@ async function getCurrentWeekContent(classId: string, targetDate: Date) {
 |---|---|---|
 | active → paused | 学员自助 **或** canManageMembers | 写 statusChanged*；级联：该成员 source=auto 愿同步 paused（custom 愿不受影响） |
 | paused → active | 学员自助 **或** canManageMembers | 写 statusChanged*；级联：source=auto 愿同步恢复 active |
-| active/paused → held_back | canManageMembers / admin | heldBackCount+1，写 statusChanged*；历史数据原地保留只读；**转下一届班为手动**（在目标班手动加新 active 成员，系统不建关联） |
+| active/paused → held_back | canManageMembers / admin | heldBackCount+1，写 statusChanged*；历史数据原地保留只读；**可选同步转班**（见 heldBackTransfer）：指定目标班时，在同一事务内建新 active ClassMember + 迁移 source=auto 活跃愿 classId |
 | active/paused → graduated | canManageMembers / admin | 写 graduatedAt + statusChanged*；历史只读 |
 | active/paused → left | canManageMembers / admin | 写 statusChanged*（removedAt 旧字段兼容可一并写）；历史只读 |
 | held_back/graduated/left → active | **仅 admin** | 重新激活（少见）；或更常见走「重新入班 = 新建 ClassMember」 |
@@ -1994,7 +1994,65 @@ async function changeMemberStatus(
   })
 }
 // 非 active 成员一律排除：掉队检测 / 班级排行 / 周汇总 / auto 愿管理列表
-// 留级转下一届：无自动建成员，无 nextClassId 关联（决策：仅标记 + 手动转班）
+```
+
+#### 留级转班（heldBackTransfer）
+
+```typescript
+// POST /api/classes/:classId/members/:userId/held-back-transfer
+// body: { targetClassId?: string, reason?: string }
+// 权限：canManageMembers 或 admin
+//
+// targetClassId 为空 → 纯标记（仅 held_back，不转班）
+// targetClassId 有值 → 原子事务：held_back 标记 + 新班 active 成员 + 愿迁移
+
+async function heldBackTransfer(
+  member: ClassMember,
+  actor: User,
+  targetClassId?: string,
+  reason?: string
+) {
+  await prisma.$transaction(async (tx) => {
+    // 1. 当前班标记 held_back
+    await tx.classMember.update({
+      where: { classId_userId: { classId: member.classId, userId: member.userId } },
+      data: {
+        cohortStatus: 'held_back',
+        heldBackCount: { increment: 1 },
+        statusChangedAt: new Date(),
+        statusChangedBy: actor.id,
+        statusChangeReason: reason,
+      }
+    })
+
+    if (!targetClassId) return  // 仅标记，不转班
+
+    // 2. 目标班建新 active ClassMember（跳过 addMember 自动愿派发，因愿将由迁移覆盖）
+    await tx.classMember.create({
+      data: {
+        classId: targetClassId,
+        userId: member.userId,
+        cohortStatus: 'active',
+        joinedAt: new Date(),
+        isPrimary: false,   // 已有旧班 isPrimary，转班后由辅导员手动切换
+      }
+    })
+
+    // 3. 迁移 source=auto 活跃/暂停愿到目标班（classId 改写，进度与计数保留）
+    //    expired/completed 愿留原班，不迁移（历史归档）
+    await tx.userPracticeVow.updateMany({
+      where: {
+        userId: member.userId,
+        classId: member.classId,
+        source: 'auto',
+        status: { in: ['active', 'paused'] },
+      },
+      data: { classId: targetClassId }
+    })
+  })
+}
+// 注：目标班若有旧班没有的模板绑定，新愿需辅导员手动补派（不自动生成，避免与迁移愿重复）
+// 注：isPrimary 切换需辅导员手动操作，系统不自动推断「哪个班是主班」
 ```
 
 #### 座次计算（每次打卡调用）

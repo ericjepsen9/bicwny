@@ -847,18 +847,22 @@
 - 👆 可以做（批量或单人）：
   - 代操作暂停：`active → paused`（canManageMembers 可代操作）
   - 代操作恢复：`paused → active`
-  - 留级：`active/paused → held_back`（`heldBackCount+1`，仅标记不转班）
+  - 留级：`active/paused → held_back` → 弹二步 Sheet：
+    - 步骤一：确认留级意图（简短）
+    - 步骤二：选填「目标班」下拉（同科系 active 班级列表）+ 原因文字框（选填）
   - 毕业：`active/paused → graduated`（写 `graduatedAt`）
   - 退班：`active/paused → left`
-  - 填写原因（可选）
-- ➡️ 状态机执行（`changeMemberStatus`）：
+- ➡️ 状态机执行：
   - paused：级联所有 source=auto 愿同步 paused（custom 愿不动）
   - active（恢复）：级联 source=auto 愿同步恢复 active
-  - held_back：`heldBackCount+1`，历史数据只读；**转下一届班为手动**（到目标班手动加新成员）
+  - held_back（无目标班）：`heldBackCount+1`，历史数据只读，愿原地保留
+  - held_back（有目标班）：`POST .../held-back-transfer` 原子事务 → `heldBackCount+1` + 目标班建新 active 成员 + source=auto 活跃/暂停愿 classId 迁移（进度保留）；expired/completed 愿留原班归档
   - graduated：写 `graduatedAt`
 - ⚠️ 边缘情况：
   - `held_back/graduated/left → active`（复活）仅 admin 可执行
   - 暂停的成员在掉队检测、班级排行、周汇总中排除
+  - 目标班若有旧班没有的模板绑定 → 新愿需辅导员手动补派（不自动生成）
+  - 转班后 `isPrimary` 需辅导员手动切换（系统不自动推断主班）
 
 ---
 
@@ -1380,7 +1384,7 @@
 | G-002 | S-004 药丸卡片 | ✅ 已解决（2026-05-26）：5-Tab 定型，药丸点击 → `/class` 班级 Tab；布局 D4 确认保留原 4 卡 + 今日修学卡 |
 | G-003 | S-014 发法会愿 | ✅ 已解决（2026-05-26）：重复发愿返回 409，前端提示「已发过此法会愿，如需修改点愿进度条」|
 | G-004 | S-022 讲考签到 | ✅ 已解决（2026-05-26）：统一用 `speaking_present`；CheckIn API + §5 规则均已修正 |
-| G-005 | S-040 成员留级 | 留级后「转下一届班」完全手动，系统无引导 UI；辅导员需要离开此页面到目标班手动加成员 |
+| G-005 | S-040 成员留级 | ✅ 已解决（2026-05-27）：留级弹二步 Sheet，步骤二可选目标班；选了则 `POST .../held-back-transfer` 原子事务：held_back 标记 + 新班 active 成员 + source=auto 活跃愿 classId 迁移（进度保留）；不选则仅标记 |
 | G-006 | S-046 掉队检测 | ✅ 已解决（2026-05-26）：掉队检测重设计为五维度（出勤/闻思内容/答题/观修/修持任务）；`lagPracticeDaysExpected` 默认 10 天，admin 可按班调；日记维度移除 |
 | G-007 | S-058 排表管理 | 排表编辑器 UI 复杂度高（多层嵌套：科系→科目→周→课程/修法），分页/交互设计未详述 |
 | G-008 | 全局 | ✅ 已解决（2026-05-26）：同 G-004，统一为 `speaking_present`（见 §2.3 枚举定义）|

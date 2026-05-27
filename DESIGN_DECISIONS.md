@@ -1285,3 +1285,23 @@ model ClassAdmin {
 | 观修独立的理由 | 观修是单独修法环节，与法本阅读/答题性质不同 |
 | DB 影响 | `CohortLagSnapshot` 字段：`practiceLag/studyLag/journalLag` → `contentLag/quizLag/meditationLag/taskLag`；`Class` 表新增 `lagPracticeDaysExpected Int @default(10)` |
 | Migration | `migration_003_extend_class.sql` 加 `lagPracticeDaysExpected`；`migration_011_new_tables.sql` 内 `CohortLagSnapshot` 用新字段 |
+
+---
+
+## 留级转班设计（场景走查 · 2026-05-27）
+
+### 决策 G-005 · 留级后愿迁移策略 ✅ 已确认
+
+**背景**：原设计留级只做 held_back 标记，转班完全手动（辅导员需离页到目标班手动加人），容易漏操作。
+
+| 项 | 决定 |
+|---|---|
+| UI 入口 | 留级操作弹二步 Sheet：步骤一确认意图，步骤二选填目标班（同科系 active 班级下拉）+ 原因文字框 |
+| 目标班可选 | 选了 → 原子转班；不选 → 仅标记 held_back，行为与旧设计一致 |
+| 转班事务（`heldBackTransfer`）| 1. 当前班 `held_back` + `heldBackCount+1`；2. 目标班建新 `active` ClassMember；3. source=auto 且 status in (active, paused) 的愿 classId 改写到目标班 |
+| 愿迁移方案 | **方案 B（迁移 classId）**：进度、计数、状态全部保留；expired/completed 愿留原班归档 |
+| 排除方案 A | 方案 A（旧班愿 paused + 目标班重新派发）会清零学员进度，不合理 |
+| 目标班新模板处理 | 若目标班有旧班没有的模板绑定，新愿需辅导员手动补派（不自动生成，避免与迁移愿重复） |
+| isPrimary | 转班后不自动切换，辅导员手动操作 |
+| 新 API | `POST /api/classes/:classId/members/:userId/held-back-transfer`（body: `{ targetClassId?, reason? }`；权限 canManageMembers / admin）|
+| DB 影响 | 无新字段；`heldBackTransfer` 是纯应用层事务逻辑 |
