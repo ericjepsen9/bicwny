@@ -72,7 +72,7 @@ enum LearningMode {
 enum CohortMemberStatus {
   active      // 正常学习
   paused      // 暂停（学员自助 或 canManageMembers 代操作，可恢复）
-  held_back   // 留级（仅标记；转下一届班为手动操作，系统不建班级关联）
+  held_back   // 留级（heldBackCount+1；可选同步转班：目标班建新 active 成员 + source=auto 愿 classId 迁移）
   graduated   // 毕业
   left        // 退班
 }
@@ -240,7 +240,7 @@ model ClassMember {
   // 同一时刻一个师兄只有一个主班，应用层事务保证（不用 DB 唯一索引）。
   // 仅 active 成员有意义；主班转非 active 时应用层提示重设主班（或清 isPrimary）。
   heldBackCount      Int                @default(0)
-  // 留级累计次数；转 held_back 时 +1。转下一届班为手动操作（辅导员/admin 在目标班手动加新 active 成员）。
+  // 留级累计次数；转 held_back 时 +1。可选同步转班（heldBackTransfer）：目标班建新 active 成员 + source=auto 愿 classId 迁移。
   statusChangedAt    DateTime?
   statusChangedBy    String?            // 操作人 userId（学员自助暂停时 = 本人）
   statusChangeReason String?
@@ -1872,7 +1872,7 @@ GET /api/admin/speaking-stats
 |---|---|
 | `users` | 注册时同事务生成 studentId + nickname（行者+4位序号）；`POST /api/auth/register` body 移除 name 字段；新增 `PATCH /api/users/me/profile` 接受 realName / phone / phoneRegion / refugeStatus / city / practiceBackground；新增 `POST /api/me/checkin`（日常签到，studyType='self_checkin'，幂等）；GET /api/users/me 返回所有新字段；accessibilityNeeds 校验 |
 | `classes` | 创建/编辑支持 programId / startDate / city / timezone |
-| `class-members` | 状态机操作（changeMemberStatus：pause/resume 学员自助+canManageMembers，held_back/graduate/leave 限 canManageMembers/admin，复活限 admin）；paused↔active 级联 source=auto 愿；isPrimary 切换事务（仅 active）；留级仅标记不转班 |
+| `class-members` | 状态机操作（changeMemberStatus：pause/resume 学员自助+canManageMembers，held_back/graduate/leave 限 canManageMembers/admin，复活限 admin）；paused↔active 级联 source=auto 愿；isPrimary 切换事务（仅 active）；留级可选同步转班（heldBackTransfer：held_back + 新班 active 成员 + source=auto 愿 classId 迁移）|
 | `courses` | **所有学员侧查询加 isTantric 过滤**：未授权学员的任何 Course 查询排除密法；管理端不过滤 |
 | `lessons` | 返回 sourceText 字段；关联 LessonResource ✅ Admin 端 LessonResource YouTube 管理 UI 已实现（AdminCoursesPage · commit ca0e975）|
 | `answering` | open 题 payload.noScoring=true（思考题）时跳过 gradeOpenWithLlm，UserAnswer 只存答案；提交后返回 QuestionReference.referenceText |
@@ -2776,7 +2776,7 @@ admin 超级用户（决策）
 
 | 页面 | 说明 |
 |---|---|
-| 成员状态管理 | 批量操作：代操作暂停/恢复 + 留级/毕业/退班 + 原因填写；留级仅标记（heldBackCount+1），转下一届班为手动（到目标班手动加新成员）；需 canManageMembers |
+| 成员状态管理 | 批量操作：代操作暂停/恢复 + 留级/毕业/退班 + 原因填写；留级弹二步 Sheet（步骤二可选目标班）→ heldBackTransfer 原子事务（held_back + 新班成员 + 愿迁移）；需 canManageMembers |
 | 掉队名单 | 读 CohortLagSnapshot；五维度（出勤/闻思内容/答题/观修/修持任务）分列展示，可按任一维度筛选/排序；查看 detail 明细；一键发起关怀（带入当前快照）；需 canViewStudents |
 | 修持愿管理 | 查看本班 auto 愿；修改到期日/每日目标量；需 canEditGoals |
 | 班级周汇总 | 展示定时任务自动生成的本周汇总；一键复制到 WhatsApp（写 sharedAt/sharedBy）；需 canViewStudents |
@@ -3039,7 +3039,8 @@ seed_004_student_ids.ts      为现有用户批量生成 studentId（按注册�
 | v_practice_daily 物化视图 + 刷新 cron（每 15 分钟 `REFRESH MATERIALIZED VIEW CONCURRENTLY`；排行榜读视图，KPI 读实时 PracticeLog）| 后端 |
 | 愿暂停/恢复 | 后端 |
 | 每日定时任务（愿状态重算：will_overdue/at_risk 按日推进，仅 source=auto；event/appointment 愿到期自动标 completed）| 后端 |
-| 成员状态机 API（changeMemberStatus：5 态转换 + 权限守卫 + paused↔active 级联 source=auto 愿；留级仅标记）| 后端 |
+| 成员状态机 API（changeMemberStatus：5 态转换 + 权限守卫 + paused↔active 级联 source=auto 愿）| 后端 |
+| 留级转班 API（heldBackTransfer：held_back 标记 + 可选目标班建新 active 成员 + source=auto 活跃愿 classId 迁移；同一事务）| 后端 |
 | CoachContext API（/api/coach/context：管理班级 + flag；admin 超级用户全开）+ class-admin.middleware admin 放行 | 后端 |
 | /coach 架构基座（CoachLayout + RequireCoach 守卫 + 落地页切班 + flag 驱动模块磁贴；无显式入口）| 前端 |
 | 成员状态管理页（/coach/:classId/members，canManageMembers：代操作暂停/恢复 + 留级/毕业/退班 + 原因）| 前端 |
@@ -3178,9 +3179,9 @@ POST /api/classes/:id/weekly-summary/share
 | UserCourseEnrollment.selfStudy* 三字段 | 自学走 UserSelfStudyProgram（科系级），字段重复废弃 |
 | PracticeProject.scope 在新系统使用 | 历史包袱；新愿归属完全由 UserPracticeVow 表达 |
 | ClassAdminRole 枚举（zhumai/aixin）| 改为 RBAC flags，admin 后台细粒度分配 |
-| 班级间「下一届」关联（nextClassId 等）| 留级仅标记 held_back，转下一届班为手动操作，系统不建班级关联 |
+| 班级间「下一届」关联（nextClassId 等）| 不建班级间 FK 关联；转班通过 heldBackTransfer 事务操作，按需执行，不预建关系 |
 | canManageAdmins flag（主麦分配下级）| RBAC 分配仅平台 admin，全权主麦也不能分配 |
-| 留级自动建下一届成员 | 仅标记 + 手动转班（辅导员/admin 在目标班手动加新 active 成员）|
+| 留级自动建下一届成员（无需指定目标班）| 必须指定目标班才执行转班；不选目标班则仅标记 held_back（辅导员事后手动加）|
 | 约修审批流 / 推送通知 | 无审批、无推送；用户自行浏览班级页发现 |
 | 约修个人指标 | 总目标由创建者设；参与者无个人强制指标 |
 | 约修跨班可见 | classId 必填，不支持跨班 |
