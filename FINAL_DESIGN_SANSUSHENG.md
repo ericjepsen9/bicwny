@@ -2369,7 +2369,7 @@ async function closeExpiredAppointments() {
 }
 ```
 
-**法会边界判断（五层时区）**：
+**法会边界判断（六层时区）**：
 
 ```typescript
 function isPracticeLogInEvent(log: PracticeLog, event: Event): boolean {
@@ -2887,7 +2887,7 @@ admin 超级用户（决策）
 | custom 愿 | 师兄自己 | 师兄自己 |
 | 所有改动 | — | 自动写 AuditLog |
 
-### 五层时区规则
+### 六层时区规则
 
 | 场景 | 存储格式 | 时区基准 | 显示层处理 |
 |---|---|---|---|
@@ -2896,8 +2896,10 @@ admin 超级用户（决策）
 | 周汇总边界 `CohortWeeklySummary.weekStartDate` | `Class.timezone` 的周一日期 | `Class.timezone` | 直接展示 |
 | 自学进度计算 | UTC timestamp | `User.timezone` | 前端按 `User.timezone` 显示 |
 | 法会时间 `Event.startDate/endDate` | `Event.timezone` 的本地日期 | `Event.timezone` | 前端同时展示法会时区 + 用户本地时间，标注"以藏历所在地时间为准" |
+| 藏历日历 `/calendar` 显示「今天」| — | `User.timezone` | 按用户本地时区确定公历日期后换算藏历；不同时区用户看到的「今天藏历」可不同（有意设计）|
 
-**藏历法会**：`Event.timezone` 固定填 `Asia/Shanghai`（西藏时间 = 北京时间 UTC+8）。法会日期边界按上海时间子夜（00:00 CST）起算。
+**藏历法会**：`Event.timezone` 固定填 `Asia/Shanghai`（西藏时间 = 北京时间 UTC+8）。法会日期边界按上海时间子夜（00:00 CST）起算。  
+**藏历日历**：CalendarPage「今天」按 `User.timezone` 换算，与法会边界分开——法会统一、日历个人化。
 
 ### 密法可见性矩阵
 
