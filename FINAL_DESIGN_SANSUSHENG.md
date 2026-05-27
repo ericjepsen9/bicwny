@@ -1677,19 +1677,17 @@ GET  /api/my/event-history
   query: page / limit（默认 20）, year?（按 startDate 年份筛选）
   返回当前用户参与过的法会记录，按 startDate 倒序
   响应：[{ eventId, title, classId, startDate, endDate,
-           myTotalCount, mySubmissionCount,
-           vowCompleted: boolean | null }]  // vowCompleted: 有愿时计算，无愿时 null
-  // submissionCount：提交次数；totalCount：累计遍数（EventCount 无时长字段）
+           hasVow: boolean, vowTargetCount: number | null }]
+  // 法会计数改为线下上报，不再返回 myTotalCount / mySubmissionCount
   用于前端判断「我的参与」状态机
 
-POST /api/events/:id/count
-  前置校验：toLocalDate(now, event.timezone) <= event.endDate，否则 403「法会已结束，不接受新提交」
-  body: { practiceProjectId, count }
-  写 EventCount { eventId, userId, practiceProjectId, count,
-    vowId: 自动查询用户当前有效法会愿（context=event AND eventId=:id AND status=active），有则填入 }
-  后置：若 vowId 存在，更新 UserPracticeVow.currentCount（= SUM EventCount.count WHERE vowId）
-  响应：EventCount + 更新后的 groupTotals（eventId 维度聚合）
-  注：不写 PracticeLog，不影响日常修持愿；回向为法会结束后的纯 UI 仪式，此接口不触发回向
+// ❌ POST /api/events/:id/count 已从学员端路由移除（2026-05-27）
+//    EventCount 表保留，历史数据不删；学员侧不再写入
+
+GET  /api/events/:id/vow-count
+  返回该法会的发愿人数：{ vowCount: number }
+  数据来源：COUNT(UserPracticeVow WHERE context='event' AND eventId=:id AND status != 'expired')
+  用于区块 2「已有 N 人发愿」展示
 
 POST /api/events/:id/vow
   body: { practiceProjectId, targetCount?, targetPeriod='lifetime' }
