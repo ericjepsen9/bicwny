@@ -216,7 +216,7 @@
 
 | 阶段 | 状态 |
 |---|---|
-| 步骤 1a：🔧 扩展区（8张）| 🔵 进行中（1/8：Program ✅）|
+| 步骤 1a：🔧 扩展区（7张）| 🔵 进行中（1/7：Program ✅；ProgramSemester 改判复用）|
 | 步骤 1b：🔄 替换区（3张）| 🔵 ClassAdmin 已确认 · CareFollowup/TantricAccessGrant 待写 |
 | 步骤 1c：➕ 新建区（12张）| ⬜ 未开始 |
 | 步骤 1d：✅ 复用区 | ⬜ 未开始（快速过）|
