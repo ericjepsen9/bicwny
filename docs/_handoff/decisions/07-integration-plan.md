@@ -57,7 +57,7 @@
 
 | 表 | 冲突原因 | 对应新能力 |
 |---|---|---|
-| `ClassAdmin`（RBAC flags）| 旧设计用 7 个 boolean flag 组合权限，新设计是 4 级角色 + 作用域继承体系，模型根本不同 | 能力 18 |
+| `ClassAdmin`（RBAC flags）| 旧设计用 7 个 boolean flag 组合权限，新设计是 4 级角色 + 作用域继承体系，模型根本不同。迁移：主麦（全 flag）→ class_admin；爱心（canViewStudents+canCareFollowup）→ **角色取消，不迁移**，统一用新设计 4 角色体系 | 能力 18 |
 | `CareFollowup` | 旧设计只有一类关怀记录；新设计合并为 `care_followup_records`（source_type 区分特殊身份跟进 vs 关怀清单备注）| 能力 12/14 |
 | `TantricAccessGrant` | 旧设计用"密法组白名单"控制内容访问；新设计有 `transmission_records`（type=empowerment）传承体系，需整合 | 能力 15/17 |
 
