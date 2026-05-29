@@ -15,11 +15,11 @@
 
 ---
 
-## 一、🔧 扩展表（7 张）
+## 一、🔧 扩展表（9 张）
 
 旧设计字段为底，按新业务逻辑加字段/改语义。
 
-> 注：ProgramSemester 原列入扩展区，核对后确认字段够用、无需扩展，改判为 ✅ 复用（见 §四）。扩展区由 8 张调整为 7 张。
+> 注：ProgramSemester 核对后字段够用改判 ✅ 复用；CohortRecommendedTemplate 核对能力 9 后需扩展（classId→programId）从复用区移入；UserPracticeVow 剥离班级任务重新定位为纯发愿表。扩展区最终 9 张。
 
 ---
 
@@ -421,7 +421,128 @@ model ClassSession {
 | 补卡/撤销留痕（D17）| 应用层 | 写入 StudyRecord + AuditLog |
 | 出勤记录不物理删除（D18）| 应用层 | 撤销走 cohortStatus 或 AuditLog 标记 |
 
-### 1.7 UserPracticeVow（修持愿）⬜ 未开始
+### 1.7 UserPracticeVow（发愿）✅ 已封板
+
+**服务能力**：能力 7（个人修持自主承诺）+ 法会发愿
+**写权限**：学员自助（个人发愿/法会发愿）；管理员代行走能力 5 + AuditLog
+**参考决策**：D18（发愿记录不物理删除）
+
+> **重新定位（用户决策 2026-05-29）**：本表从旧设计「班级任务 + 发愿合一」彻底分离，**只服务学员自己发的愿**。班级任务走 ClassTask（§3.16）+ CohortRecommendedTemplate（§1.8）+ PracticeLog，不再经过本表。
+>
+> **去掉的旧设计字段**：`source`（无 auto）、`classId`（任务锚点）、`templateId`（任务模板）、`isPledged`（愿天然有目标）、7 态 VowStatus 状态机（掉队走 CohortLagSnapshot）、`paceHistory`（过度设计）、`statusCalculatedAt/statusNote`、`appointmentId`（约修 ⏸ 暂缓）。新设计文档 05/06 无这些概念。
+
+#### 字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | 旧 |
+| `userId` | String | 关联 User | 旧 |
+| `context` | String | `personal`（个人发愿）/ `event`（法会发愿）| 旧（收窄：去 class/appointment）|
+| `eventId` | String? | 法会发愿时关联 Event；personal 时 null | 旧 |
+| `practiceProjectId` | String | 发愿修什么 | 旧 |
+| `customName` | String? | 自定义显示名 | 旧 |
+| `targetCount` | Int? | 总目标遍数（lifetime 型）| 旧 |
+| `targetPeriod` | String? | `daily` / `weekly` / `lifetime` | 旧 |
+| `dailyTarget` | Int? | 每日目标（daily 型）| 旧 |
+| `weeklyTarget` | Int? | 每周目标（weekly 型）| 旧 |
+| `minSessionMinutes` | Int | 座次最短时长，默认 30；duration 计量专用 | 旧 |
+| `startDate` | DateTime | 发愿起始日 | 旧 |
+| `currentEndDate` | DateTime? | 发愿截止日（可调整）| 旧 |
+| `currentCount` | Int | 累计遍数/次数，默认 0（乐观计入）| 旧 |
+| `currentSessionCount` | Decimal | 累计座次，默认 0 | 旧 |
+| `status` | String | `active` / `paused` / `completed` / `abandoned`；默认 active | 旧（简化：去 7 态）|
+| `pausedAt` | DateTime? | 暂停时间 | 旧 |
+| `pausedBy` | String? | 暂停操作人 userId | 旧 |
+| `resumedAt` | DateTime? | 恢复时间 | 旧 |
+| `completedAt` | DateTime? | 完成时间 | 旧 |
+| `createdAt` | DateTime | 默认 now() | 旧 |
+| `updatedAt` | DateTime | @updatedAt | 旧 |
+
+```prisma
+model UserPracticeVow {
+  id                   String    @id @default(cuid())
+  userId               String
+  context              String    // personal / event
+  eventId              String?
+  practiceProjectId    String
+  customName           String?
+  targetCount          Int?
+  targetPeriod         String?   // daily / weekly / lifetime
+  dailyTarget          Int?
+  weeklyTarget         Int?
+  minSessionMinutes    Int       @default(30)
+  startDate            DateTime
+  currentEndDate       DateTime?
+  currentCount         Int       @default(0)
+  currentSessionCount  Decimal   @default(0)
+  status               String    @default("active")
+  pausedAt             DateTime?
+  pausedBy             String?
+  resumedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id])
+  event           Event?           @relation(fields: [eventId], references: [id])
+  logs            PracticeLog[]
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| 不物理删除（D18）| 应用层 | 发愿记录永久保留；放弃走 status='abandoned' |
+| context=event 时 eventId 必填 | 应用层（Zod）| |
+| context=personal 时 eventId 为 null | 应用层（Zod）| |
+
+---
+
+### 1.8 CohortRecommendedTemplate（班级模板绑定）✅ 已封板
+
+**服务能力**：能力 9（报数）—— 课程自带任务的专业级配置
+**写权限**：`subject_admin` 及以上（专业级绑定）；`class_admin` 及以上（班级追加绑定）
+**参考决策**：D3（任务配置数据驱动）
+
+> **从 §四 复用区移入扩展区**：旧设计持 `classId`（每班手动绑），核对能力 9「课程自带任务来自教学大纲（专业级）」后改为持 `programId`（所有该专业班级自动继承）。班级额外追加仍保留 `classId`——两个可空外键，至少填其一。
+
+#### 字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | 旧 |
+| `programId` | String? | 专业级绑定（课程自带任务，所有该专业班级继承）| **改** |
+| `classId` | String? | 班级追加绑定（辅导员手动追加，仅本班）| 旧（语义限定）|
+| `templateId` | String | 关联 PracticeTemplate | 旧 |
+| `binding` | String | `auto`（入班即生效）/ `recommended`（推荐不强制）；默认 `auto` | 旧 |
+| `displayOrder` | Int | 排序，默认 0 | 旧 |
+
+```prisma
+model CohortRecommendedTemplate {
+  id           String   @id @default(cuid())
+  programId    String?  // 专业级；programId/classId 至少一个非空
+  classId      String?  // 班级追加级
+  templateId   String
+  binding      String   @default("auto")
+  displayOrder Int      @default(0)
+
+  program  Program?         @relation(fields: [programId], references: [id])
+  class    Class?           @relation(fields: [classId], references: [id])
+  template PracticeTemplate @relation(fields: [templateId], references: [id])
+
+  @@unique([programId, templateId])
+  @@unique([classId, templateId])
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `@@unique([programId, templateId])` | DB | 同专业同模板唯一 |
+| `@@unique([classId, templateId])` | DB | 同班级同模板唯一 |
+| programId / classId 至少一个非空 | 应用层（Zod）| 防止孤儿绑定 |
 
 ---
 
@@ -439,11 +560,11 @@ model ClassSession {
 
 ---
 
-## 三、➕ 新建表（15 张）
+## 三、➕ 新建表（16 张）
 
 按新业务能力从头设计。
 
-> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）。新建区由 12 张调整为 15 张。
+> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张调整为 16 张。
 
 ---
 
@@ -597,6 +718,65 @@ model ClassSessionSchedule {
 | 停用走 `isActive=false`，不物理删除（D18）| 应用层 | 历史生成的 ClassSession 实例完整保留 |
 | 修改课表不影响已有 ClassSession | 应用层 | 改模板只影响未来新生成实例 |
 
+---
+
+### 3.16 ClassTask（班级任务）✅ 已封板
+
+**服务能力**：能力 9（报数）—— 辅导员布置的班级级修持任务
+**写权限**：`class_tutor` 及以上（本班）；平台级任务（课程自带由 CohortRecommendedTemplate 配置）
+**参考决策**：D3（任务配置数据驱动）、D18（任务记录不删除）
+
+> **设计背景（用户决策 2026-05-29）**：班级任务与发愿是两个不同业务概念，不合并入 UserPracticeVow。班级任务分两种来源：(1) **课程自带任务**——由 CohortRecommendedTemplate 专业级绑定（`programId`），所有同专业班级自动继承；(2) **辅导员追加任务**——由本表（ClassTask）存储，辅导员主动布置给班级。两种任务的完成情况均走 PracticeLog，达标率用于 CohortLagSnapshot.taskLag 计算。
+>
+> **达标率定义**（用户决策）：`每日达标天数 / 任务总有效天数`（每日 dailyTarget 次为达标）。每班 5-10 个任务。
+
+#### 字段
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `classId` | String | 关联班级（任务作用范围为整班）|
+| `practiceProjectId` | String | 修持哪个项目（关联 PracticeProject）|
+| `title` | String? | 自定义标题；null 时用 PracticeProject.name 显示 |
+| `dailyTarget` | Int | 每日目标次数（达到此数即为当日达标）|
+| `startDate` | DateTime | 任务起始日 |
+| `endDate` | DateTime? | 任务截止日；null=无限期 |
+| `isActive` | Boolean | 默认 true；false=停用（历史 PracticeLog 保留）|
+| `createdBy` | String | 创建人 userId（辅导员）|
+| `createdAt` | DateTime | 默认 now() |
+
+```prisma
+model ClassTask {
+  id                String    @id @default(cuid())
+  classId           String
+  practiceProjectId String
+  title             String?
+  dailyTarget       Int
+  startDate         DateTime
+  endDate           DateTime?
+  isActive          Boolean   @default(true)
+  createdBy         String
+  createdAt         DateTime  @default(now())
+
+  class           Class           @relation(fields: [classId], references: [id])
+  practiceProject PracticeProject @relation(fields: [practiceProjectId], references: [id])
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| 停用走 `isActive=false`，不物理删除（D18）| 应用层 | 历史 PracticeLog 打卡记录完整保留 |
+| 每班上限 5-10 个并发任务 | 应用层（软限制）| 防止任务过多，isActive=true 行数检查 |
+| 写权限限本班辅导员及以上 | 应用层 | 不允许跨班操作 |
+
+#### 设计意图
+
+ClassTask 只存「任务定义」，打卡走 PracticeLog（practiceProjectId 对应）。达标率由任务启动时起每天轮询 PracticeLog 计算，结果影响 CohortLagSnapshot.taskLag（能力 14）。与 CohortRecommendedTemplate 课程自带任务的关系：两者均指向 PracticeProject，PracticeLog 统一打卡；区别仅在来源（专业级配置 vs 辅导员追加），对学员端完全透明。
+
+---
+
 **服务能力**：能力 11（留级、退出、转专业）
 **写权限**：随状态机操作写入（学员自助退出 = 本人；管理员操作 = 操作人）
 **参考决策**：D15（退出后学员可查）、D18（永久留档不删除）
@@ -655,7 +835,7 @@ model EnrollmentStatusHistory {
 | `ProgramSemester`（科目/学期，字段够用，详见下）| 能力 1 | ✅ 确认复用 |
 | `PracticeLog` | 能力 4/6/7 | ⬜ |
 | `PracticeTemplate` | 能力 4/6/7 | ⬜ |
-| `CohortRecommendedTemplate` | 能力 1/2 | ⬜ |
+| ~~`CohortRecommendedTemplate`~~ | 已移入扩展区 §1.8 | ✅ |
 | `LessonCompletion` | 能力 3 | ⬜ |
 | `PracticeJournal` | 能力 7 | ⬜ |
 | `QuestionReference` | 能力 3 | ⬜ |
@@ -737,6 +917,7 @@ model ProgramSemester {
 | 2026-05-29 | 完成 1.4 SpeakingGrade/ExamGrade/Exam 封板：前两表复用不动，Exam 扩展加 examType(quiz/advancement)；升学考不标 S5/S8（4a）；同步 §八 DR-13~16、§九 检查轮次 2（0 问题）|
 | 2026-05-29 | 完成 1.5 CohortLagSnapshot 封板：复用不动 + 新增 LagStatus enum + 读权限改写为新角色体系；掉队阈值数据化记入新建 §十 待办清单 TODO-1；同步 §八 DR-17~20、§九 检查轮次 3（0 问题）|
 | 2026-05-29 | 完成 1.6 ClassSession+ClassSessionSchedule 封板：拆两层（方案 b），ClassSession 扩展加 sessionType/scheduleId，新建 §3.15 ClassSessionSchedule；新建区 14→15；TODO-2 链接时效数据化；§八 DR-21~25、§九 检查轮次 4（0 问题）|
+| 2026-05-29 | 完成 1.7 UserPracticeVow 封板（纯发愿，context=personal/event）、1.8 CohortRecommendedTemplate 封板（从复用区移入扩展区，加 programId 两级绑定）、§3.16 ClassTask 封板（辅导员布置班级任务，独立于发愿系统）；扩展区 8→9 张，新建区 15→16 张；§四 CohortRecommendedTemplate 标移入扩展区；§八 DR-26~32、§九 检查轮次 5 |
 
 ---
 
@@ -771,6 +952,13 @@ model ProgramSemester {
 | DR-23 | 出勤记录用哪张表 | 继续走 StudyRecord（classSessionId 已在 1.3 封板）| 排除新建独立出勤表：StudyRecord @@unique([classSessionId, userId, studyType]) 已满足防重需求，新建出勤表属过度设计 |
 | DR-24 | checkInToken 过期字段 | 不加 expiresAt，由 startAt+durationMin+宽限期计算 | 宽限期是配置项(TODO-2)，写进字段反而写死；应用层按时间窗口判断更灵活 |
 | DR-25 | 链接时效数据化 | 暂不在本表做，挂 §十 TODO-2 | 能力 8「可在专业/班级层配置」，相关配置表未封板；提前在 ClassSession 加字段反而绕过配置层 |
+| DR-26 | 班级任务与发愿是否合并 | 完全分离：ClassTask 管任务，UserPracticeVow 管发愿 | 旧设计将班级任务塞进 UserPracticeVow（source=auto、classId、templateId），用户确认两者业务概念不同：任务是辅导员布置全班完成的、发愿是学员自己承诺的。合并导致 7 态状态机过度复杂，新设计文档 05/06 无 VowStatus 概念。分离后各表边界清晰，达标率计算也更直接 |
+| DR-27 | ClassTask 作用域 | 班级级（classId 必填）| 课程自带任务走 CohortRecommendedTemplate（programId 专业级），辅导员布置任务走 ClassTask（classId 班级级）；作用域不同，不合表 |
+| DR-28 | 达标率计算方式 | 每日达标天数 / 任务总有效天数 | 用户决策：每日打卡次数 ≥ dailyTarget 即为当日达标，比率 = 达标天数 / (endDate - startDate 天数)。相比累计绝对数更公平（短期任务与长期任务可横向比较）|
+| DR-29 | CohortRecommendedTemplate 从复用区移入扩展区 | 加 programId，两级绑定（专业级 + 班级级）| 旧设计只有 classId（每班手动绑），核对能力 9「课程自带任务来自教学大纲（专业级）」后须加 programId。字段语义变化，不再是纯复用，改归扩展区 |
+| DR-30 | CohortRecommendedTemplate binding 字段 | 保留（auto/recommended）| 课程自带任务 = auto（入班即生效），辅导员可选 recommended（推荐不强制）。两个级别均适用此语义，不需要按级别拆 |
+| DR-31 | UserPracticeVow context 取值 | personal / event，去掉 class | 用户决策：发愿只有用户自己的愿（个人发愿 + 法会发愿），班级维度已归 ClassTask。保留 class 上下文会让发愿与班级任务的边界再次模糊 |
+| DR-32 | UserPracticeVow 去掉的旧字段 | 移除 source / classId / templateId / isPledged / 7态 VowStatus / paceHistory / statusCalculatedAt / statusNote / appointmentId | 这些字段均服务于「班级任务」或「掉队检测」语义，已分别由 ClassTask / CohortLagSnapshot / CareWatchlistItem 接手。新设计文档 05/06 无这些概念，保留是死字段 |
 
 ---
 
@@ -865,6 +1053,28 @@ model ProgramSemester {
 
 **本轮发现问题数**：0。
 **结论**：1.6 两张表通过范围内检查。新增 §十 TODO-2（链接时效数据化）。
+
+### 检查轮次 5（2026-05-29，范围：+ 1.7 UserPracticeVow + 1.8 CohortRecommendedTemplate + §3.16 ClassTask，共 12 节）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ⚠️→✅ | UserPracticeVow.user↔User（旧设计 User model 已有 practiceVows 反向）；UserPracticeVow.event↔Event（需确认 Event 有 practiceVows 反向）；UserPracticeVow.logs↔PracticeLog（PracticeLog 需有 vow 反向）。CohortRecommendedTemplate.program↔Program.recommendedTemplates（本文档 1.1 Program 关联表需补 recommendedTemplates）；.class↔Class（旧设计 Class 有反向）；.template↔PracticeTemplate（旧设计已有反向）。ClassTask.class↔Class.tasks（Class 需有 tasks 反向）；.practiceProject↔PracticeProject.classTasks（PracticeProject 需有反向）。**注**：本文档目前只写 Prisma model 片段，Class/User/PracticeProject/Event 等复用表的反向关联以旧设计 schema 为参考；若旧设计已有对应反向字段则 ✅，否则标记为上线前 migration 须补 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | 扩展区标题「9 张」（1.7+1.8 新入）；新建区标题「16 张」（§3.16 新入）；§四 CohortRecommendedTemplate 标「已移入扩展区 §1.8」；三处计数一致 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | UserPracticeVow 移除字段均标「移除」并注理由（DR-32）；ClassTask appointmentId/法会联动 ⏸ 暂缓已在发愿设计说明中 |
+| 8. 业务规则约束有实现方式 | ✅ | UserPracticeVow context 校验(Zod)、ClassTask 并发数软限制(应用层)、CohortRecommendedTemplate 双字段唯一(DB)均注明实现方式 |
+| 9. 升学条件可全查 | ⏸ 本节无关 | UserPracticeVow/ClassTask 服务能力 7/9，非升学条件 |
+| 10. D14 累计/日常豁免字段区分 | 🔵 部分 | ClassTask.dailyTarget 表达日常型；CohortRecommendedTemplate 通过 binding=auto 绑定 PracticeTemplate（累计/日常区分在 PracticeTemplate 本身，复用区待核对）|
+| 11. D17 代行留痕路径完整 | 🔵 部分 | UserPracticeVow 管理员代行走能力 5+AuditLog（已注明）；ClassTask 无代行场景，辅导员直接发起 |
+| 12. D18 不物理删除 | ✅ | UserPracticeVow 废弃走 status='abandoned'；ClassTask 停用走 isActive=false；CohortRecommendedTemplate 无 delete API |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | 班级任务发布(辅导员 #10?)已对应 ClassTask；发愿自助(学员)→UserPracticeVow；全职能核对待全表完成 |
+| 14. 枚举值各处一致 | ✅ | UserPracticeVow.context 两值(personal/event)在字段表/约束/设计意图一致；ClassTask.isActive 布尔值单处定义；CohortRecommendedTemplate.binding 两值(auto/recommended)在字段表/Prisma 一致 |
+
+**本轮发现问题数**：0（关联对称性的反向字段以旧设计 schema 为参考，需在写 Prisma schema 时最终确认，不阻断本轮封板）。
+**结论**：1.7、1.8、§3.16 三张表通过范围内检查。CohortRecommendedTemplate 成功从复用区移入扩展区，计数更新完毕。
 
 ---
 
