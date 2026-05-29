@@ -1105,6 +1105,7 @@ model EnrollmentStatusHistory {
 |---|---|---|
 | `Course`（法本/课程，旧设计已扩展版，详见下）| 能力 1/3/17 | ✅ 确认复用 |
 | `Lesson`（课时，旧设计 +sourceText 版，详见下）| 能力 3 | ✅ 确认复用 |
+| `Meditation`（观修，旧设计 +4 字段版，详见下）| 能力 3/4 | ✅ 确认复用 |
 | `ProgramSemester`（科目/学期，字段够用，详见下）| 能力 1 | ✅ 确认复用 |
 | `PracticeLog` | 能力 4/6/7 | ⬜ |
 | `PracticeTemplate` | 能力 4/6/7 | ⬜ |
@@ -1156,6 +1157,23 @@ model EnrollmentStatusHistory {
 | `sourceText` | 法本原文正文（造论者所著），与现有 `referenceText` 并存，referenceText 不废弃 | ✅ 有效 |
 
 其余字段保留（`referenceText` / `teachingSummary` 等闻思内容字段）。Lesson 服务能力 3（闻思圆满），新设计闻思打卡走 LessonCompletion、答题走 QuestionReference/UserAnswer（均在 §三/§四 处理），Lesson 表本身只承载课时内容字段，无新增需求，字段照搬旧设计扩展版。
+
+---
+
+#### Meditation 复用说明
+
+旧设计 §2.2 对 Meditation 扩展 4 个字段（替代已删除的 PracticeGuide 表），核对新设计后全部有效，判 ✅ 复用：
+
+| 新增字段 | 用途 | 新设计下状态 |
+|---|---|---|
+| `seriesKey` | 修法系列标识（如 `"92xiufa"`）| ✅ 有效 |
+| `seriesNumber` | 第几法（92修法为 1-92；其他修法为 null）| ✅ 有效 |
+| `isTantric` | 密法标识（同 Course，未授权学员查询全过滤）| ✅ 有效 |
+| `tantricGroupId` | 密法组（灌顶单位），仅 isTantric=true 时填；按组授权 | ✅ 有效 |
+
+**约束**：`@@unique([seriesKey, seriesNumber])`——保证 92 修法每一法唯一。其余字段保留（视频/转图PPT/章节/字幕/发布管理等）。
+
+> **大纲核对佐证**（2026-05-29）：核对《预科19届大纲》§二.1 加行观修要求（92修法逐一观修）后确认，92修法分法记录正由 `seriesKey='92xiufa'` + `seriesNumber(1-92)` + `PracticeLog.meditationId` 实现，字段够用。**Meditation 表字段本身不受影响**——大纲核对发现的 3 个缺口（座次规则 TODO-7、音视频二选一 TODO-8、逐法达标预检 TODO-9）均属判定/配置逻辑层，非 Meditation 表结构问题。密法授权查询方式虽改用 TransmissionRecord（DR-44/45），但同 Course，不影响 `tantricGroupId` 字段。Meditation 字段完全照搬旧设计扩展版。
 
 ---
 
@@ -1735,6 +1753,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | B 类核心表开始确认：§四 Course（法本/课程）✅ 复用——旧设计 §2.2 已扩展版（author/isTantric/programSemesterId/category/tantricGroupId 5 字段）核对后全部有效，字段不改；密法授权查询方式已迁 TransmissionRecord（不影响 Course 字段）；§八 DR-65；§九 检查轮次 17（0 问题）|
 | 2026-05-29 | §四 Lesson（课时）✅ 复用——旧设计 §2.2 仅扩展 sourceText（法本原文，与 referenceText 并存），课时只承载内容字段，进度/答题走 LessonCompletion/QuestionReference，字段不改；§八 DR-66；§九 检查轮次 18（0 问题）|
 | 2026-05-29 | 核对《预科19届学修大纲》（4 专业：加行/净土/入行论/学经）与系统完成情况：法本阅读/音频/视频/报数四项基本由 LessonCompletion + PracticeLog 覆盖；发现 3 个能力缺口记入 §十——TODO-7（加行座次计算规则与大纲不一致：系统含0.5座，大纲合并/封顶无0.5）、TODO-8（闻思「音频或视频」二选一须应用层判定，含盲/聋特殊圆满规则）、TODO-9（加行升学「92法逐法达标」预检粒度，AdvancementCheck §3.9 处理）；Meditation 表字段本身不受影响，缺口属判定/配置逻辑层 |
+| 2026-05-29 | §四 Meditation（观修）✅ 复用——旧设计 §2.2 扩展 seriesKey/seriesNumber/isTantric/tantricGroupId 4 字段 + @@unique，大纲核对佐证 92 修法分法字段够用，缺口属判定层（TODO-7/8/9）不影响表结构；§八 DR-67；§九 检查轮次 19（0 问题）|
 
 ---
 
@@ -1810,6 +1829,7 @@ model UserSelfStudyRestWeek {
 | DR-64 | 请假后进度落后如何补足 | 申报休息周天数从有效学习天数中扣除（用户决策 2026-05-29）| 用户决策「用户请假课程进度落后可以补足」。核心：有效学习天数 = (今天−startDate) − Σ申报休息天数，当前周由有效天数推算。自学无审批，全部已过去的申报休息周均计入补足，避免假性落后。休息中内容仍可访问（学员可自主补课），掉队预警暂停。此算法复用班级进度算法，仅数据源换成个人 startDate + 个人休息周（与旧设计注释「自学进度算法 = 班级进度算法」一致）|
 | DR-65 | Course 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 已将 Course 扩展为含 author/isTantric/programSemesterId/category/tantricGroupId 5 字段的版本，核对 05/06 后全部仍有效。密法访问控制虽改用 TransmissionRecord（DR-44/45），但仅影响授权查询方式，不影响 Course 字段（tantricGroupId 仍用于标记法本所属密法组）。排除「在 Course 上加授权字段」：授权状态属 TransmissionRecord 范畴，Course 只需 tantricGroupId 标记归属即可 |
 | DR-66 | Lesson 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 仅扩展 sourceText（法本原文，与 referenceText 并存）。Lesson 服务能力 3（闻思圆满），但闻思打卡/答题分别走 LessonCompletion / QuestionReference（§三/§四 处理），Lesson 表只承载课时内容字段，新设计无新增需求。排除「新增进度/状态字段」：进度状态属 LessonCompletion 范畴，Lesson 不冗余存 |
+| DR-67 | Meditation 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 扩展 seriesKey/seriesNumber/isTantric/tantricGroupId 4 字段 + `@@unique([seriesKey, seriesNumber])`。大纲核对佐证 92 修法分法记录由 seriesKey+seriesNumber+PracticeLog.meditationId 实现，字段够用。大纲发现的 3 缺口（座次规则/音视频二选一/逐法达标）均属判定逻辑层，记 TODO-7/8/9，非 Meditation 表结构问题。密法授权同 Course 迁 TransmissionRecord，不影响字段。排除「在 Meditation 上加达标快照字段」：逐法达标是聚合计算结果，属 AdvancementCheck 范畴，不冗余存 |
 
 ---
 
@@ -2177,6 +2197,25 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0。
 **结论**：Lesson 判 ✅ 复用，字段照搬旧设计扩展版（含 sourceText）。课时只承载内容字段，进度/答题/完成判定均在关联表处理。
+
+### 检查轮次 19（2026-05-29，范围：B 类核心表 §四 Meditation 复用确认）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | Meditation.tantricGroup↔TantricGroup（旧设计已有反向，TantricGroup 在 §四 ⬜ 待确认）；PracticeLog.meditationId 指向 Meditation.id（普通字段引用，§四 PracticeLog 复用时核对）；其余视频/章节/字幕关联旧设计完整 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §四 复用表新增 Meditation 一行；其余区计数不变 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | Meditation 复用不动，无新 migration |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 7. 暂缓/不做标签完整 | ✅ | 4 字段逐一标 ✅ 有效；大纲 3 缺口明确归判定逻辑层（TODO-7/8/9），非表结构 |
+| 8. 业务规则约束有实现方式 | ✅ | seriesKey+seriesNumber 唯一→DB @@unique；isTantric 零痕迹→应用层；逐法达标→AdvancementCheck 聚合（TODO-9）|
+| 9-12. 其余检查项 | ✅/⏸ | D18：Meditation 复用不动；密法授权迁 TransmissionRecord（DR-44/45）不触及字段 |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | Meditation 内容管理对应职能 #16（管理课程内容，class_admin+），同 Course/Lesson |
+| 14. 枚举值各处一致 | ✅ | Meditation 无新增 enum；isTantric 布尔与 Course/PracticeProject 同套密法标识模式 |
+
+**本轮发现问题数**：0。
+**结论**：Meditation 判 ✅ 复用，字段照搬旧设计扩展版（4 字段 + @@unique）。大纲核对佐证 92 修法分法记录字段够用，发现的 3 缺口属判定/配置逻辑层（TODO-7/8/9），不影响 Meditation 表结构。
 
 ---
 
