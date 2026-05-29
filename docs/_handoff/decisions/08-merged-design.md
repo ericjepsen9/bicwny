@@ -1571,10 +1571,12 @@ model PracticeAppointmentParticipant {
 - `status=paused↔active`：学员自己（暂停/恢复自学）
 - `status=abandoned`：`class_admin` 及以上
 - `status=completed`：系统自动（所有课时完成时触发）
-- 提交休息周申请（UserSelfStudyRestWeek）：学员自己（创建 `pending` 记录）
-- 审批休息周：`class_tutor` 及以上（approve / reject，DR-62）
-- 撤销休息周申请：**不允许**（D18，状态锁定，DR-63）
-**参考决策**：D3（节奏/时效可配置）、D18（不物理删除）、DR-61~64
+- 申报休息周（UserSelfStudyRestWeek）：学员自己，**自由申报、即时生效、无需审批**（DR-62）
+- 撤销休息周申报：**不允许**（D18，记录锁定，DR-63）
+
+> **休息审批 ≠ 自学休息周**（用户决策 2026-05-29）：休息审批机制确实需要，但**属于班级成员请假场景**（辅导员及以上审批），不在自学模式内。自学师兄自定节奏（pace），其休息周由本人自由申报、直接计入进度补足、无需任何审批。班级请假审批流另行设计（登记 §十 TODO-6）。
+
+**参考决策**：D3（节奏可配置）、D18（不物理删除）、DR-61~64
 
 #### UserSelfStudyProgram（自学科系记录）
 
@@ -1608,22 +1610,16 @@ model UserSelfStudyProgram {
 }
 ```
 
-#### UserSelfStudyRestWeek（个人休息周 + 审批流）
+#### UserSelfStudyRestWeek（个人休息周，自由申报）
 
-> 旧设计仅 `restStartDate + reason`，新设计加审批状态机：学员申请 → 辅导员审批 → 批准的休息周计入进度补足；超时未处理自动失效。
+> 沿用旧设计：`restStartDate + reason`，自学师兄自由申报、即时生效、无审批。所有申报的休息周直接计入进度补足。
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `id` | String | cuid |
 | `selfStudyId` | String | 关联 UserSelfStudyProgram |
-| `restStartDate` | DateTime | 申请的休息周开始日 |
-| `reason` | String? | 申请理由 |
-| `status` | String | `pending` / `approved` / `rejected` / `expired`，默认 pending |
-| `requestedAt` | DateTime | 提交时间，默认 now() |
-| `expiresAt` | DateTime | 审批截止时间；超时未处理自动 `expired`（默认 requestedAt+7天，时效可配置，TODO-4）|
-| `processedAt` | DateTime? | 审批时间 |
-| `processedBy` | String? | 审批人 userId（class_tutor 及以上）|
-| `rejectReason` | String? | 拒绝理由 |
+| `restStartDate` | DateTime | 休息周开始日 |
+| `reason` | String? | 休息理由（可选）|
 | `createdAt` | DateTime | 默认 now() |
 
 ```prisma
@@ -1632,12 +1628,6 @@ model UserSelfStudyRestWeek {
   selfStudyId   String
   restStartDate DateTime
   reason        String?
-  status        String    @default("pending") // pending / approved / rejected / expired
-  requestedAt   DateTime  @default(now())
-  expiresAt     DateTime  // 审批截止；超时自动 expired（默认 +7天，可配置 TODO-4）
-  processedAt   DateTime?
-  processedBy   String?   // 审批人（class_tutor 及以上）
-  rejectReason  String?
   createdAt     DateTime  @default(now())
 
   selfStudy UserSelfStudyProgram @relation(fields: [selfStudyId], references: [id])
@@ -1646,24 +1636,22 @@ model UserSelfStudyRestWeek {
 
 #### 进度补足逻辑（自学进度算法）
 
-> 自学进度算法 = 班级进度算法，但用**个人 startDate + 个人 approved 休息周**。
+> 自学进度算法 = 班级进度算法，但用**个人 startDate + 个人申报的休息周**（无审批，全部计入）。
 
 **核心公式：**
 ```
-有效学习天数 = (今天 − startDate) − Σ(已过去的 approved 休息周天数)
+有效学习天数 = (今天 − startDate) − Σ(已过去的申报休息周天数)
 当前所在周   = ceil(有效学习天数 / 7)
 ```
 
-**补足规则（按休息周 status 分支）：**
+**补足规则：**
 
 | 休息周状态 | 进度处理 |
 |---|---|
-| `pending`（待审批）| 不扣除，正常计算进度，照常显示落后（未批准前不享受补足）|
-| `approved` 且休息中 | 休息天数不计入有效天数；掉队预警暂停；课程内容仍可访问（学员可自主补课）|
-| `approved` 且已结束 | 批准天数从有效天数永久扣除；返回后当前周顺延，不产生假性落后 |
-| `rejected` / `expired` | 不影响进度计算，等同未请假 |
+| 休息中（restStartDate ≤ 今天 < 休息结束）| 休息天数不计入有效天数；掉队预警暂停；课程内容仍可访问（学员可自主补课）|
+| 已结束 | 休息天数从有效天数永久扣除；返回后当前周顺延，不产生假性落后 |
 
-**示例**：起修日 1/1、每周 1 节，今天 3/1（约 8 周）；2 月批准 1 周休息 → 有效学习天数 = 59 − 7 = 52 天 → 第 8 周（非第 9 周）。第 8 周内容未完成才算落后。
+**示例**：起修日 1/1、每周 1 节，今天 3/1（约 8 周）；2 月申报 1 周休息 → 有效学习天数 = 59 − 7 = 52 天 → 第 8 周（非第 9 周）。第 8 周内容未完成才算落后。
 
 #### 约束
 
@@ -1671,11 +1659,10 @@ model UserSelfStudyRestWeek {
 |---|---|---|
 | 一人一科系一条 | DB（@@unique）| `@@unique([userId, programId])` 防重 |
 | 入学限管理员 | 应用层 | UserSelfStudyProgram 创建限 subject_admin/super_admin |
-| 休息周申请不可撤销 | 应用层 | 无 delete API；提交后状态锁定（D18）|
-| 休息周超时自动失效 | 定时任务 | `now() > expiresAt && status=pending` → `status=expired`（每日凌晨）|
-| 仅 approved 休息周计入补足 | 应用层 | 进度算法只扣除 status=approved 的休息天数 |
-| 休息周审批限 class_tutor+ | 应用层 | processedBy 记审批人，approve/reject 限辅导员及以上 |
-| status 状态机不物理删（D18）| 应用层 | UserSelfStudyProgram 用 abandoned，休息周用 rejected/expired，均无 delete API |
+| 休息周自由申报、无审批 | 应用层 | 学员自助创建，即时生效，无 pending/审批环节（DR-62）|
+| 休息周申报不可撤销 | 应用层 | 无 delete API；申报后记录锁定（D18）|
+| 全部申报休息周计入补足 | 应用层 | 进度算法扣除所有已过去的申报休息天数 |
+| status 不物理删（D18）| 应用层 | UserSelfStudyProgram 用 abandoned；休息周无删除接口 |
 
 ## 六、Enum 定义
 
@@ -1713,7 +1700,8 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §五 暂缓区重构：从「保留旧设计原样」改为「设计已落实/实现延后」，拆为 §5.1~5.4 四个子节。§5.1 班级动态（ClassPost/Reaction/Comment/Share 4 张表）✅ 封板：补发帖人自删权限（authorId 自删 OR class_admin+）、软删三件套（D18）、Reaction toggle 物理删例外（DR-50）、职能待定标记（DR-52）；§5.2~5.4 保持 ⬜ 占位；§八 DR-50~52；§九 检查轮次 13（0 问题）|
 | 2026-05-29 | §5.2 班级讨论（Discussion/Viewpoint/Vote/Comment 4 张表）✅ 封板：一人一票不允许换投（D18 完全合规，DR-53）、创建权=所有后台角色 class_tutor+（DR-54）、关闭权=发起人 OR class_admin+（DR-55）、Viewpoint 创建后不可增删（DR-56）、评论软删（同 §5.1）；§八 DR-53~56；§九 检查轮次 14（0 问题）|
 | 2026-05-29 | §5.3 约修（PracticeAppointment + PracticeAppointmentParticipant 2 张表）✅ 封板：方案 A 独立参与表（与 UserPracticeVow 完全解耦，DR-57）、创建权=班级任意成员（DR-58）、退出软删 isActive=false（DR-59）、贡献独立计数流（DR-60）；currentTotal 事务同步；§十 新增 TODO-3（practiceProjectId 待 PracticeProject 确认后补 FK）；§八 DR-57~60；§九 检查轮次 15（1 个问题→挂 TODO-3）|
-| 2026-05-29 | §5.4 自学模式（UserSelfStudyProgram + UserSelfStudyRestWeek 2 张表）✅ 封板：入学限 subject_admin/super_admin（DR-61）、休息周审批限 class_tutor+（DR-62）、申请不可撤销+时效自动失效（DR-63）、请假进度补足算法（仅 approved 休息周扣有效天数，DR-64）；休息周加审批状态机（pending/approved/rejected/expired）；§十 新增 TODO-4（审批时效数据化）、TODO-5（Program 恢复反向关联）；§八 DR-61~64；§九 检查轮次 16（2 个问题→挂 TODO-4/5）；**§五 四组暂缓表全部设计封板** |
+| 2026-05-29 | §5.4 自学模式（UserSelfStudyProgram + UserSelfStudyRestWeek 2 张表）✅ 封板：入学限 subject_admin/super_admin（DR-61）、请假进度补足算法（DR-64）；§十 新增 TODO-5（Program 恢复反向关联）；§八 DR-61~64；§九 检查轮次 16；**§五 四组暂缓表全部设计封板** |
+| 2026-05-29 | §5.4 修正（用户决策）：**自学模式不需要休息审批**——移除 UserSelfStudyRestWeek 的审批状态机（pending/approved/rejected/expired + expiresAt + processedBy + rejectReason），回归旧设计自由申报（restStartDate + reason）；学员自助申报、即时生效、不可撤销（DR-62/63 改写）；进度补足改为全部申报休息周计入；删除 TODO-4（审批时效），新增 TODO-6（班级成员请假审批流另行设计）；§九 检查轮次 16 同步更新 |
 
 ---
 
@@ -1784,9 +1772,9 @@ model UserSelfStudyRestWeek {
 | DR-59 | 退出约修 D18 处理 | isActive=false + leftAt（不物理删）| 参与记录包含 personalTotal（贡献历史），是有价值的历史数据（D18）。退出不删行：isActive=false 标记退出，leftAt 记录退出时间；贡献量留档，退出后集体 currentTotal 不回退（已贡献的不撤回）。排除物理删行：会丢失个人贡献历史 |
 | DR-60 | 约修贡献打卡与 PracticeLog/EventCount 的关系 | 独立计数流（不走 PracticeLog / EventCount）| 约修是「向集体目标贡献」，与日常修持愿（PracticeLog）和法会计数（EventCount）语义不同。独立流避免三套系统相互干扰。代价是同一次修持可能需要分别在两个地方记录（如果用户既有日常愿又参与约修）——这是方案 A 的已知 tradeoff（用户已确认接受） |
 | DR-61 | UserSelfStudyProgram 创建（入学）权限 | subject_admin / super_admin（用户决策 2026-05-29）| 自学入学是科系级操作（决定某人开始自学某科系），属管理职责，由学科管理员及以上录入。排除「学员自助报名」：自学资格需审核，不应自助开通；排除「class_admin」：自学无班级归属，归科系管理更合理 |
-| DR-62 | 休息周审批权限 | class_tutor 及以上（用户决策 2026-05-29）| 用户决策「审批由辅导员以上的管理员操作」。休息周审批是日常教学辅导事务，辅导员（class_tutor）即可处理，无需上升到 class_admin。processedBy 记审批人留痕 |
-| DR-63 | 休息周申请是否可撤销 + 超时处理 | 不可撤销 + 时效自动失效（用户决策 2026-05-29）| 用户决策「用户申请之后没有撤销功能，设计一个时效，时间内没处理请求自动失效」。不可撤销符合 D18（状态锁定不删行）；expiresAt 时效（默认 +7天）+ 定时任务把超时 pending 置 expired，避免请求无限挂起。排除「允许撤销」：撤销会引入物理删或复杂状态回退，且申请记录本身有审计价值 |
-| DR-64 | 请假后进度落后如何补足 | approved 休息周天数从有效学习天数中扣除（用户决策 2026-05-29）| 用户决策「用户请假课程进度落后可以补足」。核心：有效学习天数 = (今天−startDate) − Σapproved休息天数，当前周由有效天数推算。只有 approved 的休息周计入补足（pending/rejected/expired 不计），避免假性落后。休息中内容仍可访问（学员可自主补课），掉队预警暂停。此算法复用班级进度算法，仅数据源换成个人 startDate + 个人休息周（与旧设计注释「自学进度算法 = 班级进度算法」一致）|
+| DR-62 | 自学休息周是否需要审批 | 不需要审批，学员自由申报、即时生效（用户决策 2026-05-29 修正）| 用户修正：「休息审批需要，但是自学模式不需要休息审批」。自学师兄自定节奏（pace 字段），是自主学习者，其休息周属个人安排，无须辅导员审批。原设计的审批状态机（pending/approved/rejected/expired + expiresAt + processedBy）全部移除，回归旧设计的简单申报（restStartDate + reason）。**休息审批机制确实需要，但属班级成员请假场景**（辅导员及以上审批），与自学解耦，另行设计（TODO-6）|
+| DR-63 | 自学休息周申报是否可撤销 | 不可撤销（D18，用户决策 2026-05-29）| 申报即生效并影响进度计算，记录有审计价值，不提供删除/撤销接口。符合 D18 append-only。排除「允许撤销」：会引入物理删，且自学进度已据此重算，撤销会造成进度跳变 |
+| DR-64 | 请假后进度落后如何补足 | 申报休息周天数从有效学习天数中扣除（用户决策 2026-05-29）| 用户决策「用户请假课程进度落后可以补足」。核心：有效学习天数 = (今天−startDate) − Σ申报休息天数，当前周由有效天数推算。自学无审批，全部已过去的申报休息周均计入补足，避免假性落后。休息中内容仍可访问（学员可自主补课），掉队预警暂停。此算法复用班级进度算法，仅数据源换成个人 startDate + 个人休息周（与旧设计注释「自学进度算法 = 班级进度算法」一致）|
 
 ---
 
@@ -2106,16 +2094,16 @@ model UserSelfStudyRestWeek {
 | 4. 总览计数正确 | ✅ | §五 目录表 §5.4 更新为「✅ 设计封板 / 2 张」；schema 实体数一致 |
 | 5. Migration 覆盖完整 | ⏸ 暂不适用 | 暂缓区不生成 migration |
 | 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
-| 7. 暂缓/不做标签完整 | ✅ | §5.4 标 ⏸ 暂缓；审批流/不可撤销/时效/进度补足均有 DR-61~64 |
-| 8. 业务规则约束有实现方式 | ✅ | 一人一科系→DB @@unique；入学限管理员→应用层；不可撤销→应用层无 delete；超时失效→定时任务；仅 approved 计入补足→应用层算法；审批限 class_tutor+→应用层 |
-| 9-12. 其余检查项 | ✅/⏸ | D18：UserSelfStudyProgram 用 abandoned，休息周用 rejected/expired，无物理删合规；D17：processedBy 记审批人留痕；D3：pace/expiresAt 时效可配置（时效挂 TODO-4）|
+| 7. 暂缓/不做标签完整 | ✅ | §5.4 标 ⏸ 暂缓；自由申报/不可撤销/进度补足均有 DR-61~64 |
+| 8. 业务规则约束有实现方式 | ✅ | 一人一科系→DB @@unique；入学限管理员→应用层；自由申报无审批→应用层；不可撤销→应用层无 delete；全部申报计入补足→应用层算法 |
+| 9-12. 其余检查项 | ✅/⏸ | D18：UserSelfStudyProgram 用 abandoned，休息周 append-only 无删除，均合规；D3：pace 可配置 |
 | 13. 02 文档 23 职能写表覆盖 | ⚠️ 待实现时补 | 自学模式无对应职能编号，同 DR-52 思路 |
-| 14. 枚举值各处一致 | ✅ | UserSelfStudyProgram.status 4 值 + pace 3 值；UserSelfStudyRestWeek.status 4 值（pending/approved/rejected/expired）在字段表、schema、约束、进度逻辑各处一致 |
+| 14. 枚举值各处一致 | ✅ | UserSelfStudyProgram.status 4 值（active/paused/completed/abandoned）+ pace 3 值（standard/fast/custom）在字段表、schema、约束、进度逻辑各处一致；休息周已去状态机，无枚举 |
 
-**本轮新增待办**：(1) §1.1 Program 当前已删 `selfStudy UserSelfStudyProgram[]` 反向关联（标注「自学模式 ⏸ 暂缓」移除），实现自学模式时须恢复（登记 §十 TODO-5）；(2) 休息周审批时效（默认 7 天）数据化（登记 §十 TODO-4）。
+**本轮新增待办**：(1) §1.1 Program 当前已删 `selfStudy UserSelfStudyProgram[]` 反向关联，实现自学模式时须恢复（§十 TODO-5）；(2) 班级成员请假审批流（辅导员及以上审批，与自学休息周无关）另行设计（§十 TODO-6）。
 
-**本轮发现问题数**：2（Program 反向关联待恢复→TODO-5；审批时效数据化→TODO-4）。
-**结论**：§5.4 自学模式家族（2 张表）设计封板。审批状态机（pending/approved/rejected/expired）+ 时效自动失效 + 进度补足算法（仅 approved 休息周扣除有效天数）完整闭环。⚠️ 实现时须补职能编号、恢复 Program 反向关联、时效配置化。
+**本轮发现问题数**：1（Program 反向关联待恢复→TODO-5）。
+**结论**：§5.4 自学模式家族（2 张表）设计封板。自学休息周**去审批**（学员自由申报、即时生效，DR-62）+ 进度补足算法（全部申报休息周扣除有效天数）。休息审批属班级请假场景，与自学解耦（TODO-6）。⚠️ 实现时须补职能编号、恢复 Program 反向关联。
 
 ---
 
@@ -2128,5 +2116,5 @@ model UserSelfStudyRestWeek {
 | TODO-1 | 掉队判定阈值数据化（近2周窗口、各档比例、lagPracticeDaysExpected）——能力 14 约束 #1 要求阈值为专业配置项(D3)，目前散落代码/User 表 | 1.5 CohortLagSnapshot | Program/专业配置表设计时（扩展区已封板，需在新建区或复用区 Program 相关表处理）| DR-18 |
 | TODO-2 | 共修链接激活时效数据化（提前激活 10 分钟、宽限期 30 分钟）——能力 8 明确「可在专业/班级层配置」(D3)，目前写死在应用层常量 | 1.6 ClassSession | 班级/专业配置表设计时处理 | DR-25 |
 | TODO-3 | PracticeAppointment.practiceProjectId 目前为普通 String 字段，无正式 @relation——待 §四 PracticeProject 复用区确认后，补 `practiceProject PracticeProject @relation(...)` 及 PracticeProject 上的反向 `appointments[]` | §5.3 PracticeAppointment | §四 PracticeProject 复用确认时 | DR-57 |
-| TODO-4 | 休息周审批时效数据化（默认 requestedAt+7天）——超时未处理自动 expired，时效应为专业/平台配置项(D3)，目前默认写死 | §5.4 UserSelfStudyRestWeek | 配置表设计时 / 自学模式实现时 | DR-63 |
 | TODO-5 | §1.1 Program 恢复 `selfStudy UserSelfStudyProgram[]` 反向关联——当前因自学模式暂缓已移除，实现 §5.4 时须恢复 | §5.4 UserSelfStudyProgram | 自学模式实现时 | DR-64 |
+| TODO-6 | 班级成员请假审批流设计——辅导员及以上审批，含申请/审批状态机/时效失效（与自学休息周解耦，自学无审批）。原 §5.4 审批方案可作此处参考 | §5.4 自学模式修正 | 班级请假功能设计时 | DR-62 |
