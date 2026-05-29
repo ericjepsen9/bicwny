@@ -427,11 +427,11 @@ model ClassSession {
 **写权限**：学员自助（个人发愿/法会发愿）；管理员代行走能力 5 + AuditLog
 **参考决策**：D18（发愿记录不物理删除）
 
-> **重新定位（用户决策 2026-05-29）**：本表从旧设计「班级任务 + 发愿合一」彻底分离，**只服务学员自己发的愿**。班级任务走 ClassTask（§3.16）+ CohortRecommendedTemplate（§1.8）+ PracticeLog，不再经过本表。
+> **定位（用户决策 2026-05-29）**：本表是修学计数模块的**统一用户追踪条目表**，覆盖 5 种 context。任务定义（ClassTask / CohortRecommendedTemplate）独立存储，UserPracticeVow 是每个用户的追踪实例，两者通过外键关联。
 >
-> **保留的旧设计逻辑（用户决策 2026-05-29 补确认）**：`isPledged` 两分法保留——用户添加修学时提示「是否发愿」，是则带目标/进度条，否则是裸追踪项。法会愿进度走 `EventCount`（独立计数流，不走 PracticeLog）。
+> **保留的旧设计逻辑**：`isPledged` 两分法——用户添加修学时提示「是否发愿」；法会愿进度走 `EventCount` 独立计数流。
 >
-> **去掉的旧设计字段**：`source`（无 auto，班级任务已归 ClassTask）、`classId`（任务锚点）、`templateId`（任务模板）、7 态 VowStatus 状态机（source=auto 专属，本表无 auto）、`currentStatus/statusCalculatedAt/statusNote`（同上）、`paceHistory`（过度设计）、`appointmentId`（约修 ⏸ 暂缓）。
+> **去掉的旧设计字段**：`source`、`classId`（旧任务锚点）、`templateId`（旧模板锚点）、7 态 VowStatus 状态机（source=auto 专属，本表已用 context 区分）、`currentStatus/statusCalculatedAt/statusNote`、`paceHistory`（过度设计）、`appointmentId`（约修 ⏸ 暂缓）。
 
 #### 字段
 
@@ -439,15 +439,17 @@ model ClassSession {
 |---|---|---|---|
 | `id` | String | cuid | 旧 |
 | `userId` | String | 关联 User | 旧 |
-| `context` | String | `personal`（个人发愿）/ `event`（法会发愿）| 旧（收窄：去 class/appointment）|
-| `eventId` | String? | 法会发愿时关联 Event；personal 时 null | 旧 |
-| `practiceProjectId` | String | 发愿修什么 | 旧 |
-| `customName` | String? | 自定义显示名 | 旧 |
-| `isPledged` | Boolean | 默认 false；**true=发愿**（有目标+进度条）/ **false=裸追踪项**（无目标，仅打卡快捷入口）；创建修学时询问「是否发愿」由此区分 | 旧（**补回**）|
-| `targetCount` | Int? | 总目标遍数（lifetime 型）；isPledged=false 时为 null | 旧 |
-| `targetPeriod` | String? | `daily` / `weekly` / `lifetime`；isPledged=false 时为 null | 旧 |
-| `dailyTarget` | Int? | 每日目标（daily 型）| 旧 |
-| `weeklyTarget` | Int? | 每周目标（weekly 型）| 旧 |
+| `context` | String | `personal` / `event` / `class_task` / `program_task`（见下方说明）| 旧（扩展）|
+| `eventId` | String? | context=event 时关联 Event | 旧 |
+| `classTaskId` | String? | context=class_task 时关联 ClassTask | **新增** |
+| `cohortTemplateId` | String? | context=program_task 时关联 CohortRecommendedTemplate | **新增** |
+| `practiceProjectId` | String | 修持项目 | 旧 |
+| `customName` | String? | 自定义显示名（personal 时用户可填）| 旧 |
+| `isPledged` | Boolean | 默认 false；**true=发愿/任务**（有目标+进度条）/ **false=裸追踪项**（无目标，仅打卡入口）；class_task/program_task 恒为 true | 旧（**补回**）|
+| `targetCount` | Int? | 总目标遍数（lifetime 型）；task 类型不填（运行时从任务读）| 旧 |
+| `targetPeriod` | String? | `daily` / `weekly` / `lifetime`；task 类型不填 | 旧 |
+| `dailyTarget` | Int? | 每日目标；**personal/event 由用户填；task 类型不填（运行时从 ClassTask 或 PracticeTemplate 读，D3）** | 旧（语义扩展）|
+| `weeklyTarget` | Int? | 每周目标；task 类型不填 | 旧 |
 | `minSessionMinutes` | Int | 座次最短时长，默认 30；duration 计量专用 | 旧 |
 | `startDate` | DateTime | 发愿起始日 | 旧 |
 | `currentEndDate` | DateTime? | 发愿截止日（可调整）| 旧 |
@@ -465,18 +467,26 @@ model ClassSession {
 model UserPracticeVow {
   id                   String    @id @default(cuid())
   userId               String
-  context              String    // personal / event
-  eventId              String?
+  // context 5 值：
+  //   personal     → 用户手动添加（发愿或裸追踪）
+  //   event        → 法会发愿（关联 eventId）
+  //   class_task   → 班级任务（关联 classTaskId，系统自动建）
+  //   program_task → 课程任务（关联 cohortTemplateId，系统自动建）
+  context              String
+  eventId              String?   // context=event
+  classTaskId          String?   // context=class_task
+  cohortTemplateId     String?   // context=program_task
   practiceProjectId    String
   customName           String?
   isPledged            Boolean   @default(false)
-  // true  = 发愿：有目标 + 进度条 + 生命周期
-  // false = 裸追踪项：无目标，仅作打卡快捷入口；target 字段全 null
-  // 裸追踪项不可补发愿（历史打卡不追溯）；要发愿须新建 isPledged=true 的愿
+  // true  = 发愿/任务：有目标 + 进度条；class_task/program_task 恒为 true
+  // false = 裸追踪项：无目标，仅作打卡快捷入口
+  // 裸追踪项不可补发愿；要发愿须新建 isPledged=true 的愿
+  // task 类型的 dailyTarget/targetPeriod 不存此处，运行时从任务定义读取（D3）
   targetCount          Int?
-  targetPeriod         String?   // daily / weekly / lifetime（isPledged=false 时 null）
-  dailyTarget          Int?
-  weeklyTarget         Int?
+  targetPeriod         String?   // daily / weekly / lifetime
+  dailyTarget          Int?      // personal/event 用；task 类型为 null
+  weeklyTarget         Int?      // personal/event 用；task 类型为 null
   minSessionMinutes    Int       @default(30)
   startDate            DateTime
   currentEndDate       DateTime?
@@ -490,10 +500,12 @@ model UserPracticeVow {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  user        User         @relation(fields: [userId], references: [id])
-  event       Event?       @relation(fields: [eventId], references: [id])
-  logs        PracticeLog[]   // context=personal 打卡来源
-  eventCounts EventCount[]    // context=event 打卡来源（独立计数流，不与 PracticeLog 合并）
+  user            User                      @relation(fields: [userId], references: [id])
+  event           Event?                    @relation(fields: [eventId], references: [id])
+  classTask       ClassTask?                @relation(fields: [classTaskId], references: [id])
+  cohortTemplate  CohortRecommendedTemplate? @relation(fields: [cohortTemplateId], references: [id])
+  logs            PracticeLog[]             // context≠event 的打卡来源
+  eventCounts     EventCount[]              // context=event 打卡来源（独立计数流）
 }
 ```
 
@@ -501,24 +513,36 @@ model UserPracticeVow {
 
 | 约束 | 类型 | 说明 |
 |---|---|---|
-| 不物理删除（D18）| 应用层 | 发愿记录永久保留；放弃走 status='abandoned' |
+| 不物理删除（D18）| 应用层 | 记录永久保留；放弃走 status='abandoned' |
 | context=event 时 eventId 必填 | 应用层（Zod）| |
-| context=personal 时 eventId 为 null | 应用层（Zod）| |
+| context=class_task 时 classTaskId 必填 | 应用层（Zod）| |
+| context=program_task 时 cohortTemplateId 必填 | 应用层（Zod）| |
 | isPledged=false 时 target 字段全 null | 应用层（Zod）| 裸追踪项无目标 |
-| context=event 愿进度 = SUM(EventCount.count WHERE vowId=:id) | 应用层 | 不走 PracticeLog；发愿前提交的 EventCount（vowId=null）不回溯关联 |
+| class_task / program_task 的 isPledged 恒为 true | 应用层 | 任务天然有目标，不允许裸追踪 |
+| task 类型 dailyTarget/targetPeriod 为 null | 应用层 | 目标运行时从 ClassTask 或 PracticeTemplate 读（D3）|
+| context=event 愿进度 = SUM(EventCount.count WHERE vowId=:id) | 应用层 | 不走 PracticeLog；发愿前的 EventCount（vowId=null）不回溯 |
 | 裸追踪项不可补发愿 | 应用层 | 要发愿须新建 isPledged=true 的愿，历史打卡不追溯 |
+| 幂等保护（自动建条目）| 应用层 | 同 userId + classTaskId / cohortTemplateId 已存在则跳过，不重复建 |
 
 #### 设计意图
 
-**打卡入口统一在修学计数模块**：用户无论是个人发愿还是法会发愿，都在同一个「修学」列表里添加数量。应用层按 context 分流写表（personal → PracticeLog；event → EventCount），用户无感知。
+**打卡入口统一在修学计数模块**：5 种 context 的条目全在同一列表。应用层按 context 分流写表（event → EventCount；其余 → PracticeLog），用户无感知。
 
-**列表类别标签**（前端展示，三值固定）：
+**任务目标运行时读取（D3）**：class_task / program_task 的 dailyTarget 不写入此表，每次展示/达标计算时 join ClassTask.dailyTarget 或 PracticeTemplate.defaultDailyTarget。辅导员/管理员修改任务标准后全员实时生效，无需批量同步。
+
+**自动建条目时机**：
+- class_task：ClassTask 新建时为班内所有 active 成员建；新成员入班时为所有 active ClassTask 建
+- program_task：成员入班时为该专业所有 binding=auto 的 CohortRecommendedTemplate 建
+
+**列表类别标签**（前端展示，5 值）：
 
 | 标签 | 条件 |
 |---|---|
 | 普通计数 | isPledged=false |
 | 个人发愿 | isPledged=true, context=personal |
 | 法会发愿 | isPledged=true, context=event（附带法会名）|
+| 班级任务 | context=class_task |
+| 课程任务 | context=program_task |
 
 ---
 
@@ -553,6 +577,7 @@ model CohortRecommendedTemplate {
   program  Program?         @relation(fields: [programId], references: [id])
   class    Class?           @relation(fields: [classId], references: [id])
   template PracticeTemplate @relation(fields: [templateId], references: [id])
+  vows     UserPracticeVow[] // context=program_task 的用户追踪条目
 
   @@unique([programId, templateId])
   @@unique([classId, templateId])
@@ -783,6 +808,7 @@ model ClassTask {
 
   class           Class           @relation(fields: [classId], references: [id])
   practiceProject PracticeProject @relation(fields: [practiceProjectId], references: [id])
+  vows            UserPracticeVow[] // context=class_task 的用户追踪条目
 }
 ```
 
@@ -796,7 +822,7 @@ model ClassTask {
 
 #### 设计意图
 
-ClassTask 只存「任务定义」，打卡走 PracticeLog（practiceProjectId 对应）。达标率由任务启动时起每天轮询 PracticeLog 计算，结果影响 CohortLagSnapshot.taskLag（能力 14）。与 CohortRecommendedTemplate 课程自带任务的关系：两者均指向 PracticeProject，PracticeLog 统一打卡；区别仅在来源（专业级配置 vs 辅导员追加），对学员端完全透明。
+ClassTask 只存「任务定义」。每位班级成员有一条对应的 UserPracticeVow（context=class_task），打卡走 PracticeLog，进度展示时 join ClassTask.dailyTarget（不复制，D3 实时生效）。达标率影响 CohortLagSnapshot.taskLag（能力 14）。课程自带任务（CohortRecommendedTemplate）同理，两条路径对学员端完全一致。
 
 ---
 
@@ -942,6 +968,7 @@ model ProgramSemester {
 | 2026-05-29 | 完成 1.6 ClassSession+ClassSessionSchedule 封板：拆两层（方案 b），ClassSession 扩展加 sessionType/scheduleId，新建 §3.15 ClassSessionSchedule；新建区 14→15；TODO-2 链接时效数据化；§八 DR-21~25、§九 检查轮次 4（0 问题）|
 | 2026-05-29 | 完成 1.7 UserPracticeVow 封板（纯发愿，context=personal/event）、1.8 CohortRecommendedTemplate 封板（从复用区移入扩展区，加 programId 两级绑定）、§3.16 ClassTask 封板（辅导员布置班级任务，独立于发愿系统）；扩展区 8→9 张，新建区 15→16 张；§四 CohortRecommendedTemplate 标移入扩展区；§八 DR-26~32、§九 检查轮次 5 |
 | 2026-05-29 | 1.7 UserPracticeVow 修订封板：补回 isPledged 两分法（发愿/裸追踪项）+ eventCounts EventCount[] 关联（法会愿进度独立计数流）；更新约束 3 条；§八 DR-33~34、§九 检查轮次 6（0 问题）|
+| 2026-05-29 | 1.7 UserPracticeVow 再次修订：context 扩展为 5 值（+class_task/program_task），新增 classTaskId/cohortTemplateId 外键，任务目标运行时 join 不复制（D3）；§1.8 和 §3.16 补反向关联 vows[]；列表标签扩展为 5 类；§八 DR-35~37、§九 检查轮次 7（0 问题）|
 
 ---
 
@@ -985,6 +1012,9 @@ model ProgramSemester {
 | DR-32 | UserPracticeVow 去掉的旧字段 | 移除 source / classId / templateId / 7态 VowStatus / currentStatus / statusCalculatedAt / statusNote / paceHistory / appointmentId | 这些字段均服务于「班级任务（source=auto）」或「辅导员掉队管理」语义；班级任务已归 ClassTask，7态状态机是 source=auto 专属，本表去掉 auto 后这套机制无用 |
 | DR-33 | isPledged 是否保留 | 保留（用户决策 2026-05-29 补确认）| 旧设计两分法：用户添加修学时询问「是否发愿」，是则带目标+进度条（isPledged=true），否则是裸追踪项（isPledged=false）。此交互逻辑旧设计已完整设计，是计数模块的核心 UX，不能简化掉 |
 | DR-34 | 法会愿进度走哪张表 | EventCount（独立计数流，不走 PracticeLog）| 旧设计有意隔离：法会期间打卡走 EventCount，日常打卡走 PracticeLog，两条流不同步不合并。法会愿发愿前提交的 EventCount（vowId=null）不回溯关联——有意设计，发愿前属随喜、不计入个人愿进度 |
+| DR-35 | 班级/课程任务如何进入计数模块 | 方案 A：自动建 UserPracticeVow 条目（context=class_task / program_task）| 排除方案 B（任务单独区块）：两套入口分裂体验；排除方案 C（用户手动添加）：课程任务是教学要求，不应依赖学员自己发现。自动建条目统一列表，标签区分来源，打卡体验与个人发愿完全一致 |
+| DR-36 | 任务条目的 dailyTarget 是否复制进 UserPracticeVow | 不复制，运行时 join 任务定义（D3）| 文档能力 1 规则 4：「课程目录、实修要求等都是数据」；D3：标准可配置、可调整。复制意味着标准改变后要批量更新用户行——与数据驱动理念相悖。运行时读取：ClassTask.dailyTarget 或 PracticeTemplate.defaultDailyTarget 改一处全员生效 |
+| DR-37 | UserPracticeVow context 扩展为 5 值 | personal / event / class_task / program_task + isPledged=false 裸追踪 | 5 值覆盖所有修学条目来源；class_task/program_task 恒 isPledged=true（任务有明确目标）；裸追踪项只属于 context=personal（用户自主选择，非系统布置）|
 
 ---
 
@@ -1118,6 +1148,28 @@ model ProgramSemester {
 
 **本轮发现问题数**：0（本轮为补漏修订，已知问题已修，无新发现）。
 **结论**：1.7 修订通过。isPledged 两分法 + EventCount 双轨补回，与旧设计一致；schema 与约束对齐。
+
+### 检查轮次 7（2026-05-29，范围：1.7 context 扩展 + §1.8 / §3.16 反向关联）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | UserPracticeVow.classTask ↔ ClassTask.vows 成对；UserPracticeVow.cohortTemplate ↔ CohortRecommendedTemplate.vows 成对；两组反向关联已同步写入 §3.16 和 §1.8 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | 表数量未变（仍 9 扩展 / 16 新建）；context 值扩展属字段内语义扩展，不增减表 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | task 类型 dailyTarget 不复制有注明（D3 运行时读）；裸追踪项仅属 personal 已注明 |
+| 8. 业务规则约束有实现方式 | ✅ | context 外键必填校验（Zod）、task isPledged 恒 true（应用层）、target 运行时读（应用层）、幂等保护（应用层）均注明 |
+| 9. 升学条件可全查 | ⏸ 本节无关 | 修学计数服务能力 7/9，非升学条件 |
+| 10. D14 累计/日常区分 | 🔵 部分 | class_task/program_task 的 dailyTarget 属 D14b 日常型（各专业独立）；D14a 累计型（10万）通过 PracticeLog 累计总量，与 context 无关；待 PracticeLog 封板确认路径 |
+| 11. D17 代行留痕 | 🔵 部分 | 任务打卡代行走 AuditLog；待 AuditLog(§3.13) 封板验证 |
+| 12. D18 不物理删除 | ✅ | UserPracticeVow 无 delete；ClassTask 停用走 isActive=false；任务条目 status='completed' 保留 |
+| 13. 02 文档职能覆盖 | 🔵 部分 | 班级任务布置（辅导员）已对应 ClassTask + 自动建 UserPracticeVow；全职能待全表完成 |
+| 14. 枚举值各处一致 | ✅ | context 5 值在字段表/schema/约束/设计意图/列表标签五处一致 |
+
+**本轮发现问题数**：0。
+**结论**：1.7 context 扩展 + 双向关联通过检查。修学计数模块 5 种条目类型设计完整，运行时读取任务目标符合 D3。
 
 ---
 
