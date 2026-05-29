@@ -429,7 +429,9 @@ model ClassSession {
 
 > **重新定位（用户决策 2026-05-29）**：本表从旧设计「班级任务 + 发愿合一」彻底分离，**只服务学员自己发的愿**。班级任务走 ClassTask（§3.16）+ CohortRecommendedTemplate（§1.8）+ PracticeLog，不再经过本表。
 >
-> **去掉的旧设计字段**：`source`（无 auto）、`classId`（任务锚点）、`templateId`（任务模板）、`isPledged`（愿天然有目标）、7 态 VowStatus 状态机（掉队走 CohortLagSnapshot）、`paceHistory`（过度设计）、`statusCalculatedAt/statusNote`、`appointmentId`（约修 ⏸ 暂缓）。新设计文档 05/06 无这些概念。
+> **保留的旧设计逻辑（用户决策 2026-05-29 补确认）**：`isPledged` 两分法保留——用户添加修学时提示「是否发愿」，是则带目标/进度条，否则是裸追踪项。法会愿进度走 `EventCount`（独立计数流，不走 PracticeLog）。
+>
+> **去掉的旧设计字段**：`source`（无 auto，班级任务已归 ClassTask）、`classId`（任务锚点）、`templateId`（任务模板）、7 态 VowStatus 状态机（source=auto 专属，本表无 auto）、`currentStatus/statusCalculatedAt/statusNote`（同上）、`paceHistory`（过度设计）、`appointmentId`（约修 ⏸ 暂缓）。
 
 #### 字段
 
@@ -441,8 +443,9 @@ model ClassSession {
 | `eventId` | String? | 法会发愿时关联 Event；personal 时 null | 旧 |
 | `practiceProjectId` | String | 发愿修什么 | 旧 |
 | `customName` | String? | 自定义显示名 | 旧 |
-| `targetCount` | Int? | 总目标遍数（lifetime 型）| 旧 |
-| `targetPeriod` | String? | `daily` / `weekly` / `lifetime` | 旧 |
+| `isPledged` | Boolean | 默认 false；**true=发愿**（有目标+进度条）/ **false=裸追踪项**（无目标，仅打卡快捷入口）；创建修学时询问「是否发愿」由此区分 | 旧（**补回**）|
+| `targetCount` | Int? | 总目标遍数（lifetime 型）；isPledged=false 时为 null | 旧 |
+| `targetPeriod` | String? | `daily` / `weekly` / `lifetime`；isPledged=false 时为 null | 旧 |
 | `dailyTarget` | Int? | 每日目标（daily 型）| 旧 |
 | `weeklyTarget` | Int? | 每周目标（weekly 型）| 旧 |
 | `minSessionMinutes` | Int | 座次最短时长，默认 30；duration 计量专用 | 旧 |
@@ -466,8 +469,12 @@ model UserPracticeVow {
   eventId              String?
   practiceProjectId    String
   customName           String?
+  isPledged            Boolean   @default(false)
+  // true  = 发愿：有目标 + 进度条 + 生命周期
+  // false = 裸追踪项：无目标，仅作打卡快捷入口；target 字段全 null
+  // 裸追踪项不可补发愿（历史打卡不追溯）；要发愿须新建 isPledged=true 的愿
   targetCount          Int?
-  targetPeriod         String?   // daily / weekly / lifetime
+  targetPeriod         String?   // daily / weekly / lifetime（isPledged=false 时 null）
   dailyTarget          Int?
   weeklyTarget         Int?
   minSessionMinutes    Int       @default(30)
@@ -483,9 +490,10 @@ model UserPracticeVow {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  user            User             @relation(fields: [userId], references: [id])
-  event           Event?           @relation(fields: [eventId], references: [id])
-  logs            PracticeLog[]
+  user        User         @relation(fields: [userId], references: [id])
+  event       Event?       @relation(fields: [eventId], references: [id])
+  logs        PracticeLog[]   // context=personal 打卡来源
+  eventCounts EventCount[]    // context=event 打卡来源（独立计数流，不与 PracticeLog 合并）
 }
 ```
 
@@ -496,6 +504,9 @@ model UserPracticeVow {
 | 不物理删除（D18）| 应用层 | 发愿记录永久保留；放弃走 status='abandoned' |
 | context=event 时 eventId 必填 | 应用层（Zod）| |
 | context=personal 时 eventId 为 null | 应用层（Zod）| |
+| isPledged=false 时 target 字段全 null | 应用层（Zod）| 裸追踪项无目标 |
+| context=event 愿进度 = SUM(EventCount.count WHERE vowId=:id) | 应用层 | 不走 PracticeLog；发愿前提交的 EventCount（vowId=null）不回溯关联 |
+| 裸追踪项不可补发愿 | 应用层 | 要发愿须新建 isPledged=true 的愿，历史打卡不追溯 |
 
 ---
 
@@ -918,6 +929,7 @@ model ProgramSemester {
 | 2026-05-29 | 完成 1.5 CohortLagSnapshot 封板：复用不动 + 新增 LagStatus enum + 读权限改写为新角色体系；掉队阈值数据化记入新建 §十 待办清单 TODO-1；同步 §八 DR-17~20、§九 检查轮次 3（0 问题）|
 | 2026-05-29 | 完成 1.6 ClassSession+ClassSessionSchedule 封板：拆两层（方案 b），ClassSession 扩展加 sessionType/scheduleId，新建 §3.15 ClassSessionSchedule；新建区 14→15；TODO-2 链接时效数据化；§八 DR-21~25、§九 检查轮次 4（0 问题）|
 | 2026-05-29 | 完成 1.7 UserPracticeVow 封板（纯发愿，context=personal/event）、1.8 CohortRecommendedTemplate 封板（从复用区移入扩展区，加 programId 两级绑定）、§3.16 ClassTask 封板（辅导员布置班级任务，独立于发愿系统）；扩展区 8→9 张，新建区 15→16 张；§四 CohortRecommendedTemplate 标移入扩展区；§八 DR-26~32、§九 检查轮次 5 |
+| 2026-05-29 | 1.7 UserPracticeVow 修订封板：补回 isPledged 两分法（发愿/裸追踪项）+ eventCounts EventCount[] 关联（法会愿进度独立计数流）；更新约束 3 条；§八 DR-33~34、§九 检查轮次 6（0 问题）|
 
 ---
 
@@ -958,7 +970,9 @@ model ProgramSemester {
 | DR-29 | CohortRecommendedTemplate 从复用区移入扩展区 | 加 programId，两级绑定（专业级 + 班级级）| 旧设计只有 classId（每班手动绑），核对能力 9「课程自带任务来自教学大纲（专业级）」后须加 programId。字段语义变化，不再是纯复用，改归扩展区 |
 | DR-30 | CohortRecommendedTemplate binding 字段 | 保留（auto/recommended）| 课程自带任务 = auto（入班即生效），辅导员可选 recommended（推荐不强制）。两个级别均适用此语义，不需要按级别拆 |
 | DR-31 | UserPracticeVow context 取值 | personal / event，去掉 class | 用户决策：发愿只有用户自己的愿（个人发愿 + 法会发愿），班级维度已归 ClassTask。保留 class 上下文会让发愿与班级任务的边界再次模糊 |
-| DR-32 | UserPracticeVow 去掉的旧字段 | 移除 source / classId / templateId / isPledged / 7态 VowStatus / paceHistory / statusCalculatedAt / statusNote / appointmentId | 这些字段均服务于「班级任务」或「掉队检测」语义，已分别由 ClassTask / CohortLagSnapshot / CareWatchlistItem 接手。新设计文档 05/06 无这些概念，保留是死字段 |
+| DR-32 | UserPracticeVow 去掉的旧字段 | 移除 source / classId / templateId / 7态 VowStatus / currentStatus / statusCalculatedAt / statusNote / paceHistory / appointmentId | 这些字段均服务于「班级任务（source=auto）」或「辅导员掉队管理」语义；班级任务已归 ClassTask，7态状态机是 source=auto 专属，本表去掉 auto 后这套机制无用 |
+| DR-33 | isPledged 是否保留 | 保留（用户决策 2026-05-29 补确认）| 旧设计两分法：用户添加修学时询问「是否发愿」，是则带目标+进度条（isPledged=true），否则是裸追踪项（isPledged=false）。此交互逻辑旧设计已完整设计，是计数模块的核心 UX，不能简化掉 |
+| DR-34 | 法会愿进度走哪张表 | EventCount（独立计数流，不走 PracticeLog）| 旧设计有意隔离：法会期间打卡走 EventCount，日常打卡走 PracticeLog，两条流不同步不合并。法会愿发愿前提交的 EventCount（vowId=null）不回溯关联——有意设计，发愿前属随喜、不计入个人愿进度 |
 
 ---
 
@@ -1075,6 +1089,23 @@ model ProgramSemester {
 
 **本轮发现问题数**：0（关联对称性的反向字段以旧设计 schema 为参考，需在写 Prisma schema 时最终确认，不阻断本轮封板）。
 **结论**：1.7、1.8、§3.16 三张表通过范围内检查。CohortRecommendedTemplate 成功从复用区移入扩展区，计数更新完毕。
+
+### 检查轮次 6（2026-05-29，范围：1.7 UserPracticeVow 修订——补 isPledged + eventCounts）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | 新增 `eventCounts EventCount[]`：EventCount model 需有 `vow UserPracticeVow? @relation(fields: [vowId], references: [id])`——旧设计已有（agent 已确认 EventCount.vowId + vow 反向）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | 扩展区仍 9 张，新建区仍 16 张；本轮是字段修订，不增减表 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | 去掉的字段均注明移除理由（DR-32 更新）；裸追踪项不可补发愿规则已注明 |
+| 8. 业务规则约束有实现方式 | ✅ | isPledged=false 时 target 全 null（Zod）；法会愿进度走 EventCount 不走 PracticeLog（应用层）；裸追踪项不可补发愿（应用层）——三条均注明实现层 |
+| 9-14. 其余检查项 | ✅/⏸ | 同轮次 5，本轮修订不影响其他检查项结论 |
+
+**本轮发现问题数**：0（本轮为补漏修订，已知问题已修，无新发现）。
+**结论**：1.7 修订通过。isPledged 两分法 + EventCount 双轨补回，与旧设计一致；schema 与约束对齐。
 
 ---
 
