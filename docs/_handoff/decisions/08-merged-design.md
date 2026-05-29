@@ -345,7 +345,81 @@ model CohortLagSnapshot {
 }
 ```
 
-### 1.6 ClassSession（共修场次）⬜ 未开始
+### 1.6 ClassSession + ClassSessionSchedule（共修场次 + 课表模板）✅ 已封板
+
+**服务能力**：能力 8（共修与出勤）
+**写权限**：ClassSession 临时发起 = 辅导员及以上；课表生成场次 = 系统自动；ClassSessionSchedule 创建/修改 = 辅导员及以上；平台级（classId=null）仅 super_admin
+**参考决策**：D3（链接时效/出勤门槛数据化）、D17（补卡/撤销代行留痕）、D18（出勤记录不删除）
+
+> **方案 b（用户决策）**：能力 8「双轨发起」要求课表模板与单次场次分层，单表无法表达循环规则与历史打卡的解耦。ClassSession 升级为单次场次（instance），新建 ClassSessionSchedule 为课表模板（schedule）。ClassSession 名称保留——旧代码/前端引用已用此名，改名迁移成本高。出勤仍走 StudyRecord（classSessionId，已在 1.3 封板），不另建出勤表。
+>
+> **⚠️ 待办（能力 8 约束）**：链接激活时效（提前 10 分钟、宽限 30 分钟）按能力 8 应为专业/班级配置项（D3），目前仍写在应用层常量 → 挂入 §十 TODO-2，待配置表设计时处理。
+
+#### ClassSession（单次共修场次）— 🔧 扩展
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | 旧 |
+| `classId` | String? | null=平台级（super_admin 发起）；有值=班级级 | 旧→**改可空** |
+| `title` | String | 场次标题，如「周三晚共修」 | 旧 |
+| `description` | String? | 场次说明 | 旧 |
+| `startAt` | DateTime | 开始时间（UTC）| 旧 |
+| `sessionEndAt` | DateTime? | 结束时刻（签到时间窗口用）| 旧扩展 |
+| `durationMin` | Int | 时长分钟，默认 60 | 旧 |
+| `liveLink` | String? | 直播链接（Zoom 等）| 旧 |
+| `sessionType` | String | `online`（网络，默认）/ `offline`（线下）/ `self_study`（自学）| **新增** |
+| `lessonId` | String? | 本次共修对应课时 | 旧扩展 |
+| `checkInToken` | String? | 共修签到 token（@unique；online 类型生成，offline 不需要）| 旧扩展 |
+| `scheduleId` | String? | null=临时发起；有值=由课表模板自动生成 | **新增** |
+| `editVersion` | Int | 每次 PATCH 自增，客户端 ack 失效校验 | 旧 |
+| `createdBy` | String | 操作人 userId | 旧 |
+| `createdAt` | DateTime | 默认 now() | 旧 |
+| `updatedAt` | DateTime | @updatedAt | 旧 |
+
+```prisma
+model ClassSession {
+  id           String    @id @default(cuid())
+  classId      String?   // null = 平台级
+  title        String
+  description  String?   @db.Text
+  startAt      DateTime
+  sessionEndAt DateTime?
+  durationMin  Int       @default(60)
+  liveLink     String?
+  sessionType  String    @default("online")  // online / offline / self_study
+  lessonId     String?
+  checkInToken String?   @unique
+  scheduleId   String?   // null = 临时发起
+  editVersion  Int       @default(1)
+  createdBy    String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  class    Class?                @relation(fields: [classId], references: [id])
+  lesson   Lesson?               @relation(fields: [lessonId], references: [id])
+  schedule ClassSessionSchedule? @relation(fields: [scheduleId], references: [id])
+  studyRecords StudyRecord[]
+
+  @@index([classId, startAt])
+  @@index([startAt])  // 调度器扫窗口用
+}
+```
+
+#### ClassSessionSchedule（共修课表模板）— ➕ 新建（见 §3.15）
+
+详见 §3.15。此处仅列反向关联：`instances ClassSession[]`。
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `checkInToken` @unique | DB | token 全局唯一（online 场次专用）|
+| `@@index([classId, startAt])` | DB | 班级共修时间线查询 |
+| 平台级场次（classId=null）限 super_admin 创建 | 应用层 | |
+| offline 场次不生成 checkInToken | 应用层 | sessionType='offline' 时 token 置 null |
+| 链接时效由 startAt + durationMin + 宽限期计算 | 应用层 | 宽限期见 TODO-2 |
+| 补卡/撤销留痕（D17）| 应用层 | 写入 StudyRecord + AuditLog |
+| 出勤记录不物理删除（D18）| 应用层 | 撤销走 cohortStatus 或 AuditLog 标记 |
 
 ### 1.7 UserPracticeVow（修持愿）⬜ 未开始
 
@@ -365,11 +439,11 @@ model CohortLagSnapshot {
 
 ---
 
-## 三、➕ 新建表（14 张）
+## 三、➕ 新建表（15 张）
 
 按新业务能力从头设计。
 
-> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）。新建区由 12 张调整为 14 张。
+> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）。新建区由 12 张调整为 15 张。
 
 ---
 
@@ -468,6 +542,60 @@ model ProgramAdvancementConfig {
 ### 3.13 AuditLog（审计日志）⬜ 未开始
 
 ### 3.14 EnrollmentStatusHistory（入学状态变更留痕）✅ 已确认
+
+### 3.15 ClassSessionSchedule（共修课表模板）✅ 已封板
+
+**服务能力**：能力 8（共修与出勤）—— 课表预排主轨
+**写权限**：辅导员及以上（本班）；平台级（classId=null）限 super_admin
+**参考决策**：D3（时效/门槛数据化）、D18（课表历史不删除）
+
+课表模板定义「每周几、几点、几分钟」的循环规则，系统按规则自动生成 ClassSession 实例并激活签到链接。
+
+#### 字段
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `classId` | String? | null=平台级；有值=班级级 |
+| `title` | String | 课表名称，如「加行班周三晚共修」 |
+| `sessionType` | String | `online` / `offline` / `self_study`，默认 `online` |
+| `lessonId` | String? | 可选关联课时（整学期固定课时时填）|
+| `durationMin` | Int | 每次时长分钟，默认 60 |
+| `recurrenceRule` | Json | 循环规则，如 `{dayOfWeek:3, hour:20, minute:0}`（每周三 20:00）|
+| `startDate` | DateTime | 课表生效日期 |
+| `endDate` | DateTime? | 课表结束日期；null = 无限期 |
+| `isActive` | Boolean | 默认 true；false = 停用不再生成新场次 |
+| `createdBy` | String | 操作人 userId |
+| `createdAt` | DateTime | 默认 now() |
+| `updatedAt` | DateTime | @updatedAt |
+
+```prisma
+model ClassSessionSchedule {
+  id             String    @id @default(cuid())
+  classId        String?
+  title          String
+  sessionType    String    @default("online")
+  lessonId       String?
+  durationMin    Int       @default(60)
+  recurrenceRule Json      // {dayOfWeek, hour, minute}
+  startDate      DateTime
+  endDate        DateTime?
+  isActive       Boolean   @default(true)
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  class     Class?          @relation(fields: [classId], references: [id])
+  instances ClassSession[]
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| 停用走 `isActive=false`，不物理删除（D18）| 应用层 | 历史生成的 ClassSession 实例完整保留 |
+| 修改课表不影响已有 ClassSession | 应用层 | 改模板只影响未来新生成实例 |
 
 **服务能力**：能力 11（留级、退出、转专业）
 **写权限**：随状态机操作写入（学员自助退出 = 本人；管理员操作 = 操作人）
@@ -608,6 +736,7 @@ model ProgramSemester {
 | 2026-05-29 | 补建 §八 决策记录、§九 一致性检查记录（守则要求每次记录决策过程 + 跑检查，前几轮缺，本轮回填）；修复 EnrollmentStatusHistory 缺反向关联（检查项 1）|
 | 2026-05-29 | 完成 1.4 SpeakingGrade/ExamGrade/Exam 封板：前两表复用不动，Exam 扩展加 examType(quiz/advancement)；升学考不标 S5/S8（4a）；同步 §八 DR-13~16、§九 检查轮次 2（0 问题）|
 | 2026-05-29 | 完成 1.5 CohortLagSnapshot 封板：复用不动 + 新增 LagStatus enum + 读权限改写为新角色体系；掉队阈值数据化记入新建 §十 待办清单 TODO-1；同步 §八 DR-17~20、§九 检查轮次 3（0 问题）|
+| 2026-05-29 | 完成 1.6 ClassSession+ClassSessionSchedule 封板：拆两层（方案 b），ClassSession 扩展加 sessionType/scheduleId，新建 §3.15 ClassSessionSchedule；新建区 14→15；TODO-2 链接时效数据化；§八 DR-21~25、§九 检查轮次 4（0 问题）|
 
 ---
 
@@ -637,6 +766,11 @@ model ProgramSemester {
 | DR-18 | 掉队阈值数据化 | 暂不在本表做，挂 §十 待办 | 能力 14 约束 #1 要求阈值数据化(D3)，但阈值属计算逻辑层、不是快照表字段；硬改牵连 User 表与算法，超出本表范围，应在 Program/配置表设计时统一处理 |
 | DR-19 | CohortLagSnapshot 读权限 | 改写为新角色体系（辅导员及以上，按作用域）| 旧设计用 ClassAdmin flag(canViewStudents)，已被 UserRoleAssignment 替换；对齐能力 14 规则 3，学员端仍完全不可见 |
 | DR-20 | CohortLagSnapshot 是否适用 D18 | 不适用（可被重算覆盖）| 本表是每日重算的 computed state，非历史事件；永久留痕落在 care_followup_records/CareWatchlistItem，快照仅信号源 |
+| DR-21 | ClassSession 是否拆两层 | 拆（方案 b，用户决策）| 排除单表扩展(a)：课表循环规则与单次场次混在一行，改课表要批量改历史行，查询复杂；能力 8「对老项目影响」也明确要求 schedule/instance 分层 |
+| DR-22 | 拆层后 ClassSession 命名 | 保留 ClassSession 作为 instance | 排除重命名为 GongxiuInstance：旧代码/前端已大量引用 ClassSession，改名迁移成本高；新增 ClassSessionSchedule 为模板层，命名风格一致 |
+| DR-23 | 出勤记录用哪张表 | 继续走 StudyRecord（classSessionId 已在 1.3 封板）| 排除新建独立出勤表：StudyRecord @@unique([classSessionId, userId, studyType]) 已满足防重需求，新建出勤表属过度设计 |
+| DR-24 | checkInToken 过期字段 | 不加 expiresAt，由 startAt+durationMin+宽限期计算 | 宽限期是配置项(TODO-2)，写进字段反而写死；应用层按时间窗口判断更灵活 |
+| DR-25 | 链接时效数据化 | 暂不在本表做，挂 §十 TODO-2 | 能力 8「可在专业/班级层配置」，相关配置表未封板；提前在 ClassSession 加字段反而绕过配置层 |
 
 ---
 
@@ -710,6 +844,28 @@ model ProgramSemester {
 **本轮发现问题数**：0。
 **结论**：1.5 通过范围内检查。新增 §十 待办清单记录「掉队阈值数据化」(DR-18)，待依赖表封板后处理。
 
+### 检查轮次 4（2026-05-29，范围：+ 1.6 ClassSession + §3.15 ClassSessionSchedule，共 9 节）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | ClassSession.schedule ↔ ClassSessionSchedule.instances 成对；ClassSession.studyRecords ↔ StudyRecord（1.3 已封板，classSessionId 指向此表）；ClassSession.class/lesson 反向存在（旧设计 1540 行 classSessions Class）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | 新建区标题改为「15 张」，注记列明 ClassSessionSchedule 来源 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | expiresAt 不加（DR-24）、时效数据化挂 TODO-2 均有说明 |
+| 8. 业务规则约束有实现方式 | ✅ | 各约束注明 DB/应用层；offline 不生成 token、平台级限 super_admin 等均注明 |
+| 9. 升学条件可全查 | ⏸ 本表无关 | ClassSession 服务能力 8，出勤达标由 ProgramAdvancementConfig.attendance 判定，数据来源 StudyRecord（已封板）|
+| 10. D14 豁免字段区分 | ⬜ 待相关表封板 | 无关 |
+| 11. D17 代行留痕路径完整 | 🔵 部分 | 补卡/撤销留痕注明走 StudyRecord+AuditLog；待 AuditLog(§3.13) 封板验证 |
+| 12. D18 不物理删除 | ✅ | ClassSession 无 delete；ClassSessionSchedule 停用走 isActive=false |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | 共修发起(辅导员)/平台级(admin)写权限已对应 ClassSession/ClassSessionSchedule；全职能待全表完成 |
+| 14. 枚举值各处一致 | ✅ | sessionType 三值(online/offline/self_study)在 ClassSession/ClassSessionSchedule/约束三处一致 |
+
+**本轮发现问题数**：0。
+**结论**：1.6 两张表通过范围内检查。新增 §十 TODO-2（链接时效数据化）。
+
 ---
 
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
@@ -719,3 +875,4 @@ model ProgramSemester {
 | 编号 | 待办 | 来源 | 处理时机 | 关联决策 |
 |---|---|---|---|---|
 | TODO-1 | 掉队判定阈值数据化（近2周窗口、各档比例、lagPracticeDaysExpected）——能力 14 约束 #1 要求阈值为专业配置项(D3)，目前散落代码/User 表 | 1.5 CohortLagSnapshot | Program/专业配置表设计时（扩展区已封板，需在新建区或复用区 Program 相关表处理）| DR-18 |
+| TODO-2 | 共修链接激活时效数据化（提前激活 10 分钟、宽限期 30 分钟）——能力 8 明确「可在专业/班级层配置」(D3)，目前写死在应用层常量 | 1.6 ClassSession | 班级/专业配置表设计时处理 | DR-25 |
