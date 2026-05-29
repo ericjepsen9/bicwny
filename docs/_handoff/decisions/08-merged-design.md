@@ -508,6 +508,18 @@ model UserPracticeVow {
 | context=event 愿进度 = SUM(EventCount.count WHERE vowId=:id) | 应用层 | 不走 PracticeLog；发愿前提交的 EventCount（vowId=null）不回溯关联 |
 | 裸追踪项不可补发愿 | 应用层 | 要发愿须新建 isPledged=true 的愿，历史打卡不追溯 |
 
+#### 设计意图
+
+**打卡入口统一在修学计数模块**：用户无论是个人发愿还是法会发愿，都在同一个「修学」列表里添加数量。应用层按 context 分流写表（personal → PracticeLog；event → EventCount），用户无感知。
+
+**列表类别标签**（前端展示，三值固定）：
+
+| 标签 | 条件 |
+|---|---|
+| 普通计数 | isPledged=false |
+| 个人发愿 | isPledged=true, context=personal |
+| 法会发愿 | isPledged=true, context=event（附带法会名）|
+
 ---
 
 ### 1.8 CohortRecommendedTemplate（班级模板绑定）✅ 已封板
