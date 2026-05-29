@@ -674,7 +674,68 @@ model UserRoleAssignment {
 
 每条记录 = 「某人在某作用域持有某角色」。一人可多角色（D8），如同时是班 A 的 class_tutor 和班 B 的 class_admin。鉴权时：取 userId 的全部 active 记录，按 classId/programId 过滤当前作用域，最高角色级别决定权限（D7 扁平继承）。变更历史走 RoleAssignmentHistory（§3.2），重要操作走 AuditLog（§3.11，能力 20 审计日志）。
 
-### 2.2 care_followup_records（替代 CareFollowup）⬜ 未开始
+### 2.2 CareFollowupRecord（替代 CareFollowup）✅ 已封板
+
+**服务能力**：能力 14（学员关怀清单）+ 能力 12（特殊身份学员跟进，共用，`sourceType` 字段区分）
+**写权限**：`class_admin` 及以上（职能 #3 W）；`class_tutor` 只读（职能 #3 R）；学员不可见
+**参考决策**：D15（退出后历史可查）、D17（代行留痕）、D18（不物理删除）
+
+> **替代旧 CareFollowup**：旧设计权限守卫是 `ClassAdmin.canCareFollowup` Boolean flag；新设计改为 role-based（职能 #3，class_admin W / class_tutor R），flag 废弃（已随 ClassAdmin 整体废弃，见 DR-39）。
+>
+> **双能力共用**：能力 14（关怀清单触发）与能力 12（特殊身份跟进）的跟进备注走同一张表，`sourceType` 字段区分来源，见 DR-42。
+
+#### 字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | 旧 |
+| `studentId` | String | 被关怀学员 userId | 旧 |
+| `classId` | String | 班级作用域 | 旧 |
+| `careWorkerId` | String | 填写人 userId（辅导员/admin）| 旧 |
+| `sourceType` | String | `care_watchlist`（能力14 触发）/ `special_status`（能力12 特殊身份）| **新增** |
+| `watchlistItemId` | String? | source=care_watchlist 时关联 §3.4 CareWatchlistItem | **新增** |
+| `contactedAt` | DateTime | 实际联系/跟进时间 | 旧 |
+| `summary` | String | 跟进内容备注（内部工作日志）| 旧 |
+| `followUpStatus` | String | `pending` / `resolved` / `escalated`，默认 pending | 旧 |
+| `lagSnapshotAtContact` | Json? | 跟进时学员掉队状态快照（从 CohortLagSnapshot 拷贝定格）；special_status 来源时 null | 旧（nullable 语义扩展）|
+| `createdAt` | DateTime | 默认 now() | 旧 |
+
+```prisma
+model CareFollowupRecord {
+  id                   String   @id @default(cuid())
+  studentId            String
+  classId              String
+  careWorkerId         String
+  sourceType           String   // care_watchlist / special_status
+  watchlistItemId      String?  // source=care_watchlist 时关联 CareWatchlistItem
+  contactedAt          DateTime
+  summary              String   // 内部工作日志，学员不可见
+  followUpStatus       String   @default("pending")  // pending / resolved / escalated
+  lagSnapshotAtContact Json?    // 跟进时掉队快照；special_status 来源时 null
+  createdAt            DateTime @default(now())
+
+  student       User               @relation("CareStudent",  fields: [studentId],  references: [id])
+  careWorker    User               @relation("CareWorker",   fields: [careWorkerId], references: [id])
+  class         Class              @relation(fields: [classId], references: [id])
+  watchlistItem CareWatchlistItem? @relation(fields: [watchlistItemId], references: [id])
+
+  @@index([studentId, classId])
+  @@index([watchlistItemId])
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| sourceType 枚举校验 | 应用层（Zod）| 只允许 care_watchlist / special_status |
+| care_watchlist → watchlistItemId 必填 | 应用层（Zod）| 关怀清单记录必须关联来源条目 |
+| 学员不可见 | 应用层 | 无面向学员端的 API 路由 |
+| 无物理删除（D18）| 应用层 | 备注永久留档，无 delete API |
+
+#### 设计意图
+
+每条记录 = 「某辅导员在某时间对某学员做了一次跟进，并留下备注」。`lagSnapshotAtContact` 是跟进发生时从 CohortLagSnapshot 拷贝定格的快照——历史数据，事后掉队状态变化不影响此记录（与旧设计一致）。`sourceType` 让能力 14（关怀清单）和能力 12（特殊身份）的跟进记录统一列表展示，查询时按 `sourceType` 过滤，无需拆两张表。
 
 ### 2.3 TransmissionRecord（整合 TantricAccessGrant）⬜ 未开始
 
@@ -1039,6 +1100,7 @@ model ProgramSemester {
 | 2026-05-29 | 1.7 UserPracticeVow 再次修订：context 扩展为 5 值（+class_task/program_task），新增 classTaskId/cohortTemplateId 外键，任务目标运行时 join 不复制（D3）；§1.8 和 §3.16 补反向关联 vows[]；列表标签扩展为 5 类；§八 DR-35~37、§九 检查轮次 7（0 问题）|
 | 2026-05-29 | 全量审查修复：(1) §1.5 taskLag 描述去掉 source=auto；(2) 补 DR-38 vow 生命周期自治原则（外部事件不影响 vow）；(3) §1.7 新增约束 2 条 + 设计意图补充；(4) 轮次 7 检查项 12 修正；§九 检查轮次 8（3 个问题全闭合）|
 | 2026-05-29 | 完成 §二 2.1 UserRoleAssignment 封板：替代旧 ClassAdmin 8 flag，4 角色+作用域绑定体系，super_admin NULL unique 应用层兜底；§三 目录重整（UserRoleAssignment/TransmissionRecord 从新建区迁出，16→14 张，3.3→3.2 重排，3.14/3.15/3.16→3.12/3.13/3.14）；全量更新内联引用；§八 DR-39~41；§九 检查轮次 9（0 问题）|
+| 2026-05-29 | 完成 §二 2.2 CareFollowupRecord 封板：替代旧 CareFollowup，新增 sourceType（care_watchlist/special_status 双能力共用）、watchlistItemId FK；canCareFollowup flag 废弃改 role-based；§八 DR-42~43；§九 检查轮次 10（1 个问题：§3.4 须补反向关联，已标注）|
 
 ---
 
@@ -1089,6 +1151,8 @@ model ProgramSemester {
 | DR-39 | 旧 ClassAdmin 8 个 Boolean flag 如何映射到新角色体系 | 按职能边界分摊到 4 角色层级，flag 废弃 | `canManageMembers`→class_admin 职能 #2（管理成员名单）；`canManageExams`→class_tutor #11a（随堂测）/ class_admin #11b（升学考）；`canViewStudents`→class_tutor #8（查看学员信息）；`canCareFollowup`→class_tutor #3 read（查看关怀）/ class_admin #3 write（发起跟进）；`canEditGoals`→见 DR-40；`canManageCourse`→class_admin #16（管理课程内容）；`canEdit`/`canDelete`→全局角色继承覆盖，无需独立 flag。旧 flag 从未后端实现（后端现状见 §二 2.1 背景注），无迁移破坏 |
 | DR-40 | canEditGoals 是否作为独立权限 flag | 不作 flag；辅导员调整学员目标 = 代行操作，走能力 5 | 能力 5「代行操作」定义：class_admin 及以上可代学员执行受限操作，每次操作必须写 AuditLog 留痕（D17）。「调整目标」是典型代行：操作人≠当事人，需留痕，权限自然受 class_admin 角色控制，无需再单独 flag |
 | DR-41 | super_admin 唯一约束 PostgreSQL NULL≠NULL 问题 | 应用层额外校验 | `@@unique([userId, role, classId, programId])` 对 super_admin（classId=null, programId=null）失效——PostgreSQL 将 NULL≠NULL，导致同一人可插入多条 active super_admin 行。解决方案：应用层 Zod 前置 + 写入前 `findFirst({where:{userId, role:'super_admin', status:'active'}})` 幂等检查，命中则 upsert/返回错误，不命中才 create |
+| DR-42 | care_followup_records 是否拆能力14/能力12 两张表 | 合并为一张表，sourceType 字段区分 | 能力 14（关怀清单）与能力 12（特殊身份）的跟进备注在业务上完全同构（谁跟进了谁、何时、说了什么、状态如何）。拆两张表只会产生重复 schema + 重复 UI 组件；`sourceType` 一个字段即可区分来源，查询/过滤/展示均无障碍 |
+| DR-43 | canCareFollowup flag 如何处理 | 废弃 flag，改为 role-based（职能 #3）| 旧 `ClassAdmin.canCareFollowup` Boolean 是 ClassAdmin 8 flag 之一，随 ClassAdmin 整体废弃（DR-39）。写权限对应职能 #3 W（class_admin 及以上），读权限对应职能 #3 R（class_tutor）。排除「保留 flag 细粒度控制」：新设计 23 职能矩阵已精确到每个职能的读写边界，额外 flag 是冗余的授权维度 |
 
 ---
 
@@ -1275,6 +1339,28 @@ model ProgramSemester {
 
 **本轮发现问题数**：0（§三 目录重整为清理操作，无逻辑变更；2.1 设计已在决策确认时验证）。
 **结论**：§二 2.1 UserRoleAssignment 封板通过。§三 计数已由 16→14 修正，内联引用全部同步更新（§3.12 EnrollmentStatusHistory / §3.13 ClassSessionSchedule / §3.14 ClassTask / §3.9 AdvancementCheck / §3.11 AuditLog 等）。
+
+### 检查轮次 10（2026-05-29，范围：§二 2.2 CareFollowupRecord 封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | CareFollowupRecord.student↔User（`careStudentRecords` 反向，旧设计 1486 行已有）；.careWorker↔User（`careWorkerRecords` 反向，旧设计 1487 行已有）；.class↔Class（Class model 有 `careFollowupRecords` 反向）；.watchlistItem↔CareWatchlistItem（§3.4 设计时须补 `followupRecords CareFollowupRecord[]` 反向关联，已在约束设计意图中标注）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | 替换区仍 3 张（2.1 已封板，2.2 本轮封板，2.3 未开始）；扩展区/新建区计数不变 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | canCareFollowup flag 废弃在背景注中明确标注（DR-43）；special_status 来源的 `lagSnapshotAtContact=null` 已注明 |
+| 8. 业务规则约束有实现方式 | ✅ | sourceType 枚举（Zod）；care_watchlist→watchlistItemId 必填（Zod）；学员不可见（应用层路由）；无物理删除（应用层）——四条均注明实现层 |
+| 9. 升学条件可全查 | ⏸ 本表无关 | 关怀记录服务能力 14/12，非升学条件 |
+| 10. D14 豁免字段区分 | ⏸ 本表无关 | 无修学计数相关字段 |
+| 11. D17 代行留痕路径完整 | ✅ | careWorkerId 即代行人；每次跟进均写入一条记录，天然留痕；无需额外 AuditLog（跟进记录本身即日志，非间接代行）|
+| 12. D18 不物理删除 | ✅ | 无 delete API，备注永久留档，与能力 14 绝对约束 #3 一致 |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | 职能 #3（学员日常关怀）R/W 已对应 CareFollowupRecord 读写权限；全职能核对待全表完成 |
+| 14. 枚举值各处一致 | ✅ | sourceType 两值(care_watchlist/special_status) 在字段表/schema/约束/设计意图四处一致；followUpStatus 三值(pending/resolved/escalated) 在字段表/schema 两处一致，与旧设计一致 |
+
+**本轮发现问题数**：1（检查项 1 发现 §3.4 CareWatchlistItem 设计时须补 `followupRecords CareFollowupRecord[]` 反向关联，已标注为 §3.4 设计时的必做事项）。
+**结论**：§二 2.2 CareFollowupRecord 封板通过。`sourceType` 双能力共用方案、role-based 权限、D18 留档均已覆盖。§3.4 CareWatchlistItem 开始设计时须补反向关联。
 
 ---
 
