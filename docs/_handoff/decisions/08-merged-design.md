@@ -1161,14 +1161,172 @@ model ProgramSemester {
 
 ---
 
-## 五、⏸ 暂缓表（保留旧设计原样）
+## 五、⏸ 暂缓表（设计已落实，实现延后）
 
-| 表 | 说明 |
-|---|---|
-| `ClassPost` / `ClassPostReaction` / `ClassPostComment` / `ClassPostShare` | 班级动态，新设计 20 条能力未覆盖 |
-| `Discussion` / `DiscussionViewpoint` / `DiscussionVote` / `DiscussionComment` | 班级讨论，未覆盖 |
-| `PracticeAppointment` | 约修，旧设计已标 ⏸ Phase 5 |
-| `UserSelfStudyProgram` + `UserSelfStudyRestWeek` | 自学模式，未深度设计 |
+> 本区表示「设计已定稿、实现待排期」。每个功能已完整设计，可直接用于 Prisma schema，但不在当前迭代实现。
+
+| 状态 | 家族 | 表数 |
+|---|---|---|
+| ✅ 设计封板 | §5.1 班级动态（ClassPost 家族） | 4 张 |
+| ⬜ 待讨论 | §5.2 班级讨论（Discussion 家族） | 4 张 |
+| ⬜ 待讨论 | §5.3 约修（PracticeAppointment） | 1 张 |
+| ⬜ 待讨论 | §5.4 自学模式（UserSelfStudyProgram 家族） | 2 张 |
+
+---
+
+### 5.1 班级动态（ClassPost 家族）✅ 设计封板
+
+**⏸ 暂缓**：当前迭代不实现；以下设计可直接用于写 Prisma schema。
+
+**服务能力**：班级动态互动（发帖/评论/反应/转发），06 文档未列入 20 条能力；⚠️ 实现时需在 06 文档补入对应能力编号及职能矩阵条目。
+**写权限**：
+- 发帖：班级 active 成员（`ClassMember.classId` 内，`cohortStatus=active`）
+- 删帖：发帖人自己（`authorId == session.userId`）**或** `class_admin` 及以上（同班，按 UserRoleAssignment）
+- 评论：班级 active 成员
+- 删评论：评论人自己（`authorId == session.userId`）**或** `class_admin` 及以上
+- 点赞（Reaction）：班级成员 toggle（`@@unique([postId, userId])` 防重；取消点赞走物理删行，参见 DR-50）
+- 转发记录（Share）：班级成员；仅记录，不物理删
+**参考决策**：D18（帖子/评论不物理删除）、DR-50~52
+
+#### ClassPost（班级帖子）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `classId` | String | 关联 Class |
+| `authorId` | String | 关联 User（发帖人）|
+| `content` | String | 帖子正文 |
+| `sharedFromId` | String? | 站内转发来源 postId（转发帖时填，原创为 null）|
+| `isDeleted` | Boolean | 软删除标记，默认 false；D18 不物理删 |
+| `deletedBy` | String? | 删除操作人 userId（可为 authorId 自删或 class_admin+）|
+| `deletedAt` | DateTime? | 删除时间 |
+| `createdAt` | DateTime | 默认 now() |
+| `updatedAt` | DateTime | @updatedAt |
+
+```prisma
+model ClassPost {
+  id           String    @id @default(cuid())
+  classId      String
+  authorId     String
+  content      String
+  sharedFromId String?   // 站内转发来源 postId；原创为 null
+  isDeleted    Boolean   @default(false)
+  deletedBy    String?   // 可为 authorId（自删）或 class_admin+
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  class      Class               @relation(fields: [classId], references: [id])
+  author     User                @relation(fields: [authorId], references: [id])
+  sharedFrom ClassPost?          @relation("PostShares", fields: [sharedFromId], references: [id])
+  reshares   ClassPost[]         @relation("PostShares")
+  reactions  ClassPostReaction[]
+  comments   ClassPostComment[]
+  shares     ClassPostShare[]
+}
+```
+
+#### ClassPostReaction（点赞）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `postId` | String | 关联 ClassPost |
+| `userId` | String | 关联 User |
+| `createdAt` | DateTime | 默认 now() |
+
+```prisma
+model ClassPostReaction {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post ClassPost @relation(fields: [postId], references: [id])
+  user User      @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])  // 每人每帖只能点赞一次；取消点赞物理删行（DR-50）
+}
+```
+
+#### ClassPostComment（评论）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `postId` | String | 关联 ClassPost |
+| `authorId` | String | 关联 User（评论人）|
+| `content` | String | 评论正文 |
+| `isDeleted` | Boolean | 软删除标记，默认 false；D18 不物理删 |
+| `deletedBy` | String? | 删除操作人（可为 authorId 自删或 class_admin+）|
+| `deletedAt` | DateTime? | 删除时间 |
+| `createdAt` | DateTime | 默认 now() |
+
+```prisma
+model ClassPostComment {
+  id        String    @id @default(cuid())
+  postId    String
+  authorId  String
+  content   String
+  isDeleted Boolean   @default(false)
+  deletedBy String?   // 可为 authorId（自删）或 class_admin+
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  post   ClassPost @relation(fields: [postId], references: [id])
+  author User      @relation(fields: [authorId], references: [id])
+}
+```
+
+#### ClassPostShare（转发记录）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `postId` | String | 关联 ClassPost |
+| `userId` | String | 关联 User（转发人）|
+| `createdAt` | DateTime | 默认 now() |
+
+```prisma
+model ClassPostShare {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post ClassPost @relation(fields: [postId], references: [id])
+  user User      @relation(fields: [userId], references: [id])
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| 删帖权限双路：`authorId == session.userId` OR `class_admin`+ | 应用层 | DB 无法表达「OR 条件身份判断」，须在 API 中间件校验 |
+| 删评权限双路：同上（评论人自删 OR class_admin+）| 应用层 | 同上 |
+| 软删：`isDeleted=true` + `deletedBy` + `deletedAt`（ClassPost、ClassPostComment）| 应用层+DB | 无 delete API；`isDeleted=true` 前端隐藏但 DB 保留（D18）|
+| Reaction 点赞防重 | DB（@@unique）| 物理删行用于「取消点赞」，非历史性操作（DR-50）|
+| Share 不物理删 | 应用层 | 转发记录视为历史事件，不提供删除接口 |
+| 内容仅在本班可见 | 应用层 | ClassPost.classId 强制按班级过滤；跨班不可见 |
+
+---
+
+### 5.2 班级讨论（Discussion 家族）⬜ 待讨论
+
+> 含 Discussion / DiscussionViewpoint / DiscussionVote / DiscussionComment 4 张表，旧设计已有完整 schema，待下一轮讨论确认。
+
+---
+
+### 5.3 约修（PracticeAppointment）⬜ 待讨论
+
+> 旧设计已标 ⏸ Phase 5，含 PracticeAppointment 1 张表，待下一轮讨论确认。
+
+---
+
+### 5.4 自学模式（UserSelfStudyProgram 家族）⬜ 待讨论
+
+> 含 UserSelfStudyProgram + UserSelfStudyRestWeek 2 张表，待下一轮讨论确认。
 
 ---
 
@@ -1205,6 +1363,7 @@ model ProgramSemester {
 | 2026-05-29 | 完成 §二 2.2 CareFollowupRecord 封板：替代旧 CareFollowup，新增 sourceType（care_watchlist/special_status 双能力共用）、watchlistItemId FK；canCareFollowup flag 废弃改 role-based；§八 DR-42~43；§九 检查轮次 10（1 个问题：§3.4 须补反向关联，已标注）|
 | 2026-05-29 | 完成 §二 2.3 TransmissionRecord 封板：整合废弃 TantricAccessGrant，三源统一（course/dharma_event/empowerment），密法授权/固定清单升格/升学预检三条路径打通；§八 DR-44~47；§九 检查轮次 11（1 个问题：TantricGroup 反向关联须替换，已知，不阻断封板）；§二 替换区 3 张全部封板 |
 | 2026-05-29 | §1.4 修订：SpeakingGrade.classId String→String?（null=平台级讲考由 subject_admin/super_admin 评分）；§四 SpeakingSession 复用确认（classId 旧设计已可空，照搬）、Exam 标移入 §1.4；写权限说明拆班级/平台两级；§八 DR-48~49；§九 检查轮次 12（0 问题）|
+| 2026-05-29 | §五 暂缓区重构：从「保留旧设计原样」改为「设计已落实/实现延后」，拆为 §5.1~5.4 四个子节。§5.1 班级动态（ClassPost/Reaction/Comment/Share 4 张表）✅ 封板：补发帖人自删权限（authorId 自删 OR class_admin+）、软删三件套（D18）、Reaction toggle 物理删例外（DR-50）、职能待定标记（DR-52）；§5.2~5.4 保持 ⬜ 占位；§八 DR-50~52；§九 检查轮次 13（0 问题）|
 
 ---
 
@@ -1263,6 +1422,9 @@ model ProgramSemester {
 | DR-47 | 课程自动触发传承如何关联 ProgramAdvancementConfig | 通过 transmissionKey=conditionKey 打通 | 课程配置（能力 3 圆满触发）中标注「含传承」时，系统写入 TransmissionRecord：entryBy=system、isRequired=true（已知是固定清单项）、isConfirmed=true、transmissionKey=对应 ProgramAdvancementConfig.conditionKey。升学预检无需特殊处理，与手动录入升格后的记录结构完全一致（D3 数据驱动，逻辑不随新传承类型改代码）|
 | DR-48 | 平台级讲考 SpeakingGrade.classId 如何处理 | 改为可空（String?），null = 平台级评分 | 平台级 SpeakingSession（classId=null）由 subject_admin/super_admin 评分，评分人无归属班。旧 classId String（辅导员所在班，用于权限范围限定）在平台级场景无法填值。改为 String?：有值时含义不变（班级级评分，辅导员权限范围），null 时表示平台级评分（subject_admin/super_admin 身份即权限依据）。排除「平台级讲考不设评分」：用户明确要求平台级讲考也记评分（2026-05-29）|
 | DR-49 | 平台级讲考的创建/评分权限归属 | 创建：subject_admin/super_admin；评分：subject_admin/super_admin | 旧设计平台级场次（classId=null）已明确「仅 admin 可设」（FINAL_DESIGN 2853 行）。新角色体系下，「admin」对应 subject_admin（学科范围）及 super_admin（全局），两者均无归属班，符合平台级操作语义。class_tutor/class_admin 无平台级讲考的创建权（无跨班权限，D8 作用域边界）|
+| DR-50 | ClassPostReaction 取消点赞是否物理删行 | 物理删行（D18 例外）| 点赞/取消点赞是纯状态 toggle，无历史留档需求（「曾经点过赞」不是业务关心的历史事件）。物理删行 + @@unique 防重是最简洁正确的 toggle 模式。对比：ClassPost/ClassPostComment 是通讯内容，删除需留痕（isDeleted+deletedBy）；Reaction 是瞬时情绪标记，语义不同。ClassPostShare 不删（转发是历史事件）|
+| DR-51 | 帖子/评论删除权限如何表达「发帖人自删 OR 管理员」| 应用层双路判断，不加 DB 约束 | 删除条件：`session.userId == authorId`（自删）OR `UserRoleAssignment.role >= class_admin`（同班管理权）。此「OR」逻辑无法在 DB 层表达，须应用层 API 中间件先做身份判断，再执行软删（isDeleted=true + deletedBy + deletedAt）。deletedBy 字段同时兼做「谁删了」的审计留痕（自删 = 发帖人 userId，管理删除 = 管理员 userId）|
+| DR-52 | ClassPost 家族职能归属 | 暂缓实现时再定职能编号，当前设计按角色层级描述 | 06 文档 20 条业务能力未覆盖「班级动态」，没有对应职能编号。旧设计已有完整 schema，新设计权限按角色层级（class_admin+，active 班级成员）描述已足够。排除「强行映射到现有职能」（无对应职能，强映射会导致语义混乱）。待实现时补 06 文档能力条目 + 23职能矩阵行 |
 
 ---
 
@@ -1512,6 +1674,25 @@ model ProgramSemester {
 
 **本轮发现问题数**：0。
 **结论**：§1.4 SpeakingGrade 修订通过。classId nullable 设计覆盖班级级/平台级两种讲考评分场景，权限分流逻辑明确。SpeakingSession 复用确认，旧设计 classId 可空已足够，无需 schema 改动。
+
+### 检查轮次 13（2026-05-29，范围：§5.1 ClassPost 家族封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | ClassPost.class↔Class.posts（旧设计 Class model 有 posts[]）；ClassPost.author↔User.posts（旧设计 User model 有 posts[]）；ClassPost.sharedFrom/reshares 自关联对称；ClassPostReaction/Comment/Share 的 post↔reactions/comments/shares 成对；User 反向 reactions[]/comments[]/shares[] 旧设计已有 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | §五 暂缓表不写 API 层；实现时再核对 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §五 暂缓区表头已更新为「设计已落实，实现延后」；4 张暂缓表（ClassPost/Reaction/Comment/Share）已在 §5.1 封板，其余 3 组 §5.2~5.4 保持 ⬜ |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 暂缓区不生成 migration；实现时统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | §5.1 标 ⏸ 暂缓；Reaction 取消点赞物理删行已标 DR-50 说明例外理由；职能待定已标 ⚠️ |
+| 8. 业务规则约束有实现方式 | ✅ | 删帖/删评双路权限→应用层（DB 无法表达 OR 条件身份）；软删→应用层+DB 字段；Reaction 防重→DB @@unique；内容班级隔离→应用层过滤 |
+| 9-12. 其余检查项 | ⏸/✅ | D18：帖子/评论软删（D18 合规）；Reaction 物理删行（DR-50 说明为状态 toggle 例外，同 D20 快照例外思路）；D17 代行留痕：deletedBy 字段兼做审计，重量级操作仍走 AuditLog（待 §3.11 封板后验证覆盖） |
+| 13. 02 文档 23 职能写表覆盖 | ⚠️ 待实现时补 | 班级动态无对应职能编号（DR-52），⏸ 暂缓期间无需补；实现时需在 06 文档新增能力 + 职能矩阵行 |
+| 14. 枚举值各处一致 | ✅ | ClassPost 无新增 enum；isDeleted 布尔、deletedBy/deletedAt 软删三件套在 ClassPost 与 ClassPostComment 两表定义一致 |
+
+**本轮发现问题数**：0。
+**结论**：§5.1 ClassPost 家族（4 张表）设计封板。权限双路（自删/管理删）、D18 软删、Reaction toggle 例外已有 DR 说明。Reaction 物理删例外与 DR-20 快照例外同类思路（状态/计算值，非历史事件）。⚠️ 实现时须补职能编号（DR-52）。
 
 ---
 
