@@ -1104,6 +1104,7 @@ model EnrollmentStatusHistory {
 | 表 | 服务能力 | 状态 |
 |---|---|---|
 | `Course`（法本/课程，旧设计已扩展版，详见下）| 能力 1/3/17 | ✅ 确认复用 |
+| `Lesson`（课时，旧设计 +sourceText 版，详见下）| 能力 3 | ✅ 确认复用 |
 | `ProgramSemester`（科目/学期，字段够用，详见下）| 能力 1 | ✅ 确认复用 |
 | `PracticeLog` | 能力 4/6/7 | ⬜ |
 | `PracticeTemplate` | 能力 4/6/7 | ⬜ |
@@ -1143,6 +1144,18 @@ model EnrollmentStatusHistory {
 | `tantricGroupId` | 密法组（灌顶单位），仅 isTantric=true 时填；按组授权 | ✅ 有效 |
 
 > **唯一注意点**：密法访问控制的**查询方式**已变（§二 2.3 废弃 TantricAccessGrant，改为 `EXISTS on TransmissionRecord(sourceType=empowerment)`，DR-44/45）。但这只影响「如何查授权」，**不影响 Course 表本身字段**——`tantricGroupId` 仍保留，用于标记法本所属密法组。Course 表字段完全照搬旧设计扩展版。
+
+---
+
+#### Lesson 复用说明
+
+旧设计 §2.2 对 Lesson 仅扩展 1 个字段，核对新设计后有效，判 ✅ 复用：
+
+| 新增字段 | 用途 | 新设计下状态 |
+|---|---|---|
+| `sourceText` | 法本原文正文（造论者所著），与现有 `referenceText` 并存，referenceText 不废弃 | ✅ 有效 |
+
+其余字段保留（`referenceText` / `teachingSummary` 等闻思内容字段）。Lesson 服务能力 3（闻思圆满），新设计闻思打卡走 LessonCompletion、答题走 QuestionReference/UserAnswer（均在 §三/§四 处理），Lesson 表本身只承载课时内容字段，无新增需求，字段照搬旧设计扩展版。
 
 ---
 
@@ -1720,6 +1733,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §5.4 自学模式（UserSelfStudyProgram + UserSelfStudyRestWeek 2 张表）✅ 封板：入学限 subject_admin/super_admin（DR-61）、请假进度补足算法（DR-64）；§十 新增 TODO-5（Program 恢复反向关联）；§八 DR-61~64；§九 检查轮次 16；**§五 四组暂缓表全部设计封板** |
 | 2026-05-29 | §5.4 修正（用户决策）：**自学模式不需要休息审批**——移除 UserSelfStudyRestWeek 的审批状态机（pending/approved/rejected/expired + expiresAt + processedBy + rejectReason），回归旧设计自由申报（restStartDate + reason）；学员自助申报、即时生效、不可撤销（DR-62/63 改写）；进度补足改为全部申报休息周计入；删除 TODO-4（审批时效），新增 TODO-6（班级成员请假审批流另行设计）；§九 检查轮次 16 同步更新 |
 | 2026-05-29 | B 类核心表开始确认：§四 Course（法本/课程）✅ 复用——旧设计 §2.2 已扩展版（author/isTantric/programSemesterId/category/tantricGroupId 5 字段）核对后全部有效，字段不改；密法授权查询方式已迁 TransmissionRecord（不影响 Course 字段）；§八 DR-65；§九 检查轮次 17（0 问题）|
+| 2026-05-29 | §四 Lesson（课时）✅ 复用——旧设计 §2.2 仅扩展 sourceText（法本原文，与 referenceText 并存），课时只承载内容字段，进度/答题走 LessonCompletion/QuestionReference，字段不改；§八 DR-66；§九 检查轮次 18（0 问题）|
 
 ---
 
@@ -1794,6 +1808,7 @@ model UserSelfStudyRestWeek {
 | DR-63 | 自学休息周申报是否可撤销 | 不可撤销（D18，用户决策 2026-05-29）| 申报即生效并影响进度计算，记录有审计价值，不提供删除/撤销接口。符合 D18 append-only。排除「允许撤销」：会引入物理删，且自学进度已据此重算，撤销会造成进度跳变 |
 | DR-64 | 请假后进度落后如何补足 | 申报休息周天数从有效学习天数中扣除（用户决策 2026-05-29）| 用户决策「用户请假课程进度落后可以补足」。核心：有效学习天数 = (今天−startDate) − Σ申报休息天数，当前周由有效天数推算。自学无审批，全部已过去的申报休息周均计入补足，避免假性落后。休息中内容仍可访问（学员可自主补课），掉队预警暂停。此算法复用班级进度算法，仅数据源换成个人 startDate + 个人休息周（与旧设计注释「自学进度算法 = 班级进度算法」一致）|
 | DR-65 | Course 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 已将 Course 扩展为含 author/isTantric/programSemesterId/category/tantricGroupId 5 字段的版本，核对 05/06 后全部仍有效。密法访问控制虽改用 TransmissionRecord（DR-44/45），但仅影响授权查询方式，不影响 Course 字段（tantricGroupId 仍用于标记法本所属密法组）。排除「在 Course 上加授权字段」：授权状态属 TransmissionRecord 范畴，Course 只需 tantricGroupId 标记归属即可 |
+| DR-66 | Lesson 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 仅扩展 sourceText（法本原文，与 referenceText 并存）。Lesson 服务能力 3（闻思圆满），但闻思打卡/答题分别走 LessonCompletion / QuestionReference（§三/§四 处理），Lesson 表只承载课时内容字段，新设计无新增需求。排除「新增进度/状态字段」：进度状态属 LessonCompletion 范畴，Lesson 不冗余存 |
 
 ---
 
@@ -2142,6 +2157,25 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0。
 **结论**：Course 判 ✅ 复用，字段完全照搬旧设计扩展版。密法授权查询方式虽变（迁至 TransmissionRecord）但不触及 Course 字段。§四 5 张 ⬜ 相关表（TantricGroup 等）待后续逐张确认。
+
+### 检查轮次 18（2026-05-29，范围：B 类核心表 §四 Lesson 复用确认）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | Lesson 关联（course/资源/完成记录等）旧设计已完整；新增 sourceText 为普通 String? 字段无关联；ClassSession.lesson↔Lesson（§1.6 已封板）、Discussion.lesson↔Lesson（§5.2 已含）反向均成对 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §四 复用表新增 Lesson 一行；其余区计数不变 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | Lesson 复用不动，无新 migration |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 7. 暂缓/不做标签完整 | ✅ | sourceText 标 ✅ 有效；referenceText 注明不废弃、并存 |
+| 8. 业务规则约束有实现方式 | ✅ | Lesson 仅承载内容字段，无业务规则约束；闻思圆满判定走 LessonCompletion |
+| 9-12. 其余检查项 | ✅/⏸ | D18：Lesson 复用不动，无删除语义变化 |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | Lesson 内容管理对应职能 #16（管理课程内容，class_admin+），同 Course |
+| 14. 枚举值各处一致 | ✅ | Lesson 无新增 enum；sourceText/referenceText 均为 String? 文本字段 |
+
+**本轮发现问题数**：0。
+**结论**：Lesson 判 ✅ 复用，字段照搬旧设计扩展版（含 sourceText）。课时只承载内容字段，进度/答题/完成判定均在关联表处理。
 
 ---
 
