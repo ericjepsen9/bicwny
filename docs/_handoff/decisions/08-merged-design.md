@@ -177,7 +177,105 @@
 
 去掉 self_checkin 后，每条记录必有 classSessionId 或 speakingSessionId 之一非空，两条唯一约束按场次各管一类（NULL 在唯一约束中互不冲突），与 LessonCompletion 双 @@unique 同套路。修复了旧设计「正文说有 @@unique、model 却没写」的审计级不一致。
 
-### 1.4 SpeakingGrade / ExamGrade（讲考/考试成绩）⬜ 未开始
+### 1.4 SpeakingGrade / ExamGrade / Exam（成绩）✅ 已封板
+
+**服务能力**：能力 10（考试与升学）
+**写权限**：讲考评分限辅导员（本班）；考试成绩录入限 `class_admin` 及以上（职能 #7，辅导员无权）；Exam 创建——随堂测验辅导员（#11a）、升学考班级管理员（#11b）
+**参考决策**：D3（合格线数据驱动）、D13（升学硬条件）、D18（成绩永久留档）
+
+> **三表关系**：SpeakingGrade（讲考评分，教学辅助，不进升学硬条件）与 ExamGrade（考试成绩）结构旧设计已完整，**复用不动**。唯一扩展是 **Exam 加 `examType`**——核对能力 10 发现旧 Exam 无法区分「随堂测验 vs 升学考」，导致升学预检取不到正确成绩、两类写权限无法分流。本节因 Exam 扩展归入扩展区。
+
+#### SpeakingGrade（讲考评分）— ✅ 复用不动
+
+```prisma
+model SpeakingGrade {
+  id                String          @id @default(cuid())
+  speakingSessionId String
+  userId            String
+  classId           String          // 辅导员所在班级（权限范围限定）
+  score             String          // pass / fail / excellent
+  comment           String?
+  gradedBy          String          // 辅导员 userId
+  gradedAt          DateTime        @default(now())
+
+  session SpeakingSession @relation(fields: [speakingSessionId], references: [id])
+  user    User            @relation(fields: [userId], references: [id])
+
+  @@unique([speakingSessionId, userId])  // 每场每人一条
+}
+```
+
+#### ExamGrade（考试成绩）— ✅ 复用不动
+
+```prisma
+model ExamGrade {
+  id        String   @id @default(cuid())
+  examId    String
+  userId    String
+  classId   String   // 学员所在班级（权限校验 + 统计维度）
+  score     Int      // 0-100 整数
+  comment   String?
+  gradedBy  String   // admin/coach userId
+  gradedAt  DateTime @default(now())
+
+  exam    Exam  @relation(fields: [examId], references: [id])
+  user    User  @relation(fields: [userId], references: [id])
+  class   Class @relation(fields: [classId], references: [id])
+  grader  User  @relation("ExamGrader", fields: [gradedBy], references: [id])
+
+  @@unique([examId, userId])  // 每场每人一条（upsert 更新）
+}
+```
+
+> 合格线**不写死**在 ExamGrade，由 ProgramAdvancementConfig（§3.1）`exam_score` 条件的 `targetValue`（如 60）判定，符合 D3 数据驱动。
+
+#### Exam（考试）— 🔧 扩展：加 `examType`
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | 旧 |
+| `title` | String | 考试名称 | 旧 |
+| `description` | String? | 考试说明 | 旧 |
+| `examDate` | DateTime | 考试日期 | 旧 |
+| `classId` | String? | null=平台级；有值=班级级 | 旧 |
+| `courseId` | String? | 可选关联法本 | 旧 |
+| `examType` | String | `quiz`（随堂测验，辅导员起 #11a，不影响升学）/ `advancement`（升学考，班级管理员起 #11b，影响升学资格）；默认 `quiz` | **新增** |
+| `createdBy` | String | admin/coach userId | 旧 |
+| `createdAt` | DateTime | 默认 now() | 旧 |
+
+```prisma
+model Exam {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  examDate    DateTime
+  classId     String?
+  courseId    String?
+  examType    String    @default("quiz")  // quiz 随堂测验 / advancement 升学考
+  createdBy   String
+  createdAt   DateTime  @default(now())
+
+  class   Class?  @relation(fields: [classId], references: [id])
+  course  Course? @relation(fields: [courseId], references: [id])
+  creator User    @relation("ExamCreator", fields: [createdBy], references: [id])
+  grades  ExamGrade[]
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `@@unique([speakingSessionId, userId])` | DB | 讲考每场每人一条 |
+| `@@unique([examId, userId])` | DB | 考试每场每人一条 |
+| `examType` 仅 quiz/advancement | 应用层（Zod）| 两值枚举，无 Prisma enum（与旧 String 风格一致）|
+| 升学考创建限班级管理员、随堂测验限辅导员 | 应用层 | 按 examType 分流写权限（职能 #11a/#11b）|
+| 考试成绩录入限 class_admin 及以上 | 应用层 | 职能 #7，辅导员无录入权 |
+| 成绩永久留档（D18）| 应用层 | 无 delete，修正走 upsert + AuditLog |
+
+#### 设计意图
+
+升学考是否分 S5/S8 节点**不在 Exam 上建字段**（4a 决策）：升学节点属专业配置范畴，由 ProgramAdvancementConfig 的 `conditionKey`（如 `exam_s8`）+ `params` 指定要匹配 `examType='advancement'` 的成绩，Exam 只需知道「我是不是升学考」。这样新增/调整升学节点不动 Exam 结构（D3）。
 
 ### 1.5 CohortLagSnapshot（掉队快照）⬜ 未开始
 
@@ -441,6 +539,7 @@ model ProgramSemester {
 | 2026-05-29 | ClassMember 封板：确认删 `role`（辅导员可为班级成员，身份从 UserRoleAssignment 读）；记录「业务逻辑一切以新设计文档 05/06 为准」|
 | 2026-05-29 | 完成 1.3 StudyRecord 封板：纠正边界（仅讲考+共修，服务能力 8/10，非 3/4）；去掉 self_checkin 日常签到；补回旧设计漏写的两条按场次 @@unique |
 | 2026-05-29 | 补建 §八 决策记录、§九 一致性检查记录（守则要求每次记录决策过程 + 跑检查，前几轮缺，本轮回填）；修复 EnrollmentStatusHistory 缺反向关联（检查项 1）|
+| 2026-05-29 | 完成 1.4 SpeakingGrade/ExamGrade/Exam 封板：前两表复用不动，Exam 扩展加 examType(quiz/advancement)；升学考不标 S5/S8（4a）；同步 §八 DR-13~16、§九 检查轮次 2（0 问题）|
 
 ---
 
@@ -462,6 +561,10 @@ model ProgramSemester {
 | DR-10 | StudyRecord 服务什么能力 | 纠正为仅讲考(10)+共修(8) | 旧设计 model 注释明确「listen/read_notes 已移除走 LessonCompletion」，原 08 文档标「闻思/能力3/4」是误读；闻思圆满全在复用区表 |
 | DR-11 | 是否保留 self_checkin 日常签到 | 移除 | 用户决策：按能力签到只要讲考+共修。连带好处：self_checkin「一天一次」的按天去重难题（DateTime 无法做按天 DB 约束）随之消失 |
 | DR-12 | StudyRecord 签到防重如何实现 | 两条按场次 `@@unique`（classSessionId / speakingSessionId）| 去掉 self_checkin 后每条必有一个场次 id 非空，按场次去重天然成立，无需冗余 studyDay 字段。同时修复旧设计「正文引用 @@unique、model 漏写」的不一致 |
+| DR-13 | SpeakingGrade / ExamGrade 是否扩展 | 复用不动 | 讲考评分(三值 score)、考试成绩(0-100)结构旧设计已完整，无新业务需求 |
+| DR-14 | Exam 如何区分随堂测验/升学考 | 加 `examType`（quiz/advancement）| 排除「不加字段」：旧 Exam 只有 createdBy，DB 分不出哪场是升学考，升学预检(§3.11)的 exam_score 条件取不到正确成绩、两类写权限(#11a/#11b)无法分流。正是把 Exam 从复用区拉进扩展区的理由 |
+| DR-15 | 升学考是否在 Exam 上标 S5/S8 节点 | 不加（4a，用户决策）| 排除「加 advancementStage 字段」：升学节点属专业配置范畴，放 ProgramAdvancementConfig 的 conditionKey/params 更灵活（S5/S8 是否两专业都有尚不确定），Exam 只需知道「是不是升学考」，新增节点不动 Exam 结构 |
+| DR-16 | 考试合格线存哪 | ProgramAdvancementConfig.targetValue，不写死 ExamGrade | 符合 D3 数据驱动：各专业合格线可不同，由升学条件配置定义 |
 
 ---
 
@@ -490,3 +593,25 @@ model ProgramSemester {
 
 **本轮发现问题数**：1（检查项 1 关联不对称）→ 已当轮修复。
 **结论**：已封板 5 张表通过范围内检查。⏸/⬜ 项待依赖表封板后纳入下一轮。
+
+### 检查轮次 2（2026-05-29，范围：+ 1.4 SpeakingGrade/ExamGrade/Exam，共 6 节）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | Exam.grades↔ExamGrade.exam、ExamGrade 的 user/class/grader 关联在 User/Class model 已有反向（旧设计 1502-1530 行确认）；SpeakingGrade.session↔SpeakingSession.grades 成对 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | 扩展区仍 7（Exam 扩展归入 1.4，非新增表）；新建区 14 不变 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | examType 新增、S5/S8 不加均明确标注理由 |
+| 8. 业务规则约束有实现方式 | ✅ | examType 枚举(Zod)、写权限分流(应用层)、成绩留档(应用层)均注明 |
+| 9. 升学条件可全查 | 🔵 部分→改善 | examType='advancement' 补齐了 exam_score 条件的数据来源，升学预检取数路径前进一步；待 §3.11 封板验证闭环 |
+| 10. D14 累计/日常豁免字段区分 | ⬜ 待 PracticeLog/UserPracticeVow 封板 | 本表无关 |
+| 11. D17 代行留痕路径完整 | 🔵 部分 | 成绩修正走 upsert+AuditLog；待 AuditLog 封板验证 |
+| 12. D18 不物理删除 | ✅ | 三表均无 delete，成绩 upsert 更新 |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | #7(录成绩)/#11a(随堂)/#11b(升学考) 已对应 Exam/ExamGrade 写操作；全职能核对待全表完成 |
+| 14. 枚举值各处一致 | ✅ | examType(quiz/advancement) 在字段表/约束/Prisma/设计意图四处一致；score 三值(pass/fail/excellent)与旧设计一致 |
+
+**本轮发现问题数**：0。
+**结论**：1.4 三表通过范围内检查，无需修复。
