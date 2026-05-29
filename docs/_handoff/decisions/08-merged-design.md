@@ -299,7 +299,7 @@ model Exam {
 | `contentLag` | LagStatus | 闻思内容（近2周 LessonCompletion read/audio/video 完成率）| 旧 |
 | `quizLag` | LagStatus | 答题（近2周排表课时关联题目完成率）| 旧 |
 | `meditationLag` | LagStatus | 观修（近2周 LessonCompletion type=meditation 完成率）| 旧 |
-| `taskLag` | LagStatus | 修持任务（近2周 source=auto 愿打卡天数达标率）| 旧 |
+| `taskLag` | LagStatus | 修持任务（近2周班级/课程任务打卡天数达标率）| 旧（描述更新）|
 | `detail` | Json? | 各维度分子分母明细 | 旧 |
 | `computedAt` | DateTime | 重算时间，默认 now() | 旧 |
 
@@ -523,6 +523,8 @@ model UserPracticeVow {
 | context=event 愿进度 = SUM(EventCount.count WHERE vowId=:id) | 应用层 | 不走 PracticeLog；发愿前的 EventCount（vowId=null）不回溯 |
 | 裸追踪项不可补发愿 | 应用层 | 要发愿须新建 isPledged=true 的愿，历史打卡不追溯 |
 | 幂等保护（自动建条目）| 应用层 | 同 userId + classTaskId / cohortTemplateId 已存在则跳过，不重复建 |
+| **外部事件不触发 vow 状态变化** | 应用层 | ClassTask 停用、退班、毕业、法会结束——均不改变 UserPracticeVow.status；vow 按用户设定的 currentEndDate 自然到期 |
+| auto 建条目的 currentEndDate 初始值 | 应用层 | class_task 继承 ClassTask.endDate（如有，否则 null）；program_task 继承 PracticeTemplate.durationDays 计算值（如有，否则 null）；用户可随时调整 |
 
 #### 设计意图
 
@@ -533,6 +535,8 @@ model UserPracticeVow {
 **自动建条目时机**：
 - class_task：ClassTask 新建时为班内所有 active 成员建；新成员入班时为所有 active ClassTask 建
 - program_task：成员入班时为该专业所有 binding=auto 的 CohortRecommendedTemplate 建
+
+**Vow 生命周期自治（用户决策 2026-05-29）**：任何外部事件均不自动改变 vow 状态。法会结束后法会发愿继续计数；ClassTask 停用后班级任务愿继续；退班/毕业后任务愿继续——一律按用户发愿时设定的 currentEndDate 自然到期。auto 建条目的 currentEndDate 初始值由任务定义预填（用户可调整）。
 
 **列表类别标签**（前端展示，5 值）：
 
@@ -969,6 +973,7 @@ model ProgramSemester {
 | 2026-05-29 | 完成 1.7 UserPracticeVow 封板（纯发愿，context=personal/event）、1.8 CohortRecommendedTemplate 封板（从复用区移入扩展区，加 programId 两级绑定）、§3.16 ClassTask 封板（辅导员布置班级任务，独立于发愿系统）；扩展区 8→9 张，新建区 15→16 张；§四 CohortRecommendedTemplate 标移入扩展区；§八 DR-26~32、§九 检查轮次 5 |
 | 2026-05-29 | 1.7 UserPracticeVow 修订封板：补回 isPledged 两分法（发愿/裸追踪项）+ eventCounts EventCount[] 关联（法会愿进度独立计数流）；更新约束 3 条；§八 DR-33~34、§九 检查轮次 6（0 问题）|
 | 2026-05-29 | 1.7 UserPracticeVow 再次修订：context 扩展为 5 值（+class_task/program_task），新增 classTaskId/cohortTemplateId 外键，任务目标运行时 join 不复制（D3）；§1.8 和 §3.16 补反向关联 vows[]；列表标签扩展为 5 类；§八 DR-35~37、§九 检查轮次 7（0 问题）|
+| 2026-05-29 | 全量审查修复：(1) §1.5 taskLag 描述去掉 source=auto；(2) 补 DR-38 vow 生命周期自治原则（外部事件不影响 vow）；(3) §1.7 新增约束 2 条 + 设计意图补充；(4) 轮次 7 检查项 12 修正；§九 检查轮次 8（3 个问题全闭合）|
 
 ---
 
@@ -1015,6 +1020,7 @@ model ProgramSemester {
 | DR-35 | 班级/课程任务如何进入计数模块 | 方案 A：自动建 UserPracticeVow 条目（context=class_task / program_task）| 排除方案 B（任务单独区块）：两套入口分裂体验；排除方案 C（用户手动添加）：课程任务是教学要求，不应依赖学员自己发现。自动建条目统一列表，标签区分来源，打卡体验与个人发愿完全一致 |
 | DR-36 | 任务条目的 dailyTarget 是否复制进 UserPracticeVow | 不复制，运行时 join 任务定义（D3）| 文档能力 1 规则 4：「课程目录、实修要求等都是数据」；D3：标准可配置、可调整。复制意味着标准改变后要批量更新用户行——与数据驱动理念相悖。运行时读取：ClassTask.dailyTarget 或 PracticeTemplate.defaultDailyTarget 改一处全员生效 |
 | DR-37 | UserPracticeVow context 扩展为 5 值 | personal / event / class_task / program_task + isPledged=false 裸追踪 | 5 值覆盖所有修学条目来源；class_task/program_task 恒 isPledged=true（任务有明确目标）；裸追踪项只属于 context=personal（用户自主选择，非系统布置）|
+| DR-38 | 外部事件是否自动结束 vow | 不影响（用户决策 2026-05-29）| 法会结束、ClassTask停用、退班/毕业——均不触发 UserPracticeVow 状态变化。排除「法会结束自动标 completed」（旧设计逻辑）：发愿是个人承诺，不受外部事件生命周期约束。vow 统一按用户设定的 currentEndDate 到期，外部事件仅影响能否继续新建同类 vow（如退班后不再为该用户建新任务愿），不影响已有 vow |
 
 ---
 
@@ -1164,12 +1170,26 @@ model ProgramSemester {
 | 9. 升学条件可全查 | ⏸ 本节无关 | 修学计数服务能力 7/9，非升学条件 |
 | 10. D14 累计/日常区分 | 🔵 部分 | class_task/program_task 的 dailyTarget 属 D14b 日常型（各专业独立）；D14a 累计型（10万）通过 PracticeLog 累计总量，与 context 无关；待 PracticeLog 封板确认路径 |
 | 11. D17 代行留痕 | 🔵 部分 | 任务打卡代行走 AuditLog；待 AuditLog(§3.13) 封板验证 |
-| 12. D18 不物理删除 | ✅ | UserPracticeVow 无 delete；ClassTask 停用走 isActive=false；任务条目 status='completed' 保留 |
+| 12. D18 不物理删除 | ✅ | UserPracticeVow 无 delete；ClassTask 停用走 isActive=false；任务条目不随任务停用改状态（vow 生命周期自治，按 currentEndDate 到期）|
 | 13. 02 文档职能覆盖 | 🔵 部分 | 班级任务布置（辅导员）已对应 ClassTask + 自动建 UserPracticeVow；全职能待全表完成 |
 | 14. 枚举值各处一致 | ✅ | context 5 值在字段表/schema/约束/设计意图/列表标签五处一致 |
 
 **本轮发现问题数**：0。
 **结论**：1.7 context 扩展 + 双向关联通过检查。修学计数模块 5 种条目类型设计完整，运行时读取任务目标符合 D3。
+
+### 检查轮次 8（2026-05-29，专项：全量审查发现的 3 个问题修复验证）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 问题1：§1.5 taskLag 描述（source=auto 过时术语）| ✅ 已修 | 更新为「近2周班级/课程任务打卡天数达标率」，与新设计 class_task/program_task context 对齐 |
+| 问题2：ClassTask 停用后 UserPracticeVow 处理 | ✅ 已明确 | DR-38：外部事件不影响 vow；§1.7 约束新增「外部事件不触发 vow 状态变化」；轮次 7 检查项 12 已修正 |
+| 问题3：退班后 UserPracticeVow 处理 | ✅ 已明确 | 同 DR-38；原则统一：法会结束/ClassTask停用/退班/毕业 → vow 按 currentEndDate 自然到期 |
+| 1. Prisma 关联对称性 | ✅ | 本轮无新增关联 |
+| 8. 业务规则约束有实现方式 | ✅ | 新增两条约束均注明「应用层」实现 |
+| 14. 枚举值各处一致 | ✅ | taskLag 描述更新后与 1.5 其余四维描述风格一致 |
+
+**本轮发现问题数**：0（本轮为审查修复轮，3 个已知问题全部闭合）。
+**结论**：全量审查通过。1.7/1.8/§3.16 设计无逻辑冲突；vow 生命周期自治原则明确写入约束与决策记录。
 
 ---
 
