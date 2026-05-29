@@ -89,7 +89,7 @@
 | ~~`role`~~ | ~~String~~ | 移除：旧纯历史兼容字段，鉴权已移交 UserRoleAssignment；辅导员身份从 UserRoleAssignment 按班级作用域读 | **移除** |
 | ~~`removedAt`~~ | ~~DateTime?~~ | 移除：旧退班兼容字段，无生产数据可兼容；退班统一用 `cohortStatus='left'` + `statusChangedAt` | **移除** |
 
-> `statusChanged*` 三件套仅存**最近一次**变更，作当前状态快照（冗余便利）。完整变更链（退出→回归→留级…）由 EnrollmentStatusHistory 永久留档（D18），见 §3.14。
+> `statusChanged*` 三件套仅存**最近一次**变更，作当前状态快照（冗余便利）。完整变更链（退出→回归→留级…）由 EnrollmentStatusHistory 永久留档（D18），见 §3.12。
 
 #### 关联
 
@@ -97,7 +97,7 @@
 |---|---|
 | `class Class` | 保留 |
 | `user User` | 保留 |
-| `statusHistory EnrollmentStatusHistory[]` | **新增**（见 §3.14）|
+| `statusHistory EnrollmentStatusHistory[]` | **新增**（见 §3.12）|
 
 #### 约束
 
@@ -322,7 +322,7 @@ model Exam {
 
 #### 设计意图
 
-五维独立、不加权汇总——名单页分列展示，辅导员据此逐维度判断关怀重点。本表是 computed state（每日重算覆盖），与成员生命周期表解耦，故不适用 D18「不物理删除」（旧记录被当日重算正常覆盖）；关怀的**永久留痕**落在 care_followup_records（§2.2）和 CareWatchlistItem（§3.6），快照只是触发信号源。读权限对齐能力 14 规则 3 的新角色体系。
+五维独立、不加权汇总——名单页分列展示，辅导员据此逐维度判断关怀重点。本表是 computed state（每日重算覆盖），与成员生命周期表解耦，故不适用 D18「不物理删除」（旧记录被当日重算正常覆盖）；关怀的**永久留痕**落在 care_followup_records（§2.2）和 CareWatchlistItem（§3.4），快照只是触发信号源。读权限对齐能力 14 规则 3 的新角色体系。
 
 ```prisma
 model CohortLagSnapshot {
@@ -405,9 +405,9 @@ model ClassSession {
 }
 ```
 
-#### ClassSessionSchedule（共修课表模板）— ➕ 新建（见 §3.15）
+#### ClassSessionSchedule（共修课表模板）— ➕ 新建（见 §3.13）
 
-详见 §3.15。此处仅列反向关联：`instances ClassSession[]`。
+详见 §3.13。此处仅列反向关联：`instances ClassSession[]`。
 
 #### 约束
 
@@ -604,7 +604,75 @@ model CohortRecommendedTemplate {
 
 ---
 
-### 2.1 UserRoleAssignment（替代 ClassAdmin）⬜ 未开始
+### 2.1 UserRoleAssignment（替代 ClassAdmin）✅ 已封板
+
+**服务能力**：能力 18（角色与权限）
+**写权限**：角色分配链——super_admin 任命 subject_admin；subject_admin/super_admin 任命 class_admin；class_admin 及以上任命 class_tutor；D20：初始 super_admin 由系统 seed 脚本生成
+**参考决策**：D6（4 角色）、D7（扁平继承）、D8（多角色+作用域）、D18（不物理删除）、D20（super_admin seed）
+
+> **替代旧 ClassAdmin**：旧设计用 8 个 Boolean flag 实现细粒度权限（canManageMembers/canManageExams/canViewStudents/canCareFollowup/canEditGoals/canManageCourse/canEdit/canDelete）。新设计改用 4 层级角色 + 作用域绑定（D8），权限由角色继承关系决定，不需要 flag。flag 对应关系见 §八 DR-39。
+>
+> **canEditGoals 处理**：不作为独立 flag——辅导员调整学员目标属「代行操作」，走能力 5（class_admin 及以上，AuditLog 留痕），见 DR-40。
+>
+> **后端现状**：ClassAdmin 和所有 Boolean flag **从未实现**；后端目前用 User.role(admin/coach/student) + ClassMember.role。本表是全新实现，不涉及迁移破坏。
+
+#### 字段
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `userId` | String | 被授权人 |
+| `role` | String | `class_tutor`(1) / `class_admin`(2) / `subject_admin`(3) / `super_admin`(99) |
+| `classId` | String? | 班级作用域（class_tutor / class_admin 必填）|
+| `programId` | String? | 专业作用域（subject_admin 必填）|
+| `status` | String | `active` / `revoked`，默认 active |
+| `assignedAt` | DateTime | 默认 now() |
+| `assignedBy` | String | 操作人 userId；seed 建时填 `system` |
+| `revokedAt` | DateTime? | 撤销时间 |
+| `revokedBy` | String? | 撤销人 userId |
+| `revokedReason` | String? | 撤销原因 |
+
+```prisma
+model UserRoleAssignment {
+  id            String    @id @default(cuid())
+  userId        String
+  role          String    // class_tutor / class_admin / subject_admin / super_admin
+  classId       String?   // class_tutor / class_admin 的作用域
+  programId     String?   // subject_admin 的作用域
+  // super_admin: classId=null, programId=null（全局作用域）
+  status        String    @default("active")  // active / revoked
+  assignedAt    DateTime  @default(now())
+  assignedBy    String    // 操作人 userId；seed 建时填 "system"
+  revokedAt     DateTime?
+  revokedBy     String?
+  revokedReason String?
+
+  user    User     @relation(fields: [userId], references: [id])
+  class   Class?   @relation(fields: [classId], references: [id])
+  program Program? @relation(fields: [programId], references: [id])
+  history RoleAssignmentHistory[]
+
+  @@unique([userId, role, classId, programId])
+  @@index([userId])
+  @@index([classId])
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `@@unique([userId, role, classId, programId])` | DB | 同一人同一角色同一作用域唯一 |
+| super_admin 防重 | 应用层 | PostgreSQL NULL≠NULL 导致 DB unique 对 super_admin（两列均 null）不生效；应用层额外保证同 userId 只有一条 active super_admin |
+| class_tutor / class_admin → classId 必填 | 应用层（Zod）| 班级角色必须绑定班级作用域 |
+| subject_admin → programId 必填 | 应用层（Zod）| 学科角色必须绑定专业作用域 |
+| super_admin → classId / programId 均为 null | 应用层（Zod）| 全局角色无作用域 |
+| 角色分配链 | 应用层 | 02 文档 §五；不允许越级任命 |
+| 撤销走 status='revoked'，不物理删除（D18）| 应用层 | 历史记录永久保留 |
+
+#### 设计意图
+
+每条记录 = 「某人在某作用域持有某角色」。一人可多角色（D8），如同时是班 A 的 class_tutor 和班 B 的 class_admin。鉴权时：取 userId 的全部 active 记录，按 classId/programId 过滤当前作用域，最高角色级别决定权限（D7 扁平继承）。变更历史走 RoleAssignmentHistory（§3.2），重要操作走 AuditLog（§3.11，能力 20 审计日志）。
 
 ### 2.2 care_followup_records（替代 CareFollowup）⬜ 未开始
 
@@ -612,11 +680,11 @@ model CohortRecommendedTemplate {
 
 ---
 
-## 三、➕ 新建表（16 张）
+## 三、➕ 新建表（14 张）
 
 按新业务能力从头设计。
 
-> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张调整为 16 张。
+> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。
 
 ---
 
@@ -690,33 +758,29 @@ model ProgramAdvancementConfig {
 
 ---
 
-### 3.2 UserRoleAssignment（角色分配）⬜ 未开始
+### 3.2 RoleAssignmentHistory（角色变更留痕）⬜ 未开始
 
-### 3.3 RoleAssignmentHistory（角色变更留痕）⬜ 未开始
+### 3.3 StudentSpecialStatus（特殊身份）⬜ 未开始
 
-### 3.4 TransmissionRecord（传承记录）⬜ 未开始
+### 3.4 CareWatchlistItem（关怀清单条目）⬜ 未开始
 
-### 3.5 StudentSpecialStatus（特殊身份）⬜ 未开始
+### 3.5 ClassInviteCode（邀请码）⬜ 未开始
 
-### 3.6 CareWatchlistItem（关怀清单条目）⬜ 未开始
+### 3.6 AssistantAssignment（辅助员配对）⬜ 未开始
 
-### 3.7 ClassInviteCode（邀请码）⬜ 未开始
+### 3.7 SemesterSnapshot（报数快照）⬜ 未开始
 
-### 3.8 AssistantAssignment（辅助员配对）⬜ 未开始
+### 3.8 ReportConfession（虚报忏悔记录）⬜ 未开始
 
-### 3.9 SemesterSnapshot（报数快照）⬜ 未开始
+### 3.9 AdvancementCheck（升学资格预检报告）⬜ 未开始
 
-### 3.10 ReportConfession（虚报忏悔记录）⬜ 未开始
+### 3.10 AdvancementRecord（升学记录）⬜ 未开始
 
-### 3.11 AdvancementCheck（升学资格预检报告）⬜ 未开始
+### 3.11 AuditLog（审计日志）⬜ 未开始
 
-### 3.12 AdvancementRecord（升学记录）⬜ 未开始
+### 3.12 EnrollmentStatusHistory（入学状态变更留痕）✅ 已确认
 
-### 3.13 AuditLog（审计日志）⬜ 未开始
-
-### 3.14 EnrollmentStatusHistory（入学状态变更留痕）✅ 已确认
-
-### 3.15 ClassSessionSchedule（共修课表模板）✅ 已封板
+### 3.13 ClassSessionSchedule（共修课表模板）✅ 已封板
 
 **服务能力**：能力 8（共修与出勤）—— 课表预排主轨
 **写权限**：辅导员及以上（本班）；平台级（classId=null）限 super_admin
@@ -772,7 +836,7 @@ model ClassSessionSchedule {
 
 ---
 
-### 3.16 ClassTask（班级任务）✅ 已封板
+### 3.14 ClassTask（班级任务）✅ 已封板
 
 **服务能力**：能力 9（报数）—— 辅导员布置的班级级修持任务
 **写权限**：`class_tutor` 及以上（本班）；平台级任务（课程自带由 CohortRecommendedTemplate 配置）
@@ -875,7 +939,7 @@ model EnrollmentStatusHistory {
 
 #### 设计意图
 
-与 RoleAssignmentHistory（§3.3）对称：角色变更留痕 vs 入学状态变更留痕。学员端可直接查自己的 `memberId` 历史满足 D15，无需从面向管理员的 AuditLog（§3.13）里捞。反向关联 `member ClassMember` 与 ClassMember 的 `statusHistory EnrollmentStatusHistory[]` 成对（一致性检查项 1）。
+与 RoleAssignmentHistory（§3.2）对称：角色变更留痕 vs 入学状态变更留痕。学员端可直接查自己的 `memberId` 历史满足 D15，无需从面向管理员的 AuditLog（§3.11）里捞。反向关联 `member ClassMember` 与 ClassMember 的 `statusHistory EnrollmentStatusHistory[]` 成对（一致性检查项 1）。
 
 ---
 
@@ -974,6 +1038,7 @@ model ProgramSemester {
 | 2026-05-29 | 1.7 UserPracticeVow 修订封板：补回 isPledged 两分法（发愿/裸追踪项）+ eventCounts EventCount[] 关联（法会愿进度独立计数流）；更新约束 3 条；§八 DR-33~34、§九 检查轮次 6（0 问题）|
 | 2026-05-29 | 1.7 UserPracticeVow 再次修订：context 扩展为 5 值（+class_task/program_task），新增 classTaskId/cohortTemplateId 外键，任务目标运行时 join 不复制（D3）；§1.8 和 §3.16 补反向关联 vows[]；列表标签扩展为 5 类；§八 DR-35~37、§九 检查轮次 7（0 问题）|
 | 2026-05-29 | 全量审查修复：(1) §1.5 taskLag 描述去掉 source=auto；(2) 补 DR-38 vow 生命周期自治原则（外部事件不影响 vow）；(3) §1.7 新增约束 2 条 + 设计意图补充；(4) 轮次 7 检查项 12 修正；§九 检查轮次 8（3 个问题全闭合）|
+| 2026-05-29 | 完成 §二 2.1 UserRoleAssignment 封板：替代旧 ClassAdmin 8 flag，4 角色+作用域绑定体系，super_admin NULL unique 应用层兜底；§三 目录重整（UserRoleAssignment/TransmissionRecord 从新建区迁出，16→14 张，3.3→3.2 重排，3.14/3.15/3.16→3.12/3.13/3.14）；全量更新内联引用；§八 DR-39~41；§九 检查轮次 9（0 问题）|
 
 ---
 
@@ -1021,12 +1086,15 @@ model ProgramSemester {
 | DR-36 | 任务条目的 dailyTarget 是否复制进 UserPracticeVow | 不复制，运行时 join 任务定义（D3）| 文档能力 1 规则 4：「课程目录、实修要求等都是数据」；D3：标准可配置、可调整。复制意味着标准改变后要批量更新用户行——与数据驱动理念相悖。运行时读取：ClassTask.dailyTarget 或 PracticeTemplate.defaultDailyTarget 改一处全员生效 |
 | DR-37 | UserPracticeVow context 扩展为 5 值 | personal / event / class_task / program_task + isPledged=false 裸追踪 | 5 值覆盖所有修学条目来源；class_task/program_task 恒 isPledged=true（任务有明确目标）；裸追踪项只属于 context=personal（用户自主选择，非系统布置）|
 | DR-38 | 外部事件是否自动结束 vow | 不影响（用户决策 2026-05-29）| 法会结束、ClassTask停用、退班/毕业——均不触发 UserPracticeVow 状态变化。排除「法会结束自动标 completed」（旧设计逻辑）：发愿是个人承诺，不受外部事件生命周期约束。vow 统一按用户设定的 currentEndDate 到期，外部事件仅影响能否继续新建同类 vow（如退班后不再为该用户建新任务愿），不影响已有 vow |
+| DR-39 | 旧 ClassAdmin 8 个 Boolean flag 如何映射到新角色体系 | 按职能边界分摊到 4 角色层级，flag 废弃 | `canManageMembers`→class_admin 职能 #2（管理成员名单）；`canManageExams`→class_tutor #11a（随堂测）/ class_admin #11b（升学考）；`canViewStudents`→class_tutor #8（查看学员信息）；`canCareFollowup`→class_tutor #3 read（查看关怀）/ class_admin #3 write（发起跟进）；`canEditGoals`→见 DR-40；`canManageCourse`→class_admin #16（管理课程内容）；`canEdit`/`canDelete`→全局角色继承覆盖，无需独立 flag。旧 flag 从未后端实现（后端现状见 §二 2.1 背景注），无迁移破坏 |
+| DR-40 | canEditGoals 是否作为独立权限 flag | 不作 flag；辅导员调整学员目标 = 代行操作，走能力 5 | 能力 5「代行操作」定义：class_admin 及以上可代学员执行受限操作，每次操作必须写 AuditLog 留痕（D17）。「调整目标」是典型代行：操作人≠当事人，需留痕，权限自然受 class_admin 角色控制，无需再单独 flag |
+| DR-41 | super_admin 唯一约束 PostgreSQL NULL≠NULL 问题 | 应用层额外校验 | `@@unique([userId, role, classId, programId])` 对 super_admin（classId=null, programId=null）失效——PostgreSQL 将 NULL≠NULL，导致同一人可插入多条 active super_admin 行。解决方案：应用层 Zod 前置 + 写入前 `findFirst({where:{userId, role:'super_admin', status:'active'}})` 幂等检查，命中则 upsert/返回错误，不命中才 create |
 
 ---
 
 ## 九、一致性检查记录
 
-> 守则要求：每次改动后跑一致性检查。范围限已封板的表（1.1 Program、1.2 ClassMember、1.3 StudyRecord、3.1 ProgramAdvancementConfig、3.14 EnrollmentStatusHistory）。⬜ 未开始的表待其封板后纳入。全表 14 项完整检查在所有表完成后（步骤 3）再跑一次。
+> 守则要求：每次改动后跑一致性检查。范围限已封板的表（1.1 Program、1.2 ClassMember、1.3 StudyRecord、3.1 ProgramAdvancementConfig、3.12 EnrollmentStatusHistory）。⬜ 未开始的表待其封板后纳入。全表 14 项完整检查在所有表完成后（步骤 3）再跑一次。
 
 ### 检查轮次 1（2026-05-29，范围：已封板 5 张表）
 
@@ -1040,9 +1108,9 @@ model ProgramSemester {
 | 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
 | 7. 暂缓/不做标签完整 | ✅ | self_checkin、removedAt、role、academyId 均明确标「移除」并注理由 |
 | 8. 业务规则约束有实现方式 | ✅ | 各表约束均注明 DB / 应用层 |
-| 9. 升学条件可全查 | 🔵 部分 | ProgramAdvancementConfig 6 类 conditionType 已映射能力 3/4/6/8/10/17 数据源；待 AdvancementCheck(§3.11) 封板后验证路径闭环 |
+| 9. 升学条件可全查 | 🔵 部分 | ProgramAdvancementConfig 6 类 conditionType 已映射能力 3/4/6/8/10/17 数据源；待 AdvancementCheck(§3.9) 封板后验证路径闭环 |
 | 10. D14 累计/日常豁免字段区分 | ⬜ 待 PracticeLog/UserPracticeVow 封板 | 涉及 vow_type，相关表未封板 |
-| 11. D17 代行留痕路径完整 | 🔵 部分 | StudyRecord.createdBy 表达代行，明细走 AuditLog(§3.13)；待 AuditLog 封板验证覆盖全代行类型 |
+| 11. D17 代行留痕路径完整 | 🔵 部分 | StudyRecord.createdBy 表达代行，明细走 AuditLog(§3.11)；待 AuditLog 封板验证覆盖全代行类型 |
 | 12. D18 不物理删除 | ✅ | 5 张表均注明无 delete / append-only / 状态位归档 |
 | 13. 02 文档 23 职能写表覆盖 | ⬜ 待全表完成 | 需全表就绪后逐职能核对 |
 | 14. 枚举值各处一致 | ✅ | CohortMemberStatus 在 ClassMember/EnrollmentStatusHistory/§六 三处一致；AdvancementConditionType 在 §3.1/§六 一致 |
@@ -1062,7 +1130,7 @@ model ProgramSemester {
 | 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
 | 7. 暂缓/不做标签完整 | ✅ | examType 新增、S5/S8 不加均明确标注理由 |
 | 8. 业务规则约束有实现方式 | ✅ | examType 枚举(Zod)、写权限分流(应用层)、成绩留档(应用层)均注明 |
-| 9. 升学条件可全查 | 🔵 部分→改善 | examType='advancement' 补齐了 exam_score 条件的数据来源，升学预检取数路径前进一步；待 §3.11 封板验证闭环 |
+| 9. 升学条件可全查 | 🔵 部分→改善 | examType='advancement' 补齐了 exam_score 条件的数据来源，升学预检取数路径前进一步；待 §3.9 封板验证闭环 |
 | 10. D14 累计/日常豁免字段区分 | ⬜ 待 PracticeLog/UserPracticeVow 封板 | 本表无关 |
 | 11. D17 代行留痕路径完整 | 🔵 部分 | 成绩修正走 upsert+AuditLog；待 AuditLog 封板验证 |
 | 12. D18 不物理删除 | ✅ | 三表均无 delete，成绩 upsert 更新 |
@@ -1108,7 +1176,7 @@ model ProgramSemester {
 | 8. 业务规则约束有实现方式 | ✅ | 各约束注明 DB/应用层；offline 不生成 token、平台级限 super_admin 等均注明 |
 | 9. 升学条件可全查 | ⏸ 本表无关 | ClassSession 服务能力 8，出勤达标由 ProgramAdvancementConfig.attendance 判定，数据来源 StudyRecord（已封板）|
 | 10. D14 豁免字段区分 | ⬜ 待相关表封板 | 无关 |
-| 11. D17 代行留痕路径完整 | 🔵 部分 | 补卡/撤销留痕注明走 StudyRecord+AuditLog；待 AuditLog(§3.13) 封板验证 |
+| 11. D17 代行留痕路径完整 | 🔵 部分 | 补卡/撤销留痕注明走 StudyRecord+AuditLog；待 AuditLog(§3.11) 封板验证 |
 | 12. D18 不物理删除 | ✅ | ClassSession 无 delete；ClassSessionSchedule 停用走 isActive=false |
 | 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | 共修发起(辅导员)/平台级(admin)写权限已对应 ClassSession/ClassSessionSchedule；全职能待全表完成 |
 | 14. 枚举值各处一致 | ✅ | sessionType 三值(online/offline/self_study)在 ClassSession/ClassSessionSchedule/约束三处一致 |
@@ -1169,7 +1237,7 @@ model ProgramSemester {
 | 8. 业务规则约束有实现方式 | ✅ | context 外键必填校验（Zod）、task isPledged 恒 true（应用层）、target 运行时读（应用层）、幂等保护（应用层）均注明 |
 | 9. 升学条件可全查 | ⏸ 本节无关 | 修学计数服务能力 7/9，非升学条件 |
 | 10. D14 累计/日常区分 | 🔵 部分 | class_task/program_task 的 dailyTarget 属 D14b 日常型（各专业独立）；D14a 累计型（10万）通过 PracticeLog 累计总量，与 context 无关；待 PracticeLog 封板确认路径 |
-| 11. D17 代行留痕 | 🔵 部分 | 任务打卡代行走 AuditLog；待 AuditLog(§3.13) 封板验证 |
+| 11. D17 代行留痕 | 🔵 部分 | 任务打卡代行走 AuditLog；待 AuditLog(§3.11) 封板验证 |
 | 12. D18 不物理删除 | ✅ | UserPracticeVow 无 delete；ClassTask 停用走 isActive=false；任务条目不随任务停用改状态（vow 生命周期自治，按 currentEndDate 到期）|
 | 13. 02 文档职能覆盖 | 🔵 部分 | 班级任务布置（辅导员）已对应 ClassTask + 自动建 UserPracticeVow；全职能待全表完成 |
 | 14. 枚举值各处一致 | ✅ | context 5 值在字段表/schema/约束/设计意图/列表标签五处一致 |
@@ -1189,7 +1257,24 @@ model ProgramSemester {
 | 14. 枚举值各处一致 | ✅ | taskLag 描述更新后与 1.5 其余四维描述风格一致 |
 
 **本轮发现问题数**：0（本轮为审查修复轮，3 个已知问题全部闭合）。
-**结论**：全量审查通过。1.7/1.8/§3.16 设计无逻辑冲突；vow 生命周期自治原则明确写入约束与决策记录。
+**结论**：全量审查通过。1.7/1.8/§3.14 设计无逻辑冲突；vow 生命周期自治原则明确写入约束与决策记录。
+
+### 检查轮次 9（2026-05-29，范围：§二 2.1 UserRoleAssignment 封板 + §三 目录重整）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | UserRoleAssignment.user↔User（反向 roleAssignments[]）；.class↔Class（反向 roleAssignments[]）；.program↔Program（反向 roleAssignments[]）；.history↔RoleAssignmentHistory（§3.2，反向 assignment[]）——均在旧设计对应 model 中存在或与 §3.2 成对声明 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §三标题更新为「14 张」；§三注记已说明 16→14 迁出路径（UserRoleAssignment→§二 2.1；TransmissionRecord→§二 2.3）；计数与实际条目一致 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | 旧 ClassAdmin 8 flag 在 §二 2.1 背景注中明确标「废弃」并注对应关系（DR-39）；canEditGoals 标「不作独立 flag」并注理由（DR-40）|
+| 8. 业务规则约束有实现方式 | ✅ | super_admin NULL唯一约束：DB 约束 + 应用层幂等检查（DR-41）；角色分配链（class_admin任命class_tutor等）：应用层中间件；作用域必填校验：Zod |
+| 9-14. 其余检查项 | ✅/⏸ | 同轮次 8，本轮修订不影响其他检查项结论 |
+
+**本轮发现问题数**：0（§三 目录重整为清理操作，无逻辑变更；2.1 设计已在决策确认时验证）。
+**结论**：§二 2.1 UserRoleAssignment 封板通过。§三 计数已由 16→14 修正，内联引用全部同步更新（§3.12 EnrollmentStatusHistory / §3.13 ClassSessionSchedule / §3.14 ClassTask / §3.9 AdvancementCheck / §3.11 AuditLog 等）。
 
 ---
 
