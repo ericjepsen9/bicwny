@@ -1169,7 +1169,7 @@ model ProgramSemester {
 |---|---|---|
 | ✅ 设计封板 | §5.1 班级动态（ClassPost 家族） | 4 张 |
 | ✅ 设计封板 | §5.2 班级讨论（Discussion 家族） | 4 张 |
-| ⬜ 待讨论 | §5.3 约修（PracticeAppointment） | 1 张 |
+| ✅ 设计封板 | §5.3 约修（PracticeAppointment 家族） | 2 张 |
 | ⬜ 待讨论 | §5.4 自学模式（UserSelfStudyProgram 家族） | 2 张 |
 
 ---
@@ -1462,9 +1462,101 @@ model DiscussionComment {
 
 ---
 
-### 5.3 约修（PracticeAppointment）⬜ 待讨论
+### 5.3 约修（PracticeAppointment 家族）✅ 设计封板
 
-> 旧设计已标 ⏸ Phase 5，含 PracticeAppointment 1 张表，待下一轮讨论确认。
+**⏸ 暂缓**：当前迭代不实现；以下设计可直接用于写 Prisma schema。
+
+**服务能力**：集体约修（班级成员共同发起、参与并追踪集体修持目标），06 文档未列入 20 条能力；⚠️ 实现时需在 06 文档补入对应能力编号及职能矩阵条目。
+**写权限**：
+- 创建约修：班级 active 成员（任意成员均可发起，DR-58）
+- 加入约修：班级 active 成员（`status=active` 的约修，未加入过）
+- 贡献打卡：已加入且 `isActive=true` 的参与者（`personalTotal += n`，同步更新 `currentTotal`）
+- 取消约修：创建者自己（`creatorId == session.userId`）**或** `class_admin` 及以上
+- 退出约修：参与者自己（`isActive=false`，D18 不物理删，DR-59）
+**参考决策**：D18（不物理删除）、DR-57~60
+
+#### PracticeAppointment（约修）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `creatorId` | String | 创建者 userId（班级任意 active 成员）|
+| `classId` | String | 关联 Class；仅本班成员可见 |
+| `title` | String | 约修标题，如「三月上师瑜伽共修」|
+| `practiceProjectId` | String | 修什么法（关联 PracticeProject）|
+| `totalTarget` | Int | 集体总目标量 |
+| `currentTotal` | Int | 缓存累计量，每次打卡后更新；默认 0 |
+| `startDate` | DateTime? | 开始日期（可选）|
+| `endDate` | DateTime | 截止日期，必填；到期定时任务自动关闭 |
+| `description` | String? | 约修说明 |
+| `status` | String | `active` / `completed`（达成）/ `expired`（到期未完成）/ `cancelled`（取消），默认 `active` |
+| `createdAt` | DateTime | 默认 now() |
+
+```prisma
+model PracticeAppointment {
+  id                String    @id @default(cuid())
+  creatorId         String
+  classId           String
+  title             String
+  practiceProjectId String
+  totalTarget       Int
+  currentTotal      Int       @default(0)
+  startDate         DateTime?
+  endDate           DateTime
+  description       String?
+  status            String    @default("active")
+  // active | completed（目标达成）| expired（到期未完成）| cancelled（取消）
+  createdAt         DateTime  @default(now())
+
+  creator      User                           @relation(fields: [creatorId], references: [id])
+  class        Class                          @relation(fields: [classId], references: [id])
+  participants PracticeAppointmentParticipant[]
+
+  @@index([classId, status])
+}
+```
+
+#### PracticeAppointmentParticipant（约修参与记录）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `appointmentId` | String | 关联 PracticeAppointment |
+| `userId` | String | 关联 User（参与者）|
+| `personalTotal` | Int | 个人累计贡献量，默认 0 |
+| `isActive` | Boolean | 是否仍在参与；退出时置 false（D18 不物理删）|
+| `joinedAt` | DateTime | 加入时间，默认 now() |
+| `leftAt` | DateTime? | 退出时间（退出时填写）|
+
+```prisma
+model PracticeAppointmentParticipant {
+  id            String    @id @default(cuid())
+  appointmentId String
+  userId        String
+  personalTotal Int       @default(0)
+  isActive      Boolean   @default(true)
+  joinedAt      DateTime  @default(now())
+  leftAt        DateTime?
+
+  appointment PracticeAppointment @relation(fields: [appointmentId], references: [id])
+  user        User                @relation(fields: [userId], references: [id])
+
+  @@unique([appointmentId, userId])  // 同一约修同一人只有一条记录
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| 加入防重 | DB（@@unique）| `@@unique([appointmentId, userId])` 保证每人只有一条参与记录 |
+| 加入仅限 active 约修 | 应用层 | 写入前校验 `PracticeAppointment.status='active'` |
+| 贡献仅限 isActive 参与者 | 应用层 | `isActive=false`（已退出）的参与者不可继续贡献打卡 |
+| currentTotal 同步 | 应用层事务 | `personalTotal += n` 与 `currentTotal += n` 在同一事务内执行，防止数据不一致 |
+| 自动关闭（completed）| 定时任务或写入时触发 | `currentTotal >= totalTarget` 时置 `status=completed` |
+| 自动关闭（expired）| 定时任务（每日凌晨）| `endDate` 到期且 `status=active` → 置 `status=expired` |
+| 不物理删除（D18）| 应用层 | 约修取消走 `status=cancelled`；退出走 `isActive=false`；无 delete API |
+| 内容仅本班可见 | 应用层 | `classId` 强制按班级过滤 |
 
 ---
 
@@ -1509,6 +1601,7 @@ model DiscussionComment {
 | 2026-05-29 | §1.4 修订：SpeakingGrade.classId String→String?（null=平台级讲考由 subject_admin/super_admin 评分）；§四 SpeakingSession 复用确认（classId 旧设计已可空，照搬）、Exam 标移入 §1.4；写权限说明拆班级/平台两级；§八 DR-48~49；§九 检查轮次 12（0 问题）|
 | 2026-05-29 | §五 暂缓区重构：从「保留旧设计原样」改为「设计已落实/实现延后」，拆为 §5.1~5.4 四个子节。§5.1 班级动态（ClassPost/Reaction/Comment/Share 4 张表）✅ 封板：补发帖人自删权限（authorId 自删 OR class_admin+）、软删三件套（D18）、Reaction toggle 物理删例外（DR-50）、职能待定标记（DR-52）；§5.2~5.4 保持 ⬜ 占位；§八 DR-50~52；§九 检查轮次 13（0 问题）|
 | 2026-05-29 | §5.2 班级讨论（Discussion/Viewpoint/Vote/Comment 4 张表）✅ 封板：一人一票不允许换投（D18 完全合规，DR-53）、创建权=所有后台角色 class_tutor+（DR-54）、关闭权=发起人 OR class_admin+（DR-55）、Viewpoint 创建后不可增删（DR-56）、评论软删（同 §5.1）；§八 DR-53~56；§九 检查轮次 14（0 问题）|
+| 2026-05-29 | §5.3 约修（PracticeAppointment + PracticeAppointmentParticipant 2 张表）✅ 封板：方案 A 独立参与表（与 UserPracticeVow 完全解耦，DR-57）、创建权=班级任意成员（DR-58）、退出软删 isActive=false（DR-59）、贡献独立计数流（DR-60）；currentTotal 事务同步；§十 新增 TODO-3（practiceProjectId 待 PracticeProject 确认后补 FK）；§八 DR-57~60；§九 检查轮次 15（1 个问题→挂 TODO-3）|
 
 ---
 
@@ -1574,6 +1667,10 @@ model DiscussionComment {
 | DR-54 | Discussion 发起权限 | 所有后台角色（class_tutor 及以上，含 subject_admin/super_admin）| 用户决策：「发起投票由所有的后台角色都可以发起」。排除「仅 class_admin+」：辅导员（class_tutor）在教学互动中有合理需求发起话题讨论；排除「班级所有成员」：讨论话题设计是教学工具，由有管理职责的角色发起更规范 |
 | DR-55 | Discussion 关闭权限 | 发起人自己（`authorId == session.userId`）OR `class_admin` 及以上 | 旧设计注释「创建权限：ClassAdmin 或 admin」，关闭权未单独说明。新设计与帖子/评论删除权同套路：发起人可关闭自己的话题，class_admin+ 可关闭任意话题（管理权）。排除「仅 class_admin+」：发起人无法关闭自己创建的话题不合理 |
 | DR-56 | DiscussionViewpoint 事后增删 | 不允许（创建后不可增删）| 选项一旦有人投票，增删选项会导致票数统计失真、已投票用户体验混乱。最简原则：viewpoint 随 discussion 创建时一并批量写入，之后无增删 API。排除「允许追加选项（仅追加，不删）」：追加后旧选项票数比例变化，可能影响讨论方向的真实性 |
+| DR-57 | 约修个人参与如何追踪 | 方案 A：新建 PracticeAppointmentParticipant 表（用户决策 2026-05-29）| 旧设计通过 UserPracticeVow(context=appointment, appointmentId) 追踪，但 appointmentId 已在 DR-32 从 UserPracticeVow 移除、context=appointment 未列入 DR-37 的 5 个值。方案 A 约修系统完全独立，PracticeAppointmentParticipant 存个人累计量，边界清晰。排除方案 B（context 补回 appointment）：DR-31 明确去掉 appointment，约修≠个人发愿，强行合并语义混乱。排除方案 C（只记集体总量）：用户无法看到自己的个人贡献，体验不完整 |
+| DR-58 | 约修创建权限 | 班级任意 active 成员 | 旧设计注释「创建者（班级任意成员）」。约修是成员自发组织的集体行动，不属于管理权限范畴，任何 active 成员均可发起。排除「仅 class_tutor+」：辅导员主导才能发起会限制成员自发组织共修的灵活性 |
+| DR-59 | 退出约修 D18 处理 | isActive=false + leftAt（不物理删）| 参与记录包含 personalTotal（贡献历史），是有价值的历史数据（D18）。退出不删行：isActive=false 标记退出，leftAt 记录退出时间；贡献量留档，退出后集体 currentTotal 不回退（已贡献的不撤回）。排除物理删行：会丢失个人贡献历史 |
+| DR-60 | 约修贡献打卡与 PracticeLog/EventCount 的关系 | 独立计数流（不走 PracticeLog / EventCount）| 约修是「向集体目标贡献」，与日常修持愿（PracticeLog）和法会计数（EventCount）语义不同。独立流避免三套系统相互干扰。代价是同一次修持可能需要分别在两个地方记录（如果用户既有日常愿又参与约修）——这是方案 A 的已知 tradeoff（用户已确认接受） |
 
 ---
 
@@ -1862,6 +1959,27 @@ model DiscussionComment {
 **本轮发现问题数**：0。
 **结论**：§5.2 Discussion 家族（4 张表）设计封板。一人一票+不允许换投是最简 D18 合规方案；DiscussionViewpoint 不可事后增删保护票数真实性；评论软删与 §5.1 ClassPostComment 同套路。⚠️ 实现时须补职能编号。
 
+### 检查轮次 15（2026-05-29，范围：§5.3 约修家族封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | PracticeAppointment.creator↔User；PracticeAppointment.class↔Class；PracticeAppointment.participants↔PracticeAppointmentParticipant.appointment；PracticeAppointmentParticipant.user↔User（旧设计 User/Class model 已有反向关联）；PracticeProject 关联为普通 String 字段（无 @relation，待 §四 PracticeProject 复用确认后补）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 暂缓区不写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §五 目录表已将 §5.3 更新为「✅ 设计封板 / 2 张」；schema 实体数一致 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 暂缓区不生成 migration |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | §5.3 标 ⏸ 暂缓；方案 A 选择理由在 DR-57；退出软删在 DR-59；独立计数流 tradeoff 在 DR-60 |
+| 8. 业务规则约束有实现方式 | ✅ | 加入防重→DB @@unique；加入限 active→应用层；currentTotal 同步→应用层事务；自动关闭→定时任务；退出→isActive=false（应用层）；不物理删→应用层无 delete API |
+| 9-12. 其余检查项 | ✅/⏸ | D18：取消用 status=cancelled，退出用 isActive=false，均无物理删行合规；D17：无代行操作涉及此表；currentTotal 缓存与 personalTotal 之和一致性由事务保证 |
+| 13. 02 文档 23 职能写表覆盖 | ⚠️ 待实现时补 | 约修无对应职能编号，同 DR-52 思路 |
+| 14. 枚举值各处一致 | ✅ | status 4 值（active/completed/expired/cancelled）在字段表、schema、约束三处一致 |
+
+**本轮新增待办**：`practiceProjectId` 目前为普通 String 字段（无 @relation），待 §四 PracticeProject 复用确认后补正式 FK 关联（登记 §十 TODO-3）。
+
+**本轮发现问题数**：1（practiceProjectId 无 @relation，挂 TODO-3）。
+**结论**：§5.3 约修家族（2 张表）设计封板。方案 A 独立参与表与发愿系统完全解耦；currentTotal 事务同步是核心完整性保证；软删/状态位满足 D18。⚠️ 实现时须补职能编号，并在 PracticeProject 确认后补 FK。
+
 ---
 
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
@@ -1872,3 +1990,4 @@ model DiscussionComment {
 |---|---|---|---|---|
 | TODO-1 | 掉队判定阈值数据化（近2周窗口、各档比例、lagPracticeDaysExpected）——能力 14 约束 #1 要求阈值为专业配置项(D3)，目前散落代码/User 表 | 1.5 CohortLagSnapshot | Program/专业配置表设计时（扩展区已封板，需在新建区或复用区 Program 相关表处理）| DR-18 |
 | TODO-2 | 共修链接激活时效数据化（提前激活 10 分钟、宽限期 30 分钟）——能力 8 明确「可在专业/班级层配置」(D3)，目前写死在应用层常量 | 1.6 ClassSession | 班级/专业配置表设计时处理 | DR-25 |
+| TODO-3 | PracticeAppointment.practiceProjectId 目前为普通 String 字段，无正式 @relation——待 §四 PracticeProject 复用区确认后，补 `practiceProject PracticeProject @relation(...)` 及 PracticeProject 上的反向 `appointments[]` | §5.3 PracticeAppointment | §四 PracticeProject 复用确认时 | DR-57 |
