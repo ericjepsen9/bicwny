@@ -65,7 +65,7 @@
 
 ---
 
-### 1.2 ClassMember（班级成员）✅ 已确认
+### 1.2 ClassMember（班级成员）✅ 已封板
 
 **服务能力**：能力 2（学员加入专业）+ 能力 11（留级、退出、转专业）
 **写权限**：状态机操作分级——`paused↔active` 学员自助；`held_back/graduated/left` 限 `class_admin` 及以上；复活（非 active→active）限 admin
@@ -86,7 +86,7 @@
 | `statusChangedAt` | DateTime? | 当前状态快照——最近一次变更时间 | 旧 |
 | `statusChangedBy` | String? | 最近一次变更操作人 userId（学员自助 = 本人）| 旧 |
 | `statusChangeReason` | String? | 最近一次变更原因 | 旧 |
-| ~~`role`~~ | ~~String~~ | ⚠️ 待决策：旧设计纯历史兼容字段（鉴权已移交 UserRoleAssignment），建议删，见文末 | 旧 |
+| ~~`role`~~ | ~~String~~ | 移除：旧纯历史兼容字段，鉴权已移交 UserRoleAssignment；辅导员身份从 UserRoleAssignment 按班级作用域读 | **移除** |
 | ~~`removedAt`~~ | ~~DateTime?~~ | 移除：旧退班兼容字段，无生产数据可兼容；退班统一用 `cohortStatus='left'` + `statusChangedAt` | **移除** |
 
 > `statusChanged*` 三件套仅存**最近一次**变更，作当前状态快照（冗余便利）。完整变更链（退出→回归→留级…）由 EnrollmentStatusHistory 永久留档（D18），见 §3.14。
@@ -111,6 +111,10 @@
 #### 设计意图
 
 退班用状态位而非删行，配合 EnrollmentStatusHistory 满足 D15「退出后学员仍可只读查看历史」。`@@unique([classId, userId])` 保证回归（能力 11 规则#2）时复活原成员行、记录自动衔接，不产生重复成员。
+
+> **辅导员与成员身份**（用户决策 2026-05-29）：辅导员**可以是班级成员**（ClassMember 装学员也装辅导员），其管理角色叠加在 UserRoleAssignment 上。ClassMember 只表达「属于这个班」，不再用字段区分学员/辅导员——身份一律从 UserRoleAssignment 按班级作用域读。删除 `role` 即据此。
+>
+> **业务逻辑权威**：本表及后续所有表的业务规则，一切以新设计决策文档（05/06）为准，旧设计仅作字段命名/结构参考。
 
 ### 1.3 StudyRecord（闻思打卡）⬜ 未开始
 
@@ -357,3 +361,4 @@ model ProgramSemester {
 | 2026-05-28 | ProgramSemester 改判为 ✅ 复用（字段够用）；新增 ProgramAdvancementConfig 表（升学条件数据化，存法二，用户确认）；扩展区 8→7 张，新建区 12→13 张 |
 | 2026-05-29 | ProgramSemester 补复用说明 + Prisma schema（学期=周区间单一属性，照搬旧设计）；ProgramAdvancementConfig 落 Prisma 代码块（isRequired 默认 true、isExemptable 默认 false，契合 D13）|
 | 2026-05-29 | 完成 1.2 ClassMember 扩展（删 removedAt，role 标 ⚠️ 待决策）；新增 §3.14 EnrollmentStatusHistory（入学状态变更留痕，D18，与 RoleAssignmentHistory 对称）；新建区 13→14 张；新增 CohortMemberStatus enum |
+| 2026-05-29 | ClassMember 封板：确认删 `role`（辅导员可为班级成员，身份从 UserRoleAssignment 读）；记录「业务逻辑一切以新设计文档 05/06 为准」|
