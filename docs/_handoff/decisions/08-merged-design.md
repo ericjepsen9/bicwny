@@ -737,7 +737,87 @@ model CareFollowupRecord {
 
 每条记录 = 「某辅导员在某时间对某学员做了一次跟进，并留下备注」。`lagSnapshotAtContact` 是跟进发生时从 CohortLagSnapshot 拷贝定格的快照——历史数据，事后掉队状态变化不影响此记录（与旧设计一致）。`sourceType` 让能力 14（关怀清单）和能力 12（特殊身份）的跟进记录统一列表展示，查询时按 `sourceType` 过滤，无需拆两张表。
 
-### 2.3 TransmissionRecord（整合 TantricAccessGrant）⬜ 未开始
+### 2.3 TransmissionRecord（整合 TantricAccessGrant）✅ 已封板
+
+**服务能力**：能力 15（传承管理）+ 能力 17（灌顶记录）
+**写权限**：`auto`=系统触发；`self_report`=学员自报；`admin_entry`=`class_tutor`及以上代录；固定清单认定（`isRequired=true`）需 `class_admin` 及以上确认
+**参考决策**：D3（传承清单数据化）、D13（灌顶是升密法硬条件）、D17（代行留痕）、D18（不物理删除）
+
+> **整合旧 TantricAccessGrant**：旧表只做密法访问控制（grantedAt+grantedBy，按 TantricGroup 授权）。新表记录完整传承历史，灌顶记录（sourceType=empowerment）天然承担密法授权职责，旧表废弃，见 DR-44。密法访问控制查询改为：该用户是否有 status=active 且 tantricGroupId 匹配的 TransmissionRecord？
+
+#### 字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | — |
+| `userId` | String | 接受传承的学员 | — |
+| `sourceType` | String | `course`（课程圆满触发）/ `dharma_event`（法会）/ `empowerment`（灌顶）| **新建** |
+| `transmissionKey` | String? | 固定清单传承的键，对应 `ProgramAdvancementConfig.conditionKey`（conditionType='transmission'）；额外传承时 null | **新建** |
+| `name` | String | 传承/灌顶名称（free text）| **新建** |
+| `tantricGroupId` | String? | sourceType=empowerment 时关联 TantricGroup；密法访问授权依据 | 旧（整合自 TantricAccessGrant.tantricGroupId）|
+| `courseId` | String? | sourceType=course 时，触发的课程 id | **新建** |
+| `receivedAt` | DateTime | 接受传承的实际日期 | — |
+| `masterName` | String? | 传授上师姓名（法会/灌顶时填写，非系统账号，free text）| — |
+| `entryMethod` | String | `auto`（系统）/ `self_report`（学员申报）/ `admin_entry`（代录）| **新建** |
+| `entryBy` | String | 录入人 userId；auto 时填 `"system"` | 旧（整合自 TantricAccessGrant.grantedBy）|
+| `isRequired` | Boolean | 是否已认定为固定清单传承（可计入升学预检）；默认 false；auto 条目按配置自动判定 | **新建** |
+| `isConfirmed` | Boolean | 管理员是否确认申报有效；默认 false；auto 条目默认 true | **新建** |
+| `confirmedBy` | String? | 确认人 userId | **新建** |
+| `confirmedAt` | DateTime? | 确认时间 | **新建** |
+| `status` | String | `active` / `revoked`，默认 active | **新建** |
+| `revokedAt` | DateTime? | 撤销时间 | **新建** |
+| `revokedBy` | String? | 撤销人 userId | **新建** |
+| `revokedReason` | String? | 撤销原因 | **新建** |
+| `createdAt` | DateTime | 默认 now() | — |
+
+```prisma
+model TransmissionRecord {
+  id              String    @id @default(cuid())
+  userId          String
+  sourceType      String    // course / dharma_event / empowerment
+  transmissionKey String?   // 固定清单键（对应 ProgramAdvancementConfig.conditionKey）
+  name            String
+  tantricGroupId  String?   // empowerment 时必填；密法访问授权依据
+  courseId        String?   // course 时填写
+  receivedAt      DateTime
+  masterName      String?
+  entryMethod     String    // auto / self_report / admin_entry
+  entryBy         String    // userId 或 "system"
+  isRequired      Boolean   @default(false)
+  isConfirmed     Boolean   @default(false)
+  confirmedBy     String?
+  confirmedAt     DateTime?
+  status          String    @default("active")  // active / revoked
+  revokedAt       DateTime?
+  revokedBy       String?
+  revokedReason   String?
+  createdAt       DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id])
+  tantricGroup TantricGroup? @relation(fields: [tantricGroupId], references: [id])
+
+  @@index([userId])
+  @@index([userId, tantricGroupId])
+  @@index([userId, transmissionKey])
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| sourceType 枚举校验 | 应用层（Zod）| course / dharma_event / empowerment |
+| entryMethod 枚举校验 | 应用层（Zod）| auto / self_report / admin_entry |
+| sourceType=empowerment → tantricGroupId 必填 | 应用层（Zod）| 灌顶必须关联传承组（密法授权依据）|
+| isRequired=true → transmissionKey 必填 | 应用层（Zod）| 固定清单认定必须有键（升学预检比对用）|
+| auto 条目 isConfirmed 默认 true | 应用层 | 课程触发无需管理员二次确认 |
+| 密法访问控制 | 应用层 | 查 TransmissionRecord where userId=X AND tantricGroupId=Y AND status=active，替代旧 TantricAccessGrant |
+| 撤销走 status=revoked，无物理删除（D18）| 应用层 | 传承记录永久留档 |
+| ❌ 不加 @@unique([userId, tantricGroupId]) | — | 同一人可多次接受同组传承（重复录入不应报错）；访问控制改 EXISTS 查询，见 DR-45 |
+
+#### 设计意图
+
+三种来源（课程/法会/灌顶）统一存入一张表，`sourceType` 区分。升学预检（能力 10 conditionType='transmission'）遍历 `ProgramAdvancementConfig` 的传承条件，对每条 `conditionKey` 检查该用户是否有 `transmissionKey=conditionKey AND isRequired=true AND status=active` 的记录。手动录入（学员申报/辅导员代录）默认 `isRequired=false`，admin 审核后置 `isRequired=true`+`confirmedBy`（能力 15 规则 5「升格需管理员确认」）。灌顶记录（`sourceType=empowerment`）同时作为 TantricGroup 密法访问的授权来源（DR-44）。
 
 ---
 
@@ -1101,6 +1181,7 @@ model ProgramSemester {
 | 2026-05-29 | 全量审查修复：(1) §1.5 taskLag 描述去掉 source=auto；(2) 补 DR-38 vow 生命周期自治原则（外部事件不影响 vow）；(3) §1.7 新增约束 2 条 + 设计意图补充；(4) 轮次 7 检查项 12 修正；§九 检查轮次 8（3 个问题全闭合）|
 | 2026-05-29 | 完成 §二 2.1 UserRoleAssignment 封板：替代旧 ClassAdmin 8 flag，4 角色+作用域绑定体系，super_admin NULL unique 应用层兜底；§三 目录重整（UserRoleAssignment/TransmissionRecord 从新建区迁出，16→14 张，3.3→3.2 重排，3.14/3.15/3.16→3.12/3.13/3.14）；全量更新内联引用；§八 DR-39~41；§九 检查轮次 9（0 问题）|
 | 2026-05-29 | 完成 §二 2.2 CareFollowupRecord 封板：替代旧 CareFollowup，新增 sourceType（care_watchlist/special_status 双能力共用）、watchlistItemId FK；canCareFollowup flag 废弃改 role-based；§八 DR-42~43；§九 检查轮次 10（1 个问题：§3.4 须补反向关联，已标注）|
+| 2026-05-29 | 完成 §二 2.3 TransmissionRecord 封板：整合废弃 TantricAccessGrant，三源统一（course/dharma_event/empowerment），密法授权/固定清单升格/升学预检三条路径打通；§八 DR-44~47；§九 检查轮次 11（1 个问题：TantricGroup 反向关联须替换，已知，不阻断封板）；§二 替换区 3 张全部封板 |
 
 ---
 
@@ -1153,6 +1234,10 @@ model ProgramSemester {
 | DR-41 | super_admin 唯一约束 PostgreSQL NULL≠NULL 问题 | 应用层额外校验 | `@@unique([userId, role, classId, programId])` 对 super_admin（classId=null, programId=null）失效——PostgreSQL 将 NULL≠NULL，导致同一人可插入多条 active super_admin 行。解决方案：应用层 Zod 前置 + 写入前 `findFirst({where:{userId, role:'super_admin', status:'active'}})` 幂等检查，命中则 upsert/返回错误，不命中才 create |
 | DR-42 | care_followup_records 是否拆能力14/能力12 两张表 | 合并为一张表，sourceType 字段区分 | 能力 14（关怀清单）与能力 12（特殊身份）的跟进备注在业务上完全同构（谁跟进了谁、何时、说了什么、状态如何）。拆两张表只会产生重复 schema + 重复 UI 组件；`sourceType` 一个字段即可区分来源，查询/过滤/展示均无障碍 |
 | DR-43 | canCareFollowup flag 如何处理 | 废弃 flag，改为 role-based（职能 #3）| 旧 `ClassAdmin.canCareFollowup` Boolean 是 ClassAdmin 8 flag 之一，随 ClassAdmin 整体废弃（DR-39）。写权限对应职能 #3 W（class_admin 及以上），读权限对应职能 #3 R（class_tutor）。排除「保留 flag 细粒度控制」：新设计 23 职能矩阵已精确到每个职能的读写边界，额外 flag 是冗余的授权维度 |
+| DR-44 | TantricAccessGrant 是否保留 | 废弃，整合入 TransmissionRecord | TantricAccessGrant 只存「谁被授权访问哪个密法组」，语义完全等同于「某人已接受某组灌顶」。TransmissionRecord 的 sourceType=empowerment 条目已包含全部信息（userId+tantricGroupId+status），密法访问控制只需换一条查询（EXISTS on TransmissionRecord）。保留两张表反而造成授权与记录分裂，撤销时须同步更新两表（D18 下有复杂事务）|
+| DR-45 | TransmissionRecord 是否加 @@unique([userId, tantricGroupId]) | 不加 | 旧 TantricAccessGrant 有此约束是因为「每人每组最多一条授权」。但传承记录不同：同一人可在不同时间参加同一灌顶法会并被多次录入（重复灌顶合法）。去掉唯一约束；访问控制改为 EXISTS 查询（has any active empowerment record for this group），更符合传承的真实语义 |
+| DR-46 | 手动录入传承如何与固定清单打通 | isRequired+isConfirmed 两步，transmissionKey 关联 ProgramAdvancementConfig | 能力 15 规则 3：「手动录入默认为额外传承，升格需管理员确认」。两步流程：(1) 录入时 isRequired=false、isConfirmed=false；(2) admin 审核后置 isRequired=true、isConfirmed=true、confirmedBy+confirmedAt。升学预检查 transmissionKey=conditionKey AND isRequired=true AND status=active——简洁且可溯源 |
+| DR-47 | 课程自动触发传承如何关联 ProgramAdvancementConfig | 通过 transmissionKey=conditionKey 打通 | 课程配置（能力 3 圆满触发）中标注「含传承」时，系统写入 TransmissionRecord：entryBy=system、isRequired=true（已知是固定清单项）、isConfirmed=true、transmissionKey=对应 ProgramAdvancementConfig.conditionKey。升学预检无需特殊处理，与手动录入升格后的记录结构完全一致（D3 数据驱动，逻辑不随新传承类型改代码）|
 
 ---
 
@@ -1361,6 +1446,28 @@ model ProgramSemester {
 
 **本轮发现问题数**：1（检查项 1 发现 §3.4 CareWatchlistItem 设计时须补 `followupRecords CareFollowupRecord[]` 反向关联，已标注为 §3.4 设计时的必做事项）。
 **结论**：§二 2.2 CareFollowupRecord 封板通过。`sourceType` 双能力共用方案、role-based 权限、D18 留档均已覆盖。§3.4 CareWatchlistItem 开始设计时须补反向关联。
+
+### 检查轮次 11（2026-05-29，范围：§二 2.3 TransmissionRecord 封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | TransmissionRecord.user↔User（旧设计 User model 中 `transmissionRecords` 反向需确认存在；TantricAccessGrant 有，TransmissionRecord 替代后反向仍成立）；.tantricGroup↔TantricGroup（TantricGroup 需有 `transmissionRecords TransmissionRecord[]` 反向，旧设计 TantricGroup.grants 将被替换为此；上线前 migration 须同步）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | 替换区 3 张全部封板（2.1/2.2/2.3）；扩展区 9 张、新建区 14 张不变 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | @@unique([userId, tantricGroupId]) 明确标 ❌ 不加并注理由（DR-45）；TantricAccessGrant 废弃在背景注中明确标注（DR-44）|
+| 8. 业务规则约束有实现方式 | ✅ | sourceType/entryMethod 枚举（Zod）；empowerment→tantricGroupId 必填（Zod）；isRequired→transmissionKey 必填（Zod）；密法访问控制 EXISTS 查询（应用层）；D18 撤销（应用层）——均注明实现层 |
+| 9. 升学条件可全查 | ✅ 改善 | conditionType='transmission' 的升学预检路径闭合：ProgramAdvancementConfig.conditionKey ↔ TransmissionRecord.transmissionKey，isRequired=true AND status=active 即满足；§3.9 AdvancementCheck 封板时验证完整路径 |
+| 10. D14 豁免字段区分 | ⏸ 本表无关 | 传承记录无修学计数字段 |
+| 11. D17 代行留痕路径完整 | ✅ | admin_entry 时 entryBy=操作人 userId（代录留痕）；confirmedBy 记录谁做了固定清单升格（升格代行留痕）；灌顶不可替代豁免须走 AuditLog（能力 5，§3.11）|
+| 12. D18 不物理删除 | ✅ | 撤销走 status=revoked+revokedAt+revokedBy+revokedReason，无 delete API |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | 传承录入/灌顶代录对应 class_tutor/class_admin 写权限；固定清单确认对应 class_admin；全职能核对待全表完成 |
+| 14. 枚举值各处一致 | ✅ | sourceType 三值(course/dharma_event/empowerment) 在字段表/schema/约束/设计意图四处一致；entryMethod 三值(auto/self_report/admin_entry) 在字段表/schema/约束三处一致；status 两值(active/revoked) 在字段表/schema/约束三处一致 |
+
+**本轮发现问题数**：1（检查项 1：TantricGroup model 需将旧 `grants TantricAccessGrant[]` 反向关联替换为 `transmissionRecords TransmissionRecord[]`；属 TantricGroup 复用表调整，上线前 migration 须处理，已知问题不阻断封板）。
+**结论**：§二 2.3 TransmissionRecord 封板通过。§二 替换区 3 张全部封板。传承记录体系完整：课程/法会/灌顶三源统一，密法授权、固定清单升格、升学预检三条路径均已打通。
 
 ---
 
