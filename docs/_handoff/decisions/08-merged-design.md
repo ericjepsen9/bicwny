@@ -1734,6 +1734,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §5.4 修正（用户决策）：**自学模式不需要休息审批**——移除 UserSelfStudyRestWeek 的审批状态机（pending/approved/rejected/expired + expiresAt + processedBy + rejectReason），回归旧设计自由申报（restStartDate + reason）；学员自助申报、即时生效、不可撤销（DR-62/63 改写）；进度补足改为全部申报休息周计入；删除 TODO-4（审批时效），新增 TODO-6（班级成员请假审批流另行设计）；§九 检查轮次 16 同步更新 |
 | 2026-05-29 | B 类核心表开始确认：§四 Course（法本/课程）✅ 复用——旧设计 §2.2 已扩展版（author/isTantric/programSemesterId/category/tantricGroupId 5 字段）核对后全部有效，字段不改；密法授权查询方式已迁 TransmissionRecord（不影响 Course 字段）；§八 DR-65；§九 检查轮次 17（0 问题）|
 | 2026-05-29 | §四 Lesson（课时）✅ 复用——旧设计 §2.2 仅扩展 sourceText（法本原文，与 referenceText 并存），课时只承载内容字段，进度/答题走 LessonCompletion/QuestionReference，字段不改；§八 DR-66；§九 检查轮次 18（0 问题）|
+| 2026-05-29 | 核对《预科19届学修大纲》（4 专业：加行/净土/入行论/学经）与系统完成情况：法本阅读/音频/视频/报数四项基本由 LessonCompletion + PracticeLog 覆盖；发现 3 个能力缺口记入 §十——TODO-7（加行座次计算规则与大纲不一致：系统含0.5座，大纲合并/封顶无0.5）、TODO-8（闻思「音频或视频」二选一须应用层判定，含盲/聋特殊圆满规则）、TODO-9（加行升学「92法逐法达标」预检粒度，AdvancementCheck §3.9 处理）；Meditation 表字段本身不受影响，缺口属判定/配置逻辑层 |
 
 ---
 
@@ -2190,3 +2191,6 @@ model UserSelfStudyRestWeek {
 | TODO-3 | PracticeAppointment.practiceProjectId 目前为普通 String 字段，无正式 @relation——待 §四 PracticeProject 复用区确认后，补 `practiceProject PracticeProject @relation(...)` 及 PracticeProject 上的反向 `appointments[]` | §5.3 PracticeAppointment | §四 PracticeProject 复用确认时 | DR-57 |
 | TODO-5 | §1.1 Program 恢复 `selfStudy UserSelfStudyProgram[]` 反向关联——当前因自学模式暂缓已移除，实现 §5.4 时须恢复 | §5.4 UserSelfStudyProgram | 自学模式实现时 | DR-64 |
 | TODO-6 | 班级成员请假审批流设计——辅导员及以上审批，含申请/审批状态机/时效失效（与自学休息周解耦，自学无审批）。原 §5.4 审批方案可作此处参考 | §5.4 自学模式修正 | 班级请假功能设计时 | DR-62 |
+| TODO-7 | **加行观修座次计算规则对齐大纲**——系统现 `PracticeLog.sessionCount`（≥30min=1 / ≥15min=0.5 / <15min=0）与预科19届大纲 §二.1 规则不一致：大纲规定「一座<30分钟可几座合并视为一座报数；一座>30分钟不能拆分」，无 0.5 座概念。边界算法须二选一定调（以哪套为准） | 预科19届大纲核对（Meditation/PracticeLog）| 实修报数判定逻辑设计/实现时 | — |
+| TODO-8 | **闻思圆满「音频或视频」二选一判定**——大纲要求「听一遍音频**或**视频」任一即满足；系统 LessonCompletion 的 audio/video 是两条独立记录（type 不同），DB 不自动合并。须在应用层闻思圆满判定中实现「audio OR video 任一完成即满足'听'项」逻辑（连同特殊情况：盲人听两遍、聋人法本看两遍的等价圆满规则）| 预科19届大纲核对（LessonCompletion）| 闻思圆满判定逻辑设计/实现时 | — |
+| TODO-9 | **加行升学「逐法达标」预检**——大纲升学硬条件要求 92 修法**每一法各自**满足 ≥3座 & ≥1.5小时（非仅总量 276座/138h）。系统只有逐条 PracticeLog，无「按 meditationId 分组的逐法达标快照」。`ProgramAdvancementConfig` 的 `practice_session` 条件粒度须确认能否表达「逐法达标」，AdvancementCheck(§3.9) 预检须按 meditationId 分组聚合 92 次比对 | 预科19届大纲核对（ProgramAdvancementConfig/AdvancementCheck）| §3.9 AdvancementCheck 设计时 | DR-4/DR-14 |
