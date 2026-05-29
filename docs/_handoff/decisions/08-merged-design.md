@@ -65,7 +65,52 @@
 
 ---
 
-### 1.2 ClassMember（班级成员）⬜ 未开始
+### 1.2 ClassMember（班级成员）✅ 已确认
+
+**服务能力**：能力 2（学员加入专业）+ 能力 11（留级、退出、转专业）
+**写权限**：状态机操作分级——`paused↔active` 学员自助；`held_back/graduated/left` 限 `class_admin` 及以上；复活（非 active→active）限 admin
+**参考决策**：D15（退出后历史可查）、D18（不物理删除）、D19（班级只归档）
+
+#### 字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | 旧 |
+| `classId` | String | 关联 Class | 旧 |
+| `userId` | String | 关联 User | 旧 |
+| `joinedAt` | DateTime | 加入时间，默认 now() | 旧 |
+| `cohortStatus` | CohortMemberStatus | active/paused/held_back/graduated/left，默认 active | 旧 |
+| `isPrimary` | Boolean | 主班标记，默认 false；一人多班只有一个主班 | 旧 |
+| `heldBackCount` | Int | 留级累计次数，默认 0；转 held_back 时 +1 | 旧 |
+| `graduatedAt` | DateTime? | 毕业时间 | 旧 |
+| `statusChangedAt` | DateTime? | 当前状态快照——最近一次变更时间 | 旧 |
+| `statusChangedBy` | String? | 最近一次变更操作人 userId（学员自助 = 本人）| 旧 |
+| `statusChangeReason` | String? | 最近一次变更原因 | 旧 |
+| ~~`role`~~ | ~~String~~ | ⚠️ 待决策：旧设计纯历史兼容字段（鉴权已移交 UserRoleAssignment），建议删，见文末 | 旧 |
+| ~~`removedAt`~~ | ~~DateTime?~~ | 移除：旧退班兼容字段，无生产数据可兼容；退班统一用 `cohortStatus='left'` + `statusChangedAt` | **移除** |
+
+> `statusChanged*` 三件套仅存**最近一次**变更，作当前状态快照（冗余便利）。完整变更链（退出→回归→留级…）由 EnrollmentStatusHistory 永久留档（D18），见 §3.14。
+
+#### 关联
+
+| 关联 | 变更 |
+|---|---|
+| `class Class` | 保留 |
+| `user User` | 保留 |
+| `statusHistory EnrollmentStatusHistory[]` | **新增**（见 §3.14）|
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `@@unique([classId, userId])` | DB | 一个师兄在一个班只有一条成员记录（回归走 left→active 复活同行，不新建）|
+| 一人一主班 | 应用层 | `isPrimary` 不加 DB 唯一索引（无法单列表达「一人一主班」），切换走事务 |
+| 状态机合法转移 | 应用层 | 自助/管理员/admin 三级权限校验 |
+| 不物理删除（D18/D19）| 应用层 | 退班 = `cohortStatus='left'`，记录保留可查；无 delete API |
+
+#### 设计意图
+
+退班用状态位而非删行，配合 EnrollmentStatusHistory 满足 D15「退出后学员仍可只读查看历史」。`@@unique([classId, userId])` 保证回归（能力 11 规则#2）时复活原成员行、记录自动衔接，不产生重复成员。
 
 ### 1.3 StudyRecord（闻思打卡）⬜ 未开始
 
@@ -93,11 +138,11 @@
 
 ---
 
-## 三、➕ 新建表（13 张）
+## 三、➕ 新建表（14 张）
 
 按新业务能力从头设计。
 
-> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）。新建区由 12 张调整为 13 张。
+> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）。新建区由 12 张调整为 14 张。
 
 ---
 
@@ -195,6 +240,37 @@ model ProgramAdvancementConfig {
 
 ### 3.13 AuditLog（审计日志）⬜ 未开始
 
+### 3.14 EnrollmentStatusHistory（入学状态变更留痕）✅ 已确认
+
+**服务能力**：能力 11（留级、退出、转专业）
+**写权限**：随状态机操作写入（学员自助退出 = 本人；管理员操作 = 操作人）
+**参考决策**：D15（退出后学员可查）、D18（永久留档不删除）
+
+一次状态变更 = 一行记录，永久保留。与 ClassMember 上的 `statusChanged*` 快照互补：快照存最近一次，本表存完整链路。
+
+#### 字段
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `memberId` | String | 关联 ClassMember |
+| `fromStatus` | CohortMemberStatus? | 变更前状态；首次记录可空 |
+| `toStatus` | CohortMemberStatus | 变更后状态 |
+| `changedAt` | DateTime | 变更时间，默认 now() |
+| `changedBy` | String | 操作人 userId（学员自助退出 = 本人）|
+| `reason` | String? | 变更原因 |
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `@@index([memberId])` | DB | 按成员查历史链 |
+| 不可删除/修改（D18）| 应用层 | 只追加（append-only），无 update/delete API |
+
+#### 设计意图
+
+与 RoleAssignmentHistory（§3.3）对称：角色变更留痕 vs 入学状态变更留痕。学员端可直接查自己的 `memberId` 历史满足 D15，无需从面向管理员的 AuditLog（§3.13）里捞。
+
 ---
 
 ## 四、✅ 复用表（直接沿用旧设计）
@@ -269,6 +345,7 @@ model ProgramSemester {
 |---|---|---|
 | `ProgramStage` | `preke` / `zhengke` | 预科/正科，D2 固定（新增）|
 | `AdvancementConditionType` | `course_completion` / `practice_session` / `cumulative_count` / `attendance` / `exam_score` / `transmission` | 升学条件 6 类（新增，能力 10）|
+| `CohortMemberStatus` | `active` / `paused` / `held_back` / `graduated` / `left` | 成员状态机 5 态（旧设计沿用，能力 11）|
 
 ---
 
@@ -279,3 +356,4 @@ model ProgramSemester {
 | 2026-05-28 | 创建文档；完成 1.1 Program 扩展设计（用户确认）|
 | 2026-05-28 | ProgramSemester 改判为 ✅ 复用（字段够用）；新增 ProgramAdvancementConfig 表（升学条件数据化，存法二，用户确认）；扩展区 8→7 张，新建区 12→13 张 |
 | 2026-05-29 | ProgramSemester 补复用说明 + Prisma schema（学期=周区间单一属性，照搬旧设计）；ProgramAdvancementConfig 落 Prisma 代码块（isRequired 默认 true、isExemptable 默认 false，契合 D13）|
+| 2026-05-29 | 完成 1.2 ClassMember 扩展（删 removedAt，role 标 ⚠️ 待决策）；新增 §3.14 EnrollmentStatusHistory（入学状态变更留痕，D18，与 RoleAssignmentHistory 对称）；新建区 13→14 张；新增 CohortMemberStatus enum |
