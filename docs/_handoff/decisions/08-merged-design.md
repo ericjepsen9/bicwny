@@ -1103,6 +1103,7 @@ model EnrollmentStatusHistory {
 
 | 表 | 服务能力 | 状态 |
 |---|---|---|
+| `Course`（法本/课程，旧设计已扩展版，详见下）| 能力 1/3/17 | ✅ 确认复用 |
 | `ProgramSemester`（科目/学期，字段够用，详见下）| 能力 1 | ✅ 确认复用 |
 | `PracticeLog` | 能力 4/6/7 | ⬜ |
 | `PracticeTemplate` | 能力 4/6/7 | ⬜ |
@@ -1128,6 +1129,22 @@ model EnrollmentStatusHistory {
 | `SpeakingRegistration` | 能力 10 | ⬜ |
 | ~~`Exam`~~ | 已移入扩展区 §1.4 | ✅ |
 | `CohortWeeklySummary` | 管理端 ⏸ 暂缓 | ⬜ |
+
+#### Course 复用说明
+
+旧设计 §2.2 已将 Course 扩展为含 5 个新字段的版本，核对新设计（05/06）后**全部仍有效，字段不改**，判 ✅ 复用：
+
+| 新增字段 | 用途 | 新设计下状态 |
+|---|---|---|
+| `author` | 造论者（如"索达吉堪布"/"寂天菩萨"），学员端展示用 | ✅ 有效（纯展示）|
+| `isTantric` | 密法标识：未授权师兄所有查询零痕迹过滤；管理端不过滤 | ✅ 有效 |
+| `programSemesterId` | 归属科目（ProgramSemester），通过科目派生 programId，不直接存 programId | ✅ 有效（三层 Program→ProgramSemester→Course，§1.1 已封板）|
+| `category` | `dharma_text`（法本，默认）/ `self_study_book`（自学读物）| ✅ 有效（self_study_book 对应 §5.4 自学读物，复用 Course 全套）|
+| `tantricGroupId` | 密法组（灌顶单位），仅 isTantric=true 时填；按组授权 | ✅ 有效 |
+
+> **唯一注意点**：密法访问控制的**查询方式**已变（§二 2.3 废弃 TantricAccessGrant，改为 `EXISTS on TransmissionRecord(sourceType=empowerment)`，DR-44/45）。但这只影响「如何查授权」，**不影响 Course 表本身字段**——`tantricGroupId` 仍保留，用于标记法本所属密法组。Course 表字段完全照搬旧设计扩展版。
+
+---
 
 #### ProgramSemester 复用说明
 
@@ -1702,6 +1719,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §5.3 约修（PracticeAppointment + PracticeAppointmentParticipant 2 张表）✅ 封板：方案 A 独立参与表（与 UserPracticeVow 完全解耦，DR-57）、创建权=班级任意成员（DR-58）、退出软删 isActive=false（DR-59）、贡献独立计数流（DR-60）；currentTotal 事务同步；§十 新增 TODO-3（practiceProjectId 待 PracticeProject 确认后补 FK）；§八 DR-57~60；§九 检查轮次 15（1 个问题→挂 TODO-3）|
 | 2026-05-29 | §5.4 自学模式（UserSelfStudyProgram + UserSelfStudyRestWeek 2 张表）✅ 封板：入学限 subject_admin/super_admin（DR-61）、请假进度补足算法（DR-64）；§十 新增 TODO-5（Program 恢复反向关联）；§八 DR-61~64；§九 检查轮次 16；**§五 四组暂缓表全部设计封板** |
 | 2026-05-29 | §5.4 修正（用户决策）：**自学模式不需要休息审批**——移除 UserSelfStudyRestWeek 的审批状态机（pending/approved/rejected/expired + expiresAt + processedBy + rejectReason），回归旧设计自由申报（restStartDate + reason）；学员自助申报、即时生效、不可撤销（DR-62/63 改写）；进度补足改为全部申报休息周计入；删除 TODO-4（审批时效），新增 TODO-6（班级成员请假审批流另行设计）；§九 检查轮次 16 同步更新 |
+| 2026-05-29 | B 类核心表开始确认：§四 Course（法本/课程）✅ 复用——旧设计 §2.2 已扩展版（author/isTantric/programSemesterId/category/tantricGroupId 5 字段）核对后全部有效，字段不改；密法授权查询方式已迁 TransmissionRecord（不影响 Course 字段）；§八 DR-65；§九 检查轮次 17（0 问题）|
 
 ---
 
@@ -1775,6 +1793,7 @@ model UserSelfStudyRestWeek {
 | DR-62 | 自学休息周是否需要审批 | 不需要审批，学员自由申报、即时生效（用户决策 2026-05-29 修正）| 用户修正：「休息审批需要，但是自学模式不需要休息审批」。自学师兄自定节奏（pace 字段），是自主学习者，其休息周属个人安排，无须辅导员审批。原设计的审批状态机（pending/approved/rejected/expired + expiresAt + processedBy）全部移除，回归旧设计的简单申报（restStartDate + reason）。**休息审批机制确实需要，但属班级成员请假场景**（辅导员及以上审批），与自学解耦，另行设计（TODO-6）|
 | DR-63 | 自学休息周申报是否可撤销 | 不可撤销（D18，用户决策 2026-05-29）| 申报即生效并影响进度计算，记录有审计价值，不提供删除/撤销接口。符合 D18 append-only。排除「允许撤销」：会引入物理删，且自学进度已据此重算，撤销会造成进度跳变 |
 | DR-64 | 请假后进度落后如何补足 | 申报休息周天数从有效学习天数中扣除（用户决策 2026-05-29）| 用户决策「用户请假课程进度落后可以补足」。核心：有效学习天数 = (今天−startDate) − Σ申报休息天数，当前周由有效天数推算。自学无审批，全部已过去的申报休息周均计入补足，避免假性落后。休息中内容仍可访问（学员可自主补课），掉队预警暂停。此算法复用班级进度算法，仅数据源换成个人 startDate + 个人休息周（与旧设计注释「自学进度算法 = 班级进度算法」一致）|
+| DR-65 | Course 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 已将 Course 扩展为含 author/isTantric/programSemesterId/category/tantricGroupId 5 字段的版本，核对 05/06 后全部仍有效。密法访问控制虽改用 TransmissionRecord（DR-44/45），但仅影响授权查询方式，不影响 Course 字段（tantricGroupId 仍用于标记法本所属密法组）。排除「在 Course 上加授权字段」：授权状态属 TransmissionRecord 范畴，Course 只需 tantricGroupId 标记归属即可 |
 
 ---
 
@@ -2104,6 +2123,25 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：1（Program 反向关联待恢复→TODO-5）。
 **结论**：§5.4 自学模式家族（2 张表）设计封板。自学休息周**去审批**（学员自由申报、即时生效，DR-62）+ 进度补足算法（全部申报休息周扣除有效天数）。休息审批属班级请假场景，与自学解耦（TODO-6）。⚠️ 实现时须补职能编号、恢复 Program 反向关联。
+
+### 检查轮次 17（2026-05-29，范围：B 类核心表 §四 Course 复用确认）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | Course.programSemester↔ProgramSemester.courses（§四 ProgramSemester 复用说明已含 courses Course[]）；Course.tantricGroup↔TantricGroup（旧设计已有反向，TantricGroup 在 §四 ⬜ 待确认时一并核对）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §四 复用表新增 Course 一行；扩展区/替换区/暂缓区计数不变 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | Course 复用不动，无新 migration |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 7. 暂缓/不做标签完整 | ✅ | Course 5 字段逐一标 ✅ 有效；密法查询方式变化已注明不影响字段 |
+| 8. 业务规则约束有实现方式 | ✅ | isTantric 零痕迹过滤→应用层查询；category 分组→应用层；密法授权→TransmissionRecord EXISTS（DR-44/45）|
+| 9-12. 其余检查项 | ✅/⏸ | D18：Course 复用不动，无删除语义变化；密法授权逻辑迁移至 TransmissionRecord 已封板 |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | Course 管理对应职能 #16（管理课程内容，class_admin+），与 §二 DR-39 一致 |
+| 14. 枚举值各处一致 | ✅ | category 两值（dharma_text/self_study_book）与旧设计一致；isTantric 布尔与 Meditation/PracticeProject 同套密法标识模式 |
+
+**本轮发现问题数**：0。
+**结论**：Course 判 ✅ 复用，字段完全照搬旧设计扩展版。密法授权查询方式虽变（迁至 TransmissionRecord）但不触及 Course 字段。§四 5 张 ⬜ 相关表（TantricGroup 等）待后续逐张确认。
 
 ---
 
