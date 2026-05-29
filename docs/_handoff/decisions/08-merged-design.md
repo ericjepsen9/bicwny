@@ -1168,7 +1168,7 @@ model ProgramSemester {
 | 状态 | 家族 | 表数 |
 |---|---|---|
 | ✅ 设计封板 | §5.1 班级动态（ClassPost 家族） | 4 张 |
-| ⬜ 待讨论 | §5.2 班级讨论（Discussion 家族） | 4 张 |
+| ✅ 设计封板 | §5.2 班级讨论（Discussion 家族） | 4 张 |
 | ⬜ 待讨论 | §5.3 约修（PracticeAppointment） | 1 张 |
 | ⬜ 待讨论 | §5.4 自学模式（UserSelfStudyProgram 家族） | 2 张 |
 
@@ -1312,9 +1312,153 @@ model ClassPostShare {
 
 ---
 
-### 5.2 班级讨论（Discussion 家族）⬜ 待讨论
+### 5.2 班级讨论（Discussion 家族）✅ 设计封板
 
-> 含 Discussion / DiscussionViewpoint / DiscussionVote / DiscussionComment 4 张表，旧设计已有完整 schema，待下一轮讨论确认。
+**⏸ 暂缓**：当前迭代不实现；以下设计可直接用于写 Prisma schema。
+
+**服务能力**：班级话题讨论与投票，06 文档未列入 20 条能力；⚠️ 实现时需在 06 文档补入对应能力编号及职能矩阵条目。
+**写权限**：
+- 创建 Discussion：`class_tutor` 及以上（所有后台角色，含 `subject_admin` / `super_admin`）
+- 添加 DiscussionViewpoint：随 Discussion 创建时一并写入，**不允许事后增删**（防止已投票后改选项）
+- 投票（DiscussionVote）：班级 active 成员（限 `status=open` 话题；一人一票，**不允许换投**，DR-53）
+- 评论（DiscussionComment）：班级 active 成员（限 `status=open` 话题）
+- 关闭话题（`open→closed`）：发起人自己（`authorId == session.userId`）**或** `class_admin` 及以上
+- 删评论：评论人自己（`authorId == session.userId`）**或** `class_admin` 及以上
+**参考决策**：D18（投票/评论不物理删除）、DR-53~56
+
+#### Discussion（班级讨论话题）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `classId` | String | 关联 Class |
+| `authorId` | String | 发起人 userId（`class_tutor` 及以上）|
+| `title` | String | 话题标题 |
+| `description` | String? | 话题说明 |
+| `lessonId` | String? | 可选关联课时 |
+| `courseId` | String? | 可选关联法本 |
+| `status` | String | `open`（进行中）/ `closed`（已关闭），默认 `open` |
+| `closedAt` | DateTime? | 关闭时间 |
+| `closedBy` | String? | 关闭操作人 userId |
+| `createdAt` | DateTime | 默认 now() |
+| `updatedAt` | DateTime | @updatedAt |
+
+```prisma
+model Discussion {
+  id          String    @id @default(cuid())
+  classId     String
+  authorId    String    // class_tutor 及以上（所有后台角色）
+  title       String
+  description String?
+  lessonId    String?
+  courseId    String?
+  status      String    @default("open")  // open / closed
+  closedAt    DateTime?
+  closedBy    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  class      Class                 @relation(fields: [classId], references: [id])
+  author     User                  @relation(fields: [authorId], references: [id])
+  lesson     Lesson?               @relation(fields: [lessonId], references: [id])
+  course     Course?               @relation(fields: [courseId], references: [id])
+  viewpoints DiscussionViewpoint[]
+  votes      DiscussionVote[]
+  comments   DiscussionComment[]
+}
+```
+
+#### DiscussionViewpoint（投票选项）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `discussionId` | String | 关联 Discussion |
+| `content` | String | 选项文本 |
+| `sortOrder` | Int | 排序，默认 0 |
+| `createdAt` | DateTime | 默认 now() |
+
+```prisma
+model DiscussionViewpoint {
+  id           String   @id @default(cuid())
+  discussionId String
+  content      String
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  discussion Discussion      @relation(fields: [discussionId], references: [id])
+  votes      DiscussionVote[]
+}
+```
+
+#### DiscussionVote（投票记录）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `discussionId` | String | 冗余存储（方便查「我在本话题投了哪个观点」）|
+| `viewpointId` | String | 关联 DiscussionViewpoint |
+| `userId` | String | 关联 User |
+| `createdAt` | DateTime | 默认 now() |
+
+```prisma
+model DiscussionVote {
+  id           String   @id @default(cuid())
+  discussionId String   // 冗余，方便按话题查当前用户投票
+  viewpointId  String
+  userId       String
+  createdAt    DateTime @default(now())
+
+  viewpoint  DiscussionViewpoint @relation(fields: [viewpointId], references: [id])
+  user       User                @relation(fields: [userId], references: [id])
+
+  @@unique([discussionId, userId])  // 一人一票；不允许换投，无物理删行，D18 完全合规（DR-53）
+}
+```
+
+#### DiscussionComment（讨论评论）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `discussionId` | String | 关联 Discussion |
+| `authorId` | String | 关联 User（评论人）|
+| `content` | String | 评论正文 |
+| `parentId` | String? | 一级回复；parent 不能再有 parentId（应用层拒绝二级嵌套）|
+| `isDeleted` | Boolean | 软删除标记，默认 false |
+| `deletedBy` | String? | 删除操作人（可为 authorId 自删或 class_admin+）|
+| `deletedAt` | DateTime? | 删除时间 |
+| `createdAt` | DateTime | 默认 now() |
+
+```prisma
+model DiscussionComment {
+  id           String    @id @default(cuid())
+  discussionId String
+  authorId     String
+  content      String
+  parentId     String?   // 一级回复；应用层拒绝二级嵌套
+  isDeleted    Boolean   @default(false)
+  deletedBy    String?   // 可为 authorId（自删）或 class_admin+
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  discussion Discussion          @relation(fields: [discussionId], references: [id])
+  author     User                @relation(fields: [authorId], references: [id])
+  parent     DiscussionComment?  @relation("Replies", fields: [parentId], references: [id])
+  replies    DiscussionComment[] @relation("Replies")
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| 一人一票不可换投 | DB（@@unique）+ 应用层 | `@@unique([discussionId, userId])` 防重；API 层收到已投票用户的请求返回 409，不删旧行 |
+| 投票/评论仅限 open 话题 | 应用层 | 写入前校验 `Discussion.status='open'`，closed 后只读 |
+| DiscussionViewpoint 不可事后增删 | 应用层 | 无 viewpoint create/delete API；仅允许随 Discussion 创建时批量写入 |
+| 评论一级回复限制 | 应用层 | 写入 parentId 时校验 parent.parentId 为 null |
+| 软删：评论 `isDeleted=true`（D18）| 应用层+DB | 无 delete API；isDeleted=true 前端隐藏，DB 保留 |
+| 内容仅在本班可见 | 应用层 | Discussion.classId 强制按班级过滤 |
 
 ---
 
@@ -1364,6 +1508,7 @@ model ClassPostShare {
 | 2026-05-29 | 完成 §二 2.3 TransmissionRecord 封板：整合废弃 TantricAccessGrant，三源统一（course/dharma_event/empowerment），密法授权/固定清单升格/升学预检三条路径打通；§八 DR-44~47；§九 检查轮次 11（1 个问题：TantricGroup 反向关联须替换，已知，不阻断封板）；§二 替换区 3 张全部封板 |
 | 2026-05-29 | §1.4 修订：SpeakingGrade.classId String→String?（null=平台级讲考由 subject_admin/super_admin 评分）；§四 SpeakingSession 复用确认（classId 旧设计已可空，照搬）、Exam 标移入 §1.4；写权限说明拆班级/平台两级；§八 DR-48~49；§九 检查轮次 12（0 问题）|
 | 2026-05-29 | §五 暂缓区重构：从「保留旧设计原样」改为「设计已落实/实现延后」，拆为 §5.1~5.4 四个子节。§5.1 班级动态（ClassPost/Reaction/Comment/Share 4 张表）✅ 封板：补发帖人自删权限（authorId 自删 OR class_admin+）、软删三件套（D18）、Reaction toggle 物理删例外（DR-50）、职能待定标记（DR-52）；§5.2~5.4 保持 ⬜ 占位；§八 DR-50~52；§九 检查轮次 13（0 问题）|
+| 2026-05-29 | §5.2 班级讨论（Discussion/Viewpoint/Vote/Comment 4 张表）✅ 封板：一人一票不允许换投（D18 完全合规，DR-53）、创建权=所有后台角色 class_tutor+（DR-54）、关闭权=发起人 OR class_admin+（DR-55）、Viewpoint 创建后不可增删（DR-56）、评论软删（同 §5.1）；§八 DR-53~56；§九 检查轮次 14（0 问题）|
 
 ---
 
@@ -1425,6 +1570,10 @@ model ClassPostShare {
 | DR-50 | ClassPostReaction 取消点赞是否物理删行 | 物理删行（D18 例外）| 点赞/取消点赞是纯状态 toggle，无历史留档需求（「曾经点过赞」不是业务关心的历史事件）。物理删行 + @@unique 防重是最简洁正确的 toggle 模式。对比：ClassPost/ClassPostComment 是通讯内容，删除需留痕（isDeleted+deletedBy）；Reaction 是瞬时情绪标记，语义不同。ClassPostShare 不删（转发是历史事件）|
 | DR-51 | 帖子/评论删除权限如何表达「发帖人自删 OR 管理员」| 应用层双路判断，不加 DB 约束 | 删除条件：`session.userId == authorId`（自删）OR `UserRoleAssignment.role >= class_admin`（同班管理权）。此「OR」逻辑无法在 DB 层表达，须应用层 API 中间件先做身份判断，再执行软删（isDeleted=true + deletedBy + deletedAt）。deletedBy 字段同时兼做「谁删了」的审计留痕（自删 = 发帖人 userId，管理删除 = 管理员 userId）|
 | DR-52 | ClassPost 家族职能归属 | 暂缓实现时再定职能编号，当前设计按角色层级描述 | 06 文档 20 条业务能力未覆盖「班级动态」，没有对应职能编号。旧设计已有完整 schema，新设计权限按角色层级（class_admin+，active 班级成员）描述已足够。排除「强行映射到现有职能」（无对应职能，强映射会导致语义混乱）。待实现时补 06 文档能力条目 + 23职能矩阵行 |
+| DR-53 | DiscussionVote 是否允许换投 | 不允许（用户决策 2026-05-29）| 旧设计允许「先删再插」换投。新设计改为一人一票锁定：投票即为当前立场的永久记录，`@@unique([discussionId, userId])` 防重，API 层收到重复投票返回 409。D18 完全合规（无物理删行）。排除「允许换投」：佛法讨论中意见修正有意义但不应反复改票，且锁定设计更简单、无 D18 例外争议 |
+| DR-54 | Discussion 发起权限 | 所有后台角色（class_tutor 及以上，含 subject_admin/super_admin）| 用户决策：「发起投票由所有的后台角色都可以发起」。排除「仅 class_admin+」：辅导员（class_tutor）在教学互动中有合理需求发起话题讨论；排除「班级所有成员」：讨论话题设计是教学工具，由有管理职责的角色发起更规范 |
+| DR-55 | Discussion 关闭权限 | 发起人自己（`authorId == session.userId`）OR `class_admin` 及以上 | 旧设计注释「创建权限：ClassAdmin 或 admin」，关闭权未单独说明。新设计与帖子/评论删除权同套路：发起人可关闭自己的话题，class_admin+ 可关闭任意话题（管理权）。排除「仅 class_admin+」：发起人无法关闭自己创建的话题不合理 |
+| DR-56 | DiscussionViewpoint 事后增删 | 不允许（创建后不可增删）| 选项一旦有人投票，增删选项会导致票数统计失真、已投票用户体验混乱。最简原则：viewpoint 随 discussion 创建时一并批量写入，之后无增删 API。排除「允许追加选项（仅追加，不删）」：追加后旧选项票数比例变化，可能影响讨论方向的真实性 |
 
 ---
 
@@ -1693,6 +1842,25 @@ model ClassPostShare {
 
 **本轮发现问题数**：0。
 **结论**：§5.1 ClassPost 家族（4 张表）设计封板。权限双路（自删/管理删）、D18 软删、Reaction toggle 例外已有 DR 说明。Reaction 物理删例外与 DR-20 快照例外同类思路（状态/计算值，非历史事件）。⚠️ 实现时须补职能编号（DR-52）。
+
+### 检查轮次 14（2026-05-29，范围：§5.2 Discussion 家族封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | Discussion.class↔Class；Discussion.author↔User；Discussion.lesson↔Lesson?；Discussion.course↔Course?；Discussion.viewpoints↔DiscussionViewpoint.discussion；DiscussionVote.viewpoint↔DiscussionViewpoint.votes；DiscussionVote.user↔User；DiscussionComment.discussion↔Discussion.comments；DiscussionComment.author↔User；DiscussionComment.parent/replies 自关联对称；旧设计 User/Class/Lesson/Course model 均有反向关联（FINAL_DESIGN 1488-1530 行确认） |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 暂缓区不写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §五 目录表已将 §5.2 更新为「✅ 设计封板」；4 张表与 schema 实体数一致 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 暂缓区不生成 migration |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | §5.2 标 ⏸ 暂缓；DiscussionViewpoint 不可增删已标注说明；换投不允许已标 DR-53 |
+| 8. 业务规则约束有实现方式 | ✅ | 一人一票→DB @@unique + 应用层 409；投票/评论限 open→应用层；viewpoint 不增删→应用层（无 API）；评论软删→应用层+DB；内容班级隔离→应用层过滤；一级回复限制→应用层 |
+| 9-12. 其余检查项 | ✅/⏸ | D18：DiscussionVote append-only（无物理删），DiscussionComment 软删，均合规；D17：deletedBy 兼做审计留痕；一人一票无历史丢失（不换投，无删行）|
+| 13. 02 文档 23 职能写表覆盖 | ⚠️ 待实现时补 | 班级讨论无对应职能编号（同 DR-52 思路），⏸ 期间无需补 |
+| 14. 枚举值各处一致 | ✅ | Discussion.status 两值（open/closed）在字段表、schema、约束三处一致 |
+
+**本轮发现问题数**：0。
+**结论**：§5.2 Discussion 家族（4 张表）设计封板。一人一票+不允许换投是最简 D18 合规方案；DiscussionViewpoint 不可事后增删保护票数真实性；评论软删与 §5.1 ClassPostComment 同套路。⚠️ 实现时须补职能编号。
 
 ---
 
