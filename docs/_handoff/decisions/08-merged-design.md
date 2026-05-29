@@ -146,6 +146,29 @@
 
 能力 10 的 AdvancementCheck（升学预检）遍历本表逐条判定，新增专业/调整门槛不动代码（D3）。逐条 `isExemptable` 标记支持 D17 代行豁免的细粒度控制。
 
+#### Prisma schema
+
+```prisma
+model ProgramAdvancementConfig {
+  id            String                    @id @default(cuid())
+  programId     String
+  conditionType AdvancementConditionType
+  conditionKey  String   // 细分标识，如 "practice_92"、"cumulative_guanyin"
+  label         String   // 管理端识别名，如 "92 修法完成"
+  targetValue   Int?     // 数量门槛（10万=100000 / 出勤次数 / 合格分 60）
+  params        Json?    // 额外参数（累计型关联模板 id、座数+时长双指标等）
+  isRequired    Boolean  @default(true)   // 是否硬性必须
+  isExemptable  Boolean  @default(false)  // 是否允许管理员代行豁免（D17）
+  displayOrder  Int      @default(0)
+
+  program Program @relation(fields: [programId], references: [id])
+
+  @@unique([programId, conditionKey])
+}
+```
+
+> 默认值说明：`isRequired=true`（条件默认硬性）、`isExemptable=false`（默认不可豁免，需管理员显式开启），契合 D13「硬条件不放宽」基调。
+
 ---
 
 ### 3.2 UserRoleAssignment（角色分配）⬜ 未开始
@@ -180,7 +203,7 @@
 
 | 表 | 服务能力 | 状态 |
 |---|---|---|
-| `ProgramSemester`（科目/学期，字段够用）| 能力 1 | ✅ 确认复用 |
+| `ProgramSemester`（科目/学期，字段够用，详见下）| 能力 1 | ✅ 确认复用 |
 | `PracticeLog` | 能力 4/6/7 | ⬜ |
 | `PracticeTemplate` | 能力 4/6/7 | ⬜ |
 | `CohortRecommendedTemplate` | 能力 1/2 | ⬜ |
@@ -205,6 +228,27 @@
 | `SpeakingRegistration` | 能力 10 | ⬜ |
 | `Exam` | 能力 10 | ⬜ |
 | `CohortWeeklySummary` | 管理端 ⏸ 暂缓 | ⬜ |
+
+#### ProgramSemester 复用说明
+
+学期分层 = 「第几周到第几周」的单一属性，由 `startsWeek` / `endsWeek` 两个 Int 表达，不需要拆成多条记录的子表。旧设计字段已满足新业务，照搬不改：
+
+```prisma
+model ProgramSemester {
+  id             String   @id @default(cuid())
+  programId      String
+  semesterNumber Int      // 科目序号（1=一年级）
+  semesterName   String?  // 科目名（如"加行一年级"）
+  startsWeek     Int      // 全程第几周开始
+  endsWeek       Int      // 全程第几周结束
+
+  program  Program        @relation(fields: [programId], references: [id])
+  weeks    ProgramWeek[]
+  courses  Course[]
+
+  @@unique([programId, semesterNumber])
+}
+```
 
 ---
 
@@ -234,3 +278,4 @@
 |---|---|
 | 2026-05-28 | 创建文档；完成 1.1 Program 扩展设计（用户确认）|
 | 2026-05-28 | ProgramSemester 改判为 ✅ 复用（字段够用）；新增 ProgramAdvancementConfig 表（升学条件数据化，存法二，用户确认）；扩展区 8→7 张，新建区 12→13 张 |
+| 2026-05-29 | ProgramSemester 补复用说明 + Prisma schema（学期=周区间单一属性，照搬旧设计）；ProgramAdvancementConfig 落 Prisma 代码块（isRequired 默认 true、isExemptable 默认 false，契合 D13）|
