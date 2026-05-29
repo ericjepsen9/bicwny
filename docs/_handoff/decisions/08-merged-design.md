@@ -180,23 +180,34 @@
 ### 1.4 SpeakingGrade / ExamGrade / Exam（成绩）✅ 已封板
 
 **服务能力**：能力 10（考试与升学）
-**写权限**：讲考评分限辅导员（本班）；考试成绩录入限 `class_admin` 及以上（职能 #7，辅导员无权）；Exam 创建——随堂测验辅导员（#11a）、升学考班级管理员（#11b）
+**写权限**：班级级讲考评分限 `class_tutor` 及以上（本班）；平台级讲考评分限 `subject_admin` / `super_admin`（SpeakingGrade.classId=null）；考试成绩录入限 `class_admin` 及以上（职能 #7，辅导员无权）；Exam 创建——随堂测验辅导员（#11a）、升学考班级管理员（#11b）
 **参考决策**：D3（合格线数据驱动）、D13（升学硬条件）、D18（成绩永久留档）
 
-> **三表关系**：SpeakingGrade（讲考评分，教学辅助，不进升学硬条件）与 ExamGrade（考试成绩）结构旧设计已完整，**复用不动**。唯一扩展是 **Exam 加 `examType`**——核对能力 10 发现旧 Exam 无法区分「随堂测验 vs 升学考」，导致升学预检取不到正确成绩、两类写权限无法分流。本节因 Exam 扩展归入扩展区。
+> **三表关系**：ExamGrade 结构旧设计已完整，**复用不动**。**Exam 加 `examType`**——核对能力 10 发现旧 Exam 无法区分「随堂测验 vs 升学考」，导致升学预检取不到正确成绩、两类写权限无法分流。**SpeakingGrade.classId 改可空**——平台级讲考（SpeakingSession.classId=null）由 subject_admin/super_admin 评分，无归属班，见 DR-48。本节三张表均有变更，归入扩展区。
 
-#### SpeakingGrade（讲考评分）— ✅ 复用不动
+#### SpeakingGrade（讲考评分）— 🔧 扩展：classId 改可空
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | 旧 |
+| `speakingSessionId` | String | 关联 SpeakingSession | 旧 |
+| `userId` | String | 被评分学员 | 旧 |
+| `classId` | String? | 评分人所在班级；**null = 平台级评分（subject_admin/super_admin）** | 旧→**改可空** |
+| `score` | String | `pass` / `fail` / `excellent` | 旧 |
+| `comment` | String? | 评语 | 旧 |
+| `gradedBy` | String | 评分人 userId | 旧 |
+| `gradedAt` | DateTime | 默认 now() | 旧 |
 
 ```prisma
 model SpeakingGrade {
-  id                String          @id @default(cuid())
+  id                String   @id @default(cuid())
   speakingSessionId String
   userId            String
-  classId           String          // 辅导员所在班级（权限范围限定）
-  score             String          // pass / fail / excellent
+  classId           String?  // 评分人所在班级；null=平台级评分（subject_admin/super_admin）
+  score             String   // pass / fail / excellent
   comment           String?
-  gradedBy          String          // 辅导员 userId
-  gradedAt          DateTime        @default(now())
+  gradedBy          String   // 评分人 userId
+  gradedAt          DateTime @default(now())
 
   session SpeakingSession @relation(fields: [speakingSessionId], references: [id])
   user    User            @relation(fields: [userId], references: [id])
@@ -271,6 +282,8 @@ model Exam {
 | `examType` 仅 quiz/advancement | 应用层（Zod）| 两值枚举，无 Prisma enum（与旧 String 风格一致）|
 | 升学考创建限班级管理员、随堂测验限辅导员 | 应用层 | 按 examType 分流写权限（职能 #11a/#11b）|
 | 考试成绩录入限 class_admin 及以上 | 应用层 | 职能 #7，辅导员无录入权 |
+| 班级级讲考评分限 class_tutor 及以上 | 应用层 | SpeakingGrade.classId 非空时；评分人须在同一班 |
+| 平台级讲考评分限 subject_admin / super_admin | 应用层 | SpeakingGrade.classId=null 时；按 SpeakingSession.classId=null 判定 |
 | 成绩永久留档（D18）| 应用层 | 无 delete，修正走 upsert + AuditLog |
 
 #### 设计意图
@@ -1111,9 +1124,9 @@ model EnrollmentStatusHistory {
 | `ContentChunk` | AI 助手 | ⬜ |
 | `FeatureEntry` | AI 助手 | ⬜ |
 | `AiConversation` / `AiMessage` / `AiUsage` | AI 助手 | ⬜ |
-| `SpeakingSession` | 能力 10 | ⬜ |
+| `SpeakingSession` | 能力 10 | ✅ 复用（classId 已可空，见下方说明）|
 | `SpeakingRegistration` | 能力 10 | ⬜ |
-| `Exam` | 能力 10 | ⬜ |
+| ~~`Exam`~~ | 已移入扩展区 §1.4 | ✅ |
 | `CohortWeeklySummary` | 管理端 ⏸ 暂缓 | ⬜ |
 
 #### ProgramSemester 复用说明
@@ -1136,6 +1149,15 @@ model ProgramSemester {
   @@unique([programId, semesterNumber])
 }
 ```
+
+#### SpeakingSession 复用说明
+
+旧设计 migration_009 已将 `classId` 改为可空（`String?`），明确注释：`// classId=null → 平台级讲考；classId 有值 → 班级讲考`。字段已完整（id/classId/startAt/sessionEndAt/checkInToken/title/lessonId/createdBy 等），新设计**照搬不改**。
+
+权限说明（新角色体系下）：
+- 平台级（classId=null）：仅 `subject_admin` / `super_admin` 可创建
+- 班级级（classId 有值）：`class_tutor` 及以上可创建（本班）
+- 评分：班级级 → `class_tutor` 及以上；平台级 → `subject_admin` / `super_admin`（SpeakingGrade.classId=null，见 §1.4 DR-48）
 
 ---
 
@@ -1182,6 +1204,7 @@ model ProgramSemester {
 | 2026-05-29 | 完成 §二 2.1 UserRoleAssignment 封板：替代旧 ClassAdmin 8 flag，4 角色+作用域绑定体系，super_admin NULL unique 应用层兜底；§三 目录重整（UserRoleAssignment/TransmissionRecord 从新建区迁出，16→14 张，3.3→3.2 重排，3.14/3.15/3.16→3.12/3.13/3.14）；全量更新内联引用；§八 DR-39~41；§九 检查轮次 9（0 问题）|
 | 2026-05-29 | 完成 §二 2.2 CareFollowupRecord 封板：替代旧 CareFollowup，新增 sourceType（care_watchlist/special_status 双能力共用）、watchlistItemId FK；canCareFollowup flag 废弃改 role-based；§八 DR-42~43；§九 检查轮次 10（1 个问题：§3.4 须补反向关联，已标注）|
 | 2026-05-29 | 完成 §二 2.3 TransmissionRecord 封板：整合废弃 TantricAccessGrant，三源统一（course/dharma_event/empowerment），密法授权/固定清单升格/升学预检三条路径打通；§八 DR-44~47；§九 检查轮次 11（1 个问题：TantricGroup 反向关联须替换，已知，不阻断封板）；§二 替换区 3 张全部封板 |
+| 2026-05-29 | §1.4 修订：SpeakingGrade.classId String→String?（null=平台级讲考由 subject_admin/super_admin 评分）；§四 SpeakingSession 复用确认（classId 旧设计已可空，照搬）、Exam 标移入 §1.4；写权限说明拆班级/平台两级；§八 DR-48~49；§九 检查轮次 12（0 问题）|
 
 ---
 
@@ -1238,6 +1261,8 @@ model ProgramSemester {
 | DR-45 | TransmissionRecord 是否加 @@unique([userId, tantricGroupId]) | 不加 | 旧 TantricAccessGrant 有此约束是因为「每人每组最多一条授权」。但传承记录不同：同一人可在不同时间参加同一灌顶法会并被多次录入（重复灌顶合法）。去掉唯一约束；访问控制改为 EXISTS 查询（has any active empowerment record for this group），更符合传承的真实语义 |
 | DR-46 | 手动录入传承如何与固定清单打通 | isRequired+isConfirmed 两步，transmissionKey 关联 ProgramAdvancementConfig | 能力 15 规则 3：「手动录入默认为额外传承，升格需管理员确认」。两步流程：(1) 录入时 isRequired=false、isConfirmed=false；(2) admin 审核后置 isRequired=true、isConfirmed=true、confirmedBy+confirmedAt。升学预检查 transmissionKey=conditionKey AND isRequired=true AND status=active——简洁且可溯源 |
 | DR-47 | 课程自动触发传承如何关联 ProgramAdvancementConfig | 通过 transmissionKey=conditionKey 打通 | 课程配置（能力 3 圆满触发）中标注「含传承」时，系统写入 TransmissionRecord：entryBy=system、isRequired=true（已知是固定清单项）、isConfirmed=true、transmissionKey=对应 ProgramAdvancementConfig.conditionKey。升学预检无需特殊处理，与手动录入升格后的记录结构完全一致（D3 数据驱动，逻辑不随新传承类型改代码）|
+| DR-48 | 平台级讲考 SpeakingGrade.classId 如何处理 | 改为可空（String?），null = 平台级评分 | 平台级 SpeakingSession（classId=null）由 subject_admin/super_admin 评分，评分人无归属班。旧 classId String（辅导员所在班，用于权限范围限定）在平台级场景无法填值。改为 String?：有值时含义不变（班级级评分，辅导员权限范围），null 时表示平台级评分（subject_admin/super_admin 身份即权限依据）。排除「平台级讲考不设评分」：用户明确要求平台级讲考也记评分（2026-05-29）|
+| DR-49 | 平台级讲考的创建/评分权限归属 | 创建：subject_admin/super_admin；评分：subject_admin/super_admin | 旧设计平台级场次（classId=null）已明确「仅 admin 可设」（FINAL_DESIGN 2853 行）。新角色体系下，「admin」对应 subject_admin（学科范围）及 super_admin（全局），两者均无归属班，符合平台级操作语义。class_tutor/class_admin 无平台级讲考的创建权（无跨班权限，D8 作用域边界）|
 
 ---
 
@@ -1468,6 +1493,25 @@ model ProgramSemester {
 
 **本轮发现问题数**：1（检查项 1：TantricGroup model 需将旧 `grants TantricAccessGrant[]` 反向关联替换为 `transmissionRecords TransmissionRecord[]`；属 TantricGroup 复用表调整，上线前 migration 须处理，已知问题不阻断封板）。
 **结论**：§二 2.3 TransmissionRecord 封板通过。§二 替换区 3 张全部封板。传承记录体系完整：课程/法会/灌顶三源统一，密法授权、固定清单升格、升学预检三条路径均已打通。
+
+### 检查轮次 12（2026-05-29，范围：§1.4 SpeakingGrade.classId 修订 + §四 SpeakingSession 复用确认）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | SpeakingGrade 无 classId FK（classId 是普通 String? 字段，无 @relation），改可空不影响关联对称性；SpeakingSession 复用不改，旧设计关联已完整 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §一 扩展区仍 9 张（SpeakingGrade 本就属 §1.4，未增减）；§四 更新：SpeakingSession ✅ 复用，Exam 标移入 §1.4；各区计数不变 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待全表完成统编；本轮改动为 SpeakingGrade.classId DROP NOT NULL（单列 ALTER） |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | SpeakingGrade.classId 改可空有背景注+DR-48；SpeakingSession 复用有说明注 |
+| 8. 业务规则约束有实现方式 | ✅ | 班级级评分限 class_tutor+（应用层）；平台级评分限 subject_admin/super_admin（应用层）——两条均加入 §1.4 约束表 |
+| 9-12. 其余检查项 | ✅/⏸ | 本轮修订仅涉及 §1.4 SpeakingGrade 和 §四，不影响其他已封板表结论 |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | 讲考评分权限已拆班级/平台两级；全职能核对待全表完成 |
+| 14. 枚举值各处一致 | ✅ | score 三值(pass/fail/excellent) 在字段表/schema 一致；classId 语义（null=平台级）在字段表/schema/约束/设计意图四处一致 |
+
+**本轮发现问题数**：0。
+**结论**：§1.4 SpeakingGrade 修订通过。classId nullable 设计覆盖班级级/平台级两种讲考评分场景，权限分流逻辑明确。SpeakingSession 复用确认，旧设计 classId 可空已足够，无需 schema 改动。
 
 ---
 
