@@ -116,7 +116,66 @@
 >
 > **业务逻辑权威**：本表及后续所有表的业务规则，一切以新设计决策文档（05/06）为准，旧设计仅作字段命名/结构参考。
 
-### 1.3 StudyRecord（闻思打卡）⬜ 未开始
+### 1.3 StudyRecord（讲考+共修打卡）✅ 已封板
+
+**服务能力**：能力 8（共修与出勤）+ 能力 10（讲考）
+**写权限**：学员 App 内自助（需登录，校验场次时间窗口）；管理员可代行补卡（能力 5，代行明细走 AuditLog）
+**参考决策**：D17（代行留痕）、D18（不物理删除）
+
+> **边界澄清**（重要）：StudyRecord **只装讲考 + 共修**，不装闻思圆满。听音视频/看法本/观修走 LessonCompletion（复用区），答思考题走 UserAnswer/QuestionReference（复用区）。旧设计「闻思打卡系统」是分类名，实际表内容是讲考/共修。原 08 文档把本表标为「闻思打卡 / 能力 3/4」是错的，已纠正为「讲考+共修 / 能力 8/10」。
+>
+> **去掉 `self_checkin`**（用户决策 2026-05-29）：首页日常签到移除，StudyRecord 仅保留讲考、共修两类。连带「一天一次」按天去重难题消失，全部改用按场次的 DB 唯一约束。
+
+#### 字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | 旧 |
+| `userId` | String | 关联 User | 旧 |
+| `classId` | String? | 平台级讲考可为 null | 旧 |
+| `lessonId` | String | 所有打卡必须绑定课时 | 旧 |
+| `studyType` | String | 见下方取值（已去 self_checkin）| 旧（语义收窄）|
+| `lessonResourceId` | String? | 听课/读讲记：选哪位讲者版本 | 旧 |
+| `classSessionId` | String? | 共修：关联 ClassSession | 旧 |
+| `speakingSessionId` | String? | 讲考：关联 SpeakingSession | 旧 |
+| `studyDate` | DateTime | 打卡日期 | 旧 |
+| `createdBy` | String? | 本人 或 管理员代行（代行明细走 AuditLog）| 旧 |
+| `isConfirmed` | Boolean | 审核态字段保留，无审核 UI；自助打卡置 true | 旧 |
+| `confirmedAt` | DateTime? | 保留字段 | 旧 |
+| `confirmedBy` | String? | 保留字段 | 旧 |
+| `createdAt` | DateTime | 默认 now() | 旧 |
+| ~~`self_checkin`（studyType 取值）~~ | — | 移除：首页日常签到取消 | **移除** |
+
+#### studyType 取值（互斥）
+
+| 值 | 含义 | 能力 |
+|---|---|---|
+| `speaking_present` | 讲考：主讲（三选一互斥）| 能力 10 |
+| `speaking_question` | 讲考：提问 | 能力 10 |
+| `speaking_observe` | 讲考：旁听 | 能力 10 |
+| `group_attend` | 共修：出席（二选一互斥）| 能力 8 |
+| `group_absent` | 共修：缺席 | 能力 8 |
+| `group_review` | 共修：复习 | 能力 8 |
+| `group_summary` | 共修：总结 | 能力 8 |
+
+#### 关联
+
+| 关联 | 变更 |
+|---|---|
+| `user User` | 保留 |
+| `lesson Lesson` | 保留 |
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `@@unique([classSessionId, userId, studyType])` | DB | 共修签到防重；**补回旧设计正文引用但 model 漏写的约束** |
+| `@@unique([speakingSessionId, userId, studyType])` | DB | 讲考签到防重；同上补回 |
+| 不物理删除（D18）| 应用层 | 无 delete API |
+
+#### 设计意图
+
+去掉 self_checkin 后，每条记录必有 classSessionId 或 speakingSessionId 之一非空，两条唯一约束按场次各管一类（NULL 在唯一约束中互不冲突），与 LessonCompletion 双 @@unique 同套路。修复了旧设计「正文说有 @@unique、model 却没写」的审计级不一致。
 
 ### 1.4 SpeakingGrade / ExamGrade（讲考/考试成绩）⬜ 未开始
 
@@ -362,3 +421,4 @@ model ProgramSemester {
 | 2026-05-29 | ProgramSemester 补复用说明 + Prisma schema（学期=周区间单一属性，照搬旧设计）；ProgramAdvancementConfig 落 Prisma 代码块（isRequired 默认 true、isExemptable 默认 false，契合 D13）|
 | 2026-05-29 | 完成 1.2 ClassMember 扩展（删 removedAt，role 标 ⚠️ 待决策）；新增 §3.14 EnrollmentStatusHistory（入学状态变更留痕，D18，与 RoleAssignmentHistory 对称）；新建区 13→14 张；新增 CohortMemberStatus enum |
 | 2026-05-29 | ClassMember 封板：确认删 `role`（辅导员可为班级成员，身份从 UserRoleAssignment 读）；记录「业务逻辑一切以新设计文档 05/06 为准」|
+| 2026-05-29 | 完成 1.3 StudyRecord 封板：纠正边界（仅讲考+共修，服务能力 8/10，非 3/4）；去掉 self_checkin 日常签到；补回旧设计漏写的两条按场次 @@unique |
