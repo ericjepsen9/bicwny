@@ -1487,7 +1487,78 @@ status 只有两态（`submitted`/`acknowledged`），不引入 `refused`/`escal
 
 ---
 
-### 3.9 AdvancementCheck（升学资格预检报告）⬜ 未开始
+### 3.9 AdvancementCheck（升学资格预检报告）✅ 已封板
+
+**服务能力**：能力 10（考试与升学）规则 5（系统自动预检）
+**写权限**：系统自动生成（报数节点截止后触发）；管理员可更新 checkResults 豁免字段 + status=reviewed
+**参考决策**：D3（条件数据化）、D13（硬条件不放宽）、D17（代行豁免留痕）、D18（不物理删除）、DR-85
+
+报数节点截止 → 系统读 SemesterSnapshot + ProgramAdvancementConfig 自动跑 6 类条件预判 → 生成每人一张预检报告（本表）→ 管理员审阅，对 `isExemptable=true` 的失败条件走能力 5 代行豁免（更新 checkResults Json + 写 AuditLog）→ 管理员拍板升学 → AdvancementRecord（§3.10）。
+
+#### 字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | **新增** |
+| `userId` | String | 被预检的学员 | **新增** |
+| `classId` | String | 所在班级 | **新增** |
+| `programId` | String | 关联 Program（科系）| **新增** |
+| `semesterNumber` | Int | 第几学期 | **新增** |
+| `reportNodeIndex` | Int | 本学期第几个汇报节点（0-based）| **新增** |
+| `checkResults` | Json | 逐条条件判定结果（见下方结构）| **新增** |
+| `overallPassed` | Boolean? | 系统预判汇总（null=计算中；true=全满足；false=有未达标）；豁免后重算 | **新增** |
+| `status` | String | `pending`（已生成，管理员未审阅）/ `reviewed`（管理员已确认，已拍板写 AdvancementRecord），默认 pending | **新增** |
+| `generatedAt` | DateTime | 系统生成时刻，默认 now() | **新增** |
+| `reviewedBy` | String? | 审阅的管理员 userId | **新增** |
+| `reviewedAt` | DateTime? | 管理员确认时刻 | **新增** |
+
+##### checkResults JSON 结构
+
+```json
+[
+  {
+    "conditionKey": "practice_92",
+    "conditionType": "practice_session",
+    "label": "92 修法完成",
+    "target": 92,
+    "actual": 87,
+    "passed": false,
+    "exempted": false,
+    "exemptedBy": null,
+    "exemptedAt": null,
+    "note": null
+  }
+]
+```
+
+> 管理员豁免时：更新对应条目 `exempted=true`、`exemptedBy`（管理员 userId）、`exemptedAt`，同步写 AuditLog（D17 留痕）。豁免后 `overallPassed` 重算（所有条件 passed=true OR exempted=true → true）。
+
+#### 关联
+
+| 关联 | 说明 |
+|---|---|
+| `user User` | 必填，@relation(userId) |
+| `class Class` | 必填，@relation(classId) |
+| `program Program` | 必填，@relation(programId) |
+
+> 实现时 User/Class/Program 须补对应反向关联 `advancementChecks AdvancementCheck[]`。
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `@@unique([userId, programId, semesterNumber, reportNodeIndex])` | DB | 同人同科系同节点只有一张预检报告 |
+| `@@index([classId, semesterNumber])` | DB | 按班级+学期查全班预检 |
+| 豁免前检查 isExemptable | 应用层 | 对应 ProgramAdvancementConfig.isExemptable=false 的条件不允许豁免（D13）|
+| 豁免写 AuditLog | 应用层 | D17，每次豁免均留痕（操作人+原因）|
+| 无 delete API | 应用层 | D18，预检报告永久留档 |
+| 升学前检查 reviewed | 应用层 | AdvancementRecord 只能在 status=reviewed 的预检基础上创建 |
+
+#### 设计意图
+
+checkResults 选可变 Json（DR-85，方案 A）而非拆 AdvancementCheckItem 子表：豁免信息直接写入对应条目的 `exempted/exemptedBy/exemptedAt` 字段，AuditLog 同时记录操作人，无需独立表即可满足留痕要求（D17）。TODO-9（92 法逐法达标）、TODO-12（60 岁年龄豁免）、TODO-13（考试合格线矩阵）的**判定逻辑**在应用层跑预检时实现，本表字段层面已就位。
+
+---
 
 ### 3.10 AdvancementRecord（升学记录）⬜ 未开始
 
@@ -2372,6 +2443,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §3.5 ClassInviteCode（邀请码）✅ 封板——expiresAt 必填保证 D11 时效（不允许永久码）；status 只存 active/revoked，expired 实时算不入库（DR-80）；取代旧 Class.joinCode（字段保留兼容、不再生成新码，DR-81）；撤销/过期只影响新加入、入班幂等；生成/撤销限 class_admin+（职能 #5）；§八 DR-80~81；§九 检查轮次 27（0 问题）|
 | 2026-05-29 | §3.6 辅助员（能力 13）建模两轮定案：先尝试并入 §2.1 UserRoleAssignment（第 5 role class_assistant，轮次 28）→ 核对 02-roles-and-permissions-v1.md 发现角色表只有 4 个 role、无 class_assistant，能力 13 亦明确「辅助员不属四大角色」→ **回滚为独立表 AssistantAssignment**（轮次 29）。理由：并入会自创 02 文档未定义的第 5 角色，违反「以文档为准」铁律。独立表忠于文档语义，权限集固定在应用层，与角色体系解耦；§三 新建区维持 14 张；UserRoleAssignment.role 复归四大角色；§八 DR-82（记录两轮过程）；§九 检查轮次 28→29（回滚）|
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
+| 2026-05-30 | §3.9 AdvancementCheck（升学资格预检报告）✅ 封板——checkResults=Json 可变（DR-85，豁免字段写入对应条目 exempted/exemptedBy/exemptedAt + AuditLog D17 留痕）；overallPassed 豁免后重算（所有条件 passed OR exempted = true）；@@unique([userId,programId,semesterNumber,reportNodeIndex])；TODO-9/12/13 判定逻辑属应用层；升学前须检查 status=reviewed；§八 DR-85；§九 检查轮次 32（0 问题）|
 | 2026-05-30 | §3.8 ReportConfession（虚报忏悔记录）✅ 封板——status 只有 submitted/acknowledged 两态（DR-84）；拒绝忏悔不在本表记录，管理员直接走取消资格（职能 #14）+ AuditLog 解耦；watchlistItemId 可空兼容不经 CareWatchlist 直接要求忏悔的情况；「先忏悔再取消资格」业务规则由应用层检查 submitted 记录保障；§八 DR-84；§九 检查轮次 31（0 问题）|
 
 ---
@@ -2467,6 +2539,7 @@ model UserSelfStudyRestWeek {
 | DR-83-A | SemesterSnapshot.snapshotData 字段类型 | **Json**（用户决策 2026-05-30）| 各科系汇报维度不同（加行有座次/顶礼，净土有念佛数，入行论有默写），若拆成独立列需为每个科系建不同 schema 或预留大量 nullable 列。Json 方案：一张表覆盖全部科系，维度差异封装在 Json 内，新科系扩展无需 migration；同 CohortWeeklySummary.summaryData 已验证此模式。排除「拆列」：过多 nullable 列且不同科系列集合不同，维护成本高于 Json |
 | DR-83-B | SemesterSnapshot 快照值是否可改 | **冻结（不可改）**，事后更正走 AuditLog（用户决策 2026-05-30）| 快照目的是「在节点截止时刻留下永久数据证据」，若允许事后修改则历史评估结论失去可信基础（违背 D18 不删、不改的永久档原则）。admin 事后代行更正（如学员补报遗漏数据）只产生 AuditLog 条目说明更正原因和更正人，快照本身不变。排除「允许 admin 改快照」：一旦可改，任何历史争议时快照都不再是权威；排除「有限度可改+版本号」：引入版本机制复杂度高、且无此需求的业务场景 |
 | DR-84 | ReportConfession status 是否包含「拒绝忏悔」状态 | **不包含**，status 只有 submitted/acknowledged（用户决策 2026-05-30）| 能力 9「拒绝忏悔」指学员拒绝提交、本表根本无记录，而非提交后再拒绝的中间状态。拒绝后走职能 #14 取消资格 → ClassMember 状态变更 + AuditLog 留痕，与 ReportConfession 表完全解耦。排除「status=refused」：学员拒绝时本表无记录（管理员无法写入 refused），引入该值无实际写入路径；排除「status=escalated」：取消资格是独立的 ClassMember 操作，不应耦合进忏悔记录的状态机。「虚报处理必须先走忏悔流程」（能力 9 规则 #4）由应用层在取消资格前检查本表是否有 submitted 记录来保障 |
+| DR-85 | AdvancementCheck 逐条条件结果存法 | **checkResults: Json（可变）**，豁免字段写入对应条目（用户决策 2026-05-30）| 每条条件结果（conditionKey/actual/target/passed/exempted/exemptedBy/exemptedAt）写入 Json 数组，管理员豁免时更新对应条目 + AuditLog 留痕（D17）。排除「拆 AdvancementCheckItem 子表」（方案 B）：一张预检报告最多 ~15 条条件，子表带来额外 FK/JOIN 且豁免写 AuditLog 已满足 D17，无需在关系表上再冗余 exemptedBy/At；保持与 SemesterSnapshot.snapshotData 和 CohortWeeklySummary.summaryData 一致的 Json 模式 | 能力 9「拒绝忏悔」指学员拒绝提交、本表根本无记录，而非提交后再拒绝的中间状态。拒绝后走职能 #14 取消资格 → ClassMember 状态变更 + AuditLog 留痕，与 ReportConfession 表完全解耦。排除「status=refused」：学员拒绝时本表无记录（管理员无法写入 refused），引入该值无实际写入路径；排除「status=escalated」：取消资格是独立的 ClassMember 操作，不应耦合进忏悔记录的状态机。「虚报处理必须先走忏悔流程」（能力 9 规则 #4）由应用层在取消资格前检查本表是否有 submitted 记录来保障 |
 
 ---
 
@@ -3087,6 +3160,27 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0。
 **结论**：§3.8 ReportConfession 封板。status 两态（submitted/acknowledged），拒绝忏悔场景不在本表记录（DR-84），取消资格由 ClassMember + AuditLog 独立处理。
+
+---
+
+### 检查轮次 32（2026-05-30，范围：§3.9 AdvancementCheck 封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | AdvancementCheck→User/Class/Program；实现时须补各表 `advancementChecks[]` 反向关联（已标注）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §三 新建区 14 张不变 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 新表 advancement_checks 待统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 7. 暂缓/不做标签完整 | ✅ | TODO-9/12/13 的判定逻辑属应用层，明确标注在设计意图 |
+| 8. 业务规则约束有实现方式 | ✅ | 唯一约束→@@unique DB；豁免前检查 isExemptable→应用层；豁免写 AuditLog→应用层 D17；升学前检查 reviewed→应用层；无 delete→D18 应用层 |
+| 9-12. 其余检查项 | ✅/⏸ | D13：isExemptable 应用层守门；D17：豁免写 AuditLog；D18：无 delete；ProgramAdvancementConfig 是本表数据来源，关系已明确 |
+| 13. 02 文档 23 职能写表覆盖 | ✅ | 系统自动生成=无职能；管理员审阅/豁免=能力 5 代行（职能覆盖）；拍板升学→AdvancementRecord |
+| 14. 枚举值各处一致 | ✅ | status: pending/reviewed；conditionType 值沿用 §3.1 AdvancementConditionType enum |
+
+**本轮发现问题数**：0。
+**结论**：§3.9 AdvancementCheck 封板。checkResults=Json 可变（DR-85，豁免字段写入对应条目+AuditLog）；overallPassed 豁免后重算；TODO-9/12/13 判定逻辑属应用层。
 
 ---
 
