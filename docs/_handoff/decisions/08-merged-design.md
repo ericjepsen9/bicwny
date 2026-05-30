@@ -52,6 +52,10 @@
 | `weeks ProgramWeek[]` | 保留 |
 | `studyTypes ProgramStudyType[]` | 保留 |
 | `advancementConfigs ProgramAdvancementConfig[]` | **新增**（见 §三 升学条件配置）|
+| `snapshots SemesterSnapshot[]` | **新增**（见 §3.7）|
+| `advancementChecks AdvancementCheck[]` | **新增**（见 §3.9）|
+| `advancementsFrom AdvancementRecord[] @relation("AdvancementFrom")` | **新增**（见 §3.10，升前科系）|
+| `advancementsTo AdvancementRecord[] @relation("AdvancementTo")` | **新增**（见 §3.10，升入科系）|
 | ~~`selfStudy UserSelfStudyProgram[]`~~ | 移除（自学模式 ⏸ 暂缓）|
 
 #### 约束
@@ -183,7 +187,7 @@
 **写权限**：班级级讲考评分限 `class_tutor` 及以上（本班）；平台级讲考评分限 `subject_admin` / `super_admin`（SpeakingGrade.classId=null）；考试成绩录入限 `class_admin` 及以上（职能 #7，辅导员无权）；Exam 创建——随堂测验辅导员（#11a）、升学考班级管理员（#11b）
 **参考决策**：D3（合格线数据驱动）、D13（升学硬条件）、D18（成绩永久留档）
 
-> **三表关系**：ExamGrade 结构旧设计已完整，**复用不动**。**Exam 加 `examType`**——核对能力 10 发现旧 Exam 无法区分「随堂测验 vs 升学考」，导致升学预检取不到正确成绩、两类写权限无法分流。**SpeakingGrade.classId 改可空**——平台级讲考（SpeakingSession.classId=null）由 subject_admin/super_admin 评分，无归属班，见 DR-48。本节三张表均有变更，归入扩展区。
+> **三表关系**：ExamGrade 结构旧设计已完整，**复用不动**。**Exam 加 `examType`**——核对能力 10 发现旧 Exam 无法区分「随堂测验 vs 升学考」，导致升学预检取不到正确成绩、两类写权限无法分流。**SpeakingGrade.classId 改可空**——平台级讲考（SpeakingSession.classId=null）由 subject_admin/super_admin 评分，无归属班，见 DR-48。本节三张表中，SpeakingGrade（classId 改可空）和 Exam（加 examType）有变更，归入扩展区；ExamGrade 复用不动（收录于本节供对照参考）。
 
 #### SpeakingGrade（讲考评分）— 🔧 扩展：classId 改可空
 
@@ -652,6 +656,12 @@ model User {
 
   // 新增（年龄豁免数据源）
   birthDate DateTime?  // 出生日期；年龄豁免资格计算用（年满60岁可申请免考，非自动）
+
+  // 新建表反向关联（§三 新建区各表写入时补）
+  snapshots          SemesterSnapshot[]
+  advancementChecks  AdvancementCheck[]
+  advancementRecords AdvancementRecord[]
+  assistantAssignments AssistantAssignment[]
 }
 ```
 
@@ -722,6 +732,13 @@ model Class {
   status     String    @default("active")  // active / archived
   archivedAt DateTime?
   archivedBy String?   // 归档操作人 userId
+
+  // 新建表反向关联（§三 新建区各表写入时补）
+  snapshots          SemesterSnapshot[]
+  advancementChecks  AdvancementCheck[]
+  advancementRecords AdvancementRecord[]
+  assistantAssignments AssistantAssignment[]
+  confessions        ReportConfession[]
 }
 ```
 
@@ -1220,8 +1237,9 @@ model CareWatchlistItem {
   resolvedAt    DateTime?
   resolvedBy    String?
 
-  user      User                 @relation(fields: [userId], references: [id])
-  followups CareFollowupRecord[]
+  user        User                 @relation(fields: [userId], references: [id])
+  followups   CareFollowupRecord[]
+  confessions ReportConfession[]
 
   @@index([userId])
   @@index([classId, status])
@@ -1540,8 +1558,9 @@ status 只有两态（`submitted`/`acknowledged`），不引入 `refused`/`escal
 | `user User` | 必填，@relation(userId) |
 | `class Class` | 必填，@relation(classId) |
 | `program Program` | 必填，@relation(programId) |
+| `advancementRecord AdvancementRecord?` | 可空反向，@relation(advancementCheckId)（一检一记）|
 
-> 实现时 User/Class/Program 须补对应反向关联 `advancementChecks AdvancementCheck[]`。
+> User/Class/Program 已在各表关联节补 `advancementChecks AdvancementCheck[]`。
 
 #### 约束
 
@@ -2556,6 +2575,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §3.5 ClassInviteCode（邀请码）✅ 封板——expiresAt 必填保证 D11 时效（不允许永久码）；status 只存 active/revoked，expired 实时算不入库（DR-80）；取代旧 Class.joinCode（字段保留兼容、不再生成新码，DR-81）；撤销/过期只影响新加入、入班幂等；生成/撤销限 class_admin+（职能 #5）；§八 DR-80~81；§九 检查轮次 27（0 问题）|
 | 2026-05-29 | §3.6 辅助员（能力 13）建模两轮定案：先尝试并入 §2.1 UserRoleAssignment（第 5 role class_assistant，轮次 28）→ 核对 02-roles-and-permissions-v1.md 发现角色表只有 4 个 role、无 class_assistant，能力 13 亦明确「辅助员不属四大角色」→ **回滚为独立表 AssistantAssignment**（轮次 29）。理由：并入会自创 02 文档未定义的第 5 角色，违反「以文档为准」铁律。独立表忠于文档语义，权限集固定在应用层，与角色体系解耦；§三 新建区维持 14 张；UserRoleAssignment.role 复归四大角色；§八 DR-82（记录两轮过程）；§九 检查轮次 28→29（回滚）|
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
+| 2026-05-30 | 全文档最终一致性检查（检查轮次 35）：修复 2 项——(1) Prisma 关联对称性：Program/User/Class/CareWatchlistItem/AdvancementCheck 补 6 处缺失反向关联；(2) §1.4 措辞精确化（ExamGrade 复用不动非扩展）。全文档设计封板，可进入实施阶段 |
 | 2026-05-30 | §3.11 AuditLog（审计日志）✅ 封板——无 FK 裸 String（DR-87，终态只写表自包含）；11 类 actionType 覆盖能力 20 全部高权限操作；reason 必填；无 update/delete API（D18）；查询权限按角色作用域过滤；学员只查自己相关条目；§八 DR-87；§九 检查轮次 34（0 问题）；**§三 新建区 14 张全部封板** |
 | 2026-05-30 | §3.10 AdvancementRecord（升学记录）✅ 封板——advancementCheckId @unique（一检一记）；conditionsSnapshot 冻结（DR-83-B 复用，拍板时刻数据即真相）；驳回 targetProgramId=null（DR-86，不预判「本应升哪里」）；Program 双具名关联（AdvancementFrom/AdvancementTo）；§八 DR-86；§九 检查轮次 33（0 问题）|
 | 2026-05-30 | §3.9 AdvancementCheck（升学资格预检报告）✅ 封板——checkResults=Json 可变（DR-85，豁免字段写入对应条目 exempted/exemptedBy/exemptedAt + AuditLog D17 留痕）；overallPassed 豁免后重算（所有条件 passed OR exempted = true）；@@unique([userId,programId,semesterNumber,reportNodeIndex])；TODO-9/12/13 判定逻辑属应用层；升学前须检查 status=reviewed；§八 DR-85；§九 检查轮次 32（0 问题）|
@@ -3340,6 +3360,32 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0。
 **结论**：§3.11 AuditLog 封板。无 FK 裸 String（DR-87，终态只写表，自包含）；11 类 actionType 覆盖能力 20 全部高权限操作；D18 约束由应用层保证；**§三 新建区 14 张全部封板**。
+
+---
+
+### 检查轮次 35（2026-05-30，范围：全文档最终一致性检查 · 14 项完整扫描）
+
+> **背景**：§一/§二/§三 全部封板后，由 Explore agent 跑完整 14 项扫描，人工复核并修复所有发现问题。
+
+| 检查项 | 结果 | 修复内容 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ⚠️→✅ 已修 | 修复 6 处父表缺反向关联：(1) §1.1 Program 补 snapshots/advancementChecks/advancementsFrom/advancementsTo 4 个新建区反向；(2) §1.9 User schema 补 snapshots/advancementChecks/advancementRecords/assistantAssignments 4 个反向；(3) §1.10 Class schema 补 snapshots/advancementChecks/advancementRecords/assistantAssignments/confessions 5 个反向；(4) §3.4 CareWatchlistItem schema 补 `confessions ReportConfession[]`；(5) §3.9 AdvancementCheck 关联表补 `advancementRecord AdvancementRecord?` |
+| 2. API 响应字段与 DB 字段对齐 | ✅ 无问题 | 文档主要定义 DB schema，无 API 响应层详细设计 |
+| 3. SQL 视图表名正确 | ✅ 无问题 | 无 CREATE VIEW，全部为 Prisma schema |
+| 4. 总览计数正确 | ⚠️→✅ 已修 | §一「11 张」计数本身正确（ExamGrade 复用不动不计入、ClassSessionSchedule 属 §3.13 新建区）；修复 §1.4 措辞「本节三张表均有变更」→改为准确说明（SpeakingGrade+Exam 扩展，ExamGrade 复用不动仅供对照） |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 全表设计阶段，Migration 待实施阶段统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 文档为设计层，Phase 实施计划属后续 |
+| 7. 暂缓/不做标签完整 | ✅ 无问题 | §五 四组暂缓表标签完整；❌ 不做（转功德会 DR-68）标注完整 |
+| 8. 业务规则约束有实现方式 | ✅ 无问题 | 所有约束表格均注明「DB」或「应用层」 |
+| 9. 升学条件可全查 | ✅ 无问题 | 6 类 conditionType 数据源路径完整（§3.1 对照表）|
+| 10. D18 覆盖完整 | ✅ 无问题 | 所有新建/扩展表均有「无 delete API」约束标注 |
+| 11. D17 代行留痕路径完整 | ✅ 无问题 | AuditLog 11 类 actionType 覆盖全部高权限代行路径 |
+| 12. 密法访问控制路径完整 | ✅ 无问题 | TransmissionRecord 替代 TantricAccessGrant，路径完整 |
+| 13. 02 文档 23 职能写表覆盖 | ✅ 无问题 | 抽查职能 #5/#14/#16/#19 全部与对应表写权限一致 |
+| 14. 枚举值各处一致 | ✅ 无问题 | AdvancementConditionType/CohortMemberStatus/ProgramStage/LagStatus 各处一致 |
+
+**本轮发现问题数**：2（均已修复）。
+**结论**：全文档最终一致性检查通过。修复 Prisma 关联对称性（6 处父表补反向关联）+ §1.4 措辞精确化。设计文档全部封板，可进入实施阶段。
 
 ---
 
