@@ -1239,30 +1239,30 @@ model EnrollmentStatusHistory {
 | `Meditation`（观修，旧设计 +4 字段版，详见下）| 能力 3/4 | ✅ 确认复用 |
 | `PracticeProject`（修持项目字典，旧设计 +2 字段版，详见下）| 能力 4/6/7 | ✅ 确认复用 |
 | `ProgramSemester`（科目/学期，字段够用，详见下）| 能力 1 | ✅ 确认复用 |
-| `PracticeLog` | 能力 4/6/7 | ⬜ |
-| `PracticeTemplate` | 能力 4/6/7 | ⬜ |
+| `PracticeLog` | 能力 4/6/7 | ✅ 确认复用（C 类批量，DR-72）|
+| `PracticeTemplate` | 能力 4/6/7 | ✅ 确认复用（C 类批量，DR-72）|
 | ~~`CohortRecommendedTemplate`~~ | 已移入扩展区 §1.8 | ✅ |
-| `LessonCompletion` | 能力 3 | ⬜ |
-| `PracticeJournal` | 能力 7 | ⬜ |
-| `QuestionReference` | 能力 3 | ⬜ |
-| `LessonResource` | 能力 3 | ⬜ |
-| `LessonMediaChapter` | 能力 3 | ⬜ |
-| `LessonTextBlock` | 能力 3 | ⬜ |
-| `ProgramWeek` | 能力 1 | ⬜ |
-| `ProgramWeekCourse` | 能力 1 | ⬜ |
-| `ProgramWeekPractice` | 能力 1/4 | ⬜ |
-| `ProgramStudyType` | 能力 8 | ⬜ |
-| `CohortRestWeek` | 能力 8 | ⬜ |
-| `Event` | 能力 15 | ⬜ |
-| `EventCount` | 能力 15 | ⬜ |
-| `TantricGroup` | 能力 15/17 | ⬜ |
-| `ContentChunk` | AI 助手 | ⬜ |
-| `FeatureEntry` | AI 助手 | ⬜ |
-| `AiConversation` / `AiMessage` / `AiUsage` | AI 助手 | ⬜ |
+| `LessonCompletion` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
+| `PracticeJournal` | 能力 7 | ✅ 确认复用（C 类批量，DR-72）|
+| `QuestionReference` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
+| `LessonResource` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
+| `LessonMediaChapter` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
+| `LessonTextBlock` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
+| `ProgramWeek` | 能力 1 | ✅ 确认复用（C 类批量，DR-72）|
+| `ProgramWeekCourse` | 能力 1 | ✅ 确认复用（C 类批量，DR-72）|
+| `ProgramWeekPractice` | 能力 1/4 | ✅ 确认复用（C 类批量，DR-72）|
+| `ProgramStudyType` | 能力 8 | ✅ 确认复用（C 类批量，DR-72）|
+| `CohortRestWeek` | 能力 8 | ✅ 确认复用（C 类批量，DR-72）|
+| `Event` | 能力 15 | ✅ 确认复用（C 类批量，DR-72）|
+| `EventCount` | 能力 15 | ✅ 确认复用（C 类批量，DR-72）|
+| `TantricGroup` | 能力 15/17 | 🔧 微调（删 grants，补 transmissionRecords，详见下，DR-73）|
+| `ContentChunk` | AI 助手 | ⏸ 暂缓（AI 模块，DR-74）|
+| `FeatureEntry` | AI 助手 | ⏸ 暂缓（AI 模块，DR-74）|
+| `AiConversation` / `AiMessage` / `AiUsage` | AI 助手 | ⏸ 暂缓（AI 模块，DR-74）|
 | `SpeakingSession` | 能力 10 | ✅ 复用（classId 已可空，见下方说明）|
-| `SpeakingRegistration` | 能力 10 | ⬜ |
+| `SpeakingRegistration` | 能力 10 | ✅ 确认复用（C 类批量，DR-72）|
 | ~~`Exam`~~ | 已移入扩展区 §1.4 | ✅ |
-| `CohortWeeklySummary` | 管理端 ⏸ 暂缓 | ⬜ |
+| `CohortWeeklySummary` | 管理端 ⏸ 暂缓 | ✅ 确认复用（C 类批量，DR-72）|
 
 #### Course 复用说明
 
@@ -1353,6 +1353,35 @@ model ProgramSemester {
 - 平台级（classId=null）：仅 `subject_admin` / `super_admin` 可创建
 - 班级级（classId 有值）：`class_tutor` 及以上可创建（本班）
 - 评分：班级级 → `class_tutor` 及以上；平台级 → `subject_admin` / `super_admin`（SpeakingGrade.classId=null，见 §1.4 DR-48）
+
+#### TantricGroup 微调说明（🔧）
+
+旧设计 TantricGroup（密法组/灌顶单位）字段本身有效复用，但**反向关联 `grants TantricAccessGrant[]` 已悬空**——TantricAccessGrant 在 §二 2.3 已废弃整合入 TransmissionRecord（DR-44/45）。本次微调：
+
+| 项 | 变更 |
+|---|---|
+| `key` / `name` / `description` / `createdBy` / `createdAt` | ✅ 复用不动 |
+| `courses Course[]` / `meditations Meditation[]` / `practiceProjects PracticeProject[]` | ✅ 复用不动（标记哪些内容属本密法组）|
+| ~~`grants TantricAccessGrant[]`~~ | ❌ 删除（TantricAccessGrant 已废弃）|
+| `transmissionRecords TransmissionRecord[]` | **新增反向关联**（TransmissionRecord.tantricGroupId → 本组，sourceType=empowerment 表达灌顶授权）|
+
+```prisma
+model TantricGroup {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  courses             Course[]
+  meditations         Meditation[]
+  practiceProjects    PracticeProject[]
+  transmissionRecords TransmissionRecord[]  // 替代废弃的 grants：密法访问 = EXISTS active empowerment record
+}
+```
+
+> 此微调闭合检查轮次 11 标记的已知项（TransmissionRecord 反向关联须替换）。密法访问控制改为 `EXISTS on TransmissionRecord(tantricGroupId, sourceType=empowerment, status=active)`（DR-44/45），不再查 grants。
 
 ---
 
@@ -1906,6 +1935,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §四 PracticeProject（修持项目字典）✅ 复用——旧设计 §2.2 扩展 isTantric/tantricGroupId 2 字段，scope 保留兼容，字段不改；**顺手闭合 TODO-3**：§5.3 约修 practiceProjectId 升格正式 FK，PracticeProject 补反向 appointments[]；§八 DR-69；§九 检查轮次 20（1 问题→当轮闭合 TODO-3）|
 | 2026-05-29 | §1.9 User 🔧 扩展封板——旧设计 13 字段全部复用 + **新增 birthDate**（年龄豁免数据源），从复用区移入扩展区（9→10 张）；正式写入 **60 岁年龄豁免规则**：做成「资格性、非自动」（年满 60 仅获免考资格，实际免考走能力 5 代行留痕 D17），区别于盲/聋强制豁免（能力 3 自动判定路径）；TODO-12 收窄为仅剩逻辑层（字段已就位）；§八 DR-70；§九 检查轮次 21（0 问题）|
 | 2026-05-29 | §1.10 Class 🔧 扩展封板——旧设计 6 字段全部复用 + **新增归档三件套** status/archivedAt/archivedBy（D19），从复用区移入扩展区（10→11 张）；班级只归档（status=archived）不物理删除，归档后禁新成员/课表/出勤、手动触发、历史保留；§八 DR-71；§九 检查轮次 22（0 问题）；**B 类核心表全部完成**（Course/Lesson/Meditation/PracticeProject ✅ 复用，User/Class 🔧 扩展）|
+| 2026-05-29 | C 类 §四 复用表确认完成：15 张批量 ✅ 复用（PracticeLog/PracticeTemplate/LessonCompletion/PracticeJournal/QuestionReference/LessonResource/LessonMediaChapter/LessonTextBlock/ProgramWeek/ProgramWeekCourse/ProgramWeekPractice/ProgramStudyType/CohortRestWeek/Event/EventCount/SpeakingRegistration/CohortWeeklySummary）；TantricGroup 🔧 微调（删悬空 grants TantricAccessGrant[]，补 transmissionRecords TransmissionRecord[]，闭合检查轮次 11 已知项）；AI 助手 5 张 ⏸ 暂缓（独立模块）；§八 DR-72~74；§九 检查轮次 23（1 问题→当轮闭合）；**§四 复用区全部确认完成** |
 
 ---
 
@@ -1986,6 +2016,9 @@ model UserSelfStudyRestWeek {
 | DR-69 | PracticeProject 在新设计下是否需要改字段 + TODO-3 处理 | ✅ 复用，字段不改；顺手闭合 TODO-3（用户决策 2026-05-29）| 旧设计 §2.2 扩展 isTantric/tantricGroupId 2 字段，scope 旧字段保留兼容。PracticeProject 是「修什么法」字典表，被 PracticeLog/PracticeTemplate/约修引用，新设计无新增需求。密法授权同 Course/Meditation 迁 TransmissionRecord，不影响字段。**顺手闭合 TODO-3**：PracticeProject 确认复用后，§5.3 约修 practiceProjectId 升格正式 FK，PracticeProject 补反向 appointments[]——TODO-3 的处理时机正是「PracticeProject 复用确认时」，故一并处理。排除「拆密法项目独立表」：isTantric 标识 + tantricGroupId 已足够区分，无需拆表 |
 | DR-70 | User 是否纯复用 + 60 岁年龄豁免如何建模 | 🔧 扩展：新增 `birthDate`；年龄豁免做成「资格性、非自动」（用户决策 2026-05-29）| 旧设计 13 字段全部有效复用。但 60 岁免考是大纲硬规则、需年龄数据源，User 上无生日字段，故新增 `birthDate`，判 🔧 扩展（从复用区移入）。**关键区分**（用户决策）：盲/聋是身体缺陷→**强制**豁免（能力 3 自动切判定路径）；60 岁是**资格**豁免→年满 60 仅获免考资格，**不自动满足考试条件**，实际免考走能力 5 代行（管理员显式确认、留痕 D17）。理由：部分老人有能力正常完成加行/考试，应允许其正常考、正常计成绩，不能一刀切自动免。排除「年龄≥60 自动置 exam_score 满足」：会剥夺有能力老人正常应考的选择，且与「豁免是个案、可选、留痕」的能力 5 哲学冲突。birthDate 字段先就位，完整豁免逻辑在升学条件配置阶段做（TODO-12 收窄为仅剩逻辑层）|
 | DR-71 | Class 是否纯复用 + 班级归档如何建模 | 🔧 扩展：新增归档三件套 status/archivedAt/archivedBy（用户决策 2026-05-29）| 旧设计 §2.2 已扩展 6 字段（programId/startDate/city/timezone/currentWeekOverride/lagPracticeDaysExpected）全部有效复用。但 D19 + 能力 11 §4 明确「班级只归档不物理删除（status: archived）」，旧设计 Class 无归档状态字段，能力 11「对老项目影响」也写明「老项目班级可能有删除操作，需改为归档」。故新增 status（active/archived）+ archivedAt + archivedBy，判 🔧 扩展（从复用区移入）。归档后不接受新成员/新课表/新出勤，历史完整保留；手动触发（不自动）。排除「物理删除班级」：违反 D18/D19，破坏出勤/报数/成绩历史完整性。排除「沿用 isActive 布尔」：归档需留痕（时间+操作人），布尔不够，用 status 字符串 + archivedAt/archivedBy 三件套 |
+| DR-72 | C 类 §四 复用表（15 张）是否需要改字段 | ✅ 全部复用不动，批量确认（用户决策 2026-05-29）| 15 张表：PracticeLog/PracticeTemplate/LessonCompletion/PracticeJournal/QuestionReference/LessonResource/LessonMediaChapter/LessonTextBlock/ProgramWeek/ProgramWeekCourse/ProgramWeekPractice/ProgramStudyType/CohortRestWeek/Event/EventCount/SpeakingRegistration/CohortWeeklySummary。逐张核对新设计（05/06）后均无新增需求：日常打卡/模板/闻思完成/日记/思考题/课时资源/周排表/科系打卡声明/休息周/法会/法会计数/讲考报名/周汇总，结构旧设计已完整。Event.classId 可空（平台级/班级级）与 SpeakingSession 同套路已支持平台级法会。批量一条 DR 覆盖，避免逐张冗余 DR |
+| DR-73 | TantricGroup 反向关联如何处理 | 🔧 微调：删 grants，补 transmissionRecords（用户决策 2026-05-29）| TantricGroup 字段本身有效，但 `grants TantricAccessGrant[]` 反向关联悬空——TantricAccessGrant 已在 DR-44 废弃整合入 TransmissionRecord。删除 grants，新增 `transmissionRecords TransmissionRecord[]`（TransmissionRecord.tantricGroupId 指向本组，sourceType=empowerment 表达灌顶授权）。密法访问控制改为 EXISTS on TransmissionRecord（DR-44/45）。此微调闭合检查轮次 11 标记的已知项。排除「保留 grants 空关联」：悬空关联指向已删除 model，Prisma 校验不通过 |
+| DR-74 | AI 助手 5 张表（ContentChunk/FeatureEntry/AiConversation/AiMessage/AiUsage）是否纳入本次融合 | ⏸ 暂缓（独立 AI 模块，用户决策 2026-05-29）| AI 助手是独立功能模块（详见 docs/AI_ASSISTANT_PLAN.md），决策定型但未实施，依赖 pgvector 扩展，UI/Tier 2-4 均暂缓。不属本次「学修体系融合」范围。统一标 ⏸ 暂缓，不在本文档展开字段级设计；待 AI 模块独立推进时处理。排除「纳入本次复用确认」：AI 模块边界独立，混入会扩散本次融合范围 |
 
 ---
 
@@ -2429,6 +2462,25 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0。
 **结论**：Class 判 🔧 扩展（6 旧字段复用 + 归档三件套）。D19 班级归档落地：status=archived 不接受新成员/新课表/新出勤，历史完整保留，手动触发，不物理删除。**至此 B 类核心表全部完成**（Course/Lesson/Meditation/PracticeProject ✅ 复用；User/Class 🔧 扩展）。
+
+### 检查轮次 23（2026-05-29，范围：C 类 §四 复用表批量确认 + TantricGroup 微调 + AI 暂缓）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ⚠️→✅ 已修 | **闭合检查轮次 11 已知项**：TantricGroup 删悬空的 `grants TantricAccessGrant[]`，补 `transmissionRecords TransmissionRecord[]`，与 TransmissionRecord.tantricGroup（§二 2.3）对称；其余 15 张复用表关联旧设计完整（Event.eventCounts↔EventCount.event、ProgramWeek.courses/practices 等）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §四 复用表 15 张批量 ✅；TantricGroup 🔧 微调；AI 5 张 ⏸ 暂缓；核心表 6 张已确认；扩展区 11/替换区 3/暂缓区不变 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 复用表不动；TantricGroup 微调（删/加反向关联，无物理列变更）待统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 7. 暂缓/不做标签完整 | ✅ | 15 复用表批量 ✅；TantricGroup grants 标 ❌ 删除；AI 5 张标 ⏸ 暂缓（DR-74）|
+| 8. 业务规则约束有实现方式 | ✅ | 各复用表唯一约束（@@unique）旧设计已含；密法访问→EXISTS on TransmissionRecord（应用层）|
+| 9-12. 其余检查项 | ✅/⏸ | D18：复用表打卡/记录类均 append-only 或 upsert；TantricGroup 微调闭合 DR-44 授权迁移最后一环 |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | 复用表读写权限散落各能力，全职能核对待全表完成（步骤 3）|
+| 14. 枚举值各处一致 | ✅ | Event.eventType（puja/dharma_assembly/weekly）、PracticeJournal.visibility（private/visible_to_coach）、PracticeLog.source 等与旧设计一致 |
+
+**本轮发现问题数**：1（TantricGroup 悬空关联）→ 已当轮闭合（删 grants + 补 transmissionRecords，同步闭合检查轮次 11 已知项）。
+**结论**：C 类 §四 复用表确认完毕——15 张批量 ✅ 复用，TantricGroup 🔧 微调（关联替换），AI 5 张 ⏸ 暂缓。**至此 §四 复用区全部表确认完成**（核心表 6 + ProgramSemester/SpeakingSession + C 类 15 + TantricGroup 微调；AI 5 张暂缓在外）。检查轮次 11 标记的 TantricGroup 已知项闭合。
 
 ---
 
