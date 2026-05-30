@@ -1378,7 +1378,67 @@ model AssistantAssignment {
 
 ---
 
-### 3.7 SemesterSnapshot（报数快照）⬜ 未开始
+### 3.7 SemesterSnapshot（报数快照）✅ 已封板
+
+**服务能力**：能力 6（报数与快照）+ 能力 10（升学资格预检，快照数据源）
+**写权限**：系统自动生成（定时任务，节点截止时触发）；无人工写 API
+**参考决策**：D3（数据驱动）、D18（无物理删除）、DR-83
+
+快照在每个「汇报节点截止时刻」由系统冻结该学员当前的学修数据，作为节点评估的权威数据源。一旦生成不可修改；admin 事后更正走 AuditLog（§3.11），不改快照本身。
+
+#### 字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | **新增** |
+| `userId` | String | 关联 User | **新增** |
+| `classId` | String | 关联 Class（快照时所在班级）| **新增** |
+| `programId` | String | 关联 Program（科系）| **新增** |
+| `semesterNumber` | Int | 第几学期（科目内序号）| **新增** |
+| `reportNodeIndex` | Int | 本学期第几个汇报节点（0-based）| **新增** |
+| `snapshotData` | Json | 多维快照数据（见下方结构）| **新增** |
+| `nodeDeadline` | DateTime | 本节点截止时刻（UTC）| **新增** |
+| `generatedAt` | DateTime | 系统生成时刻，默认 now() | **新增** |
+
+##### snapshotData JSON 结构
+
+```json
+{
+  "lessonCompletion": { "read": 0, "audio": 0, "video": 0 },
+  "meditationStats": { "sessions": 0, "totalMinutes": 0 },
+  "innerPractice": [{ "type": "", "count": 0 }],
+  "dailyPractice": [{ "projectName": "", "totalCount": 0 }],
+  "attendance": { "groupAttend": 0, "speakingAttend": 0 },
+  "taskCompletion": [{ "taskName": "", "rate": 0 }]
+}
+```
+
+> 字段含义由科系类型决定（同 CohortWeeklySummary.summaryData 的 Json 模式）；不同科系结构可扩展，无需改表。
+
+#### 关联
+
+| 关联 | 说明 |
+|---|---|
+| `user User` | 必填，@relation(userId) |
+| `class Class` | 必填，@relation(classId) |
+| `program Program` | 必填，@relation(programId) |
+
+> 实现时 Class/Program/User 须补对应反向关联 `snapshots SemesterSnapshot[]`。
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `@@unique([userId, programId, semesterNumber, reportNodeIndex])` | DB | 同人同科系同节点只有一条快照 |
+| `@@index([classId, semesterNumber])` | DB | 按班级+学期查全班快照 |
+| 快照生成后不可修改 | 应用层 | 无 update API；事后更正走 AuditLog（D18）|
+| 无 delete API | 应用层 | D18 永久档案，快照不可物理删 |
+
+#### 设计意图
+
+快照「冻结」原则（DR-83-B）：节点截止时刻系统拍一张学员当前学修数据的「照片」，之后此值不再变化——即使学员补报、admin 代行修正，历史评估结论不受影响。这与 RoleAssignmentHistory 存冗余快照（DR-75）的不可回溯审计原则一致。snapshotData 选 Json（DR-83-A）而非拆列：各科系维度不同（加行有座次，净土有念佛数），Json 灵活扩展、不改表；同 CohortWeeklySummary.summaryData 已验证此模式。
+
+---
 
 ### 3.8 ReportConfession（虚报忏悔记录）⬜ 未开始
 
@@ -2266,6 +2326,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §3.4 CareWatchlistItem（关怀清单条目）✅ 封板——清单条目（触发信号）与 §2.2 CareFollowupRecord（跟进备注）一对多分工；triggerType 7 类（practice_lag/attendance_low/report_overdue/false_report/study_lag/special_status/manual）；同人同类型 active 唯一用 partial unique index（DR-78）；触发阈值复用 TODO-1（DR-79）；解除走 status=resolved 不删行（D18）；闭合检查轮次 10 反向关联已知项；§八 DR-78~79；§九 检查轮次 26（0 问题）|
 | 2026-05-29 | §3.5 ClassInviteCode（邀请码）✅ 封板——expiresAt 必填保证 D11 时效（不允许永久码）；status 只存 active/revoked，expired 实时算不入库（DR-80）；取代旧 Class.joinCode（字段保留兼容、不再生成新码，DR-81）；撤销/过期只影响新加入、入班幂等；生成/撤销限 class_admin+（职能 #5）；§八 DR-80~81；§九 检查轮次 27（0 问题）|
 | 2026-05-29 | §3.6 辅助员（能力 13）建模两轮定案：先尝试并入 §2.1 UserRoleAssignment（第 5 role class_assistant，轮次 28）→ 核对 02-roles-and-permissions-v1.md 发现角色表只有 4 个 role、无 class_assistant，能力 13 亦明确「辅助员不属四大角色」→ **回滚为独立表 AssistantAssignment**（轮次 29）。理由：并入会自创 02 文档未定义的第 5 角色，违反「以文档为准」铁律。独立表忠于文档语义，权限集固定在应用层，与角色体系解耦；§三 新建区维持 14 张；UserRoleAssignment.role 复归四大角色；§八 DR-82（记录两轮过程）；§九 检查轮次 28→29（回滚）|
+| 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
 
 ---
 
@@ -2357,6 +2418,8 @@ model UserSelfStudyRestWeek {
 | DR-80 | ClassInviteCode 过期状态如何表达 | status 只存 active/revoked，expired 实时算（用户决策 2026-05-29）| status 存 active/revoked 两个**人为**状态；expired 是 expiresAt 时间的客观推导，查询时实时算（now()>expiresAt），不入库。排除「定时任务把过期 active 刷成 expired」：引入定时任务维护冗余状态，且过期是确定性时间推导无需持久化；能力 19 展示层「三态」合成即可。校验逻辑：status='active' AND now()<=expiresAt AND (maxUses IS NULL OR usedCount<maxUses）|
 | DR-81 | ClassInviteCode 与旧 Class.joinCode 关系 | 新表取代，旧字段保留兼容不再生成新码（用户决策 2026-05-29）| 旧 joinCode 无时效，不满足 D11「邀请码必须有过期时间」。新表 ClassInviteCode 带 expiresAt/maxUses/status，取代 joinCode 成为唯一新邀请入口。Class.joinCode 字段保留兼容（历史数据/旧链接），但不再生成新码——同 PracticeProject.scope「保留兼容、新系统不依赖」处理。排除「物理删 joinCode 字段」：旧链接/历史数据可能仍引用，保留兼容更安全；排除「并存两套生成」：两套邀请入口会分裂校验逻辑、D11 时效无法统一保证 |
 | DR-82 | 辅助员（能力 13）是否单建表 | **独立建表 AssistantAssignment**（用户决策 2026-05-29，经核对 02 文档后回滚定案）| 决策经历两轮：先尝试「并入 UserRoleAssignment 作第 5 个 role class_assistant」（图复用角色机制）；后核对 02-roles-and-permissions-v1.md §一——角色表**只有 4 个 role**（class_tutor/class_admin/subject_admin/super_admin）+ student，**class_assistant 不在其中**；能力 13 亦明确「辅助员不属于四大管理角色」，02 文档仅以职能 #19 的操作对象形式承载它。并入会让角色表自创一个文档未定义的第 5 角色，违反 CLAUDE.md「业务规则以 02/05/06 为准、不凭印象自创」铁律，且权限模型分裂（四大靠继承、辅助员靠固定权限集+禁区）。**回滚为独立表**：AssistantAssignment 单表，权限集固定在应用层，与角色体系解耦，忠于 02 文档语义。代价是重写一遍 status/留痕（可接受，配对量小、逻辑简单）。§三 新建区维持 14 张 |
+| DR-83-A | SemesterSnapshot.snapshotData 字段类型 | **Json**（用户决策 2026-05-30）| 各科系汇报维度不同（加行有座次/顶礼，净土有念佛数，入行论有默写），若拆成独立列需为每个科系建不同 schema 或预留大量 nullable 列。Json 方案：一张表覆盖全部科系，维度差异封装在 Json 内，新科系扩展无需 migration；同 CohortWeeklySummary.summaryData 已验证此模式。排除「拆列」：过多 nullable 列且不同科系列集合不同，维护成本高于 Json |
+| DR-83-B | SemesterSnapshot 快照值是否可改 | **冻结（不可改）**，事后更正走 AuditLog（用户决策 2026-05-30）| 快照目的是「在节点截止时刻留下永久数据证据」，若允许事后修改则历史评估结论失去可信基础（违背 D18 不删、不改的永久档原则）。admin 事后代行更正（如学员补报遗漏数据）只产生 AuditLog 条目说明更正原因和更正人，快照本身不变。排除「允许 admin 改快照」：一旦可改，任何历史争议时快照都不再是权威；排除「有限度可改+版本号」：引入版本机制复杂度高、且无此需求的业务场景 |
 
 ---
 
@@ -2935,6 +2998,27 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0（回滚操作，修正轮次 28 的文档权威冲突）。
 **结论**：§3.6 AssistantAssignment 回滚为独立表封板。忠于 02 文档「辅助员不属四大角色」定性，UserRoleAssignment.role 严格保持四大角色。§三 新建区维持 14 张。DR-82 记录两轮决策（并入→核对文档→回滚独立）。
+
+---
+
+### 检查轮次 30（2026-05-30，范围：§3.7 SemesterSnapshot 封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | SemesterSnapshot→User/Class/Program 三个 @relation；实现时须在 User/Class/Program 补 snapshots[] 反向关联（已在设计意图中标注）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §三 新建区 14 张不变（§3.7 已在目录内，填充内容不影响计数）|
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 新表 semester_snapshots 待统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 7. 暂缓/不做标签完整 | ✅ | §3.7 无暂缓功能；写权限=系统只读、无 delete API 明确标注 |
+| 8. 业务规则约束有实现方式 | ✅ | 同人同节点唯一→@@unique DB；冻结不改→应用层 no-update API；无 delete→应用层 D18 |
+| 9-12. 其余检查项 | ✅/⏸ | D18：无 delete API；D3：snapshotData Json 各科系可扩展；D17：admin 事后更正走 AuditLog（§3.11 待封板）|
+| 13. 02 文档 23 职能写表覆盖 | ✅ | 快照生成=系统自动，无职能写权限；读取服务能力 6+10 |
+| 14. 枚举值各处一致 | ✅ | 无新增 enum |
+
+**本轮发现问题数**：0。
+**结论**：§3.7 SemesterSnapshot 封板。snapshotData=Json（DR-83-A，跨科系灵活扩展）；快照冻结不可改（DR-83-B，事后更正走 AuditLog）；@@unique([userId, programId, semesterNumber, reportNodeIndex]) 保证节点唯一性。
 
 ---
 
