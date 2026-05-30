@@ -478,6 +478,7 @@ model ClassSession {
 | `currentCount` | Int | 累计遍数/次数，默认 0（乐观计入）| 旧 |
 | `currentSessionCount` | Int | 累计座数，默认 0；**改 Int**——废弃 0.5 座制，每座 ≥30 分钟整数计（DR-91）| 旧（**类型变更 Decimal→Int**）|
 | `currentSessionMinutes` | Int | 累计观修时长（分钟），默认 0；座数与时长双维度独立计（DR-91）| **新增** |
+| `isSubstituted` | Boolean | 默认 false；**true=顶礼 vow 已获批心咒代替**——历史修行数值原封不动、独立保留，不参与顶礼升学预检达标判定；应用层另建心咒 vow 从 0 独立计（DR-94）| **新增** |
 | `status` | String | `active` / `paused` / `completed` / `abandoned`；默认 active | 旧（简化：去 7 态）|
 | `pausedAt` | DateTime? | 暂停时间 | 旧 |
 | `pausedBy` | String? | 暂停操作人 userId | 旧 |
@@ -516,6 +517,7 @@ model UserPracticeVow {
   currentCount         Int       @default(0)
   currentSessionCount  Int       @default(0)  // 累计座数（整数，废弃 0.5 座，DR-91）
   currentSessionMinutes Int      @default(0)  // 累计观修时长（分钟，双维度独立，DR-91）
+  isSubstituted        Boolean   @default(false) // 顶礼→心咒代替标记；true=历史数值保留+独立，不参与顶礼达标（DR-94）
   status               String    @default("active")
   pausedAt             DateTime?
   pausedBy             String?
@@ -549,6 +551,8 @@ model UserPracticeVow {
 | 幂等保护（自动建条目）| 应用层 | 同 userId + classTaskId / cohortTemplateId 已存在则跳过，不重复建 |
 | **外部事件不触发 vow 状态变化** | 应用层 | ClassTask 停用、退班、毕业、法会结束——均不改变 UserPracticeVow.status；vow 按用户设定的 currentEndDate 自然到期 |
 | auto 建条目的 currentEndDate 初始值 | 应用层 | class_task 继承 ClassTask.endDate（如有，否则 null）；program_task 继承 PracticeTemplate.durationDays 计算值（如有，否则 null）；用户可随时调整 |
+| isSubstituted=true 时不参与顶礼达标判定 | 应用层 | 顶礼 vow 被心咒代替后，currentCount/currentSessionCount 等历史数值保留，但应用层跑升学预检时排除此 vow（DR-94）|
+| 心咒代替换算比例写死 | 应用层 | 新建心咒 vow 的 targetCount = 2,000,000（应用层常量，大纲规定不可配置；DR-94）|
 
 #### 设计意图
 
@@ -2709,6 +2713,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
 | 2026-05-30 | **检查轮次 35 勘误**：检查项 9「升学条件可全查」原标 ✅ 过度乐观，下修为 🔵 部分——只验证了链路连通（有 ProgramAdvancementConfig 接住），未验证配置表达充分性（params 能否装下双维度逐法/多维合格线，挂 TODO-9/12/13）；且与 §十 ⚠️ 待决策标签自相矛盾未被检查项 7 抓出。方法论盲区（配置表达充分性 + 设计vs代码gap）并入 TODO-17 |
 | 2026-05-30 | 核查达标/升学配置现状：backend 无 Program 层/无 ProgramAdvancementConfig/无达标配置（仅通用打卡目标）；新增 TODO-17（各学科达标条件+升学条件后台配置专题，含后台管理界面+学习情况提醒），汇总 TODO-9/12/13 配置承载，**置于本轮 TODO 闭合后专题设计** |
+| 2026-05-30 | TODO-10 闭合：金刚萨埵心咒代替顶礼——换算 200万↔10万 写死应用层常量；能力 5 代行 AuditLog(proxy_action) 留痕；顶礼 UserPracticeVow 置 isSubstituted=true（历史数值保留不动）；新建心咒 UserPracticeVow(practiceProjectId=心咒, targetCount=2,000,000, currentCount=0) 从 0 独立计；§1.7 字段表/schema/约束表更新；§八 DR-94；§九 检查轮次 42（2 问题已修：vowType→practiceProjectId、补换算常量约束）|
 | 2026-05-30 | TODO-15 闭合：核查发现 Course 缺教学阶段维度，新增 courseType（entry/formal/restricted），Course ✅复用→🔧扩展移入 §1.11；考试范围排除 restricted+self_study_book；补齐 DR-92 闻思判定对 courseType 依赖；DR-65 修订；§一 扩展区 11→12 张；§八 DR-93；§九 检查轮次 41（0 问题）|
 | 2026-05-30 | TODO-8 闭合：闻思圆满「音视频任一算听」（COUNT 合并）；判定矩阵落点 §3.3；StudentSpecialStatus blind=视障类/deaf=听障类覆盖大纲细分（不扩展 statusType，守 DR-76）；盲+聋走能力 5 代行；§八 DR-92；§九 检查轮次 40（0 问题）|
 | 2026-05-30 | TODO-7 闭合：核对能力 4 大纲废弃 0.5 座制，定调「每座 ≥30 分钟、座数 COUNT/时长 SUM 双维度独立计」，放弃短座合并；§1.7 UserPracticeVow.currentSessionCount Decimal→Int + 新增 currentSessionMinutes；§八 DR-91；§九 检查轮次 39（0 问题，2 项实现遗留）|
@@ -2815,7 +2820,8 @@ model UserSelfStudyRestWeek {
 | DR-83-B | SemesterSnapshot 快照值是否可改 | **冻结（不可改）**，事后更正走 AuditLog（用户决策 2026-05-30）| 快照目的是「在节点截止时刻留下永久数据证据」，若允许事后修改则历史评估结论失去可信基础（违背 D18 不删、不改的永久档原则）。admin 事后代行更正（如学员补报遗漏数据）只产生 AuditLog 条目说明更正原因和更正人，快照本身不变。排除「允许 admin 改快照」：一旦可改，任何历史争议时快照都不再是权威；排除「有限度可改+版本号」：引入版本机制复杂度高、且无此需求的业务场景 |
 | DR-84 | ReportConfession status 是否包含「拒绝忏悔」状态 | **不包含**，status 只有 submitted/acknowledged（用户决策 2026-05-30）| 能力 9「拒绝忏悔」指学员拒绝提交、本表根本无记录，而非提交后再拒绝的中间状态。拒绝后走职能 #14 取消资格 → ClassMember 状态变更 + AuditLog 留痕，与 ReportConfession 表完全解耦。排除「status=refused」：学员拒绝时本表无记录（管理员无法写入 refused），引入该值无实际写入路径；排除「status=escalated」：取消资格是独立的 ClassMember 操作，不应耦合进忏悔记录的状态机。「虚报处理必须先走忏悔流程」（能力 9 规则 #4）由应用层在取消资格前检查本表是否有 submitted 记录来保障 |
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
-| DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）| 能力 3 规则 2 定义课程三类型 entry/formal/restricted，但 Course 仅有 category（dharma_text/self_study_book，内容性质），无教学阶段维度。两者正交：courseType 管「闻思圆满路径 + 考试范围」，category 管「闻思页分组 + 自学读物复用」。考试范围排除 = `courseType=restricted OR category=self_study_book`。Course 因此从 ✅ 复用改判 🔧 扩展，移入 §1.11。排除「把 restricted 塞进 category 枚举」：混淆两个正交维度（一门课可同时是 self_study_book 和 restricted，单字段表达不了）；排除「不加字段、限制性课就用 self_study_book 代替」：能力 3 的 restricted 是「第2-7学期辅助课」，外延不等同 self_study_book（18本大学演讲系列），且 DR-92 闻思判定也需区分正式/限制性课 |
+| DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
+| DR-94 | 金刚萨埵心咒代替顶礼：换算比例 + 审批流 + DB 落点 | **换算写死（2,000,000）；走能力5代行 AuditLog 留痕；顶礼 vow 标 isSubstituted=true；新建心咒 vow 从 0 独立计**（用户决策 2026-05-30，TODO-10 闭合）| 大纲规则：身体原因可申请以 200 万金刚萨埵心咒代替 10 万顶礼，无论已修多少顶礼。换算比例 200万↔10万 是大纲规定，非平台可调，写死应用层常量（`MANTRA_SUBSTITUTE_COUNT = 2_000_000`）；不入配置表，避免误配置引发业务偏差。审批流：class_tutor+ 在能力 5 代行界面操作，AuditLog 写一条 `actionType=proxy_action`（"替代"语义已含于 proxy_action 值域），`reason` 必填（记录身体原因），`payload={"before":{"practiceProjectId":"<顶礼 project id>","currentCount":X},"after":{"practiceProjectId":"<心咒 project id>","targetCount":2000000}}`。**区分两种修行**：UserPracticeVow 没有独立 vowType 字段，通过 `practiceProjectId` 区分（顶礼和心咒是两条不同的 PracticeProject 记录）。DB 执行：(1) 顶礼 `UserPracticeVow`（关联顶礼 practiceProjectId）置 `isSubstituted=true`，currentCount/currentSessionCount/currentSessionMinutes **原封不动**；(2) 新建心咒 `UserPracticeVow`（关联心咒 practiceProjectId，`targetCount=2_000_000`，`currentCount=0`），从 0 开始独立计算。两条 vow 并存，各自独立，互不影响（用户决策：「已修的要保存，不改变，独立计算」）。应用层升学预检时：顶礼 `isSubstituted=true` 的 vow 跳过，改查心咒 vow 是否达 2,000,000。排除「顶礼进度折算入心咒」：大纲无此规定，且折算逻辑（已修 3 万顶礼 → 心咒还需 X 万？）无明确公式，不自创规则 | 能力 3 规则 2 定义课程三类型 entry/formal/restricted，但 Course 仅有 category（dharma_text/self_study_book，内容性质），无教学阶段维度。两者正交：courseType 管「闻思圆满路径 + 考试范围」，category 管「闻思页分组 + 自学读物复用」。考试范围排除 = `courseType=restricted OR category=self_study_book`。Course 因此从 ✅ 复用改判 🔧 扩展，移入 §1.11。排除「把 restricted 塞进 category 枚举」：混淆两个正交维度（一门课可同时是 self_study_book 和 restricted，单字段表达不了）；排除「不加字段、限制性课就用 self_study_book 代替」：能力 3 的 restricted 是「第2-7学期辅助课」，外延不等同 self_study_book（18本大学演讲系列），且 DR-92 闻思判定也需区分正式/限制性课 |
 | DR-91 | 加行观修座次计算规则 | **废弃 0.5 座，每座录入下界 30 分钟，座数/时长双维度独立计**（用户决策 2026-05-30，TODO-7 闭合）| 核对能力 4 大纲原文：单修法 ≥3 座且 ≥90 分钟、总计 ≥276 座且 ≥138 小时、单座 ≥30 分钟，绝对约束「30 分钟以下不能单独计数」。系统原 0.5 座制（≥15min=0.5）直接违反此约束，须废弃。定调方案：每座录入下界 30 分钟（minSessionMinutes，应用层校验），每条 PracticeLog 观修记录 = 1 座（带 durationMinutes≥30）；**座数 = COUNT(records)、时长 = SUM(durationMinutes)，两维度独立计算**，互不折算。判定：单修法 `COUNT(WHERE meditationId=X)≥3 AND SUM(durationMinutes)≥90`。UserPracticeVow.currentSessionCount 由 Decimal 改 Int（座数无小数），新增 currentSessionMinutes（时长维度）。**取舍**：放弃大纲「短座 <30 分钟可合并报一座」便利——比大纲更严格（大纲是「可合并」非「必合并」），不违反硬约束，换取录入/计算的极大简化（无合并交互、双维度天然 COUNT/SUM）。排除「保留 0.5 座折算」（原方案 A）：直接违反大纲绝对约束，且 0.5 座语义混乱；排除「实现短座合并池」：引入合并操作交互与待合并状态，复杂度高，学员可自行坐满 30 分钟规避 |
 | DR-90-A | LeaveRequest expired 状态存法 | **不入库，实时算**（用户决策 2026-05-30，TODO-6，同 DR-80 ClassInviteCode 模式）| status 只存 pending/approved/rejected；expired = `status='pending' AND startDate <= now()`，查询时实时推导，不靠定时任务。排除「写入 expired」：过期是确定性时间推导，维护定时任务引入额外复杂度 |
 | DR-90-B | 请假是否影响掉队计算 | **影响：approved 期间从掉队窗口扣除**（用户决策 2026-05-30，TODO-6）| CohortLagSnapshot 生成时，approved 请假期间（startDate~endDate）内缺打卡天数不计入 lagWindowDays 内的缺卡统计，避免合理请假被标掉队。排除「不影响」：合理请假期间缺勤若被计入掉队会产生误判，且与 UserSelfStudyRestWeek 进度补足原则一致 |
@@ -3652,6 +3658,24 @@ model UserSelfStudyRestWeek {
 
 ---
 
+### 检查轮次 42（2026-05-30，范围：TODO-10 闭合 · UserPracticeVow 新增 isSubstituted · 心咒代替顶礼 DR-94）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | isSubstituted 为布尔标量，无新 FK 关联 |
+| 2. API 响应字段对齐 | ✅（修复后）| 初版 DR-94 用了不存在的 vowType 字段→已改为 practiceProjectId（通过 PracticeProject 区分顶礼/心咒两种修持项目）|
+| 3. AuditLog actionType 覆盖 | ✅ | proxy_action 值域含「替代」语义，已覆盖心咒代替顶礼场景 |
+| 4. 总览计数正确 | ✅ | isSubstituted 是字段扩展，不新增表；12 张扩展区/15 张新建区计数不变 |
+| 5-6. Migration/Phase | ⏸ 暂不适用 | UserPracticeVow.isSubstituted 新增字段待 migration 统编（@default(false)，不影响历史数据）|
+| 7. 暂缓/不做标签完整 | ✅ | TODO-10 标闭合；TODO-11（法王祈祷文）为独立待办，无遗漏 |
+| 8. 业务规则约束有实现方式 | ✅（修复后）| 初版约束表缺「换算比例常量」→已补；isSubstituted=true 排除预检约束已在约束表；换算常量 2,000,000 应用层写死已在约束表+DR-94 双重记录 |
+
+**本轮发现问题数**：2（初版），修复后 0。
+**修复内容**：(1) DR-94 payload 示例 vowType→practiceProjectId，补「区分两种修行通过 practiceProjectId」说明；(2) §1.7 约束表补「换算比例写死常量 2,000,000」条目。
+**结论**：TODO-10 闭合。金刚萨埵心咒代替顶礼：换算常量写死 2,000,000；能力5代行(proxy_action) AuditLog 留痕；顶礼 UserPracticeVow.isSubstituted=true 历史数值原封不动；新建心咒 UserPracticeVow 从 0 独立计算（DR-94）。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -3666,7 +3690,7 @@ model UserSelfStudyRestWeek {
 | ~~TODO-7~~ ✅ 已闭合 | ~~加行观修座次计算规则对齐大纲~~——**已闭合（2026-05-30）**：核对能力 4 大纲原文后**废弃 0.5 座制**（违反「30 分钟以下不能单独计数」绝对约束），定调「每座录入下界 30 分钟、座数=COUNT、时长=SUM 双维度独立计」，放弃短座合并便利（比大纲更严格）。UserPracticeVow.currentSessionCount 改 Int + 新增 currentSessionMinutes（DR-91）| 预科19届大纲核对（Meditation/PracticeLog）| ✅ 已处理（DR-91）| DR-91 |
 | ~~TODO-8~~ ✅ 已闭合 | ~~闻思圆满「音频或视频」二选一判定~~——**已闭合（2026-05-30）**：定调听=COUNT(type IN audio,video)、看=COUNT(read)、答题=UserAnswer，纯应用层聚合；三路径判定矩阵落点 §3.3；blind=视障类/deaf=听障类覆盖大纲细分（不扩展 statusType，守 DR-76）；盲+聋走能力 5 代行（DR-92）| 预科19届大纲核对（LessonCompletion）| ✅ 已处理（DR-92）| DR-92 |
 | TODO-9 | **加行升学「逐法达标」预检**——大纲升学硬条件要求 92 修法**每一法各自**满足 ≥3座 & ≥1.5小时（非仅总量 276座/138h）。系统只有逐条 PracticeLog，无「按 meditationId 分组的逐法达标快照」。`ProgramAdvancementConfig` 的 `practice_session` 条件粒度须确认能否表达「逐法达标」，AdvancementCheck(§3.9) 预检须按 meditationId 分组聚合 92 次比对 | 预科19届大纲核对（ProgramAdvancementConfig/AdvancementCheck）| §3.9 AdvancementCheck 设计时 | DR-4/DR-14 |
-| TODO-10 | **金刚萨埵心咒代替顶礼的换算+申请审批**——大纲：身体原因可申请念 200 万金刚萨埵代替 10 万顶礼（已修部分顶礼后中断申请代替的同样念 200 万）。能力 5/6 有「顶礼替代」概念但**换算关系（200万↔10万）、申请审批流程**未数据化落点。须确认换算是配置项还是写死，以及代替申请走能力 5 代行还是独立审批 | 预科19届大纲核对（能力 5/6 代行）| 内加行实修 / 代行能力深化时 | D17 / 能力 5 |
+| ~~TODO-10~~ ✅ 已闭合 | ~~金刚萨埵心咒代替顶礼的换算+申请审批~~——**已闭合（2026-05-30）**：换算比例 200万↔10万 写死应用层常量（大纲规定，非配置项）；代替申请走能力 5 代行，AuditLog(actionType=proxy_action, reason 必填) 留痕；顶礼 UserPracticeVow 置 isSubstituted=true（历史数值保留不动）；新建心咒 UserPracticeVow(targetCount=2,000,000, currentCount=0) 从 0 独立计；两条 vow 并存互不干扰（DR-94）| 预科19届大纲核对（能力 5/6 代行）| ✅ 已处理（DR-94）| D17 / DR-94 |
 | TODO-11 | **法王祈祷文补念状态机**——大纲：修顶礼时未念法王祈祷文的，毕业前补念 10 万，否则不能进密法。能力 10 升学条件列了「法王祈祷文 10 万」，但**「欠/补」状态机**（欠多少、已补多少、是否清零）未设计。须确认是否作为独立计数项或挂顶礼加行的子条件 | 预科19届大纲核对（能力 6/10）| 内加行实修 / 升学条件设计时 | D13 / 能力 6 |
 | TODO-12 | **年龄豁免（60岁）逻辑层**——⚠️ 字段已就位：§1.9 User 已加 `birthDate`（DR-70）。**剩余逻辑层**：年龄豁免是「资格性、非自动」（非「年龄≥60 自动满足 exam_score」），实际免考走能力 5 代行豁免、留痕（D17）。须在升学条件配置/预检阶段实现：(1) 按 birthDate + 第一次考试报名日计算年龄；(2) 标记「符合年龄豁免资格」；(3) 接入能力 5 显式豁免流程，而非自动置满足 | 预科19届大纲核对（能力 5 / 能力 10 / AdvancementCheck）| 升学条件配置 / §3.9 AdvancementCheck 设计时 | DR-70 / 能力 5 |
 | TODO-13 | **考试合格线多维矩阵** ⚠️ 硬规则缺口——大纲合格线随场景变化：出勤≥93次→1次合格(30分)；出勤<93次/自学→1次及格(开卷72/闭卷60) 或 2次各合格(30分)。能力 10「合格线是专业配置项」当前是**单一阈值**，无法表达「出勤档 × 开卷/闭卷 × 考试次数 × 年龄」多维矩阵。须扩展 ProgramAdvancementConfig 或 Exam 结构（含 isOpenBook 字段、出勤分档逻辑、多次考试组合判定）| 预科19届大纲核对（ProgramAdvancementConfig / Exam / 能力 10）| 升学条件配置 / 考试设计时 | DR-14 / D13 |
