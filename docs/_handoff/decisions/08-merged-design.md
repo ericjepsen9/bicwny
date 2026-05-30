@@ -766,8 +766,8 @@ model Class {
 |---|---|---|
 | `id` | String | cuid |
 | `userId` | String | 被授权人 |
-| `role` | String | `class_tutor`(1) / `class_admin`(2) / `subject_admin`(3) / `super_admin`(99) |
-| `classId` | String? | 班级作用域（class_tutor / class_admin 必填）|
+| `role` | String | `class_tutor`(1) / `class_admin`(2) / `subject_admin`(3) / `super_admin`(99) / `class_assistant`（委托角色，见下）|
+| `classId` | String? | 班级作用域（class_tutor / class_admin / class_assistant 必填）|
 | `programId` | String? | 专业作用域（subject_admin 必填）|
 | `status` | String | `active` / `revoked`，默认 active |
 | `assignedAt` | DateTime | 默认 now() |
@@ -780,8 +780,8 @@ model Class {
 model UserRoleAssignment {
   id            String    @id @default(cuid())
   userId        String
-  role          String    // class_tutor / class_admin / subject_admin / super_admin
-  classId       String?   // class_tutor / class_admin 的作用域
+  role          String    // class_tutor / class_admin / subject_admin / super_admin / class_assistant
+  classId       String?   // class_tutor / class_admin / class_assistant 的作用域
   programId     String?   // subject_admin 的作用域
   // super_admin: classId=null, programId=null（全局作用域）
   status        String    @default("active")  // active / revoked
@@ -802,15 +802,19 @@ model UserRoleAssignment {
 }
 ```
 
+> **第 5 个 role：`class_assistant`（辅助员，能力 13）**（用户决策 2026-05-29，DR-82）。辅助员不属于四大管理角色，是 class_admin 委托的班级成员，但建模上**并入 UserRoleAssignment**（不单建表），统一走一套角色查询。`class_assistant` 的 classId 必填（作用域=本班全体），权限集**固定**（发起共修/发起班级法会/发布任务/监督学习只读），不存权限字段——同四大角色「角色定权限、不存 flag」。配对/收回限 class_admin+（职能 #19）。辅助员**不能**编辑/删除学员数据、不能认定特殊身份、不能审核报数/升学（能力 13 §4 绝对约束，应用层按 role=class_assistant 拦截）。
+
 #### 约束
 
 | 约束 | 类型 | 说明 |
 |---|---|---|
 | `@@unique([userId, role, classId, programId])` | DB | 同一人同一角色同一作用域唯一 |
 | super_admin 防重 | 应用层 | PostgreSQL NULL≠NULL 导致 DB unique 对 super_admin（两列均 null）不生效；应用层额外保证同 userId 只有一条 active super_admin |
-| class_tutor / class_admin → classId 必填 | 应用层（Zod）| 班级角色必须绑定班级作用域 |
+| class_tutor / class_admin / class_assistant → classId 必填 | 应用层（Zod）| 班级角色必须绑定班级作用域 |
 | subject_admin → programId 必填 | 应用层（Zod）| 学科角色必须绑定专业作用域 |
 | super_admin → classId / programId 均为 null | 应用层（Zod）| 全局角色无作用域 |
+| class_assistant 权限集固定 + 操作禁区 | 应用层 | 固定权限（共修/法会/任务/监督只读）；禁编辑删除学员数据、禁认定特殊身份、禁审核报数升学（能力 13 §4）|
+| class_assistant 配对/收回限 class_admin+ | 应用层 | 职能 #19；辅导员只读（R）|
 | 角色分配链 | 应用层 | 02 文档 §五；不允许越级任命 |
 | 撤销走 status='revoked'，不物理删除（D18）| 应用层 | 历史记录永久保留 |
 
@@ -965,11 +969,11 @@ model TransmissionRecord {
 
 ---
 
-## 三、➕ 新建表（14 张）
+## 三、➕ 新建表（13 张）
 
 按新业务能力从头设计。
 
-> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。
+> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后定为 14 张；AssistantAssignment 并入 §2.1 UserRoleAssignment（辅助员=第 5 个 role class_assistant，DR-82）后，最终定为 13 张。
 
 ---
 
@@ -1311,7 +1315,15 @@ model ClassInviteCode {
 
 ---
 
-### 3.6 AssistantAssignment（辅助员配对）⬜ 未开始
+### 3.6 ~~AssistantAssignment（辅助员配对）~~ → 并入 §2.1 UserRoleAssignment ✅ 已封板
+
+> **不单建表**（用户决策 2026-05-29，DR-82）：辅助员（能力 13）虽不属于四大管理角色，但建模上并入 §2.1 UserRoleAssignment，作为第 5 个 `role` 值 `class_assistant`，统一走一套角色查询。详见 §2.1 的「第 5 个 role」说明与约束。**§三 新建区由 14 张减为 13 张**（AssistantAssignment 撤销，后续编号不变——3.7~3.11 保持原号，仅 3.6 转为并入说明）。
+>
+> - 作用域：classId 必填（本班全体）
+> - 权限集固定：发起共修 / 发起班级法会 / 发布任务 / 监督学习（只读）
+> - 操作禁区（能力 13 §4）：禁编辑删除学员数据、禁认定特殊身份、禁审核报数/升学
+> - 配对/收回：class_admin+（职能 #19），辅导员只读
+> - 收回走 status=revoked，配对/收回留痕（D17/D18），变更链入 RoleAssignmentHistory（§3.2）
 
 ### 3.7 SemesterSnapshot（报数快照）⬜ 未开始
 
@@ -2200,6 +2212,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §3.3 StudentSpecialStatus（特殊身份）✅ 封板——blind/deaf 两类不可扩展（能力 12 绝对约束）；与 User.accessibilityNeeds 留痕+快照双写（认定过程留痕 vs 当前生效快照，DR-76）；@@unique([userId,statusType]) 防重、撤销后复活同行（DR-77）；认定/撤销限 class_admin+（职能 #13）；§八 DR-76~77；§九 检查轮次 25（0 问题）|
 | 2026-05-29 | §3.4 CareWatchlistItem（关怀清单条目）✅ 封板——清单条目（触发信号）与 §2.2 CareFollowupRecord（跟进备注）一对多分工；triggerType 7 类（practice_lag/attendance_low/report_overdue/false_report/study_lag/special_status/manual）；同人同类型 active 唯一用 partial unique index（DR-78）；触发阈值复用 TODO-1（DR-79）；解除走 status=resolved 不删行（D18）；闭合检查轮次 10 反向关联已知项；§八 DR-78~79；§九 检查轮次 26（0 问题）|
 | 2026-05-29 | §3.5 ClassInviteCode（邀请码）✅ 封板——expiresAt 必填保证 D11 时效（不允许永久码）；status 只存 active/revoked，expired 实时算不入库（DR-80）；取代旧 Class.joinCode（字段保留兼容、不再生成新码，DR-81）；撤销/过期只影响新加入、入班幂等；生成/撤销限 class_admin+（职能 #5）；§八 DR-80~81；§九 检查轮次 27（0 问题）|
+| 2026-05-29 | §3.6 辅助员（能力 13）**并入 §2.1 UserRoleAssignment**——不单建表，作为第 5 个 role=class_assistant（DR-82）；classId 必填（本班全体），权限集固定（共修/法会/任务/监督只读），操作禁区（禁改删学员数据/认定特殊身份/审核报数升学）；配对/收回限 class_admin+（职能 #19），变更链复用 RoleAssignmentHistory；§三 新建区 14→13 张；§八 DR-82；§九 检查轮次 28（0 问题）|
 
 ---
 
@@ -2290,6 +2303,7 @@ model UserSelfStudyRestWeek {
 | DR-79 | CareWatchlistItem 触发阈值是否新开待办 | 复用 TODO-1，不新开（用户决策 2026-05-29）| practice_lag/attendance_low/study_lag 的触发阈值就是 TODO-1（掉队判定阈值数据化）要处理的那批——CohortLagSnapshot 与 CareWatchlistItem 共用同一套掉队检测阈值（D3 专业配置项）。复用 TODO-1，避免重复登记。排除「新开待办」：同一组阈值两处登记会割裂，实现时易遗漏一致性 |
 | DR-80 | ClassInviteCode 过期状态如何表达 | status 只存 active/revoked，expired 实时算（用户决策 2026-05-29）| status 存 active/revoked 两个**人为**状态；expired 是 expiresAt 时间的客观推导，查询时实时算（now()>expiresAt），不入库。排除「定时任务把过期 active 刷成 expired」：引入定时任务维护冗余状态，且过期是确定性时间推导无需持久化；能力 19 展示层「三态」合成即可。校验逻辑：status='active' AND now()<=expiresAt AND (maxUses IS NULL OR usedCount<maxUses）|
 | DR-81 | ClassInviteCode 与旧 Class.joinCode 关系 | 新表取代，旧字段保留兼容不再生成新码（用户决策 2026-05-29）| 旧 joinCode 无时效，不满足 D11「邀请码必须有过期时间」。新表 ClassInviteCode 带 expiresAt/maxUses/status，取代 joinCode 成为唯一新邀请入口。Class.joinCode 字段保留兼容（历史数据/旧链接），但不再生成新码——同 PracticeProject.scope「保留兼容、新系统不依赖」处理。排除「物理删 joinCode 字段」：旧链接/历史数据可能仍引用，保留兼容更安全；排除「并存两套生成」：两套邀请入口会分裂校验逻辑、D11 时效无法统一保证 |
+| DR-82 | 辅助员（能力 13）是否单建表 | 并入 §2.1 UserRoleAssignment，第 5 个 role=class_assistant（用户决策 2026-05-29）| 辅助员虽不属四大管理角色（是 class_admin 委托的班级成员），但建模上并入 UserRoleAssignment，统一走一套角色查询。理由：复用现有 role+作用域+status+留痕（RoleAssignmentHistory）全套机制，无需新表重复一遍。class_assistant 的 classId 必填（作用域本班全体），权限集固定（共修/法会/任务/监督只读），不存权限字段——同四大角色「角色定权限、不存 flag」。操作禁区（禁改删学员数据/禁认定特殊身份/禁审核报数升学）应用层按 role 拦截。排除「独立 AssistantAssignment 表（方案 A）」：会重复 UserRoleAssignment 的状态机/留痕/作用域逻辑，且配对变更链还要单独建 history；并入后复用 RoleAssignmentHistory，§三 新建区 14→13 张 |
 
 ---
 
@@ -2828,6 +2842,25 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0。
 **结论**：§3.5 ClassInviteCode 封板。expiresAt 必填保证 D11 时效；status 只存 active/revoked，expired 实时算（DR-80）；取代旧 joinCode（DR-81，字段保留兼容）；撤销/过期只影响新加入，入班幂等。
+
+### 检查轮次 28（2026-05-29，范围：§3.6 辅助员并入 §2.1 UserRoleAssignment）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | 辅助员并入 UserRoleAssignment，复用现有 user/class/program/history 关联，无新表新关联；class_assistant 用 classId 关联 Class（已有）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §三 新建区 14→13 张（AssistantAssignment 撤销并入 §2.1）；标题、注记、§3.6 说明三处同步更新 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 无新表；role 增加枚举值 class_assistant 待统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | §3.6 标删除线 + 并入说明；class_assistant 权限集固定/禁区明确 |
+| 8. 业务规则约束有实现方式 | ✅ | classId 必填/权限集固定/操作禁区/配对收回权限→应用层；唯一约束复用 @@unique([userId,role,classId,programId])|
+| 9-12. 其余检查项 | ✅/⏸ | D17/D18：配对/收回走 status=revoked 留痕，变更链入 RoleAssignmentHistory（§3.2）；与四大角色同套机制 |
+| 13. 02 文档 23 职能写表覆盖 | ✅ | class_assistant 配对/收回=职能 #19（class_admin+）；辅助员权限对应能力 8/9（发共修/任务）|
+| 14. 枚举值各处一致 | ✅ | role 第 5 值 class_assistant 在字段表/schema/约束/§3.6 说明四处一致；与能力 13 一致 |
+
+**本轮发现问题数**：0。
+**结论**：辅助员并入 §2.1 UserRoleAssignment（第 5 个 role class_assistant，DR-82），复用角色体系全套机制（作用域/状态/留痕）。§三 新建区 14→13 张。§3.6 转为并入说明，3.7~3.11 编号不变。
 
 ---
 
