@@ -1245,7 +1245,71 @@ model CareWatchlistItem {
 
 ---
 
-### 3.5 ClassInviteCode（邀请码）⬜ 未开始
+### 3.5 ClassInviteCode（邀请码）✅ 已封板
+
+**服务能力**：能力 19（班级邀请码）
+**写权限**：`class_admin` 及以上生成/撤销（职能 #5「班级邀请码管理」）；辅导员只读（R）
+**参考决策**：D11（邀请码+时效）、D18（生成/撤销留痕）、能力 19、DR-80、DR-81
+
+> **核心约束**：必须有过期时间（**不允许永久码**，能力 19 绝对约束 #1）；撤销/过期/超次数**只影响新加入，不影响已加入学员**（约束 #2/#6）。
+
+#### 字段
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `code` | String | 邀请码字符串，`@unique`，随机生成 |
+| `classId` | String | 固定绑定一个班级 |
+| `status` | String | `active` / `revoked`，默认 active（**过期不存状态，实时算**，DR-80）|
+| `expiresAt` | DateTime | **过期时间，必填**（不允许永久码）|
+| `maxUses` | Int? | 使用次数上限；null=不限人数 |
+| `usedCount` | Int | 已使用次数，默认 0 |
+| `createdBy` | String | 生成人 userId（class_admin+）|
+| `createdAt` | DateTime | 默认 now() |
+| `revokedAt` | DateTime? | 撤销时间 |
+| `revokedBy` | String? | 撤销人 userId |
+
+#### Prisma schema
+
+```prisma
+model ClassInviteCode {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  classId   String
+  status    String    @default("active")  // active / revoked（expired 实时算，不存）
+  expiresAt DateTime  // 必填，不允许永久码
+  maxUses   Int?      // null = 不限人数
+  usedCount Int       @default(0)
+  createdBy String     // 生成人（class_admin+）
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+  revokedBy String?
+
+  class Class @relation(fields: [classId], references: [id])
+
+  @@index([classId, status])
+}
+```
+
+> **过期状态**（DR-80）：`status` 只存 `active`/`revoked` 两个**人为**状态；`expired` 是 `expiresAt` 时间的客观推导，不入库、不靠定时任务维护。有效性校验 = `status='active' AND now() <= expiresAt AND (maxUses IS NULL OR usedCount < maxUses)`。能力 19 展示层的「三态」合成即可。
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `code` 唯一 | DB（@unique）| 随机生成防碰撞 |
+| `expiresAt` 必填 | DB（非空）| 能力 19 绝对约束 #1，不允许永久码 |
+| 校验=status active + 未过期 + 未超次数 | 应用层 | 使用时三重校验（过期实时算，DR-80）|
+| 撤销/过期只影响新加入 | 应用层 | 已加入学员 enrollment 不受影响（约束 #2/#6）|
+| 入班幂等 | 应用层 | 同人同班只有一条有效 enrollment，重复用码不重复建（约束 #4）|
+| 码不可复用 | 应用层 | revoked/过期不可重新激活，需重新生成（#7）|
+| 撤销走 status=revoked，不物理删（D18）| 应用层 | 生成/撤销留痕，无 delete API |
+
+#### 设计意图（与旧 joinCode 的关系）
+
+新表 ClassInviteCode **取代** Class 旧 `joinCode` 字段（DR-81）。旧 joinCode 是无时效的基础邀请，不满足 D11「邀请码必须有过期时间」。Class.joinCode 字段保留兼容（历史数据/旧链接），但**不再生成新码**——所有新邀请走 ClassInviteCode（带 expiresAt/maxUses/状态）。同 PracticeProject.scope 的「保留兼容、新系统不依赖」处理。能力 11 留级/回归的重新加入也走 ClassInviteCode（能力 19 被依赖项）。
+
+---
 
 ### 3.6 AssistantAssignment（辅助员配对）⬜ 未开始
 
@@ -2135,6 +2199,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §三 新建区开始：§3.2 RoleAssignmentHistory（角色变更留痕）✅ 封板——与 §3.12 EnrollmentStatusHistory 对称的 append-only 留痕表；role/classId/programId 冗余存变更那一刻快照（审计可回溯，DR-75）；反向关联与 §2.1 UserRoleAssignment.history 成对；§八 DR-75；§九 检查轮次 24（0 问题）|
 | 2026-05-29 | §3.3 StudentSpecialStatus（特殊身份）✅ 封板——blind/deaf 两类不可扩展（能力 12 绝对约束）；与 User.accessibilityNeeds 留痕+快照双写（认定过程留痕 vs 当前生效快照，DR-76）；@@unique([userId,statusType]) 防重、撤销后复活同行（DR-77）；认定/撤销限 class_admin+（职能 #13）；§八 DR-76~77；§九 检查轮次 25（0 问题）|
 | 2026-05-29 | §3.4 CareWatchlistItem（关怀清单条目）✅ 封板——清单条目（触发信号）与 §2.2 CareFollowupRecord（跟进备注）一对多分工；triggerType 7 类（practice_lag/attendance_low/report_overdue/false_report/study_lag/special_status/manual）；同人同类型 active 唯一用 partial unique index（DR-78）；触发阈值复用 TODO-1（DR-79）；解除走 status=resolved 不删行（D18）；闭合检查轮次 10 反向关联已知项；§八 DR-78~79；§九 检查轮次 26（0 问题）|
+| 2026-05-29 | §3.5 ClassInviteCode（邀请码）✅ 封板——expiresAt 必填保证 D11 时效（不允许永久码）；status 只存 active/revoked，expired 实时算不入库（DR-80）；取代旧 Class.joinCode（字段保留兼容、不再生成新码，DR-81）；撤销/过期只影响新加入、入班幂等；生成/撤销限 class_admin+（职能 #5）；§八 DR-80~81；§九 检查轮次 27（0 问题）|
 
 ---
 
@@ -2223,6 +2288,8 @@ model UserSelfStudyRestWeek {
 | DR-77 | StudentSpecialStatus 是否加 @@unique([userId, statusType]) | 加（用户决策 2026-05-29）| 一个人可同时盲+聋（两条记录，statusType 不同），但同一人同一类型不应有多条 active。`@@unique([userId, statusType])` 保证唯一；撤销后重新认定走复活同行（status: revoked→active），不新建重复行。同 ClassMember `@@unique([classId, userId])` 复活模式。排除「不加唯一约束」：重复认定会产生多条同类型记录，统计/判定混乱 |
 | DR-78 | CareWatchlistItem「同人同类型最多一条 active」如何实现 | Partial unique index（WHERE status='active'）（用户决策 2026-05-29）| 不能用三列 `@@unique([userId, triggerType, status])`：D18 下解除走 status=resolved 不删行，同人同类型历史会有多条 resolved，三列唯一对 resolved 行会冲突报错。改用 PostgreSQL partial unique index `(user_id, trigger_type) WHERE status='active'`——只约束 active 唯一，resolved 历史不限条数。同 §2.1 super_admin NULL 唯一的应用层兜底思路。排除三列 @@unique：会阻止合法的多次「触发→解除」历史 |
 | DR-79 | CareWatchlistItem 触发阈值是否新开待办 | 复用 TODO-1，不新开（用户决策 2026-05-29）| practice_lag/attendance_low/study_lag 的触发阈值就是 TODO-1（掉队判定阈值数据化）要处理的那批——CohortLagSnapshot 与 CareWatchlistItem 共用同一套掉队检测阈值（D3 专业配置项）。复用 TODO-1，避免重复登记。排除「新开待办」：同一组阈值两处登记会割裂，实现时易遗漏一致性 |
+| DR-80 | ClassInviteCode 过期状态如何表达 | status 只存 active/revoked，expired 实时算（用户决策 2026-05-29）| status 存 active/revoked 两个**人为**状态；expired 是 expiresAt 时间的客观推导，查询时实时算（now()>expiresAt），不入库。排除「定时任务把过期 active 刷成 expired」：引入定时任务维护冗余状态，且过期是确定性时间推导无需持久化；能力 19 展示层「三态」合成即可。校验逻辑：status='active' AND now()<=expiresAt AND (maxUses IS NULL OR usedCount<maxUses）|
+| DR-81 | ClassInviteCode 与旧 Class.joinCode 关系 | 新表取代，旧字段保留兼容不再生成新码（用户决策 2026-05-29）| 旧 joinCode 无时效，不满足 D11「邀请码必须有过期时间」。新表 ClassInviteCode 带 expiresAt/maxUses/status，取代 joinCode 成为唯一新邀请入口。Class.joinCode 字段保留兼容（历史数据/旧链接），但不再生成新码——同 PracticeProject.scope「保留兼容、新系统不依赖」处理。排除「物理删 joinCode 字段」：旧链接/历史数据可能仍引用，保留兼容更安全；排除「并存两套生成」：两套邀请入口会分裂校验逻辑、D11 时效无法统一保证 |
 
 ---
 
@@ -2742,6 +2809,25 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0（同时闭合检查轮次 10 标记的 §3.4 反向关联已知项）。
 **结论**：§3.4 CareWatchlistItem 封板。清单条目（触发信号）与 CareFollowupRecord（跟进备注）一对多分工；同人同类型 active 唯一用 partial unique index（DR-78）；触发阈值复用 TODO-1（DR-79）；解除走 resolved 不删行（D18）。闭合检查轮次 10 反向关联已知项。
+
+### 检查轮次 27（2026-05-29，范围：§3.5 ClassInviteCode 封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | ClassInviteCode.class↔Class（实现时补 inviteCodes[] 反向）；无其他外键 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §三 新建区 14 张不变（ClassInviteCode 由 ⬜ 转 ✅）|
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待统编；旧 Class.joinCode 保留兼容不删 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | status 仅 active/revoked（expired 实时算）有 DR-80；joinCode 取代有 DR-81 |
+| 8. 业务规则约束有实现方式 | ✅ | code 唯一→DB；expiresAt 必填→DB 非空；三重校验/幂等/不可复用/只影响新加入→应用层；撤销不删→应用层 |
+| 9-12. 其余检查项 | ✅/⏸ | D18：撤销 status=revoked 不物理删，生成/撤销留痕；D11：expiresAt 必填保证时效 |
+| 13. 02 文档 23 职能写表覆盖 | ✅ | 生成/撤销限 class_admin+（职能 #5），辅导员只读（R），与能力 19 §1 一致 |
+| 14. 枚举值各处一致 | ✅ | status（active/revoked）各处一致；展示层 expired 为合成态非存储值，已注明 |
+
+**本轮发现问题数**：0。
+**结论**：§3.5 ClassInviteCode 封板。expiresAt 必填保证 D11 时效；status 只存 active/revoked，expired 实时算（DR-80）；取代旧 joinCode（DR-81，字段保留兼容）；撤销/过期只影响新加入，入班幂等。
 
 ---
 
