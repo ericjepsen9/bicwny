@@ -192,7 +192,7 @@
 **写权限**：班级级讲考评分限 `class_tutor` 及以上（本班）；平台级讲考评分限 `subject_admin` / `super_admin`（SpeakingGrade.classId=null）；考试成绩录入限 `class_admin` 及以上（职能 #7，辅导员无权）；Exam 创建——随堂测验辅导员（#11a）、升学考班级管理员（#11b）
 **参考决策**：D3（合格线数据驱动）、D13（升学硬条件）、D18（成绩永久留档）
 
-> **三表关系**：ExamGrade 结构旧设计已完整，**复用不动**。**Exam 加 `examType`**——核对能力 10 发现旧 Exam 无法区分「随堂测验 vs 升学考」，导致升学预检取不到正确成绩、两类写权限无法分流。**SpeakingGrade.classId 改可空**——平台级讲考（SpeakingSession.classId=null）由 subject_admin/super_admin 评分，无归属班，见 DR-48。本节三张表中，SpeakingGrade（classId 改可空）和 Exam（加 examType）有变更，归入扩展区；ExamGrade 复用不动（收录于本节供对照参考）。
+> **三表关系**：ExamGrade 结构旧设计已完整，**复用不动**。**Exam 加 `examType`**——核对能力 10 发现旧 Exam 无法区分「随堂测验 vs 升学考」，导致升学预检取不到正确成绩、两类写权限无法分流。**Exam 加 `isOpenBook`**——TODO-17 检查轮次 45 发现 exam_score params 的开卷/闭卷合格线分支需要数据来源，Exam 必须标记本次考试是否开卷（DR-99，2026-05-30 补充）。**SpeakingGrade.classId 改可空**——平台级讲考（SpeakingSession.classId=null）由 subject_admin/super_admin 评分，无归属班，见 DR-48。本节三张表中，SpeakingGrade（classId 改可空）和 Exam（加 examType）有变更，归入扩展区；ExamGrade 复用不动（收录于本节供对照参考）。
 
 #### SpeakingGrade（讲考评分）— 🔧 扩展：classId 改可空
 
@@ -249,7 +249,7 @@ model ExamGrade {
 
 > 合格线**不写死**在 ExamGrade，由 ProgramAdvancementConfig（§3.1）`exam_score` 条件的 `targetValue`（如 60）判定，符合 D3 数据驱动。
 
-#### Exam（考试）— 🔧 扩展：加 `examType`
+#### Exam（考试）— 🔧 扩展：加 `examType` + `isOpenBook`
 
 | 字段 | 类型 | 说明 | 来源 |
 |---|---|---|---|
@@ -260,6 +260,7 @@ model ExamGrade {
 | `classId` | String? | null=平台级；有值=班级级 | 旧 |
 | `courseId` | String? | 可选关联法本 | 旧 |
 | `examType` | String | `quiz`（随堂测验，辅导员起 #11a，不影响升学）/ `advancement`（升学考，班级管理员起 #11b，影响升学资格）；默认 `quiz` | **新增** |
+| `isOpenBook` | Boolean | 是否开卷；默认 false（闭卷）；AdvancementCheck 按此值对照 exam_score params 的 openBookPassScore/closedBookPassScore 分支判定（DR-99，TODO-17 修复）| **新增** |
 | `createdBy` | String | admin/coach userId | 旧 |
 | `createdAt` | DateTime | 默认 now() | 旧 |
 
@@ -272,6 +273,7 @@ model Exam {
   classId     String?
   courseId    String?
   examType    String    @default("quiz")  // quiz 随堂测验 / advancement 升学考
+  isOpenBook  Boolean   @default(false)   // 开卷/闭卷标记（DR-99，升学考合格线分支判定）
   createdBy   String
   createdAt   DateTime  @default(now())
 
@@ -289,6 +291,7 @@ model Exam {
 | `@@unique([speakingSessionId, userId])` | DB | 讲考每场每人一条 |
 | `@@unique([examId, userId])` | DB | 考试每场每人一条 |
 | `examType` 仅 quiz/advancement | 应用层（Zod）| 两值枚举，无 Prisma enum（与旧 String 风格一致）|
+| `isOpenBook` 默认 false | DB | 升学考创建时 subject_admin 标记；AdvancementCheck 读此值选合格线分支（DR-99）|
 | 升学考创建限班级管理员、随堂测验限辅导员 | 应用层 | 按 examType 分流写权限（职能 #11a/#11b）|
 | 考试成绩录入限 class_admin 及以上 | 应用层 | 职能 #7，辅导员无录入权 |
 | 班级级讲考评分限 class_tutor 及以上 | 应用层 | SpeakingGrade.classId 非空时；评分人须在同一班 |
@@ -1164,6 +1167,65 @@ model ProgramAdvancementConfig {
 ```
 
 > 默认值说明：`isRequired=true`（条件默认硬性）、`isExemptable=false`（默认不可豁免，需管理员显式开启），契合 D13「硬条件不放宽」基调。
+
+#### 各 conditionType 标准 params 结构（TODO-17 专题设计，2026-05-30）
+
+> **设计原则（DR-97）**：`params` Json 可完整表达所有复杂条件，无需新建子表。每种 conditionType 的解析逻辑固定在应用层，params 只是参数包。`targetValue` 单 Int 不够用时，相关数值全写进 `params`，`targetValue` 置 null。
+
+##### practice_session（逐法达标，DR-98）
+
+```json
+{
+  "type": "per_item",
+  "groupBy": "meditationId",
+  "itemCount": 92,
+  "minSessionsPerItem": 3,
+  "minMinutesPerItem": 90,
+  "totalMinSessions": 276,
+  "totalMinMinutes": 8280
+}
+```
+
+**判定逻辑**：`GROUP BY meditationId WHERE userId=:id` → 每组 `COUNT ≥ minSessionsPerItem AND SUM(durationMinutes) ≥ minMinutesPerItem` → 满足组数 = `itemCount` AND 全局 `COUNT ≥ totalMinSessions` AND `SUM ≥ totalMinMinutes`。双维度独立达标（DR-91）。
+
+##### exam_score（考试合格线多维矩阵，DR-99）
+
+```json
+{
+  "attendanceThreshold": 93,
+  "highAttendance": {
+    "maxAttempts": 1,
+    "passScore": 30
+  },
+  "lowAttendance": {
+    "openBookPassScore": 72,
+    "closedBookPassScore": 60,
+    "orTwoAttemptsEachScore": 30
+  },
+  "ageExemptionMinAge": 60
+}
+```
+
+**判定逻辑**：查该学员出勤次数（ClassSession 出勤记录）→ 对照 `attendanceThreshold` 选分支 → highAttendance: 1次≥30分合格；lowAttendance: 1次及格（开卷≥72 或闭卷≥60）或2次各≥30分。`ageExemptionMinAge` 仅用于标记资格，不自动通过（DR-100）。
+
+> **考试线下/后台录入约束（DR-99）**：考试在线下进行，不经 app 端。成绩由 subject_admin 在后台管理端录入 ExamGrade（能力 10 职能 #11b，§1.4 已封板）。AdvancementCheck 读 ExamGrade 判断合格线。
+
+##### cumulative_count（内加行累计，targetValue 即目标值）
+
+```json
+{ "practiceProjectId": "<项目 id>" }
+```
+
+**判定**：`SUM(PracticeLog.count WHERE practiceProjectId=:id AND userId=:id) ≥ targetValue`。法王祈祷文用 `SUM(PracticeLog.prayerCount)` 独立聚合（DR-95）。
+
+##### 年龄豁免处理（DR-100）
+
+不是独立 conditionType，而是 `exam_score` 条件的豁免路径：
+- `exam_score` 条件上 `isExemptable: true`
+- params 含 `ageExemptionMinAge: 60`
+- AdvancementCheck：若 `now() - birthDate ≥ 60年` → checkResults 该条加 `"ageEligible": true`，但 `passed: false`
+- Admin 看到 `ageEligible=true` 提示，手动走能力 5 代行豁免 → `exempted: true` + AuditLog（D17）
+- **不自动置满足**（DR-70 已定调，用户决策 2026-05-29）
 
 ---
 
@@ -2755,6 +2817,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
 | 2026-05-30 | **检查轮次 35 勘误**：检查项 9「升学条件可全查」原标 ✅ 过度乐观，下修为 🔵 部分——只验证了链路连通（有 ProgramAdvancementConfig 接住），未验证配置表达充分性（params 能否装下双维度逐法/多维合格线，挂 TODO-9/12/13）；且与 §十 ⚠️ 待决策标签自相矛盾未被检查项 7 抓出。方法论盲区（配置表达充分性 + 设计vs代码gap）并入 TODO-17 |
 | 2026-05-30 | 核查达标/升学配置现状：backend 无 Program 层/无 ProgramAdvancementConfig/无达标配置（仅通用打卡目标）；新增 TODO-17（各学科达标条件+升学条件后台配置专题，含后台管理界面+学习情况提醒），汇总 TODO-9/12/13 配置承载，**置于本轮 TODO 闭合后专题设计** |
+| 2026-05-30 | TODO-17 闭合（专题设计）：TODO-9/12/13 一并闭合——①params 充分性(DR-97)②逐法达标 per_item 结构(DR-98)③考试合格线 attendanceThreshold 分支矩阵+考试线下后台录入(DR-99)④年龄豁免 ageEligible 标记+手动豁免(DR-100)⑤管理界面 4 页(DR-101)⑥跨 program 聚合已含 DR-96；§3.1 补各 conditionType 标准 params 结构；§九 检查轮次 45 |
 | 2026-05-30 | TODO-14 闭合：兼修加行——无需新表/字段；兼修=独立加入加行班（D9 多专业已支持）；升密法资格判定为 admin 手动触发+系统 userId 维度全量聚合；跨 program 聚合逻辑纳入 TODO-17；§八 DR-96；§九 检查轮次 44 |
 | 2026-05-30 | TODO-11 闭合：法王祈祷文——无欠/补状态机，PracticeLog 新增 prayerCount（顶礼打卡同次录入），SUM≥10万即达标；心咒代顶礼(isSubstituted=true)豁免判定；PracticeLog ✅复用→🔧扩展移入 §1.12；§一 扩展区 12→13 张；§八 DR-95；§九 检查轮次 43 |
 | 2026-05-30 | TODO-10 闭合：金刚萨埵心咒代替顶礼——换算 200万↔10万 写死应用层常量；能力 5 代行 AuditLog(proxy_action) 留痕；顶礼 UserPracticeVow 置 isSubstituted=true（历史数值保留不动）；新建心咒 UserPracticeVow(practiceProjectId=心咒, targetCount=2,000,000, currentCount=0) 从 0 独立计；§1.7 字段表/schema/约束表更新；§八 DR-94；§九 检查轮次 42（2 问题已修：vowType→practiceProjectId、补换算常量约束）|
@@ -2866,6 +2929,11 @@ model UserSelfStudyRestWeek {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-101 | 后台管理界面范围（TODO-17 ⑤）| **考试线下进行，成绩录入在后台管理；升学相关管理 4 页**（用户决策 2026-05-30，TODO-17 闭合）| 考试不在 app 端进行，但成绩录入必须在后台：subject_admin 录入每位学员的 ExamGrade（§1.4 已封板，写权限已有）。管理界面范围：(1) 升学条件配置 `/admin/programs/:id/conditions`——ProgramAdvancementConfig CRUD，操作角色 subject_admin；(2) 考试管理 `/admin/classes/:id/exams`——创建考场、录入成绩（→ ExamGrade），操作角色 subject_admin；(3) 升学资格预检 `/admin/classes/:id/advancement`——触发 AdvancementCheck、查看预检报告、逐条豁免、拍板升学，操作角色 class_admin+；(4) 学员达标进度 `/admin/classes/:id/progress`——实时展示各条件完成量 vs 目标（SemesterSnapshot + 实时聚合），操作角色 class_tutor+。后台 UI 均为全新待建，与现有 PracticeGoal/PracticeTask 打卡体系并存不干扰 |
+| DR-100 | 年龄豁免逻辑层（TODO-12 闭合）| **params.ageExemptionMinAge=60；AdvancementCheck 标 ageEligible=true，不自动通过；admin 手动走能力 5 代行豁免**（用户决策 2026-05-30，DR-70 已定调）| TODO-12 逻辑层补全：字段 User.birthDate 已就位（DR-70）。年龄豁免是「资格性、非自动」——AdvancementCheck 读 `birthDate` 计算年龄（基准日=第一次升学考报名日），若 ≥60 岁则在 checkResults 该条加 `ageEligible: true`，但 `passed` 仍为 false（不自动通过）。Admin 见 ageEligible 提示后，手动走能力 5 代行（proxy_action AuditLog 留痕）将该条 `exempted: true`。exam_score 条件的 `isExemptable=true` 已在设计中（默认false需手动开启）。排除「年龄≥60自动置exam_score满足」：剥夺有能力老人正常应考选择，违反能力5豁免「显式确认」哲学（DR-70）|
+| DR-99 | exam_score 考试合格线多维矩阵 params 结构（TODO-13 闭合）| **params 含 attendanceThreshold/highAttendance/lowAttendance/ageExemptionMinAge；Exam 加 isOpenBook；考试线下进行，成绩后台录入**（用户决策 2026-05-30）| TODO-13 多维矩阵：大纲合格线按出勤档变化，单一 targetValue 无法表达，全写入 params（DR-97 原则）。分支逻辑：出勤≥93 次 → 1次合格(≥30分)；出勤<93次/自学 → 1次及格(开卷≥72/闭卷≥60) OR 2次各≥30分。AdvancementCheck 读 `Exam.isOpenBook` 确定分支后与 ExamGrade.score 比对。**Exam.isOpenBook 字段**（检查轮次 45 修复）：params 有开卷/闭卷两条合格线，但 AdvancementCheck 需从 Exam 表知道该场考试是哪种——Exam 加 `isOpenBook Boolean @default(false)`（subject_admin 创建考试时标记）。**考试约束**：考试在线下进行，不经 app 端；成绩由 subject_admin 在后台录入 ExamGrade，AdvancementCheck 读 ExamGrade 判定。排除「把矩阵逻辑写死应用层」：门槛数值（30/72/60/93）属专业配置，D3 要求数据驱动，故放入 params 而非 hardcode |
+| DR-98 | practice_session 逐法达标 params 结构（TODO-9 闭合）| **params 含 per_item/groupBy/itemCount/minSessionsPerItem/minMinutesPerItem/totalMin*；双维度独立判定**（用户决策 2026-05-30）| TODO-9 逐法达标：大纲要求 92修法**每一法**各自满足 ≥3座 AND ≥90分钟（非仅总量），单一 targetValue 无法表达，写入 params（DR-97 原则）。AdvancementCheck 按 `groupBy: meditationId` 分组聚合，每组 `COUNT(sessions) ≥ minSessionsPerItem AND SUM(durationMinutes) ≥ minMinutesPerItem`，满足组数 = itemCount（92），同时全局 `COUNT ≥ totalMinSessions(276) AND SUM ≥ totalMinMinutes(8280)`。双维度独立计（DR-91，座数与时长不折算）。排除「把92法逐法快照存独立表」：AdvancementCheck 运行时聚合即可，不需冗余存逐法快照；排除「单一 totalMinSessions 条件」：违反大纲「每一法各自≥3座」绝对约束 |
+| DR-97 | ProgramAdvancementConfig params 充分性验证（TODO-17 ⑤）| **params Json 可完整表达所有复杂条件，无需新建子表**（用户决策 2026-05-30，TODO-17 专题设计）| 原 TODO-17 勘误（检查轮次 35）发现：仅验证「链路连通」（有 ProgramAdvancementConfig 接住条件），未验证「params 能否装下复杂要求」（表达充分性）。专题设计核查结论：(1) 6 类 conditionType 枚举固定，每类解析逻辑在应用层硬化；(2) `params` Json 可表达逐法双维度（per_item 结构）、考试多维矩阵（attendanceThreshold 分支）、累计项目 id、年龄豁免触发条件等全部复杂要求；(3) `targetValue Int?` 不够用时，数值全写进 params（targetValue 置 null）。排除「新建 ConditionSubRule 子表」：conditionType 固定（6类），无动态扩展子条件需求，Json params + 应用层分类解析已足够，子表增加联表复杂度且无额外收益 |
 | DR-96 | 兼修加行建模方式 | **无需新表或新字段；兼修 = 独立班级注册；升密法资格判定为用户维度、admin 手动触发**（用户决策 2026-05-30，TODO-14 闭合）| 大纲：修心/念佛专业可兼修加行，升密法时加行学修量保留。方案 a（独立班级）：学员同时加入加行班（UserRoleAssignment 多条记录），D9 已支持多专业并行，无需新建「附修关系字段」。加行班的 PracticeLog/UserPracticeVow 自然落在加行 classId/programId 下，学修量自然分开、各自独立，不混淆。升密法资格判断：**手动操作，系统只判断条件是否具备**——admin 手动发起资格检查，系统以 userId 为维度聚合该学员所有 programId 下的记录（非单 programId 作用域），判定结果供 admin 参考，录取密法班由 admin 手动完成。跨 program 聚合逻辑属升学条件查询层，纳入 TODO-17 专题设计。排除「新建 concurrentProgramId/secondaryClassId 字段」：已有多班级注册能力（D9），新字段是过度工程；排除「在 PracticeLog 打兼修标签」：升学预检以 userId 全量聚合，不需区分来源班级 |
 | DR-94 | 金刚萨埵心咒代替顶礼：换算比例 + 审批流 + DB 落点 | **换算写死（2,000,000）；走能力5代行 AuditLog 留痕；顶礼 vow 标 isSubstituted=true；新建心咒 vow 从 0 独立计**（用户决策 2026-05-30，TODO-10 闭合）| 大纲规则：身体原因可申请以 200 万金刚萨埵心咒代替 10 万顶礼，无论已修多少顶礼。换算比例 200万↔10万 是大纲规定，非平台可调，写死应用层常量（`MANTRA_SUBSTITUTE_COUNT = 2_000_000`）；不入配置表，避免误配置引发业务偏差。审批流：class_tutor+ 在能力 5 代行界面操作，AuditLog 写一条 `actionType=proxy_action`（"替代"语义已含于 proxy_action 值域），`reason` 必填（记录身体原因），`payload={"before":{"practiceProjectId":"<顶礼 project id>","currentCount":X},"after":{"practiceProjectId":"<心咒 project id>","targetCount":2000000}}`。**区分两种修行**：UserPracticeVow 没有独立 vowType 字段，通过 `practiceProjectId` 区分（顶礼和心咒是两条不同的 PracticeProject 记录）。DB 执行：(1) 顶礼 `UserPracticeVow`（关联顶礼 practiceProjectId）置 `isSubstituted=true`，currentCount/currentSessionCount/currentSessionMinutes **原封不动**；(2) 新建心咒 `UserPracticeVow`（关联心咒 practiceProjectId，`targetCount=2_000_000`，`currentCount=0`），从 0 开始独立计算。两条 vow 并存，各自独立，互不影响（用户决策：「已修的要保存，不改变，独立计算」）。应用层升学预检时：顶礼 `isSubstituted=true` 的 vow 跳过，改查心咒 vow 是否达 2,000,000。排除「顶礼进度折算入心咒」：大纲无此规定，且折算逻辑（已修 3 万顶礼 → 心咒还需 X 万？）无明确公式，不自创规则 | 能力 3 规则 2 定义课程三类型 entry/formal/restricted，但 Course 仅有 category（dharma_text/self_study_book，内容性质），无教学阶段维度。两者正交：courseType 管「闻思圆满路径 + 考试范围」，category 管「闻思页分组 + 自学读物复用」。考试范围排除 = `courseType=restricted OR category=self_study_book`。Course 因此从 ✅ 复用改判 🔧 扩展，移入 §1.11。排除「把 restricted 塞进 category 枚举」：混淆两个正交维度（一门课可同时是 self_study_book 和 restricted，单字段表达不了）；排除「不加字段、限制性课就用 self_study_book 代替」：能力 3 的 restricted 是「第2-7学期辅助课」，外延不等同 self_study_book（18本大学演讲系列），且 DR-92 闻思判定也需区分正式/限制性课 |
 | DR-91 | 加行观修座次计算规则 | **废弃 0.5 座，每座录入下界 30 分钟，座数/时长双维度独立计**（用户决策 2026-05-30，TODO-7 闭合）| 核对能力 4 大纲原文：单修法 ≥3 座且 ≥90 分钟、总计 ≥276 座且 ≥138 小时、单座 ≥30 分钟，绝对约束「30 分钟以下不能单独计数」。系统原 0.5 座制（≥15min=0.5）直接违反此约束，须废弃。定调方案：每座录入下界 30 分钟（minSessionMinutes，应用层校验），每条 PracticeLog 观修记录 = 1 座（带 durationMinutes≥30）；**座数 = COUNT(records)、时长 = SUM(durationMinutes)，两维度独立计算**，互不折算。判定：单修法 `COUNT(WHERE meditationId=X)≥3 AND SUM(durationMinutes)≥90`。UserPracticeVow.currentSessionCount 由 Decimal 改 Int（座数无小数），新增 currentSessionMinutes（时长维度）。**取舍**：放弃大纲「短座 <30 分钟可合并报一座」便利——比大纲更严格（大纲是「可合并」非「必合并」），不违反硬约束，换取录入/计算的极大简化（无合并交互、双维度天然 COUNT/SUM）。排除「保留 0.5 座折算」（原方案 A）：直接违反大纲绝对约束，且 0.5 座语义混乱；排除「实现短座合并池」：引入合并操作交互与待合并状态，复杂度高，学员可自行坐满 30 分钟规避 |
@@ -3758,6 +3826,27 @@ model UserSelfStudyRestWeek {
 
 ---
 
+### 检查轮次 45（2026-05-30，范围：TODO-17 闭合 · TODO-9/12/13 一并闭合 · §3.1 params 结构 · DR-97~101 · Exam.isOpenBook 修复）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | Exam.isOpenBook 为 Boolean 标量，无 FK；params 均为 Json?，无新关联字段；§1.4 schema 片段格式正确 |
+| 2. API 响应字段对齐 | ✅ | exam_score params 分支逻辑读 `Exam.isOpenBook`，字段已在 §1.4 Exam 表定义；attendanceThreshold/highAttendance/lowAttendance/ageExemptionMinAge 均在 params 文档结构中 |
+| 3. 总览计数正确 | ✅ | DR-97~101 均为配置层/逻辑层决策，无新表；§一 仍 13 张，§三 仍 15 张（ProgramAdvancementConfig 早已计入） |
+| 4. isOpenBook 字段覆盖完整 | ✅（修复后）| 初版 exam_score params 有 openBookPassScore/closedBookPassScore 分支，但 Exam 表无字段标记开卷/闭卷；修复：§1.4 Exam 加 `isOpenBook Boolean @default(false)`，字段表、Prisma schema 片段、约束表、表头注释、DR-99 均已更新 |
+| 5. TODO-9/12/13 闭合标注 | ✅ | §十 三条均已标 ✅ 已闭合（2026-05-30，TODO-17 专题），关联 DR-97/98/99/100 正确 |
+| 6. TODO-17 闭合标注 | ✅ | §十 TODO-17 已标 ✅ 已闭合（2026-05-30），6 子议题列表完整，代码 gap 小结已记录 |
+| 7. 暂缓/不做标签完整 | ✅ | 剩余：TODO-5（⏸ 暂缓）/ TODO-16（❌ 不做）/ TODO-18（⚠️ 待决策）；所有已闭合项已打 ✅；标签体系完整 |
+| 8. 业务规则约束有实现方式 | ✅ | 逐法达标→AdvancementCheck 按 meditationId 分组聚合（DR-98）；合格线矩阵→attendanceThreshold 分支 + isOpenBook 字段（DR-99）；年龄豁免→ageEligible 标记 + 能力 5 代行（DR-100）；考试成绩→subject_admin 后台录入 ExamGrade（DR-101）；均有明确实现路径 |
+| 9. params 充分性覆盖 | ✅ | DR-97 明确：targetValue(Int?) 不够用时，数值全写 params，targetValue 置 null；6 类 conditionType 枚举固定，params 结构各类在 §3.1 均有标准定义 |
+| 10. 管理界面 4 页与权限一致 | ✅ | DR-101 四页：conditions(subject_admin)/ exams(subject_admin)/ advancement(class_admin+)/ progress(class_tutor+)，与 §三 角色权限模型一致；ExamGrade 写权限（subject_admin）已在 §1.4 封板 |
+
+**本轮发现问题数**：1（Exam.isOpenBook 字段缺失），修复后 0。
+**修复内容**：§1.4 Exam 加 `isOpenBook Boolean @default(false)`（字段表、Prisma schema、约束表、表头注释、DR-99 同步更新）。
+**结论**：TODO-17 闭合（连带 TODO-9/12/13）。params 充分性已验证（DR-97）；逐法达标 per_item 结构（DR-98）；考试合格线 attendanceThreshold 分支矩阵 + isOpenBook 标记（DR-99）；年龄豁免 ageEligible 非自动（DR-100）；管理界面 4 页（DR-101）。§一 扩展区仍 13 张。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -3771,13 +3860,13 @@ model UserSelfStudyRestWeek {
 | ~~TODO-6~~ ✅ 已闭合 | ~~班级成员请假审批流设计~~——**已闭合（2026-05-30）**：新建 §3.15 LeaveRequest；expired 实时算不入库（DR-90-A，同 DR-80）；approved 期间从掉队窗口扣除（DR-90-B）；审批限 class_tutor+；无 delete API（D18）| §5.4 自学模式修正 | ✅ 已处理（DR-90）| DR-62 / DR-90 |
 | ~~TODO-7~~ ✅ 已闭合 | ~~加行观修座次计算规则对齐大纲~~——**已闭合（2026-05-30）**：核对能力 4 大纲原文后**废弃 0.5 座制**（违反「30 分钟以下不能单独计数」绝对约束），定调「每座录入下界 30 分钟、座数=COUNT、时长=SUM 双维度独立计」，放弃短座合并便利（比大纲更严格）。UserPracticeVow.currentSessionCount 改 Int + 新增 currentSessionMinutes（DR-91）| 预科19届大纲核对（Meditation/PracticeLog）| ✅ 已处理（DR-91）| DR-91 |
 | ~~TODO-8~~ ✅ 已闭合 | ~~闻思圆满「音频或视频」二选一判定~~——**已闭合（2026-05-30）**：定调听=COUNT(type IN audio,video)、看=COUNT(read)、答题=UserAnswer，纯应用层聚合；三路径判定矩阵落点 §3.3；blind=视障类/deaf=听障类覆盖大纲细分（不扩展 statusType，守 DR-76）；盲+聋走能力 5 代行（DR-92）| 预科19届大纲核对（LessonCompletion）| ✅ 已处理（DR-92）| DR-92 |
-| TODO-9 | **加行升学「逐法达标」预检**——大纲升学硬条件要求 92 修法**每一法各自**满足 ≥3座 & ≥1.5小时（非仅总量 276座/138h）。系统只有逐条 PracticeLog，无「按 meditationId 分组的逐法达标快照」。`ProgramAdvancementConfig` 的 `practice_session` 条件粒度须确认能否表达「逐法达标」，AdvancementCheck(§3.9) 预检须按 meditationId 分组聚合 92 次比对 | 预科19届大纲核对（ProgramAdvancementConfig/AdvancementCheck）| §3.9 AdvancementCheck 设计时 | DR-4/DR-14 |
+| ~~TODO-9~~ ✅ 已闭合 | ~~加行升学「逐法达标」预检~~——**已闭合（2026-05-30，TODO-17 专题）**：practice_session 条件 params 加 `per_item/groupBy/itemCount/minSessionsPerItem/minMinutesPerItem/totalMin*` 结构，AdvancementCheck 按 meditationId 分组聚合 92 次比对，双维度独立判定（DR-98）| 预科19届大纲核对（ProgramAdvancementConfig/AdvancementCheck）| ✅ 已处理（DR-98）| DR-97 / DR-98 |
 | ~~TODO-10~~ ✅ 已闭合 | ~~金刚萨埵心咒代替顶礼的换算+申请审批~~——**已闭合（2026-05-30）**：换算比例 200万↔10万 写死应用层常量（大纲规定，非配置项）；代替申请走能力 5 代行，AuditLog(actionType=proxy_action, reason 必填) 留痕；顶礼 UserPracticeVow 置 isSubstituted=true（历史数值保留不动）；新建心咒 UserPracticeVow(targetCount=2,000,000, currentCount=0) 从 0 独立计；两条 vow 并存互不干扰（DR-94）| 预科19届大纲核对（能力 5/6 代行）| ✅ 已处理（DR-94）| D17 / DR-94 |
 | ~~TODO-11~~ ✅ 已闭合 | ~~法王祈祷文补念状态机~~——**已闭合（2026-05-30）**：无需欠/补状态机；PracticeLog 新增 `prayerCount Int?`，顶礼打卡时同次录入；升学预检直接聚合 `SUM(prayerCount) ≥ 100,000`；心咒代顶礼（isSubstituted=true）豁免此判定。PracticeLog 从复用区改判扩展，移入 §1.12（DR-95）| 预科19届大纲核对（能力 6/10）| ✅ 已处理（DR-95）| D13 / DR-95 |
-| TODO-12 | **年龄豁免（60岁）逻辑层**——⚠️ 字段已就位：§1.9 User 已加 `birthDate`（DR-70）。**剩余逻辑层**：年龄豁免是「资格性、非自动」（非「年龄≥60 自动满足 exam_score」），实际免考走能力 5 代行豁免、留痕（D17）。须在升学条件配置/预检阶段实现：(1) 按 birthDate + 第一次考试报名日计算年龄；(2) 标记「符合年龄豁免资格」；(3) 接入能力 5 显式豁免流程，而非自动置满足 | 预科19届大纲核对（能力 5 / 能力 10 / AdvancementCheck）| 升学条件配置 / §3.9 AdvancementCheck 设计时 | DR-70 / 能力 5 |
-| TODO-13 | **考试合格线多维矩阵** ⚠️ 硬规则缺口——大纲合格线随场景变化：出勤≥93次→1次合格(30分)；出勤<93次/自学→1次及格(开卷72/闭卷60) 或 2次各合格(30分)。能力 10「合格线是专业配置项」当前是**单一阈值**，无法表达「出勤档 × 开卷/闭卷 × 考试次数 × 年龄」多维矩阵。须扩展 ProgramAdvancementConfig 或 Exam 结构（含 isOpenBook 字段、出勤分档逻辑、多次考试组合判定）| 预科19届大纲核对（ProgramAdvancementConfig / Exam / 能力 10）| 升学条件配置 / 考试设计时 | DR-14 / D13 |
+| ~~TODO-12~~ ✅ 已闭合 | ~~年龄豁免（60岁）逻辑层~~——**已闭合（2026-05-30，TODO-17 专题）**：params 加 `ageExemptionMinAge:60`；AdvancementCheck 计算年龄后标 `ageEligible:true`，但不自动通过；admin 手动走能力 5 代行豁免（`exempted:true`）+ AuditLog 留痕（DR-100，DR-70 定调不变）| 预科19届大纲核对（能力 5 / 能力 10 / AdvancementCheck）| ✅ 已处理（DR-100）| DR-70 / DR-100 |
+| ~~TODO-13~~ ✅ 已闭合 | ~~考试合格线多维矩阵~~——**已闭合（2026-05-30，TODO-17 专题）**：exam_score 条件 params 加 `attendanceThreshold/highAttendance/lowAttendance` 多维结构；AdvancementCheck 按出勤分档判定；考试线下进行，成绩由 subject_admin 后台录入 ExamGrade（DR-99，DR-101）| 预科19届大纲核对（ProgramAdvancementConfig / Exam / 能力 10）| ✅ 已处理（DR-99）| DR-97 / DR-99 |
 | ~~TODO-14~~ ✅ 已闭合 | ~~兼修加行~~——**已闭合（2026-05-30）**：无需新表或新字段。兼修 = 独立加入加行班（D9 多专业并行已支持），加行学修量自然落在加行 programId 下。升密法资格判断为 admin 手动触发、系统以 userId 维度全量聚合（非单 programId），跨 program 聚合逻辑纳入 TODO-17（DR-96）| 预科19届大纲核对（能力 9 / 升学指南）| ✅ 已处理（DR-96）| D9 / DR-96 |
 | ~~TODO-15~~ ✅ 已闭合 | ~~限制性课程不进考试范围~~——**已闭合（2026-05-30）**：核查发现 Course 缺教学阶段维度，新增 `courseType`（entry/formal/restricted），Course 改判 🔧 扩展移入 §1.11；考试范围排除 = `courseType=restricted OR category=self_study_book`；顺带补齐 DR-92 闻思判定对 courseType 的依赖（DR-93）| 预科19届大纲核对（Course / Exam / 能力 10）| ✅ 已处理（DR-93）| DR-93 |
 | TODO-16 | ❌ **转功德会——不做**（用户决策 2026-05-29）——大纲：取消学员资格后可转入菩提功德会。**永久决策：不做**，超出觉学平台范围（功德会是独立组织/系统）。登记于此仅为留痕大纲已核对、明确排除，见 §八 DR-68 | 预科19届大纲核对（能力 11）| ❌ 不做 | DR-68 |
-| TODO-17 | 🎯 **各学科达标条件 + 升学条件的后台配置专题设计**（用户决策 2026-05-30，**本轮 TODO 处理结束后统一设计**）——核查现状：backend 代码**完全无** Program/专业层、无 ProgramAdvancementConfig、无任何达标/升学配置（现仅通用 PracticeGoal/PracticeTask 打卡目标）。需专题设计：(1) **达标条件录入结构**——各学科（加行双维度逐法、净土念佛数、入行论默写…）的达标要求如何用 ProgramAdvancementConfig.targetValue+params 表达（汇总 TODO-9 逐法达标、TODO-13 考试合格线多维矩阵、TODO-12 年龄豁免的配置承载）；(2) **后台管理界面**——subject_admin 录入/编辑各专业达标与升学条件的管理端；(3) **学习情况提醒**——基于配置 + 报数快照，向学员/管理员提示达标进度与差距。**关联面广（后台管理 + 学习提醒），故独立成专题，置于本轮零散 TODO 闭合之后**。**另含两项方法论补强**（检查轮次 35 勘误带出）：(4) **配置表达充分性校验**——验证 ProgramAdvancementConfig.targetValue+params 真能装下各学科达标要求（链路通≠装得下）；(5) **设计 vs 现状代码 gap 盘点**——整份 08 是蓝图，逐表标记「全新待建 / 改造现有 / 已存」，明确实现范围；(6) **多班级/多 program 学修聚合逻辑**——兼修学员（加入多个班级/专业，D9）的升学条件预检须以 userId 维度全量聚合，不限单 programId；升密法资格检查为用户维度手动触发（DR-96，TODO-14）| 课程达标录入核查（ProgramAdvancementConfig / 后台管理 / 提醒）+ 检查轮次 35 勘误 + TODO-14 DR-96 | 本轮 TODO 处理结束后专题设计 | TODO-9 / TODO-12 / TODO-13 / DR-4 / DR-96 |
+| ~~TODO-17~~ ✅ 已闭合 | ~~各学科达标条件 + 升学条件后台配置专题设计~~——**已闭合（2026-05-30）**：6 子议题全部完成——①params 充分性 ✅（DR-97，无需子表）；②逐法达标 params ✅（DR-98，per_item 结构）；③考试合格线 params ✅（DR-99，attendanceThreshold 分支矩阵）；④年龄豁免逻辑层 ✅（DR-100，ageEligible 标记+手动豁免）；⑤管理界面 4 页 ✅（DR-101，含考试成绩线下后台录入）；⑥跨 program 聚合 ✅（DR-96，TODO-14 已闭合）。**代码 gap 小结**：升学条件体系（ProgramAdvancementConfig/AdvancementCheck/AdvancementRecord/SemesterSnapshot）全新待建；PracticeLog.prayerCount / UserPracticeVow.isSubstituted+currentSessionMinutes / Course.courseType 需 migration 新增字段；管理端 4 页全新待建。现有 PracticeGoal/PracticeTask 打卡体系与升学条件体系并存不干扰 | TODO-9/12/13 子议题 + 检查轮次 35 勘误 + DR-96 | ✅ 已处理（DR-97~101）| DR-97 / DR-98 / DR-99 / DR-100 / DR-101 |
 | TODO-18 | **课程中途请假是否影响毕业/升学资格** ⚠️ 待决策——§3.15 LeaveRequest 的 approved 期间已设计为**不计入掉队判定窗口**（DR-90-B），但「课程已开始后的中途请假」对以下三个维度的影响**尚未定义**：(1) **闻思圆满**（能力 3）——请假期间课程进度是否暂停/延期？假期内未完成的课时是否算「未完成」还是延后截止？(2) **报数达标**（能力 9）——报数节点截止时是否扣除请假天数（即截止日顺延）？还是请假期间仍算进有效时间窗口？(3) **升学资格预检**（能力 10）——升学条件中的时间窗口（如「必须在 X 期限内完成 Y 课时」）是否相应延长？须与用户讨论后定稿，以确定请假对「进度时钟」的影响模型（暂停型 vs 豁免型 vs 无影响型） | §3.15 LeaveRequest（DR-90）| ⚠️ 待决策，下阶段讨论 | DR-90 / 能力 3 / 能力 9 / 能力 10 |
