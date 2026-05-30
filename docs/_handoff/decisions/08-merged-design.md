@@ -667,6 +667,7 @@ model User {
   advancementChecks  AdvancementCheck[]
   advancementRecords AdvancementRecord[]
   assistantAssignments AssistantAssignment[]
+  leaveRequests      LeaveRequest[]
 }
 ```
 
@@ -744,6 +745,7 @@ model Class {
   advancementRecords AdvancementRecord[]
   assistantAssignments AssistantAssignment[]
   confessions        ReportConfession[]
+  leaveRequests      LeaveRequest[]
 }
 ```
 
@@ -993,7 +995,7 @@ model TransmissionRecord {
 
 按新业务能力从头设计。
 
-> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。（AssistantAssignment 曾短暂并入 §2.1，后核对 02 文档角色定义回滚为独立表，仍计入 14 张，DR-82。）
+> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。（AssistantAssignment 曾短暂并入 §2.1，后核对 02 文档角色定义回滚为独立表，仍计入 14 张，DR-82。）TODO 处理阶段新增 §3.15 LeaveRequest（班级成员请假审批，TODO-6，DR-90），新建区更新为 **15 张**。
 
 ---
 
@@ -1817,6 +1819,54 @@ ClassTask 只存「任务定义」。每位班级成员有一条对应的 UserPr
 
 ---
 
+### 3.15 LeaveRequest（班级成员请假）✅ 已封板
+
+**服务能力**：能力 11（留级、退出、转专业）→ 请假子流程；能力 14（掉队检测）→ approved 期间不计入窗口
+**写权限**：学员自助申请；审批（approved/rejected）限 `class_tutor` 及以上（本班职能）
+**参考决策**：D3（数据驱动）、D18（请假记录不物理删除）、DR-90
+
+班级学员申请请假 → 辅导员及以上审批 → approved 期间从掉队判定窗口中扣除，不计入缺卡天数。
+
+#### 字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | **新增** |
+| `userId` | String | 申请请假的学员 | **新增** |
+| `classId` | String | 所在班级 | **新增** |
+| `startDate` | DateTime | 请假开始日期（学员所在时区本地日期）| **新增** |
+| `endDate` | DateTime | 请假结束日期（含）| **新增** |
+| `reason` | String | 请假原因（必填）| **新增** |
+| `status` | String | `pending` / `approved` / `rejected`，默认 pending；`expired` 实时算（到 startDate 仍 pending → 视为过期，DR-90-A）| **新增** |
+| `requestedAt` | DateTime | 申请时刻，默认 now() | **新增** |
+| `reviewedBy` | String? | 审批人 userId | **新增** |
+| `reviewedAt` | DateTime? | 审批时刻 | **新增** |
+| `adminNote` | String? | 审批批注 | **新增** |
+| `createdAt` | DateTime | 创建时间，默认 now() | **新增** |
+
+#### 关联
+
+| 关联 | 说明 |
+|---|---|
+| `user User` | 必填，@relation(userId)；User 补反向 `leaveRequests LeaveRequest[]` |
+| `class Class` | 必填，@relation(classId)；Class 补反向 `leaveRequests LeaveRequest[]` |
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| status 枚举 | 应用层 | 只存 pending/approved/rejected；expired 实时算（DR-90-A）|
+| expired 实时算 | 应用层 | `startDate <= now() AND status='pending'` → 视为 expired，不入库（同 ClassInviteCode.expired 模式，DR-80）|
+| approved 期间不计入掉队窗口 | 应用层 | CohortLagSnapshot 生成时扣除 approved 请假天数（DR-90-B）|
+| 审批前检查班级状态 | 应用层 | 班级 archived 后不受理新请假申请 |
+| 无 delete API | 应用层 | D18，请假记录永久留档 |
+
+#### 设计意图
+
+expired 不入库（DR-90-A）：startDate 截止前未审批的请假自动失效，由应用层实时判断（`status='pending' AND startDate <= now()`），同 ClassInviteCode.expired 模式（DR-80）——过期是客观时间推导，不需要定时任务维护。掉队豁免（DR-90-B）：approved 请假期间（startDate~endDate）学员打卡缺席属合理缺勤，CohortLagSnapshot 计算 lagWindowDays 内缺卡天数时扣除这段日期，避免合理请假被标掉队。
+
+---
+
 **服务能力**：能力 11（留级、退出、转专业）
 **写权限**：随状态机操作写入（学员自助退出 = 本人；管理员操作 = 操作人）
 **参考决策**：D15（退出后学员可查）、D18（永久留档不删除）
@@ -2580,6 +2630,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §3.5 ClassInviteCode（邀请码）✅ 封板——expiresAt 必填保证 D11 时效（不允许永久码）；status 只存 active/revoked，expired 实时算不入库（DR-80）；取代旧 Class.joinCode（字段保留兼容、不再生成新码，DR-81）；撤销/过期只影响新加入、入班幂等；生成/撤销限 class_admin+（职能 #5）；§八 DR-80~81；§九 检查轮次 27（0 问题）|
 | 2026-05-29 | §3.6 辅助员（能力 13）建模两轮定案：先尝试并入 §2.1 UserRoleAssignment（第 5 role class_assistant，轮次 28）→ 核对 02-roles-and-permissions-v1.md 发现角色表只有 4 个 role、无 class_assistant，能力 13 亦明确「辅助员不属四大角色」→ **回滚为独立表 AssistantAssignment**（轮次 29）。理由：并入会自创 02 文档未定义的第 5 角色，违反「以文档为准」铁律。独立表忠于文档语义，权限集固定在应用层，与角色体系解耦；§三 新建区维持 14 张；UserRoleAssignment.role 复归四大角色；§八 DR-82（记录两轮过程）；§九 检查轮次 28→29（回滚）|
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
+| 2026-05-30 | TODO-6 闭合：新建 §3.15 LeaveRequest（班级请假审批）；expired 实时算（DR-90-A）；approved 期间不计入掉队窗口（DR-90-B）；User/Class 补反向 leaveRequests[]；§三 新建区 14→15 张；§八 DR-90-A/B；§九 检查轮次 38（0 问题）|
 | 2026-05-30 | TODO-2 闭合：签到窗口基准改为 token 生成时刻（DR-89）；Program 补 checkinGraceMinutes（默认 30 分钟）；startAt 仅展示不参与签到；§1.6 约束注释同步；§九 检查轮次 37（0 问题）|
 | 2026-05-30 | TODO-1 闭合：Program 补掉队阈值 4 字段（lagWindowDays/lagMild/lagModerate/lagSevereThreshold），与 Class.lagPracticeDaysExpected 构成两层配置；§八 DR-88；§九 检查轮次 36（0 问题）|
 | 2026-05-30 | 全文档最终一致性检查（检查轮次 35）：修复 2 项——(1) Prisma 关联对称性：Program/User/Class/CareWatchlistItem/AdvancementCheck 补 6 处缺失反向关联；(2) §1.4 措辞精确化（ExamGrade 复用不动非扩展）。全文档设计封板，可进入实施阶段 |
@@ -2681,6 +2732,8 @@ model UserSelfStudyRestWeek {
 | DR-83-A | SemesterSnapshot.snapshotData 字段类型 | **Json**（用户决策 2026-05-30）| 各科系汇报维度不同（加行有座次/顶礼，净土有念佛数，入行论有默写），若拆成独立列需为每个科系建不同 schema 或预留大量 nullable 列。Json 方案：一张表覆盖全部科系，维度差异封装在 Json 内，新科系扩展无需 migration；同 CohortWeeklySummary.summaryData 已验证此模式。排除「拆列」：过多 nullable 列且不同科系列集合不同，维护成本高于 Json |
 | DR-83-B | SemesterSnapshot 快照值是否可改 | **冻结（不可改）**，事后更正走 AuditLog（用户决策 2026-05-30）| 快照目的是「在节点截止时刻留下永久数据证据」，若允许事后修改则历史评估结论失去可信基础（违背 D18 不删、不改的永久档原则）。admin 事后代行更正（如学员补报遗漏数据）只产生 AuditLog 条目说明更正原因和更正人，快照本身不变。排除「允许 admin 改快照」：一旦可改，任何历史争议时快照都不再是权威；排除「有限度可改+版本号」：引入版本机制复杂度高、且无此需求的业务场景 |
 | DR-84 | ReportConfession status 是否包含「拒绝忏悔」状态 | **不包含**，status 只有 submitted/acknowledged（用户决策 2026-05-30）| 能力 9「拒绝忏悔」指学员拒绝提交、本表根本无记录，而非提交后再拒绝的中间状态。拒绝后走职能 #14 取消资格 → ClassMember 状态变更 + AuditLog 留痕，与 ReportConfession 表完全解耦。排除「status=refused」：学员拒绝时本表无记录（管理员无法写入 refused），引入该值无实际写入路径；排除「status=escalated」：取消资格是独立的 ClassMember 操作，不应耦合进忏悔记录的状态机。「虚报处理必须先走忏悔流程」（能力 9 规则 #4）由应用层在取消资格前检查本表是否有 submitted 记录来保障 |
+| DR-90-A | LeaveRequest expired 状态存法 | **不入库，实时算**（用户决策 2026-05-30，TODO-6，同 DR-80 ClassInviteCode 模式）| status 只存 pending/approved/rejected；expired = `status='pending' AND startDate <= now()`，查询时实时推导，不靠定时任务。排除「写入 expired」：过期是确定性时间推导，维护定时任务引入额外复杂度 |
+| DR-90-B | 请假是否影响掉队计算 | **影响：approved 期间从掉队窗口扣除**（用户决策 2026-05-30，TODO-6）| CohortLagSnapshot 生成时，approved 请假期间（startDate~endDate）内缺打卡天数不计入 lagWindowDays 内的缺卡统计，避免合理请假被标掉队。排除「不影响」：合理请假期间缺勤若被计入掉队会产生误判，且与 UserSelfStudyRestWeek 进度补足原则一致 |
 | DR-89 | 共修签到窗口基准 | **token 生成时刻为基准 + Program.checkinGraceMinutes**（用户决策 2026-05-30，TODO-2 闭合）| 计划 startAt 与实际开课时间可能不一致（老师迟到/提前），若以 startAt 为基准则学员可能漏卡或窗口错位。改为辅导员/老师实际开始时生成 token，窗口从 token.createdAt 起计 checkinGraceMinutes 分钟，与实际开课完全同步。排除「加 actualStartAt 字段」：token createdAt 天然承担此语义，无需额外字段；排除「方案 A checkinOpenMinutes」：token 生成即开始信号，无需提前激活分钟数 |
 | DR-88 | 掉队阈值存在哪 | **4 个阈值字段加 Program 表**（用户决策 2026-05-30，TODO-1 闭合）| D3 要求阈值数据化为专业/班级配置项。将 lagWindowDays/lagMildThreshold/lagModerateThreshold/lagSevereThreshold 加 Program 表（专业级默认值）；Class.lagPracticeDaysExpected 保留（班级级覆盖，已有），形成「专业默认 + 班级可覆盖」两层。排除「新建配置表」：4 个专业级阈值不值得单建表，挂在 Program 表最简；排除「写死代码」：违反 D3 数据驱动原则，各专业掉队判定标准不同 |
 | DR-87 | AuditLog 是否加 Prisma FK 关联 | **无 FK，全部裸 String**（用户决策 2026-05-30）| 审计日志须自包含：operatorId/targetId/classId/programId 为裸 String，不加 @relation。原因：(1) AuditLog 是终态只写表，不依赖其他 model 生命周期，无需 cascade；(2) D18 下不物理删除，但万一关联 model 有 FK 变动时不影响历史日志；(3) 各能力写入时无需关心关联 model 状态，简化写入路径。排除「加 @relation」：audit 表加 FK 反而增加写入约束，且 Prisma 不允许对 targetId（多态 ID，对应不同 model）加统一 FK |
@@ -3431,6 +3484,24 @@ model UserSelfStudyRestWeek {
 
 ---
 
+### 检查轮次 38（2026-05-30，范围：TODO-6 闭合 · §3.15 LeaveRequest 新建）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | LeaveRequest→User/Class；User.leaveRequests[]/Class.leaveRequests[] 已补入两表 Prisma schema |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §三 新建区 14→15 张，注记已更新 |
+| 5-6. Migration/Phase | ⏸ 暂不适用 | 新表 leave_requests 待统编 |
+| 7. 暂缓/不做标签完整 | ✅ | expired 实时算明确标注（DR-90-A）；掉队豁免规则明确标注（DR-90-B）|
+| 8. 业务规则约束有实现方式 | ✅ | expired 实时算→应用层；掉队窗口扣除→应用层（CohortLagSnapshot 生成时）；archived 班级不受理→应用层；无 delete→D18 |
+| 9-14. 其余检查项 | ✅ | D18 满足；DR-80 expired 模式复用；与 UserSelfStudyRestWeek 掉队豁免原则一致 |
+
+**本轮发现问题数**：0。
+**结论**：TODO-6 闭合，§3.15 LeaveRequest 封板。expired 实时算（DR-90-A）；approved 期间不计入掉队窗口（DR-90-B）；§三 新建区 15 张。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -3441,7 +3512,7 @@ model UserSelfStudyRestWeek {
 | ~~TODO-2~~ ✅ 已闭合 | ~~共修链接激活时效数据化~~——**已闭合（2026-05-30）**：签到窗口改为「token 生成时刻」为基准，startAt 仅展示；Program 补 checkinGraceMinutes（默认 30 分钟），与实际开课时间自动对齐（DR-89）| 1.6 ClassSession | ✅ 已处理（DR-89）| DR-25 / DR-89 |
 | ~~TODO-3~~ ✅ 已闭合 | ~~PracticeAppointment.practiceProjectId 无正式 @relation~~——**已闭合（2026-05-29）**：§四 PracticeProject 确认复用，已在 §5.3 PracticeAppointment 补正式 FK `practiceProject PracticeProject @relation(...)`，PracticeProject 上补反向 `appointments PracticeAppointment[]` | §5.3 PracticeAppointment | ✅ 已处理（DR-69）| DR-57 / DR-69 |
 | TODO-5 | §1.1 Program 恢复 `selfStudy UserSelfStudyProgram[]` 反向关联——当前因自学模式暂缓已移除，实现 §5.4 时须恢复 | §5.4 UserSelfStudyProgram | 自学模式实现时 | DR-64 |
-| TODO-6 | 班级成员请假审批流设计——辅导员及以上审批，含申请/审批状态机/时效失效（与自学休息周解耦，自学无审批）。原 §5.4 审批方案可作此处参考 | §5.4 自学模式修正 | 班级请假功能设计时 | DR-62 |
+| ~~TODO-6~~ ✅ 已闭合 | ~~班级成员请假审批流设计~~——**已闭合（2026-05-30）**：新建 §3.15 LeaveRequest；expired 实时算不入库（DR-90-A，同 DR-80）；approved 期间从掉队窗口扣除（DR-90-B）；审批限 class_tutor+；无 delete API（D18）| §5.4 自学模式修正 | ✅ 已处理（DR-90）| DR-62 / DR-90 |
 | TODO-7 | **加行观修座次计算规则对齐大纲**——系统现 `PracticeLog.sessionCount`（≥30min=1 / ≥15min=0.5 / <15min=0）与预科19届大纲 §二.1 规则不一致：大纲规定「一座<30分钟可几座合并视为一座报数；一座>30分钟不能拆分」，无 0.5 座概念。边界算法须二选一定调（以哪套为准） | 预科19届大纲核对（Meditation/PracticeLog）| 实修报数判定逻辑设计/实现时 | — |
 | TODO-8 | **闻思圆满「音频或视频」二选一判定**——大纲要求「听一遍音频**或**视频」任一即满足；系统 LessonCompletion 的 audio/video 是两条独立记录（type 不同），DB 不自动合并。须在应用层闻思圆满判定中实现「audio OR video 任一完成即满足'听'项」逻辑（连同特殊情况：盲人听两遍、聋人法本看两遍的等价圆满规则）| 预科19届大纲核对（LessonCompletion）| 闻思圆满判定逻辑设计/实现时 | — |
 | TODO-9 | **加行升学「逐法达标」预检**——大纲升学硬条件要求 92 修法**每一法各自**满足 ≥3座 & ≥1.5小时（非仅总量 276座/138h）。系统只有逐条 PracticeLog，无「按 meditationId 分组的逐法达标快照」。`ProgramAdvancementConfig` 的 `practice_session` 条件粒度须确认能否表达「逐法达标」，AdvancementCheck(§3.9) 预检须按 meditationId 分组聚合 92 次比对 | 预科19届大纲核对（ProgramAdvancementConfig/AdvancementCheck）| §3.9 AdvancementCheck 设计时 | DR-4/DR-14 |
