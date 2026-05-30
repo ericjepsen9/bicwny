@@ -44,6 +44,7 @@
 | `lagMildThreshold` | Float | 轻度掉队下界打卡率（默认 0.5，即 50%）| **新增** |
 | `lagModerateThreshold` | Float | 中度掉队下界打卡率（默认 0.3）| **新增** |
 | `lagSevereThreshold` | Float | 重度掉队下界打卡率（默认 0.1）| **新增** |
+| `checkinGraceMinutes` | Int | 共修签到宽限分钟数（默认 30）；token 生成时刻起持续多久可签到（TODO-2 闭合，DR-89）| **新增** |
 | `createdAt` | DateTime | 创建时间 | 旧 |
 | ~~`academyId`~~ | ~~String?~~ | 移除：新设计无 Academy 层，阶段直接用 stage 字段 | **移除** |
 
@@ -374,7 +375,7 @@ model CohortLagSnapshot {
 
 > **方案 b（用户决策）**：能力 8「双轨发起」要求课表模板与单次场次分层，单表无法表达循环规则与历史打卡的解耦。ClassSession 升级为单次场次（instance），新建 ClassSessionSchedule 为课表模板（schedule）。ClassSession 名称保留——旧代码/前端引用已用此名，改名迁移成本高。出勤仍走 StudyRecord（classSessionId，已在 1.3 封板），不另建出勤表。
 >
-> **⚠️ 待办（能力 8 约束）**：链接激活时效（提前 10 分钟、宽限 30 分钟）按能力 8 应为专业/班级配置项（D3），目前仍写在应用层常量 → 挂入 §十 TODO-2，待配置表设计时处理。
+> **TODO-2 已闭合（DR-89）**：签到窗口改为「token 生成时刻」为基准，持续 `Program.checkinGraceMinutes`（默认 30 分钟）。startAt 仅作展示，不参与签到计算；老师/辅导员实际开始时生成 token，窗口自动对齐实际开课时间。
 
 #### ClassSession（单次共修场次）— 🔧 扩展
 
@@ -438,7 +439,7 @@ model ClassSession {
 | `@@index([classId, startAt])` | DB | 班级共修时间线查询 |
 | 平台级场次（classId=null）限 super_admin 创建 | 应用层 | |
 | offline 场次不生成 checkInToken | 应用层 | sessionType='offline' 时 token 置 null |
-| 链接时效由 startAt + durationMin + 宽限期计算 | 应用层 | 宽限期见 TODO-2 |
+| 签到窗口 = token 生成时刻 + checkinGraceMinutes | 应用层 | startAt 仅展示，不参与窗口计算（DR-89，TODO-2 闭合）|
 | 补卡/撤销留痕（D17）| 应用层 | 写入 StudyRecord + AuditLog |
 | 出勤记录不物理删除（D18）| 应用层 | 撤销走 cohortStatus 或 AuditLog 标记 |
 
@@ -2579,6 +2580,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §3.5 ClassInviteCode（邀请码）✅ 封板——expiresAt 必填保证 D11 时效（不允许永久码）；status 只存 active/revoked，expired 实时算不入库（DR-80）；取代旧 Class.joinCode（字段保留兼容、不再生成新码，DR-81）；撤销/过期只影响新加入、入班幂等；生成/撤销限 class_admin+（职能 #5）；§八 DR-80~81；§九 检查轮次 27（0 问题）|
 | 2026-05-29 | §3.6 辅助员（能力 13）建模两轮定案：先尝试并入 §2.1 UserRoleAssignment（第 5 role class_assistant，轮次 28）→ 核对 02-roles-and-permissions-v1.md 发现角色表只有 4 个 role、无 class_assistant，能力 13 亦明确「辅助员不属四大角色」→ **回滚为独立表 AssistantAssignment**（轮次 29）。理由：并入会自创 02 文档未定义的第 5 角色，违反「以文档为准」铁律。独立表忠于文档语义，权限集固定在应用层，与角色体系解耦；§三 新建区维持 14 张；UserRoleAssignment.role 复归四大角色；§八 DR-82（记录两轮过程）；§九 检查轮次 28→29（回滚）|
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
+| 2026-05-30 | TODO-2 闭合：签到窗口基准改为 token 生成时刻（DR-89）；Program 补 checkinGraceMinutes（默认 30 分钟）；startAt 仅展示不参与签到；§1.6 约束注释同步；§九 检查轮次 37（0 问题）|
 | 2026-05-30 | TODO-1 闭合：Program 补掉队阈值 4 字段（lagWindowDays/lagMild/lagModerate/lagSevereThreshold），与 Class.lagPracticeDaysExpected 构成两层配置；§八 DR-88；§九 检查轮次 36（0 问题）|
 | 2026-05-30 | 全文档最终一致性检查（检查轮次 35）：修复 2 项——(1) Prisma 关联对称性：Program/User/Class/CareWatchlistItem/AdvancementCheck 补 6 处缺失反向关联；(2) §1.4 措辞精确化（ExamGrade 复用不动非扩展）。全文档设计封板，可进入实施阶段 |
 | 2026-05-30 | §3.11 AuditLog（审计日志）✅ 封板——无 FK 裸 String（DR-87，终态只写表自包含）；11 类 actionType 覆盖能力 20 全部高权限操作；reason 必填；无 update/delete API（D18）；查询权限按角色作用域过滤；学员只查自己相关条目；§八 DR-87；§九 检查轮次 34（0 问题）；**§三 新建区 14 张全部封板** |
@@ -2679,6 +2681,7 @@ model UserSelfStudyRestWeek {
 | DR-83-A | SemesterSnapshot.snapshotData 字段类型 | **Json**（用户决策 2026-05-30）| 各科系汇报维度不同（加行有座次/顶礼，净土有念佛数，入行论有默写），若拆成独立列需为每个科系建不同 schema 或预留大量 nullable 列。Json 方案：一张表覆盖全部科系，维度差异封装在 Json 内，新科系扩展无需 migration；同 CohortWeeklySummary.summaryData 已验证此模式。排除「拆列」：过多 nullable 列且不同科系列集合不同，维护成本高于 Json |
 | DR-83-B | SemesterSnapshot 快照值是否可改 | **冻结（不可改）**，事后更正走 AuditLog（用户决策 2026-05-30）| 快照目的是「在节点截止时刻留下永久数据证据」，若允许事后修改则历史评估结论失去可信基础（违背 D18 不删、不改的永久档原则）。admin 事后代行更正（如学员补报遗漏数据）只产生 AuditLog 条目说明更正原因和更正人，快照本身不变。排除「允许 admin 改快照」：一旦可改，任何历史争议时快照都不再是权威；排除「有限度可改+版本号」：引入版本机制复杂度高、且无此需求的业务场景 |
 | DR-84 | ReportConfession status 是否包含「拒绝忏悔」状态 | **不包含**，status 只有 submitted/acknowledged（用户决策 2026-05-30）| 能力 9「拒绝忏悔」指学员拒绝提交、本表根本无记录，而非提交后再拒绝的中间状态。拒绝后走职能 #14 取消资格 → ClassMember 状态变更 + AuditLog 留痕，与 ReportConfession 表完全解耦。排除「status=refused」：学员拒绝时本表无记录（管理员无法写入 refused），引入该值无实际写入路径；排除「status=escalated」：取消资格是独立的 ClassMember 操作，不应耦合进忏悔记录的状态机。「虚报处理必须先走忏悔流程」（能力 9 规则 #4）由应用层在取消资格前检查本表是否有 submitted 记录来保障 |
+| DR-89 | 共修签到窗口基准 | **token 生成时刻为基准 + Program.checkinGraceMinutes**（用户决策 2026-05-30，TODO-2 闭合）| 计划 startAt 与实际开课时间可能不一致（老师迟到/提前），若以 startAt 为基准则学员可能漏卡或窗口错位。改为辅导员/老师实际开始时生成 token，窗口从 token.createdAt 起计 checkinGraceMinutes 分钟，与实际开课完全同步。排除「加 actualStartAt 字段」：token createdAt 天然承担此语义，无需额外字段；排除「方案 A checkinOpenMinutes」：token 生成即开始信号，无需提前激活分钟数 |
 | DR-88 | 掉队阈值存在哪 | **4 个阈值字段加 Program 表**（用户决策 2026-05-30，TODO-1 闭合）| D3 要求阈值数据化为专业/班级配置项。将 lagWindowDays/lagMildThreshold/lagModerateThreshold/lagSevereThreshold 加 Program 表（专业级默认值）；Class.lagPracticeDaysExpected 保留（班级级覆盖，已有），形成「专业默认 + 班级可覆盖」两层。排除「新建配置表」：4 个专业级阈值不值得单建表，挂在 Program 表最简；排除「写死代码」：违反 D3 数据驱动原则，各专业掉队判定标准不同 |
 | DR-87 | AuditLog 是否加 Prisma FK 关联 | **无 FK，全部裸 String**（用户决策 2026-05-30）| 审计日志须自包含：operatorId/targetId/classId/programId 为裸 String，不加 @relation。原因：(1) AuditLog 是终态只写表，不依赖其他 model 生命周期，无需 cascade；(2) D18 下不物理删除，但万一关联 model 有 FK 变动时不影响历史日志；(3) 各能力写入时无需关心关联 model 状态，简化写入路径。排除「加 @relation」：audit 表加 FK 反而增加写入约束，且 Prisma 不允许对 targetId（多态 ID，对应不同 model）加统一 FK |
 | DR-86 | AdvancementRecord 驳回时是否填 targetProgramId | **驳回时 targetProgramId=null**（用户决策 2026-05-30）| 驳回只记录「管理员在此节点拒绝升学」这一事实，不预判本来应升入哪个科系。原因：驳回场景通常是条件不满足（未达标），此时「应升哪里」并无确定性；若填入会造成误导（像是说「本应升 X 但被拒」）。下一轮重新走 AdvancementCheck → AdvancementRecord 流程，此时 targetProgramId 才有意义。排除「驳回也填 targetProgramId」：语义模糊，且不符合「只记发生了的事实」的审计原则 |
@@ -3413,6 +3416,21 @@ model UserSelfStudyRestWeek {
 
 ---
 
+### 检查轮次 37（2026-05-30，范围：TODO-2 闭合 · Program.checkinGraceMinutes + 签到窗口基准改 token 时刻）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | 新增 Int 标量字段，无新关联 |
+| 2-6. 其余基础项 | ⏸/✅ | 无新表/视图/migration |
+| 7. 暂缓/不做标签完整 | ✅ | TODO-2 闭合标注；§1.6 ClassSession 约束注释同步更新 |
+| 8. 业务规则约束有实现方式 | ✅ | 签到窗口 = token.createdAt + checkinGraceMinutes → 应用层；checkinGraceMinutes 默认值注明 |
+| 9-14. 其余检查项 | ✅ | D3 满足（专业级配置）；DR-24（不加 expiresAt）逻辑一致——token 激活窗口由 createdAt+grace 动态算，无需存截止时刻 |
+
+**本轮发现问题数**：0。
+**结论**：TODO-2 闭合。签到窗口基准改为 token 生成时刻（DR-89），Program 补 checkinGraceMinutes（默认 30 分钟）；startAt 仅展示，不参与签到计算。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -3420,7 +3438,7 @@ model UserSelfStudyRestWeek {
 | 编号 | 待办 | 来源 | 处理时机 | 关联决策 |
 |---|---|---|---|---|
 | ~~TODO-1~~ ✅ 已闭合 | ~~掉队判定阈值数据化~~——**已闭合（2026-05-30）**：Program 新增 lagWindowDays（默认14）/lagMildThreshold（0.5）/lagModerateThreshold（0.3）/lagSevereThreshold（0.1）4 个专业级阈值字段；Class.lagPracticeDaysExpected 班级覆盖保留，两层配置满足 D3 数据驱动（DR-88）| 1.5 CohortLagSnapshot | ✅ 已处理（DR-88）| DR-18 / DR-88 |
-| TODO-2 | 共修链接激活时效数据化（提前激活 10 分钟、宽限期 30 分钟）——能力 8 明确「可在专业/班级层配置」(D3)，目前写死在应用层常量 | 1.6 ClassSession | 班级/专业配置表设计时处理 | DR-25 |
+| ~~TODO-2~~ ✅ 已闭合 | ~~共修链接激活时效数据化~~——**已闭合（2026-05-30）**：签到窗口改为「token 生成时刻」为基准，startAt 仅展示；Program 补 checkinGraceMinutes（默认 30 分钟），与实际开课时间自动对齐（DR-89）| 1.6 ClassSession | ✅ 已处理（DR-89）| DR-25 / DR-89 |
 | ~~TODO-3~~ ✅ 已闭合 | ~~PracticeAppointment.practiceProjectId 无正式 @relation~~——**已闭合（2026-05-29）**：§四 PracticeProject 确认复用，已在 §5.3 PracticeAppointment 补正式 FK `practiceProject PracticeProject @relation(...)`，PracticeProject 上补反向 `appointments PracticeAppointment[]` | §5.3 PracticeAppointment | ✅ 已处理（DR-69）| DR-57 / DR-69 |
 | TODO-5 | §1.1 Program 恢复 `selfStudy UserSelfStudyProgram[]` 反向关联——当前因自学模式暂缓已移除，实现 §5.4 时须恢复 | §5.4 UserSelfStudyProgram | 自学模式实现时 | DR-64 |
 | TODO-6 | 班级成员请假审批流设计——辅导员及以上审批，含申请/审批状态机/时效失效（与自学休息周解耦，自学无审批）。原 §5.4 审批方案可作此处参考 | §5.4 自学模式修正 | 班级请假功能设计时 | DR-62 |
