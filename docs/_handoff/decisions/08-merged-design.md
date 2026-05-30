@@ -2817,6 +2817,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
 | 2026-05-30 | **检查轮次 35 勘误**：检查项 9「升学条件可全查」原标 ✅ 过度乐观，下修为 🔵 部分——只验证了链路连通（有 ProgramAdvancementConfig 接住），未验证配置表达充分性（params 能否装下双维度逐法/多维合格线，挂 TODO-9/12/13）；且与 §十 ⚠️ 待决策标签自相矛盾未被检查项 7 抓出。方法论盲区（配置表达充分性 + 设计vs代码gap）并入 TODO-17 |
 | 2026-05-30 | 核查达标/升学配置现状：backend 无 Program 层/无 ProgramAdvancementConfig/无达标配置（仅通用打卡目标）；新增 TODO-17（各学科达标条件+升学条件后台配置专题，含后台管理界面+学习情况提醒），汇总 TODO-9/12/13 配置承载，**置于本轮 TODO 闭合后专题设计** |
+| 2026-05-30 | 对抗性核查修复（检查轮次 48）：§十一 M2 整体单元横跨三 Phase 不可原子执行 → 拆为 M2a(UserRoleAssignment→P1)/M2b(CareFollowupRecord→P3)/M2c(TransmissionRecord→P5)；M3c 对 M2 依赖方向反（实为 M2b→M3c）已修正；全文 M2 引用同步；Migration 单元与 Phase 完全对齐 |
 | 2026-05-30 | **全表封板后统编收口**：新增 §十一 Migration 统编（M0~M8，按 FK 拓扑序，检查项 5 闭合）、§十二 实施 Phase 计划（P0~P8，权限地基→升学核心→暂缓，检查项 6 闭合）、§十三 02 文档 23 职能×写表核对（21✅/1⏸/1❌，AuditLog 11 类 actionType 全覆盖，检查项 13 闭合）；修复 §三 表头计数 14→15（检查项 4，TODO-6 加 LeaveRequest 后漏改）；检查项 9/11 由 🔵 升 ✅；§九 检查轮次 47——**14 项检查清单全部 ✅，设计层面全部收口** |
 | 2026-05-30 | TODO-18 闭合：请假对进度时钟——能力 3/9 暂停型（截止日顺延请假总天数）；能力 10 升学截止固定不变；无需新表/字段，应用层聚合 LeaveRequest(status=approved)；§八 DR-102；§九 检查轮次 46 |
 | 2026-05-30 | TODO-17 闭合（专题设计）：TODO-9/12/13 一并闭合——①params 充分性(DR-97)②逐法达标 per_item 结构(DR-98)③考试合格线 attendanceThreshold 分支矩阵+考试线下后台录入(DR-99)④年龄豁免 ageEligible 标记+手动豁免(DR-100)⑤管理界面 4 页(DR-101)⑥跨 program 聚合已含 DR-96；§3.1 补各 conditionType 标准 params 结构；§九 检查轮次 45 |
@@ -3873,7 +3874,7 @@ model UserSelfStudyRestWeek {
 | 检查项 | 此前状态 | 本轮结果 | 说明 |
 |---|---|---|---|
 | 4. 总览计数正确 | ✅（局部）| ✅（修复后）| **发现 §三 表头计数错误**：表头标「14 张」，但行内注（line 1099）+ 实际子节（3.1~3.15）均为 15 张——TODO-6 加 §3.15 LeaveRequest 后表头漏改。已修「14 张」→「15 张」。最终：§一 13 / §二 3 / §三 15 / §四 22（B类核心 5 + C类批量 16 + TantricGroup 微调 1；不含已移出至扩展/替换区的 Course/PracticeLog/CohortRecommendedTemplate/Exam，不含 AI 暂缓 5 张）/ §五 12 + AI 5 |
-| 5. Migration 覆盖完整 | ⏸ 全程暂不适用（待全表完成统编）| ✅（本轮闭合）| **新增 §十一 Migration 统编**：M0(enum) + M1(扩展13) + M2(替换3) + M3a~d(新建15) 覆盖全部已发布范围；M4~M8 覆盖暂缓区；逐区核对无遗漏（11.3）。循环依赖（ClassSession.scheduleId ↔ ClassSessionSchedule）已用两步拆解处理 |
+| 5. Migration 覆盖完整 | ⏸ 全程暂不适用（待全表完成统编）| ✅（本轮闭合）| **新增 §十一 Migration 统编**：M0(enum) + M1(扩展13) + M2a/b/c(替换3) + M3a~d(新建15) 覆盖全部已发布范围；M4~M8 覆盖暂缓区；逐区核对无遗漏（11.3）。循环依赖（ClassSession.scheduleId ↔ ClassSessionSchedule）已用两步拆解处理 |
 | 6. Phase 计划覆盖完整 | ⏸ 全程暂不适用（待全表完成统编）| ✅（本轮闭合）| **新增 §十二 实施 Phase 计划**：P0~P8 共 9 个 Phase，权限地基（P1）→ 升学核心（P2）→ 关怀/运维/传承（P3~P5）→ 暂缓（P6~P8）；所有新表/字段均落某 Phase，依赖链无环（12.1）|
 | 9. 升学条件可全查 | 🔵 部分（检查轮次 35 勘误下修）| ✅（本轮升级）| 勘误的两点已补齐：①「装得下」由 TODO-17（DR-97~101）验证透——params 可表达逐法双维度/考试多维矩阵/年龄豁免；②「设计 vs 代码 gap」由 §十一/§十二 系统盘点（哪些全新待建/扩展字段/暂缓）。链路连通 + 表达充分 + 实施路径三者齐备，升 ✅ |
 | 11. D17 代行留痕路径完整 | 🔵 部分（待 AuditLog 封板）| ✅（本轮升级）| §3.11 AuditLog 已封板（检查轮次 34）；§十三 核对确认 11 类 actionType 全部对应到职能、无悬空、无缺失留痕的高权限职能（13.1）。代行留痕路径完整 |
@@ -3882,6 +3883,23 @@ model UserSelfStudyRestWeek {
 **本轮发现问题数**：1（§三 表头计数 14→15），修复后 0。
 **修复内容**：§三 表头「14 张」→「15 张」（与行内注、实际子节对齐）。
 **结论**：全表封板后统编收口完成。检查项 4/5/6/9/11/13 全部 ✅。新增三节：§十一 Migration 统编（5 闭合）、§十二 Phase 计划（6 闭合）、§十三 23 职能核对（13 闭合）；检查项 9/11 由 🔵 升 ✅。**至此 14 项检查清单全部 ✅，无 🔵 部分残留**（除暂缓区按决策延后实现外，设计层面全部收口）。
+
+---
+
+### 检查轮次 48（2026-05-30，范围：§十一/§十二 M2 拆分修复 · 对抗性核查反馈）
+
+> 检查轮次 47 后跑对抗性全文核查（Explore agent 扫描 §十一/§十二/§十三），发现 1 处 migration 单元与 Phase 不对齐问题。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. M2 单元与 Phase 对齐 | ✅（修复后）| **发现问题**：§十一 原把 §二 3 张替换表定义为「M2 一个整体单元」，但 §十二 将其拆到不同 Phase（UserRoleAssignment→P1、TransmissionRecord→P5），且 CareFollowupRecord 实属 P3 关怀——一个 migration 单元横跨三 Phase，无法作为原子 migrate 执行。修复：M2 拆为 M2a(UserRoleAssignment→P1) / M2b(CareFollowupRecord→P3) / M2c(TransmissionRecord→P5)，各随对应 Phase 执行 |
+| 2. M2b 依赖方向修正 | ✅（修复后）| 原 M3c「依赖前置」误写「M2（CareFollowupRecord）」，方向反了——实为 CareFollowupRecord(M2b).watchlistItemId → CareWatchlistItem(M3c)，M2b 依赖 M3c。修复：M3c 去掉对 M2 的依赖，P3 内顺序明确为「先 CareWatchlistItem 后 CareFollowupRecord」|
+| 3. 引用一致性 | ✅ | §十一 11.3、§十二 P1/P3/P5 行、12.1 核对、§九 轮次 47 检查项 5 中所有 M2 引用均同步更新为 M2a/b/c |
+| 4. 其余核查项 | ✅ | 对抗性核查确认：§一 13→M1、§三 15→M3a~d 逐张点名无遗漏无重复；P0~P8 覆盖 M0~M8；23 职能 #1~23 全覆盖；AuditLog 11 类 actionType 名单与 §3.11 一致；权限继承等级与 02 矩阵一致 |
+
+**本轮发现问题数**：1（M2 整体单元横跨三 Phase + M3c 依赖方向反），修复后 0。
+**修复内容**：M2 拆为 M2a/M2b/M2c 按消费 Phase 对齐；M3c 依赖方向修正；全文 M2 引用同步。
+**结论**：Migration 单元与 Phase 计划完全对齐，每个 migration 单元可作为原子 `migrate deploy` 执行。§十一/§十二/§十三 经对抗性核查无其余事实错误。**14 项检查清单维持全 ✅。**
 
 ---
 
@@ -3923,10 +3941,14 @@ model UserSelfStudyRestWeek {
 |---|---|---|---|---|
 | **M0 · Enum 扩展** | 新增/扩展枚举：LagStatus（on_track/mild/moderate/severe）、CohortMemberStatus、角色 role 枚举值、各 status/sourceType/actionType/conditionType/triggerType 字符串域（应用层 Zod 守，DB 存 String）| —（enum 定义，见 §六）| 无 | 新增 enum |
 | **M1 · 现有表扩展字段** | §一 扩展区 13 张的 ALTER：Program +8（cohortYear/stage/isActive/lag×4/checkinGraceMinutes）；User +birthDate；Class +归档三件套（status/archivedAt/archivedBy）；Course +courseType；PracticeLog +prayerCount；Exam +examType+isOpenBook；ClassSession +sessionType/lessonId/checkInToken/scheduleId + classId 改可空；UserPracticeVow +classTaskId/cohortTemplateId/currentSessionMinutes/isSubstituted + currentSessionCount 改 Int；SpeakingGrade classId 改可空；CohortRecommendedTemplate programId 改可空 | Program/User/Class/Course/PracticeLog/Exam/ClassSession/UserPracticeVow/SpeakingGrade/CohortRecommendedTemplate/ClassMember/StudyRecord/CohortLagSnapshot | M0（部分字段引用新 enum）| ALTER TABLE，加列设默认值，存量行回填默认 |
-| **M2 · 替换表重构** | §二 3 张：UserRoleAssignment（替换旧 ClassAdmin flags 模型）、CareFollowupRecord（加 sourceType/watchlistItemId）、TransmissionRecord（整合废弃 TantricAccessGrant）| UserRoleAssignment/CareFollowupRecord/TransmissionRecord | M1（FK 指向 User/Class/Program 等已就位）；TransmissionRecord 数据迁移需读旧 TantricAccessGrant | 新建表 + 旧数据迁移 + 旧表保留只读（不物理删，D18）|
+| **M2a · 角色替换** | UserRoleAssignment（替换旧 ClassAdmin flags 模型）| UserRoleAssignment | M1（FK 指向 User/Class/Program 已就位）；旧角色数据迁移（coach→class_tutor+class_admin，admin→super_admin，见 02 §七）| 新建表 + 旧数据迁移 + 旧表保留只读（D18）|
+| **M2b · 关怀替换** | CareFollowupRecord（加 sourceType/watchlistItemId）| CareFollowupRecord | M1；M3c（watchlistItemId → CareWatchlistItem，sourceType=care_watchlist 时）| 新建表 |
+| **M2c · 传承替换** | TransmissionRecord（整合废弃 TantricAccessGrant）| TransmissionRecord | M1；TransmissionRecord 数据迁移需读旧 TantricAccessGrant | 新建表 + 旧数据迁移 + 旧表保留只读（D18）|
+
+> **M2 拆分说明（检查轮次 48 修复）**：§二 3 张替换表分属不同 Phase（UserRoleAssignment→P1 权限地基、CareFollowupRecord→P3 关怀、TransmissionRecord→P5 传承），故按消费 Phase 拆为 M2a/M2b/M2c 三个独立 migration 单元，各自随对应 Phase 执行。注意 M2b CareFollowupRecord 的 watchlistItemId FK 指向 M3c 的 CareWatchlistItem，故 M2b 须在 M3c 之后（两者同属 P3 范畴，顺序：先建 CareWatchlistItem 再建 CareFollowupRecord）。
 | **M3a · 权限审计骨架** | UserRoleAssignment 已在 M2；本单元建 RoleAssignmentHistory、AuditLog（无 FK，自包含）| RoleAssignmentHistory（→UserRoleAssignment）、AuditLog（无 FK）| M2 | 新建表 |
 | **M3b · 升学条件体系** | ProgramAdvancementConfig、SemesterSnapshot、AdvancementCheck、AdvancementRecord | 均 →Program/Class/User；AdvancementRecord→AdvancementCheck | M1（Program/Class/User 就位）、M3a（AuditLog 供豁免留痕）| 新建表 |
-| **M3c · 关怀体系** | StudentSpecialStatus、CareWatchlistItem、ReportConfession（CareFollowupRecord 已在 M2）| →User/Class；CareFollowupRecord/ReportConfession→CareWatchlistItem | M2（CareFollowupRecord）、M1 | 新建表 |
+| **M3c · 关怀体系** | StudentSpecialStatus、CareWatchlistItem、ReportConfession（CareFollowupRecord 见 M2b）| →User/Class；ReportConfession→CareWatchlistItem（故 CareWatchlistItem 先建）| M1 | 新建表 |
 | **M3d · 班级运维** | ClassInviteCode、AssistantAssignment、LeaveRequest、ClassTask、ClassSessionSchedule、EnrollmentStatusHistory | →Class/User；ClassTask→PracticeProject；ClassSessionSchedule→Lesson；EnrollmentStatusHistory→ClassMember；ClassSession.scheduleId→ClassSessionSchedule（M1 已加列，此处补 FK）| M1 | 新建表；ClassSession.scheduleId 外键在此单元补建（解循环依赖）|
 
 > **循环依赖处理**：M1 给 ClassSession 加 `scheduleId String?` 列（仅列，不建 FK），M3d 创建 ClassSessionSchedule 后再补 `scheduleId → ClassSessionSchedule` 外键约束。两步拆开避免 M1 引用尚未存在的表。
@@ -3944,7 +3966,7 @@ model UserSelfStudyRestWeek {
 ### 11.3 Migration 覆盖完整性核对
 
 - **§一 扩展 13 张** → M1 全覆盖 ✅
-- **§二 替换 3 张** → M2 全覆盖 ✅
+- **§二 替换 3 张** → M2a(UserRoleAssignment) + M2b(CareFollowupRecord) + M2c(TransmissionRecord) 全覆盖 ✅
 - **§三 新建 15 张** → M3a(2) + M3b(4) + M3c(3) + M3d(6) = 15 ✅（ProgramAdvancementConfig/RoleAssignmentHistory/StudentSpecialStatus/CareWatchlistItem/ClassInviteCode/AssistantAssignment/SemesterSnapshot/ReportConfession/AdvancementCheck/AdvancementRecord/AuditLog/EnrollmentStatusHistory/ClassSessionSchedule/ClassTask/LeaveRequest）
 - **§五 暂缓 12 张 + AI 5 张** → M4~M8（实现时编）⏸
 - **§四 复用 22 张** → 不动，不入 migration
@@ -3958,20 +3980,21 @@ model UserSelfStudyRestWeek {
 | Phase | 主题 | DB（migration）| 后端 API | 管理端/前端 | 依赖 | 状态 |
 |---|---|---|---|---|---|---|
 | **P0** | 地基：枚举 + 扩展字段 | M0 + M1 | 无（仅 schema）| 无 | 无 | 待建 |
-| **P1** | 角色权限 + 审计 | M2(UserRoleAssignment) + M3a | 角色任命/撤销 API、`canDo(user,perm,scope)` 中间件、AuditLog 写入与查询（能力 20）| 角色管理页、审计日志查询页 | P0 | 待建 |
+| **P1** | 角色权限 + 审计 | M2a(UserRoleAssignment) + M3a | 角色任命/撤销 API、`canDo(user,perm,scope)` 中间件、AuditLog 写入与查询（能力 20）| 角色管理页、审计日志查询页 | P0 | 待建 |
 | **P2** | 升学条件体系（核心）| M3b | ProgramAdvancementConfig CRUD、SemesterSnapshot 定时生成、AdvancementCheck 预检引擎（6 类 conditionType 解析）、AdvancementRecord 拍板 | DR-101 四页：①升学条件配置 ②考试管理（录 ExamGrade）③升学资格预检 ④学员达标进度 | P1（写操作校验角色 + 豁免走 AuditLog）| 待建 |
-| **P3** | 关怀体系 | M3c | StudentSpecialStatus 认定（能力 13）、CareWatchlistItem 自动触发 + 手动添加、CareFollowupRecord 跟进、ReportConfession 虚报忏悔流（能力 14）| 关怀清单页、特殊身份认定页、虚报处理页 | P1、P2（report_overdue/false_report 触发依赖 SemesterSnapshot/AdvancementCheck）| 待建 |
+| **P3** | 关怀体系 | M3c + M2b（先 CareWatchlistItem 后 CareFollowupRecord）| StudentSpecialStatus 认定（能力 13）、CareWatchlistItem 自动触发 + 手动添加、CareFollowupRecord 跟进、ReportConfession 虚报忏悔流（能力 14）| 关怀清单页、特殊身份认定页、虚报处理页 | P1、P2（report_overdue/false_report 触发依赖 SemesterSnapshot/AdvancementCheck）| 待建 |
 | **P4** | 班级运维 | M3d | ClassInviteCode（能力 5）、AssistantAssignment（能力 19）、LeaveRequest 审批（DR-90）、ClassTask 布置、ClassSessionSchedule 定时生成 ClassSession（能力 4/8）、EnrollmentStatusHistory 留痕 | 邀请码管理页、辅助员配对页、请假审批页、班级任务页、共修课表页 | P1 | 待建 |
-| **P5** | 传承体系 | M2(TransmissionRecord) | TransmissionRecord 录入/灌顶代录、密法访问 EXISTS 查询（DR-44/45）、升学清单 isRequired 核对 | 传承录入页 | P1 | 待建 |
+| **P5** | 传承体系 | M2c(TransmissionRecord) | TransmissionRecord 录入/灌顶代录、密法访问 EXISTS 查询（DR-44/45）、升学清单 isRequired 核对 | 传承录入页 | P1 | 待建 |
 | **P6** | 班级动态/讨论/约修 ⏸ | M4 + M5 + M6 | 帖子/评论/点赞、讨论投票、集体约修 | 班级社区页 | P1 | ⏸ 暂缓 |
 | **P7** | 自学模式 ⏸ | M7 | 自学申报、个人休息周、进度补足（恢复 TODO-5 反向关联）| 自学管理页 | P2（自学也走升学条件预检）| ⏸ 暂缓 |
 | **P8** | AI 助手 ⏸ | M8 | RAG 检索、对话、用量统计 | AI 助手入口 | 独立（pgvector）| ⏸ 暂缓（DR-74）|
 
 ### 12.1 Phase 覆盖完整性核对
 
-- **所有新表/扩展字段**均落在某 Phase：P0（扩展字段）/ P1（权限审计）/ P2（升学）/ P3（关怀）/ P4（运维）/ P5（传承）/ P6~P8（暂缓）✅
+- **所有新表/扩展字段**均落在某 Phase：P0（扩展字段 M1）/ P1（权限审计 M2a+M3a）/ P2（升学 M3b）/ P3（关怀 M3c+M2b）/ P4（运维 M3d）/ P5（传承 M2c）/ P6~P8（暂缓 M4~M8）✅
+- **§二 替换 3 张分属三 Phase**：M2a→P1、M2b→P3、M2c→P5（检查轮次 48 修复，原 M2 整体单元拆为 M2a/b/c）✅
 - **DR-101 四页管理界面**全部落 P2 ✅
-- **关键依赖链**：P1（权限）→ 一切写操作；P2（升学）→ P3 触发器；无环 ✅
+- **关键依赖链**：P1（权限）→ 一切写操作；P2（升学）→ P3 触发器；P3 内 CareWatchlistItem→CareFollowupRecord 顺序；无环 ✅
 - **暂缓区**（§五 12 张 + AI 5 张）对应 P6~P8，与 §五 标签一致 ✅
 
 ---
