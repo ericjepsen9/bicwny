@@ -1164,7 +1164,86 @@ model StudentSpecialStatus {
 
 ---
 
-### 3.4 CareWatchlistItem（关怀清单条目）⬜ 未开始
+### 3.4 CareWatchlistItem（关怀清单条目）✅ 已封板
+
+**服务能力**：能力 14（学员关怀清单）
+**写权限**：系统自动触发写入；`class_tutor` 及以上可手动添加/移除（按作用域 D8）
+**参考决策**：D3（阈值数据化）、D18（条目留痕）、能力 14、DR-78、DR-79
+
+> **分工**：CareWatchlistItem 存**清单条目（触发信号）**；§二 2.2 CareFollowupRecord 存**跟进备注**（sourceType=care_watchlist 关联本表，sourceType=special_status 关联 §3.3）。一个清单条目可有多条跟进记录。
+
+> **核心设计——「活跃信号」+「留痕」分离**：清单条目有生命周期（触发→活跃→解除），但 D18 要求不物理删除，故移除走 `status=resolved` 不删行。一个学员可同时有多个触发原因 → 每个原因一条记录，逐条解除。
+
+#### 字段
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `userId` | String | 被关怀学员 |
+| `classId` | String? | 班级作用域（清单按班查）|
+| `triggerType` | String | 触发原因，见下方取值 |
+| `triggerSource` | String | `auto`（系统触发）/ `manual`（辅导员手动添加）|
+| `status` | String | `active`（待跟进）/ `resolved`（已解除），默认 active |
+| `triggeredAt` | DateTime | 触发时间，默认 now() |
+| `triggeredBy` | String? | 手动添加=操作人 userId；自动触发=null |
+| `reason` | String? | 触发说明 / 手动添加原因 |
+| `resolvedAt` | DateTime? | 解除时间 |
+| `resolvedBy` | String? | 解除人（自动解除=system，手动=userId）|
+
+#### triggerType 取值
+
+| 值 | 触发场景 | 来源能力 | 解除方式 |
+|---|---|---|---|
+| `practice_lag` | 日常功课连续未打卡达阈值 | 能力 7 | 自动（补打卡）|
+| `attendance_low` | 共修出勤不足门槛 | 能力 8 | 自动（出勤达标）|
+| `report_overdue` | 报数节点逾期未提交 | 能力 9 | 自动（补报）|
+| `false_report` | 虚报被管理员标记 | 能力 9 | **手动**（管理员，不自动）|
+| `study_lag` | 闻思进度明显滞后达阈值 | 能力 3 | 自动（追上进度）|
+| `special_status` | 特殊身份（盲/聋）| 能力 12 | 跟随特殊身份（撤销才移除）|
+| `manual` | 辅导员手动添加 | 能力 14 | **手动**（添加人或更高级）|
+
+#### Prisma schema
+
+```prisma
+model CareWatchlistItem {
+  id            String    @id @default(cuid())
+  userId        String
+  classId       String?
+  triggerType   String    // practice_lag / attendance_low / report_overdue / false_report / study_lag / special_status / manual
+  triggerSource String    // auto / manual
+  status        String    @default("active")  // active / resolved
+  triggeredAt   DateTime  @default(now())
+  triggeredBy   String?   // 手动=操作人；自动=null
+  reason        String?
+  resolvedAt    DateTime?
+  resolvedBy    String?
+
+  user      User                 @relation(fields: [userId], references: [id])
+  followups CareFollowupRecord[]
+
+  @@index([userId])
+  @@index([classId, status])
+  // 同人同类型最多一条 active：用 partial unique index（status='active'），见约束，不用三列 @@unique
+}
+```
+
+> **Partial unique index**（应用层 migration 补）：`CREATE UNIQUE INDEX ON care_watchlist_items (user_id, trigger_type) WHERE status = 'active';`——保证同人同类型同时只有一条 active，但允许历史多条 resolved（DR-78）。
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| 同人同类型最多一条 active | DB（partial unique index）| `WHERE status='active'`；允许多条 resolved 历史；不能用三列 @@unique（resolved 多行会冲突，DR-78）|
+| 触发阈值数据化 | 应用层/配置 | D3；practice_lag/attendance_low/study_lag 阈值即 TODO-1 要数据化的那批，复用 TODO-1，不新开待办（DR-79）|
+| false_report / manual 不自动移除 | 应用层 | 虚报由管理员手动解除；手动条目由添加人/更高级解除（能力 14 §5）|
+| 解除走 status=resolved，不物理删（D18）| 应用层 | 条目历史永久保留 |
+| 备注学员不可见 | 应用层 | 跟进备注在 CareFollowupRecord，内部日志（能力 14 约束 #2）|
+
+#### 设计意图
+
+清单 = 「系统发现问题 → 人工跟进」的桥梁。条目记触发信号（哪个学员、什么原因、何时），跟进记录（CareFollowupRecord）记辅导员处理动作；一对多关联。自动触发条件解除时系统置 resolved（保留历史），多原因叠加时逐条解除。虚报（false_report）和手动条目（manual）不自动移除，符合能力 14 §5。
+
+---
 
 ### 3.5 ClassInviteCode（邀请码）⬜ 未开始
 
@@ -2055,6 +2134,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | C 类 §四 复用表确认完成：15 张批量 ✅ 复用（PracticeLog/PracticeTemplate/LessonCompletion/PracticeJournal/QuestionReference/LessonResource/LessonMediaChapter/LessonTextBlock/ProgramWeek/ProgramWeekCourse/ProgramWeekPractice/ProgramStudyType/CohortRestWeek/Event/EventCount/SpeakingRegistration/CohortWeeklySummary）；TantricGroup 🔧 微调（删悬空 grants TantricAccessGrant[]，补 transmissionRecords TransmissionRecord[]，闭合检查轮次 11 已知项）；AI 助手 5 张 ⏸ 暂缓（独立模块）；§八 DR-72~74；§九 检查轮次 23（1 问题→当轮闭合）；**§四 复用区全部确认完成** |
 | 2026-05-29 | §三 新建区开始：§3.2 RoleAssignmentHistory（角色变更留痕）✅ 封板——与 §3.12 EnrollmentStatusHistory 对称的 append-only 留痕表；role/classId/programId 冗余存变更那一刻快照（审计可回溯，DR-75）；反向关联与 §2.1 UserRoleAssignment.history 成对；§八 DR-75；§九 检查轮次 24（0 问题）|
 | 2026-05-29 | §3.3 StudentSpecialStatus（特殊身份）✅ 封板——blind/deaf 两类不可扩展（能力 12 绝对约束）；与 User.accessibilityNeeds 留痕+快照双写（认定过程留痕 vs 当前生效快照，DR-76）；@@unique([userId,statusType]) 防重、撤销后复活同行（DR-77）；认定/撤销限 class_admin+（职能 #13）；§八 DR-76~77；§九 检查轮次 25（0 问题）|
+| 2026-05-29 | §3.4 CareWatchlistItem（关怀清单条目）✅ 封板——清单条目（触发信号）与 §2.2 CareFollowupRecord（跟进备注）一对多分工；triggerType 7 类（practice_lag/attendance_low/report_overdue/false_report/study_lag/special_status/manual）；同人同类型 active 唯一用 partial unique index（DR-78）；触发阈值复用 TODO-1（DR-79）；解除走 status=resolved 不删行（D18）；闭合检查轮次 10 反向关联已知项；§八 DR-78~79；§九 检查轮次 26（0 问题）|
 
 ---
 
@@ -2141,6 +2221,8 @@ model UserSelfStudyRestWeek {
 | DR-75 | RoleAssignmentHistory 角色/作用域字段是否冗余存当时值 | 冗余存变更那一刻的 role/classId/programId（用户决策 2026-05-29）| 审计要能回溯「那一刻这个人是什么角色、管哪个班」，UserRoleAssignment 后续被改/撤销不应影响历史快照。排除「只存 assignmentId，运行时 join 读当前值」：join 读到的是当前值非历史值，无法还原变更那一刻的真相，违反审计不可变原则。与 §3.12 EnrollmentStatusHistory 同为 append-only 留痕表，结构对称（一记角色链、一记入学状态链）|
 | DR-76 | StudentSpecialStatus 与 User.accessibilityNeeds 的关系 | 留痕表 + 快照双写（用户决策 2026-05-29）| StudentSpecialStatus 存认定过程留痕（谁认定/何时/撤销历史，D18 append-only）；User.accessibilityNeeds 存当前生效快照（能力 3 闻思判定直接读，无需 join）。认定/撤销时应用层事务同步双写。同 §3.12 与 ClassMember.statusChanged* 的「留痕+快照」模式。排除「只保留一处」：只留 accessibilityNeeds 丢失认定历史（违反 D18）；只留 StudentSpecialStatus 则每次闻思判定要 join 查 active 记录，性能差 |
 | DR-77 | StudentSpecialStatus 是否加 @@unique([userId, statusType]) | 加（用户决策 2026-05-29）| 一个人可同时盲+聋（两条记录，statusType 不同），但同一人同一类型不应有多条 active。`@@unique([userId, statusType])` 保证唯一；撤销后重新认定走复活同行（status: revoked→active），不新建重复行。同 ClassMember `@@unique([classId, userId])` 复活模式。排除「不加唯一约束」：重复认定会产生多条同类型记录，统计/判定混乱 |
+| DR-78 | CareWatchlistItem「同人同类型最多一条 active」如何实现 | Partial unique index（WHERE status='active'）（用户决策 2026-05-29）| 不能用三列 `@@unique([userId, triggerType, status])`：D18 下解除走 status=resolved 不删行，同人同类型历史会有多条 resolved，三列唯一对 resolved 行会冲突报错。改用 PostgreSQL partial unique index `(user_id, trigger_type) WHERE status='active'`——只约束 active 唯一，resolved 历史不限条数。同 §2.1 super_admin NULL 唯一的应用层兜底思路。排除三列 @@unique：会阻止合法的多次「触发→解除」历史 |
+| DR-79 | CareWatchlistItem 触发阈值是否新开待办 | 复用 TODO-1，不新开（用户决策 2026-05-29）| practice_lag/attendance_low/study_lag 的触发阈值就是 TODO-1（掉队判定阈值数据化）要处理的那批——CohortLagSnapshot 与 CareWatchlistItem 共用同一套掉队检测阈值（D3 专业配置项）。复用 TODO-1，避免重复登记。排除「新开待办」：同一组阈值两处登记会割裂，实现时易遗漏一致性 |
 
 ---
 
@@ -2641,6 +2723,25 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0。
 **结论**：§3.3 StudentSpecialStatus 封板。blind/deaf 两类不可扩展（能力 12 绝对约束）；与 User.accessibilityNeeds 留痕+快照双写（DR-76）；@@unique([userId,statusType]) 防重、撤销后复活（DR-77）。
+
+### 检查轮次 26（2026-05-29，范围：§3.4 CareWatchlistItem 封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | **闭合检查轮次 10 已知项**：CareWatchlistItem.followups↔CareFollowupRecord.watchlistItem（§2.2 已有 `watchlistItem CareWatchlistItem?` + watchlistItemId FK），成对；CareWatchlistItem.user↔User（实现时补 careWatchlistItems[] 反向）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §三 新建区 14 张不变（CareWatchlistItem 由 ⬜ 转 ✅）|
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待统编；注意 partial unique index 需单独 CREATE INDEX 语句（DR-78）|
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | triggerType 7 值逐一标来源能力 + 解除方式；partial unique 有 DR-78；阈值复用 TODO-1 有 DR-79 |
+| 8. 业务规则约束有实现方式 | ✅ | 同人同类型 active 唯一→partial unique index；阈值→TODO-1 配置；false_report/manual 不自动移除→应用层；解除不删→应用层；备注学员不可见→应用层 |
+| 9-12. 其余检查项 | ✅/⏸ | D18：解除 status=resolved 不物理删，条目历史保留；D3：阈值数据化（TODO-1）；与 CohortLagSnapshot 共用阈值 |
+| 13. 02 文档 23 职能写表覆盖 | ✅ | 自动触发=系统；手动添加/解除限 class_tutor+（按作用域 D8），与能力 14 §2/§3 一致 |
+| 14. 枚举值各处一致 | ✅ | triggerType 7 值、triggerSource（auto/manual）、status（active/resolved）各处一致；与 CareFollowupRecord.sourceType（care_watchlist/special_status）分工清晰不冲突 |
+
+**本轮发现问题数**：0（同时闭合检查轮次 10 标记的 §3.4 反向关联已知项）。
+**结论**：§3.4 CareWatchlistItem 封板。清单条目（触发信号）与 CareFollowupRecord（跟进备注）一对多分工；同人同类型 active 唯一用 partial unique index（DR-78）；触发阈值复用 TODO-1（DR-79）；解除走 resolved 不删行（D18）。闭合检查轮次 10 反向关联已知项。
 
 ---
 
