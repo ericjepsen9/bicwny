@@ -472,11 +472,12 @@ model ClassSession {
 | `targetPeriod` | String? | `daily` / `weekly` / `lifetime`；task 类型不填 | 旧 |
 | `dailyTarget` | Int? | 每日目标；**personal/event 由用户填；task 类型不填（运行时从 ClassTask 或 PracticeTemplate 读，D3）** | 旧（语义扩展）|
 | `weeklyTarget` | Int? | 每周目标；task 类型不填 | 旧 |
-| `minSessionMinutes` | Int | 座次最短时长，默认 30；duration 计量专用 | 旧 |
+| `minSessionMinutes` | Int | 单座最短时长，默认 30；**录入校验下界**——每座必须 ≥ 此值才能成座（DR-91，对齐大纲）| 旧（语义强化）|
 | `startDate` | DateTime | 发愿起始日 | 旧 |
 | `currentEndDate` | DateTime? | 发愿截止日（可调整）| 旧 |
 | `currentCount` | Int | 累计遍数/次数，默认 0（乐观计入）| 旧 |
-| `currentSessionCount` | Decimal | 累计座次，默认 0 | 旧 |
+| `currentSessionCount` | Int | 累计座数，默认 0；**改 Int**——废弃 0.5 座制，每座 ≥30 分钟整数计（DR-91）| 旧（**类型变更 Decimal→Int**）|
+| `currentSessionMinutes` | Int | 累计观修时长（分钟），默认 0；座数与时长双维度独立计（DR-91）| **新增** |
 | `status` | String | `active` / `paused` / `completed` / `abandoned`；默认 active | 旧（简化：去 7 态）|
 | `pausedAt` | DateTime? | 暂停时间 | 旧 |
 | `pausedBy` | String? | 暂停操作人 userId | 旧 |
@@ -509,11 +510,12 @@ model UserPracticeVow {
   targetPeriod         String?   // daily / weekly / lifetime
   dailyTarget          Int?      // personal/event 用；task 类型为 null
   weeklyTarget         Int?      // personal/event 用；task 类型为 null
-  minSessionMinutes    Int       @default(30)
+  minSessionMinutes    Int       @default(30)  // 单座录入下界（≥30 才成座，DR-91）
   startDate            DateTime
   currentEndDate       DateTime?
   currentCount         Int       @default(0)
-  currentSessionCount  Decimal   @default(0)
+  currentSessionCount  Int       @default(0)  // 累计座数（整数，废弃 0.5 座，DR-91）
+  currentSessionMinutes Int      @default(0)  // 累计观修时长（分钟，双维度独立，DR-91）
   status               String    @default("active")
   pausedAt             DateTime?
   pausedBy             String?
@@ -1994,6 +1996,8 @@ model EnrollmentStatusHistory {
 **约束**：`@@unique([seriesKey, seriesNumber])`——保证 92 修法每一法唯一。其余字段保留（视频/转图PPT/章节/字幕/发布管理等）。
 
 > **大纲核对佐证**（2026-05-29）：核对《预科19届大纲》§二.1 加行观修要求（92修法逐一观修）后确认，92修法分法记录正由 `seriesKey='92xiufa'` + `seriesNumber(1-92)` + `PracticeLog.meditationId` 实现，字段够用。**Meditation 表字段本身不受影响**——大纲核对发现的 3 个缺口（座次规则 TODO-7、音视频二选一 TODO-8、逐法达标预检 TODO-9）均属判定/配置逻辑层，非 Meditation 表结构问题。密法授权查询方式虽改用 TransmissionRecord（DR-44/45），但同 Course，不影响 `tantricGroupId` 字段。Meditation 字段完全照搬旧设计扩展版。
+>
+> **座次规则定调（2026-05-30，TODO-7 闭合，DR-91）**：核对能力 4 大纲原文（单修法 ≥3 座且 ≥90 分钟；总计 ≥276 座且 ≥138 小时；单座 ≥30 分钟）后，**废弃系统原 0.5 座制**（≥15min=0.5 违反大纲「30 分钟以下不能单独计数」绝对约束）。改为：**每座录入下界 30 分钟**（`minSessionMinutes`），每条 PracticeLog = 1 座；座数 = `COUNT(records)`、时长 = `SUM(durationMinutes)`，**双维度独立计**。放弃大纲「短座合并」便利（比大纲更严格，不违反硬约束）。UserPracticeVow.currentSessionCount 由 Decimal 改 Int，新增 currentSessionMinutes。
 
 ---
 
@@ -2630,6 +2634,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §3.5 ClassInviteCode（邀请码）✅ 封板——expiresAt 必填保证 D11 时效（不允许永久码）；status 只存 active/revoked，expired 实时算不入库（DR-80）；取代旧 Class.joinCode（字段保留兼容、不再生成新码，DR-81）；撤销/过期只影响新加入、入班幂等；生成/撤销限 class_admin+（职能 #5）；§八 DR-80~81；§九 检查轮次 27（0 问题）|
 | 2026-05-29 | §3.6 辅助员（能力 13）建模两轮定案：先尝试并入 §2.1 UserRoleAssignment（第 5 role class_assistant，轮次 28）→ 核对 02-roles-and-permissions-v1.md 发现角色表只有 4 个 role、无 class_assistant，能力 13 亦明确「辅助员不属四大角色」→ **回滚为独立表 AssistantAssignment**（轮次 29）。理由：并入会自创 02 文档未定义的第 5 角色，违反「以文档为准」铁律。独立表忠于文档语义，权限集固定在应用层，与角色体系解耦；§三 新建区维持 14 张；UserRoleAssignment.role 复归四大角色；§八 DR-82（记录两轮过程）；§九 检查轮次 28→29（回滚）|
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
+| 2026-05-30 | TODO-7 闭合：核对能力 4 大纲废弃 0.5 座制，定调「每座 ≥30 分钟、座数 COUNT/时长 SUM 双维度独立计」，放弃短座合并；§1.7 UserPracticeVow.currentSessionCount Decimal→Int + 新增 currentSessionMinutes；§八 DR-91；§九 检查轮次 39（0 问题，2 项实现遗留）|
 | 2026-05-30 | TODO-6 闭合：新建 §3.15 LeaveRequest（班级请假审批）；expired 实时算（DR-90-A）；approved 期间不计入掉队窗口（DR-90-B）；User/Class 补反向 leaveRequests[]；§三 新建区 14→15 张；§八 DR-90-A/B；§九 检查轮次 38（0 问题）|
 | 2026-05-30 | TODO-2 闭合：签到窗口基准改为 token 生成时刻（DR-89）；Program 补 checkinGraceMinutes（默认 30 分钟）；startAt 仅展示不参与签到；§1.6 约束注释同步；§九 检查轮次 37（0 问题）|
 | 2026-05-30 | TODO-1 闭合：Program 补掉队阈值 4 字段（lagWindowDays/lagMild/lagModerate/lagSevereThreshold），与 Class.lagPracticeDaysExpected 构成两层配置；§八 DR-88；§九 检查轮次 36（0 问题）|
@@ -2732,6 +2737,7 @@ model UserSelfStudyRestWeek {
 | DR-83-A | SemesterSnapshot.snapshotData 字段类型 | **Json**（用户决策 2026-05-30）| 各科系汇报维度不同（加行有座次/顶礼，净土有念佛数，入行论有默写），若拆成独立列需为每个科系建不同 schema 或预留大量 nullable 列。Json 方案：一张表覆盖全部科系，维度差异封装在 Json 内，新科系扩展无需 migration；同 CohortWeeklySummary.summaryData 已验证此模式。排除「拆列」：过多 nullable 列且不同科系列集合不同，维护成本高于 Json |
 | DR-83-B | SemesterSnapshot 快照值是否可改 | **冻结（不可改）**，事后更正走 AuditLog（用户决策 2026-05-30）| 快照目的是「在节点截止时刻留下永久数据证据」，若允许事后修改则历史评估结论失去可信基础（违背 D18 不删、不改的永久档原则）。admin 事后代行更正（如学员补报遗漏数据）只产生 AuditLog 条目说明更正原因和更正人，快照本身不变。排除「允许 admin 改快照」：一旦可改，任何历史争议时快照都不再是权威；排除「有限度可改+版本号」：引入版本机制复杂度高、且无此需求的业务场景 |
 | DR-84 | ReportConfession status 是否包含「拒绝忏悔」状态 | **不包含**，status 只有 submitted/acknowledged（用户决策 2026-05-30）| 能力 9「拒绝忏悔」指学员拒绝提交、本表根本无记录，而非提交后再拒绝的中间状态。拒绝后走职能 #14 取消资格 → ClassMember 状态变更 + AuditLog 留痕，与 ReportConfession 表完全解耦。排除「status=refused」：学员拒绝时本表无记录（管理员无法写入 refused），引入该值无实际写入路径；排除「status=escalated」：取消资格是独立的 ClassMember 操作，不应耦合进忏悔记录的状态机。「虚报处理必须先走忏悔流程」（能力 9 规则 #4）由应用层在取消资格前检查本表是否有 submitted 记录来保障 |
+| DR-91 | 加行观修座次计算规则 | **废弃 0.5 座，每座录入下界 30 分钟，座数/时长双维度独立计**（用户决策 2026-05-30，TODO-7 闭合）| 核对能力 4 大纲原文：单修法 ≥3 座且 ≥90 分钟、总计 ≥276 座且 ≥138 小时、单座 ≥30 分钟，绝对约束「30 分钟以下不能单独计数」。系统原 0.5 座制（≥15min=0.5）直接违反此约束，须废弃。定调方案：每座录入下界 30 分钟（minSessionMinutes，应用层校验），每条 PracticeLog 观修记录 = 1 座（带 durationMinutes≥30）；**座数 = COUNT(records)、时长 = SUM(durationMinutes)，两维度独立计算**，互不折算。判定：单修法 `COUNT(WHERE meditationId=X)≥3 AND SUM(durationMinutes)≥90`。UserPracticeVow.currentSessionCount 由 Decimal 改 Int（座数无小数），新增 currentSessionMinutes（时长维度）。**取舍**：放弃大纲「短座 <30 分钟可合并报一座」便利——比大纲更严格（大纲是「可合并」非「必合并」），不违反硬约束，换取录入/计算的极大简化（无合并交互、双维度天然 COUNT/SUM）。排除「保留 0.5 座折算」（原方案 A）：直接违反大纲绝对约束，且 0.5 座语义混乱；排除「实现短座合并池」：引入合并操作交互与待合并状态，复杂度高，学员可自行坐满 30 分钟规避 |
 | DR-90-A | LeaveRequest expired 状态存法 | **不入库，实时算**（用户决策 2026-05-30，TODO-6，同 DR-80 ClassInviteCode 模式）| status 只存 pending/approved/rejected；expired = `status='pending' AND startDate <= now()`，查询时实时推导，不靠定时任务。排除「写入 expired」：过期是确定性时间推导，维护定时任务引入额外复杂度 |
 | DR-90-B | 请假是否影响掉队计算 | **影响：approved 期间从掉队窗口扣除**（用户决策 2026-05-30，TODO-6）| CohortLagSnapshot 生成时，approved 请假期间（startDate~endDate）内缺打卡天数不计入 lagWindowDays 内的缺卡统计，避免合理请假被标掉队。排除「不影响」：合理请假期间缺勤若被计入掉队会产生误判，且与 UserSelfStudyRestWeek 进度补足原则一致 |
 | DR-89 | 共修签到窗口基准 | **token 生成时刻为基准 + Program.checkinGraceMinutes**（用户决策 2026-05-30，TODO-2 闭合）| 计划 startAt 与实际开课时间可能不一致（老师迟到/提前），若以 startAt 为基准则学员可能漏卡或窗口错位。改为辅导员/老师实际开始时生成 token，窗口从 token.createdAt 起计 checkinGraceMinutes 分钟，与实际开课完全同步。排除「加 actualStartAt 字段」：token createdAt 天然承担此语义，无需额外字段；排除「方案 A checkinOpenMinutes」：token 生成即开始信号，无需提前激活分钟数 |
@@ -3502,6 +3508,28 @@ model UserSelfStudyRestWeek {
 
 ---
 
+### 检查轮次 39（2026-05-30，范围：TODO-7 闭合 · 座次规则对齐大纲，UserPracticeVow 字段调整）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | 无新增/变更关联（仅字段类型变更 + 新增标量）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | 表数量不变（§1.7 UserPracticeVow 内字段调整）|
+| 5-6. Migration/Phase | ⏸ 暂不适用 | currentSessionCount 类型变更（Decimal→Int）+ 新增 currentSessionMinutes，待 migration 统编（含历史 0.5 座数据迁移）|
+| 7. 暂缓/不做标签完整 | ✅ | TODO-7 标闭合；放弃短座合并的取舍明确记录（DR-91）|
+| 8. 业务规则约束有实现方式 | ✅ | 单座 ≥30 分钟→应用层录入校验（minSessionMinutes）；座数=COUNT、时长=SUM→应用层聚合；双维度达标→AdvancementCheck 预检（TODO-9）|
+| 9. 升学条件可全查 | ✅ | practice_session 条件双维度（座数 ≥276 / 时长 ≥138h）数据源 = PracticeLog COUNT/SUM，路径清晰 |
+| 10-12. D18/D17/密法 | ✅ | 历史 0.5 座数据保留（migration 折算迁移，不物理删）|
+| 13. 02 文档职能覆盖 | ✅ | 观修录入=学员自助；代行调整=能力 5 留痕 |
+| 14. 枚举值各处一致 | ✅ | 无新 enum；minSessionMinutes 默认 30 与大纲单座下界一致 |
+
+**本轮发现问题数**：0。
+**遗留实现项**：(1) UserPracticeVow.currentSessionCount Decimal→Int 的历史数据迁移（0.5 座按合并折算）；(2) PracticeLog 观修记录须含 durationMinutes（≥30 校验）字段——均属实施阶段 migration/字段细化，规则已定。
+**结论**：TODO-7 闭合。废弃 0.5 座制，对齐大纲：每座 ≥30 分钟、座数/时长双维度独立计（DR-91）。UserPracticeVow.currentSessionCount 改 Int + 新增 currentSessionMinutes。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -3513,7 +3541,7 @@ model UserSelfStudyRestWeek {
 | ~~TODO-3~~ ✅ 已闭合 | ~~PracticeAppointment.practiceProjectId 无正式 @relation~~——**已闭合（2026-05-29）**：§四 PracticeProject 确认复用，已在 §5.3 PracticeAppointment 补正式 FK `practiceProject PracticeProject @relation(...)`，PracticeProject 上补反向 `appointments PracticeAppointment[]` | §5.3 PracticeAppointment | ✅ 已处理（DR-69）| DR-57 / DR-69 |
 | TODO-5 | §1.1 Program 恢复 `selfStudy UserSelfStudyProgram[]` 反向关联——当前因自学模式暂缓已移除，实现 §5.4 时须恢复 | §5.4 UserSelfStudyProgram | 自学模式实现时 | DR-64 |
 | ~~TODO-6~~ ✅ 已闭合 | ~~班级成员请假审批流设计~~——**已闭合（2026-05-30）**：新建 §3.15 LeaveRequest；expired 实时算不入库（DR-90-A，同 DR-80）；approved 期间从掉队窗口扣除（DR-90-B）；审批限 class_tutor+；无 delete API（D18）| §5.4 自学模式修正 | ✅ 已处理（DR-90）| DR-62 / DR-90 |
-| TODO-7 | **加行观修座次计算规则对齐大纲**——系统现 `PracticeLog.sessionCount`（≥30min=1 / ≥15min=0.5 / <15min=0）与预科19届大纲 §二.1 规则不一致：大纲规定「一座<30分钟可几座合并视为一座报数；一座>30分钟不能拆分」，无 0.5 座概念。边界算法须二选一定调（以哪套为准） | 预科19届大纲核对（Meditation/PracticeLog）| 实修报数判定逻辑设计/实现时 | — |
+| ~~TODO-7~~ ✅ 已闭合 | ~~加行观修座次计算规则对齐大纲~~——**已闭合（2026-05-30）**：核对能力 4 大纲原文后**废弃 0.5 座制**（违反「30 分钟以下不能单独计数」绝对约束），定调「每座录入下界 30 分钟、座数=COUNT、时长=SUM 双维度独立计」，放弃短座合并便利（比大纲更严格）。UserPracticeVow.currentSessionCount 改 Int + 新增 currentSessionMinutes（DR-91）| 预科19届大纲核对（Meditation/PracticeLog）| ✅ 已处理（DR-91）| DR-91 |
 | TODO-8 | **闻思圆满「音频或视频」二选一判定**——大纲要求「听一遍音频**或**视频」任一即满足；系统 LessonCompletion 的 audio/video 是两条独立记录（type 不同），DB 不自动合并。须在应用层闻思圆满判定中实现「audio OR video 任一完成即满足'听'项」逻辑（连同特殊情况：盲人听两遍、聋人法本看两遍的等价圆满规则）| 预科19届大纲核对（LessonCompletion）| 闻思圆满判定逻辑设计/实现时 | — |
 | TODO-9 | **加行升学「逐法达标」预检**——大纲升学硬条件要求 92 修法**每一法各自**满足 ≥3座 & ≥1.5小时（非仅总量 276座/138h）。系统只有逐条 PracticeLog，无「按 meditationId 分组的逐法达标快照」。`ProgramAdvancementConfig` 的 `practice_session` 条件粒度须确认能否表达「逐法达标」，AdvancementCheck(§3.9) 预检须按 meditationId 分组聚合 92 次比对 | 预科19届大纲核对（ProgramAdvancementConfig/AdvancementCheck）| §3.9 AdvancementCheck 设计时 | DR-4/DR-14 |
 | TODO-10 | **金刚萨埵心咒代替顶礼的换算+申请审批**——大纲：身体原因可申请念 200 万金刚萨埵代替 10 万顶礼（已修部分顶礼后中断申请代替的同样念 200 万）。能力 5/6 有「顶礼替代」概念但**换算关系（200万↔10万）、申请审批流程**未数据化落点。须确认换算是配置项还是写死，以及代替申请走能力 5 代行还是独立审批 | 预科19届大纲核对（能力 5/6 代行）| 内加行实修 / 代行能力深化时 | D17 / 能力 5 |
