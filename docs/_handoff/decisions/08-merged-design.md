@@ -15,11 +15,11 @@
 
 ---
 
-## 一、🔧 扩展表（11 张）
+## 一、🔧 扩展表（12 张）
 
 旧设计字段为底，按新业务逻辑加字段/改语义。
 
-> 注：ProgramSemester 核对后字段够用改判 ✅ 复用；CohortRecommendedTemplate 核对能力 9 后需扩展（classId→programId）从复用区移入；UserPracticeVow 剥离班级任务重新定位为纯发愿表。User 旧设计 13 字段全部复用，但新增 `birthDate`（年龄豁免数据源）从复用区移入扩展区。Class 旧设计 6 字段全部复用，但新增归档三件套（status/archivedAt/archivedBy，D19）从复用区移入扩展区。扩展区最终 11 张。
+> 注：ProgramSemester 核对后字段够用改判 ✅ 复用；CohortRecommendedTemplate 核对能力 9 后需扩展（classId→programId）从复用区移入；UserPracticeVow 剥离班级任务重新定位为纯发愿表。User 旧设计 13 字段全部复用，但新增 `birthDate`（年龄豁免数据源）从复用区移入扩展区。Class 旧设计 6 字段全部复用，但新增归档三件套（status/archivedAt/archivedBy，D19）从复用区移入扩展区。Course 旧设计 5 扩展字段全部复用，但 TODO-15 核对发现缺课程类型维度，新增 `courseType`（entry/formal/restricted，能力 3 规则 2）从复用区移入扩展区。扩展区最终 12 张。
 
 ---
 
@@ -765,6 +765,56 @@ model Class {
 | 归档手动触发 | 应用层 | 系统不自动归档；class_admin+ 手动操作 |
 | 不物理删除（D19）| 应用层 | 无 delete API；只能 `status=archived` |
 | `status` 枚举 | 应用层（或 Prisma enum）| 只允许 active/archived |
+
+---
+
+### 1.11 Course（法本/课程）✅ 已封板
+
+**服务能力**：能力 1（专业课程归属）+ 能力 3（闻思圆满 + 课程类型）+ 能力 10（考试范围）+ 能力 17（传承）
+**写权限**：`subject_admin` 及以上（课程内容/类型属学科配置）
+**参考决策**：D3（课程类型数据驱动）、能力 3 规则 2、DR-65（修订）、DR-93
+
+> **判定（DR-65 修订，2026-05-30）**：旧设计 §2.2 已扩展 5 字段（author/isTantric/programSemesterId/category/tantricGroupId），原判 ✅ 复用（§四）。TODO-15 核对能力 3 规则 2 发现：课程有 entry/formal/restricted **三种教学阶段类型**，但 Course 无字段承载（category 只表内容性质 dharma_text/self_study_book）。**新增 `courseType` 字段**，故从复用区移入扩展区，改判 🔧 扩展。
+
+#### 旧设计 5 扩展字段（全部复用，见 §四 Course 复用说明）
+
+`author` / `isTantric` / `programSemesterId` / `category` / `tantricGroupId` —— 字段不改，详见 §四。
+
+#### 新增字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `courseType` | String | `entry`（第1学期入门课）/ `formal`（第2-8学期主修课）/ `restricted`（第2-7学期限制性辅助课，不进考试）；默认 `formal`，能力 3 规则 2 | **新增** |
+
+```prisma
+model Course {
+  // ... 旧设计现有字段保留 ...
+  // ... §2.2 扩展 5 字段保留（author/isTantric/programSemesterId/category/tantricGroupId）...
+
+  // 新增（能力 3 课程类型维度，DR-93）
+  courseType String @default("formal")  // entry / formal / restricted
+}
+```
+
+#### 两维度正交说明
+
+| 维度 | 字段 | 取值 | 用途 |
+|---|---|---|---|
+| 教学阶段 | `courseType` | entry / formal / restricted | 闻思圆满路径、考试范围 |
+| 内容性质 | `category` | dharma_text / self_study_book | 闻思页分组、自学读物复用 |
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `courseType` 枚举 | 应用层（Zod）| 只允许 entry / formal / restricted |
+| 考试范围排除规则 | 应用层 | 进考试 = `courseType ∈ {entry, formal}`；排除 `courseType=restricted` **和** `category=self_study_book`（TODO-15 闭合，DR-93）|
+| 闻思圆满按 courseType 分路径 | 应用层 | 正式/入门课需答题；限制性课无答题要求（DR-92 判定矩阵依赖此字段）|
+| 不物理删除（D18）| 应用层 | 课程停用走 isActive，无 delete |
+
+#### 设计意图
+
+courseType（教学阶段）与 category（内容性质）正交（DR-93）：大学演讲系列 18 本既是 `category=self_study_book` 又通常 `courseType=restricted`，两维度独立标注、各管各的判定。考试范围与闻思圆满判定（DR-92）均依赖 courseType——这是 TODO-15 与 DR-92 共同的字段缺口，本次一并补齐。
 
 ---
 
@@ -1945,7 +1995,7 @@ model EnrollmentStatusHistory {
 
 | 表 | 服务能力 | 状态 |
 |---|---|---|
-| `Course`（法本/课程，旧设计已扩展版，详见下）| 能力 1/3/17 | ✅ 确认复用 |
+| ~~`Course`~~（已改判 🔧 扩展，移入 §1.11，加 courseType）| 能力 1/3/10/17 | 🔧 移入扩展区 |
 | `Lesson`（课时，旧设计 +sourceText 版，详见下）| 能力 3 | ✅ 确认复用 |
 | `Meditation`（观修，旧设计 +4 字段版，详见下）| 能力 3/4 | ✅ 确认复用 |
 | `PracticeProject`（修持项目字典，旧设计 +2 字段版，详见下）| 能力 4/6/7 | ✅ 确认复用 |
@@ -1975,9 +2025,11 @@ model EnrollmentStatusHistory {
 | ~~`Exam`~~ | 已移入扩展区 §1.4 | ✅ |
 | `CohortWeeklySummary` | 管理端 ⏸ 暂缓 | ✅ 确认复用（C 类批量，DR-72）|
 
-#### Course 复用说明
+#### Course 复用说明（🔧 已改判扩展，移入 §1.11）
 
-旧设计 §2.2 已将 Course 扩展为含 5 个新字段的版本，核对新设计（05/06）后**全部仍有效，字段不改**，判 ✅ 复用：
+> **改判（2026-05-30，DR-65 修订）**：Course 原判 ✅ 复用，但 TODO-15 核对能力 3 发现缺 `courseType`（entry/formal/restricted）字段，**新增字段后改判 🔧 扩展，移入 §1.11**。以下 5 个旧扩展字段仍全部复用不改（courseType 详见 §1.11）：
+
+旧设计 §2.2 已将 Course 扩展为含 5 个新字段的版本，核对新设计（05/06）后**全部仍有效，字段不改**：
 
 | 新增字段 | 用途 | 新设计下状态 |
 |---|---|---|
@@ -2657,6 +2709,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
 | 2026-05-30 | **检查轮次 35 勘误**：检查项 9「升学条件可全查」原标 ✅ 过度乐观，下修为 🔵 部分——只验证了链路连通（有 ProgramAdvancementConfig 接住），未验证配置表达充分性（params 能否装下双维度逐法/多维合格线，挂 TODO-9/12/13）；且与 §十 ⚠️ 待决策标签自相矛盾未被检查项 7 抓出。方法论盲区（配置表达充分性 + 设计vs代码gap）并入 TODO-17 |
 | 2026-05-30 | 核查达标/升学配置现状：backend 无 Program 层/无 ProgramAdvancementConfig/无达标配置（仅通用打卡目标）；新增 TODO-17（各学科达标条件+升学条件后台配置专题，含后台管理界面+学习情况提醒），汇总 TODO-9/12/13 配置承载，**置于本轮 TODO 闭合后专题设计** |
+| 2026-05-30 | TODO-15 闭合：核查发现 Course 缺教学阶段维度，新增 courseType（entry/formal/restricted），Course ✅复用→🔧扩展移入 §1.11；考试范围排除 restricted+self_study_book；补齐 DR-92 闻思判定对 courseType 依赖；DR-65 修订；§一 扩展区 11→12 张；§八 DR-93；§九 检查轮次 41（0 问题）|
 | 2026-05-30 | TODO-8 闭合：闻思圆满「音视频任一算听」（COUNT 合并）；判定矩阵落点 §3.3；StudentSpecialStatus blind=视障类/deaf=听障类覆盖大纲细分（不扩展 statusType，守 DR-76）；盲+聋走能力 5 代行；§八 DR-92；§九 检查轮次 40（0 问题）|
 | 2026-05-30 | TODO-7 闭合：核对能力 4 大纲废弃 0.5 座制，定调「每座 ≥30 分钟、座数 COUNT/时长 SUM 双维度独立计」，放弃短座合并；§1.7 UserPracticeVow.currentSessionCount Decimal→Int + 新增 currentSessionMinutes；§八 DR-91；§九 检查轮次 39（0 问题，2 项实现遗留）|
 | 2026-05-30 | TODO-6 闭合：新建 §3.15 LeaveRequest（班级请假审批）；expired 实时算（DR-90-A）；approved 期间不计入掉队窗口（DR-90-B）；User/Class 补反向 leaveRequests[]；§三 新建区 14→15 张；§八 DR-90-A/B；§九 检查轮次 38（0 问题）|
@@ -2740,7 +2793,7 @@ model UserSelfStudyRestWeek {
 | DR-62 | 自学休息周是否需要审批 | 不需要审批，学员自由申报、即时生效（用户决策 2026-05-29 修正）| 用户修正：「休息审批需要，但是自学模式不需要休息审批」。自学师兄自定节奏（pace 字段），是自主学习者，其休息周属个人安排，无须辅导员审批。原设计的审批状态机（pending/approved/rejected/expired + expiresAt + processedBy）全部移除，回归旧设计的简单申报（restStartDate + reason）。**休息审批机制确实需要，但属班级成员请假场景**（辅导员及以上审批），与自学解耦，另行设计（TODO-6）|
 | DR-63 | 自学休息周申报是否可撤销 | 不可撤销（D18，用户决策 2026-05-29）| 申报即生效并影响进度计算，记录有审计价值，不提供删除/撤销接口。符合 D18 append-only。排除「允许撤销」：会引入物理删，且自学进度已据此重算，撤销会造成进度跳变 |
 | DR-64 | 请假后进度落后如何补足 | 申报休息周天数从有效学习天数中扣除（用户决策 2026-05-29）| 用户决策「用户请假课程进度落后可以补足」。核心：有效学习天数 = (今天−startDate) − Σ申报休息天数，当前周由有效天数推算。自学无审批，全部已过去的申报休息周均计入补足，避免假性落后。休息中内容仍可访问（学员可自主补课），掉队预警暂停。此算法复用班级进度算法，仅数据源换成个人 startDate + 个人休息周（与旧设计注释「自学进度算法 = 班级进度算法」一致）|
-| DR-65 | Course 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 已将 Course 扩展为含 author/isTantric/programSemesterId/category/tantricGroupId 5 字段的版本，核对 05/06 后全部仍有效。密法访问控制虽改用 TransmissionRecord（DR-44/45），但仅影响授权查询方式，不影响 Course 字段（tantricGroupId 仍用于标记法本所属密法组）。排除「在 Course 上加授权字段」：授权状态属 TransmissionRecord 范畴，Course 只需 tantricGroupId 标记归属即可 |
+| DR-65 | Course 在新设计下是否需要改字段 | ✅ 复用 5 字段不改；**后修订（2026-05-30）：新增 courseType 改判 🔧 扩展，移入 §1.11**（见 DR-93）| 旧设计 §2.2 已将 Course 扩展为含 author/isTantric/programSemesterId/category/tantricGroupId 5 字段的版本，核对 05/06 后全部仍有效，密法访问控制改 TransmissionRecord 不影响 Course 字段。**修订原因**：原判「字段不改」是基于当时未深查能力 3 课程类型——TODO-15 核对发现 entry/formal/restricted 三类型无字段承载（同 DR-92 判定矩阵的隐含依赖），补 courseType 后 Course 移入扩展区。这正是检查轮次 35 勘误指出的「设计 vs 业务要求充分性」盲区的一个实例 |
 | DR-66 | Lesson 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 仅扩展 sourceText（法本原文，与 referenceText 并存）。Lesson 服务能力 3（闻思圆满），但闻思打卡/答题分别走 LessonCompletion / QuestionReference（§三/§四 处理），Lesson 表只承载课时内容字段，新设计无新增需求。排除「新增进度/状态字段」：进度状态属 LessonCompletion 范畴，Lesson 不冗余存 |
 | DR-67 | Meditation 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 扩展 seriesKey/seriesNumber/isTantric/tantricGroupId 4 字段 + `@@unique([seriesKey, seriesNumber])`。大纲核对佐证 92 修法分法记录由 seriesKey+seriesNumber+PracticeLog.meditationId 实现，字段够用。大纲发现的 3 缺口（座次规则/音视频二选一/逐法达标）均属判定逻辑层，记 TODO-7/8/9，非 Meditation 表结构问题。密法授权同 Course 迁 TransmissionRecord，不影响字段。排除「在 Meditation 上加达标快照字段」：逐法达标是聚合计算结果，属 AdvancementCheck 范畴，不冗余存 |
 | DR-68 | ❌ 转功德会（菩提功德会）是否做 | 不做（永久决策，用户决策 2026-05-29）| 大纲规定：取消学员资格后可转入菩提功德会。功德会是独立于觉学学修体系的组织/系统，「转功德会」属跨系统流程，超出觉学平台范围。觉学只负责到「取消学员资格」为止，之后是否入会、入会流程均不在本系统建模。排除「建功德会入会记录表」：会引入与学修无关的组织管理复杂度。登记 §十 TODO-16 仅为留痕「大纲此条已核对、明确排除」，非待办 |
@@ -2761,7 +2814,8 @@ model UserSelfStudyRestWeek {
 | DR-83-A | SemesterSnapshot.snapshotData 字段类型 | **Json**（用户决策 2026-05-30）| 各科系汇报维度不同（加行有座次/顶礼，净土有念佛数，入行论有默写），若拆成独立列需为每个科系建不同 schema 或预留大量 nullable 列。Json 方案：一张表覆盖全部科系，维度差异封装在 Json 内，新科系扩展无需 migration；同 CohortWeeklySummary.summaryData 已验证此模式。排除「拆列」：过多 nullable 列且不同科系列集合不同，维护成本高于 Json |
 | DR-83-B | SemesterSnapshot 快照值是否可改 | **冻结（不可改）**，事后更正走 AuditLog（用户决策 2026-05-30）| 快照目的是「在节点截止时刻留下永久数据证据」，若允许事后修改则历史评估结论失去可信基础（违背 D18 不删、不改的永久档原则）。admin 事后代行更正（如学员补报遗漏数据）只产生 AuditLog 条目说明更正原因和更正人，快照本身不变。排除「允许 admin 改快照」：一旦可改，任何历史争议时快照都不再是权威；排除「有限度可改+版本号」：引入版本机制复杂度高、且无此需求的业务场景 |
 | DR-84 | ReportConfession status 是否包含「拒绝忏悔」状态 | **不包含**，status 只有 submitted/acknowledged（用户决策 2026-05-30）| 能力 9「拒绝忏悔」指学员拒绝提交、本表根本无记录，而非提交后再拒绝的中间状态。拒绝后走职能 #14 取消资格 → ClassMember 状态变更 + AuditLog 留痕，与 ReportConfession 表完全解耦。排除「status=refused」：学员拒绝时本表无记录（管理员无法写入 refused），引入该值无实际写入路径；排除「status=escalated」：取消资格是独立的 ClassMember 操作，不应耦合进忏悔记录的状态机。「虚报处理必须先走忏悔流程」（能力 9 规则 #4）由应用层在取消资格前检查本表是否有 submitted 记录来保障 |
-| DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则 |
+| DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
+| DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）| 能力 3 规则 2 定义课程三类型 entry/formal/restricted，但 Course 仅有 category（dharma_text/self_study_book，内容性质），无教学阶段维度。两者正交：courseType 管「闻思圆满路径 + 考试范围」，category 管「闻思页分组 + 自学读物复用」。考试范围排除 = `courseType=restricted OR category=self_study_book`。Course 因此从 ✅ 复用改判 🔧 扩展，移入 §1.11。排除「把 restricted 塞进 category 枚举」：混淆两个正交维度（一门课可同时是 self_study_book 和 restricted，单字段表达不了）；排除「不加字段、限制性课就用 self_study_book 代替」：能力 3 的 restricted 是「第2-7学期辅助课」，外延不等同 self_study_book（18本大学演讲系列），且 DR-92 闻思判定也需区分正式/限制性课 |
 | DR-91 | 加行观修座次计算规则 | **废弃 0.5 座，每座录入下界 30 分钟，座数/时长双维度独立计**（用户决策 2026-05-30，TODO-7 闭合）| 核对能力 4 大纲原文：单修法 ≥3 座且 ≥90 分钟、总计 ≥276 座且 ≥138 小时、单座 ≥30 分钟，绝对约束「30 分钟以下不能单独计数」。系统原 0.5 座制（≥15min=0.5）直接违反此约束，须废弃。定调方案：每座录入下界 30 分钟（minSessionMinutes，应用层校验），每条 PracticeLog 观修记录 = 1 座（带 durationMinutes≥30）；**座数 = COUNT(records)、时长 = SUM(durationMinutes)，两维度独立计算**，互不折算。判定：单修法 `COUNT(WHERE meditationId=X)≥3 AND SUM(durationMinutes)≥90`。UserPracticeVow.currentSessionCount 由 Decimal 改 Int（座数无小数），新增 currentSessionMinutes（时长维度）。**取舍**：放弃大纲「短座 <30 分钟可合并报一座」便利——比大纲更严格（大纲是「可合并」非「必合并」），不违反硬约束，换取录入/计算的极大简化（无合并交互、双维度天然 COUNT/SUM）。排除「保留 0.5 座折算」（原方案 A）：直接违反大纲绝对约束，且 0.5 座语义混乱；排除「实现短座合并池」：引入合并操作交互与待合并状态，复杂度高，学员可自行坐满 30 分钟规避 |
 | DR-90-A | LeaveRequest expired 状态存法 | **不入库，实时算**（用户决策 2026-05-30，TODO-6，同 DR-80 ClassInviteCode 模式）| status 只存 pending/approved/rejected；expired = `status='pending' AND startDate <= now()`，查询时实时推导，不靠定时任务。排除「写入 expired」：过期是确定性时间推导，维护定时任务引入额外复杂度 |
 | DR-90-B | 请假是否影响掉队计算 | **影响：approved 期间从掉队窗口扣除**（用户决策 2026-05-30，TODO-6）| CohortLagSnapshot 生成时，approved 请假期间（startDate~endDate）内缺打卡天数不计入 lagWindowDays 内的缺卡统计，避免合理请假被标掉队。排除「不影响」：合理请假期间缺勤若被计入掉队会产生误判，且与 UserSelfStudyRestWeek 进度补足原则一致 |
@@ -3577,6 +3631,27 @@ model UserSelfStudyRestWeek {
 
 ---
 
+### 检查轮次 41（2026-05-30，范围：TODO-15 闭合 · Course 改判扩展加 courseType，移入 §1.11）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | courseType 为标量，无新关联 |
+| 2-3. API/视图 | ⏸ 暂不适用 | — |
+| 4. 总览计数正确 | ✅ | §一 扩展区 11→12 张（标题+注记已更新，新增 §1.11 Course）；§四 复用区 Course 标记改判移出 |
+| 5-6. Migration/Phase | ⏸ 暂不适用 | Course 加 courseType 字段待 migration 统编（默认 formal，历史数据回填） |
+| 7. 暂缓/不做标签完整 | ✅ | TODO-15 标闭合；Course 改判扩展两处同步（§1.11 + §四复用说明 + §四复用表） |
+| 8. 业务规则约束有实现方式 | ✅ | courseType 枚举→Zod；考试范围排除→应用层（courseType=restricted OR category=self_study_book）；闻思按 courseType 分路径→应用层 |
+| 9. 升学条件可全查 | 🔵 部分 | 考试范围圈定路径补齐（courseType 字段就位），但合格线多维矩阵仍挂 TODO-13/17（与勘误一致）|
+| 10-12. D18/D17/密法 | ✅ | Course 不物理删；courseType 不影响密法 tantricGroupId 路径 |
+| 13. 02 文档职能覆盖 | ✅ | courseType 配置=subject_admin（学科作用域）|
+| 14. 枚举值各处一致 | ✅ | courseType（entry/formal/restricted）在 §1.11 字段表/schema/约束/正交表/设计意图五处一致；category 两值不变 |
+
+**本轮发现问题数**：0。
+**遗留实现项**：Course.courseType migration（默认 formal + 历史数据回填限制性课标记）。
+**结论**：TODO-15 闭合。Course 新增 courseType 改判 🔧 扩展移入 §1.11（DR-93）；考试范围排除 restricted+self_study_book；同步补齐 DR-92 闻思判定的 courseType 依赖；DR-65 修订。§一 扩展区 12 张。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -3596,6 +3671,6 @@ model UserSelfStudyRestWeek {
 | TODO-12 | **年龄豁免（60岁）逻辑层**——⚠️ 字段已就位：§1.9 User 已加 `birthDate`（DR-70）。**剩余逻辑层**：年龄豁免是「资格性、非自动」（非「年龄≥60 自动满足 exam_score」），实际免考走能力 5 代行豁免、留痕（D17）。须在升学条件配置/预检阶段实现：(1) 按 birthDate + 第一次考试报名日计算年龄；(2) 标记「符合年龄豁免资格」；(3) 接入能力 5 显式豁免流程，而非自动置满足 | 预科19届大纲核对（能力 5 / 能力 10 / AdvancementCheck）| 升学条件配置 / §3.9 AdvancementCheck 设计时 | DR-70 / 能力 5 |
 | TODO-13 | **考试合格线多维矩阵** ⚠️ 硬规则缺口——大纲合格线随场景变化：出勤≥93次→1次合格(30分)；出勤<93次/自学→1次及格(开卷72/闭卷60) 或 2次各合格(30分)。能力 10「合格线是专业配置项」当前是**单一阈值**，无法表达「出勤档 × 开卷/闭卷 × 考试次数 × 年龄」多维矩阵。须扩展 ProgramAdvancementConfig 或 Exam 结构（含 isOpenBook 字段、出勤分档逻辑、多次考试组合判定）| 预科19届大纲核对（ProgramAdvancementConfig / Exam / 能力 10）| 升学条件配置 / 考试设计时 | DR-14 / D13 |
 | TODO-14 | **兼修加行**——大纲：修心/念佛专业可兼修加行，毕业升密法时加行学修量保留。能力 9 支持多专业，但**「主修 + 兼修」的附修关系**（一个专业挂另一个专业的课程/实修要求）未设计。须确认兼修是独立 UserSelfStudyProgram/班级，还是新建兼修关系字段 | 预科19届大纲核对（能力 9 / 升学指南）| 多专业 / 升学结构设计时 | D9 / D16 |
-| TODO-15 | **限制性课程不进考试范围**——大纲：大学演讲系列 1-18 是限制性课程，不纳入考试范围。Course.category 有 `self_study_book` 区分，但**「考试范围只含正式课程、排除限制性课程」**这条规则未在 Exam/考试范围配置里落点。须确认考试范围按 category 过滤（restricted/self_study_book 排除）| 预科19届大纲核对（Course / Exam / 能力 10）| 考试设计时 | 能力 3 / 能力 10 |
+| ~~TODO-15~~ ✅ 已闭合 | ~~限制性课程不进考试范围~~——**已闭合（2026-05-30）**：核查发现 Course 缺教学阶段维度，新增 `courseType`（entry/formal/restricted），Course 改判 🔧 扩展移入 §1.11；考试范围排除 = `courseType=restricted OR category=self_study_book`；顺带补齐 DR-92 闻思判定对 courseType 的依赖（DR-93）| 预科19届大纲核对（Course / Exam / 能力 10）| ✅ 已处理（DR-93）| DR-93 |
 | TODO-16 | ❌ **转功德会——不做**（用户决策 2026-05-29）——大纲：取消学员资格后可转入菩提功德会。**永久决策：不做**，超出觉学平台范围（功德会是独立组织/系统）。登记于此仅为留痕大纲已核对、明确排除，见 §八 DR-68 | 预科19届大纲核对（能力 11）| ❌ 不做 | DR-68 |
 | TODO-17 | 🎯 **各学科达标条件 + 升学条件的后台配置专题设计**（用户决策 2026-05-30，**本轮 TODO 处理结束后统一设计**）——核查现状：backend 代码**完全无** Program/专业层、无 ProgramAdvancementConfig、无任何达标/升学配置（现仅通用 PracticeGoal/PracticeTask 打卡目标）。需专题设计：(1) **达标条件录入结构**——各学科（加行双维度逐法、净土念佛数、入行论默写…）的达标要求如何用 ProgramAdvancementConfig.targetValue+params 表达（汇总 TODO-9 逐法达标、TODO-13 考试合格线多维矩阵、TODO-12 年龄豁免的配置承载）；(2) **后台管理界面**——subject_admin 录入/编辑各专业达标与升学条件的管理端；(3) **学习情况提醒**——基于配置 + 报数快照，向学员/管理员提示达标进度与差距。**关联面广（后台管理 + 学习提醒），故独立成专题，置于本轮零散 TODO 闭合之后**。**另含两项方法论补强**（检查轮次 35 勘误带出）：(4) **配置表达充分性校验**——验证 ProgramAdvancementConfig.targetValue+params 真能装下各学科达标要求（链路通≠装得下）；(5) **设计 vs 现状代码 gap 盘点**——整份 08 是蓝图，逐表标记「全新待建 / 改造现有 / 已存」，明确实现范围 | 课程达标录入核查（ProgramAdvancementConfig / 后台管理 / 提醒）+ 检查轮次 35 勘误 | 本轮 TODO 处理结束后专题设计 | TODO-9 / TODO-12 / TODO-13 / DR-4 |
