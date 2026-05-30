@@ -1106,6 +1106,7 @@ model EnrollmentStatusHistory {
 | `Course`（法本/课程，旧设计已扩展版，详见下）| 能力 1/3/17 | ✅ 确认复用 |
 | `Lesson`（课时，旧设计 +sourceText 版，详见下）| 能力 3 | ✅ 确认复用 |
 | `Meditation`（观修，旧设计 +4 字段版，详见下）| 能力 3/4 | ✅ 确认复用 |
+| `PracticeProject`（修持项目字典，旧设计 +2 字段版，详见下）| 能力 4/6/7 | ✅ 确认复用 |
 | `ProgramSemester`（科目/学期，字段够用，详见下）| 能力 1 | ✅ 确认复用 |
 | `PracticeLog` | 能力 4/6/7 | ⬜ |
 | `PracticeTemplate` | 能力 4/6/7 | ⬜ |
@@ -1174,6 +1175,21 @@ model EnrollmentStatusHistory {
 **约束**：`@@unique([seriesKey, seriesNumber])`——保证 92 修法每一法唯一。其余字段保留（视频/转图PPT/章节/字幕/发布管理等）。
 
 > **大纲核对佐证**（2026-05-29）：核对《预科19届大纲》§二.1 加行观修要求（92修法逐一观修）后确认，92修法分法记录正由 `seriesKey='92xiufa'` + `seriesNumber(1-92)` + `PracticeLog.meditationId` 实现，字段够用。**Meditation 表字段本身不受影响**——大纲核对发现的 3 个缺口（座次规则 TODO-7、音视频二选一 TODO-8、逐法达标预检 TODO-9）均属判定/配置逻辑层，非 Meditation 表结构问题。密法授权查询方式虽改用 TransmissionRecord（DR-44/45），但同 Course，不影响 `tantricGroupId` 字段。Meditation 字段完全照搬旧设计扩展版。
+
+---
+
+#### PracticeProject 复用说明
+
+旧设计 §2.2 对 PracticeProject（修持项目字典：念佛/念咒/观修/读经等）扩展 2 个字段，核对新设计后有效，判 ✅ 复用：
+
+| 新增字段 | 用途 | 新设计下状态 |
+|---|---|---|
+| `isTantric` | 密法标识：此项目产生的 PracticeLog 在管理端始终可见 | ✅ 有效 |
+| `tantricGroupId` | 密法组（灌顶单位），仅 isTantric=true 时填；按组授权 | ✅ 有效 |
+
+保留字段含 `scope`（旧字段，新系统不依赖，历史数据兼容）。PracticeProject 被 PracticeLog（`practiceProjectId`）、PracticeTemplate（`practiceProjectId`）、§5.3 约修（`practiceProjectId`）引用，是「修什么法」的字典表。密法授权查询方式同 Course/Meditation 迁 TransmissionRecord（DR-44/45），不影响字段。新设计对修持项目字典结构无新增需求，字段照搬旧设计扩展版。
+
+> **关闭 TODO-3**（2026-05-29）：§5.3 约修 `PracticeAppointment.practiceProjectId` 此前为普通 String 字段无 @relation。PracticeProject 确认复用后，在其上补反向关联 `appointments PracticeAppointment[]`，并将 PracticeAppointment.practiceProjectId 升格为正式 FK（`practiceProject PracticeProject @relation(fields: [practiceProjectId], references: [id])`）。TODO-3 由此闭合。
 
 ---
 
@@ -1556,9 +1572,10 @@ model PracticeAppointment {
   // active | completed（目标达成）| expired（到期未完成）| cancelled（取消）
   createdAt         DateTime  @default(now())
 
-  creator      User                           @relation(fields: [creatorId], references: [id])
-  class        Class                          @relation(fields: [classId], references: [id])
-  participants PracticeAppointmentParticipant[]
+  creator         User                           @relation(fields: [creatorId], references: [id])
+  class           Class                          @relation(fields: [classId], references: [id])
+  practiceProject PracticeProject                @relation(fields: [practiceProjectId], references: [id])  // TODO-3 闭合：正式 FK，PracticeProject 上补反向 appointments[]
+  participants    PracticeAppointmentParticipant[]
 
   @@index([classId, status])
 }
@@ -1755,6 +1772,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | 核对《预科19届学修大纲》（4 专业：加行/净土/入行论/学经）与系统完成情况：法本阅读/音频/视频/报数四项基本由 LessonCompletion + PracticeLog 覆盖；发现 3 个能力缺口记入 §十——TODO-7（加行座次计算规则与大纲不一致：系统含0.5座，大纲合并/封顶无0.5）、TODO-8（闻思「音频或视频」二选一须应用层判定，含盲/聋特殊圆满规则）、TODO-9（加行升学「92法逐法达标」预检粒度，AdvancementCheck §3.9 处理）；Meditation 表字段本身不受影响，缺口属判定/配置逻辑层 |
 | 2026-05-29 | §四 Meditation（观修）✅ 复用——旧设计 §2.2 扩展 seriesKey/seriesNumber/isTantric/tantricGroupId 4 字段 + @@unique，大纲核对佐证 92 修法分法字段够用，缺口属判定层（TODO-7/8/9）不影响表结构；§八 DR-67；§九 检查轮次 19（0 问题）|
 | 2026-05-29 | 大纲规则全面盘点：核对预科19届大纲全文 vs 06能力/08设计，找出 7 条未设计规则全部登记 §十——TODO-10（金刚萨埵代替顶礼换算/审批）、TODO-11（法王祈祷文补念状态机）、TODO-12 ⚠️（年龄60岁豁免，无字段无逻辑）、TODO-13 ⚠️（考试合格线多维矩阵：出勤档×开卷闭卷×次数×年龄）、TODO-14（兼修加行）、TODO-15（限制性课程不进考试范围）、TODO-16 ❌（转功德会，用户决策不做）；§八 DR-68（转功德会 ❌ 不做留痕）|
+| 2026-05-29 | §四 PracticeProject（修持项目字典）✅ 复用——旧设计 §2.2 扩展 isTantric/tantricGroupId 2 字段，scope 保留兼容，字段不改；**顺手闭合 TODO-3**：§5.3 约修 practiceProjectId 升格正式 FK，PracticeProject 补反向 appointments[]；§八 DR-69；§九 检查轮次 20（1 问题→当轮闭合 TODO-3）|
 
 ---
 
@@ -1832,6 +1850,7 @@ model UserSelfStudyRestWeek {
 | DR-66 | Lesson 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 仅扩展 sourceText（法本原文，与 referenceText 并存）。Lesson 服务能力 3（闻思圆满），但闻思打卡/答题分别走 LessonCompletion / QuestionReference（§三/§四 处理），Lesson 表只承载课时内容字段，新设计无新增需求。排除「新增进度/状态字段」：进度状态属 LessonCompletion 范畴，Lesson 不冗余存 |
 | DR-67 | Meditation 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 扩展 seriesKey/seriesNumber/isTantric/tantricGroupId 4 字段 + `@@unique([seriesKey, seriesNumber])`。大纲核对佐证 92 修法分法记录由 seriesKey+seriesNumber+PracticeLog.meditationId 实现，字段够用。大纲发现的 3 缺口（座次规则/音视频二选一/逐法达标）均属判定逻辑层，记 TODO-7/8/9，非 Meditation 表结构问题。密法授权同 Course 迁 TransmissionRecord，不影响字段。排除「在 Meditation 上加达标快照字段」：逐法达标是聚合计算结果，属 AdvancementCheck 范畴，不冗余存 |
 | DR-68 | ❌ 转功德会（菩提功德会）是否做 | 不做（永久决策，用户决策 2026-05-29）| 大纲规定：取消学员资格后可转入菩提功德会。功德会是独立于觉学学修体系的组织/系统，「转功德会」属跨系统流程，超出觉学平台范围。觉学只负责到「取消学员资格」为止，之后是否入会、入会流程均不在本系统建模。排除「建功德会入会记录表」：会引入与学修无关的组织管理复杂度。登记 §十 TODO-16 仅为留痕「大纲此条已核对、明确排除」，非待办 |
+| DR-69 | PracticeProject 在新设计下是否需要改字段 + TODO-3 处理 | ✅ 复用，字段不改；顺手闭合 TODO-3（用户决策 2026-05-29）| 旧设计 §2.2 扩展 isTantric/tantricGroupId 2 字段，scope 旧字段保留兼容。PracticeProject 是「修什么法」字典表，被 PracticeLog/PracticeTemplate/约修引用，新设计无新增需求。密法授权同 Course/Meditation 迁 TransmissionRecord，不影响字段。**顺手闭合 TODO-3**：PracticeProject 确认复用后，§5.3 约修 practiceProjectId 升格正式 FK，PracticeProject 补反向 appointments[]——TODO-3 的处理时机正是「PracticeProject 复用确认时」，故一并处理。排除「拆密法项目独立表」：isTantric 标识 + tantricGroupId 已足够区分，无需拆表 |
 
 ---
 
@@ -2219,6 +2238,25 @@ model UserSelfStudyRestWeek {
 **本轮发现问题数**：0。
 **结论**：Meditation 判 ✅ 复用，字段照搬旧设计扩展版（4 字段 + @@unique）。大纲核对佐证 92 修法分法记录字段够用，发现的 3 缺口属判定/配置逻辑层（TODO-7/8/9），不影响 Meditation 表结构。
 
+### 检查轮次 20（2026-05-29，范围：B 类核心表 §四 PracticeProject 复用确认 + TODO-3 闭合）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ⚠️→✅ 已修 | **闭合 TODO-3**：§5.3 PracticeAppointment.practiceProjectId 升格正式 FK `practiceProject PracticeProject @relation`，PracticeProject 上补反向 `appointments PracticeAppointment[]`，关联对称；PracticeProject.tantricGroup↔TantricGroup（旧设计已有反向，TantricGroup §四 ⬜ 待确认）；PracticeLog.practiceProjectId/PracticeTemplate.practiceProjectId 引用旧设计完整 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §四 复用表新增 PracticeProject 一行；其余区计数不变 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | PracticeProject 复用不动；约修 FK 升格属 §5.3 暂缓表，实现时统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 7. 暂缓/不做标签完整 | ✅ | 2 字段标 ✅ 有效；scope 注明保留兼容、新系统不依赖 |
+| 8. 业务规则约束有实现方式 | ✅ | isTantric 管理端始终可见→应用层查询；密法授权→TransmissionRecord EXISTS（DR-44/45）|
+| 9-12. 其余检查项 | ✅/⏸ | D18：PracticeProject 复用不动；TODO-3 闭合后约修反向关联完整 |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | PracticeProject 字典管理对应职能 #16（管理课程内容，class_admin+）|
+| 14. 枚举值各处一致 | ✅ | PracticeProject 无新增 enum；isTantric 布尔与 Course/Meditation 同套密法标识模式 |
+
+**本轮发现问题数**：1（TODO-3 关联不对称）→ 已当轮闭合（补 FK + 反向关联）。
+**结论**：PracticeProject 判 ✅ 复用，字段照搬旧设计扩展版（2 字段）。同步闭合 TODO-3——约修 practiceProjectId 升格正式 FK，PracticeProject 补反向 appointments[]，关联对称。
+
 ---
 
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
@@ -2229,7 +2267,7 @@ model UserSelfStudyRestWeek {
 |---|---|---|---|---|
 | TODO-1 | 掉队判定阈值数据化（近2周窗口、各档比例、lagPracticeDaysExpected）——能力 14 约束 #1 要求阈值为专业配置项(D3)，目前散落代码/User 表 | 1.5 CohortLagSnapshot | Program/专业配置表设计时（扩展区已封板，需在新建区或复用区 Program 相关表处理）| DR-18 |
 | TODO-2 | 共修链接激活时效数据化（提前激活 10 分钟、宽限期 30 分钟）——能力 8 明确「可在专业/班级层配置」(D3)，目前写死在应用层常量 | 1.6 ClassSession | 班级/专业配置表设计时处理 | DR-25 |
-| TODO-3 | PracticeAppointment.practiceProjectId 目前为普通 String 字段，无正式 @relation——待 §四 PracticeProject 复用区确认后，补 `practiceProject PracticeProject @relation(...)` 及 PracticeProject 上的反向 `appointments[]` | §5.3 PracticeAppointment | §四 PracticeProject 复用确认时 | DR-57 |
+| ~~TODO-3~~ ✅ 已闭合 | ~~PracticeAppointment.practiceProjectId 无正式 @relation~~——**已闭合（2026-05-29）**：§四 PracticeProject 确认复用，已在 §5.3 PracticeAppointment 补正式 FK `practiceProject PracticeProject @relation(...)`，PracticeProject 上补反向 `appointments PracticeAppointment[]` | §5.3 PracticeAppointment | ✅ 已处理（DR-69）| DR-57 / DR-69 |
 | TODO-5 | §1.1 Program 恢复 `selfStudy UserSelfStudyProgram[]` 反向关联——当前因自学模式暂缓已移除，实现 §5.4 时须恢复 | §5.4 UserSelfStudyProgram | 自学模式实现时 | DR-64 |
 | TODO-6 | 班级成员请假审批流设计——辅导员及以上审批，含申请/审批状态机/时效失效（与自学休息周解耦，自学无审批）。原 §5.4 审批方案可作此处参考 | §5.4 自学模式修正 | 班级请假功能设计时 | DR-62 |
 | TODO-7 | **加行观修座次计算规则对齐大纲**——系统现 `PracticeLog.sessionCount`（≥30min=1 / ≥15min=0.5 / <15min=0）与预科19届大纲 §二.1 规则不一致：大纲规定「一座<30分钟可几座合并视为一座报数；一座>30分钟不能拆分」，无 0.5 座概念。边界算法须二选一定调（以哪套为准） | 预科19届大纲核对（Meditation/PracticeLog）| 实修报数判定逻辑设计/实现时 | — |
