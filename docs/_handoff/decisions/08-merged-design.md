@@ -2655,6 +2655,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §3.5 ClassInviteCode（邀请码）✅ 封板——expiresAt 必填保证 D11 时效（不允许永久码）；status 只存 active/revoked，expired 实时算不入库（DR-80）；取代旧 Class.joinCode（字段保留兼容、不再生成新码，DR-81）；撤销/过期只影响新加入、入班幂等；生成/撤销限 class_admin+（职能 #5）；§八 DR-80~81；§九 检查轮次 27（0 问题）|
 | 2026-05-29 | §3.6 辅助员（能力 13）建模两轮定案：先尝试并入 §2.1 UserRoleAssignment（第 5 role class_assistant，轮次 28）→ 核对 02-roles-and-permissions-v1.md 发现角色表只有 4 个 role、无 class_assistant，能力 13 亦明确「辅助员不属四大角色」→ **回滚为独立表 AssistantAssignment**（轮次 29）。理由：并入会自创 02 文档未定义的第 5 角色，违反「以文档为准」铁律。独立表忠于文档语义，权限集固定在应用层，与角色体系解耦；§三 新建区维持 14 张；UserRoleAssignment.role 复归四大角色；§八 DR-82（记录两轮过程）；§九 检查轮次 28→29（回滚）|
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
+| 2026-05-30 | **检查轮次 35 勘误**：检查项 9「升学条件可全查」原标 ✅ 过度乐观，下修为 🔵 部分——只验证了链路连通（有 ProgramAdvancementConfig 接住），未验证配置表达充分性（params 能否装下双维度逐法/多维合格线，挂 TODO-9/12/13）；且与 §十 ⚠️ 待决策标签自相矛盾未被检查项 7 抓出。方法论盲区（配置表达充分性 + 设计vs代码gap）并入 TODO-17 |
 | 2026-05-30 | 核查达标/升学配置现状：backend 无 Program 层/无 ProgramAdvancementConfig/无达标配置（仅通用打卡目标）；新增 TODO-17（各学科达标条件+升学条件后台配置专题，含后台管理界面+学习情况提醒），汇总 TODO-9/12/13 配置承载，**置于本轮 TODO 闭合后专题设计** |
 | 2026-05-30 | TODO-8 闭合：闻思圆满「音视频任一算听」（COUNT 合并）；判定矩阵落点 §3.3；StudentSpecialStatus blind=视障类/deaf=听障类覆盖大纲细分（不扩展 statusType，守 DR-76）；盲+聋走能力 5 代行；§八 DR-92；§九 检查轮次 40（0 问题）|
 | 2026-05-30 | TODO-7 闭合：核对能力 4 大纲废弃 0.5 座制，定调「每座 ≥30 分钟、座数 COUNT/时长 SUM 双维度独立计」，放弃短座合并；§1.7 UserPracticeVow.currentSessionCount Decimal→Int + 新增 currentSessionMinutes；§八 DR-91；§九 检查轮次 39（0 问题，2 项实现遗留）|
@@ -3469,7 +3470,7 @@ model UserSelfStudyRestWeek {
 | 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 文档为设计层，Phase 实施计划属后续 |
 | 7. 暂缓/不做标签完整 | ✅ 无问题 | §五 四组暂缓表标签完整；❌ 不做（转功德会 DR-68）标注完整 |
 | 8. 业务规则约束有实现方式 | ✅ 无问题 | 所有约束表格均注明「DB」或「应用层」 |
-| 9. 升学条件可全查 | ✅ 无问题 | 6 类 conditionType 数据源路径完整（§3.1 对照表）|
+| 9. 升学条件可全查 | 🔵 部分（**勘误，2026-05-30**）| **原标「✅ 无问题」过度乐观，已下修。** 链路连通（6 类 conditionType 有 ProgramAdvancementConfig 接住）✅，但**配置表达充分性未验证**：targetValue（单 Int）+ params（单 Json）能否真的装下加行双维度逐法（≥3座且≥90分/法）、考试合格线多维矩阵（出勤档×开卷闭卷×次数×年龄）、年龄豁免资格性逻辑——**均未设计透，挂 TODO-9/12/13（⚠️ 待决策）→ TODO-17 专题**。链路通 ≠ 装得下 |
 | 10. D18 覆盖完整 | ✅ 无问题 | 所有新建/扩展表均有「无 delete API」约束标注 |
 | 11. D17 代行留痕路径完整 | ✅ 无问题 | AuditLog 11 类 actionType 覆盖全部高权限代行路径 |
 | 12. 密法访问控制路径完整 | ✅ 无问题 | TransmissionRecord 替代 TantricAccessGrant，路径完整 |
@@ -3478,6 +3479,8 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：2（均已修复）。
 **结论**：全文档最终一致性检查通过。修复 Prisma 关联对称性（6 处父表补反向关联）+ §1.4 措辞精确化。设计文档全部封板，可进入实施阶段。
+
+> **⚠️ 勘误（2026-05-30，事后发现）**：本轮检查项 9 原标「✅ 无问题」**不准确，已下修为「🔵 部分」**。两点教训：(1) **链路通 ≠ 装得下**——检查项 9 只验证了「有 ProgramAdvancementConfig 接住 6 类条件」（链路连通），未验证「targetValue+params 能否表达加行双维度逐法/考试多维合格线」（表达充分性），而后者挂在 TODO-9/12/13 从未定稿；(2) **自相矛盾未抓出**——TODO-9/12/13 在 §十 标着 ⚠️ 待决策，检查项 9 却标 ✅，同文档两处结论打架，本应被检查项 7（标签完整性）抓到。**方法论盲区**：14 项检查全是「文档内部链路自洽」，缺两个维度——①配置表达能力 vs 业务要求充分性、②设计 vs 现状代码 gap（整份 08 是蓝图，哪些全新待建/改造现有未盘）。①②并入 TODO-17 专题处理。
 
 ---
 
@@ -3595,4 +3598,4 @@ model UserSelfStudyRestWeek {
 | TODO-14 | **兼修加行**——大纲：修心/念佛专业可兼修加行，毕业升密法时加行学修量保留。能力 9 支持多专业，但**「主修 + 兼修」的附修关系**（一个专业挂另一个专业的课程/实修要求）未设计。须确认兼修是独立 UserSelfStudyProgram/班级，还是新建兼修关系字段 | 预科19届大纲核对（能力 9 / 升学指南）| 多专业 / 升学结构设计时 | D9 / D16 |
 | TODO-15 | **限制性课程不进考试范围**——大纲：大学演讲系列 1-18 是限制性课程，不纳入考试范围。Course.category 有 `self_study_book` 区分，但**「考试范围只含正式课程、排除限制性课程」**这条规则未在 Exam/考试范围配置里落点。须确认考试范围按 category 过滤（restricted/self_study_book 排除）| 预科19届大纲核对（Course / Exam / 能力 10）| 考试设计时 | 能力 3 / 能力 10 |
 | TODO-16 | ❌ **转功德会——不做**（用户决策 2026-05-29）——大纲：取消学员资格后可转入菩提功德会。**永久决策：不做**，超出觉学平台范围（功德会是独立组织/系统）。登记于此仅为留痕大纲已核对、明确排除，见 §八 DR-68 | 预科19届大纲核对（能力 11）| ❌ 不做 | DR-68 |
-| TODO-17 | 🎯 **各学科达标条件 + 升学条件的后台配置专题设计**（用户决策 2026-05-30，**本轮 TODO 处理结束后统一设计**）——核查现状：backend 代码**完全无** Program/专业层、无 ProgramAdvancementConfig、无任何达标/升学配置（现仅通用 PracticeGoal/PracticeTask 打卡目标）。需专题设计：(1) **达标条件录入结构**——各学科（加行双维度逐法、净土念佛数、入行论默写…）的达标要求如何用 ProgramAdvancementConfig.targetValue+params 表达（汇总 TODO-9 逐法达标、TODO-13 考试合格线多维矩阵、TODO-12 年龄豁免的配置承载）；(2) **后台管理界面**——subject_admin 录入/编辑各专业达标与升学条件的管理端；(3) **学习情况提醒**——基于配置 + 报数快照，向学员/管理员提示达标进度与差距。**关联面广（后台管理 + 学习提醒），故独立成专题，置于本轮零散 TODO 闭合之后** | 课程达标录入核查（ProgramAdvancementConfig / 后台管理 / 提醒）| 本轮 TODO 处理结束后专题设计 | TODO-9 / TODO-12 / TODO-13 / DR-4 |
+| TODO-17 | 🎯 **各学科达标条件 + 升学条件的后台配置专题设计**（用户决策 2026-05-30，**本轮 TODO 处理结束后统一设计**）——核查现状：backend 代码**完全无** Program/专业层、无 ProgramAdvancementConfig、无任何达标/升学配置（现仅通用 PracticeGoal/PracticeTask 打卡目标）。需专题设计：(1) **达标条件录入结构**——各学科（加行双维度逐法、净土念佛数、入行论默写…）的达标要求如何用 ProgramAdvancementConfig.targetValue+params 表达（汇总 TODO-9 逐法达标、TODO-13 考试合格线多维矩阵、TODO-12 年龄豁免的配置承载）；(2) **后台管理界面**——subject_admin 录入/编辑各专业达标与升学条件的管理端；(3) **学习情况提醒**——基于配置 + 报数快照，向学员/管理员提示达标进度与差距。**关联面广（后台管理 + 学习提醒），故独立成专题，置于本轮零散 TODO 闭合之后**。**另含两项方法论补强**（检查轮次 35 勘误带出）：(4) **配置表达充分性校验**——验证 ProgramAdvancementConfig.targetValue+params 真能装下各学科达标要求（链路通≠装得下）；(5) **设计 vs 现状代码 gap 盘点**——整份 08 是蓝图，逐表标记「全新待建 / 改造现有 / 已存」，明确实现范围 | 课程达标录入核查（ProgramAdvancementConfig / 后台管理 / 提醒）+ 检查轮次 35 勘误 | 本轮 TODO 处理结束后专题设计 | TODO-9 / TODO-12 / TODO-13 / DR-4 |
