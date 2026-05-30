@@ -15,11 +15,11 @@
 
 ---
 
-## 一、🔧 扩展表（10 张）
+## 一、🔧 扩展表（11 张）
 
 旧设计字段为底，按新业务逻辑加字段/改语义。
 
-> 注：ProgramSemester 核对后字段够用改判 ✅ 复用；CohortRecommendedTemplate 核对能力 9 后需扩展（classId→programId）从复用区移入；UserPracticeVow 剥离班级任务重新定位为纯发愿表。User 旧设计 13 字段全部复用，但新增 `birthDate`（年龄豁免数据源）从复用区移入扩展区。扩展区最终 10 张。
+> 注：ProgramSemester 核对后字段够用改判 ✅ 复用；CohortRecommendedTemplate 核对能力 9 后需扩展（classId→programId）从复用区移入；UserPracticeVow 剥离班级任务重新定位为纯发愿表。User 旧设计 13 字段全部复用，但新增 `birthDate`（年龄豁免数据源）从复用区移入扩展区。Class 旧设计 6 字段全部复用，但新增归档三件套（status/archivedAt/archivedBy，D19）从复用区移入扩展区。扩展区最终 11 张。
 
 ---
 
@@ -680,6 +680,65 @@ model User {
 | `accessibilityNeeds` 取值 ['blind','deaf'] | 应用层 | 盲/聋强制圆满路径数据源 |
 | 年龄豁免非自动 | 应用层 | 年满 60 仅获资格；实际免考走能力 5 代行豁免、留痕（D17）|
 | 档案不物理删除（D18）| 应用层 | 退出/毕业后档案永久保留 |
+
+---
+
+### 1.10 Class（班级）✅ 已封板
+
+**服务能力**：能力 2（学员加入）+ 能力 8（共修出勤）+ 能力 11（留级/退出/归档）+ 能力 14（掉队检测）
+**写权限**：班级创建/配置 `class_admin` 及以上；`currentWeekOverride` 辅导员可调（本班）；归档（`status=archived`）`class_admin` 及以上手动操作
+**参考决策**：D19（班级只归档不物理删除）、能力 11 §4；新增归档三件套见 DR-71
+
+> **判定**：旧设计 §2.2 已扩展 6 个字段，核对后全部有效复用。本表本可纯复用，但 D19 + 能力 11 §4 明确要求班级**归档**（`status: archived`，不物理删除），旧设计 Class 无归档状态字段，**新增 status/archivedAt/archivedBy 归档三件套**，故从复用区移入扩展区，判 🔧 扩展。
+
+#### 旧设计 6 字段（全部复用，不改）
+
+| 字段 | 用途 | 状态 |
+|---|---|---|
+| `programId` | 所属科系（关联 Program）| ✅ 复用 |
+| `startDate` | 班级起始日期（周号算法基准：当前周 = 自然周数 − 休息周数）| ✅ 复用 |
+| `city` | 班级所在城市 | ✅ 复用 |
+| `timezone` | IANA 时区（共修/讲考场次时间按此展示）| ✅ 复用 |
+| `currentWeekOverride` | 辅导员手动覆盖本班当前周号（null=startDate 自动算）| ✅ 复用 |
+| `lagPracticeDaysExpected` | 掉队检测·近 2 周期望打卡天数（taskLag 分母，默认 10）| ✅ 复用 |
+
+保留字段：`joinCode` / `name` / `courseId`（语义更新为「当前主修法本」，辅导员可切换）。
+
+#### 新增字段（归档三件套）
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `status` | String | `active`（默认）/ `archived`（归档）；归档后不接受新成员、不产生新课表/出勤 | **新增** |
+| `archivedAt` | DateTime? | 归档时间 | **新增** |
+| `archivedBy` | String? | 归档操作人 userId | **新增** |
+
+```prisma
+model Class {
+  // ... 旧设计现有字段保留（joinCode / name / courseId 等）...
+  // ... §2.2 扩展 6 字段保留（programId/startDate/city/timezone/
+  //     currentWeekOverride/lagPracticeDaysExpected）...
+
+  // 新增（D19 归档，不物理删除）
+  status     String    @default("active")  // active / archived
+  archivedAt DateTime?
+  archivedBy String?   // 归档操作人 userId
+}
+```
+
+#### 归档规则（D19）
+
+- 班级**不可物理删除**：承载学员出勤/报数/成绩等大量历史事件，删除违反 D18
+- 只能**归档**：`status='archived'` 后不接受新学员加入、不产生新课表和出勤，但历史数据完整保留、管理端可查
+- 归档触发：本届所有学员升学或退出后，由**管理员手动**归档（不自动触发）
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| 归档后禁止新成员/新课表/新出勤 | 应用层 | `status='archived'` 时拦截写操作 |
+| 归档手动触发 | 应用层 | 系统不自动归档；class_admin+ 手动操作 |
+| 不物理删除（D19）| 应用层 | 无 delete API；只能 `status=archived` |
+| `status` 枚举 | 应用层（或 Prisma enum）| 只允许 active/archived |
 
 ---
 
@@ -1846,6 +1905,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | 大纲规则全面盘点：核对预科19届大纲全文 vs 06能力/08设计，找出 7 条未设计规则全部登记 §十——TODO-10（金刚萨埵代替顶礼换算/审批）、TODO-11（法王祈祷文补念状态机）、TODO-12 ⚠️（年龄60岁豁免，无字段无逻辑）、TODO-13 ⚠️（考试合格线多维矩阵：出勤档×开卷闭卷×次数×年龄）、TODO-14（兼修加行）、TODO-15（限制性课程不进考试范围）、TODO-16 ❌（转功德会，用户决策不做）；§八 DR-68（转功德会 ❌ 不做留痕）|
 | 2026-05-29 | §四 PracticeProject（修持项目字典）✅ 复用——旧设计 §2.2 扩展 isTantric/tantricGroupId 2 字段，scope 保留兼容，字段不改；**顺手闭合 TODO-3**：§5.3 约修 practiceProjectId 升格正式 FK，PracticeProject 补反向 appointments[]；§八 DR-69；§九 检查轮次 20（1 问题→当轮闭合 TODO-3）|
 | 2026-05-29 | §1.9 User 🔧 扩展封板——旧设计 13 字段全部复用 + **新增 birthDate**（年龄豁免数据源），从复用区移入扩展区（9→10 张）；正式写入 **60 岁年龄豁免规则**：做成「资格性、非自动」（年满 60 仅获免考资格，实际免考走能力 5 代行留痕 D17），区别于盲/聋强制豁免（能力 3 自动判定路径）；TODO-12 收窄为仅剩逻辑层（字段已就位）；§八 DR-70；§九 检查轮次 21（0 问题）|
+| 2026-05-29 | §1.10 Class 🔧 扩展封板——旧设计 6 字段全部复用 + **新增归档三件套** status/archivedAt/archivedBy（D19），从复用区移入扩展区（10→11 张）；班级只归档（status=archived）不物理删除，归档后禁新成员/课表/出勤、手动触发、历史保留；§八 DR-71；§九 检查轮次 22（0 问题）；**B 类核心表全部完成**（Course/Lesson/Meditation/PracticeProject ✅ 复用，User/Class 🔧 扩展）|
 
 ---
 
@@ -1925,6 +1985,7 @@ model UserSelfStudyRestWeek {
 | DR-68 | ❌ 转功德会（菩提功德会）是否做 | 不做（永久决策，用户决策 2026-05-29）| 大纲规定：取消学员资格后可转入菩提功德会。功德会是独立于觉学学修体系的组织/系统，「转功德会」属跨系统流程，超出觉学平台范围。觉学只负责到「取消学员资格」为止，之后是否入会、入会流程均不在本系统建模。排除「建功德会入会记录表」：会引入与学修无关的组织管理复杂度。登记 §十 TODO-16 仅为留痕「大纲此条已核对、明确排除」，非待办 |
 | DR-69 | PracticeProject 在新设计下是否需要改字段 + TODO-3 处理 | ✅ 复用，字段不改；顺手闭合 TODO-3（用户决策 2026-05-29）| 旧设计 §2.2 扩展 isTantric/tantricGroupId 2 字段，scope 旧字段保留兼容。PracticeProject 是「修什么法」字典表，被 PracticeLog/PracticeTemplate/约修引用，新设计无新增需求。密法授权同 Course/Meditation 迁 TransmissionRecord，不影响字段。**顺手闭合 TODO-3**：PracticeProject 确认复用后，§5.3 约修 practiceProjectId 升格正式 FK，PracticeProject 补反向 appointments[]——TODO-3 的处理时机正是「PracticeProject 复用确认时」，故一并处理。排除「拆密法项目独立表」：isTantric 标识 + tantricGroupId 已足够区分，无需拆表 |
 | DR-70 | User 是否纯复用 + 60 岁年龄豁免如何建模 | 🔧 扩展：新增 `birthDate`；年龄豁免做成「资格性、非自动」（用户决策 2026-05-29）| 旧设计 13 字段全部有效复用。但 60 岁免考是大纲硬规则、需年龄数据源，User 上无生日字段，故新增 `birthDate`，判 🔧 扩展（从复用区移入）。**关键区分**（用户决策）：盲/聋是身体缺陷→**强制**豁免（能力 3 自动切判定路径）；60 岁是**资格**豁免→年满 60 仅获免考资格，**不自动满足考试条件**，实际免考走能力 5 代行（管理员显式确认、留痕 D17）。理由：部分老人有能力正常完成加行/考试，应允许其正常考、正常计成绩，不能一刀切自动免。排除「年龄≥60 自动置 exam_score 满足」：会剥夺有能力老人正常应考的选择，且与「豁免是个案、可选、留痕」的能力 5 哲学冲突。birthDate 字段先就位，完整豁免逻辑在升学条件配置阶段做（TODO-12 收窄为仅剩逻辑层）|
+| DR-71 | Class 是否纯复用 + 班级归档如何建模 | 🔧 扩展：新增归档三件套 status/archivedAt/archivedBy（用户决策 2026-05-29）| 旧设计 §2.2 已扩展 6 字段（programId/startDate/city/timezone/currentWeekOverride/lagPracticeDaysExpected）全部有效复用。但 D19 + 能力 11 §4 明确「班级只归档不物理删除（status: archived）」，旧设计 Class 无归档状态字段，能力 11「对老项目影响」也写明「老项目班级可能有删除操作，需改为归档」。故新增 status（active/archived）+ archivedAt + archivedBy，判 🔧 扩展（从复用区移入）。归档后不接受新成员/新课表/新出勤，历史完整保留；手动触发（不自动）。排除「物理删除班级」：违反 D18/D19，破坏出勤/报数/成绩历史完整性。排除「沿用 isActive 布尔」：归档需留痕（时间+操作人），布尔不够，用 status 字符串 + archivedAt/archivedBy 三件套 |
 
 ---
 
@@ -2349,6 +2410,25 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0。
 **结论**：User 判 🔧 扩展（13 旧字段复用 + birthDate 新增）。60 岁年龄豁免做成「资格性、非自动」，与盲/聋强制豁免分层清晰：盲聋走能力 3 自动判定路径，年龄走能力 5 个案代行（留痕）。birthDate 字段就位，TODO-12 收窄为仅剩升学阶段的豁免逻辑层。
+
+### 检查轮次 22（2026-05-29，范围：§1.10 Class 扩展封板 + 班级归档规则）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | Class 新增 status/archivedAt/archivedBy 为普通字段无关联；Class 既有海量反向关联（members/admins/restWeeks/posts/discussions/speakingSessions/exams/events 等）旧设计完整，本次不动 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §一 扩展区 10→11 张（Class 从复用区移入）；标题与注记已同步更新为 11 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 本次仅 Class 加 status/archivedAt/archivedBy（status 带默认 active）；待全表统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 7. 暂缓/不做标签完整 | ✅ | 6 旧字段逐一标 ✅ 复用；归档三件套标新增；D19 归档规则明确 |
+| 8. 业务规则约束有实现方式 | ✅ | 归档后禁写→应用层；手动归档→应用层；不物理删→应用层无 delete；status 枚举→应用层/Prisma enum |
+| 9-12. 其余检查项 | ✅/⏸ | D19：班级只归档（status=archived）不物理删；D18：历史数据完整保留；归档留痕（archivedAt/archivedBy）|
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | 班级配置/归档对应 class_admin+（职能范畴）；currentWeekOverride 辅导员可调（本班）|
+| 14. 枚举值各处一致 | ✅ | status 两值（active/archived）在字段表/schema/约束/归档规则一致；与 ClassMember.cohortStatus（成员状态，5 态）是不同维度，不冲突 |
+
+**本轮发现问题数**：0。
+**结论**：Class 判 🔧 扩展（6 旧字段复用 + 归档三件套）。D19 班级归档落地：status=archived 不接受新成员/新课表/新出勤，历史完整保留，手动触发，不物理删除。**至此 B 类核心表全部完成**（Course/Lesson/Meditation/PracticeProject ✅ 复用；User/Class 🔧 扩展）。
 
 ---
 
