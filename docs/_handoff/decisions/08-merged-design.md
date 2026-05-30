@@ -1440,7 +1440,52 @@ model AssistantAssignment {
 
 ---
 
-### 3.8 ReportConfession（虚报忏悔记录）⬜ 未开始
+### 3.8 ReportConfession（虚报忏悔记录）✅ 已封板
+
+**服务能力**：能力 9（学期报数）虚报治理规则 #10
+**写权限**：学员自助提交（content/submittedAt）；管理员确认（status/reviewedBy/reviewedAt/adminNote）
+**参考决策**：D17（代行留痕）、D18（忏悔记录永不删除）、能力 9 规则 #4、DR-84
+
+虚报治理流程中，管理员标记虚报（CareWatchlistItem.triggerType=`false_report`）后要求学员提交书面忏悔，学员撰写正文提交记录；管理员审阅后确认（acknowledged）。拒绝忏悔 / 再次虚报的学员走职能 #14（取消资格），触发 ClassMember 状态变更 + AuditLog，与本表解耦。
+
+#### 字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | **新增** |
+| `userId` | String | 提交忏悔的学员 | **新增** |
+| `classId` | String | 所在班级 | **新增** |
+| `watchlistItemId` | String? | 关联触发此忏悔的 CareWatchlistItem（false_report 类型）；可空（兼容不经过清单直接要求的情况）| **新增** |
+| `content` | String | 书面忏悔正文（学员撰写）| **新增** |
+| `status` | String | `submitted`（已提交待确认）/ `acknowledged`（管理员已确认，流程正常结束），默认 submitted | **新增** |
+| `submittedAt` | DateTime | 提交时刻，默认 now() | **新增** |
+| `reviewedBy` | String? | 确认的管理员 userId | **新增** |
+| `reviewedAt` | DateTime? | 管理员确认时刻 | **新增** |
+| `adminNote` | String? | 管理员批注 | **新增** |
+| `createdAt` | DateTime | 创建时间，默认 now() | **新增** |
+
+#### 关联
+
+| 关联 | 说明 |
+|---|---|
+| `user User` | 必填，@relation(userId) |
+| `class Class` | 必填，@relation(classId) |
+| `watchlistItem CareWatchlistItem?` | 可空，@relation(watchlistItemId)；实现时 CareWatchlistItem 补反向 `confessions ReportConfession[]` |
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| status 枚举 | 应用层 | 只允许 submitted / acknowledged |
+| acknowledged 必须有 reviewedBy/reviewedAt | 应用层 | 状态变更时校验字段完整性 |
+| 无 delete API | 应用层 | D18，忏悔记录永久留档 |
+| 拒绝忏悔不在本表记录（DR-84）| 应用层 | 学员拒绝即无记录；管理员走取消资格（职能 #14）+ AuditLog |
+
+#### 设计意图
+
+status 只有两态（`submitted`/`acknowledged`），不引入 `refused`/`escalated`（DR-84）：拒绝忏悔的学员本表无记录，管理员直接走取消资格 + AuditLog 留痕；「虚报处理必须先走忏悔流程，不可跳过」（能力 9 规则 #4）由应用层在取消资格前检查本表是否存在 submitted 记录来保障。
+
+---
 
 ### 3.9 AdvancementCheck（升学资格预检报告）⬜ 未开始
 
@@ -2327,6 +2372,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §3.5 ClassInviteCode（邀请码）✅ 封板——expiresAt 必填保证 D11 时效（不允许永久码）；status 只存 active/revoked，expired 实时算不入库（DR-80）；取代旧 Class.joinCode（字段保留兼容、不再生成新码，DR-81）；撤销/过期只影响新加入、入班幂等；生成/撤销限 class_admin+（职能 #5）；§八 DR-80~81；§九 检查轮次 27（0 问题）|
 | 2026-05-29 | §3.6 辅助员（能力 13）建模两轮定案：先尝试并入 §2.1 UserRoleAssignment（第 5 role class_assistant，轮次 28）→ 核对 02-roles-and-permissions-v1.md 发现角色表只有 4 个 role、无 class_assistant，能力 13 亦明确「辅助员不属四大角色」→ **回滚为独立表 AssistantAssignment**（轮次 29）。理由：并入会自创 02 文档未定义的第 5 角色，违反「以文档为准」铁律。独立表忠于文档语义，权限集固定在应用层，与角色体系解耦；§三 新建区维持 14 张；UserRoleAssignment.role 复归四大角色；§八 DR-82（记录两轮过程）；§九 检查轮次 28→29（回滚）|
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
+| 2026-05-30 | §3.8 ReportConfession（虚报忏悔记录）✅ 封板——status 只有 submitted/acknowledged 两态（DR-84）；拒绝忏悔不在本表记录，管理员直接走取消资格（职能 #14）+ AuditLog 解耦；watchlistItemId 可空兼容不经 CareWatchlist 直接要求忏悔的情况；「先忏悔再取消资格」业务规则由应用层检查 submitted 记录保障；§八 DR-84；§九 检查轮次 31（0 问题）|
 
 ---
 
@@ -2420,6 +2466,7 @@ model UserSelfStudyRestWeek {
 | DR-82 | 辅助员（能力 13）是否单建表 | **独立建表 AssistantAssignment**（用户决策 2026-05-29，经核对 02 文档后回滚定案）| 决策经历两轮：先尝试「并入 UserRoleAssignment 作第 5 个 role class_assistant」（图复用角色机制）；后核对 02-roles-and-permissions-v1.md §一——角色表**只有 4 个 role**（class_tutor/class_admin/subject_admin/super_admin）+ student，**class_assistant 不在其中**；能力 13 亦明确「辅助员不属于四大管理角色」，02 文档仅以职能 #19 的操作对象形式承载它。并入会让角色表自创一个文档未定义的第 5 角色，违反 CLAUDE.md「业务规则以 02/05/06 为准、不凭印象自创」铁律，且权限模型分裂（四大靠继承、辅助员靠固定权限集+禁区）。**回滚为独立表**：AssistantAssignment 单表，权限集固定在应用层，与角色体系解耦，忠于 02 文档语义。代价是重写一遍 status/留痕（可接受，配对量小、逻辑简单）。§三 新建区维持 14 张 |
 | DR-83-A | SemesterSnapshot.snapshotData 字段类型 | **Json**（用户决策 2026-05-30）| 各科系汇报维度不同（加行有座次/顶礼，净土有念佛数，入行论有默写），若拆成独立列需为每个科系建不同 schema 或预留大量 nullable 列。Json 方案：一张表覆盖全部科系，维度差异封装在 Json 内，新科系扩展无需 migration；同 CohortWeeklySummary.summaryData 已验证此模式。排除「拆列」：过多 nullable 列且不同科系列集合不同，维护成本高于 Json |
 | DR-83-B | SemesterSnapshot 快照值是否可改 | **冻结（不可改）**，事后更正走 AuditLog（用户决策 2026-05-30）| 快照目的是「在节点截止时刻留下永久数据证据」，若允许事后修改则历史评估结论失去可信基础（违背 D18 不删、不改的永久档原则）。admin 事后代行更正（如学员补报遗漏数据）只产生 AuditLog 条目说明更正原因和更正人，快照本身不变。排除「允许 admin 改快照」：一旦可改，任何历史争议时快照都不再是权威；排除「有限度可改+版本号」：引入版本机制复杂度高、且无此需求的业务场景 |
+| DR-84 | ReportConfession status 是否包含「拒绝忏悔」状态 | **不包含**，status 只有 submitted/acknowledged（用户决策 2026-05-30）| 能力 9「拒绝忏悔」指学员拒绝提交、本表根本无记录，而非提交后再拒绝的中间状态。拒绝后走职能 #14 取消资格 → ClassMember 状态变更 + AuditLog 留痕，与 ReportConfession 表完全解耦。排除「status=refused」：学员拒绝时本表无记录（管理员无法写入 refused），引入该值无实际写入路径；排除「status=escalated」：取消资格是独立的 ClassMember 操作，不应耦合进忏悔记录的状态机。「虚报处理必须先走忏悔流程」（能力 9 规则 #4）由应用层在取消资格前检查本表是否有 submitted 记录来保障 |
 
 ---
 
@@ -3019,6 +3066,27 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0。
 **结论**：§3.7 SemesterSnapshot 封板。snapshotData=Json（DR-83-A，跨科系灵活扩展）；快照冻结不可改（DR-83-B，事后更正走 AuditLog）；@@unique([userId, programId, semesterNumber, reportNodeIndex]) 保证节点唯一性。
+
+---
+
+### 检查轮次 31（2026-05-30，范围：§3.8 ReportConfession 封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | ReportConfession→User/Class/CareWatchlistItem；CareWatchlistItem 须补 `confessions ReportConfession[]` 反向关联（实现时处理）|
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §三 新建区 14 张不变 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 新表 report_confessions 待统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 7. 暂缓/不做标签完整 | ✅ | 无暂缓功能；拒绝忏悔不在本表（DR-84）明确标注 |
+| 8. 业务规则约束有实现方式 | ✅ | status 两态枚举→应用层；acknowledged 必须 reviewedBy/At→应用层；无 delete→应用层 D18；「先忏悔再取消资格」→应用层检查 submitted 记录 |
+| 9-12. 其余检查项 | ✅/⏸ | D18：无 delete API；D17：reviewedBy 留管理员身份；取消资格路径→ClassMember+AuditLog 解耦 |
+| 13. 02 文档 23 职能写表覆盖 | ✅ | 学员提交=自助；管理员确认=职能隐含（class_admin+）；职能 #14 取消资格走 ClassMember，与本表解耦 |
+| 14. 枚举值各处一致 | ✅ | status: submitted/acknowledged，无新 enum |
+
+**本轮发现问题数**：0。
+**结论**：§3.8 ReportConfession 封板。status 两态（submitted/acknowledged），拒绝忏悔场景不在本表记录（DR-84），取消资格由 ClassMember + AuditLog 独立处理。
 
 ---
 
