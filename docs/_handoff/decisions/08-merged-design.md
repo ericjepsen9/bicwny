@@ -1099,7 +1099,70 @@ model RoleAssignmentHistory {
 
 ---
 
-### 3.3 StudentSpecialStatus（特殊身份）⬜ 未开始
+### 3.3 StudentSpecialStatus（特殊身份）✅ 已封板
+
+**服务能力**：能力 12（特殊身份学员关怀）
+**写权限**：`class_admin` 及以上认定/撤销（职能 #13「学员特殊身份变更认证」）；辅导员无权
+**参考决策**：D18（认定/撤销永久留痕）、能力 12、DR-76、DR-77
+
+> **关键约束**：身份**只有 `blind`/`deaf` 两种，不可扩展**（能力 12 绝对约束 #1）。其他任何特殊情况一律走能力 5 管理员代行豁免，不进本表。
+
+#### 字段
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `userId` | String | 被认定学员 |
+| `statusType` | String | `blind`（盲）/ `deaf`（聋）——仅两值，应用层强校验 |
+| `status` | String | `active`（生效）/ `revoked`（已撤销），默认 active |
+| `recognizedAt` | DateTime | 认定时间，默认 now() |
+| `recognizedBy` | String | 认定人 userId（class_admin+）|
+| `revokedAt` | DateTime? | 撤销时间 |
+| `revokedBy` | String? | 撤销人 userId |
+| `note` | String? | 认定/撤销备注 |
+
+#### Prisma schema
+
+```prisma
+model StudentSpecialStatus {
+  id           String    @id @default(cuid())
+  userId       String
+  statusType   String    // blind / deaf（仅两值，不可扩展）
+  status       String    @default("active")  // active / revoked
+  recognizedAt DateTime  @default(now())
+  recognizedBy String    // 认定人 userId（class_admin+）
+  revokedAt    DateTime?
+  revokedBy    String?
+  note         String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, statusType])  // 同一人同一类型唯一；撤销后重认走复活
+  @@index([userId])
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `@@unique([userId, statusType])` | DB | 同一人同一类型一条记录；可同时盲+聋（两条），撤销后重认复活同行（DR-77）|
+| statusType ∈ {blind, deaf} | 应用层 | 能力 12 绝对约束 #1，不可扩展 |
+| 认定限 class_admin+ | 应用层 | 职能 #13 |
+| 撤销走 status='revoked'，不物理删（D18）| 应用层 | 历史记录永久保留，无 delete API |
+| 闻思路径自动切换 | 应用层 | active 的 blind/deaf → 能力 3 圆满判定按身份分支 |
+| 与 User.accessibilityNeeds 双写同步 | 应用层 | 认定/撤销时同步更新 User.accessibilityNeeds 快照（DR-76）|
+
+#### 设计意图（与 User.accessibilityNeeds 的关系）
+
+本表与 §1.9 `User.accessibilityNeeds String[]` 是「留痕表 + 快照」关系（同 §3.12 EnrollmentStatusHistory 与 ClassMember.statusChanged* 模式）：
+
+- **StudentSpecialStatus** = 认定**过程**留痕——谁认定、何时、撤销历史，append-only 永久保留（D18）
+- **User.accessibilityNeeds** = 当前生效状态的**快照**——能力 3 闻思判定直接读，无需 join 本表，性能优先
+
+认定/撤销时应用层事务同步双写：写本表一条记录 + 更新 User.accessibilityNeeds 数组（加/移除对应值）。闻思圆满判定只读快照，审计/历史查本表。
+
+---
 
 ### 3.4 CareWatchlistItem（关怀清单条目）⬜ 未开始
 
@@ -1991,6 +2054,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §1.10 Class 🔧 扩展封板——旧设计 6 字段全部复用 + **新增归档三件套** status/archivedAt/archivedBy（D19），从复用区移入扩展区（10→11 张）；班级只归档（status=archived）不物理删除，归档后禁新成员/课表/出勤、手动触发、历史保留；§八 DR-71；§九 检查轮次 22（0 问题）；**B 类核心表全部完成**（Course/Lesson/Meditation/PracticeProject ✅ 复用，User/Class 🔧 扩展）|
 | 2026-05-29 | C 类 §四 复用表确认完成：15 张批量 ✅ 复用（PracticeLog/PracticeTemplate/LessonCompletion/PracticeJournal/QuestionReference/LessonResource/LessonMediaChapter/LessonTextBlock/ProgramWeek/ProgramWeekCourse/ProgramWeekPractice/ProgramStudyType/CohortRestWeek/Event/EventCount/SpeakingRegistration/CohortWeeklySummary）；TantricGroup 🔧 微调（删悬空 grants TantricAccessGrant[]，补 transmissionRecords TransmissionRecord[]，闭合检查轮次 11 已知项）；AI 助手 5 张 ⏸ 暂缓（独立模块）；§八 DR-72~74；§九 检查轮次 23（1 问题→当轮闭合）；**§四 复用区全部确认完成** |
 | 2026-05-29 | §三 新建区开始：§3.2 RoleAssignmentHistory（角色变更留痕）✅ 封板——与 §3.12 EnrollmentStatusHistory 对称的 append-only 留痕表；role/classId/programId 冗余存变更那一刻快照（审计可回溯，DR-75）；反向关联与 §2.1 UserRoleAssignment.history 成对；§八 DR-75；§九 检查轮次 24（0 问题）|
+| 2026-05-29 | §3.3 StudentSpecialStatus（特殊身份）✅ 封板——blind/deaf 两类不可扩展（能力 12 绝对约束）；与 User.accessibilityNeeds 留痕+快照双写（认定过程留痕 vs 当前生效快照，DR-76）；@@unique([userId,statusType]) 防重、撤销后复活同行（DR-77）；认定/撤销限 class_admin+（职能 #13）；§八 DR-76~77；§九 检查轮次 25（0 问题）|
 
 ---
 
@@ -2075,6 +2139,8 @@ model UserSelfStudyRestWeek {
 | DR-73 | TantricGroup 反向关联如何处理 | 🔧 微调：删 grants，补 transmissionRecords（用户决策 2026-05-29）| TantricGroup 字段本身有效，但 `grants TantricAccessGrant[]` 反向关联悬空——TantricAccessGrant 已在 DR-44 废弃整合入 TransmissionRecord。删除 grants，新增 `transmissionRecords TransmissionRecord[]`（TransmissionRecord.tantricGroupId 指向本组，sourceType=empowerment 表达灌顶授权）。密法访问控制改为 EXISTS on TransmissionRecord（DR-44/45）。此微调闭合检查轮次 11 标记的已知项。排除「保留 grants 空关联」：悬空关联指向已删除 model，Prisma 校验不通过 |
 | DR-74 | AI 助手 5 张表（ContentChunk/FeatureEntry/AiConversation/AiMessage/AiUsage）是否纳入本次融合 | ⏸ 暂缓（独立 AI 模块，用户决策 2026-05-29）| AI 助手是独立功能模块（详见 docs/AI_ASSISTANT_PLAN.md），决策定型但未实施，依赖 pgvector 扩展，UI/Tier 2-4 均暂缓。不属本次「学修体系融合」范围。统一标 ⏸ 暂缓，不在本文档展开字段级设计；待 AI 模块独立推进时处理。排除「纳入本次复用确认」：AI 模块边界独立，混入会扩散本次融合范围 |
 | DR-75 | RoleAssignmentHistory 角色/作用域字段是否冗余存当时值 | 冗余存变更那一刻的 role/classId/programId（用户决策 2026-05-29）| 审计要能回溯「那一刻这个人是什么角色、管哪个班」，UserRoleAssignment 后续被改/撤销不应影响历史快照。排除「只存 assignmentId，运行时 join 读当前值」：join 读到的是当前值非历史值，无法还原变更那一刻的真相，违反审计不可变原则。与 §3.12 EnrollmentStatusHistory 同为 append-only 留痕表，结构对称（一记角色链、一记入学状态链）|
+| DR-76 | StudentSpecialStatus 与 User.accessibilityNeeds 的关系 | 留痕表 + 快照双写（用户决策 2026-05-29）| StudentSpecialStatus 存认定过程留痕（谁认定/何时/撤销历史，D18 append-only）；User.accessibilityNeeds 存当前生效快照（能力 3 闻思判定直接读，无需 join）。认定/撤销时应用层事务同步双写。同 §3.12 与 ClassMember.statusChanged* 的「留痕+快照」模式。排除「只保留一处」：只留 accessibilityNeeds 丢失认定历史（违反 D18）；只留 StudentSpecialStatus 则每次闻思判定要 join 查 active 记录，性能差 |
+| DR-77 | StudentSpecialStatus 是否加 @@unique([userId, statusType]) | 加（用户决策 2026-05-29）| 一个人可同时盲+聋（两条记录，statusType 不同），但同一人同一类型不应有多条 active。`@@unique([userId, statusType])` 保证唯一；撤销后重新认定走复活同行（status: revoked→active），不新建重复行。同 ClassMember `@@unique([classId, userId])` 复活模式。排除「不加唯一约束」：重复认定会产生多条同类型记录，统计/判定混乱 |
 
 ---
 
@@ -2556,6 +2622,25 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：0。
 **结论**：§3.2 RoleAssignmentHistory 封板。与 §3.12 EnrollmentStatusHistory 对称的 append-only 留痕表，冗余存变更那一刻的角色/作用域快照（DR-75），审计可回溯历史真相。反向关联与 §2.1 成对，无悬空。
+
+### 检查轮次 25（2026-05-29，范围：§3.3 StudentSpecialStatus 封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | StudentSpecialStatus.user↔User（User 既有海量反向关联，实现时补 specialStatuses[] 即可）；本表无其他外键 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §三 新建区 14 张不变（StudentSpecialStatus 由 ⬜ 转 ✅）|
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | statusType 仅 blind/deaf 不可扩展明确；双写快照有 DR-76 |
+| 8. 业务规则约束有实现方式 | ✅ | 唯一→DB @@unique([userId,statusType])；statusType 值域/认定权限/撤销不删/双写→应用层 |
+| 9-12. 其余检查项 | ✅/⏸ | D18：撤销 status=revoked 不物理删；认定/撤销留痕；闻思路径切换走能力 3（应用层读 accessibilityNeeds 快照）|
+| 13. 02 文档 23 职能写表覆盖 | ✅ | 认定/撤销对应职能 #13（class_admin+），与能力 12 绝对约束 #3 一致 |
+| 14. 枚举值各处一致 | ✅ | statusType（blind/deaf）与 User.accessibilityNeeds 取值一致、与能力 12/能力 3 一致；status（active/revoked）与其他留痕表一致 |
+
+**本轮发现问题数**：0。
+**结论**：§3.3 StudentSpecialStatus 封板。blind/deaf 两类不可扩展（能力 12 绝对约束）；与 User.accessibilityNeeds 留痕+快照双写（DR-76）；@@unique([userId,statusType]) 防重、撤销后复活（DR-77）。
 
 ---
 
