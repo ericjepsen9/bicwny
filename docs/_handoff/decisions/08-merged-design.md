@@ -1043,7 +1043,61 @@ model ProgramAdvancementConfig {
 
 ---
 
-### 3.2 RoleAssignmentHistory（角色变更留痕）⬜ 未开始
+### 3.2 RoleAssignmentHistory（角色变更留痕）✅ 已封板
+
+**服务能力**：能力 18（角色与权限）+ 能力 20（审计）
+**写权限**：系统自动写入（每次 UserRoleAssignment 状态变更时追加；seed 建时 changedBy=`system`）
+**参考决策**：D8（多角色+作用域）、D18（append-only 不物理删除）、DR-75
+
+> **设计意图**：与 §3.12 EnrollmentStatusHistory 对称——一个记「角色任命/撤销」链路，一个记「入学状态」链路。UserRoleAssignment 上的 `assignedAt/revokedAt` 是当前状态快照（最近一次），本表存**完整变更链**（任命→撤销→再任命…）。反向关联 `assignment UserRoleAssignment` 与 §2.1 UserRoleAssignment 的 `history RoleAssignmentHistory[]` 成对。
+
+#### 字段
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String | cuid |
+| `assignmentId` | String | 关联 UserRoleAssignment |
+| `action` | String | `assigned`（任命）/ `revoked`（撤销）/ `reactivated`（重新激活）|
+| `role` | String | **冗余**：变更那一刻的角色（class_tutor/class_admin/subject_admin/super_admin）|
+| `classId` | String? | **冗余**：变更那一刻的班级作用域 |
+| `programId` | String? | **冗余**：变更那一刻的专业作用域 |
+| `changedAt` | DateTime | 变更时间，默认 now() |
+| `changedBy` | String | 操作人 userId（seed 建时 `system`）|
+| `reason` | String? | 变更原因（撤销原因等）|
+
+#### Prisma schema
+
+```prisma
+model RoleAssignmentHistory {
+  id           String   @id @default(cuid())
+  assignmentId String
+  action       String   // assigned / revoked / reactivated
+  role         String   // 冗余：变更那一刻的角色
+  classId      String?  // 冗余：变更那一刻的班级作用域
+  programId    String?  // 冗余：变更那一刻的专业作用域
+  changedAt    DateTime @default(now())
+  changedBy    String   // 操作人 userId；seed 建时 "system"
+  reason       String?
+
+  assignment UserRoleAssignment @relation(fields: [assignmentId], references: [id])
+
+  @@index([assignmentId])
+}
+```
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `@@index([assignmentId])` | DB | 按授权记录查变更链 |
+| role/classId/programId 冗余存当时值 | 应用层 | 审计快照不可变，与后续 UserRoleAssignment 改动解耦（DR-75）|
+| 不可删除/修改（D18）| 应用层 | append-only，无 update/delete API |
+
+#### 设计意图
+
+审计场景要能回溯「那一刻这个人是什么角色、管哪个班」，即使后来 UserRoleAssignment 被改/撤销也不影响历史快照。故 role/classId/programId 冗余存变更那一刻的值，不靠运行时 join 当前值（join 读到的是当前值，非历史值）。与 §3.12 EnrollmentStatusHistory（按 memberId 查）同套路，但本表按 assignmentId 查角色变更链。
+
+---
 
 ### 3.3 StudentSpecialStatus（特殊身份）⬜ 未开始
 
@@ -1936,6 +1990,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §1.9 User 🔧 扩展封板——旧设计 13 字段全部复用 + **新增 birthDate**（年龄豁免数据源），从复用区移入扩展区（9→10 张）；正式写入 **60 岁年龄豁免规则**：做成「资格性、非自动」（年满 60 仅获免考资格，实际免考走能力 5 代行留痕 D17），区别于盲/聋强制豁免（能力 3 自动判定路径）；TODO-12 收窄为仅剩逻辑层（字段已就位）；§八 DR-70；§九 检查轮次 21（0 问题）|
 | 2026-05-29 | §1.10 Class 🔧 扩展封板——旧设计 6 字段全部复用 + **新增归档三件套** status/archivedAt/archivedBy（D19），从复用区移入扩展区（10→11 张）；班级只归档（status=archived）不物理删除，归档后禁新成员/课表/出勤、手动触发、历史保留；§八 DR-71；§九 检查轮次 22（0 问题）；**B 类核心表全部完成**（Course/Lesson/Meditation/PracticeProject ✅ 复用，User/Class 🔧 扩展）|
 | 2026-05-29 | C 类 §四 复用表确认完成：15 张批量 ✅ 复用（PracticeLog/PracticeTemplate/LessonCompletion/PracticeJournal/QuestionReference/LessonResource/LessonMediaChapter/LessonTextBlock/ProgramWeek/ProgramWeekCourse/ProgramWeekPractice/ProgramStudyType/CohortRestWeek/Event/EventCount/SpeakingRegistration/CohortWeeklySummary）；TantricGroup 🔧 微调（删悬空 grants TantricAccessGrant[]，补 transmissionRecords TransmissionRecord[]，闭合检查轮次 11 已知项）；AI 助手 5 张 ⏸ 暂缓（独立模块）；§八 DR-72~74；§九 检查轮次 23（1 问题→当轮闭合）；**§四 复用区全部确认完成** |
+| 2026-05-29 | §三 新建区开始：§3.2 RoleAssignmentHistory（角色变更留痕）✅ 封板——与 §3.12 EnrollmentStatusHistory 对称的 append-only 留痕表；role/classId/programId 冗余存变更那一刻快照（审计可回溯，DR-75）；反向关联与 §2.1 UserRoleAssignment.history 成对；§八 DR-75；§九 检查轮次 24（0 问题）|
 
 ---
 
@@ -2019,6 +2074,7 @@ model UserSelfStudyRestWeek {
 | DR-72 | C 类 §四 复用表（15 张）是否需要改字段 | ✅ 全部复用不动，批量确认（用户决策 2026-05-29）| 15 张表：PracticeLog/PracticeTemplate/LessonCompletion/PracticeJournal/QuestionReference/LessonResource/LessonMediaChapter/LessonTextBlock/ProgramWeek/ProgramWeekCourse/ProgramWeekPractice/ProgramStudyType/CohortRestWeek/Event/EventCount/SpeakingRegistration/CohortWeeklySummary。逐张核对新设计（05/06）后均无新增需求：日常打卡/模板/闻思完成/日记/思考题/课时资源/周排表/科系打卡声明/休息周/法会/法会计数/讲考报名/周汇总，结构旧设计已完整。Event.classId 可空（平台级/班级级）与 SpeakingSession 同套路已支持平台级法会。批量一条 DR 覆盖，避免逐张冗余 DR |
 | DR-73 | TantricGroup 反向关联如何处理 | 🔧 微调：删 grants，补 transmissionRecords（用户决策 2026-05-29）| TantricGroup 字段本身有效，但 `grants TantricAccessGrant[]` 反向关联悬空——TantricAccessGrant 已在 DR-44 废弃整合入 TransmissionRecord。删除 grants，新增 `transmissionRecords TransmissionRecord[]`（TransmissionRecord.tantricGroupId 指向本组，sourceType=empowerment 表达灌顶授权）。密法访问控制改为 EXISTS on TransmissionRecord（DR-44/45）。此微调闭合检查轮次 11 标记的已知项。排除「保留 grants 空关联」：悬空关联指向已删除 model，Prisma 校验不通过 |
 | DR-74 | AI 助手 5 张表（ContentChunk/FeatureEntry/AiConversation/AiMessage/AiUsage）是否纳入本次融合 | ⏸ 暂缓（独立 AI 模块，用户决策 2026-05-29）| AI 助手是独立功能模块（详见 docs/AI_ASSISTANT_PLAN.md），决策定型但未实施，依赖 pgvector 扩展，UI/Tier 2-4 均暂缓。不属本次「学修体系融合」范围。统一标 ⏸ 暂缓，不在本文档展开字段级设计；待 AI 模块独立推进时处理。排除「纳入本次复用确认」：AI 模块边界独立，混入会扩散本次融合范围 |
+| DR-75 | RoleAssignmentHistory 角色/作用域字段是否冗余存当时值 | 冗余存变更那一刻的 role/classId/programId（用户决策 2026-05-29）| 审计要能回溯「那一刻这个人是什么角色、管哪个班」，UserRoleAssignment 后续被改/撤销不应影响历史快照。排除「只存 assignmentId，运行时 join 读当前值」：join 读到的是当前值非历史值，无法还原变更那一刻的真相，违反审计不可变原则。与 §3.12 EnrollmentStatusHistory 同为 append-only 留痕表，结构对称（一记角色链、一记入学状态链）|
 
 ---
 
@@ -2481,6 +2537,25 @@ model UserSelfStudyRestWeek {
 
 **本轮发现问题数**：1（TantricGroup 悬空关联）→ 已当轮闭合（删 grants + 补 transmissionRecords，同步闭合检查轮次 11 已知项）。
 **结论**：C 类 §四 复用表确认完毕——15 张批量 ✅ 复用，TantricGroup 🔧 微调（关联替换），AI 5 张 ⏸ 暂缓。**至此 §四 复用区全部表确认完成**（核心表 6 + ProgramSemester/SpeakingSession + C 类 15 + TantricGroup 微调；AI 5 张暂缓在外）。检查轮次 11 标记的 TantricGroup 已知项闭合。
+
+### 检查轮次 24（2026-05-29，范围：§3.2 RoleAssignmentHistory 封板）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | RoleAssignmentHistory.assignment↔UserRoleAssignment.history（§2.1 已声明 `history RoleAssignmentHistory[]`），成对 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §三 新建区 14 张不变（RoleAssignmentHistory 本就在列，由 ⬜ 转 ✅）|
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 同上 |
+| 7. 暂缓/不做标签完整 | ✅ | role/classId/programId 冗余有 DR-75 说明；append-only 明确 |
+| 8. 业务规则约束有实现方式 | ✅ | @@index（DB）；冗余快照不可变（应用层）；append-only 无 update/delete（应用层）|
+| 9-12. 其余检查项 | ✅/⏸ | D18：append-only 留痕，无删除/修改；与 §3.12 对称（角色链 vs 入学状态链）|
+| 13. 02 文档 23 职能写表覆盖 | ✅ | 角色变更由系统在 UserRoleAssignment 写操作时自动追加，对应能力 18 任命链 + 能力 20 审计 |
+| 14. 枚举值各处一致 | ✅ | action（assigned/revoked/reactivated）；role 四值与 §2.1 UserRoleAssignment 一致 |
+
+**本轮发现问题数**：0。
+**结论**：§3.2 RoleAssignmentHistory 封板。与 §3.12 EnrollmentStatusHistory 对称的 append-only 留痕表，冗余存变更那一刻的角色/作用域快照（DR-75），审计可回溯历史真相。反向关联与 §2.1 成对，无悬空。
 
 ---
 
