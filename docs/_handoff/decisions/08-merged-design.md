@@ -2674,7 +2674,22 @@ model PracticeAppointmentParticipant {
 
 > **休息审批 ≠ 自学休息周**（用户决策 2026-05-29）：休息审批机制确实需要，但**属于班级成员请假场景**（辅导员及以上审批），不在自学模式内。自学师兄自定节奏（pace），其休息周由本人自由申报、直接计入进度补足、无需任何审批。班级请假审批流另行设计（登记 §十 TODO-6）。
 
-**参考决策**：D3（节奏可配置）、D18（不物理删除）、DR-61~64
+**参考决策**：D3（节奏可配置）、D18（不物理删除）、DR-61~64、**DR-103（自学与升学体系边界）**
+
+#### 自学与升学体系边界（DR-103，2026-05-30）
+
+> 自学模式 = **纯自我学习轨道**，与班级中心的升学体系完全解耦。
+
+| 维度 | 自学模式 | 说明 |
+|---|---|---|
+| 升学 | ❌ 不升学 | 自学不通向正科；要升学须先经邀请码加入正式班级（能力 2），届时按班级学员标准 |
+| 共修出勤 | ❌ 不做 | 自学无班级、无共修；能力 8 出勤机制不适用 |
+| 学期报数快照 | ❌ 不生成 | SemesterSnapshot 是升学结算机制，自学不升学故不产生 |
+| 升学考 / 升学预检 | ❌ 不适用 | 无升学路径 |
+| 个人学修数量 | ✅ 可录入 | 念诵/观修等，复用 PracticeLog（无 classId，零改造），发愿走 context=personal；纯个人进度追踪（DR-64 算法）|
+| 升学体系表改造 | 零 | 不为「无班级」场景给 SemesterSnapshot/Exam/AdvancementCheck 加可空 classId |
+
+**排除「自学也能升学」**：会迫使升学/考试/报数/出勤全体系为「无班级」改造，复杂度高且违背班级中心模型（能力 2/8/9/10 均以 class 为锚）。
 
 #### UserSelfStudyProgram（自学科系记录）
 
@@ -2817,6 +2832,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
 | 2026-05-30 | **检查轮次 35 勘误**：检查项 9「升学条件可全查」原标 ✅ 过度乐观，下修为 🔵 部分——只验证了链路连通（有 ProgramAdvancementConfig 接住），未验证配置表达充分性（params 能否装下双维度逐法/多维合格线，挂 TODO-9/12/13）；且与 §十 ⚠️ 待决策标签自相矛盾未被检查项 7 抓出。方法论盲区（配置表达充分性 + 设计vs代码gap）并入 TODO-17 |
 | 2026-05-30 | 核查达标/升学配置现状：backend 无 Program 层/无 ProgramAdvancementConfig/无达标配置（仅通用打卡目标）；新增 TODO-17（各学科达标条件+升学条件后台配置专题，含后台管理界面+学习情况提醒），汇总 TODO-9/12/13 配置承载，**置于本轮 TODO 闭合后专题设计** |
+| 2026-05-30 | 暂缓决策讨论·自学模式边界定稿（DR-103，§5.4）：自学=纯自我学习轨道，无班级、不升学（SS-1=c）、不做共修出勤；可录个人学修数量作自我追踪（复用 PracticeLog，零改造）。§5.4 加「自学与升学体系边界」小节；同步改 06 能力 8/9 自学条款；§十二 P7 去掉对 P2 依赖；§八 DR-103；§九 检查轮次 49 |
 | 2026-05-30 | 对抗性核查修复（检查轮次 48）：§十一 M2 整体单元横跨三 Phase 不可原子执行 → 拆为 M2a(UserRoleAssignment→P1)/M2b(CareFollowupRecord→P3)/M2c(TransmissionRecord→P5)；M3c 对 M2 依赖方向反（实为 M2b→M3c）已修正；全文 M2 引用同步；Migration 单元与 Phase 完全对齐 |
 | 2026-05-30 | **全表封板后统编收口**：新增 §十一 Migration 统编（M0~M8，按 FK 拓扑序，检查项 5 闭合）、§十二 实施 Phase 计划（P0~P8，权限地基→升学核心→暂缓，检查项 6 闭合）、§十三 02 文档 23 职能×写表核对（21✅/1⏸/1❌，AuditLog 11 类 actionType 全覆盖，检查项 13 闭合）；修复 §三 表头计数 14→15（检查项 4，TODO-6 加 LeaveRequest 后漏改）；检查项 9/11 由 🔵 升 ✅；§九 检查轮次 47——**14 项检查清单全部 ✅，设计层面全部收口** |
 | 2026-05-30 | TODO-18 闭合：请假对进度时钟——能力 3/9 暂停型（截止日顺延请假总天数）；能力 10 升学截止固定不变；无需新表/字段，应用层聚合 LeaveRequest(status=approved)；§八 DR-102；§九 检查轮次 46 |
@@ -2932,6 +2948,7 @@ model UserSelfStudyRestWeek {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-103 | 自学模式与升学体系的接轨边界（§5.4，暂缓决策讨论）| **自学=纯自我学习轨道：无班级、不升学、不做共修出勤；可录个人学修数量作自我追踪**（用户决策 2026-05-30）| 暂缓决策讨论确认自学模式定位。闸门问题「自学能否升学」定为**不能**（SS-1=c）：自学师兄要升学，须先经邀请码加入正式班级（能力 2），届时与班级学员一视同仁。连锁：(1) 不升学→不考升学考、不生成 SemesterSnapshot、不进升学预检；(2) 不做共修出勤（能力 8 机制不适用，自学无班级无共修）；(3) **可录个人学修数量**（念诵/观修，复用 PracticeLog——经核对 PracticeLog 字段无 classId，零改造；发愿走 context=personal）作个人进度追踪（DR-64 算法）；(4) 升学体系表零改造（不为无班级加可空 classId）。同步修订 06 能力 8 自学条款（不做出勤统计）+ 能力 9 规则 8（个人学修追踪，不做升学报数快照）。**排除 a/b（自学也能升学）**：会迫使升学/考试/报数/出勤全体系为「无班级」改造，复杂度高且违背班级中心模型（能力 2/8/9/10 均以 class 为锚）。§十二 P7 同步去掉对 P2 升学预检的依赖 |
 | DR-102 | 请假对进度时钟的影响模型（TODO-18 闭合）| **能力 3/9 暂停型（截止日顺延）；能力 10 无影响（升学截止固定）**（用户决策 2026-05-30）| 三个维度分别处理：(1) **闻思圆满（能力 3）**：暂停型——LeaveRequest.approved 期间，课时截止日顺延等量天数，应用层计算截止日时聚合 `SUM(approved leave days)` 加到原截止日。(2) **报数达标（能力 9）**：暂停型——报数节点截止日同上顺延 N 天（N = 学员在该班的已批准请假总天数）。(3) **升学资格预检（能力 10）**：无影响——升学截止日固定不变，不受请假影响；学员须在请假前规划好升学节点。**实现路径**：应用层计算能力 3/9 截止日时，查 `LeaveRequest(userId, classId, status=approved)` 聚合请假总天数后顺延；能力 10 不读请假记录。无需新表/新字段（`LeaveRequest.startDate/endDate/status` 已就位，DR-90）。**排除「三维度统一暂停」**：升学截止若可顺延，会给刻意请假规避升学时限留下操作空间，与升学节点「硬截止」的管理目标冲突。**排除「三维度统一无影响」**：闻思/报数有绝对学习量要求（无法压缩），请假期间无法学习，不给顺延等同惩罚请假，与请假制度初衷冲突 |
 | DR-101 | 后台管理界面范围（TODO-17 ⑤）| **考试线下进行，成绩录入在后台管理；升学相关管理 4 页**（用户决策 2026-05-30，TODO-17 闭合）| 考试不在 app 端进行，但成绩录入必须在后台：subject_admin 录入每位学员的 ExamGrade（§1.4 已封板，写权限已有）。管理界面范围：(1) 升学条件配置 `/admin/programs/:id/conditions`——ProgramAdvancementConfig CRUD，操作角色 subject_admin；(2) 考试管理 `/admin/classes/:id/exams`——创建考场、录入成绩（→ ExamGrade），操作角色 subject_admin；(3) 升学资格预检 `/admin/classes/:id/advancement`——触发 AdvancementCheck、查看预检报告、逐条豁免、拍板升学，操作角色 class_admin+；(4) 学员达标进度 `/admin/classes/:id/progress`——实时展示各条件完成量 vs 目标（SemesterSnapshot + 实时聚合），操作角色 class_tutor+。后台 UI 均为全新待建，与现有 PracticeGoal/PracticeTask 打卡体系并存不干扰 |
 | DR-100 | 年龄豁免逻辑层（TODO-12 闭合）| **params.ageExemptionMinAge=60；AdvancementCheck 标 ageEligible=true，不自动通过；admin 手动走能力 5 代行豁免**（用户决策 2026-05-30，DR-70 已定调）| TODO-12 逻辑层补全：字段 User.birthDate 已就位（DR-70）。年龄豁免是「资格性、非自动」——AdvancementCheck 读 `birthDate` 计算年龄（基准日=第一次升学考报名日），若 ≥60 岁则在 checkResults 该条加 `ageEligible: true`，但 `passed` 仍为 false（不自动通过）。Admin 见 ageEligible 提示后，手动走能力 5 代行（proxy_action AuditLog 留痕）将该条 `exempted: true`。exam_score 条件的 `isExemptable=true` 已在设计中（默认false需手动开启）。排除「年龄≥60自动置exam_score满足」：剥夺有能力老人正常应考选择，违反能力5豁免「显式确认」哲学（DR-70）|
@@ -3903,6 +3920,26 @@ model UserSelfStudyRestWeek {
 
 ---
 
+### 检查轮次 49（2026-05-30，范围：暂缓决策·自学模式边界 DR-103 · 跨 06/08 双文档）
+
+> 本轮含跨文档修订（06 source of truth + 08 设计），需额外核对双文档一致性。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. DB 变更为零 | ✅ | DR-103 无新表/字段——核实 PracticeLog 字段（userId/practiceProjectId/meditationId/count/durationMinutes/loggedAt/source/prayerCount）无 classId，自学录学修量零改造；发愿走 context=personal（UserPracticeVow.classTaskId/cohortTemplateId 均可空）|
+| 2. 06↔08 双文档一致 | ✅ | 06 能力 8 自学条款（不做出勤统计）+ 能力 9 规则 8（个人学修追踪，不做升学报数）与 08 §5.4 边界小节、DR-103 表述一致；双文档均引 DR-103 |
+| 3. 升学体系零改造确认 | ✅ | SemesterSnapshot/Exam/AdvancementCheck 的 classId 仍为必填（不为自学加可空）——DR-103 明确自学不升学，无需改造 |
+| 4. 能力交叉引用正确 | ✅ | 自学升学路径「先加入正式班级」正确引能力 2；不做出勤引能力 8；不做报数快照引能力 9/10；与 06 各能力定义对齐 |
+| 5. §十二 P7 依赖修正 | ✅ | P7 自学模式原标「依赖 P2 升学预检」→ 改「依赖 P0（仅需扩展字段）」，与 DR-103「自学不碰升学」一致；12.1 核对无残留 P2 引用冲突 |
+| 6. 暂缓标签完整 | ✅ | §5.4 仍标 ⏸ 暂缓（DR-103 是边界定义，非启动实现）；TODO-5（恢复 Program.selfStudy 反向）仍挂自学实现时，不受影响 |
+| 7. 业务规则约束有实现方式 | ✅ | 「不做出勤」=自学无 ClassSession 记录（应用层不生成）；「可录学修量」=PracticeLog 按 userId 直录（无 class 依赖）；「不升学」=不进升学预检引擎（应用层不为自学跑 AdvancementCheck）|
+
+**本轮发现问题数**：0。
+**修复内容**：无（DR-103 为新增决策，配套改动一次到位）。
+**结论**：自学模式边界定稿（DR-103）。自学=纯自我学习轨道：无班级、不升学、不做共修出勤；可录个人学修数量作自我追踪（PracticeLog 零改造）。升学须先经邀请码加入正式班级（能力 2）。06 能力 8/9 同步修订，06↔08 双文档一致。§5.4 仍 ⏸ 暂缓待实现。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -3986,7 +4023,7 @@ model UserSelfStudyRestWeek {
 | **P4** | 班级运维 | M3d | ClassInviteCode（能力 5）、AssistantAssignment（能力 19）、LeaveRequest 审批（DR-90）、ClassTask 布置、ClassSessionSchedule 定时生成 ClassSession（能力 4/8）、EnrollmentStatusHistory 留痕 | 邀请码管理页、辅助员配对页、请假审批页、班级任务页、共修课表页 | P1 | 待建 |
 | **P5** | 传承体系 | M2c(TransmissionRecord) | TransmissionRecord 录入/灌顶代录、密法访问 EXISTS 查询（DR-44/45）、升学清单 isRequired 核对 | 传承录入页 | P1 | 待建 |
 | **P6** | 班级动态/讨论/约修 ⏸ | M4 + M5 + M6 | 帖子/评论/点赞、讨论投票、集体约修 | 班级社区页 | P1 | ⏸ 暂缓 |
-| **P7** | 自学模式 ⏸ | M7 | 自学申报、个人休息周、进度补足（恢复 TODO-5 反向关联）| 自学管理页 | P2（自学也走升学条件预检）| ⏸ 暂缓 |
+| **P7** | 自学模式 ⏸ | M7 | 自学申报、个人休息周、进度补足（恢复 TODO-5 反向关联）；个人学修数量录入（复用 PracticeLog）| 自学管理页 | P0（仅需扩展字段；自学不升学故不依赖 P2，DR-103）| ⏸ 暂缓 |
 | **P8** | AI 助手 ⏸ | M8 | RAG 检索、对话、用量统计 | AI 助手入口 | 独立（pgvector）| ⏸ 暂缓（DR-74）|
 
 ### 12.1 Phase 覆盖完整性核对
