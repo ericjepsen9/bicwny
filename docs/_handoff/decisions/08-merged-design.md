@@ -2817,6 +2817,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
 | 2026-05-30 | **检查轮次 35 勘误**：检查项 9「升学条件可全查」原标 ✅ 过度乐观，下修为 🔵 部分——只验证了链路连通（有 ProgramAdvancementConfig 接住），未验证配置表达充分性（params 能否装下双维度逐法/多维合格线，挂 TODO-9/12/13）；且与 §十 ⚠️ 待决策标签自相矛盾未被检查项 7 抓出。方法论盲区（配置表达充分性 + 设计vs代码gap）并入 TODO-17 |
 | 2026-05-30 | 核查达标/升学配置现状：backend 无 Program 层/无 ProgramAdvancementConfig/无达标配置（仅通用打卡目标）；新增 TODO-17（各学科达标条件+升学条件后台配置专题，含后台管理界面+学习情况提醒），汇总 TODO-9/12/13 配置承载，**置于本轮 TODO 闭合后专题设计** |
+| 2026-05-30 | TODO-18 闭合：请假对进度时钟——能力 3/9 暂停型（截止日顺延请假总天数）；能力 10 升学截止固定不变；无需新表/字段，应用层聚合 LeaveRequest(status=approved)；§八 DR-102；§九 检查轮次 46 |
 | 2026-05-30 | TODO-17 闭合（专题设计）：TODO-9/12/13 一并闭合——①params 充分性(DR-97)②逐法达标 per_item 结构(DR-98)③考试合格线 attendanceThreshold 分支矩阵+考试线下后台录入(DR-99)④年龄豁免 ageEligible 标记+手动豁免(DR-100)⑤管理界面 4 页(DR-101)⑥跨 program 聚合已含 DR-96；§3.1 补各 conditionType 标准 params 结构；§九 检查轮次 45 |
 | 2026-05-30 | TODO-14 闭合：兼修加行——无需新表/字段；兼修=独立加入加行班（D9 多专业已支持）；升密法资格判定为 admin 手动触发+系统 userId 维度全量聚合；跨 program 聚合逻辑纳入 TODO-17；§八 DR-96；§九 检查轮次 44 |
 | 2026-05-30 | TODO-11 闭合：法王祈祷文——无欠/补状态机，PracticeLog 新增 prayerCount（顶礼打卡同次录入），SUM≥10万即达标；心咒代顶礼(isSubstituted=true)豁免判定；PracticeLog ✅复用→🔧扩展移入 §1.12；§一 扩展区 12→13 张；§八 DR-95；§九 检查轮次 43 |
@@ -2929,6 +2930,7 @@ model UserSelfStudyRestWeek {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-102 | 请假对进度时钟的影响模型（TODO-18 闭合）| **能力 3/9 暂停型（截止日顺延）；能力 10 无影响（升学截止固定）**（用户决策 2026-05-30）| 三个维度分别处理：(1) **闻思圆满（能力 3）**：暂停型——LeaveRequest.approved 期间，课时截止日顺延等量天数，应用层计算截止日时聚合 `SUM(approved leave days)` 加到原截止日。(2) **报数达标（能力 9）**：暂停型——报数节点截止日同上顺延 N 天（N = 学员在该班的已批准请假总天数）。(3) **升学资格预检（能力 10）**：无影响——升学截止日固定不变，不受请假影响；学员须在请假前规划好升学节点。**实现路径**：应用层计算能力 3/9 截止日时，查 `LeaveRequest(userId, classId, status=approved)` 聚合请假总天数后顺延；能力 10 不读请假记录。无需新表/新字段（`LeaveRequest.startDate/endDate/status` 已就位，DR-90）。**排除「三维度统一暂停」**：升学截止若可顺延，会给刻意请假规避升学时限留下操作空间，与升学节点「硬截止」的管理目标冲突。**排除「三维度统一无影响」**：闻思/报数有绝对学习量要求（无法压缩），请假期间无法学习，不给顺延等同惩罚请假，与请假制度初衷冲突 |
 | DR-101 | 后台管理界面范围（TODO-17 ⑤）| **考试线下进行，成绩录入在后台管理；升学相关管理 4 页**（用户决策 2026-05-30，TODO-17 闭合）| 考试不在 app 端进行，但成绩录入必须在后台：subject_admin 录入每位学员的 ExamGrade（§1.4 已封板，写权限已有）。管理界面范围：(1) 升学条件配置 `/admin/programs/:id/conditions`——ProgramAdvancementConfig CRUD，操作角色 subject_admin；(2) 考试管理 `/admin/classes/:id/exams`——创建考场、录入成绩（→ ExamGrade），操作角色 subject_admin；(3) 升学资格预检 `/admin/classes/:id/advancement`——触发 AdvancementCheck、查看预检报告、逐条豁免、拍板升学，操作角色 class_admin+；(4) 学员达标进度 `/admin/classes/:id/progress`——实时展示各条件完成量 vs 目标（SemesterSnapshot + 实时聚合），操作角色 class_tutor+。后台 UI 均为全新待建，与现有 PracticeGoal/PracticeTask 打卡体系并存不干扰 |
 | DR-100 | 年龄豁免逻辑层（TODO-12 闭合）| **params.ageExemptionMinAge=60；AdvancementCheck 标 ageEligible=true，不自动通过；admin 手动走能力 5 代行豁免**（用户决策 2026-05-30，DR-70 已定调）| TODO-12 逻辑层补全：字段 User.birthDate 已就位（DR-70）。年龄豁免是「资格性、非自动」——AdvancementCheck 读 `birthDate` 计算年龄（基准日=第一次升学考报名日），若 ≥60 岁则在 checkResults 该条加 `ageEligible: true`，但 `passed` 仍为 false（不自动通过）。Admin 见 ageEligible 提示后，手动走能力 5 代行（proxy_action AuditLog 留痕）将该条 `exempted: true`。exam_score 条件的 `isExemptable=true` 已在设计中（默认false需手动开启）。排除「年龄≥60自动置exam_score满足」：剥夺有能力老人正常应考选择，违反能力5豁免「显式确认」哲学（DR-70）|
 | DR-99 | exam_score 考试合格线多维矩阵 params 结构（TODO-13 闭合）| **params 含 attendanceThreshold/highAttendance/lowAttendance/ageExemptionMinAge；Exam 加 isOpenBook；考试线下进行，成绩后台录入**（用户决策 2026-05-30）| TODO-13 多维矩阵：大纲合格线按出勤档变化，单一 targetValue 无法表达，全写入 params（DR-97 原则）。分支逻辑：出勤≥93 次 → 1次合格(≥30分)；出勤<93次/自学 → 1次及格(开卷≥72/闭卷≥60) OR 2次各≥30分。AdvancementCheck 读 `Exam.isOpenBook` 确定分支后与 ExamGrade.score 比对。**Exam.isOpenBook 字段**（检查轮次 45 修复）：params 有开卷/闭卷两条合格线，但 AdvancementCheck 需从 Exam 表知道该场考试是哪种——Exam 加 `isOpenBook Boolean @default(false)`（subject_admin 创建考试时标记）。**考试约束**：考试在线下进行，不经 app 端；成绩由 subject_admin 在后台录入 ExamGrade，AdvancementCheck 读 ExamGrade 判定。排除「把矩阵逻辑写死应用层」：门槛数值（30/72/60/93）属专业配置，D3 要求数据驱动，故放入 params 而非 hardcode |
@@ -3847,6 +3849,22 @@ model UserSelfStudyRestWeek {
 
 ---
 
+### 检查轮次 46（2026-05-30，范围：TODO-18 闭合 · 请假进度时钟三维度建模 · DR-102）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. DB 变更为零 | ✅ | DR-102 无新表/字段；§一 仍 13 张，§三 仍 15 张；LeaveRequest 字段（startDate/endDate/status）均在 DR-90 已封板 |
+| 2. DR-90 字段对齐 | ✅ | §3.15 LeaveRequest 有 startDate/endDate/status（pending/approved/rejected），DR-102 引用 `status=approved` 合法值正确 |
+| 3. TODO-18 闭合标注 | ✅ | §十 TODO-18 已标 ✅ 已闭合（2026-05-30），关联 DR-90/DR-102，处理状态「✅ 已处理（DR-102）」 |
+| 4. 暂缓/不做标签完整 | ✅ | 剩余：TODO-5（⏸ 暂缓）/ TODO-16（❌ 不做）；TODO-18 已闭合，§十 无残留 ⚠️ 待决策项 |
+| 5. 业务规则约束有实现方式 | ✅ | 能力 3/9：应用层聚合 `SUM(approved leave days)` 顺延截止日；能力 10：升学截止日固定，应用层不读请假记录；两条路径均明确 |
+| 6. DR-90 目标一致性 | ✅ | DR-90-B（掉队窗口扣除请假天数）+ DR-102（能力 3/9 截止日顺延）方向一致，均保护请假学员；能力 10 无影响与升学硬截止管理目标一致，无逻辑冲突 |
+
+**本轮发现问题数**：0。
+**结论**：TODO-18 闭合。请假进度时钟三维度定稿：能力 3（闻思圆满）暂停型 / 能力 9（报数达标）暂停型 / 能力 10（升学预检）无影响；应用层聚合 LeaveRequest(status=approved) 计算顺延天数，无需新表/字段（DR-102）。§十 待决策项清零，仅余 TODO-5（⏸ 暂缓）和 TODO-16（❌ 不做）。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -3869,4 +3887,4 @@ model UserSelfStudyRestWeek {
 | ~~TODO-15~~ ✅ 已闭合 | ~~限制性课程不进考试范围~~——**已闭合（2026-05-30）**：核查发现 Course 缺教学阶段维度，新增 `courseType`（entry/formal/restricted），Course 改判 🔧 扩展移入 §1.11；考试范围排除 = `courseType=restricted OR category=self_study_book`；顺带补齐 DR-92 闻思判定对 courseType 的依赖（DR-93）| 预科19届大纲核对（Course / Exam / 能力 10）| ✅ 已处理（DR-93）| DR-93 |
 | TODO-16 | ❌ **转功德会——不做**（用户决策 2026-05-29）——大纲：取消学员资格后可转入菩提功德会。**永久决策：不做**，超出觉学平台范围（功德会是独立组织/系统）。登记于此仅为留痕大纲已核对、明确排除，见 §八 DR-68 | 预科19届大纲核对（能力 11）| ❌ 不做 | DR-68 |
 | ~~TODO-17~~ ✅ 已闭合 | ~~各学科达标条件 + 升学条件后台配置专题设计~~——**已闭合（2026-05-30）**：6 子议题全部完成——①params 充分性 ✅（DR-97，无需子表）；②逐法达标 params ✅（DR-98，per_item 结构）；③考试合格线 params ✅（DR-99，attendanceThreshold 分支矩阵）；④年龄豁免逻辑层 ✅（DR-100，ageEligible 标记+手动豁免）；⑤管理界面 4 页 ✅（DR-101，含考试成绩线下后台录入）；⑥跨 program 聚合 ✅（DR-96，TODO-14 已闭合）。**代码 gap 小结**：升学条件体系（ProgramAdvancementConfig/AdvancementCheck/AdvancementRecord/SemesterSnapshot）全新待建；PracticeLog.prayerCount / UserPracticeVow.isSubstituted+currentSessionMinutes / Course.courseType 需 migration 新增字段；管理端 4 页全新待建。现有 PracticeGoal/PracticeTask 打卡体系与升学条件体系并存不干扰 | TODO-9/12/13 子议题 + 检查轮次 35 勘误 + DR-96 | ✅ 已处理（DR-97~101）| DR-97 / DR-98 / DR-99 / DR-100 / DR-101 |
-| TODO-18 | **课程中途请假是否影响毕业/升学资格** ⚠️ 待决策——§3.15 LeaveRequest 的 approved 期间已设计为**不计入掉队判定窗口**（DR-90-B），但「课程已开始后的中途请假」对以下三个维度的影响**尚未定义**：(1) **闻思圆满**（能力 3）——请假期间课程进度是否暂停/延期？假期内未完成的课时是否算「未完成」还是延后截止？(2) **报数达标**（能力 9）——报数节点截止时是否扣除请假天数（即截止日顺延）？还是请假期间仍算进有效时间窗口？(3) **升学资格预检**（能力 10）——升学条件中的时间窗口（如「必须在 X 期限内完成 Y 课时」）是否相应延长？须与用户讨论后定稿，以确定请假对「进度时钟」的影响模型（暂停型 vs 豁免型 vs 无影响型） | §3.15 LeaveRequest（DR-90）| ⚠️ 待决策，下阶段讨论 | DR-90 / 能力 3 / 能力 9 / 能力 10 |
+| ~~TODO-18~~ ✅ 已闭合 | ~~课程中途请假是否影响毕业/升学资格~~——**已闭合（2026-05-30）**：三维度分层处理——能力 3（闻思圆满）暂停型：课时截止日顺延已批准请假总天数；能力 9（报数达标）暂停型：报数节点截止日同上顺延；能力 10（升学资格预检）无影响：升学截止日固定不变。应用层计算能力 3/9 截止日时聚合 LeaveRequest(status=approved) 请假天数，无需新表/字段（DR-102，DR-90）| §3.15 LeaveRequest（DR-90）| ✅ 已处理（DR-102）| DR-90 / DR-102 |
