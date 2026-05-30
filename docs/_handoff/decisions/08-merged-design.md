@@ -1092,7 +1092,7 @@ model TransmissionRecord {
 
 ---
 
-## 三、➕ 新建表（14 张）
+## 三、➕ 新建表（15 张）
 
 按新业务能力从头设计。
 
@@ -2817,6 +2817,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-30 | §3.7 SemesterSnapshot（报数快照）✅ 封板——snapshotData=Json（DR-83-A，各科系维度不同，Json 跨科系灵活扩展，同 CohortWeeklySummary.summaryData 已验证模式）；快照冻结不可改（DR-83-B，节点截止时刻系统自动生成，admin 事后更正走 AuditLog 不改快照）；@@unique([userId,programId,semesterNumber,reportNodeIndex]) 保证每人每科系每节点唯一；无 update/delete API（D18 永久档）；§八 DR-83-A/B；§九 检查轮次 30（0 问题）|
 | 2026-05-30 | **检查轮次 35 勘误**：检查项 9「升学条件可全查」原标 ✅ 过度乐观，下修为 🔵 部分——只验证了链路连通（有 ProgramAdvancementConfig 接住），未验证配置表达充分性（params 能否装下双维度逐法/多维合格线，挂 TODO-9/12/13）；且与 §十 ⚠️ 待决策标签自相矛盾未被检查项 7 抓出。方法论盲区（配置表达充分性 + 设计vs代码gap）并入 TODO-17 |
 | 2026-05-30 | 核查达标/升学配置现状：backend 无 Program 层/无 ProgramAdvancementConfig/无达标配置（仅通用打卡目标）；新增 TODO-17（各学科达标条件+升学条件后台配置专题，含后台管理界面+学习情况提醒），汇总 TODO-9/12/13 配置承载，**置于本轮 TODO 闭合后专题设计** |
+| 2026-05-30 | **全表封板后统编收口**：新增 §十一 Migration 统编（M0~M8，按 FK 拓扑序，检查项 5 闭合）、§十二 实施 Phase 计划（P0~P8，权限地基→升学核心→暂缓，检查项 6 闭合）、§十三 02 文档 23 职能×写表核对（21✅/1⏸/1❌，AuditLog 11 类 actionType 全覆盖，检查项 13 闭合）；修复 §三 表头计数 14→15（检查项 4，TODO-6 加 LeaveRequest 后漏改）；检查项 9/11 由 🔵 升 ✅；§九 检查轮次 47——**14 项检查清单全部 ✅，设计层面全部收口** |
 | 2026-05-30 | TODO-18 闭合：请假对进度时钟——能力 3/9 暂停型（截止日顺延请假总天数）；能力 10 升学截止固定不变；无需新表/字段，应用层聚合 LeaveRequest(status=approved)；§八 DR-102；§九 检查轮次 46 |
 | 2026-05-30 | TODO-17 闭合（专题设计）：TODO-9/12/13 一并闭合——①params 充分性(DR-97)②逐法达标 per_item 结构(DR-98)③考试合格线 attendanceThreshold 分支矩阵+考试线下后台录入(DR-99)④年龄豁免 ageEligible 标记+手动豁免(DR-100)⑤管理界面 4 页(DR-101)⑥跨 program 聚合已含 DR-96；§3.1 补各 conditionType 标准 params 结构；§九 检查轮次 45 |
 | 2026-05-30 | TODO-14 闭合：兼修加行——无需新表/字段；兼修=独立加入加行班（D9 多专业已支持）；升密法资格判定为 admin 手动触发+系统 userId 维度全量聚合；跨 program 聚合逻辑纳入 TODO-17；§八 DR-96；§九 检查轮次 44 |
@@ -3865,6 +3866,25 @@ model UserSelfStudyRestWeek {
 
 ---
 
+### 检查轮次 47（2026-05-30，范围：全表封板后统编收口 · §十一 Migration · §十二 Phase · §十三 23 职能核对 · 升级检查项 4/5/6/9/11/13）
+
+> 本轮是「全表封板后的统编收口」，专门回收此前因「待全表完成」而长期挂起的检查项。
+
+| 检查项 | 此前状态 | 本轮结果 | 说明 |
+|---|---|---|---|
+| 4. 总览计数正确 | ✅（局部）| ✅（修复后）| **发现 §三 表头计数错误**：表头标「14 张」，但行内注（line 1099）+ 实际子节（3.1~3.15）均为 15 张——TODO-6 加 §3.15 LeaveRequest 后表头漏改。已修「14 张」→「15 张」。最终：§一 13 / §二 3 / §三 15 / §四 22（B类核心 5 + C类批量 16 + TantricGroup 微调 1；不含已移出至扩展/替换区的 Course/PracticeLog/CohortRecommendedTemplate/Exam，不含 AI 暂缓 5 张）/ §五 12 + AI 5 |
+| 5. Migration 覆盖完整 | ⏸ 全程暂不适用（待全表完成统编）| ✅（本轮闭合）| **新增 §十一 Migration 统编**：M0(enum) + M1(扩展13) + M2(替换3) + M3a~d(新建15) 覆盖全部已发布范围；M4~M8 覆盖暂缓区；逐区核对无遗漏（11.3）。循环依赖（ClassSession.scheduleId ↔ ClassSessionSchedule）已用两步拆解处理 |
+| 6. Phase 计划覆盖完整 | ⏸ 全程暂不适用（待全表完成统编）| ✅（本轮闭合）| **新增 §十二 实施 Phase 计划**：P0~P8 共 9 个 Phase，权限地基（P1）→ 升学核心（P2）→ 关怀/运维/传承（P3~P5）→ 暂缓（P6~P8）；所有新表/字段均落某 Phase，依赖链无环（12.1）|
+| 9. 升学条件可全查 | 🔵 部分（检查轮次 35 勘误下修）| ✅（本轮升级）| 勘误的两点已补齐：①「装得下」由 TODO-17（DR-97~101）验证透——params 可表达逐法双维度/考试多维矩阵/年龄豁免；②「设计 vs 代码 gap」由 §十一/§十二 系统盘点（哪些全新待建/扩展字段/暂缓）。链路连通 + 表达充分 + 实施路径三者齐备，升 ✅ |
+| 11. D17 代行留痕路径完整 | 🔵 部分（待 AuditLog 封板）| ✅（本轮升级）| §3.11 AuditLog 已封板（检查轮次 34）；§十三 核对确认 11 类 actionType 全部对应到职能、无悬空、无缺失留痕的高权限职能（13.1）。代行留痕路径完整 |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分（贯穿十余轮，全职能核对待全表完成）| ✅（本轮闭合）| **新增 §十三 23 职能 × 写表核对**：21 项 ✅ 就位、1 项（#6 自学/网络共修）⏸ 表暂缓但权限链就位、1 项（#15）❌ 不做；AuditLog 11 类 actionType 全覆盖；权限继承等级与 02 矩阵一致 |
+
+**本轮发现问题数**：1（§三 表头计数 14→15），修复后 0。
+**修复内容**：§三 表头「14 张」→「15 张」（与行内注、实际子节对齐）。
+**结论**：全表封板后统编收口完成。检查项 4/5/6/9/11/13 全部 ✅。新增三节：§十一 Migration 统编（5 闭合）、§十二 Phase 计划（6 闭合）、§十三 23 职能核对（13 闭合）；检查项 9/11 由 🔵 升 ✅。**至此 14 项检查清单全部 ✅，无 🔵 部分残留**（除暂缓区按决策延后实现外，设计层面全部收口）。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -3888,3 +3908,107 @@ model UserSelfStudyRestWeek {
 | TODO-16 | ❌ **转功德会——不做**（用户决策 2026-05-29）——大纲：取消学员资格后可转入菩提功德会。**永久决策：不做**，超出觉学平台范围（功德会是独立组织/系统）。登记于此仅为留痕大纲已核对、明确排除，见 §八 DR-68 | 预科19届大纲核对（能力 11）| ❌ 不做 | DR-68 |
 | ~~TODO-17~~ ✅ 已闭合 | ~~各学科达标条件 + 升学条件后台配置专题设计~~——**已闭合（2026-05-30）**：6 子议题全部完成——①params 充分性 ✅（DR-97，无需子表）；②逐法达标 params ✅（DR-98，per_item 结构）；③考试合格线 params ✅（DR-99，attendanceThreshold 分支矩阵）；④年龄豁免逻辑层 ✅（DR-100，ageEligible 标记+手动豁免）；⑤管理界面 4 页 ✅（DR-101，含考试成绩线下后台录入）；⑥跨 program 聚合 ✅（DR-96，TODO-14 已闭合）。**代码 gap 小结**：升学条件体系（ProgramAdvancementConfig/AdvancementCheck/AdvancementRecord/SemesterSnapshot）全新待建；PracticeLog.prayerCount / UserPracticeVow.isSubstituted+currentSessionMinutes / Course.courseType 需 migration 新增字段；管理端 4 页全新待建。现有 PracticeGoal/PracticeTask 打卡体系与升学条件体系并存不干扰 | TODO-9/12/13 子议题 + 检查轮次 35 勘误 + DR-96 | ✅ 已处理（DR-97~101）| DR-97 / DR-98 / DR-99 / DR-100 / DR-101 |
 | ~~TODO-18~~ ✅ 已闭合 | ~~课程中途请假是否影响毕业/升学资格~~——**已闭合（2026-05-30）**：三维度分层处理——能力 3（闻思圆满）暂停型：课时截止日顺延已批准请假总天数；能力 9（报数达标）暂停型：报数节点截止日同上顺延；能力 10（升学资格预检）无影响：升学截止日固定不变。应用层计算能力 3/9 截止日时聚合 LeaveRequest(status=approved) 请假天数，无需新表/字段（DR-102，DR-90）| §3.15 LeaveRequest（DR-90）| ✅ 已处理（DR-102）| DR-90 / DR-102 |
+
+---
+
+## 十一、Migration 统编清单（全表封板后统编，检查项 5 闭合）
+
+> 全表设计封板后的 migration 统编。按**外键依赖拓扑序**编排，确保 FK 目标表先于引用表创建。本节为「实施 migration 的逻辑分组与顺序」，非逐字 SQL。采用 `prisma migrate`（CLAUDE.md 部署流程，审计 5.4），每个 migration 单元一次 `migrate dev` 生成、`migrate deploy` 应用。
+>
+> **基线**：现有生产库已有旧 schema（含 User/Class/Program/Lesson/Course/PracticeLog 等复用表）。本统编只覆盖**本次融合新增/变更**部分；§四 复用表（22 张）不动，不列入。
+
+### 11.1 Migration 单元（已发布实现范围，按序）
+
+| 单元 | 内容 | 涉及表 | 依赖前置 | 类型 |
+|---|---|---|---|---|
+| **M0 · Enum 扩展** | 新增/扩展枚举：LagStatus（on_track/mild/moderate/severe）、CohortMemberStatus、角色 role 枚举值、各 status/sourceType/actionType/conditionType/triggerType 字符串域（应用层 Zod 守，DB 存 String）| —（enum 定义，见 §六）| 无 | 新增 enum |
+| **M1 · 现有表扩展字段** | §一 扩展区 13 张的 ALTER：Program +8（cohortYear/stage/isActive/lag×4/checkinGraceMinutes）；User +birthDate；Class +归档三件套（status/archivedAt/archivedBy）；Course +courseType；PracticeLog +prayerCount；Exam +examType+isOpenBook；ClassSession +sessionType/lessonId/checkInToken/scheduleId + classId 改可空；UserPracticeVow +classTaskId/cohortTemplateId/currentSessionMinutes/isSubstituted + currentSessionCount 改 Int；SpeakingGrade classId 改可空；CohortRecommendedTemplate programId 改可空 | Program/User/Class/Course/PracticeLog/Exam/ClassSession/UserPracticeVow/SpeakingGrade/CohortRecommendedTemplate/ClassMember/StudyRecord/CohortLagSnapshot | M0（部分字段引用新 enum）| ALTER TABLE，加列设默认值，存量行回填默认 |
+| **M2 · 替换表重构** | §二 3 张：UserRoleAssignment（替换旧 ClassAdmin flags 模型）、CareFollowupRecord（加 sourceType/watchlistItemId）、TransmissionRecord（整合废弃 TantricAccessGrant）| UserRoleAssignment/CareFollowupRecord/TransmissionRecord | M1（FK 指向 User/Class/Program 等已就位）；TransmissionRecord 数据迁移需读旧 TantricAccessGrant | 新建表 + 旧数据迁移 + 旧表保留只读（不物理删，D18）|
+| **M3a · 权限审计骨架** | UserRoleAssignment 已在 M2；本单元建 RoleAssignmentHistory、AuditLog（无 FK，自包含）| RoleAssignmentHistory（→UserRoleAssignment）、AuditLog（无 FK）| M2 | 新建表 |
+| **M3b · 升学条件体系** | ProgramAdvancementConfig、SemesterSnapshot、AdvancementCheck、AdvancementRecord | 均 →Program/Class/User；AdvancementRecord→AdvancementCheck | M1（Program/Class/User 就位）、M3a（AuditLog 供豁免留痕）| 新建表 |
+| **M3c · 关怀体系** | StudentSpecialStatus、CareWatchlistItem、ReportConfession（CareFollowupRecord 已在 M2）| →User/Class；CareFollowupRecord/ReportConfession→CareWatchlistItem | M2（CareFollowupRecord）、M1 | 新建表 |
+| **M3d · 班级运维** | ClassInviteCode、AssistantAssignment、LeaveRequest、ClassTask、ClassSessionSchedule、EnrollmentStatusHistory | →Class/User；ClassTask→PracticeProject；ClassSessionSchedule→Lesson；EnrollmentStatusHistory→ClassMember；ClassSession.scheduleId→ClassSessionSchedule（M1 已加列，此处补 FK）| M1 | 新建表；ClassSession.scheduleId 外键在此单元补建（解循环依赖）|
+
+> **循环依赖处理**：M1 给 ClassSession 加 `scheduleId String?` 列（仅列，不建 FK），M3d 创建 ClassSessionSchedule 后再补 `scheduleId → ClassSessionSchedule` 外键约束。两步拆开避免 M1 引用尚未存在的表。
+
+### 11.2 Migration 单元（暂缓区，实现时再编）
+
+| 单元 | 内容 | 涉及表 | 触发时机 |
+|---|---|---|---|
+| **M4 · 班级动态** ⏸ | §5.1 ClassPost/ClassPostReaction/ClassPostComment/ClassPostShare（4 张）| →Class/User | 班级动态模块开工（DR-50~52）|
+| **M5 · 班级讨论** ⏸ | §5.2 Discussion/DiscussionViewpoint/DiscussionVote/DiscussionComment（4 张）| →Class/User/Lesson/Course | 讨论模块开工（DR-53）|
+| **M6 · 约修** ⏸ | §5.3 PracticeAppointment/PracticeAppointmentParticipant（2 张）| →Class/User/PracticeProject；需恢复 PracticeProject.appointments[] 反向（已补，TODO-3）| 约修模块开工（DR-57~60）|
+| **M7 · 自学模式** ⏸ | §5.4 UserSelfStudyProgram/UserSelfStudyRestWeek（2 张）；同时恢复 Program.selfStudy[] 反向关联（TODO-5）| →User/Program | 自学模式开工（DR-61~64，TODO-5）|
+| **M8 · AI 助手** ⏸ | ContentChunk/FeatureEntry/AiConversation/AiMessage/AiUsage（5 张）；依赖 pgvector 扩展 | 独立模块 | AI 模块独立推进（DR-74）|
+
+### 11.3 Migration 覆盖完整性核对
+
+- **§一 扩展 13 张** → M1 全覆盖 ✅
+- **§二 替换 3 张** → M2 全覆盖 ✅
+- **§三 新建 15 张** → M3a(2) + M3b(4) + M3c(3) + M3d(6) = 15 ✅（ProgramAdvancementConfig/RoleAssignmentHistory/StudentSpecialStatus/CareWatchlistItem/ClassInviteCode/AssistantAssignment/SemesterSnapshot/ReportConfession/AdvancementCheck/AdvancementRecord/AuditLog/EnrollmentStatusHistory/ClassSessionSchedule/ClassTask/LeaveRequest）
+- **§五 暂缓 12 张 + AI 5 张** → M4~M8（实现时编）⏸
+- **§四 复用 22 张** → 不动，不入 migration
+
+---
+
+## 十二、实施 Phase 计划（全表封板后统编，检查项 6 闭合）
+
+> 按「依赖优先 + 业务价值」排期。权限体系是一切的地基（所有写操作要校验角色），故 Phase 1 先行；升学条件体系是本次融合的核心新能力，Phase 2 紧随。每个 Phase 含：DB（对应 migration）+ 后端 API + 管理端页面 + 验收口径。
+
+| Phase | 主题 | DB（migration）| 后端 API | 管理端/前端 | 依赖 | 状态 |
+|---|---|---|---|---|---|---|
+| **P0** | 地基：枚举 + 扩展字段 | M0 + M1 | 无（仅 schema）| 无 | 无 | 待建 |
+| **P1** | 角色权限 + 审计 | M2(UserRoleAssignment) + M3a | 角色任命/撤销 API、`canDo(user,perm,scope)` 中间件、AuditLog 写入与查询（能力 20）| 角色管理页、审计日志查询页 | P0 | 待建 |
+| **P2** | 升学条件体系（核心）| M3b | ProgramAdvancementConfig CRUD、SemesterSnapshot 定时生成、AdvancementCheck 预检引擎（6 类 conditionType 解析）、AdvancementRecord 拍板 | DR-101 四页：①升学条件配置 ②考试管理（录 ExamGrade）③升学资格预检 ④学员达标进度 | P1（写操作校验角色 + 豁免走 AuditLog）| 待建 |
+| **P3** | 关怀体系 | M3c | StudentSpecialStatus 认定（能力 13）、CareWatchlistItem 自动触发 + 手动添加、CareFollowupRecord 跟进、ReportConfession 虚报忏悔流（能力 14）| 关怀清单页、特殊身份认定页、虚报处理页 | P1、P2（report_overdue/false_report 触发依赖 SemesterSnapshot/AdvancementCheck）| 待建 |
+| **P4** | 班级运维 | M3d | ClassInviteCode（能力 5）、AssistantAssignment（能力 19）、LeaveRequest 审批（DR-90）、ClassTask 布置、ClassSessionSchedule 定时生成 ClassSession（能力 4/8）、EnrollmentStatusHistory 留痕 | 邀请码管理页、辅助员配对页、请假审批页、班级任务页、共修课表页 | P1 | 待建 |
+| **P5** | 传承体系 | M2(TransmissionRecord) | TransmissionRecord 录入/灌顶代录、密法访问 EXISTS 查询（DR-44/45）、升学清单 isRequired 核对 | 传承录入页 | P1 | 待建 |
+| **P6** | 班级动态/讨论/约修 ⏸ | M4 + M5 + M6 | 帖子/评论/点赞、讨论投票、集体约修 | 班级社区页 | P1 | ⏸ 暂缓 |
+| **P7** | 自学模式 ⏸ | M7 | 自学申报、个人休息周、进度补足（恢复 TODO-5 反向关联）| 自学管理页 | P2（自学也走升学条件预检）| ⏸ 暂缓 |
+| **P8** | AI 助手 ⏸ | M8 | RAG 检索、对话、用量统计 | AI 助手入口 | 独立（pgvector）| ⏸ 暂缓（DR-74）|
+
+### 12.1 Phase 覆盖完整性核对
+
+- **所有新表/扩展字段**均落在某 Phase：P0（扩展字段）/ P1（权限审计）/ P2（升学）/ P3（关怀）/ P4（运维）/ P5（传承）/ P6~P8（暂缓）✅
+- **DR-101 四页管理界面**全部落 P2 ✅
+- **关键依赖链**：P1（权限）→ 一切写操作；P2（升学）→ P3 触发器；无环 ✅
+- **暂缓区**（§五 12 张 + AI 5 张）对应 P6~P8，与 §五 标签一致 ✅
+
+---
+
+## 十三、02 文档 23 职能 × 写表覆盖核对（检查项 13 闭合）
+
+> 对《02-roles-and-permissions-v1.md》§四 23 项职能逐条核对：每个**写权限（W）**职能是否有对应表承载写操作，高权限操作是否有 AuditLog 留痕。读权限（R）职能不涉及写表，标「只读」。
+
+| # | 职能 | 写权限角色 | 承载表（写操作）| 留痕表 | 覆盖 |
+|---|---|---|---|---|---|
+| 1 | 教学讲解（讲法/答疑/笔记导读）| class_tutor W | Lesson / LessonResource / LessonTextBlock / LessonMediaChapter / QuestionReference（§四 复用）| —（内容编辑，非高权限）| ✅ |
+| 2 | 学员报数审核（本班）| class_admin W | SemesterSnapshot（快照数据源，冻结）+ 底层 PracticeLog/UserPracticeVow/LessonCompletion；虚报触发 CareWatchlistItem(false_report)| ReportConfession（虚报忏悔）+ AuditLog | ✅ |
+| 3 | 学员日常关怀（本班）| class_admin W | CareFollowupRecord（§2.2）+ CareWatchlistItem（§3.4）| —（关怀记录本身即留痕）| ✅ |
+| 4 | 班级共修活动管理 | class_admin W | ClassSession（§1.6）+ ClassSessionSchedule（§3.13）| —| ✅ |
+| 5 | 班级邀请码管理 | class_admin W | ClassInviteCode（§3.5）| AuditLog(invite_code) | ✅ |
+| 6 | 批准自学/网络共修申请 | class_admin W | UserSelfStudyProgram（§5.4 ⏸ 暂缓）+ ClassSession(sessionType=self_study/online) | —| ⏸ 表暂缓，权限链就位 |
+| 7 | 学员考试成绩录入 | class_admin W | ExamGrade（§1.4，subject_admin 升学考 / class_admin 随堂）| AuditLog(exam_grade) | ✅ |
+| 8 | 看本班学员数据 | class_tutor R | 只读 | — | ✅ 只读 |
+| 9 | 看本学科全部班级数据 | subject_admin R | 只读 | — | ✅ 只读 |
+| 10 | 看全平台数据 | super_admin R | 只读 | — | ✅ 只读 |
+| 11a | 出本班测验/随堂题 | class_tutor W | Exam(examType=quiz)（§1.4）| —| ✅ |
+| 11b | 出升学考题（S5/S8）| class_admin W | Exam(examType=advancement)（§1.4）| —| ✅ |
+| 12 | 批准 200 万金刚萨埵替代顶礼 | class_admin W | UserPracticeVow(isSubstituted=true)（§1.7）+ 新建心咒 vow | AuditLog(proxy_action)（DR-94）| ✅ |
+| 13 | 学员特殊身份变更认证 | class_admin W | StudentSpecialStatus（§3.3）+ User.accessibilityNeeds 双写 | AuditLog(special_status) | ✅ |
+| 14 | 取消虚报学员资格 | class_admin W | ReportConfession（§3.8）+ ClassMember(cohortStatus 改)| AuditLog(disqualify_reporter) | ✅ |
+| 15 | 批量登记传承法会 | ❌ 不做 | —（02 文档已标 ❌）| — | ✅ 不做 |
+| 16 | 升学资格审核（预科→正科）| class_admin W | AdvancementCheck（§3.9，豁免）+ AdvancementRecord（§3.10，拍板）| AuditLog(advancement_decision) | ✅ |
+| 17 | 创建新一届班级 | subject_admin W | Class（§1.10）+ ClassMember | —| ✅ |
+| 18 | 创建新专业 | super_admin W | Program（§1.1）| —| ✅ |
+| 19 | 配对辅助员（全班学员）| class_admin W | AssistantAssignment（§3.6）| —| ✅ |
+| 20 | 平台级配置（LLM/法本元数据/全局参数）| super_admin W | Program/Lesson 元数据 + 全局配置 | AuditLog（class_archive 等高权限）| ✅ |
+| 21 | 管理员代行操作（豁免/替代/调整/修正/追溯）| class_admin W | **横切**：作用于 UserPracticeVow/StudyRecord/AdvancementCheck/ExamGrade 等被代行对象 | AuditLog(proxy_action)（D17 核心）| ✅ |
+| 22 | 撤销学员的出勤打卡 | class_admin W | StudyRecord（出勤记录，不物理删 D18）| AuditLog(attendance_revoke) | ✅ |
+| 23 | 给学员补打卡（任意类型）| class_tutor W | StudyRecord / LessonCompletion / PracticeLog（补录）| AuditLog(checkin_proxy) | ✅ |
+
+### 13.1 核对结论
+
+- **23 职能全部有承载**：21 项 ✅ 已就位（写表 + 留痕齐全）；1 项（#6 自学/网络共修）⏸ 表暂缓但权限链就位；1 项（#15）❌ 不做（02 已标）。
+- **AuditLog 11 类 actionType 全部对应到职能**：proxy_action(#12/21)、role_assignment(P1 角色任命)、exam_grade(#7)、advancement_decision(#16)、attendance_revoke(#22)、checkin_proxy(#23)、special_status(#13)、disqualify_reporter(#14)、invite_code(#5)、class_archive(#20 归档)、transmission_proxy(#15 传承代录——注：#15 法会批量登记 ❌ 不做，但单条传承代录仍走 §2.3 TransmissionRecord.entryMethod + 此 actionType）。**无悬空 actionType，无缺失留痕的高权限职能** ✅。
+- **权限继承一致性**：所有 W 职能的最低角色等级与 02 文档矩阵一致（class_tutor=1 的 #1/#11a/#23；class_admin=2 的多数；subject_admin=3 的 #17；super_admin=99 的 #18/#20）✅。
