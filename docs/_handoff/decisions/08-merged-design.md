@@ -15,11 +15,11 @@
 
 ---
 
-## 一、🔧 扩展表（9 张）
+## 一、🔧 扩展表（10 张）
 
 旧设计字段为底，按新业务逻辑加字段/改语义。
 
-> 注：ProgramSemester 核对后字段够用改判 ✅ 复用；CohortRecommendedTemplate 核对能力 9 后需扩展（classId→programId）从复用区移入；UserPracticeVow 剥离班级任务重新定位为纯发愿表。扩展区最终 9 张。
+> 注：ProgramSemester 核对后字段够用改判 ✅ 复用；CohortRecommendedTemplate 核对能力 9 后需扩展（classId→programId）从复用区移入；UserPracticeVow 剥离班级任务重新定位为纯发愿表。User 旧设计 13 字段全部复用，但新增 `birthDate`（年龄豁免数据源）从复用区移入扩展区。扩展区最终 10 张。
 
 ---
 
@@ -608,6 +608,78 @@ model CohortRecommendedTemplate {
 | `@@unique([programId, templateId])` | DB | 同专业同模板唯一 |
 | `@@unique([classId, templateId])` | DB | 同班级同模板唯一 |
 | programId / classId 至少一个非空 | 应用层（Zod）| 防止孤儿绑定 |
+
+---
+
+### 1.9 User（用户）✅ 已封板
+
+**服务能力**：能力 2（学员加入）+ 能力 3（盲/聋特殊圆满）+ 能力 10（年龄豁免）+ 能力 12（特殊身份关怀）
+**写权限**：本人维护个人资料（realName/phone/city 等）；studentId/nickname 自动生成不可自改（admin 异常可改）；accessibilityNeeds 由 admin 认定（职能 #13）；birthDate 本人填写，年龄豁免资格由系统按 birthDate 计算
+**参考决策**：D18（档案永久保留）、DR-70；新增字段 birthDate 见 DR-70
+
+> **判定**：旧设计 §2.2 已扩展 13 个字段，核对新设计后**全部有效照搬**。本表本可纯复用，但因 60 岁年龄豁免规则（大纲明文硬规则，能力 10 升学条件）需要年龄数据源，**新增 `birthDate` 字段**，故从复用区移入扩展区，判 🔧 扩展。
+
+#### 旧设计 13 字段（全部复用，不改）
+
+| 字段 | 用途 | 状态 |
+|---|---|---|
+| `studentId` | 学号（自动生成/老学员植入），`@unique` | ✅ 复用 |
+| `nickname` | 行者昵称（自动生成，不可自改），`@unique` | ✅ 复用 |
+| `accessibilityNeeds` | `['blind','deaf']`，盲/聋特殊圆满数据源（能力 3/12）| ✅ 复用 |
+| `dataSource` | self_register / imported / admin_created | ✅ 复用 |
+| `learningMode` | class / self_study / both（对应 §5.4 自学模式）| ✅ 复用 |
+| `preferShowFaxin` | 三殊胜框架总开关（发心语 + 回向 Sheet）| ✅ 复用 |
+| `timezone` | IANA 时区（自学进度/打卡基准）| ✅ 复用 |
+| `realName` | 真实姓名（辅导员/admin 可见）| ✅ 复用 |
+| `phone` | 手机号（不含国家码）| ✅ 复用 |
+| `phoneRegion` | 国家码（ISO 3166-1 alpha-2），默认 US | ✅ 复用 |
+| `refugeStatus` | 皈依情况（taken/not_taken/unsure）| ✅ 复用 |
+| `city` | 所在城市（自由文本）| ✅ 复用 |
+| `practiceBackground` | 修行背景（自由文本，可选）| ✅ 复用 |
+
+#### 新增字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `birthDate` | DateTime? | 出生日期；**年龄豁免资格**的唯一数据源——年满 60 岁可申请免考（非自动，见下）| **新增** |
+
+```prisma
+model User {
+  // ... 旧设计现有所有字段保留 ...
+  // ... §2.2 扩展 13 字段保留（studentId/nickname/accessibilityNeeds/dataSource/
+  //     learningMode/preferShowFaxin/timezone/realName/phone/phoneRegion/
+  //     refugeStatus/city/practiceBackground）...
+
+  // 新增（年龄豁免数据源）
+  birthDate DateTime?  // 出生日期；年龄豁免资格计算用（年满60岁可申请免考，非自动）
+}
+```
+
+#### 年龄豁免规则（60 岁，写入升学条件）
+
+> 大纲明文（升学指南 §一（三）入学条件）：**第一次考试报名时年满 60 岁的学员，没有上述考试要求。**
+
+**业务规则**（区别于盲/聋强制豁免）：
+
+| 维度 | 盲/聋（accessibilityNeeds）| 年龄 60 岁（birthDate）|
+|---|---|---|
+| **性质** | 强制豁免（身体缺陷必须适用）| **资格豁免**（有资格但不强制）|
+| **触发** | 满足即自动切换判定路径（能力 3）| 年满 60 → 获得免考**资格**，是否使用由本人/管理员定 |
+| **实现** | 系统自动（圆满判定按身份分支）| **非自动**：走能力 5 代行豁免，管理员显式确认免考、留痕（D17）|
+| **原因** | 客观无法完成 | 部分老人有能力正常完成加行/考试，可选择正常考 |
+
+- **年龄计算基准**：以「第一次考试报名时」的年龄为准（`birthDate` → 报名日年龄 ≥ 60）
+- **不做成自动满足**：不能「年龄≥60 → exam_score 条件自动置满足」。而是系统标记该学员「**符合年龄豁免资格**」，实际免考是一次显式代行操作（能力 5，留痕、双方可见、可撤回）
+- **有能力者正常考**：愿意正常参加考试的 60+ 学员，仍正常录成绩、正常判定
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `studentId` / `nickname` 唯一 | DB（@unique）| 旧设计已有 |
+| `accessibilityNeeds` 取值 ['blind','deaf'] | 应用层 | 盲/聋强制圆满路径数据源 |
+| 年龄豁免非自动 | 应用层 | 年满 60 仅获资格；实际免考走能力 5 代行豁免、留痕（D17）|
+| 档案不物理删除（D18）| 应用层 | 退出/毕业后档案永久保留 |
 
 ---
 
@@ -1773,6 +1845,7 @@ model UserSelfStudyRestWeek {
 | 2026-05-29 | §四 Meditation（观修）✅ 复用——旧设计 §2.2 扩展 seriesKey/seriesNumber/isTantric/tantricGroupId 4 字段 + @@unique，大纲核对佐证 92 修法分法字段够用，缺口属判定层（TODO-7/8/9）不影响表结构；§八 DR-67；§九 检查轮次 19（0 问题）|
 | 2026-05-29 | 大纲规则全面盘点：核对预科19届大纲全文 vs 06能力/08设计，找出 7 条未设计规则全部登记 §十——TODO-10（金刚萨埵代替顶礼换算/审批）、TODO-11（法王祈祷文补念状态机）、TODO-12 ⚠️（年龄60岁豁免，无字段无逻辑）、TODO-13 ⚠️（考试合格线多维矩阵：出勤档×开卷闭卷×次数×年龄）、TODO-14（兼修加行）、TODO-15（限制性课程不进考试范围）、TODO-16 ❌（转功德会，用户决策不做）；§八 DR-68（转功德会 ❌ 不做留痕）|
 | 2026-05-29 | §四 PracticeProject（修持项目字典）✅ 复用——旧设计 §2.2 扩展 isTantric/tantricGroupId 2 字段，scope 保留兼容，字段不改；**顺手闭合 TODO-3**：§5.3 约修 practiceProjectId 升格正式 FK，PracticeProject 补反向 appointments[]；§八 DR-69；§九 检查轮次 20（1 问题→当轮闭合 TODO-3）|
+| 2026-05-29 | §1.9 User 🔧 扩展封板——旧设计 13 字段全部复用 + **新增 birthDate**（年龄豁免数据源），从复用区移入扩展区（9→10 张）；正式写入 **60 岁年龄豁免规则**：做成「资格性、非自动」（年满 60 仅获免考资格，实际免考走能力 5 代行留痕 D17），区别于盲/聋强制豁免（能力 3 自动判定路径）；TODO-12 收窄为仅剩逻辑层（字段已就位）；§八 DR-70；§九 检查轮次 21（0 问题）|
 
 ---
 
@@ -1851,6 +1924,7 @@ model UserSelfStudyRestWeek {
 | DR-67 | Meditation 在新设计下是否需要改字段 | ✅ 复用，字段不改（用户决策 2026-05-29）| 旧设计 §2.2 扩展 seriesKey/seriesNumber/isTantric/tantricGroupId 4 字段 + `@@unique([seriesKey, seriesNumber])`。大纲核对佐证 92 修法分法记录由 seriesKey+seriesNumber+PracticeLog.meditationId 实现，字段够用。大纲发现的 3 缺口（座次规则/音视频二选一/逐法达标）均属判定逻辑层，记 TODO-7/8/9，非 Meditation 表结构问题。密法授权同 Course 迁 TransmissionRecord，不影响字段。排除「在 Meditation 上加达标快照字段」：逐法达标是聚合计算结果，属 AdvancementCheck 范畴，不冗余存 |
 | DR-68 | ❌ 转功德会（菩提功德会）是否做 | 不做（永久决策，用户决策 2026-05-29）| 大纲规定：取消学员资格后可转入菩提功德会。功德会是独立于觉学学修体系的组织/系统，「转功德会」属跨系统流程，超出觉学平台范围。觉学只负责到「取消学员资格」为止，之后是否入会、入会流程均不在本系统建模。排除「建功德会入会记录表」：会引入与学修无关的组织管理复杂度。登记 §十 TODO-16 仅为留痕「大纲此条已核对、明确排除」，非待办 |
 | DR-69 | PracticeProject 在新设计下是否需要改字段 + TODO-3 处理 | ✅ 复用，字段不改；顺手闭合 TODO-3（用户决策 2026-05-29）| 旧设计 §2.2 扩展 isTantric/tantricGroupId 2 字段，scope 旧字段保留兼容。PracticeProject 是「修什么法」字典表，被 PracticeLog/PracticeTemplate/约修引用，新设计无新增需求。密法授权同 Course/Meditation 迁 TransmissionRecord，不影响字段。**顺手闭合 TODO-3**：PracticeProject 确认复用后，§5.3 约修 practiceProjectId 升格正式 FK，PracticeProject 补反向 appointments[]——TODO-3 的处理时机正是「PracticeProject 复用确认时」，故一并处理。排除「拆密法项目独立表」：isTantric 标识 + tantricGroupId 已足够区分，无需拆表 |
+| DR-70 | User 是否纯复用 + 60 岁年龄豁免如何建模 | 🔧 扩展：新增 `birthDate`；年龄豁免做成「资格性、非自动」（用户决策 2026-05-29）| 旧设计 13 字段全部有效复用。但 60 岁免考是大纲硬规则、需年龄数据源，User 上无生日字段，故新增 `birthDate`，判 🔧 扩展（从复用区移入）。**关键区分**（用户决策）：盲/聋是身体缺陷→**强制**豁免（能力 3 自动切判定路径）；60 岁是**资格**豁免→年满 60 仅获免考资格，**不自动满足考试条件**，实际免考走能力 5 代行（管理员显式确认、留痕 D17）。理由：部分老人有能力正常完成加行/考试，应允许其正常考、正常计成绩，不能一刀切自动免。排除「年龄≥60 自动置 exam_score 满足」：会剥夺有能力老人正常应考的选择，且与「豁免是个案、可选、留痕」的能力 5 哲学冲突。birthDate 字段先就位，完整豁免逻辑在升学条件配置阶段做（TODO-12 收窄为仅剩逻辑层）|
 
 ---
 
@@ -2257,6 +2331,25 @@ model UserSelfStudyRestWeek {
 **本轮发现问题数**：1（TODO-3 关联不对称）→ 已当轮闭合（补 FK + 反向关联）。
 **结论**：PracticeProject 判 ✅ 复用，字段照搬旧设计扩展版（2 字段）。同步闭合 TODO-3——约修 practiceProjectId 升格正式 FK，PracticeProject 补反向 appointments[]，关联对称。
 
+### 检查轮次 21（2026-05-29，范围：§1.9 User 扩展封板 + 60 岁年龄豁免规则）
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | User 新增 birthDate 为普通 DateTime? 字段无关联；User 既有海量反向关联（ClassMember/StudyRecord/各打卡/约修/帖子等）旧设计完整，本次不动 |
+| 2. API 响应字段与 DB 字段对齐 | ⏸ 暂不适用 | 未写 API 层；birthDate 属敏感字段，实现时注意权限可见性 |
+| 3. SQL 视图表名正确 | ⏸ 暂不适用 | 无视图 |
+| 4. 总览计数正确 | ✅ | §一 扩展区 9→10 张（User 从复用区移入）；§一 标题与注记已同步更新为 10 |
+| 5. Migration 覆盖完整 | ⏸ 暂不适用 | 本次仅 User 加 birthDate 单列（ADD COLUMN nullable）；待全表统编 |
+| 6. Phase 计划覆盖完整 | ⏸ 暂不适用 | 待全表完成统编 |
+| 7. 暂缓/不做标签完整 | ✅ | 13 旧字段逐一标 ✅ 复用；birthDate 标新增；年龄豁免「资格性非自动」明确区别于盲聋强制豁免 |
+| 8. 业务规则约束有实现方式 | ✅ | studentId/nickname 唯一→DB @unique；accessibilityNeeds 取值→应用层；年龄豁免非自动→应用层（走能力 5 代行，留痕 D17）；档案不删→应用层 |
+| 9-12. 其余检查项 | ✅/⏸ | D18：User 档案永久保留；D17：年龄豁免走能力 5 代行留痕；盲/聋强制豁免（能力 3 自动）与年龄资格豁免（能力 5 个案）两层清晰 |
+| 13. 02 文档 23 职能写表覆盖 | 🔵 部分 | accessibilityNeeds 认定对应职能 #13；年龄豁免实际操作对应能力 5 代行（class_admin+）|
+| 14. 枚举值各处一致 | ✅ | learningMode（class/self_study/both）、refugeStatus（taken/not_taken/unsure）、accessibilityNeeds（blind/deaf）、dataSource 三值均与旧设计 enum 一致；birthDate 无枚举 |
+
+**本轮发现问题数**：0。
+**结论**：User 判 🔧 扩展（13 旧字段复用 + birthDate 新增）。60 岁年龄豁免做成「资格性、非自动」，与盲/聋强制豁免分层清晰：盲聋走能力 3 自动判定路径，年龄走能力 5 个案代行（留痕）。birthDate 字段就位，TODO-12 收窄为仅剩升学阶段的豁免逻辑层。
+
 ---
 
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
@@ -2275,7 +2368,7 @@ model UserSelfStudyRestWeek {
 | TODO-9 | **加行升学「逐法达标」预检**——大纲升学硬条件要求 92 修法**每一法各自**满足 ≥3座 & ≥1.5小时（非仅总量 276座/138h）。系统只有逐条 PracticeLog，无「按 meditationId 分组的逐法达标快照」。`ProgramAdvancementConfig` 的 `practice_session` 条件粒度须确认能否表达「逐法达标」，AdvancementCheck(§3.9) 预检须按 meditationId 分组聚合 92 次比对 | 预科19届大纲核对（ProgramAdvancementConfig/AdvancementCheck）| §3.9 AdvancementCheck 设计时 | DR-4/DR-14 |
 | TODO-10 | **金刚萨埵心咒代替顶礼的换算+申请审批**——大纲：身体原因可申请念 200 万金刚萨埵代替 10 万顶礼（已修部分顶礼后中断申请代替的同样念 200 万）。能力 5/6 有「顶礼替代」概念但**换算关系（200万↔10万）、申请审批流程**未数据化落点。须确认换算是配置项还是写死，以及代替申请走能力 5 代行还是独立审批 | 预科19届大纲核对（能力 5/6 代行）| 内加行实修 / 代行能力深化时 | D17 / 能力 5 |
 | TODO-11 | **法王祈祷文补念状态机**——大纲：修顶礼时未念法王祈祷文的，毕业前补念 10 万，否则不能进密法。能力 10 升学条件列了「法王祈祷文 10 万」，但**「欠/补」状态机**（欠多少、已补多少、是否清零）未设计。须确认是否作为独立计数项或挂顶礼加行的子条件 | 预科19届大纲核对（能力 6/10）| 内加行实修 / 升学条件设计时 | D13 / 能力 6 |
-| TODO-12 | **年龄豁免（60岁）** ⚠️ 硬规则缺口——大纲：第一次考试报名时年满 60 岁的学员，免除考试要求。06/08 **完全无年龄字段、无年龄豁免逻辑**。须新增：User 出生日期/年龄字段 + ProgramAdvancementConfig 的年龄豁免条件（「考试报名时年龄 ≥ 60 → exam_score 条件自动满足」）| 预科19届大纲核对（User / ProgramAdvancementConfig / 能力 10）| 升学条件配置 / User 表设计时 | DR-5 / D13 |
+| TODO-12 | **年龄豁免（60岁）逻辑层**——⚠️ 字段已就位：§1.9 User 已加 `birthDate`（DR-70）。**剩余逻辑层**：年龄豁免是「资格性、非自动」（非「年龄≥60 自动满足 exam_score」），实际免考走能力 5 代行豁免、留痕（D17）。须在升学条件配置/预检阶段实现：(1) 按 birthDate + 第一次考试报名日计算年龄；(2) 标记「符合年龄豁免资格」；(3) 接入能力 5 显式豁免流程，而非自动置满足 | 预科19届大纲核对（能力 5 / 能力 10 / AdvancementCheck）| 升学条件配置 / §3.9 AdvancementCheck 设计时 | DR-70 / 能力 5 |
 | TODO-13 | **考试合格线多维矩阵** ⚠️ 硬规则缺口——大纲合格线随场景变化：出勤≥93次→1次合格(30分)；出勤<93次/自学→1次及格(开卷72/闭卷60) 或 2次各合格(30分)。能力 10「合格线是专业配置项」当前是**单一阈值**，无法表达「出勤档 × 开卷/闭卷 × 考试次数 × 年龄」多维矩阵。须扩展 ProgramAdvancementConfig 或 Exam 结构（含 isOpenBook 字段、出勤分档逻辑、多次考试组合判定）| 预科19届大纲核对（ProgramAdvancementConfig / Exam / 能力 10）| 升学条件配置 / 考试设计时 | DR-14 / D13 |
 | TODO-14 | **兼修加行**——大纲：修心/念佛专业可兼修加行，毕业升密法时加行学修量保留。能力 9 支持多专业，但**「主修 + 兼修」的附修关系**（一个专业挂另一个专业的课程/实修要求）未设计。须确认兼修是独立 UserSelfStudyProgram/班级，还是新建兼修关系字段 | 预科19届大纲核对（能力 9 / 升学指南）| 多专业 / 升学结构设计时 | D9 / D16 |
 | TODO-15 | **限制性课程不进考试范围**——大纲：大学演讲系列 1-18 是限制性课程，不纳入考试范围。Course.category 有 `self_study_book` 区分，但**「考试范围只含正式课程、排除限制性课程」**这条规则未在 Exam/考试范围配置里落点。须确认考试范围按 category 过滤（restricted/self_study_book 排除）| 预科19届大纲核对（Course / Exam / 能力 10）| 考试设计时 | 能力 3 / 能力 10 |
