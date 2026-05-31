@@ -2040,13 +2040,13 @@ ClassTask 只存「任务定义」。每位班级成员有一条对应的 UserPr
 | 线上 PracticeTask 字段 | 归宿 | 说明 |
 |---|---|---|
 | `scope`（self / class）| **拆流** | class → ClassTask；self → UserPracticeVow（context=personal, isPledged=true，折叠了 PracticeGoal）|
-| `mode`（daily / fixed）| ⚠️ 见下 | class 流：daily → ClassTask.dailyTarget；**fixed（期间累计）无落点**（ClassTask 纯每日制）→ TODO-22 |
+| `mode`（daily / fixed）| → ClassTask.period（DR-124）| class 流：daily → dailyTarget、fixed → targetCount，**另新增 weekly → weeklyTarget**（DR-124 ClassTask 已扩多周期，缺口闭合）|
 | `classId` | → ClassTask.classId | class 流 |
 | `ownerId`（class=辅导员 uid）| → ClassTask.createdBy | 创建者 |
 | `userId`（self=归属学员）| → UserPracticeVow.userId | self 流 |
 | `projectId` | → ClassTask.practiceProjectId / UserPracticeVow.practiceProjectId | |
 | `title` | → ClassTask.title / UserPracticeVow.customName | |
-| `target`（daily=每日N / fixed=累计N）| → ClassTask.dailyTarget（daily）/ UserPracticeVow.dailyTarget|weeklyTarget（self）| fixed 班级累计见 TODO-22 |
+| `target`（daily=每日N / fixed=累计N）| class → ClassTask.dailyTarget/weeklyTarget/targetCount（按 period）；self → UserPracticeVow.dailyTarget/weeklyTarget | fixed 班级累计=targetCount（DR-124 已落，缺口闭合）|
 | `startAt` / `endAt` | → ClassTask.startDate / endDate | |
 | `archivedAt` | → ClassTask.isActive=false（停用不删，D18）| |
 
