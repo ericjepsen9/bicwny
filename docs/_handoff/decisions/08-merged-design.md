@@ -2125,9 +2125,9 @@ model EnrollmentStatusHistory {
 | `Event` | 能力 15 | ✅ 确认复用（C 类批量，DR-72）|
 | `EventCount` | 能力 15 | ✅ 确认复用（C 类批量，DR-72）|
 | `TantricGroup` | 能力 15/17 | 🔧 微调（删 grants，补 transmissionRecords，详见下，DR-73）|
-| `ContentChunk` | AI 助手 | ⏸ 暂缓（AI 模块，DR-74）|
-| `FeatureEntry` | AI 助手 | ⏸ 暂缓（AI 模块，DR-74）|
-| `AiConversation` / `AiMessage` / `AiUsage` | AI 助手 | ⏸ 暂缓（AI 模块，DR-74）|
+| `ContentChunk` | 能力 25 AI 助手 | ⏸ 暂缓实现（AI 模块，DR-74；业务已登记能力 25，DR-106）|
+| `FeatureEntry` | 能力 25 AI 助手 | ⏸ 暂缓实现（AI 模块，DR-74；业务已登记能力 25，DR-106）|
+| `AiConversation` / `AiMessage` / `AiUsage` | 能力 25 AI 助手 | ⏸ 暂缓实现（AI 模块，DR-74；业务已登记能力 25，DR-106）|
 | `SpeakingSession` | 能力 10 | ✅ 复用（classId 已可空，见下方说明）|
 | `SpeakingRegistration` | 能力 10 | ✅ 确认复用（C 类批量，DR-72）|
 | ~~`Exam`~~ | 已移入扩展区 §1.4 | ✅ |
@@ -2913,6 +2913,7 @@ model UserSelfStudyProgram {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-106 | AI 助手登记为 06 能力 25（暂缓决策讨论）| **AI 助手登记为能力 25；RAG 检索覆盖全部法本；学员可问 / 辅导员只读洞察 / super_admin 配置**（用户决策 2026-05-31）| 暂缓决策讨论：AI 助手 5 张表（ContentChunk/FeatureEntry/AiConversation/AiMessage/AiUsage）DB 设计与技术方案早在 docs/AI_ASSISTANT_PLAN.md（2026-05-04）定型，DR-74 决策暂缓字段级设计、不在融合范围内，但 06 未登记对应能力。本轮补登记能力 25，完成业务能力定稿（DB 仍 ⏸ 暂缓实现）。三个待拍板业务点用户决策：(1) **提问权限**=学员可问、class_tutor+ 只读「班级问答洞察」（不可自己提问）、super_admin 负责配置（职能 #20）；(2) **RAG 范围**=覆盖系统内全部已索引法本，不限学员是否已加入该专业（与专业归属解耦，任何学员可问任何法本）；(3) **辅导员洞察**=纳入本次定稿（Top N 热门问题聚合，不展示提问学员姓名）。其余沿用 AI_ASSISTANT_PLAN：法义必走 RAG 带引用（红线，无依据导向辅导员）、个人修行体验/教派评判不答、Rate Limit 30/日/学员、PII 不发 LLM、对话历史可物理清空（**D18 明确例外**：对话属 UI 工具记录非学修档案）、每日成本上限默认 $20。**06 范围说明**：能力 25 是横切型工具能力（同能力 18/20），非学修硬规则。**排除「RAG 限已加入专业」**（原 Q2 草稿 b）：用户明确放开为全部法本，检索范围与能力 2 归属解耦。**排除「辅导员也能提问」**：辅导员侧定位为备课洞察工具，提问入口仅面向学员（消费视图，符合三端分离）|
 | DR-105 | 社交三件套登记为 06 能力（暂缓决策讨论）| **班级动态/讨论/约修登记为能力 22/23/24**（用户决策 2026-05-30）| 暂缓决策讨论：§5.1/5.2/5.3 三家族 DB 设计早已封板（DR-50~60），但服务的功能不在 06 的 20 条能力内，三处均挂 ⚠️「06 未登记能力」。用户选「现在补登记」。三能力为已封板设计的转录（无新业务决策）：能力 22 班级动态（发帖/评论/点赞/转发，DR-50~52）、能力 23 班级讨论（话题/投票一人一票不换投，DR-53~56）、能力 24 约修（集体修持目标，任意成员发起，DR-57~60）。三者均「内容本班可见 + 不物理删（D18，点赞物理删为 DR-50 例外）」。**06 范围说明**：登记后 06 从「纯预科学修管理」扩到含「班级社交/协作」——这三个是班级级互动功能，非学修硬规则，与能力 18/20 等横切能力一样可纳入。08 §5.1/5.2/5.3 三处 ⚠️ 解除。**排除「不登记，留作基础设施」**：06 是 source of truth，有表无能力会留下孤儿设计，违反「先有能力才有表」原则 |
 | DR-104 | 自学进度模型（暂缓决策讨论·能力 21）| **自学进度=纯完成量，独立于班级；取消休息周/起修日/节奏（推翻 DR-62~64）**（用户决策 2026-05-30）| 用户决策：「自学不需要申报休息周，自学进度独立于班级」。逻辑：休息周存在的唯一意义是在「按班级课表周次推进」模型里暂停进度时钟、防假性掉队；自学进度独立、不对标周次、无掉队概念，故休息周（DR-62/63）/ 进度补足算法（DR-64）/ pace 节奏 / startDate 起修日**全部失去意义，一并取消**。新模型：进度 = 纯完成量，按 userId 聚合 LessonCompletion（课时完成度）+ PracticeLog（个人学修量），完成多少算多少，学员自定快慢，系统不判「落后」。**删表 UserSelfStudyRestWeek**（§五 12→11）；UserSelfStudyProgram 精简为 userId/programId/status（去 startDate/pace）。顺带修正 abandoned 权限 class_admin+→subject_admin+（自学无班级，作用域漏洞，与 DR-61 一致）。推翻 DR-62/63/64（均标作废）。**排除「保留休息周但不强制」**：无周次时钟可暂停，休息周纯属冗余字段，删除最干净 |
 | DR-103 | 自学模式与升学体系的接轨边界（§5.4，暂缓决策讨论）| **自学=纯自我学习轨道：无班级、不升学、不做共修出勤；可录个人学修数量作自我追踪**（用户决策 2026-05-30）| 暂缓决策讨论确认自学模式定位。闸门问题「自学能否升学」定为**不能**（SS-1=c）：自学师兄要升学，须先经邀请码加入正式班级（能力 2），届时与班级学员一视同仁。连锁：(1) 不升学→不考升学考、不生成 SemesterSnapshot、不进升学预检；(2) 不做共修出勤（能力 8 机制不适用，自学无班级无共修）；(3) **可录个人学修数量**（念诵/观修，复用 PracticeLog——经核对 PracticeLog 字段无 classId，零改造；发愿走 context=personal）作个人进度追踪（DR-104 纯完成量）；(4) 升学体系表零改造（不为无班级加可空 classId）；(5) **不进关怀清单**（SS-4，用户决策 2026-05-30）——能力 14 关怀清单是班级机制（CareWatchlistItem.classId），自学无班级故不进；自学进度独立、无掉队概念故无预警（DR-104）。同步修订 06 能力 8 自学条款（不做出勤统计）+ 能力 9 规则 8（个人学修追踪，不做升学报数快照）。**排除 a/b（自学也能升学）**：会迫使升学/考试/报数/出勤全体系为「无班级」改造，复杂度高且违背班级中心模型（能力 2/8/9/10 均以 class 为锚）。§十二 P7 同步去掉对 P2 升学预检的依赖 |
@@ -3961,6 +3962,26 @@ model UserSelfStudyProgram {
 
 ---
 
+### 检查轮次 53（2026-05-31，范围：AI 助手登记 06 能力 25 · DR-106 · 跨 06/08）
+
+> 本轮含 06 新增能力 25 + 08 §四 AI 表注释更新 + DR-106 + §十一/十二 关联 + 跨双文档一致核对。AI 5 张表 DB 设计与技术方案早在 AI_ASSISTANT_PLAN.md（2026-05-04）定型，本轮仅补业务能力登记，DB 仍 ⏸ 暂缓实现。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. DB 变更为零 | ✅ | DR-106 仅补业务能力，AI 5 张表沿用 AI_ASSISTANT_PLAN 既有设计，无新表/字段；§四 三行仅更新注释（关联能力 25），表本身不动；§五暂缓仍 11 张（AI 5 张始终在 §四 复用区外的暂缓清单，计数不变）|
+| 2. 06↔08 双文档一致 | ✅ | 06 能力 25 业务规则与 08 DR-106、§四 5 张表、§十一 M8、§十二 P8 逐条对齐（RAG 全部法本、学员可问/辅导员只读/super_admin 配置、对话历史可物理删 D18 例外）；AI_ASSISTANT_PLAN.md 技术细节为引用源，未冲突 |
+| 3. 能力编号无冲突 | ✅ | 1-24 已用，能力 25 为下一连续编号；06 状态行 1-25、汇总表 1-25、changelog 同步 |
+| 4. 能力交叉引用正确 | ✅ | 能力 25 依赖能力 2（提问者身份）、能力 3（法本索引为 ContentChunk）、能力 18（权限：学员/辅导员/super_admin 职能 #20）；均为已存在能力，无悬空引用 |
+| 5. 业务规则约束有实现方式 | ✅ | RAG 红线=system prompt 约束+引用后处理（AI_ASSISTANT_PLAN §六/九）；Rate Limit=AiUsage @@unique([userId,date]) 计数；PII 不发=应用层净化；对话物理删=AiConversation/AiMessage 物理 DELETE（D18 例外，规则 7 已注明）；成本上限=super_admin 配置项；洞察不展姓名=应用层聚合脱敏 |
+| 6. D18 例外标注完整 | ✅ | 对话历史物理删除是 D18「永不物理删除」的明确例外，理由（UI 工具记录非学修档案）在 06 规则 7、绝对约束 4、DR-106 三处一致标注；与 DR-50 点赞物理删同为 D18 列举例外 |
+| 7. 暂缓标签完整 | ✅ | §四 三行仍 ⏸ 暂缓实现；§十一 M8 / §十二 P8 仍 ⏸；06 汇总表能力 25 标「⏸ 暂缓实现」；DR-74（暂缓 DB 实现）与 DR-106（业务登记）并存不矛盾 |
+| 8. 三端分离一致 | ✅ | 学员端=提问入口（消费视图）；辅导员端=只读问答洞察（不可提问）；super_admin=配置中心；符合 CLAUDE.md 三端分离铁律，辅导员管理操作不混入学员端 |
+
+**本轮发现问题数**：1（§11.3 line 4050「§五 暂缓 12 张」为 DR-104 删 RestWeek 后检查轮次 51 漏改的旧残留，本轮顺修为 11 张；与 §五 实际 11 张、line 4077 一致）。DR-106 本身配套改动一次到位。
+**结论**：AI 助手登记完成（DR-106）。能力 25 = RAG 法义问答（覆盖全部法本、带引用红线）+ 功能导航 + 辅导员洞察；学员可问 / 辅导员只读 / super_admin 配置。DB 5 张表（含 pgvector）仍 ⏸ 暂缓实现（DR-74）。**至此 06 能力清单 1-25 全部完成登记**，08 §四 AI 三行 ⚠️/暂缓注释与 06 对齐。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -4019,14 +4040,14 @@ model UserSelfStudyProgram {
 | **M5 · 班级讨论** ⏸ | §5.2 Discussion/DiscussionViewpoint/DiscussionVote/DiscussionComment（4 张）| →Class/User/Lesson/Course | 讨论模块开工（DR-53）|
 | **M6 · 约修** ⏸ | §5.3 PracticeAppointment/PracticeAppointmentParticipant（2 张）| →Class/User/PracticeProject；需恢复 PracticeProject.appointments[] 反向（已补，TODO-3）| 约修模块开工（DR-57~60）|
 | **M7 · 自学模式** ⏸ | §5.4 UserSelfStudyProgram（1 张，DR-104 删 RestWeek）；同时恢复 Program.selfStudy[] 反向关联（TODO-5）| →User/Program | 自学模式开工（DR-61/103/104，TODO-5）|
-| **M8 · AI 助手** ⏸ | ContentChunk/FeatureEntry/AiConversation/AiMessage/AiUsage（5 张）；依赖 pgvector 扩展 | 独立模块 | AI 模块独立推进（DR-74）|
+| **M8 · AI 助手** ⏸ | ContentChunk/FeatureEntry/AiConversation/AiMessage/AiUsage（5 张）；依赖 pgvector 扩展 | 独立模块 | 能力 25；AI 模块独立推进（DR-74/106）|
 
 ### 11.3 Migration 覆盖完整性核对
 
 - **§一 扩展 13 张** → M1 全覆盖 ✅
 - **§二 替换 3 张** → M2a(UserRoleAssignment) + M2b(CareFollowupRecord) + M2c(TransmissionRecord) 全覆盖 ✅
 - **§三 新建 15 张** → M3a(2) + M3b(4) + M3c(3) + M3d(6) = 15 ✅（ProgramAdvancementConfig/RoleAssignmentHistory/StudentSpecialStatus/CareWatchlistItem/ClassInviteCode/AssistantAssignment/SemesterSnapshot/ReportConfession/AdvancementCheck/AdvancementRecord/AuditLog/EnrollmentStatusHistory/ClassSessionSchedule/ClassTask/LeaveRequest）
-- **§五 暂缓 12 张 + AI 5 张** → M4~M8（实现时编）⏸
+- **§五 暂缓 11 张 + AI 5 张** → M4~M8（实现时编）⏸（§五 11 = 社交 4+4+2 + 自学 1，DR-104 删 RestWeek；检查轮次 53 顺修旧残留 12→11）
 - **§四 复用 22 张** → 不动，不入 migration
 
 ---
@@ -4045,7 +4066,7 @@ model UserSelfStudyProgram {
 | **P5** | 传承体系 | M2c(TransmissionRecord) | TransmissionRecord 录入/灌顶代录、密法访问 EXISTS 查询（DR-44/45）、升学清单 isRequired 核对 | 传承录入页 | P1 | 待建 |
 | **P6** | 班级动态/讨论/约修 ⏸ | M4 + M5 + M6 | 帖子/评论/点赞、讨论投票、集体约修 | 班级社区页 | P1 | ⏸ 暂缓 |
 | **P7** | 自学模式 ⏸ | M7 | 自学开通（subject_admin）、纯完成量进度（聚合 LessonCompletion/PracticeLog，DR-104）、个人学修量录入（恢复 TODO-5 反向关联）| 自学管理页 | P0（仅需扩展字段；自学不升学故不依赖 P2，DR-103）| ⏸ 暂缓 |
-| **P8** | AI 助手 ⏸ | M8 | RAG 检索、对话、用量统计 | AI 助手入口 | 独立（pgvector）| ⏸ 暂缓（DR-74）|
+| **P8** | AI 助手 ⏸（能力 25）| M8 | RAG 检索（全部法本）、对话、用量统计、辅导员洞察 | AI 助手入口（学员）+ 问答洞察（辅导员）+ AI 配置中心（super_admin）| 独立（pgvector）| ⏸ 暂缓（DR-74/106）|
 
 ### 12.1 Phase 覆盖完整性核对
 
