@@ -97,7 +97,7 @@
 | Exam | 新增 examType（随堂/升学考）+ isOpenBook | DR-99 |
 | PracticeLog | 新增 prayerCount（法王祈祷文）+ durationMinutes（观修座）| DR-95 |
 | UserPracticeVow | currentSessionCount 改 Int + 新增 currentSessionMinutes | DR-91 |
-| UserCourseEnrollment | 派生专业级归属（major_enrollment 语义）| 迁移 |
+| UserCourseEnrollment | **彻底迁专业级**（课程级进度数据迁走，课程语义废弃，DR-113）| 迁移 |
 | AuditLog | 简化版 → 扩展 operator/scope/reason + 11 类操作 | DR-87 |
 | 能力 4 录入 | 「完成观修」按钮：标记完成 → 提交座时间写 PracticeLog | DR-111 |
 | LLM 网关 | 新增 dharma_qa / feature_nav 两场景（复用，不重建）| DR-108 |

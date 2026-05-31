@@ -1003,8 +1003,8 @@ student（学员）是核心用户角色，不属于管理角色体系。
 4. class_tutor 不能自行授权他人（职能 #19 授权权只限 class_admin 及以上）
 
 ### 对老项目的影响
-- coach → 自动迁移为 class_tutor + class_admin 双角色（同一班级）
-- admin → 迁移为 super_admin
+- coach → 迁移为 **class_tutor**（scope=classId）；**不自动给 class_admin**，行政权由 subject_admin 人工补任命（DR-113，过渡期辅导员暂无报数审核/邀请码/关怀等行政操作）
+- admin → **全部迁为 super_admin，再人工降级**该降的为 subject_admin（DR-113）
 - 新增 `user_role_assignments` 表（含 `role`、`scope`、`granted_at`、`granted_by`、`expires_at`、`is_active`）
 - 新增 `role_assignment_history` 表（变更留痕）
 
