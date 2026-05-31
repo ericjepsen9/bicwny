@@ -101,6 +101,7 @@
 | AuditLog | 简化版 → 扩展 operator/scope/reason + 11 类操作 | DR-87 |
 | 能力 4 录入 | 「完成观修」按钮：标记完成 → 提交座时间写 PracticeLog | DR-111 |
 | LLM 网关 | 新增 dharma_qa / feature_nav 两场景（复用，不重建）| DR-108 |
+| Dossier 学情档案（/me/stats、/admin/users/:uid/stats、/coach/classes/:id/dashboard[.csv]）| 现有 4 维学情统计 + 班级看板 + CSV → **归入新设计学员档案改造**（按能力 5/9/10 重建档案时纳入，非原封保留）| DR-119 |
 
 ---
 
@@ -117,6 +118,8 @@
 | 账户/安全/UGC | 邮箱验证、密码重置、单设备登录（AuthSession/EmailVerificationToken/PasswordResetToken）、举报闭环（Feedback/QuestionReport/NoteReport）| ✅ |
 | 内容/笔记 | 笔记 + 高亮（Note/Highlight）、阅读进度（LessonReadingProgress）、观修视频/PPT 引导（Meditation/MeditationSession）| ✅ |
 | 修学打卡配套（DR-118）| 大类字典（PracticeCategory）、日聚合排行（PracticeDailySummary）、补签（PracticeMakeup）、每日目标（PracticeGoal）、班级/个人任务（PracticeTask）| ✅ 先归净资产·暂不深入 |
+| 平台/运维设施（DR-119）| 行为埋点（AnalyticsEvent）、A/B 实验（Experiment/ExperimentExposure）、错误日志（ErrorLog）、全局配置（SystemSetting）、内容版本（ContentSeed/ContentRelease）、孤儿文件回收（OrphanedFile）、注销冷却（DeletedEmail）| ✅ 保留·防误删 |
+| 学习辅助/班级（DR-119）| 全文搜索（Search 端点）、班级单向公告（ClassAnnouncement，与能力 22 双向动态**并存**）、个人数据导出（data-export 端点）、健康检查/前端配置（Health/config 端点）、新手引导（onboarding 端点）、应用内反馈（Feedback，提为明确保留）| ✅ 保留 |
 
 > 详见审计 01 §八。观修视频引导保留依据 DR-111（与升学打坐报数各管各的）。
 > ⚠️ **命名待理清（DR-118）**：设计文档（06/08）全程用 `PracticeLog`，线上真实表为 `PracticeEntry`——同一物的两个名字尚未对齐；簇A 5 张配套表先归净资产保留、暂不深入设计，待打坐报数口径（DR-91/111）实现时一并理清命名与配套接法。
