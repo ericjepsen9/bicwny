@@ -832,7 +832,9 @@ model Course {
 
 courseType（教学阶段）与 category（内容性质）正交（DR-93）：大学演讲系列 18 本既是 `category=self_study_book` 又通常 `courseType=restricted`，两维度独立标注、各管各的判定。考试范围与闻思圆满判定（DR-92）均依赖 courseType——这是 TODO-15 与 DR-92 共同的字段缺口，本次一并补齐。
 
-### 1.12 PracticeLog（修持打卡日志）🆕 改造新建（DR-121/122）
+### 1.12 PracticeLog（修持打卡日志）🆕 改造扩展自 PracticeEntry（DR-121/122/123）
+
+> **计数口径（DR-123）**：本表由线上 `PracticeEntry`（纯计数表）**改造**而来——rename + 加列，migration 属 ALTER（M1），故**计入 §一 扩展区**（语义是「改造」，物理是「扩展现有表」）。区别于 UserPracticeVow（线上无此表，真新建，计入 §三）。
 
 **服务能力**：能力 4（加行观修座数/时长）+ 能力 6（内加行计数 + **法王祈祷文独立计数**）+ 能力 7（修持日志）
 **写权限**：学员自助录入；管理员代录走能力 5 + AuditLog
@@ -2150,8 +2152,8 @@ model EnrollmentStatusHistory {
 | `PracticeCategory`（大类字典：持咒/礼拜/诵经/供曼扎/观修）| 能力 4/6/7 | ✅ 保留纳入设计（DR-122，PracticeProject 依赖它）|
 | `PracticeMakeup`（补签：7天内每周1次）| 能力 7 | ✅ 保留纳入设计（DR-122，补签作正式功能）|
 | `ProgramSemester`（科目/学期，字段够用，详见下）| 能力 1 | ✅ 确认复用 |
-| ~~`PracticeLog`~~（已改判 🆕 改造新建，§1.12，由 PracticeEntry 改造）| 能力 4/6/7 | 🆕 改造新建（DR-121/122）|
-| ~~`PracticeTemplate`~~ | 能力 4/6/7 | ❌ **废弃**（DR-122：无字段定义/无代码，职责被 CohortRecommendedTemplate+PracticeProject 覆盖）|
+| ~~`PracticeLog`~~（改造扩展自 PracticeEntry，移入 §1.12，留 §一扩展区）| 能力 4/6/7 | 🆕 改造扩展（DR-121/122/123；计入 §一）|
+| ~~`PracticeTemplate`~~（DR-123 纠正：非废弃，CohortRecommendedTemplate.templateId 依赖的承重表）| 能力 4/6/7 | 🆕 改造新建·移入 §三（DR-123）|
 | ~~`CohortRecommendedTemplate`~~ | 已移入扩展区 §1.8 | ✅ |
 | `LessonCompletion` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
 | ~~`PracticeJournal`~~ | 能力 7 | ❌ **废弃**（DR-122：修行心得折叠进 PracticeLog.note / Note）|
