@@ -1646,7 +1646,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 > 第二轮功能级核查（DR-126，2026-05-31）：用户指出 DR-125 仅挖 6 个、核查不全——**藏历/画报/系统公告/通知推送等净资产对应的用户功能从未在 06 登记**。根因：此前把「净资产=表保留」误等同「功能已登记」，整层跳过。完整差集核查（76 前端页 × 31 能力）找出 **17 个有功能/有前端页、06 零登记**的孤儿（A 学习引擎 7 / B 运营内容 4 / C 账户通知 6），**与用户逐条讨论后逐个补登记**。均 ✅ 线上已实现·纳入设计（复用净资产，无新表）。
 >
-> 进度：能力 32 ✅（A1 题库答题）、能力 33 ✅（A2 SM-2 复习）、能力 34 ✅（A3 错题本）、能力 35 ✅（A4 收藏夹）、能力 36 ✅（A5 笔记与高亮）。其余 12 条待逐条确认。A 组学习引擎 5/7 完成。
+> 进度：能力 32 ✅（A1 题库答题）、能力 33 ✅（A2 SM-2 复习）、能力 34 ✅（A3 错题本）、能力 35 ✅（A4 收藏夹）、能力 36 ✅（A5 笔记与高亮）、能力 37 ✅（A6 法本阅读器）。其余 11 条待逐条确认。A 组学习引擎 6/7 完成（余 A7 成就徽章本体）。
 
 ---
 
@@ -1822,6 +1822,42 @@ student（学员）是核心用户角色，不属于管理角色体系。
 ### 对老项目的影响
 - ✅ 线上已实现（`NotesPage`/`NoteEditPage`/阅读页高亮 + `notes/`+`highlights/` + Note/Highlight 净资产）
 - 复用净资产，无新表
+
+---
+
+## 能力 37：法本阅读器与阅读进度
+
+> ✅ 线上已实现·纳入设计（DR-126，A 组 A6）。服务能力 3 闻思圆满（「看」维度）。
+
+### 业务意图
+学员在沉浸式阅读器里读法本（Apple 图书风），系统自动记录阅读进度（滚动深度/时长），达标算「读完」——是闻思圆满「看 ≥ N 遍」判定的数据来源。
+
+### 业务规则
+1. **沉浸阅读器**（ScriptureReadingPage）：Apple 图书风，工具栏自动隐现；集成目录/笔记/高亮/选段
+2. **进度心跳上报**：每 10s 上报 scrollPercent（0-100 滚动深度）+ secondsDelta（活跃秒数）；单次心跳 ≤ 60 秒（防伪造）
+3. **完成判定**：`scrollPercent ≥ 90` OR `(totalSeconds ≥ 30 AND scrollPercent ≥ 50)`
+4. **阅读统计**：累计阅读秒数/完成课时数，供学修统计页 + ProfilePage
+5. **每用户每课时一条**（`@@unique([userId, lessonId])`），记 scrollPercent/totalSeconds/isCompleted/lastReadAt
+
+### 输入与输出
+- 输入：阅读心跳（scrollPercent + secondsDelta）
+- 输出：LessonReadingProgress 记录 + 完成时记一次课时完成
+
+### 与其他能力的关系
+- 服务：能力 3 闻思圆满（「看法本 ≥ N 遍」数据来源）、能力 26 积分排行（阅读课时维度）
+- 衔接：能力 36 笔记高亮（阅读页内画线记笔记）
+
+### ⚠️ 改造关联（重要，DR-127 / TODO-24）
+线上阅读完成（及能力 4 观修完成）把 lessonId/medId 追加进 **`UserCourseEnrollment.lessonsCompleted` / `meditationsCompleted` 数组**（课程级）。但**新设计闻思圆满判定走 `LessonCompletion` 表**（DR-92：看=COUNT(LessonCompletion type=read)），是另一套机制；且 `UserCourseEnrollment` 课程语义随 DR-113 废弃。改造时须做**完成记录机制统一**：① 完成写入改为写 LessonCompletion；② 下游读取端（课程进度展示/智能练习/学情统计）改读 LessonCompletion 聚合；③ 涉及 reading/meditations/courses/enrollment/dossier/smart-practice 多模块。详见 TODO-24。
+
+### 绝对约束
+1. 完成判定双阈值（防划到底秒过 + 防挂机刷时长）
+2. 心跳单次 ≤ 60 秒（防伪造）
+3. owner-only
+
+### 对老项目的影响
+- ✅ 线上已实现（`ScriptureReadingPage`/`ScriptureDetailPage` + `reading/` + LessonReadingProgress 净资产）
+- 🔧 完成记录机制须随 DR-113/DR-92 统一到 LessonCompletion（TODO-24）；阅读进度表 LessonReadingProgress 本身复用，无新表
 
 ---
 
