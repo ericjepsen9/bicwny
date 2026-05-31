@@ -237,7 +237,7 @@
 1. **DR-74 修订**：AI 从「独立从零模块」→「对接既有 LLM 网关」（块①/⑤）—— ✅ **已处理（2026-05-31，DR-108 / 检查轮次 55）**：仅修订实现方式（复用既有网关 + 新增 dharma_qa/feature_nav 两场景），5 张表暂缓实现结论不变
 2. **补能力 25.C**：笔记 AI 文本加工（已上线，反向补记）（块①）—— ✅ **已处理（2026-05-31，DR-109 / 检查轮次 56）**：登记为子能力 25.C（仅记现状不扩展）；AI 模块整体暂不作正式功能上线；零新表；关闭 TODO-AI-1
 3. **能力 25 表重估**：AiUsage 复用 Llm*Usage/CallLog，仅新增对话历史+ContentChunk+FeatureEntry（块①）—— ✅ **已处理（2026-05-31，DR-110 / 检查轮次 57）**：AiUsage 不新建（复用 LlmCallLog + LlmProviderUsage）；AI 真正新增 4 张（ContentChunk/FeatureEntry/AiConversation/AiMessage）
-4. **观修语义决策**：线上 Meditation 看视频 vs 能力 4 打坐统计，是否并存（块④）
+4. **观修语义决策**：线上 Meditation 看视频 vs 能力 4 打坐统计，是否并存（块④）—— ✅ **已处理（2026-05-31，DR-111 / 检查轮次 58）**：并存（视频/PPT 引导保留）+ 观修计入升学（手动点「完成观修」提交座时间、不自动、按 DR-91 走 PracticeLog/UserPracticeVow）；看视频排行与打坐报数各管各的；零新表；顺带对齐 06 能力 4（消 observation_records 孤儿表名 + 短座合并旧表述）
 5. **净资产纳入**：06 应增补「附加功能保留」说明，避免改造时遗漏（块⑤/八）
 6. **迁移映射补充**：coach→tutor+admin、admin→super_admin、UserCourseEnrollment→专业级 的具体迁移路径（块②/③）
 
