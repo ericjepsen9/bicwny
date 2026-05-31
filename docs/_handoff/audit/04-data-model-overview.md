@@ -61,7 +61,7 @@
 | Meditation | 观修引导视频/PPT（可绑课时/法本）| →course/lesson/sessions |
 | MeditationSession | 观修会话：播放进度 + 完成(≥80%) | →user/meditation |
 
-> ⚠️ 升学打坐统计**不在此**，走 PracticeLog/UserPracticeVow（DR-91/111）。
+> 🔴 升学打坐统计走设计的 PracticeLog/UserPracticeVow（DR-91/111），但**这两张是改造新建表、非线上现成**（DR-121）；线上 Meditation 注释明文「观修不做计数」，DR-111 反转为计入升学（按新设计改造）。
 
 ### ⑥ 修学打卡
 | Model | 用途 | 关键关联 |
@@ -74,7 +74,7 @@
 | PracticeTask | 任务（个人/班级 · daily/fixed）| →project/class |
 | PracticeMakeup | 补签（7 天内每周 1 次）| →user |
 
-> ⚠️ 设计文档用名 **PracticeLog**，线上实际表为 **PracticeEntry**（命名对齐属迁移层，见 03 §9 / 待修订 #6）。
+> 🔴 **远超命名（DR-121）**：设计用 `PracticeLog`/`UserPracticeVow` 等是**幻影表**（全仓代码 0 处），线上是此 7 张**纯计数打卡器**（count + tap/shake/bulk，无座时长/发愿/祈祷文）。用户拍板一切按新设计：**线上打卡器是改造源、按新设计 vow/时长制重构**（非加列）；配套能力去留见 08 §十 TODO-21。
 
 枚举：`PracticeProjectScope` `PracticeTaskScope` `PracticeTaskMode`
 

@@ -117,12 +117,12 @@
 | LLM 网关 | 多 provider/熔断/配额/用量/成本（LlmProviderConfig/ScenarioConfig/PromptTemplate/ProviderUsage/CallLog）—— AI 复用底座 | ✅ |
 | 账户/安全/UGC | 邮箱验证、密码重置、单设备登录（AuthSession/EmailVerificationToken/PasswordResetToken）、举报闭环（Feedback/QuestionReport/NoteReport）| ✅ |
 | 内容/笔记 | 笔记 + 高亮（Note/Highlight）、阅读进度（LessonReadingProgress）、观修视频/PPT 引导（Meditation/MeditationSession）| ✅ |
-| 修学打卡配套（DR-118）| 大类字典（PracticeCategory）、日聚合排行（PracticeDailySummary）、补签（PracticeMakeup）、每日目标（PracticeGoal）、班级/个人任务（PracticeTask）| ✅ 先归净资产·暂不深入 |
+| ~~修学打卡配套（DR-118）~~ → **改造源（DR-121 改判）**| 大类字典（PracticeCategory）、日聚合排行（PracticeDailySummary）、补签（PracticeMakeup）、每日目标（PracticeGoal）、班级/个人任务（PracticeTask）、单次计数（PracticeEntry）、修持项目（PracticeProject）| 🔧 **非净资产保留**——线上计数打卡器整套是**改造源**，按新设计 vow/时长制重构（DR-121）；配套能力去留见 §十 TODO-21 |
 | 平台/运维设施（DR-119）| 行为埋点（AnalyticsEvent）、A/B 实验（Experiment/ExperimentExposure）、错误日志（ErrorLog）、全局配置（SystemSetting）、内容版本（ContentSeed/ContentRelease）、孤儿文件回收（OrphanedFile）、注销冷却（DeletedEmail）| ✅ 保留·防误删 |
 | 学习辅助/班级（DR-119）| 全文搜索（Search 端点）、班级单向公告（ClassAnnouncement，与能力 22 双向动态**并存**）、个人数据导出（data-export 端点）、健康检查/前端配置（Health/config 端点）、新手引导（onboarding 端点）、应用内反馈（Feedback，提为明确保留）| ✅ 保留 |
 
 > 详见审计 01 §八。观修视频引导保留依据 DR-111（与升学打坐报数各管各的）。
-> ⚠️ **命名待理清（DR-118）**：设计文档（06/08）全程用 `PracticeLog`，线上真实表为 `PracticeEntry`——同一物的两个名字尚未对齐；簇A 5 张配套表先归净资产保留、暂不深入设计，待打坐报数口径（DR-91/111）实现时一并理清命名与配套接法。
+> 🔴 **远超命名问题（DR-121 升级 DR-118）**：核查证实设计的 `PracticeLog`/`UserPracticeVow`/`PracticeTemplate`/`PracticeJournal` 是**幻影表**（全仓代码 0 处），线上实修是**纯计数打卡器**（PracticeEntry，字段 count+tap/shake/bulk，无座时长/发愿/祈祷文），且「观修不计数」是线上既定决策被 DR-111 反转。**用户拍板：一切按新设计做，线上打卡器是改造源、按新设计 vow/时长制重构**（DR-121）。簇A 5 表撤销「归净资产」临时定性，改判改造源。
 
 ---
 
@@ -191,7 +191,7 @@
 | 角色迁移 | 🟡 中 | 可脚本化（admin→super_admin / coach→class_tutor）；JWT 单 role 需改、token 全失效（#7）；**过渡期需人工补任命**（DR-113）|
 | **专业×届归属** | 🔴 难 | 现有 Class 无此维度；**code+cohortYear 全运营逐班人工填，无占位专业，未归类班级不能上线（阻断式硬门槛，DR-115）**——P1→P2 强制闸门 |
 | **enrollment 迁专业级** | 🔴 难 | **彻底迁走课程级**（非派生）：课程级进度数据（completedLessons 等）迁入专业级结构，UserCourseEnrollment 课程语义废弃；依赖 Program 先建（DR-113）|
-| 打卡数据 | 🟢 易 | 保留 + 补专业归属字段 |
+| 打卡/实修数据 | 🔴 难（DR-121 改判）| **非「保留+补字段」**：线上是纯计数打卡器（PracticeEntry），新设计是 vow/时长制（UserPracticeVow/PracticeLog 改造新建）——结构性重构，非加列；配套能力（补签/排行/目标）去留见 TODO-21 |
 | 题库/答题/SM2/笔记 | 🟢 易 | 净资产直接复用，近零迁移 |
 | 升学/传承/出勤/报数 | 🟢 易 | 全新表无存量 |
 
