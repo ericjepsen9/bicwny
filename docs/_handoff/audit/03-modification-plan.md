@@ -152,10 +152,11 @@
 
 ## §8 权限体系改造（改造主战场，来自审计 02）
 
-- **现状**：JWT payload.role 单值（admin/coach/student）；`requireRole(...)` 调用 **265 处**（~143 路由文件）；admin 全局 bypass ~16 处；班级级断言 `assertIsCoachOfClass` 17 处（作用域雏形 = User.role + ClassMember.role × classId）。
+- **现状**：JWT payload.role 单值（admin/coach/student）；`requireRole(...)` 调用 **44 处**（实测 grep，审计 02 早期记 265 偏大，DR-117 校准）；admin 全局 bypass ~16 处；班级级断言 `assertIsCoachOfClass`（class/service.ts:853）+ `assertMemberOfClass`（:866）。
 - **目标**：4 角色 + 等级继承（class_tutor 1 / class_admin 2 / subject_admin 3 / super_admin 99）+ 作用域（class_id / major_id）。
-- **统一改造入口**（可集中）：`backend/src/lib/auth.ts`（requireRole 工厂）+ 新建 `permissions.ts`（继承 + 作用域交集）+ class service 3 处核心断言。
-- **须逐点/分批**：265 处 requireRole 调用 + 16 处 admin bypass 重新表达 + coach→class_tutor 语义（行政权另由 class_admin 手动补，DR-113）。
+- **统一改造入口（DR-117 钉死，3 个点）**：① `auth.ts` requireRole 工厂（改内核为查 assignments + 等级判定，44 处调用点签名尽量不变）② 新建 `permissions.ts`（ROLE_LEVEL + canDo 继承+作用域交集 + assignments 查库缓存，DR-114）③ `class/service.ts` 断言 2 处（改用 permissions.ts 作用域判定）。
+- **须逐点/分批**：44 处 requireRole 调用（多数随工厂内核变、零改动）+ 16 处 admin bypass 重表达为 super_admin 等级 + coach→class_tutor 语义。
+- **分阶段**：①建 permissions.ts 地基 → ②切 requireRole/断言内核 → ③逐点改 bypass + 测试。
 - **JWT 结构修订**（#7，DR-114）：**方案 B——token 只留 sub/sid，权限每请求查 UserRoleAssignment + 短 TTL 内存缓存**；角色变更/撤销即时生效（满足 D17 代行/撤销硬要求）；token 去 role 致已签发全失效，需全员重登（并入 DR-113 迁移重登）。
 - **风险**：265 处遗漏 → 误拒；迁移期 coach 仅 class_tutor、行政功能需补任命才恢复（DR-113）；admin 降级前全局超权窗口期；token 体系影响全量。
 

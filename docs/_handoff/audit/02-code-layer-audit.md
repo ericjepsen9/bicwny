@@ -19,7 +19,7 @@
 ### 1.2 角色判断的散布规模
 | 维度 | 现状 |
 |---|---|
-| `requireRole(...)` 调用 | **265 次**，分散在 ~143 个路由文件（多为 `requireRole('coach','admin')`）|
+| `requireRole(...)` 调用 | ~~**265 次**~~ → **实测 44 次**（DR-117 校准，2026-05-31；265 为早期 agent 估算偏大）；多为 `requireRole('coach','admin')`，分散于路由文件 |
 | 硬编码角色判断 | ~15 处（class service 8 处 + notes/announcements/practice 各 1-2 处 + auth 1 处）|
 | admin 全局 bypass | ~16 处（`if (role==='admin') return` 散落，无统一框架）|
 
@@ -126,7 +126,7 @@
 
 7. **JWT 结构修订**：单 role → 带 assignments（或改查库），影响 token 体系（块一）—— ✅ **已处理（2026-05-31，DR-114 / 检查轮次 61）**：选**方案 B**（token 只留 sub/sid，权限每请求查 UserRoleAssignment + 短 TTL 缓存，角色变更即时生效）
 8. **专业×届映射规则**：改造前须先定「现有班级如何归入专业×届」的运营规则（块三，迁移前置）—— ✅ **已处理（2026-05-31，DR-115 / 检查轮次 62）**：code+cohortYear 全运营逐班人工填，无占位专业，未归类班级不能上线（P1→P2 阻断式硬门槛）
-9. **权限改造统一点**：明确 auth.ts requireRole + permissions.ts 为集中改造入口（块一）
+9. **权限改造统一点**：明确 auth.ts requireRole + permissions.ts 为集中改造入口（块一）—— ✅ **已处理（2026-05-31，DR-117 / 检查轮次 64）**：三入口（auth.ts requireRole 工厂改内核 + 新建 permissions.ts 等级继承/作用域交集/查库缓存 + class/service.ts 断言 2 处）；requireRole 实测 **44 处**校准（审计早期记 265 偏大）
 
 ---
 
