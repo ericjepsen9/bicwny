@@ -1648,7 +1648,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 > 第二轮功能级核查（DR-126，2026-05-31）：用户指出 DR-125 仅挖 6 个、核查不全——**藏历/画报/系统公告/通知推送等净资产对应的用户功能从未在 06 登记**。根因：此前把「净资产=表保留」误等同「功能已登记」，整层跳过。完整差集核查（76 前端页 × 31 能力）找出 **17 个有功能/有前端页、06 零登记**的孤儿（A 学习引擎 7 / B 运营内容 4 / C 账户通知 6），**与用户逐条讨论后逐个补登记**。均 ✅ 线上已实现·纳入设计（复用净资产，无新表）。
 >
-> 进度：能力 32 ✅（A1 题库答题）、能力 33 ✅（A2 SM-2 复习）、能力 34 ✅（A3 错题本）、能力 35 ✅（A4 收藏夹）、能力 36 ✅（A5 笔记与高亮）、能力 37 ✅（A6 法本阅读器）、能力 38 ⏸（A7 成就徽章·暂不作正式功能）、能力 39 ✅+🆕（A8 音视频学习+分维度完成·核查能力 37 时挖出 LessonCompletion 幻影表，DR-129 补）。**A 组学习引擎 8 条完成**（7 纳入 + 1 暂缓；含核查挖出的 A8 补全闻思「听」维度缺口）。**B 组运营内容**：能力 40 ✅（B1 藏历）、能力 41 ✅（B2 画报）、能力 42 ✅（B3 系统公告）。**D 组通知与触达**（4 条拆法）：B3 系统公告✅ + D1 通知中心与派发（能力 43，合站内信/WebPush/偏好）+ D2 定时通知规则（能力 44）+ D3 短信通道（能力 45，🆕 唯一新建）。其余 B4（法会）+ C 组待逐条确认。
+> 进度：能力 32 ✅（A1 题库答题）、能力 33 ✅（A2 SM-2 复习）、能力 34 ✅（A3 错题本）、能力 35 ✅（A4 收藏夹）、能力 36 ✅（A5 笔记与高亮）、能力 37 ✅（A6 法本阅读器）、能力 38 ⏸（A7 成就徽章·暂不作正式功能）、能力 39 ✅+🆕（A8 音视频学习+分维度完成·核查能力 37 时挖出 LessonCompletion 幻影表，DR-129 补）。**A 组学习引擎 8 条完成**（7 纳入 + 1 暂缓；含核查挖出的 A8 补全闻思「听」维度缺口）。**B 组运营内容**：能力 40 ✅（B1 藏历）、能力 41 ✅（B2 画报）、能力 42 ✅（B3 系统公告）。**D 组通知与触达**（4 条拆法）：B3 系统公告✅（能力 42）+ D1 通知中心与派发✅（能力 43，合站内信/WebPush/偏好）+ D2 定时通知规则（能力 44，待列 8 条新提醒规则：①进度落后 ②未完成班级任务 ③未完成个人任务 ④班级放假/休息周 ⑤闻思未圆满 ⑥复习到期 ⑦讲考/考试临近 ⑧升学/关怀结果，用户决策「全部补入」）+ D3 短信通道（能力 45，🆕 唯一新建）。其余 B4（法会）+ C 组待逐条确认。
 
 ---
 
@@ -2023,6 +2023,74 @@ admin 向全平台学员广播重要通知（维护/活动/紧急），发布即
 
 ### 对老项目的影响
 - ✅ 线上已实现（`AdminSystemAnnouncementsPage`/`AnnouncementDetailPage` + `system-announcements/` + SystemAnnouncement 净资产）
+- 复用净资产，无新表
+
+---
+
+## 能力 43：通知中心与派发
+
+> ✅ 线上已实现·纳入设计（DR-126，D 组 D1）。**通知系统本体**（能力 30 成就通知只是其应用场景）。grep 验证：Notification/PushSubscription/NotificationDispatchLog/NotificationPreference 真实存在。**合并：站内信箱 + Web Push 通道 + 偏好设置——学员视角「我怎么收通知、怎么管」的一件事；admin/系统视角的统一触达底座。**
+
+### 业务意图
+平台所有业务事件（开课/班级公告/功课任务/法会/成就/系统公告等）统一派发为通知，学员在通知中心查收、管理；可推送到手机系统通知栏（Web Push）；可按偏好控制接收。是所有「主动触达」能力的基建底座。
+
+### 业务规则
+
+**A. 统一派发引擎（dispatchToUsers）**
+1. **双写**：给一组用户写站内 Notification（inbox）+ 发 Web Push；push 失败仅日志，不回滚 inbox（降级保底）
+2. **强幂等**：NotificationDispatchLog 以 `unique(eventKind, eventId, tier, userId, channel)` 去重，自动跳过已派发
+3. **频率上限**：每用户每小时 push 上限，超限拦下（站内信仍写，只是不推 push）
+4. **通道粒度**：channel 维度记日志（当前 inbox/push；预留 sms/banner，sms 见能力 45）
+
+**B. 学员通知中心**
+5. **列表**（`/api/notifications`）：游标分页，可只看未读；**未读计数**（header 红点）；标单条/全部已读；按事件标已读（read-by-event）；删除本人通知（软删，行保留供游标锚定）
+6. **跳转**：每条带 link（相对路径），点击跳对应页（如系统公告详情）
+
+**C. Web Push 通道**
+7. **订阅**（`/api/push/subscribe`）：VAPID 协议，PushSubscription 存 endpoint/p256dh/auth；多端（web/ios/android/capacitor-ios/capacitor-android）
+8. **单设备登录**：订阅关联当时 sessionId，新登录踢旧 session 时一并停用
+9. **失效清理**：推送返回失效（410 等）标记失效订阅；支持 re-subscribe 重激活
+
+**D. 通知偏好（NotificationPreference）**
+10. **push 总开关**（pushEnabled）：关掉所有 Web Push（站内 Notification 仍写）
+11. **分类型 toggle**（pushTypes JSON）：仅记关闭项，缺省=开（如关掉 achievement 推送）
+12. **静默时段**（quiet hours）：时段内不推 push；**critical 无视静默**立即发送
+13. **首页玻璃文字偏好**（homeCardEnabled）：v3 玻璃文字 UI 用
+
+### 事件类型（EventKind）× 触发模块 × 即时/定时
+| 事件类型 | 含义 | 触发模块 | 触发方式 | 对应能力 |
+|---|---|---|---|---|
+| `class_session` | 开课/上课提醒 | scheduler/cron + classes/sessions | 定时(T-30/T-5/T0)+事件 | 能力 8 |
+| `class_announcement` | 班级公告 | announcements | 事件（即时） | 班级公告 |
+| `practice_task` | 功课任务截止前 | scheduler/cron + practice/coach | 定时 | 能力 4 |
+| `evening-due` | 晚间到期 | scheduler/personal-reminders | 定时 | 能力 29 |
+| `daily-digest` | 每日摘要 | scheduler/personal-reminders | 定时 | 能力 29 |
+| `weekly-report` | 周报 | scheduler/personal-reminders | 定时 | 能力 29 |
+| `achievement` | 成就解锁 | scheduler/cron | 定时(5min 聚合) | 能力 30 |
+| `system_announcement` | 系统公告 | system-announcements | 事件（即时） | 能力 42 |
+| `dharma_assembly` | 法会 | scheduler/cron + dharma-assemblies | 定时+事件 | B4 法会 |
+| `membership_change` | 成员变动 | class | 事件（即时） | 能力 11 |
+| *(可扩展)* | 进度落后/任务逾期/休息周/闻思/复习/讲考/升学等新规则 | scheduler | 定时 | **能力 44（D2 逐条列清）** |
+
+> 即时事件（公告/成员变动等）归本能力；定时规则（落后提醒/任务逾期/休息周等 8 条新规则）归能力 44 定时通知规则。
+
+### 输入与输出
+- 输入：业务事件触发派发 / 学员查收管理 / 偏好设置 / 设备订阅
+- 输出：站内通知 + Web Push 推送 + 未读计数
+
+### 与其他能力的关系
+- **被联动（触达底座）**：能力 42 系统公告、能力 29 个人提醒、能力 30 成就通知、能力 44 定时规则、B4 法会、班级公告/成员变动——都通过本引擎派发
+- **预留对接**：能力 45 短信通道（dispatch 已留 channel='sms'）
+- 区别能力 44：本条是「事件驱动即时派发 + 学员收件管理 + 通道/偏好基建」，能力 44 是「定时规则主动触发」（复用本引擎）
+
+### 绝对约束
+1. 派发强幂等（DispatchLog unique 约束）——同事件不重复推
+2. 站内信箱必达；Web Push 受总开关/分类/静默/频率上限层层过滤
+3. critical 级无视静默时段
+4. push 失败不影响站内信箱（降级保底）
+
+### 对老项目的影响
+- ✅ 线上已实现（`notifications/` + `push/` + `scheduler/dispatch.ts` + `NotificationPage` + `SettingsNotificationsPage` + 4 表净资产）
 - 复用净资产，无新表
 
 ---
