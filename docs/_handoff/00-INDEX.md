@@ -35,11 +35,11 @@
 
 | 文档 | 用途 | 状态 |
 |---|---|---|
-| `audit/04-data-model-overview.md` | 数据模型总图（文字版 ER，分模块）| 待建 |
-| `audit/05-api-endpoints.md` | API 端点清单（端点×能力×角色）| 待建 |
-| `glossary.md` | 术语表（阶段/专业/升学/传承/座/报数…）| 待建 |
-| `acceptance-checklist.md` | 验收清单（每条能力可测试标准）| 待建 |
-| `deploy-migration-runbook.md` | 部署 + 迁移 runbook | 待建 |
+| `audit/04-data-model-overview.md` | 数据模型总图（61 model / 23 enum 分 12 域 + 文字版 ER）| ✅ 完成 |
+| `audit/05-api-endpoints.md` | API 端点清单（139 端点 / 26 模块 × 守卫）| ✅ 完成 |
+| `glossary.md` | 术语表（阶段/专业/升学/传承/座/报数…）| ✅ 完成 |
+| `acceptance-checklist.md` | 验收清单（能力 1-25 可测试标准）| ✅ 完成 |
+| `deploy-migration-runbook.md` | 部署 + 迁移 runbook | ✅ 完成 |
 | `reports/02-product-context.md` | 产品背景 | — |
 
 ---
