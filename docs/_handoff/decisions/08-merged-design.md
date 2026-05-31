@@ -2914,6 +2914,7 @@ model UserSelfStudyProgram {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-114 | JWT 结构修订：单 role 如何承载「一人多角色+作用域」| **方案 B：JWT 只留 sub/sid，权限每请求从 DB 查 UserRoleAssignment（短 TTL 内存缓存补性能）；角色变更/撤销即时生效**（用户决策 2026-05-31，审计 02 §五 #7）| 现状（审计 02 §一）：JWT payload `{sub, role?(单值), aud, sid, exp}`，role 烤进 token，265 处 requireRole 全靠 `payload.role` 同步零查库判定。新设计需「一人多角色 + 每角色作用域(class_id/major_id)」，单值 role 装不下。**方案 B（选定）**：token 去掉 role、只留 sub + sid（aud/exp 不变）；登录时不烤角色，鉴权时由 permissions.ts 按 sub 查 UserRoleAssignment（+ 短 TTL 内存缓存补每请求查库开销）。**选 B 理由**：(1) 学修体系要求角色变更/撤销**即时生效**（D17 代行、撤销资格职能#14、任命/失效 02§六 expires_at），方案 A「等 token 过期才生效」不可接受；(2) 线上已有 `sid → AuthSession` 每请求查库机制（jwtOptional 钩子），加查 assignments 有现成入口、改动小；(3) 作用域数量可能多，烤进 token 致膨胀。**代价**：每请求多一次查库/缓存（用登录预载 + 短 TTL 缓存补偿）。**实现影响（不在本轮改代码）**：(a) token 签发去 role；(b) requireRole 工厂改为查 assignments + 等级判定（permissions.ts，连 #9）；(c) 已签发 token 全失效需全员重登（连 DR-113 迁移）；(d) 缓存失效策略：角色写操作后清该用户缓存。排除「方案 A token 内嵌 assignments」：改角色要等过期才生效、撤销难、token 膨胀，与即时生效冲突；排除「方案 C 混合(内嵌+version)」：兼顾性能与即时撤销但实现最复杂，当前规模 B+缓存已够，不引入 version 机制复杂度 |
 | DR-113 | 现状角色/报名迁移映射的具体规则 | **coach→仅 class_tutor（人工补 class_admin）；admin→全部 super_admin 后人工降级 subject_admin；UserCourseEnrollment 彻底迁专业级（废课程语义）**（用户决策 2026-05-31，审计 02 §五 #6）| 审计 02 §三给出角色/报名迁移方向，本条定具体规则。三项决策：(1) **coach → 仅 class_tutor**（scope=classId）——推翻 02 文档原「coach→tutor+admin 双角色自动迁移」，改为只给教学角色，**class_admin 行政权由 subject_admin 逐个手动补任命**（最小权限原则）。代价=过渡期辅导员暂无报数审核(职能#2)/邀请码(#5)/关怀(#3)/共修管理(#4)等行政操作，须补任命后恢复（线上 coach 现可做这些，是一次有意的权限收紧，用户接受过渡期）。(2) **admin → 全部 super_admin 后人工降级**——迁移脚本先全升 super_admin，再人工 review 把学科级管理者降 subject_admin。代价=降级前窗口期所有原 admin 为全局最高权限（用户接受，须尽快 review）。(3) **报名 UserCourseEnrollment 彻底迁专业级**——非「保留课程级+派生」（审计原建议 🟡），而是 🔴 彻底迁走：课程级进度数据（completedLessons/source/enrolledViaClassId 等）迁入新专业级结构，课程级报名语义废弃。**实现影响（不在本轮改代码）**：迁移脚本须含 coach→class_tutor、admin→super_admin、enrollment 进度数据迁移三段；需备补任命名单 + token 全失效全员重登（连 #7）。同步更新 02 §七迁移表 + 03 §9 + runbook。排除「coach→tutor+admin 双角色」（02 原方案）：自动给行政权违反最小权限，宁可人工补；排除「admin 选择性迁移」：脚本无法判断哪个 admin 该降，统一升后人工降更安全可控；排除「enrollment 保留课程级+派生」（审计 🟡 建议）：用户要彻底迁走，避免两层并存的语义混淆 |
 | DR-112 | 净资产纳入交付文档 + 实现状态标签体系 + 整套配套文档 | **线上净资产正式纳入设计（改造须保留复用）；确立五类实现状态标签（✅保留/🔧需改/🆕待建/⏸暂不上线/❌去掉）；建独立修改方案 + 全套配套文档**（用户决策 2026-05-31，审计 01 §九 #5）| 用户要求「无论功能是否已实现都进设计，标清未实现/需改/去掉/暂不上线」+「要独立修改方案文档 + 其余配套文档」。处理：(1) **净资产纳入**——线上已有、不在 1-25 能力内的成熟功能（题库 14 题型+SM2/错题/收藏、成就/藏历/法会信息/画报/系统公告、通知体系 v2、LLM 网关、邮箱验证/密码重置/单设备登录/举报闭环、笔记+高亮/阅读进度、观修视频引导）正式登记为 ✅ 保留复用，改造不得误删；(2) **五类实现状态标签**确立为全套文档通用图例；(3) **新建独立文档**：`audit/03-modification-plan`（修改方案，现状→设计动作清单）、`00-INDEX`（总索引）、`audit/04-data-model-overview`（61 model 数据模型总图）、`audit/05-api-endpoints`（139 端点清单）、`glossary`（术语表）、`acceptance-checklist`（验收清单）、`deploy-migration-runbook`（部署迁移）。**文档定位厘清**：最终设计=06/08/02/05，现状=audit 01/02，改造方案=audit 03，互为索引。**本条不新建业务表、不改表计数**——纯文档体系决策。排除「净资产只在审计里提、不进设计」：用户明确要「都进设计」，审计是现状记录、设计是 source of truth，净资产须在设计侧有保留标签防改造遗漏。排除「用审计 01/02 充当修改方案」：用户明确要独立修改方案文档 |
 | DR-111 | 观修语义冲突：线上 Meditation 看视频 vs 能力 4 打坐统计，是否并存 | **并存 + 观修计入升学（手动提交、不自动记录，数据按 DR-91 走 PracticeLog/UserPracticeVow）**（用户决策 2026-05-31，审计 01 §五/§九 #4）| 现状冲突：线上 Meditation = 看引导视频（schema 注释「观修不做计数」，MeditationSession 记看视频进度 + 完成次数/秒数排行），能力 4 = 92 修法打坐座数/时长统计（升学硬条件）。用户决策：(1) **并存**——视频/PPT 观修页面保留为引导内容（净资产），MeditationSession 看视频进度 + 完成排行不动；(2) **观修计入升学**（关系毕业）——线上旧「观修不做计数」修订为按能力 4 计入升学统计；(3) **手动提交、不自动记录**——学员实修后点页面现有「完成观修」按钮提交这一座时间，看视频 80% 不再自动算一座；(4) **数据落点按 DR-91**——「完成观修」按钮所在 Meditation 页面天然带 `meditationId`，提交时间即写一条 `PracticeLog`{meditationId, durationMinutes} 座记录，`UserPracticeVow` 聚合（currentSessionCount 座数 + currentSessionMinutes 时长）；AdvancementCheck 按 meditationId 分组判 92 修法逐法达标（DR-98）。故观修页面既是引导内容、又是座录入入口，模型自洽、**零新表**；(5) **约束按 DR-91**——单座 ≥30 分钟才记一座，座数 + 时长双维度独立计，废弃短座合并（比大纲严格）；(6) **两套各管各的**——看视频排行（MeditationSession count/totalSec，活跃度）与打坐报数（PracticeLog 座/分钟，升学）口径独立、不强行统一。**顺带对齐 06↔08**：06 能力 4 原「输出 observation_record / 新增 observation_records 表」改走 PracticeLog（消孤儿表名，与 DR-91 一致）；06 业务规则 4「短座可合并」改「不合并」（与 DR-91 一致，原为大纲旧表述）。**实现影响（不在本轮改代码）**：「完成观修」按钮需从「标记 isCompleted」扩展为「提交座时间 → 写 PracticeLog」；schema 注释「观修不做计数」需随能力 4 实现时更新。排除「替换（废看视频）」：丢失已上线引导视频内容 + 用户数据，引导对学员有教学价值。排除「合并（看视频也算座）」：看视频 ≠ 打坐，违背手动实修语义、违反「30 分钟打坐才算座」绝对约束 |
@@ -4121,6 +4122,25 @@ model UserSelfStudyProgram {
 
 **本轮发现问题数**：0（DR-113 为用户决策；02 两处 + 03 三处 + runbook + 08 DR + 审计回标一次到位）。
 **结论**：待修订 #6 闭合。coach→仅 class_tutor（人工补行政权）；admin→全 super_admin 后人工降级；UserCourseEnrollment 彻底迁专业级。三项过渡期代价已显式记录并被用户接受。
+
+---
+
+### 检查轮次 61（2026-05-31，范围：DR-114 JWT 结构修订 · 方案 B 查库+缓存 · 跨 02/03/08/runbook）
+
+> 本轮处理审计待修订清单 **#7**（02 §五）：JWT 单 role 改为查库承载多角色+作用域。**纯鉴权架构决策，不新建业务表、不改表计数。**
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. DB 变更为零 | ✅ | DR-114 是 token/鉴权架构决策，权限数据落在已设计的 UserRoleAssignment（§二 2.1），本条不新建表 / 不改字段；§一/§三/§四/§五 计数全不变 |
+| 2. 与 02 权限模型一致 | ✅ | 02 §二代码实现思路（canDo 等级比较 + rolesInScope）天然契合方案 B「查库取 assignments 后判等级」；02 补 DR-114 实现注 |
+| 3. 03 §8 权限改造对齐 | ✅ | 03 §8 JWT 修订条（原 #7）由「单 role→带 assignments（或改查库）」明确为「方案 B 查库+缓存」；permissions.ts 统一入口承接（连 #9）|
+| 4. runbook 同步 | ✅ | token 全失效全员重登已在 runbook 角色迁移须知（DR-113）记录；DR-114 token 去 role 同属此次重登，无新增重登事件 |
+| 5. 即时生效可落地 | ✅ | 查库 + 缓存失效（角色写操作后清该用户缓存）支持 D17 代行/撤销即时生效；与方案 A「等过期」相比满足学修体系硬要求 |
+| 6. 与 #9 衔接 | ✅ | DR-114 的「requireRole 改查 assignments + 等级判定」落在 permissions.ts，正是 #9 权限改造统一点；本条定数据来源（查库），#9 定继承/作用域交集逻辑，不重叠 |
+| 7. 审计待修订项对齐 | ✅ | 02 §五 #7 标「✅ 已处理（DR-114）」；03 §11 #7→✅ |
+
+**本轮发现问题数**：0（DR-114 为用户决策；08 DR + 02 实现注 + 03 §8 + 审计回标一次到位）。
+**结论**：待修订 #7 闭合。JWT 采方案 B：token 只留 sub/sid，权限每请求查 UserRoleAssignment + 短 TTL 缓存，角色变更/撤销即时生效；token 去 role 致已签发全失效需重登（并入 DR-113 迁移重登）。
 
 ---
 

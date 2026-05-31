@@ -156,7 +156,7 @@
 - **目标**：4 角色 + 等级继承（class_tutor 1 / class_admin 2 / subject_admin 3 / super_admin 99）+ 作用域（class_id / major_id）。
 - **统一改造入口**（可集中）：`backend/src/lib/auth.ts`（requireRole 工厂）+ 新建 `permissions.ts`（继承 + 作用域交集）+ class service 3 处核心断言。
 - **须逐点/分批**：265 处 requireRole 调用 + 16 处 admin bypass 重新表达 + coach→class_tutor 语义（行政权另由 class_admin 手动补，DR-113）。
-- **JWT 结构修订**（待修订 #7）：单 role → 带 assignments（或改查库）；已签发 token 全失效需重登。
+- **JWT 结构修订**（#7，DR-114）：**方案 B——token 只留 sub/sid，权限每请求查 UserRoleAssignment + 短 TTL 内存缓存**；角色变更/撤销即时生效（满足 D17 代行/撤销硬要求）；token 去 role 致已签发全失效，需全员重登（并入 DR-113 迁移重登）。
 - **风险**：265 处遗漏 → 误拒；迁移期 coach 仅 class_tutor、行政功能需补任命才恢复（DR-113）；admin 降级前全局超权窗口期；token 体系影响全量。
 
 ---
@@ -219,7 +219,7 @@
 | 4 | 观修语义并存 | ✅ DR-111 |
 | 5 | 净资产纳入（本文 §5）| ✅ DR-112 |
 | 6 | 迁移映射（coach→class_tutor / admin→super_admin 后降级 / enrollment 彻底迁专业级）| ✅ DR-113 |
-| 7 | JWT 结构修订 | ⬜ 待核对 |
+| 7 | JWT 结构修订（方案 B 查库+缓存）| ✅ DR-114 |
 | 8 | 专业×届映射规则 | ⬜ 待核对 |
 | 9 | 权限改造统一点 | ⬜ 待核对 |
 

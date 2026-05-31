@@ -61,6 +61,8 @@ function canDo(user, permission, scope) {
 }
 ```
 
+> **JWT 承载方式（DR-114，2026-05-31）**：采**方案 B**——JWT 只留 `sub`/`sid`，**不烤 role**；鉴权时由 `permissions.ts` 按 `sub` 查 `UserRoleAssignment`（`rolesInScope` 即查库结果）+ 短 TTL 内存缓存补性能。理由：角色变更/撤销须**即时生效**（D17 代行、撤销资格、任命失效），方案 A「角色烤进 token、等过期才生效」不可接受。代价=每请求多一次查库/缓存；token 去 role 致已签发全失效需重登。详见 08 DR-114。
+
 ---
 
 ## 三、一人多角色 + 作用域
@@ -229,3 +231,4 @@ class_tutor       ← subject_admin 或 super_admin
 | 2026-05-28 | 产品负责人 | 职能 #19 范围改为全班学员（原为特殊身份学员） |
 | 2026-05-28 | 产品负责人 | 职能 #15 批量登记传承法会 ❌ 不做（传承法会功能取消）|
 | 2026-05-31 | 产品负责人 | DR-113 角色迁移映射修订：coach→仅 class_tutor（不自动给 class_admin，行政权人工补）；admin→全部 super_admin 后人工降级 subject_admin；§七迁移表更新 |
+| 2026-05-31 | 产品负责人 | DR-114 JWT 结构：方案 B——token 只留 sub/sid 不烤 role，权限每请求查 UserRoleAssignment + 短 TTL 缓存，角色变更即时生效；§二补 JWT 承载方式说明 |
