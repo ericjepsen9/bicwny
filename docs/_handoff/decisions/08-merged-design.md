@@ -61,6 +61,8 @@
 | `advancementChecks AdvancementCheck[]` | **新增**（见 §3.9）|
 | `advancementsFrom AdvancementRecord[] @relation("AdvancementFrom")` | **新增**（见 §3.10，升前科系）|
 | `advancementsTo AdvancementRecord[] @relation("AdvancementTo")` | **新增**（见 §3.10，升入科系）|
+| `primaryUsers User[] @relation("UserPrimaryProgram")` | **新增**（反向：以本专业为主修的学员，对应 User.primaryProgramId，DR-120）|
+| `practiceLogs PracticeLog[] @relation("PracticeLogProgram")` | **新增**（反向：归属本专业的修持打卡，对应 PracticeLog.programId，跨专业追溯 DR-120）|
 | ~~`selfStudy UserSelfStudyProgram[]`~~ | 移除（自学模式 ⏸ 暂缓）|
 
 #### 约束
@@ -660,6 +662,7 @@ model CohortRecommendedTemplate {
 | 字段 | 类型 | 说明 | 来源 |
 |---|---|---|---|
 | `birthDate` | DateTime? | 出生日期；**年龄豁免资格**的唯一数据源——年满 60 岁可申请免考（非自动，见下）| **新增** |
+| `primaryProgramId` | String? | **主修专业**（多专业并行时的 UI 偏好，能力 2 绝对约束 3，DR-120）；可空（未设则无主修）；与「主班 ClassMember.isPrimary」语义区分——主班是「一人多班的默认进入班级」，主修专业是「多专业里偏好展示的那个专业」| **新增** |
 
 ```prisma
 model User {
@@ -670,6 +673,10 @@ model User {
 
   // 新增（年龄豁免数据源）
   birthDate DateTime?  // 出生日期；年龄豁免资格计算用（年满60岁可申请免考，非自动）
+
+  // 新增（主修专业偏好，能力 2 绝对约束 3，DR-120）
+  primaryProgramId String?   // 多专业并行时偏好展示的专业；可空；区别于主班 ClassMember.isPrimary
+  primaryProgram   Program? @relation("UserPrimaryProgram", fields: [primaryProgramId], references: [id])
 
   // 新建表反向关联（§三 新建区各表写入时补）
   snapshots          SemesterSnapshot[]
@@ -827,7 +834,7 @@ courseType（教学阶段）与 category（内容性质）正交（DR-93）：�
 
 **服务能力**：能力 4（加行观修座数/时长）+ 能力 6（内加行计数 + **法王祈祷文独立计数**）+ 能力 7（修持日志）
 **写权限**：学员自助录入；管理员代录走能力 5 + AuditLog
-**参考决策**：DR-72（旧设计字段全部复用）、DR-95（新增 prayerCount）
+**参考决策**：DR-72（旧设计字段全部复用）、DR-95（新增 prayerCount）、DR-120（新增 programId 跨专业追溯 + taskSourceType + source 值域明确）
 
 > **判定（DR-95，2026-05-30）**：旧设计字段完整，原判 ✅ 复用（§四，C 类批量，DR-72）。TODO-11 核对能力 6 规则 1（「法王祈祷文必须独立计数」）发现：顶礼打卡须同时录入当次念诵法王祈祷文的遍数，旧 PracticeLog 无此字段。**新增 `prayerCount Int?` 字段**，故从复用区移入扩展区，改判 🔧 扩展。
 
@@ -840,13 +847,22 @@ courseType（教学阶段）与 category（内容性质）正交（DR-93）：�
 | 字段 | 类型 | 说明 | 来源 |
 |---|---|---|---|
 | `prayerCount` | Int? | 本次顶礼同步念诵法王祈祷文遍数；非顶礼类打卡为 null；顶礼类必填（Zod 按 practiceProjectId 判断）| **新增** |
+| `programId` | String? | **达标来源专业**（能力 6 绝对约束 4 / D14a 跨专业累计共享，DR-120）；标注这条修量算在哪个专业名下；可空（无专业归属的自由打卡）；升学预检按 programId 聚合并可显示「通过 A 专业达成」| **新增** |
+| `taskSourceType` | String? | **任务来源类型**（能力 9，DR-120）：`course`（课程自带）/ `class_task`（辅导员布置）/ `self`（学员自发）；与 source（录入方式）正交 | **新增** |
+
+> **`source` 字段值域明确（DR-120）**：旧设计已有 `source` 字段，本次明确其值域为 `manual`（学员手动录入）/ `auto`（系统自动产生）/ `ai_assistant`（AI 代录，TODO-AI-2 实现时启用）。能力 9 绝对约束 1「每条记录必须标注来源（自动/手动）」由本字段承载；taskSourceType（任务来源）与 source（录入方式）是两个正交维度。
 
 ```prisma
 model PracticeLog {
-  // ... 旧设计现有字段保留 ...
+  // ... 旧设计现有字段保留（含 source，值域 manual/auto/ai_assistant）...
 
   // 新增（能力 6 法王祈祷文独立计数，DR-95）
   prayerCount Int?  // 顶礼类打卡时必填，其余 null
+
+  // 新增（能力 6 跨专业追溯 + 能力 9 任务来源，DR-120）
+  programId      String?   // 达标来源专业；升学预检按此聚合，可显示「通过A专业达成」
+  program        Program? @relation("PracticeLogProgram", fields: [programId], references: [id])
+  taskSourceType String?   // course / class_task / self（任务来源，与 source 录入方式正交）
 }
 ```
 
@@ -857,6 +873,9 @@ model PracticeLog {
 | 顶礼打卡时 prayerCount 必填 | 应用层（Zod）| `practiceProjectId` 对应顶礼项目时，prayerCount 不可为 null |
 | 非顶礼打卡时 prayerCount 为 null | 应用层（Zod）| 其余修持项目不录祈祷文 |
 | prayerCount 取值范围 | 应用层（Zod）| ≥ 0 的整数；不超过当次顶礼数量的合理倍数（应用层宽松校验）|
+| source 必标 | 应用层（Zod）| 值域 manual/auto/ai_assistant；能力 9 绝对约束 1「每条记录必须标注来源」（DR-120）|
+| taskSourceType 值域 | 应用层（Zod）| course/class_task/self；与 source 正交，可空（DR-120）|
+| programId 跨专业追溯 | 应用层 | 升学预检按 programId 聚合，B 专业满足时溯源「通过 A 专业达成」（D14a，DR-120）|
 | 不物理删除（D18）| 应用层 | 打卡记录永久保留 |
 
 #### 设计意图
@@ -2914,6 +2933,7 @@ model UserSelfStudyProgram {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-120 | 正向完整性核对：25 能力 → 是否都有表/字段支撑（反向核对的另半，补「双向覆盖」）| **核对结论：❌ 硬缺口=0（主体表全就位）；8 个 ⚠️ 字段级缺口，处置：G1 User 加 primaryProgramId；G4 PracticeLog 加 programId；G6 PracticeLog 加 taskSourceType + 明确 source 值域；G2 14届转入走能力5代行（无新字段，TODO-19 闭合）；G3 仪轨合规挂待办（TODO-20）；G5/G7/G8 不动（应用层/已登记 TODO-5/TODO-AI-2）**（用户决策 2026-05-31）| 接 DR-118/119 反向核对,补做正向另半（此前 §十三仅做 23 职能×写表，能力级字段支撑未系统核）。派 agent 对 25 能力逐条核对「业务规则/绝对约束/输入输出」是否都有表+字段接住。**结论**：主体表 100% 就位,**无任何「能力声称要做、08 完全没表」的硬缺口（❌=0）**；14 条 ✅ 完整、5 条 ⚠️ 部分（能力2/3/6/7/9）、6 条 ⏸ 暂缓（设计齐备）。**8 个 ⚠️ 字段缺口逐项处置（用户拍板）**：(G1 能力2) 主修专业只有主班 isPrimary 语义错位 → User 加 `primaryProgramId String?`（区别于主班，Program 补反向 primaryUsers）;(G4 能力6) 跨专业累计共享「通过A专业达成」无追溯字段（D14a）→ PracticeLog 加 `programId String?`（升学预检按此聚合溯源，Program 补反向 practiceLogs）;(G6 能力9) 任务来源/录入方式 06 明列要扩展 08 未落 → PracticeLog 加 `taskSourceType`（course/class_task/self）+ 明确既有 `source` 值域（manual/auto/ai_assistant），两维度正交,承载绝对约束1;(G2 能力3) 14届转入「重修/直接报圆满」无落点 → **走能力5代行**（直接报圆满=管理员代行标完成写 LessonCompletion+AuditLog proxy_action 留痕;重修=正常重学），复用既有表无新字段,TODO-19 闭合;(G3 能力6) 仪轨合规标志必填无字段 → 用户决策**挂待办暂不加**(TODO-20),留内加行实现时定;(G5 能力7 路径选择) 偏应用层判定逻辑,不强制落字段;(G7 能力21 Program.selfStudy 反向/G8 能力25.B 字段) 已是登记在案待办 TODO-5/TODO-AI-2,不重复处理。**无表数量变化**:G1/G4/G6 均给已在扩展区的 User/PracticeLog 加字段,不新增表;G2 复用既有表;故 §一 扩展区仍 13 张,无计数churn。**双向覆盖闭环**:反向(DR-118/119 从表/端点找盲区)+正向(本条从能力找字段缺口)合起来,设计完整性首次双向核对完毕。排除「G2 给 LessonCompletion 加转入标记字段」:会把 LessonCompletion 从复用区推入扩展区、增加计数维护,而转入报圆满本质是 admin/导入动作,走代行留痕(AuditLog)足够追溯,与既有代行模式一致更轻 |
 | DR-119 | 反向核对 ④三不管功能的逐项去留（接 DR-118）| **埋点/AB实验保留；ClassAnnouncement 保留·与能力22并存；Dossier 归入新设计学员档案改造（③冲突类）；其余运维/辅助设施一律保留防误删**（用户决策 2026-05-31）| 接 DR-118 反向核对,对簇B 9 张 + ClassAnnouncement + 端点侧 5 类 + Feedback 逐项定去留。**三个歧义点用户拍板**：(1) **埋点+A/B实验**（AnalyticsEvent/Experiment/ExperimentExposure/admin分析看板）=运营增长功能,用户决策**保留**(进净资产「平台/运维设施」),非学修硬规则但对产品迭代有用,不删;(2) **ClassAnnouncement**(班级单向公告)与能力22班级动态(双向社交)语义重叠,用户决策**保留·与能力22并存**——公告(辅导员单向通知)与动态(双向互动)是两回事,不并入,ClassAnnouncement 独立保留(进净资产「学习辅助/班级」);(3) **Dossier**(线上4维学情统计+班级dashboard+CSV)用户决策**归入新设计学员档案改造**——不当净资产原封保留,而是按能力5/9/10重建学员档案时纳入(改判③冲突/改造,进 03 §4)。**默认保留项**（用户未单独质疑,按基础设施默认保留进净资产）：ErrorLog/SystemSetting/OrphanedFile/DeletedEmail/ContentSeed/ContentRelease(运维)、Search/data-export/Health/onboarding(辅助)、Feedback(由弱②提为明确保留)。**落盘**：03 §5 净资产补「平台/运维设施」「学习辅助/班级」两组;Dossier 进 03 §4 改造表。**至此反向核对 ④三不管 15 张 model + 端点侧盲区全部有归属**:簇A→净资产暂不深入(DR-118)、簇B+端点→本条逐项定(保留为主,Dossier 改造)。排除「埋点/AB实验删除」：对产品迭代有价值,删除不可逆;排除「ClassAnnouncement 并入能力22」：单向公告≠双向社交,合并会混淆两种班级沟通语义;排除「Dossier 原封保留」：线上聚合口径未按新角色/专业体系,需随档案重建,原封保留会与新档案口径打架 |
 | DR-118 | 反向全覆盖核对：从线上 60 model + 139 端点出发找"项目有·新设计没沟通过"的功能 | **核对出 15 张 ④三不管 model + 端点侧 5 类盲区；数字校准 60 model/19 enum（非 61/23）；簇A 5 张打卡配套表先归净资产·暂不深入（命名 PracticeEntry↔PracticeLog 待理清）；簇B 9 张运维表 + 端点侧逐项待决**（用户决策 2026-05-31）| 用户质疑"很多功能没在新设计体现(如通知推送)",指出此前只做正向覆盖(以 25 能力为骨架对照审计),从未做反向覆盖(从线上每张表/端点出发查归属)。本条派两 agent 穷尽核对 60 model + 26 端点模块。**结论分四标签**：①已映射 15、②净资产保留 27、③冲突改造 3(UserCourseEnrollment/AuditLog/MeditationSession)、④三不管 15。**两簇系统性盲区**：簇A=修持打卡配套 5 张(PracticeCategory/PracticeDailySummary/PracticeMakeup/PracticeGoal/PracticeTask)——新设计大改打坐报数(DR-91/111)却整簇遗漏,且线上真实表名 PracticeEntry 与设计用名 PracticeLog 对不上;簇B=平台/运维设施 9 张(AnalyticsEvent/ErrorLog/SystemSetting/ContentSeed/ContentRelease/Experiment/ExperimentExposure/OrphanedFile/DeletedEmail)+ ClassAnnouncement 班级公告——连净资产清单都没收录。端点侧另有 Search/Dossier/data-export/Health/onboarding 5 类三不管 + Feedback 弱②。**数字校准**:`grep -c "^model"`=60(此前 04 文档误记 61、enum 23 实为 19,已修正,与审计 01 的 60/19 一致)。**本轮处置(用户决策)**:(1) 簇A 5 张先归 03 §5 净资产「修学打卡配套」分组,标"暂不深入",命名理清挂待办,留待打坐报数实现时一并处理;(2) 簇B 9 张 + 端点侧 5 类 + Feedback 逐项待用户决策(本条仅留痕,不预判);(3) 通知/推送澄清:本就在净资产②,非盲区,但"无能力编号"问题真实(转正式能力与否待簇全部核完再定)。**方法论补记**:此前 #1-#9 修订是正向覆盖,本条补反向覆盖;正向另半"25 能力→是否都有表/字段支撑"(08 §十三仅做 23 职能×写表,能力级未系统过)登记为后续可做项。排除"出独立反向核对文档":用户要求直接更新现有文档(03/04/08),不新增文档 |
 | DR-117 | 权限改造统一点：散落角色判断收敛到哪 | **三个集中入口：`auth.ts` requireRole 工厂（改内核，调用点签名不变）+ 新建 `permissions.ts`（ROLE_LEVEL 等级继承 + canDo 作用域交集 + assignments 查库缓存）+ `class/service.ts` 断言（2 处）；校准 requireRole 实测 44 处（非审计 265）**（用户决策 2026-05-31，审计 02 §五 #9）| 审计 02 §一定方向「auth.ts + permissions.ts 为集中改造入口」，本条钉死落点。现状核实：`permissions.ts` 不存在（待建）；`auth.ts` 导出 6 函数，requireRole 工厂（line 62）比对 `payload.role` 单值；班级断言 `assertIsCoachOfClass`/`assertMemberOfClass` 在 `class/service.ts:853/866`。**三个集中入口**：(1) **auth.ts requireRole 工厂**——内核由「比对 payload.role 单值」改为「查 assignments(DR-114) → permissions.ts 等级判定」，**44 处调用点签名尽量不变**（改工厂内部，多数调用零改动）；(2) **permissions.ts（新建）**——`ROLE_LEVEL`(class_tutor1/class_admin2/subject_admin3/super_admin99，D7)+ `canDo(user,permission,scope)` 继承+作用域交集(02 §二)+ assignments 查库 + 短 TTL 缓存(DR-114)+ 缓存失效；(3) **class/service.ts 断言(2 处)**——assertIsCoachOfClass 改用 permissions.ts 作用域判定(class_tutor/class_admin 分级 + classId 交集)。**逐点改造(非集中)**：16 处 admin 全局 bypass 重表达为 super_admin 等级 + coach→class_tutor 语义点。**分阶段**：①建 permissions.ts 地基 → ②切 requireRole/断言内核 → ③逐点改 bypass + 测试。**数字校准**：审计 02 记 requireRole「265 处」，本会话实测 `grep -rn "requireRole(" backend/src` = **44 处**（265 疑早期 agent 估算偏大或含其他口径）；以 44 为准，审计 02/03/runbook 数字加注修正。排除「散点逐处改不建 permissions.ts」：265/44 处分散维护权限逻辑必致遗漏与不一致，集中库是唯一可控点 |
@@ -4206,6 +4226,24 @@ model UserSelfStudyProgram {
 
 ---
 
+### 检查轮次 65（2026-05-31，范围：DR-120 正向完整性核对 · 25 能力→字段支撑 · 补双向覆盖另半 · 跨 06/08）
+
+> 接 DR-118/119 反向核对（从表/端点找盲区），本轮补正向另半：从 25 能力出发核对是否都有表/字段接住。派 agent 逐条核对，对 5 个实质 ⚠️ 字段缺口逐项处置。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. 关联对称性 | ✅ | 新增 2 个 @relation 均双向对称：User.primaryProgramId ↔ Program.primaryUsers（"UserPrimaryProgram"，各 1 处共 2）；PracticeLog.programId ↔ Program.practiceLogs（"PracticeLogProgram"，各 1 处共 2）— grep 实测各 2 |
+| 2. 字段与 06 对齐 | ✅ | User.primaryProgramId 对应 06 能力 2 `primary_major_id`（可空，UI 偏好），06 line 67/81 本就标「主修是 UI 偏好/可空」，方向一致；PracticeLog.programId/taskSourceType/source 值域对应 06 能力 6 约束 4 + 能力 9 约束 1 |
+| 3. 表计数不变 | ✅ | G1/G4/G6 均给已在扩展区的 User(§1.9)/PracticeLog(§1.12) 加字段，不新增表；G2 复用既有 LessonCompletion+AuditLog；§一 扩展区仍 13 张，§二 3 / §三 15 / §四 / §五 全不变 |
+| 4. Migration 覆盖 | ⏸ | 三个新字段（User.primaryProgramId、PracticeLog.programId、PracticeLog.taskSourceType）属字段级 migration，与既有 birthDate/prayerCount 同批；§十一 Migration 统编清单待 Phase 实施时一并补列（不阻塞设计封板）|
+| 5. 待办标签完整 | ✅ | TODO-19（G2）标 ✅ 已闭合（走能力5代行）；TODO-20（G3 仪轨合规）标 ⏸ 待办（用户决策暂不加字段）；G5 应用层/G7=TODO-5/G8=TODO-AI-2 均已有归属 |
+| 6. 业务规则有实现方式 | ✅ | source 必标→Zod 值域 manual/auto/ai_assistant；taskSourceType→Zod course/class_task/self；programId 跨专业溯源→应用层升学预检按 programId 聚合；G2 转入报圆满→能力5代行+AuditLog；均注明落点 |
+
+**本轮发现问题数**：0（正向核对 ❌ 硬缺口=0；8 个 ⚠️ 字段缺口全部逐项处置，3 补字段 + 1 走代行 + 1 挂待办 + 3 已有归属）。
+**结论**：正向完整性核对闭合（DR-120）。**双向覆盖首次闭环**——反向（DR-118/119 表/端点找盲区）+ 正向（本轮能力找字段缺口）合璧。设计对 25 能力主体表 100% 就位，无硬缺口；补 User.primaryProgramId / PracticeLog.programId+taskSourceType 三字段，G2 走能力5代行，G3 挂 TODO-20。§一 扩展区仍 13 张。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -4231,6 +4269,8 @@ model UserSelfStudyProgram {
 | TODO-16 | ❌ **转功德会——不做**（用户决策 2026-05-29）——大纲：取消学员资格后可转入菩提功德会。**永久决策：不做**，超出觉学平台范围（功德会是独立组织/系统）。登记于此仅为留痕大纲已核对、明确排除，见 §八 DR-68 | 预科19届大纲核对（能力 11）| ❌ 不做 | DR-68 |
 | ~~TODO-17~~ ✅ 已闭合 | ~~各学科达标条件 + 升学条件后台配置专题设计~~——**已闭合（2026-05-30）**：6 子议题全部完成——①params 充分性 ✅（DR-97，无需子表）；②逐法达标 params ✅（DR-98，per_item 结构）；③考试合格线 params ✅（DR-99，attendanceThreshold 分支矩阵）；④年龄豁免逻辑层 ✅（DR-100，ageEligible 标记+手动豁免）；⑤管理界面 4 页 ✅（DR-101，含考试成绩线下后台录入）；⑥跨 program 聚合 ✅（DR-96，TODO-14 已闭合）。**代码 gap 小结**：升学条件体系（ProgramAdvancementConfig/AdvancementCheck/AdvancementRecord/SemesterSnapshot）全新待建；PracticeLog.prayerCount / UserPracticeVow.isSubstituted+currentSessionMinutes / Course.courseType 需 migration 新增字段；管理端 4 页全新待建。现有 PracticeGoal/PracticeTask 打卡体系与升学条件体系并存不干扰 | TODO-9/12/13 子议题 + 检查轮次 35 勘误 + DR-96 | ✅ 已处理（DR-97~101）| DR-97 / DR-98 / DR-99 / DR-100 / DR-101 |
 | ~~TODO-18~~ ✅ 已闭合 | ~~课程中途请假是否影响毕业/升学资格~~——**已闭合（2026-05-30）**：三维度分层处理——能力 3（闻思圆满）暂停型：课时截止日顺延已批准请假总天数；能力 9（报数达标）暂停型：报数节点截止日同上顺延；能力 10（升学资格预检）无影响：升学截止日固定不变。应用层计算能力 3/9 截止日时聚合 LeaveRequest(status=approved) 请假天数，无需新表/字段（DR-102，DR-90）| §3.15 LeaveRequest（DR-90）| ✅ 已处理（DR-102）| DR-90 / DR-102 |
+| ~~TODO-19~~ ✅ 已闭合 | ~~14 届转入学员对已学课程「重修 / 直接报圆满」无落点（正向核对 G2）~~——**已闭合（2026-05-31）**：定调走**能力 5 代行**，无需新字段——「直接报圆满」= 转入/导入时管理员代行批量标记完成，写 LessonCompletion + AuditLog(actionType=proxy_action, reason 必填) 留痕；「重修」= 不标完成、学员正常重新学。复用既有 LessonCompletion + AuditLog，LessonCompletion 不动（仍 ✅ 复用）（DR-120）| 正向完整性核对 G2（能力 3 规则 6）| ✅ 已处理（DR-120）| DR-120 |
+| TODO-20 | ⏸ **仪轨合规标志字段**（正向核对 G3）：能力 6 绝对约束 2「仪轨合规标志必填、不合规修量作废」目前 PracticeLog 无 `ritualCompliant` 字段承载。**用户决策暂不加字段**（2026-05-31），留待内加行模块实现时定细节（合规判定是布尔还是枚举、由谁标、不合规修量如何作废）| 正向完整性核对 G3（能力 6 绝对约束 2）| 内加行模块实现时 | DR-120 |
 
 ---
 
