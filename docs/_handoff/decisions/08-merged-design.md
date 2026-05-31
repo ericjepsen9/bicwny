@@ -665,6 +665,10 @@ model CohortRecommendedTemplate {
 |---|---|---|---|
 | `birthDate` | DateTime? | 出生日期；**年龄豁免资格**的唯一数据源——年满 60 岁可申请免考（非自动，见下）| **新增** |
 | `primaryProgramId` | String? | **主修专业**（多专业并行时的 UI 偏好，能力 2 绝对约束 3，DR-120）；可空（未设则无主修）；与「主班 ClassMember.isPrimary」语义区分——主班是「一人多班的默认进入班级」，主修专业是「多专业里偏好展示的那个专业」| **新增** |
+| `practiceVisibleToClass` | Boolean | 默认 false；修学量（念诵/答题/阅读/活跃天数）是否对班级可见——能力 7/26 排行 + 能力 14 关怀的隐私开关数据源（DR-125 补列）| **线上已有·此前漏列·补回复用** |
+| `meditationVisibleToClass` | Boolean | 默认 false；观修量是否对班级可见——能力 4/26 观修排行的隐私开关数据源（DR-125 补列）| **线上已有·此前漏列·补回复用** |
+
+> **隐私开关补列说明（DR-125）**：`practiceVisibleToClass` / `meditationVisibleToClass` 线上 schema 已有（schema.prisma 42/45 行），但本表此前「旧设计 13 字段」清单遗漏。能力 4/7/14/26 的「尊重隐私开关、关闭可见性不进榜/不展示」均依赖此二字段——改造建表时**必须保留**，否则隐私功能失效。补列后归「复用」（非新增，线上已存在）。
 
 ```prisma
 model User {
@@ -672,6 +676,10 @@ model User {
   // ... §2.2 扩展 13 字段保留（studentId/nickname/accessibilityNeeds/dataSource/
   //     learningMode/preferShowFaxin/timezone/realName/phone/phoneRegion/
   //     refugeStatus/city/practiceBackground）...
+
+  // 线上已有·此前漏列·补回复用（隐私开关，DR-125）
+  practiceVisibleToClass   Boolean @default(false) // 修学量对班级可见（能力7/14/26）
+  meditationVisibleToClass Boolean @default(false) // 观修量对班级可见（能力4/26）
 
   // 新增（年龄豁免数据源）
   birthDate DateTime?  // 出生日期；年龄豁免资格计算用（年满60岁可申请免考，非自动）
@@ -4408,7 +4416,7 @@ model UserSelfStudyProgram {
 | TODO-20 | ⏸ **仪轨合规标志字段**（正向核对 G3）：能力 6 绝对约束 2「仪轨合规标志必填、不合规修量作废」目前 PracticeLog 无 `ritualCompliant` 字段承载。**用户决策暂不加字段**（2026-05-31），留待内加行模块实现时定细节（合规判定是布尔还是枚举、由谁标、不合规修量如何作废）| 正向完整性核对 G3（能力 6 绝对约束 2）| 内加行模块实现时 | DR-120 |
 | ~~TODO-21~~ ✅ 已闭合 | ~~线上打卡器配套能力去留（DR-121）~~——**已闭合（2026-05-31，DR-122）**：实修 11 表逐张定归宿。补签 PracticeMakeup **保留**（纳入设计作正式功能）；日聚合排行 PracticeDailySummary **废**（排行从 PracticeLog 实时算+缓存）；每日目标 PracticeGoal **折叠**进 UserPracticeVow；大类字典 PracticeCategory **保留**；另 PracticeTask→ClassTask（class）+UserPracticeVow（self）、PracticeJournal 废弃、**PracticeTemplate 改造新建（DR-123 纠正：曾误判废弃，实为 CohortRecommendedTemplate 依赖的承重表）**、PracticeEntry→PracticeLog 改造扩展、UserPracticeVow 改造新建。**细化见 DR-123**（含表计数校准 §一13→12/§三15→17、ClassTask 映射、M3e/M1.5 migration）| DR-121 实修域落差核查 | ✅ 已处理（DR-122/123）| DR-121 / DR-122 / DR-123 |
 | ~~TODO-22~~ ✅ 已闭合 | ~~fixed（期间累计）班级任务无落点（DR-123）~~——**已闭合（2026-05-31，DR-124）**：用户决策班级任务可「以时间为单位」（每周 3 座禅修=weekly、每天 1000 遍观音心咒=daily、本月共 10 万遍=fixed）。ClassTask 加 `period`（daily/weekly/fixed）+ dailyTarget/weeklyTarget/targetCount 三目标字段，承接线上 mode=fixed 并新增 weekly；达标率按 period 三口径算 | DR-123 ClassTask←PracticeTask 映射 | ✅ 已处理（DR-124）| DR-123 / DR-124 |
-| TODO-23 | ⚠️ **能力 29 个人智能提醒数据源迁移**（DR-125）：线上个人提醒（`scheduler/personal-reminders.ts`/`reminder-queries.ts`）读 PracticeGoal（已折叠进 UserPracticeVow.dailyTarget，DR-122）、PracticeTask daily（已拆流 ClassTask/UserPracticeVow，DR-123）、PracticeDailySummary（已废弃、排行改实时算，DR-122）——这三张表在实修域改造后**不再保留**。实现实修域改造时，须把提醒的「即将圆满/今日未打卡」判定**数据源重新接到 UserPracticeVow + 实时聚合 PracticeLog**，不能再读废弃表 | DR-125 能力 29 ← 实修域改造（DR-122/123）| 实修域改造实现时 | DR-122 / DR-123 / DR-125 |
+| TODO-23 | ⚠️ **能力 26/29 实修数据源迁移**（DR-125）：两个能力都读实修域改造后**不再保留**的表，须迁数据源。**能力 29 个人智能提醒**（`scheduler/personal-reminders.ts`/`reminder-queries.ts`）读 PracticeGoal（已折叠进 UserPracticeVow.dailyTarget，DR-122）、PracticeTask daily（已拆流 ClassTask/UserPracticeVow，DR-123）、PracticeDailySummary（已废弃，DR-122）——「即将圆满/今日未打卡」判定须接到 UserPracticeVow + 实时聚合 PracticeLog。**能力 26 综合积分排行**（`practice/study-ranking.routes.ts`）念诵维度 + 活跃天数维度读 PracticeDailySummary（已废弃）——须改为实时聚合 PracticeLog（与观修排行实时算同口径，DR-122）；观修/答题/阅读维度（MeditationSession/UserAnswer/LessonReadingProgress）不受影响。**共因**：PracticeDailySummary 废弃后，所有依赖它的读取都要转实时聚合 PracticeLog | DR-125 能力 26/29 ← 实修域改造（DR-122/123）| 实修域改造实现时 | DR-122 / DR-123 / DR-125 |
 
 ---
 

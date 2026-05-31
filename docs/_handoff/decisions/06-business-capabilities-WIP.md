@@ -1488,7 +1488,9 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 ### 对老项目的影响
 - ✅ 线上已实现（`ClassRankingPage` + `practice/study-ranking.routes.ts`），积分公式已写死运行
-- 改造方向：v2 权重数据化为专业/平台配置项（D3）；数据源随实修域改造（DR-122：观修/念诵聚合口径）对齐
+- 改造方向：v2 权重数据化为专业/平台配置项（D3）
+- ⚠️ **数据源改造关联（TODO-23）**：积分公式的**念诵维度 + 活跃天数维度**读 `PracticeDailySummary`——该表实修域改造后**已废弃**（DR-122），改造时须改为**实时聚合 PracticeLog**（与观修排行实时算同口径）；观修/答题/阅读维度（MeditationSession/UserAnswer/LessonReadingProgress）不受影响
+- 依赖隐私字段 `practiceVisibleToClass`/`meditationVisibleToClass`（08 §1.9 已补列，DR-125）——改造建表须保留
 
 ---
 
@@ -1545,6 +1547,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 ### 对老项目的影响
 - ✅ 线上已实现（`DevicesPage` + `auth/service.ts` revoke）
 - 复用 AuthSession 净资产，无新表
+- ⚠️ **与 DR-114 JWT 改造衔接**：DR-114 把 token 改为只留 sub/sid + 查库 + 短 TTL 缓存。会话管理的「列表/标记当前/revoke」须与 DR-114 的 sid 查库机制对齐——revoke 某会话后，其 sid 在缓存失效后即拒绝（与 DR-114 缓存失效逻辑同源）；非冲突，实现时衔接即可
 
 ---
 
