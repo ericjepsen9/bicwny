@@ -1973,7 +1973,9 @@ model ClassSessionSchedule {
 
 > **设计背景（用户决策 2026-05-29）**：班级任务与发愿是两个不同业务概念，不合并入 UserPracticeVow。班级任务分两种来源：(1) **课程自带任务**——由 CohortRecommendedTemplate 专业级绑定（`programId`），所有同专业班级自动继承；(2) **辅导员追加任务**——由本表（ClassTask）存储，辅导员主动布置给班级。两种任务的完成情况均走 PracticeLog，达标率用于 CohortLagSnapshot.taskLag 计算。
 >
-> **达标率定义**（用户决策）：`每日达标天数 / 任务总有效天数`（每日 dailyTarget 次为达标）。每班 5-10 个任务。
+> **达标率定义（DR-124 扩展）**：按 `period` 分三种口径——daily=`每日达标天数/有效天数`、weekly=`达标周数/有效周数`、fixed=`期间累计是否 ≥ targetCount`（达成即 100%）。每班 5-10 个任务。
+
+> **多周期支持（DR-124，用户决策 2026-05-31）**：班级任务可「以时间为单位」——用户举例「每星期必须 3 座禅修」（weekly）、「每天 1000 遍观音心咒」（daily），加上「期间累计型」（fixed，如本月共持咒 10 万遍）。故 ClassTask 加 `period`（daily/weekly/fixed）+ 对应目标字段，与 UserPracticeVow.targetPeriod 结构对齐。
 
 #### 字段
 
@@ -1983,9 +1985,12 @@ model ClassSessionSchedule {
 | `classId` | String | 关联班级（任务作用范围为整班）|
 | `practiceProjectId` | String | 修持哪个项目（关联 PracticeProject）|
 | `title` | String? | 自定义标题；null 时用 PracticeProject.name 显示 |
-| `dailyTarget` | Int | 每日目标次数（达到此数即为当日达标）|
+| `period` | String | **任务周期（DR-124）**：`daily`（每日）/ `weekly`（每周）/ `fixed`（期间累计）|
+| `dailyTarget` | Int? | period=daily 时必填：每日目标次数（达到即当日达标）|
+| `weeklyTarget` | Int? | period=weekly 时必填：每周目标次数（如「每周 3 座禅修」）|
+| `targetCount` | Int? | period=fixed 时必填：期间累计目标（如「本月共 10 万遍」，startDate→endDate 区间内累计）|
 | `startDate` | DateTime | 任务起始日 |
-| `endDate` | DateTime? | 任务截止日；null=无限期 |
+| `endDate` | DateTime? | 任务截止日；null=无限期（period=fixed 时必填，累计需明确区间）|
 | `isActive` | Boolean | 默认 true；false=停用（历史 PracticeLog 保留）|
 | `createdBy` | String | 创建人 userId（辅导员）|
 | `createdAt` | DateTime | 默认 now() |
@@ -1996,9 +2001,12 @@ model ClassTask {
   classId           String
   practiceProjectId String
   title             String?
-  dailyTarget       Int
+  period            String    @default("daily") // daily / weekly / fixed（DR-124）
+  dailyTarget       Int?      // period=daily 必填
+  weeklyTarget      Int?      // period=weekly 必填（如每周 3 座）
+  targetCount       Int?      // period=fixed 必填（期间累计，如本月 10 万遍）
   startDate         DateTime
-  endDate           DateTime?
+  endDate           DateTime? // period=fixed 时必填
   isActive          Boolean   @default(true)
   createdBy         String
   createdAt         DateTime  @default(now())
@@ -2016,10 +2024,14 @@ model ClassTask {
 | 停用走 `isActive=false`，不物理删除（D18）| 应用层 | 历史 PracticeLog 打卡记录完整保留 |
 | 每班上限 5-10 个并发任务 | 应用层（软限制）| 防止任务过多，isActive=true 行数检查 |
 | 写权限限本班辅导员及以上 | 应用层 | 不允许跨班操作 |
+| period 与 target 字段配套（DR-124）| 应用层（Zod）| daily→dailyTarget 必填；weekly→weeklyTarget 必填；fixed→targetCount + endDate 必填；非对应字段为 null |
+| period 值域 daily/weekly/fixed | 应用层（Zod）| 与 UserPracticeVow.targetPeriod（daily/weekly/lifetime）平行；ClassTask 用 fixed（有起止区间）而非 lifetime |
 
 #### 设计意图
 
-ClassTask 只存「任务定义」。每位班级成员有一条对应的 UserPracticeVow（context=class_task），打卡走 PracticeLog，进度展示时 join ClassTask.dailyTarget（不复制，D3 实时生效）。达标率影响 CohortLagSnapshot.taskLag（能力 14）。课程自带任务（CohortRecommendedTemplate）同理，两条路径对学员端完全一致。
+ClassTask 只存「任务定义」。每位班级成员有一条对应的 UserPracticeVow（context=class_task），打卡走 PracticeLog，进度展示时按 `period` join ClassTask 对应目标字段（dailyTarget/weeklyTarget/targetCount，不复制，D3 实时生效）。达标率影响 CohortLagSnapshot.taskLag（能力 14）——按 period 三种口径计算（daily 按天、weekly 按周、fixed 按期间累计达成与否，DR-124）。课程自带任务（CohortRecommendedTemplate）同理，两条路径对学员端完全一致。
+
+**多周期示例（DR-124）**：辅导员可布置「每天 1000 遍观音心咒」（period=daily, dailyTarget=1000）、「每周 3 座禅修」（period=weekly, weeklyTarget=3）、「本月共持咒 10 万遍」（period=fixed, targetCount=100000, endDate=月末）三类。weekly/fixed 是 DR-124 在原纯每日制（dailyTarget Int 必填）基础上扩展，承接了线上 PracticeTask 的 mode=fixed 并新增 weekly。
 
 #### 线上 PracticeTask → 本表归并映射（DR-122/123）
 
@@ -2038,7 +2050,7 @@ ClassTask 只存「任务定义」。每位班级成员有一条对应的 UserPr
 | `startAt` / `endAt` | → ClassTask.startDate / endDate | |
 | `archivedAt` | → ClassTask.isActive=false（停用不删，D18）| |
 
-> ⚠️ **fixed 班级任务缺口（TODO-22）**：线上 PracticeTask 班级任务支持 `mode=fixed`（期间累计 N），但新设计 ClassTask 是纯每日制（仅 dailyTarget），无 fixed 累计落点。**用户决策挂 TODO-22 待定**（2026-05-31）：辅导员是否需要「期间累计型」班级任务（如「本月共持咒 1 万遍」）待确认——若需要则 ClassTask 加 period(daily/fixed)+targetCount，否则班级任务保持纯每日制、fixed 语义由个人发愿（UserPracticeVow lifetime 型）或 CohortRecommendedTemplate 承接。**无功能静默丢失**：缺口已登记，不在改造名义下默默砍掉。
+> ✅ **fixed 班级任务缺口已闭合（DR-124，TODO-22）**：用户决策（2026-05-31）班级任务可「以时间为单位」——举例「每星期 3 座禅修」（weekly）、「每天 1000 遍观音心咒」（daily），加期间累计型（fixed）。ClassTask 已加 `period`（daily/weekly/fixed）+ dailyTarget/weeklyTarget/targetCount 三目标字段（见上字段表），承接线上 mode=fixed 并新增 weekly。**无功能丢失**，缺口闭合。
 
 ---
 
@@ -2958,6 +2970,7 @@ model UserSelfStudyProgram {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-124 | 班级任务多周期支持：ClassTask 加 period（daily/weekly/fixed）（闭合 TODO-22）| **ClassTask 加 `period`（daily/weekly/fixed）+ dailyTarget/weeklyTarget/targetCount 三目标字段，dailyTarget 由必填改可空；达标率按 period 三口径算**（用户决策 2026-05-31，TODO-22 闭合）| TODO-22 暴露「ClassTask 纯每日制装不下线上 fixed 班级任务」，问用户时用户进一步指出**班级任务本就可能「以时间为单位」**——举例「每星期必须 3 座禅修」（weekly）、「每天 1000 遍观音心咒」（daily），加上期间累计型（fixed，如本月共 10 万遍）。故不止补 fixed，**补齐 daily/weekly/fixed 三周期**。**实现**：ClassTask 加 `period String @default("daily")` + `weeklyTarget Int?` + `targetCount Int?`，原 `dailyTarget Int` 改 `Int?`（按 period 配套，Zod 守）；period=fixed 时 endDate 必填（累计需明确区间）。**与 UserPracticeVow 对齐**：UserPracticeVow.targetPeriod 是 daily/weekly/lifetime，ClassTask 用 daily/weekly/**fixed**（班级任务有起止区间，用 fixed 而非 lifetime）。**达标率三口径**（CohortLagSnapshot.taskLag，能力 14）：daily=每日达标天数/有效天数、weekly=达标周数/有效周数、fixed=期间累计≥targetCount 即 100%。**承接线上**：PracticeTask mode=fixed → period=fixed（缺口闭合），并新增 weekly。配套更新 §3.14（字段表+prisma+约束+设计意图+映射表）、TODO-22 闭合。**无 migration 结构变化**：ClassTask 是 §三新建表（M3d），加字段即在建表 DDL 内，不需额外 ALTER。排除「只补 fixed 不补 weekly」：用户明确举了 weekly 例子（每周 3 座），只补 fixed 会再次漏掉时间单位型任务；排除「班级任务保持纯每日制、fixed 走个人发愿」：辅导员布置的「本月共修 N」是班级集体任务，塞进个人发愿语义错位 |
 | DR-123 | 实修域改造细化落地：ClassTask←PracticeTask 字段映射 + Migration 清单 + 表计数校准 + PracticeTemplate 纠正（接 DR-122）| **(1) PracticeTemplate 纠正废弃→🆕改造新建**（承重表）；**(2) ClassTask←PracticeTask 按 scope 拆流映射**（class→ClassTask / self→UserPracticeVow）；**(3) fixed 班级任务缺口挂 TODO-22**；**(4) 表计数校准：§一 13→12、§三 15→17、§四 22 不变**；**(5) Migration：M1 含 PracticeLog=rename PracticeEntry+加列、新增 M1.5 改造源清理 + M3e 实修体系**（用户决策 2026-05-31，TODO-21 细化闭合）| 接 DR-122 实修 11 表归宿，本条落地细节并**纠正 DR-122 一处事实错误**。**(1) PracticeTemplate 纠正（用户拍板）**：DR-122 曾判「PracticeTemplate 废弃，职责被 CohortRecommendedTemplate 覆盖」——**错**。核查：CohortRecommendedTemplate.templateId **外键指向** PracticeTemplate（§1.8 line 616），DR-36 设计「任务目标运行时读 PracticeTemplate.defaultDailyTarget」，能力 1 课表层也依赖它——PracticeTemplate 是设计**承重表**（届推荐功课的模板定义），废弃会同时打断 CohortRecommendedTemplate 绑定 + D3 运行时读取。它确是幻影表（线上无），但设计需**新建**它，非废弃。改判 🆕 改造新建（§三）。**(2) ClassTask←PracticeTask 映射（task 1）**：线上 PracticeTask 按 scope 拆流——`class`→ ClassTask（mode/classId/ownerId/projectId/title/target/startAt/endAt 逐字段映射，见 §3.14 映射表），`self`→ UserPracticeVow（context=personal, isPledged=true，折叠 PracticeGoal）。两线语义本分属「班级任务」「个人发愿」，不强塞一表。**(3) fixed 缺口（TODO-22）**：ClassTask 纯每日制（仅 dailyTarget），线上 fixed（期间累计）班级任务无落点，用户决策挂 TODO-22 待定（需要则 ClassTask 加 period+targetCount）。**(4) 表计数校准（task 2）**：实修域改造前后——§一 扩展 13→**12**（UserPracticeVow 移出至 §三，PracticeLog 留本区因系 PracticeEntry rename+ALTER）；§三 新建 15→**17**（+UserPracticeVow +PracticeTemplate）；§四 复用 **22 不变**（−PracticeTemplate(→§三) −PracticeJournal(废弃) +PracticeCategory +PracticeMakeup，净 0）。**物理编号保留原位**（§1.7/§1.12 不迁移避免大幅重排），计数以本条口径为准——同 DR-110「5→4」只改计数不重排历史的惯例。**(5) Migration（task 2）**：M1 含 PracticeLog=rename PracticeEntry + 加 vowId/durationMinutes/meditationId/prayerCount/programId/taskSourceType + source 值域改（ALTER+RENAME）；新增 **M1.5** 改造源清理（PracticeGoal/PracticeTask/PracticeDailySummary 不入目标 schema，开发期无数据直接不建，DR-116）；新增 **M3e** 实修体系（UserPracticeVow + PracticeTemplate 新建）；11.3 覆盖核对 + §十二 P4 + 12.1 时序注同步更新。**双任务（用户「1和2」）全部落地**：task1=ClassTask 映射，task2=migration+计数。排除「PracticeTemplate 仍废弃+改造 CohortRecommendedTemplate 去 templateId」：改动更大且拆散模板复用机制；排除「物理迁移 §1.7/§1.12 章节」：130+ 行大段搬移风险高、引用众多，用计数口径声明 + 原位保留更稳（同 append-only 史惯例）|
 | DR-122 | 实修模型改造细化方案：11 张实修表逐张定归宿（接 DR-121 定向「一切按新设计改造」）| **改造映射定稿（用户决策 2026-05-31，TODO-21 闭合）**：①保留纳入设计 3 张（PracticeCategory 大类字典 / PracticeProject 项目·真表复用 / PracticeMakeup 补签）；②改造新建 2 张（PracticeEntry→PracticeLog；新建 UserPracticeVow）；③折叠 2 项（PracticeGoal→UserPracticeVow.dailyTarget/weeklyTarget；修行心得→PracticeLog.note/Note）；④改造归并 1 张（PracticeTask→ClassTask §3.14）；⑤废弃 3 张（PracticeDailySummary 排行改实时算+缓存 / PracticeJournal / PracticeTemplate） | 接 DR-121 用户拍板「一切按新设计改造」，本条把实修域 11 张表（线上 7 真实 + 设计 4 幻影）逐张定归宿，闭合 TODO-21。**机械改判（DR-121 已定向、字段已决）**：(a) **PracticeCategory**（持咒/礼拜/诵经/供曼扎/观修 5 大类字典）→ 保留·明确纳入设计（PracticeProject 依赖它，真表）；(b) **PracticeProject**（修持项目 user/class scope）→ §四复用（真表，合法存在）；(c) **PracticeEntry**（线上纯计数 count+tap/shake/bulk+note）→ **改造为 PracticeLog**：加 vowId/durationMinutes/prayerCount/programId/taskSourceType，source 值域 tap/shake/bulk→manual/auto/ai_assistant（新设计目标语义）；(d) **PracticeGoal**（每日目标）→ **折叠进 UserPracticeVow**（vow 已有 dailyTarget/weeklyTarget），废表；(e) **PracticeTask**（任务 daily/fixed）→ **改造归并 ClassTask**（§3.14 班级任务体系）；(f) **UserPracticeVow / PracticeLog** → §三新建（改造新建，非复用/扩展现有，承载 DR-91/94/95/120 已决字段）。**用户拍板 4 个 TODO-21 歧义点（2026-05-31）**：(Q1 排行) PracticeDailySummary 日聚合表 **废**，班级观修排行从 PracticeLog **实时算+缓存**（CLAUDE.md 已有 5 分钟 in-memory cache 模式）；(Q2 补签) PracticeMakeup **保留**补签功能（7 天内每周 1 次）纳入新设计作正式功能；(Q3 心得) PracticeJournal **不独立建表**，修行心得**折叠进 PracticeLog.note**（打卡顺带）或复用 Note 表；(Q4 模板) PracticeTemplate 查清=无字段定义/无代码/职责被 CohortRecommendedTemplate（届推荐功课）+PracticeProject（项目字典）完全覆盖→**废弃**，不进新设计。**结论**：实修域改造蓝图清晰——3 保留 + 2 改造新建 + 2 折叠 + 1 归并 + 3 废弃 = 11 张全部有归宿。配套需更新 §1.7（UserPracticeVow 复用→改造新建+折叠 Goal）、§1.12（PracticeLog 同+source 值域+note 承载心得）、§四（废 PracticeTemplate/Journal/Goal/DailySummary，补 PracticeCategory/Makeup 保留）、TODO-21 闭合。排除「保留 PracticeDailySummary 排行表」：用户选实时算，少一张聚合表、避免双写一致性；排除「PracticeJournal 独立表」：心得轻量，打卡顺带 note 足够，不值单表；排除「PracticeTemplate 保留」：无独立职责，纯冗余幻影 |
 | DR-121 | 🔴 实修域数据模型「设计 vs 线上现状」根本落差的定性与定向（理清 PracticeEntry↔PracticeLog 命名时挖出）| **一切按新设计做：设计的 vow/时长制实修模型是改造目标，线上计数打卡器是改造源；观修计入升学（DR-111 成立）**（用户决策 2026-05-31）。**纠正此前 DR-91/94/95/111/120 及 §1.7/§1.12/§四 的「复用旧设计/✅封板复用/零新表」标签——这些实修表实为改造新建，非线上现成可复用** | 理清命名待办（DR-118）时三重核查（schema + 后端源码 grep + 审计 01）挖出根本落差，远超「命名待理清」：**(事实1)** `UserPracticeVow`/`PracticeLog`/`PracticeTemplate`/`PracticeJournal` 是**幻影表**——全仓代码（.ts/.tsx/.prisma）0 处，仅存在于设计文档；后端实际只有 7 张 `prisma.practiceX`（Category/Project/**Entry**/DailySummary/Goal/Makeup/Task）。**(事实2)** 线上实修=**纯计数打卡器**：PracticeEntry 字段 `{count, source:'tap'|'shake'|'bulk', note}`（点/摇/批量录入数数），**无** durationMinutes/meditationId/vowId/prayerCount——设计假设的座时长/发愿/祈祷文字段一个都没有。**(事实3)** 「观修不做计数」是线上既定决策（Meditation 表注释明文「用户决定观修不做计数·学修不含观修大类·旧字段 practiceProjectId/practiceCount 已移除」，审计 01 line 84 记录），DR-111 反转了它。**诊断**：设计做实修域时参照的是某份**旧 schema 快照**（含 vow/时长制 PracticeLog），但线上后端后来被重构成计数打卡器并砍观修计数，设计没跟上重构、继承了幻影表，于是把「待建的改造目标」误标成「复用现有」。**用户拍板（2026-05-31）**：「设计是对目前项目的改版，一切按新设计做，目前项目改造成新设计的方案」+「观修计入升学随此一起定」。**定向结论**：(1) 设计 vow/时长制实修模型 = **改造目标**，权威；(2) 线上计数打卡器 7 表 = **改造源**，按新设计重构（非原封保留的净资产，撤销 DR-118 把簇A 5 表「归净资产暂不深入」的临时定性）；(3) 观修计入升学成立（DR-111 方向保留），但其「零新表·走 PracticeLog/UserPracticeVow」表述纠正为「改造新建这些表」；(4) DR-95 prayerCount / DR-94 isSubstituted / DR-91 currentSessionMinutes / DR-120 programId+taskSourceType 所加字段全部有效，但承载它们的 PracticeLog/UserPracticeVow 是**改造新建表**（非「扩展现有」），§一「扩展区」对这两张的归类在实现时按新建处理；(5) §四「PracticeTemplate/PracticeJournal 复用」纠正为改造新建；(6) DR-120 提到的 source 值域 manual/auto/ai_assistant 是**新设计目标语义**（替换线上 tap/shake/bulk），成立。**遗留待办（登记 TODO-21）**：线上打卡器的配套能力（补签 PracticeMakeup / 日聚合排行 PracticeDailySummary / 每日目标 PracticeGoal / 大类字典 PracticeCategory）在新设计实修模型里**尚无显式等价物**，改造细化时须确认这些功能去留，勿在「改造」名义下静默丢失。**影响范围**：03 §5 簇A 定性、03 §9 迁移难度「打卡🟢易」、04 命名 note 均需对齐本条（见配套编辑）。排除「线上打卡器为准·设计返工」：用户明确一切按新设计；排除「继续当命名问题轻描淡写」：字段缺失+幻影表+观修计数反转远超改名，必须定性留痕防实现期踩雷 |
@@ -4327,6 +4340,25 @@ model UserSelfStudyProgram {
 
 ---
 
+### 检查轮次 69（2026-05-31，范围：DR-124 班级任务多周期 · ClassTask 加 period · TODO-22 闭合 · 跨 08）
+
+> TODO-22 问用户「是否需要 fixed 班级任务」，用户指出班级任务本就可能「以时间为单位」（每周 3 座禅修、每天 1000 遍心咒），故不止补 fixed，补齐 daily/weekly/fixed 三周期。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. ClassTask 字段扩展 | ✅ | 加 period（daily/weekly/fixed）+ weeklyTarget + targetCount；dailyTarget Int→Int?；endDate（fixed 必填）。字段表 + prisma model 同步 |
+| 2. 约束配套 | ✅ | 加 Zod 约束：period↔target 配套（daily→dailyTarget / weekly→weeklyTarget / fixed→targetCount+endDate）；period 值域 daily/weekly/fixed |
+| 3. 达标率三口径 | ✅ | 设计意图 + 达标率定义改：daily 按天 / weekly 按周 / fixed 按期间累计达成；CohortLagSnapshot.taskLag（能力 14）按 period 分流 |
+| 4. 映射表更新 | ✅ | PracticeTask mode→period（daily/fixed 有落点 + 新增 weekly）；target 行三字段分流；删重复 mode 行；fixed 缺口警告块改 ✅ 已闭合 |
+| 5. 与 UserPracticeVow 对齐 | ✅ | ClassTask period（daily/weekly/fixed）平行 UserPracticeVow.targetPeriod（daily/weekly/lifetime）；班级任务有区间用 fixed 而非 lifetime，差异注明 |
+| 6. TODO-22 闭合 | ✅ | TODO-22 标 ✅ 已闭合（DR-124）；DR-124 入 §八；本轮检查轮次 69 |
+| 7. Migration 无结构变化 | ✅ | ClassTask 是 §三新建表（M3d），加字段在建表 DDL 内，不需额外 ALTER；§一/§三/§四 计数不变（12/17/22） |
+
+**本轮发现问题数**：0（多周期扩展干净落地）。
+**结论**：DR-124 班级任务多周期落地，TODO-22 闭合。ClassTask 从纯每日制扩为 daily/weekly/fixed 三周期，承接线上 PracticeTask mode=fixed 并按用户需求新增 weekly（每周 N 座/遍）。**实修域 + 班级任务改造全部闭合**——DR-118 发现→121 定向→122 蓝图→123 落地→124 多周期，TODO-21/22 均闭合。表计数稳定 §一12/§三17/§四22。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -4355,7 +4387,7 @@ model UserSelfStudyProgram {
 | ~~TODO-19~~ ✅ 已闭合 | ~~14 届转入学员对已学课程「重修 / 直接报圆满」无落点（正向核对 G2）~~——**已闭合（2026-05-31）**：定调走**能力 5 代行**，无需新字段——「直接报圆满」= 转入/导入时管理员代行批量标记完成，写 LessonCompletion + AuditLog(actionType=proxy_action, reason 必填) 留痕；「重修」= 不标完成、学员正常重新学。复用既有 LessonCompletion + AuditLog，LessonCompletion 不动（仍 ✅ 复用）（DR-120）| 正向完整性核对 G2（能力 3 规则 6）| ✅ 已处理（DR-120）| DR-120 |
 | TODO-20 | ⏸ **仪轨合规标志字段**（正向核对 G3）：能力 6 绝对约束 2「仪轨合规标志必填、不合规修量作废」目前 PracticeLog 无 `ritualCompliant` 字段承载。**用户决策暂不加字段**（2026-05-31），留待内加行模块实现时定细节（合规判定是布尔还是枚举、由谁标、不合规修量如何作废）| 正向完整性核对 G3（能力 6 绝对约束 2）| 内加行模块实现时 | DR-120 |
 | ~~TODO-21~~ ✅ 已闭合 | ~~线上打卡器配套能力去留（DR-121）~~——**已闭合（2026-05-31，DR-122）**：实修 11 表逐张定归宿。补签 PracticeMakeup **保留**（纳入设计作正式功能）；日聚合排行 PracticeDailySummary **废**（排行从 PracticeLog 实时算+缓存）；每日目标 PracticeGoal **折叠**进 UserPracticeVow；大类字典 PracticeCategory **保留**；另 PracticeTask→ClassTask（class）+UserPracticeVow（self）、PracticeJournal 废弃、**PracticeTemplate 改造新建（DR-123 纠正：曾误判废弃，实为 CohortRecommendedTemplate 依赖的承重表）**、PracticeEntry→PracticeLog 改造扩展、UserPracticeVow 改造新建。**细化见 DR-123**（含表计数校准 §一13→12/§三15→17、ClassTask 映射、M3e/M1.5 migration）| DR-121 实修域落差核查 | ✅ 已处理（DR-122/123）| DR-121 / DR-122 / DR-123 |
-| TODO-22 | ⚠️ **fixed（期间累计）班级任务无落点**（DR-123）：线上 PracticeTask 班级任务支持 mode=fixed（期间累计 N），但新设计 ClassTask 纯每日制（仅 dailyTarget）。**用户决策挂 TODO 待定**（2026-05-31）：辅导员是否需要「期间累计型」班级任务——需要则 ClassTask 加 period(daily/fixed)+targetCount，否则保持每日制、fixed 语义由个人发愿（UserPracticeVow lifetime）或 CohortRecommendedTemplate 承接 | DR-123 ClassTask←PracticeTask 映射 | 实修/班级任务实现时确认 | DR-123 |
+| ~~TODO-22~~ ✅ 已闭合 | ~~fixed（期间累计）班级任务无落点（DR-123）~~——**已闭合（2026-05-31，DR-124）**：用户决策班级任务可「以时间为单位」（每周 3 座禅修=weekly、每天 1000 遍观音心咒=daily、本月共 10 万遍=fixed）。ClassTask 加 `period`（daily/weekly/fixed）+ dailyTarget/weeklyTarget/targetCount 三目标字段，承接线上 mode=fixed 并新增 weekly；达标率按 period 三口径算 | DR-123 ClassTask←PracticeTask 映射 | ✅ 已处理（DR-124）| DR-123 / DR-124 |
 
 ---
 
