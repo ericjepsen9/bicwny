@@ -116,8 +116,10 @@
 | LLM 网关 | 多 provider/熔断/配额/用量/成本（LlmProviderConfig/ScenarioConfig/PromptTemplate/ProviderUsage/CallLog）—— AI 复用底座 | ✅ |
 | 账户/安全/UGC | 邮箱验证、密码重置、单设备登录（AuthSession/EmailVerificationToken/PasswordResetToken）、举报闭环（Feedback/QuestionReport/NoteReport）| ✅ |
 | 内容/笔记 | 笔记 + 高亮（Note/Highlight）、阅读进度（LessonReadingProgress）、观修视频/PPT 引导（Meditation/MeditationSession）| ✅ |
+| 修学打卡配套（DR-118）| 大类字典（PracticeCategory）、日聚合排行（PracticeDailySummary）、补签（PracticeMakeup）、每日目标（PracticeGoal）、班级/个人任务（PracticeTask）| ✅ 先归净资产·暂不深入 |
 
 > 详见审计 01 §八。观修视频引导保留依据 DR-111（与升学打坐报数各管各的）。
+> ⚠️ **命名待理清（DR-118）**：设计文档（06/08）全程用 `PracticeLog`，线上真实表为 `PracticeEntry`——同一物的两个名字尚未对齐；簇A 5 张配套表先归净资产保留、暂不深入设计，待打坐报数口径（DR-91/111）实现时一并理清命名与配套接法。
 
 ---
 

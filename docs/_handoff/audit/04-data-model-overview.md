@@ -1,8 +1,8 @@
 # 觉学 · 数据模型总图（文字版 ER）
 
 > 状态：现状快照（2026-05-31）
-> 用途：线上 Prisma schema 的分域总览，一眼看清 61 model / 23 enum 怎么分布、怎么连。
-> 数据源：`backend/prisma/schema.prisma`（直接清点 **61 model / 23 enum**；审计 01 记 60/19 为早期约数，以本表为准）。
+> 用途：线上 Prisma schema 的分域总览，一眼看清 60 model / 19 enum 怎么分布、怎么连。
+> 数据源：`backend/prisma/schema.prisma`（权威清点 `grep -c "^model"` = **60 model / 19 enum**，2026-05-31 校准；本文档创建时误记 61/23，已修正，与审计 01 一致）。
 > 实现状态见 `03-modification-plan §5`（绝大多数为 ✅ 净资产保留）。
 
 ---
@@ -145,7 +145,7 @@ Program 体系 · ProgramAdvancementConfig · UserRoleAssignment · RoleAssignme
 ---
 
 ## 三、统计
-- 现状：**61 model · 23 enum**
+- 现状：**60 model · 19 enum**（权威 grep 计数，2026-05-31 校准）
 - 新设计新增：§三新建区 15 张 + 出勤机制 + AI 4 张(⏸)
 - 详细字段级设计见 `decisions/08-merged-design`
 
@@ -154,4 +154,4 @@ Program 体系 · ProgramAdvancementConfig · UserRoleAssignment · RoleAssignme
 ## 变更记录
 | 日期 | 内容 |
 |---|---|
-| 2026-05-31 | 创建数据模型总图；61 model 分 12 域 + 23 enum；标注 PracticeLog/PracticeEntry 命名差异、观修双轨 |
+| 2026-05-31 | 创建数据模型总图；60 model 分 12 域 + 19 enum；标注 PracticeLog/PracticeEntry 命名差异、观修双轨。（创建时误记 61/23，同日反向核对校准为 60/19）|
