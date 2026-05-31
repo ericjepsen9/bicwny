@@ -44,7 +44,7 @@ sudo rsync -av --delete dist/ /var/www/juexue/app/
 
 ```
 1. 建 Program 体系（专业×届）          ← 地基，无存量数据
-2. 运营补：每个现存 Class → programId   ← 🔴 人工，数据缺维度（最大卡点）
+2. 运营补：每个现存 Class → programId   ← 🔴 阻断式硬门槛（DR-115）：code+cohortYear 全人工填，无占位专业，未归类不能上线
 3. UserRoleAssignment + 角色迁移脚本    ← admin→super_admin(后人工降级) / coach→class_tutor(scope=classId)（DR-113）
 4. enrollment 彻底迁专业级             ← 依赖 1/2；课程级数据迁走，废课程语义（DR-113）
 5. 打卡数据补专业维度                   ← 依赖 1/2
@@ -57,7 +57,7 @@ sudo rsync -av --delete dist/ /var/www/juexue/app/
 | 迁移项 | 难度 | 关键 |
 |---|---|---|
 | 角色迁移 | 🟡 | admin→super_admin / coach→class_tutor 可脚本化；JWT 单 role → assignments，**token 全失效需全员重登**（#7）；**过渡期需人工补任命**（DR-113）|
-| **专业×届归属** | 🔴 | 现有 Class 无此维度，**须运营人工补 programId**；改造启动前先定映射规则（待修订 #8）|
+| **专业×届归属** | 🔴 | 现有 Class 无此维度；**code+cohortYear 全运营逐班人工填，无占位专业，未归类班级不能上线（阻断式硬门槛，DR-115）**——P1→P2 强制闸门 |
 | **enrollment 迁专业级** | 🔴 | **彻底迁走课程级**：进度数据（completedLessons 等）迁入专业级，课程语义废弃；依赖 Program 先建（DR-113）|
 | 打卡数据 | 🟢 | 保留 + 补专业字段 |
 | 题库/SM2/笔记/通知 | 🟢 | 净资产，近零迁移 |
@@ -74,7 +74,7 @@ sudo rsync -av --delete dist/ /var/www/juexue/app/
 
 ## 四、迁移前置检查清单
 
-- [ ] 专业×届映射规则已确立（待修订 #8）
+- [ ] **专业×届归类闸门（DR-115）**：所有存量 Class 逐班定 code+cohortYear → 建 Program → 回填 programId；无占位专业；迁移脚本校验无 programId=null 的存量 Class 方可放行
 - [ ] Program 体系 migration 就绪（M1）
 - [ ] 角色迁移脚本测试通过（admin/coach 映射 + scope）
 - [ ] JWT 改造方案确定，全员重登通知预案（待修订 #7）

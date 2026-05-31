@@ -2914,6 +2914,7 @@ model UserSelfStudyProgram {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-115 | 专业×届映射规则：现有班级如何归入 Program（最大卡点 #8）| **专业 code + 届 cohortYear 全部运营逐班人工填；无占位专业；未归类班级不能上线（阻断式硬门槛）**（用户决策 2026-05-31，审计 02 §五 #8）| 现状（审计 02 §三）：Class 仅 `name`(自由文本)/`courseId`/`createdAt`，**无专业×届结构化维度**，迁移无法自动判断班属哪专业哪届——审计判 🔴 最大卡点。Program 需 `code`(专业类型)+`cohortYear`(届年份)+`stage`，`@@unique([code, cohortYear])`。**三项决策**：(1) **专业 code 运营逐班人工填**——不按 courseId/班名自动推断（班名是自由文本、一法本可属多专业，推断不可靠），班名/courseId 仅作人工参考；(2) **届 cohortYear 全部人工填**——不用 createdAt 年份预填（创建年≠开班届，且预填易被误信跳过核对）；(3) **无占位专业 + 未归类不能上线（硬门槛）**——不建 unassigned 占位 Program，所有存量 Class 必须先补齐 programId 才能完成迁移上线。**硬门槛定位**：这是 P1 地基→P2 上线之间的**阻断式前置闸门**——运营把每个存量 Class 定 code+cohortYear → 建对应 Program → 回填 programId，全部完成才放行迁移。**连带**：DR-113 enrollment 迁专业级、DR-114 作用域均依赖本步先完成，硬门槛保证它们不拿到空 programId。runbook 迁移第 2 步由「人工补（卡点）」升级为「阻断式闸门 + 完成度检查清单」。**实现影响（不在本轮改代码）**：迁移脚本须校验「无 programId=null 的存量 Class」方可放行；运营需「班级→code+cohortYear」全量映射台账。排除「按 courseId/班名自动推断 code」：班名自由文本、法本↔专业非一对一，自动推断错误率高且静默；排除「createdAt 预填 cohortYear」：创建年≠开班届，预填诱导跳过核对；排除「建 unassigned 占位专业」：占位班的升学/报数/作用域语义模糊，且会让「迁移未完成」状态被掩盖，硬门槛更干净、强制运营一次归类到位 |
 | DR-114 | JWT 结构修订：单 role 如何承载「一人多角色+作用域」| **方案 B：JWT 只留 sub/sid，权限每请求从 DB 查 UserRoleAssignment（短 TTL 内存缓存补性能）；角色变更/撤销即时生效**（用户决策 2026-05-31，审计 02 §五 #7）| 现状（审计 02 §一）：JWT payload `{sub, role?(单值), aud, sid, exp}`，role 烤进 token，265 处 requireRole 全靠 `payload.role` 同步零查库判定。新设计需「一人多角色 + 每角色作用域(class_id/major_id)」，单值 role 装不下。**方案 B（选定）**：token 去掉 role、只留 sub + sid（aud/exp 不变）；登录时不烤角色，鉴权时由 permissions.ts 按 sub 查 UserRoleAssignment（+ 短 TTL 内存缓存补每请求查库开销）。**选 B 理由**：(1) 学修体系要求角色变更/撤销**即时生效**（D17 代行、撤销资格职能#14、任命/失效 02§六 expires_at），方案 A「等 token 过期才生效」不可接受；(2) 线上已有 `sid → AuthSession` 每请求查库机制（jwtOptional 钩子），加查 assignments 有现成入口、改动小；(3) 作用域数量可能多，烤进 token 致膨胀。**代价**：每请求多一次查库/缓存（用登录预载 + 短 TTL 缓存补偿）。**实现影响（不在本轮改代码）**：(a) token 签发去 role；(b) requireRole 工厂改为查 assignments + 等级判定（permissions.ts，连 #9）；(c) 已签发 token 全失效需全员重登（连 DR-113 迁移）；(d) 缓存失效策略：角色写操作后清该用户缓存。排除「方案 A token 内嵌 assignments」：改角色要等过期才生效、撤销难、token 膨胀，与即时生效冲突；排除「方案 C 混合(内嵌+version)」：兼顾性能与即时撤销但实现最复杂，当前规模 B+缓存已够，不引入 version 机制复杂度 |
 | DR-113 | 现状角色/报名迁移映射的具体规则 | **coach→仅 class_tutor（人工补 class_admin）；admin→全部 super_admin 后人工降级 subject_admin；UserCourseEnrollment 彻底迁专业级（废课程语义）**（用户决策 2026-05-31，审计 02 §五 #6）| 审计 02 §三给出角色/报名迁移方向，本条定具体规则。三项决策：(1) **coach → 仅 class_tutor**（scope=classId）——推翻 02 文档原「coach→tutor+admin 双角色自动迁移」，改为只给教学角色，**class_admin 行政权由 subject_admin 逐个手动补任命**（最小权限原则）。代价=过渡期辅导员暂无报数审核(职能#2)/邀请码(#5)/关怀(#3)/共修管理(#4)等行政操作，须补任命后恢复（线上 coach 现可做这些，是一次有意的权限收紧，用户接受过渡期）。(2) **admin → 全部 super_admin 后人工降级**——迁移脚本先全升 super_admin，再人工 review 把学科级管理者降 subject_admin。代价=降级前窗口期所有原 admin 为全局最高权限（用户接受，须尽快 review）。(3) **报名 UserCourseEnrollment 彻底迁专业级**——非「保留课程级+派生」（审计原建议 🟡），而是 🔴 彻底迁走：课程级进度数据（completedLessons/source/enrolledViaClassId 等）迁入新专业级结构，课程级报名语义废弃。**实现影响（不在本轮改代码）**：迁移脚本须含 coach→class_tutor、admin→super_admin、enrollment 进度数据迁移三段；需备补任命名单 + token 全失效全员重登（连 #7）。同步更新 02 §七迁移表 + 03 §9 + runbook。排除「coach→tutor+admin 双角色」（02 原方案）：自动给行政权违反最小权限，宁可人工补；排除「admin 选择性迁移」：脚本无法判断哪个 admin 该降，统一升后人工降更安全可控；排除「enrollment 保留课程级+派生」（审计 🟡 建议）：用户要彻底迁走，避免两层并存的语义混淆 |
 | DR-112 | 净资产纳入交付文档 + 实现状态标签体系 + 整套配套文档 | **线上净资产正式纳入设计（改造须保留复用）；确立五类实现状态标签（✅保留/🔧需改/🆕待建/⏸暂不上线/❌去掉）；建独立修改方案 + 全套配套文档**（用户决策 2026-05-31，审计 01 §九 #5）| 用户要求「无论功能是否已实现都进设计，标清未实现/需改/去掉/暂不上线」+「要独立修改方案文档 + 其余配套文档」。处理：(1) **净资产纳入**——线上已有、不在 1-25 能力内的成熟功能（题库 14 题型+SM2/错题/收藏、成就/藏历/法会信息/画报/系统公告、通知体系 v2、LLM 网关、邮箱验证/密码重置/单设备登录/举报闭环、笔记+高亮/阅读进度、观修视频引导）正式登记为 ✅ 保留复用，改造不得误删；(2) **五类实现状态标签**确立为全套文档通用图例；(3) **新建独立文档**：`audit/03-modification-plan`（修改方案，现状→设计动作清单）、`00-INDEX`（总索引）、`audit/04-data-model-overview`（61 model 数据模型总图）、`audit/05-api-endpoints`（139 端点清单）、`glossary`（术语表）、`acceptance-checklist`（验收清单）、`deploy-migration-runbook`（部署迁移）。**文档定位厘清**：最终设计=06/08/02/05，现状=audit 01/02，改造方案=audit 03，互为索引。**本条不新建业务表、不改表计数**——纯文档体系决策。排除「净资产只在审计里提、不进设计」：用户明确要「都进设计」，审计是现状记录、设计是 source of truth，净资产须在设计侧有保留标签防改造遗漏。排除「用审计 01/02 充当修改方案」：用户明确要独立修改方案文档 |
@@ -4141,6 +4142,25 @@ model UserSelfStudyProgram {
 
 **本轮发现问题数**：0（DR-114 为用户决策；08 DR + 02 实现注 + 03 §8 + 审计回标一次到位）。
 **结论**：待修订 #7 闭合。JWT 采方案 B：token 只留 sub/sid，权限每请求查 UserRoleAssignment + 短 TTL 缓存，角色变更/撤销即时生效；token 去 role 致已签发全失效需重登（并入 DR-113 迁移重登）。
+
+---
+
+### 检查轮次 62（2026-05-31，范围：DR-115 专业×届映射规则 · 迁移最大卡点 · 跨 02/03/08/runbook）
+
+> 本轮处理审计待修订清单 **#8**（02 §五，迁移最大卡点 🔴）：现有班级如何归入 Program。**纯迁移规则决策，不新建业务表、不改表计数。**
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. DB 变更为零 | ✅ | DR-115 是迁移归类规则，Program/programId 早已在 §1.1 设计；本条不新建表 / 不改字段；§一/§三/§四/§五 计数全不变 |
+| 2. 与 Program 定义一致 | ✅ | 归类粒度 = code + cohortYear，与 §1.1 `@@unique([code, cohortYear])` 对齐；stage 由 Program 自带 |
+| 3. 03/runbook 同步 | ✅ | 03 §9 迁移第 2 步由「人工补（卡点）」升级「阻断式硬门槛」+ 过渡期须知；runbook 迁移顺序 + 前置闸门检查清单；两处一致 |
+| 4. 硬门槛逻辑自洽 | ✅ | 无占位专业 + 未归类不上线：迁移脚本校验「无 programId=null 存量 Class」方放行；保证 DR-113 enrollment 迁专业级、DR-114 作用域不拿空 programId |
+| 5. 与 #6/#7 衔接 | ✅ | DR-115 是 DR-113（enrollment 迁专业级）、DR-114（major_id 作用域）的前置；P1→P2 闸门定位明确，不越界预判 #9 |
+| 6. 排除方案有据 | ✅ | 排除自动推断 code（班名自由文本/法本非一对一）、createdAt 预填 cohortYear（创建年≠开班届）、占位专业（语义模糊+掩盖迁移未完成）三项均记理由 |
+| 7. 审计待修订项对齐 | ✅ | 02 §五 #8 标「✅ 已处理（DR-115）」；03 §11 #8→✅ |
+
+**本轮发现问题数**：0（DR-115 为用户决策；08 DR + 03 两处 + runbook + 审计回标一次到位）。
+**结论**：待修订 #8 闭合。专业 code + 届 cohortYear 全部运营逐班人工填；无占位专业；未归类班级不能上线（P1→P2 阻断式硬门槛）。最大卡点的运营规则定案。
 
 ---
 

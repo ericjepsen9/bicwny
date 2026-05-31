@@ -170,7 +170,7 @@
 
 ```
 1. 建 Program 体系（专业×届）          ← 地基，无存量
-2. 运营补：每个现存 Class → programId   ← 人工，数据缺维度（最大不确定性，#8）
+2. 运营补：每个现存 Class → programId   ← 🔴 阻断式硬门槛（DR-115）：code+cohortYear 全人工填，无占位专业，未归类不能上线
 3. 建 UserRoleAssignment + 角色迁移脚本  ← admin→super_admin(后人工降级)/coach→class_tutor(scope=classId)，可脚本化（DR-113）
 4. enrollment 彻底迁专业级             ← 依赖 1/2；课程级数据迁走，废 UserCourseEnrollment 课程语义
 5. 打卡等补专业维度                     ← 依赖 1/2
@@ -181,13 +181,13 @@
 | 迁移项 | 难度 | 说明 |
 |---|---|---|
 | 角色迁移 | 🟡 中 | 可脚本化（admin→super_admin / coach→class_tutor）；JWT 单 role 需改、token 全失效（#7）；**过渡期需人工补任命**（DR-113）|
-| **专业×届归属** | 🔴 难 | 现有 Class 无此维度，**需运营人工补 programId**（最大卡点，待修订 #8）|
+| **专业×届归属** | 🔴 难 | 现有 Class 无此维度；**code+cohortYear 全运营逐班人工填，无占位专业，未归类班级不能上线（阻断式硬门槛，DR-115）**——P1→P2 强制闸门 |
 | **enrollment 迁专业级** | 🔴 难 | **彻底迁走课程级**（非派生）：课程级进度数据（completedLessons 等）迁入专业级结构，UserCourseEnrollment 课程语义废弃；依赖 Program 先建（DR-113）|
 | 打卡数据 | 🟢 易 | 保留 + 补专业归属字段 |
 | 题库/答题/SM2/笔记 | 🟢 易 | 净资产直接复用，近零迁移 |
 | 升学/传承/出勤/报数 | 🟢 易 | 全新表无存量 |
 
-**前置建议**：改造启动前先确立「专业×届映射规则」（待修订 #8）。
+**前置闸门（DR-115，#8 已定）**：迁移上线前，运营须把**所有存量 Class 逐班定 code+cohortYear → 建 Program → 回填 programId**，无占位专业，未归类不放行。迁移脚本校验「无 programId=null 的存量 Class」方可继续。
 **过渡期须知（DR-113）**：(1) 辅导员迁移当天仅 class_tutor，行政功能待 subject_admin 补 class_admin 后恢复；(2) 原 admin 降级前为全局 super_admin，须尽快人工 review。
 
 ---
@@ -220,7 +220,7 @@
 | 5 | 净资产纳入（本文 §5）| ✅ DR-112 |
 | 6 | 迁移映射（coach→class_tutor / admin→super_admin 后降级 / enrollment 彻底迁专业级）| ✅ DR-113 |
 | 7 | JWT 结构修订（方案 B 查库+缓存）| ✅ DR-114 |
-| 8 | 专业×届映射规则 | ⬜ 待核对 |
+| 8 | 专业×届映射规则（全人工填+硬门槛）| ✅ DR-115 |
 | 9 | 权限改造统一点 | ⬜ 待核对 |
 
 ---
