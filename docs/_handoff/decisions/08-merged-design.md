@@ -15,11 +15,11 @@
 
 ---
 
-## 一、🔧 扩展表（13 张）
+## 一、🔧 扩展表（12 张，DR-123 校准）
 
 旧设计字段为底，按新业务逻辑加字段/改语义。
 
-> 注：ProgramSemester 核对后字段够用改判 ✅ 复用；CohortRecommendedTemplate 核对能力 9 后需扩展（classId→programId）从复用区移入；UserPracticeVow 剥离班级任务重新定位为纯发愿表。User 旧设计 13 字段全部复用，但新增 `birthDate`（年龄豁免数据源）从复用区移入扩展区。Class 旧设计 6 字段全部复用，但新增归档三件套（status/archivedAt/archivedBy，D19）从复用区移入扩展区。Course 旧设计 5 扩展字段全部复用，但 TODO-15 核对发现缺课程类型维度，新增 `courseType`（entry/formal/restricted，能力 3 规则 2）从复用区移入扩展区。PracticeLog 旧设计字段全部复用，但 TODO-11 核对发现顶礼打卡须同步录入法王祈祷文遍数，新增 `prayerCount` 字段，从复用区移入扩展区（DR-95）。扩展区最终 13 张。
+> 注：ProgramSemester 核对后字段够用改判 ✅ 复用；CohortRecommendedTemplate 核对能力 9 后需扩展（classId→programId）从复用区移入；UserPracticeVow 剥离班级任务重新定位为纯发愿表。User 旧设计 13 字段全部复用，但新增 `birthDate`（年龄豁免数据源）从复用区移入扩展区。Class 旧设计 6 字段全部复用，但新增归档三件套（status/archivedAt/archivedBy，D19）从复用区移入扩展区。Course 旧设计 5 扩展字段全部复用，但 TODO-15 核对发现缺课程类型维度，新增 `courseType`（entry/formal/restricted，能力 3 规则 2）从复用区移入扩展区。PracticeLog 旧设计字段全部复用，但 TODO-11 核对发现顶礼打卡须同步录入法王祈祷文遍数，新增 `prayerCount` 字段，从复用区移入扩展区（DR-95）。扩展区曾达 13 张；**DR-123 实修域改造细化后校准为 12 张**——UserPracticeVow 改判 🆕 改造新建移入 §三（线上无此表），PracticeLog 保留本区（由线上 PracticeEntry 改造扩展，migration 属 ALTER）。
 
 ---
 
@@ -1113,11 +1113,11 @@ model TransmissionRecord {
 
 ---
 
-## 三、➕ 新建表（15 张）
+## 三、➕ 新建表（17 张，DR-123 校准）
 
 按新业务能力从头设计。
 
-> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。（AssistantAssignment 曾短暂并入 §2.1，后核对 02 文档角色定义回滚为独立表，仍计入 14 张，DR-82。）TODO 处理阶段新增 §3.15 LeaveRequest（班级成员请假审批，TODO-6，DR-90），新建区更新为 **15 张**。
+> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。（AssistantAssignment 曾短暂并入 §2.1，后核对 02 文档角色定义回滚为独立表，仍计入 14 张，DR-82。）TODO 处理阶段新增 §3.15 LeaveRequest（班级成员请假审批，TODO-6，DR-90），新建区更新为 15 张。**DR-123 实修域改造细化后校准为 17 张**——新增 UserPracticeVow（§1.7，发愿层，线上无此表）+ PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖的承重表，DR-123 纠正前误判废弃）两张 🆕 改造新建（编号物理保留原位 §1.7 / §四原行，计数归本区，详见 DR-123）。
 
 ---
 
@@ -2018,6 +2018,25 @@ model ClassTask {
 #### 设计意图
 
 ClassTask 只存「任务定义」。每位班级成员有一条对应的 UserPracticeVow（context=class_task），打卡走 PracticeLog，进度展示时 join ClassTask.dailyTarget（不复制，D3 实时生效）。达标率影响 CohortLagSnapshot.taskLag（能力 14）。课程自带任务（CohortRecommendedTemplate）同理，两条路径对学员端完全一致。
+
+#### 线上 PracticeTask → 本表归并映射（DR-122/123）
+
+> 线上 `PracticeTask` 是改造源，按新设计**按 scope 拆流归并**：`class`→ ClassTask（辅导员布置），`self`→ UserPracticeVow（个人发愿/目标，context=personal, isPledged=true）。两条线在新设计里语义本就分属「班级任务」与「个人发愿」，不强行塞进一张表。
+
+| 线上 PracticeTask 字段 | 归宿 | 说明 |
+|---|---|---|
+| `scope`（self / class）| **拆流** | class → ClassTask；self → UserPracticeVow（context=personal, isPledged=true，折叠了 PracticeGoal）|
+| `mode`（daily / fixed）| ⚠️ 见下 | class 流：daily → ClassTask.dailyTarget；**fixed（期间累计）无落点**（ClassTask 纯每日制）→ TODO-22 |
+| `classId` | → ClassTask.classId | class 流 |
+| `ownerId`（class=辅导员 uid）| → ClassTask.createdBy | 创建者 |
+| `userId`（self=归属学员）| → UserPracticeVow.userId | self 流 |
+| `projectId` | → ClassTask.practiceProjectId / UserPracticeVow.practiceProjectId | |
+| `title` | → ClassTask.title / UserPracticeVow.customName | |
+| `target`（daily=每日N / fixed=累计N）| → ClassTask.dailyTarget（daily）/ UserPracticeVow.dailyTarget|weeklyTarget（self）| fixed 班级累计见 TODO-22 |
+| `startAt` / `endAt` | → ClassTask.startDate / endDate | |
+| `archivedAt` | → ClassTask.isActive=false（停用不删，D18）| |
+
+> ⚠️ **fixed 班级任务缺口（TODO-22）**：线上 PracticeTask 班级任务支持 `mode=fixed`（期间累计 N），但新设计 ClassTask 是纯每日制（仅 dailyTarget），无 fixed 累计落点。**用户决策挂 TODO-22 待定**（2026-05-31）：辅导员是否需要「期间累计型」班级任务（如「本月共持咒 1 万遍」）待确认——若需要则 ClassTask 加 period(daily/fixed)+targetCount，否则班级任务保持纯每日制、fixed 语义由个人发愿（UserPracticeVow lifetime 型）或 CohortRecommendedTemplate 承接。**无功能静默丢失**：缺口已登记，不在改造名义下默默砍掉。
 
 ---
 
@@ -2937,6 +2956,7 @@ model UserSelfStudyProgram {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-123 | 实修域改造细化落地：ClassTask←PracticeTask 字段映射 + Migration 清单 + 表计数校准 + PracticeTemplate 纠正（接 DR-122）| **(1) PracticeTemplate 纠正废弃→🆕改造新建**（承重表）；**(2) ClassTask←PracticeTask 按 scope 拆流映射**（class→ClassTask / self→UserPracticeVow）；**(3) fixed 班级任务缺口挂 TODO-22**；**(4) 表计数校准：§一 13→12、§三 15→17、§四 22 不变**；**(5) Migration：M1 含 PracticeLog=rename PracticeEntry+加列、新增 M1.5 改造源清理 + M3e 实修体系**（用户决策 2026-05-31，TODO-21 细化闭合）| 接 DR-122 实修 11 表归宿，本条落地细节并**纠正 DR-122 一处事实错误**。**(1) PracticeTemplate 纠正（用户拍板）**：DR-122 曾判「PracticeTemplate 废弃，职责被 CohortRecommendedTemplate 覆盖」——**错**。核查：CohortRecommendedTemplate.templateId **外键指向** PracticeTemplate（§1.8 line 616），DR-36 设计「任务目标运行时读 PracticeTemplate.defaultDailyTarget」，能力 1 课表层也依赖它——PracticeTemplate 是设计**承重表**（届推荐功课的模板定义），废弃会同时打断 CohortRecommendedTemplate 绑定 + D3 运行时读取。它确是幻影表（线上无），但设计需**新建**它，非废弃。改判 🆕 改造新建（§三）。**(2) ClassTask←PracticeTask 映射（task 1）**：线上 PracticeTask 按 scope 拆流——`class`→ ClassTask（mode/classId/ownerId/projectId/title/target/startAt/endAt 逐字段映射，见 §3.14 映射表），`self`→ UserPracticeVow（context=personal, isPledged=true，折叠 PracticeGoal）。两线语义本分属「班级任务」「个人发愿」，不强塞一表。**(3) fixed 缺口（TODO-22）**：ClassTask 纯每日制（仅 dailyTarget），线上 fixed（期间累计）班级任务无落点，用户决策挂 TODO-22 待定（需要则 ClassTask 加 period+targetCount）。**(4) 表计数校准（task 2）**：实修域改造前后——§一 扩展 13→**12**（UserPracticeVow 移出至 §三，PracticeLog 留本区因系 PracticeEntry rename+ALTER）；§三 新建 15→**17**（+UserPracticeVow +PracticeTemplate）；§四 复用 **22 不变**（−PracticeTemplate(→§三) −PracticeJournal(废弃) +PracticeCategory +PracticeMakeup，净 0）。**物理编号保留原位**（§1.7/§1.12 不迁移避免大幅重排），计数以本条口径为准——同 DR-110「5→4」只改计数不重排历史的惯例。**(5) Migration（task 2）**：M1 含 PracticeLog=rename PracticeEntry + 加 vowId/durationMinutes/meditationId/prayerCount/programId/taskSourceType + source 值域改（ALTER+RENAME）；新增 **M1.5** 改造源清理（PracticeGoal/PracticeTask/PracticeDailySummary 不入目标 schema，开发期无数据直接不建，DR-116）；新增 **M3e** 实修体系（UserPracticeVow + PracticeTemplate 新建）；11.3 覆盖核对 + §十二 P4 + 12.1 时序注同步更新。**双任务（用户「1和2」）全部落地**：task1=ClassTask 映射，task2=migration+计数。排除「PracticeTemplate 仍废弃+改造 CohortRecommendedTemplate 去 templateId」：改动更大且拆散模板复用机制；排除「物理迁移 §1.7/§1.12 章节」：130+ 行大段搬移风险高、引用众多，用计数口径声明 + 原位保留更稳（同 append-only 史惯例）|
 | DR-122 | 实修模型改造细化方案：11 张实修表逐张定归宿（接 DR-121 定向「一切按新设计改造」）| **改造映射定稿（用户决策 2026-05-31，TODO-21 闭合）**：①保留纳入设计 3 张（PracticeCategory 大类字典 / PracticeProject 项目·真表复用 / PracticeMakeup 补签）；②改造新建 2 张（PracticeEntry→PracticeLog；新建 UserPracticeVow）；③折叠 2 项（PracticeGoal→UserPracticeVow.dailyTarget/weeklyTarget；修行心得→PracticeLog.note/Note）；④改造归并 1 张（PracticeTask→ClassTask §3.14）；⑤废弃 3 张（PracticeDailySummary 排行改实时算+缓存 / PracticeJournal / PracticeTemplate） | 接 DR-121 用户拍板「一切按新设计改造」，本条把实修域 11 张表（线上 7 真实 + 设计 4 幻影）逐张定归宿，闭合 TODO-21。**机械改判（DR-121 已定向、字段已决）**：(a) **PracticeCategory**（持咒/礼拜/诵经/供曼扎/观修 5 大类字典）→ 保留·明确纳入设计（PracticeProject 依赖它，真表）；(b) **PracticeProject**（修持项目 user/class scope）→ §四复用（真表，合法存在）；(c) **PracticeEntry**（线上纯计数 count+tap/shake/bulk+note）→ **改造为 PracticeLog**：加 vowId/durationMinutes/prayerCount/programId/taskSourceType，source 值域 tap/shake/bulk→manual/auto/ai_assistant（新设计目标语义）；(d) **PracticeGoal**（每日目标）→ **折叠进 UserPracticeVow**（vow 已有 dailyTarget/weeklyTarget），废表；(e) **PracticeTask**（任务 daily/fixed）→ **改造归并 ClassTask**（§3.14 班级任务体系）；(f) **UserPracticeVow / PracticeLog** → §三新建（改造新建，非复用/扩展现有，承载 DR-91/94/95/120 已决字段）。**用户拍板 4 个 TODO-21 歧义点（2026-05-31）**：(Q1 排行) PracticeDailySummary 日聚合表 **废**，班级观修排行从 PracticeLog **实时算+缓存**（CLAUDE.md 已有 5 分钟 in-memory cache 模式）；(Q2 补签) PracticeMakeup **保留**补签功能（7 天内每周 1 次）纳入新设计作正式功能；(Q3 心得) PracticeJournal **不独立建表**，修行心得**折叠进 PracticeLog.note**（打卡顺带）或复用 Note 表；(Q4 模板) PracticeTemplate 查清=无字段定义/无代码/职责被 CohortRecommendedTemplate（届推荐功课）+PracticeProject（项目字典）完全覆盖→**废弃**，不进新设计。**结论**：实修域改造蓝图清晰——3 保留 + 2 改造新建 + 2 折叠 + 1 归并 + 3 废弃 = 11 张全部有归宿。配套需更新 §1.7（UserPracticeVow 复用→改造新建+折叠 Goal）、§1.12（PracticeLog 同+source 值域+note 承载心得）、§四（废 PracticeTemplate/Journal/Goal/DailySummary，补 PracticeCategory/Makeup 保留）、TODO-21 闭合。排除「保留 PracticeDailySummary 排行表」：用户选实时算，少一张聚合表、避免双写一致性；排除「PracticeJournal 独立表」：心得轻量，打卡顺带 note 足够，不值单表；排除「PracticeTemplate 保留」：无独立职责，纯冗余幻影 |
 | DR-121 | 🔴 实修域数据模型「设计 vs 线上现状」根本落差的定性与定向（理清 PracticeEntry↔PracticeLog 命名时挖出）| **一切按新设计做：设计的 vow/时长制实修模型是改造目标，线上计数打卡器是改造源；观修计入升学（DR-111 成立）**（用户决策 2026-05-31）。**纠正此前 DR-91/94/95/111/120 及 §1.7/§1.12/§四 的「复用旧设计/✅封板复用/零新表」标签——这些实修表实为改造新建，非线上现成可复用** | 理清命名待办（DR-118）时三重核查（schema + 后端源码 grep + 审计 01）挖出根本落差，远超「命名待理清」：**(事实1)** `UserPracticeVow`/`PracticeLog`/`PracticeTemplate`/`PracticeJournal` 是**幻影表**——全仓代码（.ts/.tsx/.prisma）0 处，仅存在于设计文档；后端实际只有 7 张 `prisma.practiceX`（Category/Project/**Entry**/DailySummary/Goal/Makeup/Task）。**(事实2)** 线上实修=**纯计数打卡器**：PracticeEntry 字段 `{count, source:'tap'|'shake'|'bulk', note}`（点/摇/批量录入数数），**无** durationMinutes/meditationId/vowId/prayerCount——设计假设的座时长/发愿/祈祷文字段一个都没有。**(事实3)** 「观修不做计数」是线上既定决策（Meditation 表注释明文「用户决定观修不做计数·学修不含观修大类·旧字段 practiceProjectId/practiceCount 已移除」，审计 01 line 84 记录），DR-111 反转了它。**诊断**：设计做实修域时参照的是某份**旧 schema 快照**（含 vow/时长制 PracticeLog），但线上后端后来被重构成计数打卡器并砍观修计数，设计没跟上重构、继承了幻影表，于是把「待建的改造目标」误标成「复用现有」。**用户拍板（2026-05-31）**：「设计是对目前项目的改版，一切按新设计做，目前项目改造成新设计的方案」+「观修计入升学随此一起定」。**定向结论**：(1) 设计 vow/时长制实修模型 = **改造目标**，权威；(2) 线上计数打卡器 7 表 = **改造源**，按新设计重构（非原封保留的净资产，撤销 DR-118 把簇A 5 表「归净资产暂不深入」的临时定性）；(3) 观修计入升学成立（DR-111 方向保留），但其「零新表·走 PracticeLog/UserPracticeVow」表述纠正为「改造新建这些表」；(4) DR-95 prayerCount / DR-94 isSubstituted / DR-91 currentSessionMinutes / DR-120 programId+taskSourceType 所加字段全部有效，但承载它们的 PracticeLog/UserPracticeVow 是**改造新建表**（非「扩展现有」），§一「扩展区」对这两张的归类在实现时按新建处理；(5) §四「PracticeTemplate/PracticeJournal 复用」纠正为改造新建；(6) DR-120 提到的 source 值域 manual/auto/ai_assistant 是**新设计目标语义**（替换线上 tap/shake/bulk），成立。**遗留待办（登记 TODO-21）**：线上打卡器的配套能力（补签 PracticeMakeup / 日聚合排行 PracticeDailySummary / 每日目标 PracticeGoal / 大类字典 PracticeCategory）在新设计实修模型里**尚无显式等价物**，改造细化时须确认这些功能去留，勿在「改造」名义下静默丢失。**影响范围**：03 §5 簇A 定性、03 §9 迁移难度「打卡🟢易」、04 命名 note 均需对齐本条（见配套编辑）。排除「线上打卡器为准·设计返工」：用户明确一切按新设计；排除「继续当命名问题轻描淡写」：字段缺失+幻影表+观修计数反转远超改名，必须定性留痕防实现期踩雷 |
 | DR-120 | 正向完整性核对：25 能力 → 是否都有表/字段支撑（反向核对的另半，补「双向覆盖」）| **核对结论：❌ 硬缺口=0（主体表全就位）；8 个 ⚠️ 字段级缺口，处置：G1 User 加 primaryProgramId；G4 PracticeLog 加 programId；G6 PracticeLog 加 taskSourceType + 明确 source 值域；G2 14届转入走能力5代行（无新字段，TODO-19 闭合）；G3 仪轨合规挂待办（TODO-20）；G5/G7/G8 不动（应用层/已登记 TODO-5/TODO-AI-2）**（用户决策 2026-05-31）| 接 DR-118/119 反向核对,补做正向另半（此前 §十三仅做 23 职能×写表，能力级字段支撑未系统核）。派 agent 对 25 能力逐条核对「业务规则/绝对约束/输入输出」是否都有表+字段接住。**结论**：主体表 100% 就位,**无任何「能力声称要做、08 完全没表」的硬缺口（❌=0）**；14 条 ✅ 完整、5 条 ⚠️ 部分（能力2/3/6/7/9）、6 条 ⏸ 暂缓（设计齐备）。**8 个 ⚠️ 字段缺口逐项处置（用户拍板）**：(G1 能力2) 主修专业只有主班 isPrimary 语义错位 → User 加 `primaryProgramId String?`（区别于主班，Program 补反向 primaryUsers）;(G4 能力6) 跨专业累计共享「通过A专业达成」无追溯字段（D14a）→ PracticeLog 加 `programId String?`（升学预检按此聚合溯源，Program 补反向 practiceLogs）;(G6 能力9) 任务来源/录入方式 06 明列要扩展 08 未落 → PracticeLog 加 `taskSourceType`（course/class_task/self）+ 明确既有 `source` 值域（manual/auto/ai_assistant），两维度正交,承载绝对约束1;(G2 能力3) 14届转入「重修/直接报圆满」无落点 → **走能力5代行**（直接报圆满=管理员代行标完成写 LessonCompletion+AuditLog proxy_action 留痕;重修=正常重学），复用既有表无新字段,TODO-19 闭合;(G3 能力6) 仪轨合规标志必填无字段 → 用户决策**挂待办暂不加**(TODO-20),留内加行实现时定;(G5 能力7 路径选择) 偏应用层判定逻辑,不强制落字段;(G7 能力21 Program.selfStudy 反向/G8 能力25.B 字段) 已是登记在案待办 TODO-5/TODO-AI-2,不重复处理。**无表数量变化**:G1/G4/G6 均给已在扩展区的 User/PracticeLog 加字段,不新增表;G2 复用既有表;故 §一 扩展区仍 13 张,无计数churn。**双向覆盖闭环**:反向(DR-118/119 从表/端点找盲区)+正向(本条从能力找字段缺口)合起来,设计完整性首次双向核对完毕。排除「G2 给 LessonCompletion 加转入标记字段」:会把 LessonCompletion 从复用区推入扩展区、增加计数维护,而转入报圆满本质是 admin/导入动作,走代行留痕(AuditLog)足够追溯,与既有代行模式一致更轻 |
@@ -4286,6 +4306,25 @@ model UserSelfStudyProgram {
 
 ---
 
+### 检查轮次 68（2026-05-31，范围：DR-123 实修域改造落地 · ClassTask 映射 + Migration + 表计数校准 + PracticeTemplate 纠正 · 跨 08）
+
+> 用户「做 1 和 2」：task1=ClassTask←PracticeTask 字段映射，task2=实修域 migration 清单 + 表计数校准。落地中**发现并纠正 DR-122 一处事实错误**（PracticeTemplate 承重表误判废弃），并修一处文档损伤（§1.12 标题重复）。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. PracticeTemplate 纠正 | ✅ | 核查 CohortRecommendedTemplate.templateId FK（§1.8）+ DR-36 运行时读 defaultDailyTarget——承重表，废弃→🆕改造新建（§三）。DR-123 + TODO-21 + §四列表 + §三注 + M3e 四处同步 |
+| 2. ClassTask←PracticeTask 映射（task1）| ✅ | §3.14 加映射表：scope 拆流（class→ClassTask / self→UserPracticeVow），10 字段逐一对应；fixed 缺口挂 TODO-22 防静默丢失 |
+| 3. 表计数校准（task2）| ✅ | §一 13→12（标题+注+M1+11.3）；§三 15→17（标题+注+11.3+M3e）；§四 22 不变（−Template−Journal+Category+Makeup 净 0，11.3 注明）。三区计数自洽 |
+| 4. Migration 完整（task2）| ✅ | M1 含 PracticeLog=rename PracticeEntry+加列（移除 UserPracticeVow）；新增 M1.5 改造源清理（Goal/Task/DailySummary）；新增 M3e（UserPracticeVow/PracticeTemplate）；11.3 三区核对：§一12→M1、§三17→M3a~e(2+4+3+6+2)、§四22 不入 migration |
+| 5. 关联对称性 | ✅ | UserPracticeVow.classTaskId↔ClassTask.vows（§3.14 已有 vows 反向）；UserPracticeVow.cohortTemplateId↔CohortRecommendedTemplate.vows（§1.8 已有）；PracticeTemplate↔CohortRecommendedTemplate.template（§1.8 已有 FK）；PracticeLog.vowId↔UserPracticeVow.logs（§1.7 已有）。新建表反向关联均已就位 |
+| 6. 文档损伤修复 | ✅ | §1.12 标题此前误重复（833+835 两行相同），本轮合一并更新为「改造扩展自 PracticeEntry」+ 计数口径注 |
+| 7. 物理编号 vs 计数口径 | ✅ | §1.7/§1.12 物理保留原位（不迁移避免大幅重排），计数口径以 DR-123 为准——同 DR-110「5→4」惯例；§一注/§三注均注明「编号物理保留、计数归本区」 |
+
+**本轮发现问题数**：2（PracticeTemplate 误判废弃→已纠正；§1.12 标题重复→已修），均当轮闭合。
+**结论**：DR-123 实修域改造落地。用户「1 和 2」双任务完成——ClassTask←PracticeTask 映射（task1）+ Migration 清单 M1/M1.5/M3e + 表计数校准 §一12/§三17/§四22（task2）。顺带纠正 DR-122 的 PracticeTemplate 承重表误判、修复 §1.12 标题重复。**实修域改造从「方案明确」推进到「字段映射 + migration + 计数全部落地」**。TODO-22（fixed 班级任务）为唯一待确认项。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -4313,7 +4352,8 @@ model UserSelfStudyProgram {
 | ~~TODO-18~~ ✅ 已闭合 | ~~课程中途请假是否影响毕业/升学资格~~——**已闭合（2026-05-30）**：三维度分层处理——能力 3（闻思圆满）暂停型：课时截止日顺延已批准请假总天数；能力 9（报数达标）暂停型：报数节点截止日同上顺延；能力 10（升学资格预检）无影响：升学截止日固定不变。应用层计算能力 3/9 截止日时聚合 LeaveRequest(status=approved) 请假天数，无需新表/字段（DR-102，DR-90）| §3.15 LeaveRequest（DR-90）| ✅ 已处理（DR-102）| DR-90 / DR-102 |
 | ~~TODO-19~~ ✅ 已闭合 | ~~14 届转入学员对已学课程「重修 / 直接报圆满」无落点（正向核对 G2）~~——**已闭合（2026-05-31）**：定调走**能力 5 代行**，无需新字段——「直接报圆满」= 转入/导入时管理员代行批量标记完成，写 LessonCompletion + AuditLog(actionType=proxy_action, reason 必填) 留痕；「重修」= 不标完成、学员正常重新学。复用既有 LessonCompletion + AuditLog，LessonCompletion 不动（仍 ✅ 复用）（DR-120）| 正向完整性核对 G2（能力 3 规则 6）| ✅ 已处理（DR-120）| DR-120 |
 | TODO-20 | ⏸ **仪轨合规标志字段**（正向核对 G3）：能力 6 绝对约束 2「仪轨合规标志必填、不合规修量作废」目前 PracticeLog 无 `ritualCompliant` 字段承载。**用户决策暂不加字段**（2026-05-31），留待内加行模块实现时定细节（合规判定是布尔还是枚举、由谁标、不合规修量如何作废）| 正向完整性核对 G3（能力 6 绝对约束 2）| 内加行模块实现时 | DR-120 |
-| ~~TODO-21~~ ✅ 已闭合 | ~~线上打卡器配套能力去留（DR-121）~~——**已闭合（2026-05-31，DR-122）**：实修 11 表逐张定归宿。补签 PracticeMakeup **保留**（纳入设计作正式功能）；日聚合排行 PracticeDailySummary **废**（排行从 PracticeLog 实时算+缓存）；每日目标 PracticeGoal **折叠**进 UserPracticeVow；大类字典 PracticeCategory **保留**；另 PracticeTask→ClassTask、PracticeJournal/PracticeTemplate 废弃、PracticeEntry→PracticeLog 改造、UserPracticeVow/PracticeLog 改造新建 | DR-121 实修域落差核查 | ✅ 已处理（DR-122）| DR-121 / DR-122 |
+| ~~TODO-21~~ ✅ 已闭合 | ~~线上打卡器配套能力去留（DR-121）~~——**已闭合（2026-05-31，DR-122）**：实修 11 表逐张定归宿。补签 PracticeMakeup **保留**（纳入设计作正式功能）；日聚合排行 PracticeDailySummary **废**（排行从 PracticeLog 实时算+缓存）；每日目标 PracticeGoal **折叠**进 UserPracticeVow；大类字典 PracticeCategory **保留**；另 PracticeTask→ClassTask（class）+UserPracticeVow（self）、PracticeJournal 废弃、**PracticeTemplate 改造新建（DR-123 纠正：曾误判废弃，实为 CohortRecommendedTemplate 依赖的承重表）**、PracticeEntry→PracticeLog 改造扩展、UserPracticeVow 改造新建。**细化见 DR-123**（含表计数校准 §一13→12/§三15→17、ClassTask 映射、M3e/M1.5 migration）| DR-121 实修域落差核查 | ✅ 已处理（DR-122/123）| DR-121 / DR-122 / DR-123 |
+| TODO-22 | ⚠️ **fixed（期间累计）班级任务无落点**（DR-123）：线上 PracticeTask 班级任务支持 mode=fixed（期间累计 N），但新设计 ClassTask 纯每日制（仅 dailyTarget）。**用户决策挂 TODO 待定**（2026-05-31）：辅导员是否需要「期间累计型」班级任务——需要则 ClassTask 加 period(daily/fixed)+targetCount，否则保持每日制、fixed 语义由个人发愿（UserPracticeVow lifetime）或 CohortRecommendedTemplate 承接 | DR-123 ClassTask←PracticeTask 映射 | 实修/班级任务实现时确认 | DR-123 |
 
 ---
 
@@ -4328,7 +4368,8 @@ model UserSelfStudyProgram {
 | 单元 | 内容 | 涉及表 | 依赖前置 | 类型 |
 |---|---|---|---|---|
 | **M0 · Enum 扩展** | 新增/扩展枚举：LagStatus（on_track/mild/moderate/severe）、CohortMemberStatus、角色 role 枚举值、各 status/sourceType/actionType/conditionType/triggerType 字符串域（应用层 Zod 守，DB 存 String）| —（enum 定义，见 §六）| 无 | 新增 enum |
-| **M1 · 现有表扩展字段** | §一 扩展区 13 张的 ALTER：Program +8（cohortYear/stage/isActive/lag×4/checkinGraceMinutes）；User +birthDate；Class +归档三件套（status/archivedAt/archivedBy）；Course +courseType；PracticeLog +prayerCount；Exam +examType+isOpenBook；ClassSession +sessionType/lessonId/checkInToken/scheduleId + classId 改可空；UserPracticeVow +classTaskId/cohortTemplateId/currentSessionMinutes/isSubstituted + currentSessionCount 改 Int；SpeakingGrade classId 改可空；CohortRecommendedTemplate programId 改可空 | Program/User/Class/Course/PracticeLog/Exam/ClassSession/UserPracticeVow/SpeakingGrade/CohortRecommendedTemplate/ClassMember/StudyRecord/CohortLagSnapshot | M0（部分字段引用新 enum）| ALTER TABLE，加列设默认值，存量行回填默认 |
+| **M1 · 现有表扩展字段** | §一 扩展区 12 张的 ALTER：Program +8（cohortYear/stage/isActive/lag×4/checkinGraceMinutes）；User +birthDate+primaryProgramId（DR-120）；Class +归档三件套（status/archivedAt/archivedBy）；Course +courseType；**PracticeLog = rename PracticeEntry + 加列**（vowId/durationMinutes/meditationId/prayerCount/programId/taskSourceType + source 值域改 tap/shake/bulk→manual/auto/ai_assistant，DR-121/122/123）；Exam +examType+isOpenBook；ClassSession +sessionType/lessonId/checkInToken/scheduleId + classId 改可空；SpeakingGrade classId 改可空；CohortRecommendedTemplate programId 改可空 | Program/User/Class/Course/PracticeEntry→PracticeLog/Exam/ClassSession/SpeakingGrade/CohortRecommendedTemplate/ClassMember/StudyRecord/CohortLagSnapshot | M0（部分字段引用新 enum）| ALTER TABLE，加列设默认值，存量行回填默认；PracticeLog 含 RENAME TABLE |
+| **M1.5 · 实修域改造源清理** | 线上改造源表不并入目标 schema：PracticeGoal（折叠 UserPracticeVow.dailyTarget）/ PracticeTask（拆流 ClassTask + UserPracticeVow）/ PracticeDailySummary（排行改实时算+缓存）—— 这 3 张线上表不保留（DR-122）。开发期无数据（DR-116），直接不建即可 | PracticeGoal/PracticeTask/PracticeDailySummary（不入目标 schema）| M1（PracticeLog/ClassTask/UserPracticeVow 就位后）| 改造源不保留（DR-122）|
 | **M2a · 角色替换** | UserRoleAssignment（替换旧 ClassAdmin flags 模型）| UserRoleAssignment | M1（FK 指向 User/Class/Program 已就位）；旧角色数据迁移（coach→class_tutor+class_admin，admin→super_admin，见 02 §七）| 新建表 + 旧数据迁移 + 旧表保留只读（D18）|
 | **M2b · 关怀替换** | CareFollowupRecord（加 sourceType/watchlistItemId）| CareFollowupRecord | M1；M3c（watchlistItemId → CareWatchlistItem，sourceType=care_watchlist 时）| 新建表 |
 | **M2c · 传承替换** | TransmissionRecord（整合废弃 TantricAccessGrant）| TransmissionRecord | M1；TransmissionRecord 数据迁移需读旧 TantricAccessGrant | 新建表 + 旧数据迁移 + 旧表保留只读（D18）|
@@ -4338,6 +4379,7 @@ model UserSelfStudyProgram {
 | **M3b · 升学条件体系** | ProgramAdvancementConfig、SemesterSnapshot、AdvancementCheck、AdvancementRecord | 均 →Program/Class/User；AdvancementRecord→AdvancementCheck | M1（Program/Class/User 就位）、M3a（AuditLog 供豁免留痕）| 新建表 |
 | **M3c · 关怀体系** | StudentSpecialStatus、CareWatchlistItem、ReportConfession（CareFollowupRecord 见 M2b）| →User/Class；ReportConfession→CareWatchlistItem（故 CareWatchlistItem 先建）| M1 | 新建表 |
 | **M3d · 班级运维** | ClassInviteCode、AssistantAssignment、LeaveRequest、ClassTask、ClassSessionSchedule、EnrollmentStatusHistory | →Class/User；ClassTask→PracticeProject；ClassSessionSchedule→Lesson；EnrollmentStatusHistory→ClassMember；ClassSession.scheduleId→ClassSessionSchedule（M1 已加列，此处补 FK）| M1 | 新建表；ClassSession.scheduleId 外键在此单元补建（解循环依赖）|
+| **M3e · 实修体系**（DR-123）| UserPracticeVow（发愿层）、PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖）| UserPracticeVow→User/Event/ClassTask/CohortRecommendedTemplate/PracticeProject/PracticeLog；PracticeTemplate→PracticeProject | M1（PracticeLog/PracticeProject 就位）、M3d（ClassTask 就位，UserPracticeVow.classTaskId FK）| 新建表（实修域改造细化，DR-122/123）|
 
 > **循环依赖处理**：M1 给 ClassSession 加 `scheduleId String?` 列（仅列，不建 FK），M3d 创建 ClassSessionSchedule 后再补 `scheduleId → ClassSessionSchedule` 外键约束。两步拆开避免 M1 引用尚未存在的表。
 
@@ -4353,11 +4395,12 @@ model UserSelfStudyProgram {
 
 ### 11.3 Migration 覆盖完整性核对
 
-- **§一 扩展 13 张** → M1 全覆盖 ✅
+- **§一 扩展 12 张**（DR-123 校准，UserPracticeVow 移出至 §三）→ M1 全覆盖 ✅（含 PracticeLog = PracticeEntry rename+加列）
 - **§二 替换 3 张** → M2a(UserRoleAssignment) + M2b(CareFollowupRecord) + M2c(TransmissionRecord) 全覆盖 ✅
-- **§三 新建 15 张** → M3a(2) + M3b(4) + M3c(3) + M3d(6) = 15 ✅（ProgramAdvancementConfig/RoleAssignmentHistory/StudentSpecialStatus/CareWatchlistItem/ClassInviteCode/AssistantAssignment/SemesterSnapshot/ReportConfession/AdvancementCheck/AdvancementRecord/AuditLog/EnrollmentStatusHistory/ClassSessionSchedule/ClassTask/LeaveRequest）
+- **§三 新建 17 张**（DR-123 校准，+UserPracticeVow +PracticeTemplate）→ M3a(2) + M3b(4) + M3c(3) + M3d(6) + M3e(2) = 17 ✅（原 15：ProgramAdvancementConfig/RoleAssignmentHistory/StudentSpecialStatus/CareWatchlistItem/ClassInviteCode/AssistantAssignment/SemesterSnapshot/ReportConfession/AdvancementCheck/AdvancementRecord/AuditLog/EnrollmentStatusHistory/ClassSessionSchedule/ClassTask/LeaveRequest；M3e 新增：UserPracticeVow/PracticeTemplate）
+- **实修域改造源清理** → M1.5（PracticeGoal/PracticeTask/PracticeDailySummary 不入目标 schema，DR-122）
 - **§五 暂缓 11 张 + AI 4 张**（AiUsage 复用不计，DR-110）→ M4~M8（实现时编）⏸（§五 11 = 社交 4+4+2 + 自学 1，DR-104 删 RestWeek；检查轮次 53 顺修旧残留 12→11）
-- **§四 复用 22 张** → 不动，不入 migration
+- **§四 复用 22 张**（DR-123 校准：−PracticeTemplate(→§三) −PracticeJournal(废弃) +PracticeCategory +PracticeMakeup，净额仍 22）→ 不动，不入 migration
 
 ---
 
@@ -4371,7 +4414,7 @@ model UserSelfStudyProgram {
 | **P1** | 角色权限 + 审计 | M2a(UserRoleAssignment) + M3a | 角色任命/撤销 API、`canDo(user,perm,scope)` 中间件、AuditLog 写入与查询（能力 20）| 角色管理页、审计日志查询页 | P0 | 待建 |
 | **P2** | 升学条件体系（核心）| M3b | ProgramAdvancementConfig CRUD、SemesterSnapshot 定时生成、AdvancementCheck 预检引擎（6 类 conditionType 解析）、AdvancementRecord 拍板 | DR-101 四页：①升学条件配置 ②考试管理（录 ExamGrade）③升学资格预检 ④学员达标进度 | P1（写操作校验角色 + 豁免走 AuditLog）| 待建 |
 | **P3** | 关怀体系 | M3c + M2b（先 CareWatchlistItem 后 CareFollowupRecord）| StudentSpecialStatus 认定（能力 13）、CareWatchlistItem 自动触发 + 手动添加、CareFollowupRecord 跟进、ReportConfession 虚报忏悔流（能力 14）| 关怀清单页、特殊身份认定页、虚报处理页 | P1、P2（report_overdue/false_report 触发依赖 SemesterSnapshot/AdvancementCheck）| 待建 |
-| **P4** | 班级运维 | M3d | ClassInviteCode（能力 5）、AssistantAssignment（能力 19）、LeaveRequest 审批（DR-90）、ClassTask 布置、ClassSessionSchedule 定时生成 ClassSession（能力 4/8）、EnrollmentStatusHistory 留痕 | 邀请码管理页、辅助员配对页、请假审批页、班级任务页、共修课表页 | P1 | 待建 |
+| **P4** | 班级运维 + 实修体系 | M3d + M3e | ClassInviteCode（能力 5）、AssistantAssignment（能力 19）、LeaveRequest 审批（DR-90）、ClassTask 布置、ClassSessionSchedule 定时生成 ClassSession（能力 4/8）、EnrollmentStatusHistory 留痕；**实修打卡（能力 4/6/7）：UserPracticeVow 发愿/聚合、PracticeLog 打卡录入、PracticeTemplate 模板**（DR-122/123）| 邀请码管理页、辅助员配对页、请假审批页、班级任务页、共修课表页、实修打卡页 | P1 | 待建 |
 | **P5** | 传承体系 | M2c(TransmissionRecord) | TransmissionRecord 录入/灌顶代录、密法访问 EXISTS 查询（DR-44/45）、升学清单 isRequired 核对 | 传承录入页 | P1 | 待建 |
 | **P6** | 班级动态/讨论/约修 ⏸ | M4 + M5 + M6 | 帖子/评论/点赞、讨论投票、集体约修 | 班级社区页 | P1 | ⏸ 暂缓 |
 | **P7** | 自学模式 ⏸ | M7 | 自学开通（subject_admin）、纯完成量进度（聚合 LessonCompletion/PracticeLog，DR-104）、个人学修量录入（恢复 TODO-5 反向关联）| 自学管理页 | P0（仅需扩展字段；自学不升学故不依赖 P2，DR-103）| ⏸ 暂缓 |
@@ -4379,7 +4422,8 @@ model UserSelfStudyProgram {
 
 ### 12.1 Phase 覆盖完整性核对
 
-- **所有新表/扩展字段**均落在某 Phase：P0（扩展字段 M1）/ P1（权限审计 M2a+M3a）/ P2（升学 M3b）/ P3（关怀 M3c+M2b）/ P4（运维 M3d）/ P5（传承 M2c）/ P6~P8（暂缓 M4~M8）✅
+- **所有新表/扩展字段**均落在某 Phase：P0（扩展字段 M1 + 改造源清理 M1.5）/ P1（权限审计 M2a+M3a）/ P2（升学 M3b）/ P3（关怀 M3c+M2b）/ P4（运维 M3d + 实修 M3e）/ P5（传承 M2c）/ P6~P8（暂缓 M4~M8）✅
+- **实修域 P2↔P4 时序注（DR-123）**：升学预检（P2）消费加行/内加行修量聚合（UserPracticeVow，M3e 在 P4）。UserPracticeVow 核心字段不依赖 ClassTask（仅 classTaskId 可空 FK 依赖 M3d），实现时若 P2 需先于 P4，可比照 ClassSession.scheduleId 模式延后 classTaskId FK；或将 M3e 的 UserPracticeVow 提前至 P2。属实现期排期细节，不影响设计完整性
 - **§二 替换 3 张分属三 Phase**：M2a→P1、M2b→P3、M2c→P5（检查轮次 48 修复，原 M2 整体单元拆为 M2a/b/c）✅
 - **DR-101 四页管理界面**全部落 P2 ✅
 - **关键依赖链**：P1（权限）→ 一切写操作；P2（升学）→ P3 触发器；P3 内 CareWatchlistItem→CareFollowupRecord 顺序；无环 ✅
