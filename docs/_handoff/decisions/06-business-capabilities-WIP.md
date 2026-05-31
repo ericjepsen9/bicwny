@@ -1648,7 +1648,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 > 第二轮功能级核查（DR-126，2026-05-31）：用户指出 DR-125 仅挖 6 个、核查不全——**藏历/画报/系统公告/通知推送等净资产对应的用户功能从未在 06 登记**。根因：此前把「净资产=表保留」误等同「功能已登记」，整层跳过。完整差集核查（76 前端页 × 31 能力）找出 **17 个有功能/有前端页、06 零登记**的孤儿（A 学习引擎 7 / B 运营内容 4 / C 账户通知 6），**与用户逐条讨论后逐个补登记**。均 ✅ 线上已实现·纳入设计（复用净资产，无新表）。
 >
-> 进度：能力 32 ✅（A1 题库答题）、能力 33 ✅（A2 SM-2 复习）、能力 34 ✅（A3 错题本）、能力 35 ✅（A4 收藏夹）、能力 36 ✅（A5 笔记与高亮）、能力 37 ✅（A6 法本阅读器）、能力 38 ⏸（A7 成就徽章·暂不作正式功能）、能力 39 ✅+🆕（A8 音视频学习+分维度完成·核查能力 37 时挖出 LessonCompletion 幻影表，DR-129 补）。**A 组学习引擎 8 条完成**（7 纳入 + 1 暂缓；含核查挖出的 A8 补全闻思「听」维度缺口）。**B 组运营内容**：能力 40 ✅（B1 藏历）、能力 41 ✅（B2 画报）。其余 B3-B4（系统公告/法会）+ C 组 6 条待逐条确认。
+> 进度：能力 32 ✅（A1 题库答题）、能力 33 ✅（A2 SM-2 复习）、能力 34 ✅（A3 错题本）、能力 35 ✅（A4 收藏夹）、能力 36 ✅（A5 笔记与高亮）、能力 37 ✅（A6 法本阅读器）、能力 38 ⏸（A7 成就徽章·暂不作正式功能）、能力 39 ✅+🆕（A8 音视频学习+分维度完成·核查能力 37 时挖出 LessonCompletion 幻影表，DR-129 补）。**A 组学习引擎 8 条完成**（7 纳入 + 1 暂缓；含核查挖出的 A8 补全闻思「听」维度缺口）。**B 组运营内容**：能力 40 ✅（B1 藏历）、能力 41 ✅（B2 画报）、能力 42 ✅（B3 系统公告）。**D 组通知与触达**（4 条拆法）：B3 系统公告✅ + D1 通知中心与派发（能力 43，合站内信/WebPush/偏好）+ D2 定时通知规则（能力 44）+ D3 短信通道（能力 45，🆕 唯一新建）。其余 B4（法会）+ C 组待逐条确认。
 
 ---
 
@@ -1984,6 +1984,45 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 ### 对老项目的影响
 - ✅ 线上已实现（`HomePage`/`AdminPostersPage` + `posters/` + HomePoster 净资产）
+- 复用净资产，无新表
+
+---
+
+## 能力 42：系统公告（全平台）
+
+> ✅ 线上已实现·纳入设计（DR-126，B 组 B3）。运营内容，平台级广播。grep 验证：SystemAnnouncement 真实存在。**区别于班级公告 ClassAnnouncement（辅导员发本班，三端分离）——系统公告是 admin 发全平台。**
+
+### 业务意图
+admin 向全平台学员广播重要通知（维护/活动/紧急），发布即触发全平台通知派发；支持分级、过期、撤回。
+
+### 业务规则
+1. **发布**（admin）：title + body（≤5000）+ severity（normal/urgent/critical）+ expiresAt（可空，默认 +24h）；发布即 fire-and-forget **触发全平台通知派发**（active 用户，不含 archived/disabled）
+2. **撤回**（revoke）：写 revokedAt，不发新通知；已发出的通知 join revokedAt 判定**置灰**；幂等（已撤回再撤回返回原值）
+3. **改内容**（patch）：contentHash 自动重算（sha256(title+body) 前 16 位）→ 触发 dismissal 失效（学员需重新看）
+4. **学员侧**：
+   - active 列表（`GET /api/system-announcements`）：前端 banner / 玻璃文字候选，过滤未撤回未过期
+   - 详情（`AnnouncementDetailPage`）：push/banner/通知中心点击的跳转目标；兜底显示已撤回（半透明 + 删除线）/已过期
+5. **数据**（SystemAnnouncement）：severity / expiresAt / revokedAt / contentHash / createdBy；索引 [revokedAt, expiresAt]（active 查询）+ [createdAt]（admin 时序倒序）
+
+### 触达通道现状（grep 核实）
+- 发布触发 `dispatchToUsers` 统一派发 → **站内 Notification（inbox）✅ + Web Push ✅** 两条真通道
+- **SMS 短信：占位未实现**（dispatch 预留 channel='sms'，代码注释「banner/sms 后续接入」，无服务商接入）→ 见能力 45（D3 短信通道，🆕 新建）
+
+### 输入与输出
+- 输入（admin）：发布/改/撤回；（学员）：active 列表 + 详情查询
+- 输出：全平台通知派发（站内信 + Web Push）+ 学员端 banner/详情
+
+### 与其他能力的关系
+- **联动能力 43 通知中心与派发**：发布触发派发，通知点击跳转公告详情；撤回/改内容影响已发通知状态（置灰/dismissal 失效）
+- 区别能力（班级公告）：ClassAnnouncement 是辅导员发本班（三端分离），本能力是 admin 发全平台
+
+### 绝对约束
+1. 仅 admin 可发布/改/撤回（requireRole admin）；学员只读
+2. 公开 endpoint 用 `/api/system-announcements`（`/api/announcements` 已被班级公告占用）
+3. 撤回不删除（留痕），靠 revokedAt 置灰；过期靠 expiresAt 过滤
+
+### 对老项目的影响
+- ✅ 线上已实现（`AdminSystemAnnouncementsPage`/`AnnouncementDetailPage` + `system-announcements/` + SystemAnnouncement 净资产）
 - 复用净资产，无新表
 
 ---
