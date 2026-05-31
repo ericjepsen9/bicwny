@@ -2914,6 +2914,7 @@ model UserSelfStudyProgram {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-113 | 现状角色/报名迁移映射的具体规则 | **coach→仅 class_tutor（人工补 class_admin）；admin→全部 super_admin 后人工降级 subject_admin；UserCourseEnrollment 彻底迁专业级（废课程语义）**（用户决策 2026-05-31，审计 02 §五 #6）| 审计 02 §三给出角色/报名迁移方向，本条定具体规则。三项决策：(1) **coach → 仅 class_tutor**（scope=classId）——推翻 02 文档原「coach→tutor+admin 双角色自动迁移」，改为只给教学角色，**class_admin 行政权由 subject_admin 逐个手动补任命**（最小权限原则）。代价=过渡期辅导员暂无报数审核(职能#2)/邀请码(#5)/关怀(#3)/共修管理(#4)等行政操作，须补任命后恢复（线上 coach 现可做这些，是一次有意的权限收紧，用户接受过渡期）。(2) **admin → 全部 super_admin 后人工降级**——迁移脚本先全升 super_admin，再人工 review 把学科级管理者降 subject_admin。代价=降级前窗口期所有原 admin 为全局最高权限（用户接受，须尽快 review）。(3) **报名 UserCourseEnrollment 彻底迁专业级**——非「保留课程级+派生」（审计原建议 🟡），而是 🔴 彻底迁走：课程级进度数据（completedLessons/source/enrolledViaClassId 等）迁入新专业级结构，课程级报名语义废弃。**实现影响（不在本轮改代码）**：迁移脚本须含 coach→class_tutor、admin→super_admin、enrollment 进度数据迁移三段；需备补任命名单 + token 全失效全员重登（连 #7）。同步更新 02 §七迁移表 + 03 §9 + runbook。排除「coach→tutor+admin 双角色」（02 原方案）：自动给行政权违反最小权限，宁可人工补；排除「admin 选择性迁移」：脚本无法判断哪个 admin 该降，统一升后人工降更安全可控；排除「enrollment 保留课程级+派生」（审计 🟡 建议）：用户要彻底迁走，避免两层并存的语义混淆 |
 | DR-112 | 净资产纳入交付文档 + 实现状态标签体系 + 整套配套文档 | **线上净资产正式纳入设计（改造须保留复用）；确立五类实现状态标签（✅保留/🔧需改/🆕待建/⏸暂不上线/❌去掉）；建独立修改方案 + 全套配套文档**（用户决策 2026-05-31，审计 01 §九 #5）| 用户要求「无论功能是否已实现都进设计，标清未实现/需改/去掉/暂不上线」+「要独立修改方案文档 + 其余配套文档」。处理：(1) **净资产纳入**——线上已有、不在 1-25 能力内的成熟功能（题库 14 题型+SM2/错题/收藏、成就/藏历/法会信息/画报/系统公告、通知体系 v2、LLM 网关、邮箱验证/密码重置/单设备登录/举报闭环、笔记+高亮/阅读进度、观修视频引导）正式登记为 ✅ 保留复用，改造不得误删；(2) **五类实现状态标签**确立为全套文档通用图例；(3) **新建独立文档**：`audit/03-modification-plan`（修改方案，现状→设计动作清单）、`00-INDEX`（总索引）、`audit/04-data-model-overview`（61 model 数据模型总图）、`audit/05-api-endpoints`（139 端点清单）、`glossary`（术语表）、`acceptance-checklist`（验收清单）、`deploy-migration-runbook`（部署迁移）。**文档定位厘清**：最终设计=06/08/02/05，现状=audit 01/02，改造方案=audit 03，互为索引。**本条不新建业务表、不改表计数**——纯文档体系决策。排除「净资产只在审计里提、不进设计」：用户明确要「都进设计」，审计是现状记录、设计是 source of truth，净资产须在设计侧有保留标签防改造遗漏。排除「用审计 01/02 充当修改方案」：用户明确要独立修改方案文档 |
 | DR-111 | 观修语义冲突：线上 Meditation 看视频 vs 能力 4 打坐统计，是否并存 | **并存 + 观修计入升学（手动提交、不自动记录，数据按 DR-91 走 PracticeLog/UserPracticeVow）**（用户决策 2026-05-31，审计 01 §五/§九 #4）| 现状冲突：线上 Meditation = 看引导视频（schema 注释「观修不做计数」，MeditationSession 记看视频进度 + 完成次数/秒数排行），能力 4 = 92 修法打坐座数/时长统计（升学硬条件）。用户决策：(1) **并存**——视频/PPT 观修页面保留为引导内容（净资产），MeditationSession 看视频进度 + 完成排行不动；(2) **观修计入升学**（关系毕业）——线上旧「观修不做计数」修订为按能力 4 计入升学统计；(3) **手动提交、不自动记录**——学员实修后点页面现有「完成观修」按钮提交这一座时间，看视频 80% 不再自动算一座；(4) **数据落点按 DR-91**——「完成观修」按钮所在 Meditation 页面天然带 `meditationId`，提交时间即写一条 `PracticeLog`{meditationId, durationMinutes} 座记录，`UserPracticeVow` 聚合（currentSessionCount 座数 + currentSessionMinutes 时长）；AdvancementCheck 按 meditationId 分组判 92 修法逐法达标（DR-98）。故观修页面既是引导内容、又是座录入入口，模型自洽、**零新表**；(5) **约束按 DR-91**——单座 ≥30 分钟才记一座，座数 + 时长双维度独立计，废弃短座合并（比大纲严格）；(6) **两套各管各的**——看视频排行（MeditationSession count/totalSec，活跃度）与打坐报数（PracticeLog 座/分钟，升学）口径独立、不强行统一。**顺带对齐 06↔08**：06 能力 4 原「输出 observation_record / 新增 observation_records 表」改走 PracticeLog（消孤儿表名，与 DR-91 一致）；06 业务规则 4「短座可合并」改「不合并」（与 DR-91 一致，原为大纲旧表述）。**实现影响（不在本轮改代码）**：「完成观修」按钮需从「标记 isCompleted」扩展为「提交座时间 → 写 PracticeLog」；schema 注释「观修不做计数」需随能力 4 实现时更新。排除「替换（废看视频）」：丢失已上线引导视频内容 + 用户数据，引导对学员有教学价值。排除「合并（看视频也算座）」：看视频 ≠ 打坐，违背手动实修语义、违反「30 分钟打坐才算座」绝对约束 |
 | DR-110 | 能力 25 AI 助手表重估：AiUsage 是否新建 | **AiUsage 不新建，复用线上 `LlmCallLog` + `LlmProviderUsage`；AI 模块真正新增表 5 → 4（ContentChunk/FeatureEntry/AiConversation/AiMessage）**（用户决策 2026-05-31，审计 01 §五 #3 / §九 #3；DR-108 已预告）| 闭合 DR-108 预告的「AiUsage 复用 + 表重估」。核实线上：`LlmCallLog` 有 userId + scenario + cost + `@@index([userId, timestamp])`——AI 助手「每学员每日 ≤30 次」限流可直接 `COUNT(userId=X AND scenario=dharma_qa AND timestamp>=当日)` 算出；`LlmProviderUsage` 按 year/month/day/hour 聚合 cost/requestCount——「每日成本上限 $20」可直接读。两表完全覆盖 AiUsage 原职责（per-user 限流 + 每日成本统计），故 AiUsage 冗余、不新建。**真正新增 4 张**：ContentChunk（法本向量索引 pgvector）/ FeatureEntry（功能目录）/ AiConversation + AiMessage（对话历史，AiMessage 含 25.B toolCall/actionResult 契约 DR-107）。更新 §四（AiUsage 标复用）/ §十一 M8 / §十二 暂缓区计数 / 06 能力 25.A 对老项目影响 + 汇总表「5 张 → 4 张新建 + AiUsage 复用」。DR-106 加后修订注（5→4）；DR-106/检查轮次 53 文中「5 张」「AiUsage @@unique 计数」为历史记录不改写（append-only），以本条为准。排除「仍新建 AiUsage」：与线上 LlmCallLog（userId/scenario/cost 索引齐全）重复，且分裂用量统计为两套控制 |
@@ -4101,6 +4102,25 @@ model UserSelfStudyProgram {
 
 **本轮发现问题数**：0（DR-112 为用户决策；7 份文档 + DR + 审计回标一次到位）。顺带暴露两条待后续处理：PracticeLog/PracticeEntry 命名对齐（接 #6 迁移映射）、审计 01 早期「60 model」约数（04 已修正为 61）。
 **结论**：待修订 #5 闭合。净资产正式纳入设计（✅ 保留复用）；五类实现状态标签确立；独立修改方案（03）+ 全套配套文档（00/04/05/glossary/acceptance/runbook）建齐。
+
+---
+
+### 检查轮次 60（2026-05-31，范围：DR-113 角色/报名迁移映射 · 跨 02/03/08/runbook）
+
+> 本轮处理审计待修订清单 **#6**（02 §五）：定 coach/admin/enrollment 三项迁移具体规则。**纯迁移规则决策，不新建业务表、不改表计数。**
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. DB 变更为零 | ✅ | DR-113 是迁移脚本规则，不新建表 / 不改字段；§一/§三/§四/§五 计数全不变 |
+| 2. 02 文档迁移表对齐 | ✅ | 02 §七迁移表由「coach→tutor+admin 双角色」改「coach→仅 class_tutor + 人工补 class_admin」；admin「→super_admin」补「后人工降级」；加 DR-113 修订说明 + 变更记录 |
+| 3. 03/runbook 同步 | ✅ | 03 §9 迁移步骤(7 步含人工补任命)+ 难度表(enrollment 升🔴、角色补任命)+ §8 风险 + 过渡期须知；runbook 迁移顺序 + 过渡期须知；三处一致 |
+| 4. 跨文档无残留旧表述 | ✅ | 全文 grep「coach→tutor+admin」「派生专业级」旧表述已清；03 §11 #6 标 ✅ DR-113 |
+| 5. 过渡期风险显式记录 | ✅ | 辅导员行政功能待补任命、admin 降级前超权窗口、enrollment 课程语义废弃——三项代价均在 DR-113/02/03/runbook 显式标注，用户已接受 |
+| 6. 与 #7/#8 衔接 | ✅ | DR-113 连 #7（token 全失效重登）、#8（专业×届 programId 是 enrollment 迁专业级前置）；未越界预判 #7/#8 决策 |
+| 7. 审计待修订项对齐 | ✅ | 02 §五 #6 标「✅ 已处理（DR-113）」 |
+
+**本轮发现问题数**：0（DR-113 为用户决策；02 两处 + 03 三处 + runbook + 08 DR + 审计回标一次到位）。
+**结论**：待修订 #6 闭合。coach→仅 class_tutor（人工补行政权）；admin→全 super_admin 后人工降级；UserCourseEnrollment 彻底迁专业级。三项过渡期代价已显式记录并被用户接受。
 
 ---
 

@@ -122,6 +122,8 @@
 
 ## 五、补充待修订设计清单（接 01 文档 §九，暂不执行）
 
+> 注：原 01 §九 #6「迁移映射」已 ✅ 处理（2026-05-31，DR-113 / 检查轮次 60）：coach→仅 class_tutor（人工补 class_admin）、admin→全 super_admin 后人工降级、UserCourseEnrollment 彻底迁专业级。
+
 7. **JWT 结构修订**：单 role → 带 assignments（或改查库），影响 token 体系（块一）
 8. **专业×届映射规则**：改造前须先定「现有班级如何归入专业×届」的运营规则（块三，迁移前置）
 9. **权限改造统一点**：明确 auth.ts requireRole + permissions.ts 为集中改造入口（块一）

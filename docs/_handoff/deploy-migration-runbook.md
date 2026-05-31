@@ -45,22 +45,27 @@ sudo rsync -av --delete dist/ /var/www/juexue/app/
 ```
 1. 建 Program 体系（专业×届）          ← 地基，无存量数据
 2. 运营补：每个现存 Class → programId   ← 🔴 人工，数据缺维度（最大卡点）
-3. UserRoleAssignment + 角色迁移脚本    ← admin→super_admin / coach→tutor+admin(scope=classId)
-4. enrollment 派生专业级               ← 依赖 1/2
+3. UserRoleAssignment + 角色迁移脚本    ← admin→super_admin(后人工降级) / coach→class_tutor(scope=classId)（DR-113）
+4. enrollment 彻底迁专业级             ← 依赖 1/2；课程级数据迁走，废课程语义（DR-113）
 5. 打卡数据补专业维度                   ← 依赖 1/2
 6. 升学/传承/出勤/报数等新表            ← 独立，随 Phase 推进
+7. 人工补任命                          ← coach 补 class_admin、admin 降 subject_admin（DR-113）
 ```
 
 ### 难度与卡点
 
 | 迁移项 | 难度 | 关键 |
 |---|---|---|
-| 角色迁移 | 🟡 | JWT 单 role → assignments；**已签发 token 全失效，需全员重登**（待修订 #7）|
+| 角色迁移 | 🟡 | admin→super_admin / coach→class_tutor 可脚本化；JWT 单 role → assignments，**token 全失效需全员重登**（#7）；**过渡期需人工补任命**（DR-113）|
 | **专业×届归属** | 🔴 | 现有 Class 无此维度，**须运营人工补 programId**；改造启动前先定映射规则（待修订 #8）|
-| enrollment 升专业级 | 🟡 | 依赖 Program 先建 |
+| **enrollment 迁专业级** | 🔴 | **彻底迁走课程级**：进度数据（completedLessons 等）迁入专业级，课程语义废弃；依赖 Program 先建（DR-113）|
 | 打卡数据 | 🟢 | 保留 + 补专业字段 |
 | 题库/SM2/笔记/通知 | 🟢 | 净资产，近零迁移 |
 | 升学/传承/出勤 | 🟢 | 全新表无存量 |
+
+### 角色迁移过渡期须知（DR-113）
+- **辅导员**：迁移当天仅 class_tutor，报数审核/邀请码/关怀等行政功能**待 subject_admin 补 class_admin 后恢复**——上线前须备好补任命名单与时间窗。
+- **管理员**：原 admin 先全升 super_admin，降级前为**全局最高权限**，须尽快人工 review 把学科级管理者降为 subject_admin。
 
 ### 迁移基础设施现状（audit 02）
 - Prisma migrations 仅 2 个（0_init + 1_lesson_resources），历史以 db push 为主，已切 migrate deploy

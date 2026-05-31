@@ -190,11 +190,13 @@ class_tutor       ← subject_admin 或 super_admin
 
 ### 角色迁移
 
-| 老项目 | 新方案 |
+| 老项目 | 新方案（DR-113 修订，2026-05-31）|
 |---|---|
-| `coach` | 自动迁移为 `class_tutor` + `class_admin` 双角色(同一班级) |
-| `admin` | 迁移为 `super_admin` |
+| `coach` | 迁移为 **`class_tutor`**(scope=classId)；**不自动给 class_admin**——行政权由 subject_admin 逐个手动补任命（过渡期辅导员暂无报数审核/邀请码/关怀等行政操作）|
+| `admin` | **全部迁为 `super_admin`**，再**人工 review 降级**该降的为 subject_admin（降级前窗口期所有原 admin 暂为全局最高权限）|
 | `student` | 保持不变 |
+
+> **DR-113 修订说明**：原方案「coach→tutor+admin 双角色自动迁移」改为「coach→仅 class_tutor + 人工补 class_admin」（行政权收紧，最小权限原则）；admin 采「先升 super_admin 后人工降级」。详见 08 DR-113 + `audit/03 §9`。
 
 ### 新增角色任命
 
@@ -226,3 +228,4 @@ class_tutor       ← subject_admin 或 super_admin
 | 2026-05-28 | 产品负责人 | 职能 #11b 改为 class_admin W:升学考出题不再是 subject_admin 专属 |
 | 2026-05-28 | 产品负责人 | 职能 #19 范围改为全班学员（原为特殊身份学员） |
 | 2026-05-28 | 产品负责人 | 职能 #15 批量登记传承法会 ❌ 不做（传承法会功能取消）|
+| 2026-05-31 | 产品负责人 | DR-113 角色迁移映射修订：coach→仅 class_tutor（不自动给 class_admin，行政权人工补）；admin→全部 super_admin 后人工降级 subject_admin；§七迁移表更新 |

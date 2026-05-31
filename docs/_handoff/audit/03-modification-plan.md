@@ -155,33 +155,40 @@
 - **现状**：JWT payload.role 单值（admin/coach/student）；`requireRole(...)` 调用 **265 处**（~143 路由文件）；admin 全局 bypass ~16 处；班级级断言 `assertIsCoachOfClass` 17 处（作用域雏形 = User.role + ClassMember.role × classId）。
 - **目标**：4 角色 + 等级继承（class_tutor 1 / class_admin 2 / subject_admin 3 / super_admin 99）+ 作用域（class_id / major_id）。
 - **统一改造入口**（可集中）：`backend/src/lib/auth.ts`（requireRole 工厂）+ 新建 `permissions.ts`（继承 + 作用域交集）+ class service 3 处核心断言。
-- **须逐点/分批**：265 处 requireRole 调用 + 16 处 admin bypass 重新表达 + coach 拆 tutor/admin 语义。
+- **须逐点/分批**：265 处 requireRole 调用 + 16 处 admin bypass 重新表达 + coach→class_tutor 语义（行政权另由 class_admin 手动补，DR-113）。
 - **JWT 结构修订**（待修订 #7）：单 role → 带 assignments（或改查库）；已签发 token 全失效需重登。
-- **风险**：265 处遗漏 → 误拒；迁移期 coach 误降 student；token 体系影响全量。
+- **风险**：265 处遗漏 → 误拒；迁移期 coach 仅 class_tutor、行政功能需补任命才恢复（DR-113）；admin 降级前全局超权窗口期；token 体系影响全量。
 
 ---
 
 ## §9 数据迁移路径（来自审计 02 §三）
 
+**角色映射规则（DR-113，用户决策 2026-05-31）：**
+- `admin` → **全部 super_admin**（全局），再**人工 review 降级**该降的为 subject_admin（窗口期所有原 admin 暂为最高权限）
+- `coach` → **只给 class_tutor**（scope=classId）；**不自动给 class_admin**，行政权由 subject_admin 逐个手动补（过渡期辅导员暂无报数审核/邀请码/关怀等行政操作）
+- `student` → 不变
+
 ```
 1. 建 Program 体系（专业×届）          ← 地基，无存量
-2. 运营补：每个现存 Class → programId   ← 人工，数据缺维度（最大不确定性）
-3. 建 UserRoleAssignment + 角色迁移脚本  ← admin→super_admin / coach→tutor+admin(scope=classId)，可自动
-4. enrollment 派生专业级               ← 依赖 1/2
+2. 运营补：每个现存 Class → programId   ← 人工，数据缺维度（最大不确定性，#8）
+3. 建 UserRoleAssignment + 角色迁移脚本  ← admin→super_admin(后人工降级)/coach→class_tutor(scope=classId)，可脚本化（DR-113）
+4. enrollment 彻底迁专业级             ← 依赖 1/2；课程级数据迁走，废 UserCourseEnrollment 课程语义
 5. 打卡等补专业维度                     ← 依赖 1/2
 6. 升学/传承/出勤等新表                 ← 独立，随 Phase 推进
+7. 人工补任命                          ← coach 补 class_admin、admin 降 subject_admin
 ```
 
 | 迁移项 | 难度 | 说明 |
 |---|---|---|
-| 角色迁移 | 🟡 中 | 可脚本化；但 JWT 单 role 需改、token 全失效 |
+| 角色迁移 | 🟡 中 | 可脚本化（admin→super_admin / coach→class_tutor）；JWT 单 role 需改、token 全失效（#7）；**过渡期需人工补任命**（DR-113）|
 | **专业×届归属** | 🔴 难 | 现有 Class 无此维度，**需运营人工补 programId**（最大卡点，待修订 #8）|
-| enrollment 升专业级 | 🟡 中 | 依赖 Program 先建 |
+| **enrollment 迁专业级** | 🔴 难 | **彻底迁走课程级**（非派生）：课程级进度数据（completedLessons 等）迁入专业级结构，UserCourseEnrollment 课程语义废弃；依赖 Program 先建（DR-113）|
 | 打卡数据 | 🟢 易 | 保留 + 补专业归属字段 |
 | 题库/答题/SM2/笔记 | 🟢 易 | 净资产直接复用，近零迁移 |
 | 升学/传承/出勤/报数 | 🟢 易 | 全新表无存量 |
 
 **前置建议**：改造启动前先确立「专业×届映射规则」（待修订 #8）。
+**过渡期须知（DR-113）**：(1) 辅导员迁移当天仅 class_tutor，行政功能待 subject_admin 补 class_admin 后恢复；(2) 原 admin 降级前为全局 super_admin，须尽快人工 review。
 
 ---
 
@@ -211,7 +218,7 @@
 | 3 | 能力 25 表重估（AiUsage 复用）| ✅ DR-110 |
 | 4 | 观修语义并存 | ✅ DR-111 |
 | 5 | 净资产纳入（本文 §5）| ✅ DR-112 |
-| 6 | 迁移映射（coach→tutor+admin 等）| ⬜ 待核对 |
+| 6 | 迁移映射（coach→class_tutor / admin→super_admin 后降级 / enrollment 彻底迁专业级）| ✅ DR-113 |
 | 7 | JWT 结构修订 | ⬜ 待核对 |
 | 8 | 专业×届映射规则 | ⬜ 待核对 |
 | 9 | 权限改造统一点 | ⬜ 待核对 |
