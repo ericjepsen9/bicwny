@@ -1454,6 +1454,191 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 ---
 
+# 能力 26-31：线上已实现功能补登记（功能级反向核对 DR-125）
+
+> 这 6 条是「功能级反向核对」（DR-125，2026-05-31）从线上前后端实扫挖出的功能——**线上已实现、用户已在用，但此前 06/08 未登记**（之前 DR-118~124 是 model+端点级核对，本轮下沉到用户可见功能/自动化业务规则粒度）。用户逐个确认**全部纳入**。每条均 ✅ **线上已实现·纳入设计**（改造保留，非新建）。
+
+---
+
+## 能力 26：综合修学积分排行
+
+### 业务意图
+班级内学员的综合修学排行榜，按多维度学修量加权计分，激励学员。学员可在班级页查看周/月/全部三个周期、综合/念诵/观修三个维度的排名。
+
+### 业务规则
+1. **三周期**：week / month / all（5 分钟 in-memory 缓存，与观修排行同套路）
+2. **三维度 tab**：综合（积分制，默认）/ 念诵 / 观修
+3. **综合积分公式**（v1 写死，**v2 admin 可配权重**）：
+   `积分 = 念诵遍数×0.01 + 观修完成数×5 + 观修时长(分)×0.1 + 答题数×0.5 + 阅读课时×W_READING + 活跃天数×W_ACTIVE_DAY`
+4. **范围限本班主修法本**：各维度仅统计本班法本范围内的学修量（审计 S4）
+5. **隐私尊重**：修学维度（念诵/答题/阅读/活跃天数）受 `practiceVisibleToClass` 管；观修维度受 `meditationVisibleToClass` 管；关闭可见性的成员不进榜（与能力 7/4 隐私开关一致）
+
+### 输入与输出
+- 输入：classId + period
+- 输出：排序后的 StudyRankingRow[]（含 score + 各维度原始数：chanting/meditationCount/meditationMin/answerCount/readingLessons/activeDays）
+
+### 与其他能力的关系
+- 依赖：能力 4（观修）/ 6/7（念诵打卡）/ 3（答题、阅读）的学修数据
+- 关联：班级观修排行（DR-122 实时算）是本能力「观修 tab」的子集
+
+### 绝对约束
+1. 仅班级成员可见（非公开）
+2. 各维度独立尊重对应隐私开关
+3. v2 权重可配时，配置项归 super_admin（职能 #20 平台级配置）
+
+### 对老项目的影响
+- ✅ 线上已实现（`ClassRankingPage` + `practice/study-ranking.routes.ts`），积分公式已写死运行
+- 改造方向：v2 权重数据化为专业/平台配置项（D3）；数据源随实修域改造（DR-122：观修/念诵聚合口径）对齐
+
+---
+
+## 能力 27：综合活动列表
+
+### 业务意图
+学员的统一活动流，把分散的班级共修、系统法会、纪念日聚合成一个按时间排序的"即将到来"列表，学员一处看全部待参加活动。
+
+### 业务规则
+1. **多源聚合**：`/api/my/upcoming-events` 聚合 ① 班级共修（ClassSession）② 系统法会（DharmaAssembly）③ 纪念日/系统共修
+2. **类型区分**：每条带 kind 标识（🧘 共修 / 🪷 法会 / 🪷 系统共修 / 🪷 纪念日），前端 chip 区分
+3. **首页卡 + 列表页**：首页顶部活动卡（top-home-card）+ `/events` 完整列表
+
+### 输入与输出
+- 输入：当前用户（按其班级归属 + 全局法会过滤）
+- 输出：按时间排序的 UpcomingEvent[]（含 kind / title / startAt / link）
+
+### 与其他能力的关系
+- 依赖：能力 8（共修 ClassSession）+ 法会信息（DharmaAssembly 净资产）
+- 是上述数据源的**只读聚合视图**，不新建存储
+
+### 绝对约束
+1. 学员只看到自己班级的共修 + 全局法会（权限过滤）
+2. 纯聚合，无独立写入
+
+### 对老项目的影响
+- ✅ 线上已实现（`EventsPage` + `classes/sessions/routes.ts` upcoming-events）
+- 改造方向：随能力 8 共修体系改造，聚合源对齐 ClassSession 新字段（sessionType 等）
+
+---
+
+## 能力 28：设备与会话管理
+
+### 业务意图
+学员可查看自己所有登录设备/会话，并主动登出其他设备，保障账号安全（配合单设备登录策略）。
+
+### 业务规则
+1. **会话列表**：展示该用户所有有效 AuthSession（设备/登录时间），标记当前会话
+2. **主动登出**：单条退出 + 批量"退出其他设备"（AuthSession revoke）
+3. **配合单设备登录**：净资产 AuthSession 已有单设备登录策略，本能力是其**用户可见管理界面**
+
+### 输入与输出
+- 输入：当前用户
+- 输出：会话列表（设备标识/登录时间/当前标记）；登出操作 → revoke AuthSession
+
+### 与其他能力的关系
+- 依赖：净资产 AuthSession（账户/安全）
+- 关联：能力 18 角色与权限（鉴权体系）
+
+### 绝对约束
+1. 只能管理本人会话，不可见他人
+2. 登出即时生效（revokedAt 写入，token 失效）
+
+### 对老项目的影响
+- ✅ 线上已实现（`DevicesPage` + `auth/service.ts` revoke）
+- 复用 AuthSession 净资产，无新表
+
+---
+
+## 能力 29：个人智能提醒
+
+### 业务意图
+按学员个人节奏推送修学提醒，提升留存与打卡率。系统按用户时区在合适时段自动推送，非"一刀切"群发。
+
+### 业务规则
+1. **三档提醒**（cron 每分钟 tick，按用户时区命中本地 hour）：
+   - **即将圆满**：用户某每日目标快达成时推「还差 N 即可达成今日目标」（读 PracticeGoal/PracticeTask daily + PracticeDailySummary）
+   - **今日未打卡唤回**：当日零学修活动时（practice+观修+答题+阅读均 0）推提醒
+   - **默认时段提醒**：平台/用户配置的固定时段（NotificationRule scope=platform 兜底）
+2. **时区感知**：每用户按 IANA timezone 折算本地时段，hour 前半段（0-29 分）触发
+3. **幂等 + 静默**：DispatchLog 按 eventKind+日期+userId 去重；静默时段兜底拦截
+4. **隐私/开关**：尊重用户通知偏好（NotificationPreference）
+
+### 输入与输出
+- 输入：cron tick + 用户时区/偏好/当日学修数据
+- 输出：通知（走通知体系 v2 Notification + 可选 Push）
+
+### 与其他能力的关系
+- 依赖：通知体系 v2（净资产）+ 实修打卡数据（能力 7/4，PracticeGoal/Task/DailySummary）
+- ⚠️ **实修域改造关联（DR-122/123）**：本能力读 PracticeGoal（已折叠进 UserPracticeVow.dailyTarget）、PracticeTask（拆流 ClassTask/UserPracticeVow）、PracticeDailySummary（已废弃，排行改实时算）——改造后**提醒的数据源须重新接到 UserPracticeVow + 实时聚合**，不能再读废弃表
+
+### 绝对约束
+1. 按用户时区，不在静默时段打扰
+2. 幂等不重发（DispatchLog）
+3. 尊重用户通知偏好开关
+
+### 对老项目的影响
+- ✅ 线上已实现（`scheduler/personal-reminders.ts` + `reminder-queries.ts` + cron）
+- 🔧 改造方向：数据源从 PracticeGoal/Task/DailySummary 迁到改造后的 UserPracticeVow + 实时聚合（DR-122/123 关联，登记 TODO-23）
+
+---
+
+## 能力 30：成就解锁通知聚合
+
+### 业务意图
+学员达成成就（徽章）时延迟聚合通知，避免单次操作连续解锁多个成就时的通知轰炸，合并成一条推送。
+
+### 业务规则
+1. **延迟聚合**（cron，5 分钟窗口）：扫描 `notifiedAt=null` 且解锁超过 5 分钟的 UserAchievementUnlock
+2. **按用户合并**：同用户多个待通知解锁合并为一次推送；单条 → 链接到该徽章高亮，多条 → 链接到成就列表
+3. **单次 cap**：每次最多处理 500 条解锁记录，防大批量阻塞
+
+### 输入与输出
+- 输入：cron tick + UserAchievementUnlock（notifiedAt=null）
+- 输出：聚合通知（走通知体系 v2）+ 回写 notifiedAt
+
+### 与其他能力的关系
+- 依赖：成就体系（UserAchievementUnlock 净资产）+ 通知体系 v2（净资产）
+- 是成就解锁 → 通知的**自动衔接链**（解锁由 submitAnswer/getAchievements 等触发写入，本能力负责异步聚合通知）
+
+### 绝对约束
+1. 幂等（notifiedAt 标记，已通知不重发）
+2. 5 分钟聚合窗口（平衡及时性与防轰炸）
+
+### 对老项目的影响
+- ✅ 线上已实现（`scheduler/cron.ts` tickAchievementUnlocks）
+- 复用成就 + 通知净资产，无新表
+
+---
+
+## 能力 31：辅导员 AI 出题与批量导入
+
+### 业务意图
+辅导员出班级测验/随堂题时，除手动逐题录入外，可用 AI 按法本内容生成题目、或批量导入题库，提升出题效率。
+
+### 业务规则
+1. **三种出题方式**：① 手动新建（逐题）② **AI 生成**（LLM question_generation 模板，按指定法本/课时生成）③ 批量导入（结构化批量录入）
+2. **AI 生成复用 LLM 网关**：走 `question_gen` 场景（净资产 LlmScenarioConfig 已有此场景），非独立 AI 模块
+3. **权限**：限本班 class_tutor 及以上（职能 #11a 出本班测验/随堂题）
+4. **生成后可编辑**：AI 生成的题目辅导员可改后入库，非直接发布
+
+### 输入与输出
+- 输入：法本/课时 + 生成参数（题型/数量）/ 批量导入数据 / 手动录入
+- 输出：Question 记录（题库净资产）
+
+### 与其他能力的关系
+- 依赖：题库净资产（Question 14 题型）+ LLM 网关（question_gen 场景，DR-108）
+- 关联：能力 10 考试与升学（出题是考试的上游）
+
+### 绝对约束
+1. 限本班辅导员及以上，不可跨班
+2. AI 生成复用既有 LLM 网关，不重建调用层（DR-108 同源）
+3. 生成题目须人工过目方可入库（AI 不直接发布）
+
+### 对老项目的影响
+- ✅ 线上已实现（`CoachQuestionGenerate/Import/NewPage` + `questions/generate.service.ts`（LLM）+ `batch.service.ts`）
+- 复用题库 + LLM 网关净资产，无新表；与 25.C 笔记 AI 同属"复用网关的辅助 AI"，但**面向辅导员出题**（非学员），独立登记
+
+---
+
 ## ⏸ 暂缓:管理端设计（独立设计专题）
 
 **暂缓原因**:优先完成旧设计文档对接，管理端设计在对接工作完成后开启。
