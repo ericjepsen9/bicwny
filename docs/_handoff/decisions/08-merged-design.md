@@ -23,7 +23,7 @@
 
 ---
 
-### 1.1 Program（科系）✅ 已确认
+### 1.1 Program（科系）🆕 线上无·实为新建（DR-130）· ✅ 设计已确认
 
 **服务能力**：能力 1（阶段与专业体系）
 **写权限**：`super_admin`（全局作用域，D12）
@@ -127,7 +127,7 @@
 >
 > **业务逻辑权威**：本表及后续所有表的业务规则，一切以新设计决策文档（05/06）为准，旧设计仅作字段命名/结构参考。
 
-### 1.3 StudyRecord（讲考+共修打卡）✅ 已封板
+### 1.3 StudyRecord（讲考+共修打卡）🆕 线上无·实为新建（DR-130）· ✅ 设计已封板
 
 **服务能力**：能力 8（共修与出勤）+ 能力 10（讲考）
 **写权限**：学员 App 内自助（需登录，校验场次时间窗口）；管理员可代行补卡（能力 5，代行明细走 AuditLog）
@@ -188,7 +188,7 @@
 
 去掉 self_checkin 后，每条记录必有 classSessionId 或 speakingSessionId 之一非空，两条唯一约束按场次各管一类（NULL 在唯一约束中互不冲突），与 LessonCompletion 双 @@unique 同套路。修复了旧设计「正文说有 @@unique、model 却没写」的审计级不一致。
 
-### 1.4 SpeakingGrade / ExamGrade / Exam（成绩）✅ 已封板
+### 1.4 SpeakingGrade / ExamGrade / Exam（成绩）🆕 线上无·实为新建（DR-130）· ✅ 设计已封板
 
 **服务能力**：能力 10（考试与升学）
 **写权限**：班级级讲考评分限 `class_tutor` 及以上（本班）；平台级讲考评分限 `subject_admin` / `super_admin`（SpeakingGrade.classId=null）；考试成绩录入限 `class_admin` 及以上（职能 #7，辅导员无权）；Exam 创建——随堂测验辅导员（#11a）、升学考班级管理员（#11b）
@@ -304,7 +304,7 @@ model Exam {
 
 升学考是否分 S5/S8 节点**不在 Exam 上建字段**（4a 决策）：升学节点属专业配置范畴，由 ProgramAdvancementConfig 的 `conditionKey`（如 `exam_s8`）+ `params` 指定要匹配 `examType='advancement'` 的成绩，Exam 只需知道「我是不是升学考」。这样新增/调整升学节点不动 Exam 结构（D3）。
 
-### 1.5 CohortLagSnapshot（掉队快照）✅ 已封板
+### 1.5 CohortLagSnapshot（掉队快照）🆕 线上无·实为新建（DR-130）· ✅ 设计已封板
 
 **服务能力**：能力 14（学员关怀清单）—— 自动触发关怀的检测信号源
 **读权限**：辅导员及以上（`class_tutor` / `class_admin` / `subject_admin` / `super_admin`，按作用域，能力 14 规则 3）；**学员端完全不可见**（无 API 返回）
@@ -585,7 +585,7 @@ model UserPracticeVow {
 
 ---
 
-### 1.8 CohortRecommendedTemplate（班级模板绑定）✅ 已封板
+### 1.8 CohortRecommendedTemplate（班级模板绑定）🆕 线上无·实为新建（DR-130）· ✅ 设计已封板
 
 **服务能力**：能力 9（报数）—— 课程自带任务的专业级配置
 **写权限**：`subject_admin` 及以上（专业级绑定）；`class_admin` 及以上（班级追加绑定）
@@ -2161,6 +2161,8 @@ model EnrollmentStatusHistory {
 
 ## 四、✅ 复用表（直接沿用旧设计）
 
+> 🔴 **现状校正（DR-130，2026-05-31）**：本区原标「复用」是 DR-72 对照旧设计文档批量确认、未 grep 验证线上 schema。经 DR-130 全量体检，**本区真实复用仅 8 张**（Lesson/LessonMediaChapter/LessonResource/LessonTextBlock/Meditation/PracticeProject/LlmCallLog/LlmProviderUsage），**12 张是线上幻影表已逐个改标「🆕 线上无·实为新建」**（ProgramSemester/ProgramStudyType/ProgramWeek×3/QuestionReference/Speaking×2/Event×2/CohortRestWeek/CohortWeeklySummary）。下表状态列已逐行更新，以 grep 结果为准。
+
 > 以下表从旧设计直接复用，字段不改，仅确认无遗漏。待步骤 1d 快速过完后补充字段列表。
 
 | 表 | 服务能力 | 状态 |
@@ -2171,32 +2173,32 @@ model EnrollmentStatusHistory {
 | `PracticeProject`（修持项目字典，旧设计 +2 字段版，详见下）| 能力 4/6/7 | ✅ 确认复用 |
 | `PracticeCategory`（大类字典：持咒/礼拜/诵经/供曼扎/观修）| 能力 4/6/7 | ✅ 保留纳入设计（DR-122，PracticeProject 依赖它）|
 | `PracticeMakeup`（补签：7天内每周1次）| 能力 7 | ✅ 保留纳入设计（DR-122，补签作正式功能）|
-| `ProgramSemester`（科目/学期，字段够用，详见下）| 能力 1 | ✅ 确认复用 |
+| `ProgramSemester`（科目/学期）| 能力 1 | 🆕 线上无·实为新建（DR-130）|
 | ~~`PracticeLog`~~（改造扩展自 PracticeEntry，移入 §1.12，留 §一扩展区）| 能力 4/6/7 | 🆕 改造扩展（DR-121/122/123；计入 §一）|
 | ~~`PracticeTemplate`~~（DR-123 纠正：非废弃，CohortRecommendedTemplate.templateId 依赖的承重表）| 能力 4/6/7 | 🆕 改造新建·移入 §三（DR-123）|
 | ~~`CohortRecommendedTemplate`~~ | 已移入扩展区 §1.8 | ✅ |
 | ~~`LessonCompletion`~~（DR-129 纠正：线上幻影表，改判 🆕 新建，移入 §三）| 能力 3 | 🆕 改造新建·移入 §三（DR-129）|
 | ~~`PracticeJournal`~~ | 能力 7 | ❌ **废弃**（DR-122：修行心得折叠进 PracticeLog.note / Note）|
-| `QuestionReference` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
+| `QuestionReference` | 能力 3 | 🆕 线上无·实为新建（DR-130）|
 | `LessonResource` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
 | `LessonMediaChapter` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
 | `LessonTextBlock` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
-| `ProgramWeek` | 能力 1 | ✅ 确认复用（C 类批量，DR-72）|
-| `ProgramWeekCourse` | 能力 1 | ✅ 确认复用（C 类批量，DR-72）|
-| `ProgramWeekPractice` | 能力 1/4 | ✅ 确认复用（C 类批量，DR-72）|
-| `ProgramStudyType` | 能力 8 | ✅ 确认复用（C 类批量，DR-72）|
-| `CohortRestWeek` | 能力 8 | ✅ 确认复用（C 类批量，DR-72）|
-| `Event` | 能力 15 | ✅ 确认复用（C 类批量，DR-72）|
-| `EventCount` | 能力 15 | ✅ 确认复用（C 类批量，DR-72）|
+| `ProgramWeek` | 能力 1 | 🆕 线上无·实为新建（DR-130）|
+| `ProgramWeekCourse` | 能力 1 | 🆕 线上无·实为新建（DR-130）|
+| `ProgramWeekPractice` | 能力 1/4 | 🆕 线上无·实为新建（DR-130）|
+| `ProgramStudyType` | 能力 8 | 🆕 线上无·实为新建（DR-130）|
+| `CohortRestWeek` | 能力 8 | 🆕 线上无·实为新建（DR-130）|
+| `Event` | 能力 15 | 🆕 线上无·实为新建（DR-130）|
+| `EventCount` | 能力 15 | 🆕 线上无·实为新建（DR-130）|
 | `TantricGroup` | 能力 15/17 | 🔧 微调（删 grants，补 transmissionRecords，详见下，DR-73）|
 | `ContentChunk` | 能力 25 AI 助手 | ⏸ 暂缓实现（AI 模块，DR-74；业务已登记能力 25，DR-106；调用层复用既有 LLM 网关，DR-108）|
 | `FeatureEntry` | 能力 25 AI 助手 | ⏸ 暂缓实现（AI 模块，DR-74；业务已登记能力 25，DR-106；调用层复用既有 LLM 网关，DR-108）|
 | `AiConversation` / `AiMessage` | 能力 25 AI 助手 | ⏸ 暂缓实现（对话历史，真新建；AI 模块 DR-74；业务登记 DR-106；调用层复用既有网关 DR-108）|
 | ~~`AiUsage`~~ | 能力 25 AI 助手 | ❌ **不新建 → 复用 `LlmCallLog`（userId/scenario/cost + @@index([userId,timestamp]) 可算限流）+ `LlmProviderUsage`（按日聚合 cost）**（表重估，DR-110）|
-| `SpeakingSession` | 能力 10 | ✅ 复用（classId 已可空，见下方说明）|
-| `SpeakingRegistration` | 能力 10 | ✅ 确认复用（C 类批量，DR-72）|
+| `SpeakingSession` | 能力 10 | 🆕 线上无·实为新建（DR-130；classId 可空设计见下）|
+| `SpeakingRegistration` | 能力 10 | 🆕 线上无·实为新建（DR-130）|
 | ~~`Exam`~~ | 已移入扩展区 §1.4 | ✅ |
-| `CohortWeeklySummary` | 管理端 ⏸ 暂缓 | ✅ 确认复用（C 类批量，DR-72）|
+| `CohortWeeklySummary` | 管理端 ⏸ 暂缓 | 🆕 线上无·实为新建（DR-130）|
 
 #### Course 复用说明（🔧 已改判扩展，移入 §1.11）
 
@@ -2961,7 +2963,7 @@ model UserSelfStudyProgram {
 | DR-69 | PracticeProject 在新设计下是否需要改字段 + TODO-3 处理 | ✅ 复用，字段不改；顺手闭合 TODO-3（用户决策 2026-05-29）| 旧设计 §2.2 扩展 isTantric/tantricGroupId 2 字段，scope 旧字段保留兼容。PracticeProject 是「修什么法」字典表，被 PracticeLog/PracticeTemplate/约修引用，新设计无新增需求。密法授权同 Course/Meditation 迁 TransmissionRecord，不影响字段。**顺手闭合 TODO-3**：PracticeProject 确认复用后，§5.3 约修 practiceProjectId 升格正式 FK，PracticeProject 补反向 appointments[]——TODO-3 的处理时机正是「PracticeProject 复用确认时」，故一并处理。排除「拆密法项目独立表」：isTantric 标识 + tantricGroupId 已足够区分，无需拆表 |
 | DR-70 | User 是否纯复用 + 60 岁年龄豁免如何建模 | 🔧 扩展：新增 `birthDate`；年龄豁免做成「资格性、非自动」（用户决策 2026-05-29）| 旧设计 13 字段全部有效复用。但 60 岁免考是大纲硬规则、需年龄数据源，User 上无生日字段，故新增 `birthDate`，判 🔧 扩展（从复用区移入）。**关键区分**（用户决策）：盲/聋是身体缺陷→**强制**豁免（能力 3 自动切判定路径）；60 岁是**资格**豁免→年满 60 仅获免考资格，**不自动满足考试条件**，实际免考走能力 5 代行（管理员显式确认、留痕 D17）。理由：部分老人有能力正常完成加行/考试，应允许其正常考、正常计成绩，不能一刀切自动免。排除「年龄≥60 自动置 exam_score 满足」：会剥夺有能力老人正常应考的选择，且与「豁免是个案、可选、留痕」的能力 5 哲学冲突。birthDate 字段先就位，完整豁免逻辑在升学条件配置阶段做（TODO-12 收窄为仅剩逻辑层）|
 | DR-71 | Class 是否纯复用 + 班级归档如何建模 | 🔧 扩展：新增归档三件套 status/archivedAt/archivedBy（用户决策 2026-05-29）| 旧设计 §2.2 已扩展 6 字段（programId/startDate/city/timezone/currentWeekOverride/lagPracticeDaysExpected）全部有效复用。但 D19 + 能力 11 §4 明确「班级只归档不物理删除（status: archived）」，旧设计 Class 无归档状态字段，能力 11「对老项目影响」也写明「老项目班级可能有删除操作，需改为归档」。故新增 status（active/archived）+ archivedAt + archivedBy，判 🔧 扩展（从复用区移入）。归档后不接受新成员/新课表/新出勤，历史完整保留；手动触发（不自动）。排除「物理删除班级」：违反 D18/D19，破坏出勤/报数/成绩历史完整性。排除「沿用 isActive 布尔」：归档需留痕（时间+操作人），布尔不够，用 status 字符串 + archivedAt/archivedBy 三件套 |
-| DR-72 | C 类 §四 复用表（15 张）是否需要改字段 | ✅ 全部复用不动，批量确认（用户决策 2026-05-29）；**后修订（2026-05-30）：PracticeLog 改判 🔧 扩展，移入 §1.12（见 DR-95）** | 15 张表：PracticeLog/PracticeTemplate/LessonCompletion/PracticeJournal/QuestionReference/LessonResource/LessonMediaChapter/LessonTextBlock/ProgramWeek/ProgramWeekCourse/ProgramWeekPractice/ProgramStudyType/CohortRestWeek/Event/EventCount/SpeakingRegistration/CohortWeeklySummary。逐张核对新设计（05/06）后均无新增需求：日常打卡/模板/闻思完成/日记/思考题/课时资源/周排表/科系打卡声明/休息周/法会/法会计数/讲考报名/周汇总，结构旧设计已完整。Event.classId 可空（平台级/班级级）与 SpeakingSession 同套路已支持平台级法会。批量一条 DR 覆盖，避免逐张冗余 DR。**修订原因（DR-95）**：TODO-11 核对能力 6 规则 1 发现顶礼须同步录入法王祈祷文计数，PracticeLog 需新增 prayerCount 字段，故改判扩展（与 DR-65 Course 改判同一机制） |
+| DR-72 | C 类 §四 复用表（15 张）是否需要改字段 | ✅ 全部复用不动，批量确认（用户决策 2026-05-29）；**后修订（2026-05-30）：PracticeLog 改判 🔧 扩展，移入 §1.12（见 DR-95）**；**🔴 重大后修订（2026-05-31，DR-130）：本「批量复用确认」是对照旧设计文档打勾、从未 grep 验证线上 schema——经 DR-130 全量体检，这 15 张里 12 张是线上幻影表（实为新建），仅 LessonResource/LessonMediaChapter/LessonTextBlock 等真实存在。本 DR 复用结论大部作废，以 DR-130 grep 体检为线上现状权威** | 15 张表：PracticeLog/PracticeTemplate/LessonCompletion/PracticeJournal/QuestionReference/LessonResource/LessonMediaChapter/LessonTextBlock/ProgramWeek/ProgramWeekCourse/ProgramWeekPractice/ProgramStudyType/CohortRestWeek/Event/EventCount/SpeakingRegistration/CohortWeeklySummary。逐张核对新设计（05/06）后均无新增需求：日常打卡/模板/闻思完成/日记/思考题/课时资源/周排表/科系打卡声明/休息周/法会/法会计数/讲考报名/周汇总，结构旧设计已完整。Event.classId 可空（平台级/班级级）与 SpeakingSession 同套路已支持平台级法会。批量一条 DR 覆盖，避免逐张冗余 DR。**修订原因（DR-95）**：TODO-11 核对能力 6 规则 1 发现顶礼须同步录入法王祈祷文计数，PracticeLog 需新增 prayerCount 字段，故改判扩展（与 DR-65 Course 改判同一机制） |
 | DR-73 | TantricGroup 反向关联如何处理 | 🔧 微调：删 grants，补 transmissionRecords（用户决策 2026-05-29）| TantricGroup 字段本身有效，但 `grants TantricAccessGrant[]` 反向关联悬空——TantricAccessGrant 已在 DR-44 废弃整合入 TransmissionRecord。删除 grants，新增 `transmissionRecords TransmissionRecord[]`（TransmissionRecord.tantricGroupId 指向本组，sourceType=empowerment 表达灌顶授权）。密法访问控制改为 EXISTS on TransmissionRecord（DR-44/45）。此微调闭合检查轮次 11 标记的已知项。排除「保留 grants 空关联」：悬空关联指向已删除 model，Prisma 校验不通过 |
 | DR-74 | AI 助手 5 张表（ContentChunk/FeatureEntry/AiConversation/AiMessage/AiUsage）是否纳入本次融合 | ⏸ 暂缓（独立 AI 模块，用户决策 2026-05-29）；**实现方式修订见 DR-108**（复用线上既有 LLM 网关，非从零自建）| AI 助手是独立功能模块（详见 docs/AI_ASSISTANT_PLAN.md），决策定型但未实施，依赖 pgvector 扩展，UI/Tier 2-4 均暂缓。不属本次「学修体系融合」范围。统一标 ⏸ 暂缓，不在本文档展开字段级设计；待 AI 模块独立推进时处理。排除「纳入本次复用确认」：AI 模块边界独立，混入会扩散本次融合范围 |
 | DR-75 | RoleAssignmentHistory 角色/作用域字段是否冗余存当时值 | 冗余存变更那一刻的 role/classId/programId（用户决策 2026-05-29）| 审计要能回溯「那一刻这个人是什么角色、管哪个班」，UserRoleAssignment 后续被改/撤销不应影响历史快照。排除「只存 assignmentId，运行时 join 读当前值」：join 读到的是当前值非历史值，无法还原变更那一刻的真相，违反审计不可变原则。与 §3.12 EnrollmentStatusHistory 同为 append-only 留痕表，结构对称（一记角色链、一记入学状态链）|
@@ -2978,6 +2980,7 @@ model UserSelfStudyProgram {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-130 | 🔴🔴 全量复用表存在性体检：DR-72 批量复用确认是对照旧设计文档（未验证线上 schema），逐表 grep 纠正（用户决策「一切按新设计、不改代码」）| **全量 grep 体检：08 标「复用/扩展」的表对照线上 60 表，揪出「线上无却标复用/扩展」的表，逐个改判 🆕 线上无·实为新建。本轮纠正 §一扩展区 5 表（Program/StudyRecord/SpeakingGrade·ExamGrade·Exam/CohortLagSnapshot/CohortRecommendedTemplate）+ §四复用区 12 表（ProgramSemester/ProgramStudyType/ProgramWeek/ProgramWeekCourse/ProgramWeekPractice/QuestionReference/SpeakingRegistration/SpeakingSession/Event/EventCount/CohortRestWeek/CohortWeeklySummary）**（用户决策 2026-05-31）| 连撞 5 个幻影表（DR-121 实修域、DR-123 PracticeTemplate、DR-129 LessonCompletion 等）后，用户两轮质疑「核查不全」，遂做**全量复用表存在性体检**——提取 08 所有标「复用/旧设计已有/扩展现有」的表名，逐一 `grep "^model X" backend/prisma/schema.prisma` 对照线上真实 60 表。**触目惊心的结论**：标「复用」的表里**真实存在仅 8 个**（Lesson/LessonMediaChapter/LessonResource/LessonTextBlock/Meditation/PracticeProject/LlmCallLog/LlmProviderUsage），**12 个幻影**（见上）；§一「扩展现有表」13 个里**真实仅 4 个**（User/Class/Course/ClassMember），其余 9 个线上无（含已处理的 UserPracticeVow/PracticeLog/DR-121~129，本轮再补 Program/StudyRecord/SpeakingGrade·ExamGrade·Exam/CohortLagSnapshot/CohortRecommendedTemplate 5 个）。**根因**：DR-72「C 类 15 张批量复用确认」是**对照旧设计文档打的勾，从未 grep 验证线上 schema**——这就是为什么 DR-121/123/129 一个个撞出幻影表。**本质认知**：线上目前是**轻量「法本学习+答题+打卡」App**（真实表=Class/ClassMember/ClassSession/ClassAnnouncement/Course/UserCourseEnrollment + 学习引擎表 Question/UserAnswer/Sm2Card/笔记/阅读/打卡/通知/LLM 网关），新设计 08 是**完整「佛学院学修管理系统」**——专业体系/讲考/升学/报数/关怀/传承/角色权限/周排课/法会等主体**线上全无，实为从零新建**。**处理（用户「一切按新设计、不改代码」）**：(1) 逐表改标签——线上无的标「🆕 线上无·实为新建（DR-130）」，§一 5 表标题 + §四 12 表状态列已逐个改；(2) **设计内容全部有效不动**——错的只是「现状标签」（以为线上有、实为新建），新设计要建什么/字段怎样都对；(3) 表计数维持设计口径（实现工作量远大于文档显示，但目标设计权威）。**修正 DR-72**：其「15 张批量复用」结论作废，以本条 grep 体检为线上现状权威；DR-72 历史保留（append-only），加指向本条的后修订注。**不动代码**：纯文档现状标签校正。排除「逐字重写每个表设计」：设计内容有效，只需改现状标签；排除「全量重写复用区分类」：标签逐个改 + 总纲 DR-130 钉死更稳，保留设计史。**这是第 4 轮、也是最彻底一轮的「08 误标复用、实为新建」纠正**——印证用户坚持核查的价值：复用区分类此前整体不可信，本轮 grep 体检建立可信基线 |
 | DR-129 | 🔴 LessonCompletion 幻影表纠正 + 闻思「听音视频」分维度计数缺口补全（能力 39）| **LessonCompletion 此前 08 误标 §四「复用」，实为线上幻影表（grep=0），改判 🆕 §三新建（M3f）；补能力 39 音视频学习——LessonResource 播放达标写 LessonCompletion(type=audio/video) 分维度计数，支撑大纲盲(听≥2)/聋(看≥2)判定。两层结构：进度明细层（LessonReadingProgress 看 + MeditationSession 观修 + 音视频播放进度）+ 完成事件层（LessonCompletion 带 type）**（用户决策 2026-05-31「按我建议补全」）| 逐条核查时用户追问「音视频学习+计数」是否查过——核查挖出比能力 37 更严重的问题，同 DR-121 幻影表类：**(事实1)** `LessonCompletion`（新设计能力 3 闻思圆满判定核心表：听=COUNT(type audio/video)、看=COUNT(type read)、观修=COUNT(type meditation)）线上 grep=0 **不存在**，但 08 §四标「✅ 确认复用（DR-72）」——误判幻影表为复用；**(事实2)** 线上有音视频内容（`LessonResource` type=youtube/audio/video + url + `LessonMediaChapter` 章节时间戳），但**播放不记完成**——无任何"听/看完成事件"表；线上"课时完成"是粗粒度（UserCourseEnrollment.lessonsCompleted 数组，整课时标完成，不分听/看维度）；**(事实3)** 大纲明文硬规则要分维度：盲/文盲「听≥2遍」、聋「看≥2遍」、健全「听≥1+看≥1+答题」——必须能分别 COUNT 听/看遍数，线上粗粒度机制做不到。**下游依赖**：LessonCompletion 支撑 能力 3 闻思圆满 + 能力 14 掉队检测（contentLag/meditationLag，08 line 326/328）+ 能力 9 报数 + 能力 26 积分排行（阅读维度）——是闻思判定基石却是幻影表。**方案（用户认可「按我建议」）**：(1) LessonCompletion 改判 🆕 §三新建（带 type=audio/video/read/meditation，一行=一遍完成事件，供 COUNT）；(2) **两层结构**——过程明细层（看=LessonReadingProgress 心跳、观修=MeditationSession 播放、听音视频=新增播放进度）记滚动/播放进度，达标时各写一条 LessonCompletion 完成事件；(3) 补**能力 39 音视频学习**（LessonResource 播放 + 分维度听/看完成记录）；(4) 线上粗粒度 UCE.lessonsCompleted 数组 = 改造源（同 DR-127/TODO-24，机制统一到 LessonCompletion）。**表计数校准**：§三 17→18（+LessonCompletion，M3f）；§四 22→21（−LessonCompletion 移出）。**修正 DR-127 前提**：DR-127/TODO-24 原说"迁移到 LessonCompletion"，未意识到它是幻影表——前提修正为「LessonCompletion 须先新建（M3f），再做完成记录机制统一」。**同 DR-121 处理**：幻影表纠正为新建 + 线上现状（粗粒度完成/分散进度表）为改造源。排除「听音视频不单独计数（简化）」：大纲盲/聋判定硬性要求分维度 COUNT，简化则判定做不了；排除「维持 LessonCompletion 标复用」：grep=0 铁证不存在，复用标签是误判必须纠正 |
 | DR-128 | 成就徽章定位：暂不作正式功能上线，只保留后台关键部分（能力 38 + 联动能力 30）| **能力 38 成就徽章本体 ⏸ 暂不作正式功能上线（只保留 BADGES 定义 + UserAchievementUnlock 表 + 派生/解锁逻辑后台运行）；联动能力 30 成就解锁通知聚合随之降为 ⏸（cron 后台保留，不作正式通知功能）**（用户决策 2026-05-31）| 逐条登记 A7 成就徽章时，用户决策「成就徽章暂时不做，只做后台关键部分」——同 DR-109 AI 模块「只做后台必要部分、不作正式用户功能上线」调子。**处理**：(1) 能力 38 打 ⏸ 标签，仅如实登记线上现状（5 类徽章 BadgeCategory、BADGES 代码常量定义、从 UserAnswer/SM-2/streak 派生、detectAndPersistNewUnlocks 解锁持久化），保留后台运行不扩展；(2) **联动能力 30**——成就解锁通知聚合是徽章解锁的下游通知，徽章本体既暂缓，其通知聚合也随之降 ⏸（DR-125 原登记 ✅ 纳入，本条修订为 ⏸）；cron 后台逻辑保留（解锁记录仍聚合标记 notifiedAt 避免堆积），但不作正式用户通知功能；徽章上线时即可恢复。**为何登记而非删除**：06 是 source of truth，线上活功能即便暂缓也须登记打 ⏸ 标签（功能标签铁律），避免净资产孤儿——同 25.C 笔记 AI 现状登记逻辑。**无表计数变化**：UserAchievementUnlock 净资产保留，无新表。排除「彻底删除徽章」：用户选「只做后台关键部分」非「去掉」，保留后台 + ⏸ 标签；排除「能力 30 维持 ✅」：徽章本体暂缓则解锁通知无正式功能意义，降 ⏸ 保持一致 |
 | DR-127 | 完成记录机制冲突：线上课程级数组 vs 新设计 LessonCompletion 表（能力 37 核查挖出）| **改造时统一到 LessonCompletion：完成写入端（reading/meditations）+ 下游读取端（courses/enrollment/dossier/smart-practice）一并迁移；UserCourseEnrollment 完成数组随 DR-113 废弃。挂 TODO-24**（用户决策 2026-05-31）| 登记能力 37 法本阅读器时核查阅读完成写入路径，挖出与 DR-121 同类的「功能依赖将被改造掉的东西」问题，但更准确的是**机制冲突**：**(事实1)** 线上阅读完成（`reading/service.ts`）+ 观修完成（`meditations/student.service.ts` 视频≥80%）把 lessonId/medId 追加进 `UserCourseEnrollment.lessonsCompleted`/`meditationsCompleted` **数组**（课程级，@@unique([userId,courseId])）；**(事实2)** 新设计闻思圆满判定**走 `LessonCompletion` 表**（DR-92：看=COUNT(LessonCompletion type=read)），与课程级数组是**两套不同机制**；**(事实3)** UserCourseEnrollment 课程语义随 DR-113 废弃迁专业级。**下游依赖核查**（grep 全仓，6 处）：写端 reading/meditations 2 处；读端 courses（课程进度展示 done/total%）、enrollment（进度管理）、dossier（学情统计完成课时数）、smart-practice（"已学课时"抽题）4 处。**关键澄清**：新设计判定端（LessonCompletion）已是目标态、无需改；要改的是**写入端 + 读取端的对接**——这不是"幻影表"（DR-121 那种结构性大坑），而是"完成记录从课程级数组 → LessonCompletion 表"的**机制统一迁移**。**处理**：挂 TODO-24，改造 DR-113 时一并迁移写入/读取两端，确保阅读/观修完成接上新设计闻思圆满判定，否则改造后完成记录写废弃表 → 闻思圆满判定取不到数据 → 升学预检数据错。排除「现在就改写入/读取代码」：本轮是设计登记非实现，且牵动 DR-113 专业级进度结构设计，统一在 DR-113 实现时做；排除「保留课程级数组双写」：与新设计 LessonCompletion 单一数据源冲突、双写一致性难维护 |
@@ -4527,6 +4530,25 @@ model UserSelfStudyProgram {
 
 **本轮发现问题数**：1（LessonCompletion 幻影表——已纠正 DR-129、补能力 39、表计数校准、修 DR-127 前提）。
 **结论**：DR-129 纠正闻思判定基石 LessonCompletion 幻影表（08 误标复用），补能力 39 音视频学习 + 分维度听/看完成计数（满足大纲盲/聋判定）。**表计数变动：§三新建 17→18、§四复用 22→21**（LessonCompletion 移位），§一扩展 12 不变。这是 DR-121 实修域、DR-123 PracticeTemplate 之后第 3 个「08 误标复用、实为幻影/新建」的纠正——印证用户两轮质疑「核查不全」的价值。待「下一条」进 B 组运营内容。
+
+---
+
+### 检查轮次 79（2026-05-31，范围：🔴🔴 DR-130 全量复用表存在性体检 · 17 表改判线上无·实为新建 · 跨 08）
+
+> 连撞 5 个幻影表后用户两轮质疑「核查不全」，遂做全量 grep 体检（08 复用/扩展表 × 线上 60 表）。用户决策「一切按新设计、不改代码」——逐表改现状标签。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. 全量体检方法 | ✅ | 提取 08 所有标「复用/旧设计已有/扩展」表名，逐一 `grep "^model X" schema.prisma` 对照线上 60 表 |
+| 2. 体检结论 | ✅ | 标「复用」真实仅 8、幻影 12；§一「扩展」真实仅 4（User/Class/Course/ClassMember）、其余 9 线上无 |
+| 3. 根因定性 | ✅ | DR-72 批量复用是对照旧设计文档打勾、从未 grep 验证线上——DR-121/123/129 逐个撞幻影的根源 |
+| 4. 逐表改标签 | ✅ | §一 5 表标题（Program/StudyRecord/SpeakingGrade组/CohortLagSnapshot/CohortRecommendedTemplate）+ §四 12 表状态列，均改「🆕 线上无·实为新建（DR-130）」 |
+| 5. 设计内容不动 | ✅ | 用户「一切按新设计」——只改现状标签（以为线上有→实为新建），表字段/设计全有效；DR-72 加重大后修订注、§四加现状校正横幅 |
+| 6. 不改代码 | ✅ | 纯文档现状标签校正，零代码改动 |
+| 7. 认知校正 | ✅ | 线上=轻量「学习+答题+打卡」App；新设计=完整「学修管理系统」，主体从零新建——DR-130 建立可信现状基线 |
+
+**本轮发现问题数**：17（标复用/扩展实为幻影——§一 5 + §四 12，已逐表改判 DR-130）。
+**结论**：DR-130 全量复用表存在性体检完成。这是第 4 轮、最彻底一轮「08 误标复用、实为新建」纠正——共揪出 17 表（叠加此前 DR-121/123/129 的 5 表，08 误标复用/扩展的幻影表基本清完）。**复用区分类此前整体不可信，本轮 grep 体检建立可信现状基线**。设计内容全有效，错的只是现状标签。用户「一切按新设计、不改代码」——文档现状标签已校正。计数维持设计口径（§一12/§三18/§四21，含 DR-129）。
 
 ---
 
