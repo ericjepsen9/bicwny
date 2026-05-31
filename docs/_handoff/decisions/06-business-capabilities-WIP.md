@@ -1318,6 +1318,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 #### 对老项目的影响
 - 需安装 pgvector PostgreSQL 扩展
 - 新增 5 张表：`ContentChunk` / `FeatureEntry` / `AiConversation` / `AiMessage` / `AiUsage`（已在 08 §四 列出，⏸ 暂缓实现，本次完成业务能力定稿）
+- **LLM 调用层复用线上既有网关**（多 provider 调度 / 配额 / 熔断 / 每日成本上限 / super_admin 配置后台均已存在，并已在判分·出题两场景上线），仅新增 `dharma_qa`（法义问答）/ `feature_nav`（功能导航）两个场景配置；**不从零自建调用层**（DR-108，修订 DR-74 原「独立从零模块」假设）
 - 技术方案详见 `docs/AI_ASSISTANT_PLAN.md`（2026-05-04 已定型）
 
 #### 可能的呈现方式（仅供参考）
