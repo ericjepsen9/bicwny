@@ -4013,7 +4013,7 @@ model UserSelfStudyProgram {
 | ~~TODO-2~~ ✅ 已闭合 | ~~共修链接激活时效数据化~~——**已闭合（2026-05-30）**：签到窗口改为「token 生成时刻」为基准，startAt 仅展示；Program 补 checkinGraceMinutes（默认 30 分钟），与实际开课时间自动对齐（DR-89）| 1.6 ClassSession | ✅ 已处理（DR-89）| DR-25 / DR-89 |
 | ~~TODO-3~~ ✅ 已闭合 | ~~PracticeAppointment.practiceProjectId 无正式 @relation~~——**已闭合（2026-05-29）**：§四 PracticeProject 确认复用，已在 §5.3 PracticeAppointment 补正式 FK `practiceProject PracticeProject @relation(...)`，PracticeProject 上补反向 `appointments PracticeAppointment[]` | §5.3 PracticeAppointment | ✅ 已处理（DR-69）| DR-57 / DR-69 |
 | TODO-5 | §1.1 Program 恢复 `selfStudy UserSelfStudyProgram[]` 反向关联——当前因自学模式暂缓已移除，实现 §5.4 时须恢复 | §5.4 UserSelfStudyProgram | 自学模式实现时 | DR-103 / DR-104 |
-| TODO-AI-1 | **现状缺口**：线上**笔记功能已接入 LLM**，本版 06/08 未体现。做现有系统分析时核实笔记表结构 + LLM 用法，判定归入能力 25.A/25.B 还是独立能力，补记设计 | 现状分析阶段 | 现状分析时 | 能力 25 / 笔记模块 |
+| TODO-AI-1 | **现状缺口**：线上**笔记功能已接入 LLM**，本版 06/08 未体现。**项目审计时**核实笔记表结构 + LLM 用法，判定归入能力 25.A/25.B 还是独立能力，补记设计 | 项目审计阶段 | 项目审计时（用户指定 2026-05-31）| 能力 25 / 笔记模块 |
 | TODO-AI-2 | **AI 代操作数据契约**（能力 25.B，DR-107）：实现时须给各写表（PracticeLog 等）来源标注扩展 `ai_assistant` 值；AiMessage 扩展 `toolCall`/`actionResult`（关联记录 id）字段。不新建业务表，复用各能力写路径 | §四 AiMessage + 各写能力写路径 | AI 模块实现时（晚于现状分析）| DR-107 |
 | ~~TODO-6~~ ✅ 已闭合 | ~~班级成员请假审批流设计~~——**已闭合（2026-05-30）**：新建 §3.15 LeaveRequest；expired 实时算不入库（DR-90-A，同 DR-80）；approved 期间从掉队窗口扣除（DR-90-B）；审批限 class_tutor+；无 delete API（D18）| §5.4 自学模式修正 | ✅ 已处理（DR-90）| DR-62 / DR-90 |
 | ~~TODO-7~~ ✅ 已闭合 | ~~加行观修座次计算规则对齐大纲~~——**已闭合（2026-05-30）**：核对能力 4 大纲原文后**废弃 0.5 座制**（违反「30 分钟以下不能单独计数」绝对约束），定调「每座录入下界 30 分钟、座数=COUNT、时长=SUM 双维度独立计」，放弃短座合并便利（比大纲更严格）。UserPracticeVow.currentSessionCount 改 Int + 新增 currentSessionMinutes（DR-91）| 预科19届大纲核对（Meditation/PracticeLog）| ✅ 已处理（DR-91）| DR-91 |
