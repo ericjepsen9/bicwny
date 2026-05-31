@@ -1123,11 +1123,11 @@ model TransmissionRecord {
 
 ---
 
-## 三、➕ 新建表（17 张，DR-123 校准）
+## 三、➕ 新建表（18 张，DR-129 校准）
 
 按新业务能力从头设计。
 
-> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。（AssistantAssignment 曾短暂并入 §2.1，后核对 02 文档角色定义回滚为独立表，仍计入 14 张，DR-82。）TODO 处理阶段新增 §3.15 LeaveRequest（班级成员请假审批，TODO-6，DR-90），新建区更新为 15 张。**DR-123 实修域改造细化后校准为 17 张**——新增 UserPracticeVow（§1.7，发愿层，线上无此表）+ PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖的承重表，DR-123 纠正前误判废弃）两张 🆕 改造新建（编号物理保留原位 §1.7 / §四原行，计数归本区，详见 DR-123）。
+> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。（AssistantAssignment 曾短暂并入 §2.1，后核对 02 文档角色定义回滚为独立表，仍计入 14 张，DR-82。）TODO 处理阶段新增 §3.15 LeaveRequest（班级成员请假审批，TODO-6，DR-90），新建区更新为 15 张。**DR-123 实修域改造细化后校准为 17 张**——新增 UserPracticeVow（§1.7，发愿层，线上无此表）+ PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖的承重表，DR-123 纠正前误判废弃）两张 🆕 改造新建（编号物理保留原位 §1.7 / §四原行，计数归本区，详见 DR-123）。**DR-129 再校准为 18 张**——LessonCompletion（闻思听/看/观修完成事件表，带 type）此前 08 误标 §四「复用」，实为线上幻影表（grep=0），改判 🆕 新建移入本区，详见 DR-129。
 
 ---
 
@@ -2175,7 +2175,7 @@ model EnrollmentStatusHistory {
 | ~~`PracticeLog`~~（改造扩展自 PracticeEntry，移入 §1.12，留 §一扩展区）| 能力 4/6/7 | 🆕 改造扩展（DR-121/122/123；计入 §一）|
 | ~~`PracticeTemplate`~~（DR-123 纠正：非废弃，CohortRecommendedTemplate.templateId 依赖的承重表）| 能力 4/6/7 | 🆕 改造新建·移入 §三（DR-123）|
 | ~~`CohortRecommendedTemplate`~~ | 已移入扩展区 §1.8 | ✅ |
-| `LessonCompletion` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
+| ~~`LessonCompletion`~~（DR-129 纠正：线上幻影表，改判 🆕 新建，移入 §三）| 能力 3 | 🆕 改造新建·移入 §三（DR-129）|
 | ~~`PracticeJournal`~~ | 能力 7 | ❌ **废弃**（DR-122：修行心得折叠进 PracticeLog.note / Note）|
 | `QuestionReference` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
 | `LessonResource` | 能力 3 | ✅ 确认复用（C 类批量，DR-72）|
@@ -2978,6 +2978,7 @@ model UserSelfStudyProgram {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-129 | 🔴 LessonCompletion 幻影表纠正 + 闻思「听音视频」分维度计数缺口补全（能力 39）| **LessonCompletion 此前 08 误标 §四「复用」，实为线上幻影表（grep=0），改判 🆕 §三新建（M3f）；补能力 39 音视频学习——LessonResource 播放达标写 LessonCompletion(type=audio/video) 分维度计数，支撑大纲盲(听≥2)/聋(看≥2)判定。两层结构：进度明细层（LessonReadingProgress 看 + MeditationSession 观修 + 音视频播放进度）+ 完成事件层（LessonCompletion 带 type）**（用户决策 2026-05-31「按我建议补全」）| 逐条核查时用户追问「音视频学习+计数」是否查过——核查挖出比能力 37 更严重的问题，同 DR-121 幻影表类：**(事实1)** `LessonCompletion`（新设计能力 3 闻思圆满判定核心表：听=COUNT(type audio/video)、看=COUNT(type read)、观修=COUNT(type meditation)）线上 grep=0 **不存在**，但 08 §四标「✅ 确认复用（DR-72）」——误判幻影表为复用；**(事实2)** 线上有音视频内容（`LessonResource` type=youtube/audio/video + url + `LessonMediaChapter` 章节时间戳），但**播放不记完成**——无任何"听/看完成事件"表；线上"课时完成"是粗粒度（UserCourseEnrollment.lessonsCompleted 数组，整课时标完成，不分听/看维度）；**(事实3)** 大纲明文硬规则要分维度：盲/文盲「听≥2遍」、聋「看≥2遍」、健全「听≥1+看≥1+答题」——必须能分别 COUNT 听/看遍数，线上粗粒度机制做不到。**下游依赖**：LessonCompletion 支撑 能力 3 闻思圆满 + 能力 14 掉队检测（contentLag/meditationLag，08 line 326/328）+ 能力 9 报数 + 能力 26 积分排行（阅读维度）——是闻思判定基石却是幻影表。**方案（用户认可「按我建议」）**：(1) LessonCompletion 改判 🆕 §三新建（带 type=audio/video/read/meditation，一行=一遍完成事件，供 COUNT）；(2) **两层结构**——过程明细层（看=LessonReadingProgress 心跳、观修=MeditationSession 播放、听音视频=新增播放进度）记滚动/播放进度，达标时各写一条 LessonCompletion 完成事件；(3) 补**能力 39 音视频学习**（LessonResource 播放 + 分维度听/看完成记录）；(4) 线上粗粒度 UCE.lessonsCompleted 数组 = 改造源（同 DR-127/TODO-24，机制统一到 LessonCompletion）。**表计数校准**：§三 17→18（+LessonCompletion，M3f）；§四 22→21（−LessonCompletion 移出）。**修正 DR-127 前提**：DR-127/TODO-24 原说"迁移到 LessonCompletion"，未意识到它是幻影表——前提修正为「LessonCompletion 须先新建（M3f），再做完成记录机制统一」。**同 DR-121 处理**：幻影表纠正为新建 + 线上现状（粗粒度完成/分散进度表）为改造源。排除「听音视频不单独计数（简化）」：大纲盲/聋判定硬性要求分维度 COUNT，简化则判定做不了；排除「维持 LessonCompletion 标复用」：grep=0 铁证不存在，复用标签是误判必须纠正 |
 | DR-128 | 成就徽章定位：暂不作正式功能上线，只保留后台关键部分（能力 38 + 联动能力 30）| **能力 38 成就徽章本体 ⏸ 暂不作正式功能上线（只保留 BADGES 定义 + UserAchievementUnlock 表 + 派生/解锁逻辑后台运行）；联动能力 30 成就解锁通知聚合随之降为 ⏸（cron 后台保留，不作正式通知功能）**（用户决策 2026-05-31）| 逐条登记 A7 成就徽章时，用户决策「成就徽章暂时不做，只做后台关键部分」——同 DR-109 AI 模块「只做后台必要部分、不作正式用户功能上线」调子。**处理**：(1) 能力 38 打 ⏸ 标签，仅如实登记线上现状（5 类徽章 BadgeCategory、BADGES 代码常量定义、从 UserAnswer/SM-2/streak 派生、detectAndPersistNewUnlocks 解锁持久化），保留后台运行不扩展；(2) **联动能力 30**——成就解锁通知聚合是徽章解锁的下游通知，徽章本体既暂缓，其通知聚合也随之降 ⏸（DR-125 原登记 ✅ 纳入，本条修订为 ⏸）；cron 后台逻辑保留（解锁记录仍聚合标记 notifiedAt 避免堆积），但不作正式用户通知功能；徽章上线时即可恢复。**为何登记而非删除**：06 是 source of truth，线上活功能即便暂缓也须登记打 ⏸ 标签（功能标签铁律），避免净资产孤儿——同 25.C 笔记 AI 现状登记逻辑。**无表计数变化**：UserAchievementUnlock 净资产保留，无新表。排除「彻底删除徽章」：用户选「只做后台关键部分」非「去掉」，保留后台 + ⏸ 标签；排除「能力 30 维持 ✅」：徽章本体暂缓则解锁通知无正式功能意义，降 ⏸ 保持一致 |
 | DR-127 | 完成记录机制冲突：线上课程级数组 vs 新设计 LessonCompletion 表（能力 37 核查挖出）| **改造时统一到 LessonCompletion：完成写入端（reading/meditations）+ 下游读取端（courses/enrollment/dossier/smart-practice）一并迁移；UserCourseEnrollment 完成数组随 DR-113 废弃。挂 TODO-24**（用户决策 2026-05-31）| 登记能力 37 法本阅读器时核查阅读完成写入路径，挖出与 DR-121 同类的「功能依赖将被改造掉的东西」问题，但更准确的是**机制冲突**：**(事实1)** 线上阅读完成（`reading/service.ts`）+ 观修完成（`meditations/student.service.ts` 视频≥80%）把 lessonId/medId 追加进 `UserCourseEnrollment.lessonsCompleted`/`meditationsCompleted` **数组**（课程级，@@unique([userId,courseId])）；**(事实2)** 新设计闻思圆满判定**走 `LessonCompletion` 表**（DR-92：看=COUNT(LessonCompletion type=read)），与课程级数组是**两套不同机制**；**(事实3)** UserCourseEnrollment 课程语义随 DR-113 废弃迁专业级。**下游依赖核查**（grep 全仓，6 处）：写端 reading/meditations 2 处；读端 courses（课程进度展示 done/total%）、enrollment（进度管理）、dossier（学情统计完成课时数）、smart-practice（"已学课时"抽题）4 处。**关键澄清**：新设计判定端（LessonCompletion）已是目标态、无需改；要改的是**写入端 + 读取端的对接**——这不是"幻影表"（DR-121 那种结构性大坑），而是"完成记录从课程级数组 → LessonCompletion 表"的**机制统一迁移**。**处理**：挂 TODO-24，改造 DR-113 时一并迁移写入/读取两端，确保阅读/观修完成接上新设计闻思圆满判定，否则改造后完成记录写废弃表 → 闻思圆满判定取不到数据 → 升学预检数据错。排除「现在就改写入/读取代码」：本轮是设计登记非实现，且牵动 DR-113 专业级进度结构设计，统一在 DR-113 实现时做；排除「保留课程级数组双写」：与新设计 LessonCompletion 单一数据源冲突、双写一致性难维护 |
 | DR-126 | 第二轮功能级核查：净资产对应的用户功能补登记（接 DR-125，逐条进行）| **用户指出 DR-125 核查不全（藏历/画报/系统公告/通知推送等净资产功能未登记），完整差集核查找出 17 个孤儿，逐条讨论补登记为能力 32 起；首条能力 32 题库答题与判分已确认**（用户决策 2026-05-31，进行中）| DR-125 仅挖 6 个盲区，用户点名藏历/首页画报/通知推送/系统公告为何没列——核查确认：这些是**净资产对应的用户功能**，此前我把「净资产=表保留」误等同「功能已登记」，整层跳过，是方法性漏核。**完整差集**（76 前端页 × 已登记 31 能力）找出 **17 个有功能/有前端页、06 零能力登记**的孤儿：**A 组学习引擎 7**（题库答题/SM2 复习/错题本/收藏夹/笔记本体+高亮/法本阅读器+进度/成就徽章本体）、**B 组运营内容 4**（藏历/首页画报/系统公告/法会信息）、**C 组账户通知 6**（通知中心+偏好/Web 推送订阅/账户体系/个人档案/设置+隐私开关/内容举报闭环）。用户决策：**全部纳入，但每条逐个讨论确定**（符合「每条决策与我核对」工作风格）。**首条落地**：能力 32 题库答题与判分（A1）——14 题型（QuestionType 枚举，8 上线 + 6 v2 就位）、三类判分（客观程序判 / 开放 AI 判 / flip 自评）、答题反馈 correctText/wrongText、答错入错题本；服务能力 3，衔接能力 33/34/31，复用 LLM 网关（DR-108）。复用 Question/UserAnswer 净资产，无新表。**后续 16 条逐条确认中**。排除「批量一次性补」：用户明确逐条讨论；排除「不登记继续当净资产」：净资产=表保留 ≠ 功能登记，06 是 source of truth，活功能不登记是孤儿、违反功能标签铁律（这正是本轮要纠正的漏核根因）|
@@ -4510,6 +4511,25 @@ model UserSelfStudyProgram {
 
 ---
 
+### 检查轮次 78（2026-05-31，范围：🔴 DR-129 LessonCompletion 幻影表纠正 + 能力 39 音视频学习 · 表计数 §三18/§四21 · 跨 06/08）
+
+> 用户追问「音视频学习+计数查了吗」——核查挖出 LessonCompletion 是幻影表（同 DR-121 类，且是闻思判定基石），用户「按我建议补全」。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. 幻影表事实核查 | ✅ | grep `^model LessonCompletion`=0 铁证不存在；08 §四误标「✅ 确认复用 DR-72」；线上音视频有内容（LessonResource type=audio/video）但不记完成 |
+| 2. 缺口定性 | ✅ | 大纲盲(听≥2)/聋(看≥2)硬规则要分维度 COUNT，线上粗粒度 UCE.lessonsCompleted 做不到；LessonCompletion 支撑能力 3/9/14/26 却是幻影 |
+| 3. DR-129 + 能力 39 | ✅ | DR-129 纠正幻影表→🆕新建（M3f）+ 两层结构；能力 39 音视频学习落 06（A8）|
+| 4. 表计数校准 | ✅ | §三 17→18（+LessonCompletion，标题+注+11.3+M3f 同步）；§四 22→21（−LessonCompletion，11.3 同步）；§一12 不变 |
+| 5. 修正 DR-127 前提 | ✅ | TODO-24 原「LessonCompletion 已是目标态无需改」修正为「须先新建（M3f）再机制统一」 |
+| 6. 待办登记 | ✅ | TODO-25 音视频播放达标阈值待定；TODO-24 前提已修 |
+| 7. 进度更新 | ✅ | 06 章首「A 组 8 条（7 纳入+1 暂缓），含核查挖出 A8」|
+
+**本轮发现问题数**：1（LessonCompletion 幻影表——已纠正 DR-129、补能力 39、表计数校准、修 DR-127 前提）。
+**结论**：DR-129 纠正闻思判定基石 LessonCompletion 幻影表（08 误标复用），补能力 39 音视频学习 + 分维度听/看完成计数（满足大纲盲/聋判定）。**表计数变动：§三新建 17→18、§四复用 22→21**（LessonCompletion 移位），§一扩展 12 不变。这是 DR-121 实修域、DR-123 PracticeTemplate 之后第 3 个「08 误标复用、实为幻影/新建」的纠正——印证用户两轮质疑「核查不全」的价值。待「下一条」进 B 组运营内容。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -4540,7 +4560,8 @@ model UserSelfStudyProgram {
 | ~~TODO-21~~ ✅ 已闭合 | ~~线上打卡器配套能力去留（DR-121）~~——**已闭合（2026-05-31，DR-122）**：实修 11 表逐张定归宿。补签 PracticeMakeup **保留**（纳入设计作正式功能）；日聚合排行 PracticeDailySummary **废**（排行从 PracticeLog 实时算+缓存）；每日目标 PracticeGoal **折叠**进 UserPracticeVow；大类字典 PracticeCategory **保留**；另 PracticeTask→ClassTask（class）+UserPracticeVow（self）、PracticeJournal 废弃、**PracticeTemplate 改造新建（DR-123 纠正：曾误判废弃，实为 CohortRecommendedTemplate 依赖的承重表）**、PracticeEntry→PracticeLog 改造扩展、UserPracticeVow 改造新建。**细化见 DR-123**（含表计数校准 §一13→12/§三15→17、ClassTask 映射、M3e/M1.5 migration）| DR-121 实修域落差核查 | ✅ 已处理（DR-122/123）| DR-121 / DR-122 / DR-123 |
 | ~~TODO-22~~ ✅ 已闭合 | ~~fixed（期间累计）班级任务无落点（DR-123）~~——**已闭合（2026-05-31，DR-124）**：用户决策班级任务可「以时间为单位」（每周 3 座禅修=weekly、每天 1000 遍观音心咒=daily、本月共 10 万遍=fixed）。ClassTask 加 `period`（daily/weekly/fixed）+ dailyTarget/weeklyTarget/targetCount 三目标字段，承接线上 mode=fixed 并新增 weekly；达标率按 period 三口径算 | DR-123 ClassTask←PracticeTask 映射 | ✅ 已处理（DR-124）| DR-123 / DR-124 |
 | TODO-23 | ⚠️ **能力 26/29 实修数据源迁移**（DR-125）：两个能力都读实修域改造后**不再保留**的表，须迁数据源。**能力 29 个人智能提醒**（`scheduler/personal-reminders.ts`/`reminder-queries.ts`）读 PracticeGoal（已折叠进 UserPracticeVow.dailyTarget，DR-122）、PracticeTask daily（已拆流 ClassTask/UserPracticeVow，DR-123）、PracticeDailySummary（已废弃，DR-122）——「即将圆满/今日未打卡」判定须接到 UserPracticeVow + 实时聚合 PracticeLog。**能力 26 综合积分排行**（`practice/study-ranking.routes.ts`）念诵维度 + 活跃天数维度读 PracticeDailySummary（已废弃）——须改为实时聚合 PracticeLog（与观修排行实时算同口径，DR-122）；观修/答题/阅读维度（MeditationSession/UserAnswer/LessonReadingProgress）不受影响。**共因**：PracticeDailySummary 废弃后，所有依赖它的读取都要转实时聚合 PracticeLog | DR-125 能力 26/29 ← 实修域改造（DR-122/123）| 实修域改造实现时 | DR-122 / DR-123 / DR-125 |
-| TODO-24 | ⚠️ **完成记录机制统一**（DR-127）：线上阅读完成（`reading/service.ts`，能力 37）+ 观修完成（`meditations/student.service.ts` 视频≥80%，能力 4）写 `UserCourseEnrollment.lessonsCompleted`/`meditationsCompleted` 数组（课程级），但新设计闻思圆满判定走 `LessonCompletion` 表（DR-92），UserCourseEnrollment 随 DR-113 废弃。改造时统一迁移：① 写入端 reading/meditations 改写 LessonCompletion；② 读取端 courses（进度展示）/enrollment/dossier（学情）/smart-practice（已学课时抽题）改读 LessonCompletion 聚合。新设计判定端（LessonCompletion）已是目标态无需改 | DR-127 能力 37/4 ← DR-113/DR-92 | DR-113 专业级迁移实现时 | DR-113 / DR-92 / DR-127 |
+| TODO-24 | ⚠️ **完成记录机制统一**（DR-127）：线上阅读完成（`reading/service.ts`，能力 37）+ 观修完成（`meditations/student.service.ts` 视频≥80%，能力 4）写 `UserCourseEnrollment.lessonsCompleted`/`meditationsCompleted` 数组（课程级），但新设计闻思圆满判定走 `LessonCompletion` 表（DR-92），UserCourseEnrollment 随 DR-113 废弃。改造时统一迁移：① 写入端 reading/meditations 改写 LessonCompletion；② 读取端 courses（进度展示）/enrollment/dossier（学情）/smart-practice（已学课时抽题）改读 LessonCompletion 聚合。**前提修正（DR-129）**：原说「LessonCompletion 已是目标态无需改」有误——LessonCompletion 是幻影表，须**先新建**（M3f），再做本机制统一 | DR-127 能力 37/4 ← DR-113/DR-92/DR-129 | DR-113 专业级迁移实现时（LessonCompletion 新建后）| DR-113 / DR-92 / DR-127 / DR-129 |
+| TODO-25 | ⚠️ **音视频播放达标阈值**（DR-129，能力 39）：音视频播放多少 % / 多少秒算「听/看一遍」（写一条 LessonCompletion type=audio/video）尚未定。看法本已有双阈值（scrollPercent≥90 OR totalSeconds≥30&≥50%，能力 37）；音视频阈值待实现时按大纲/产品定 | DR-129 能力 39 音视频完成判定 | 音视频学习实现时 | DR-129 |
 
 ---
 
@@ -4567,6 +4588,7 @@ model UserSelfStudyProgram {
 | **M3c · 关怀体系** | StudentSpecialStatus、CareWatchlistItem、ReportConfession（CareFollowupRecord 见 M2b）| →User/Class；ReportConfession→CareWatchlistItem（故 CareWatchlistItem 先建）| M1 | 新建表 |
 | **M3d · 班级运维** | ClassInviteCode、AssistantAssignment、LeaveRequest、ClassTask、ClassSessionSchedule、EnrollmentStatusHistory | →Class/User；ClassTask→PracticeProject；ClassSessionSchedule→Lesson；EnrollmentStatusHistory→ClassMember；ClassSession.scheduleId→ClassSessionSchedule（M1 已加列，此处补 FK）| M1 | 新建表；ClassSession.scheduleId 外键在此单元补建（解循环依赖）|
 | **M3e · 实修体系**（DR-123）| UserPracticeVow（发愿层）、PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖）| UserPracticeVow→User/Event/ClassTask/CohortRecommendedTemplate/PracticeProject/PracticeLog；PracticeTemplate→PracticeProject | M1（PracticeLog/PracticeProject 就位）、M3d（ClassTask 就位，UserPracticeVow.classTaskId FK）| 新建表（实修域改造细化，DR-122/123）|
+| **M3f · 闻思完成事件**（DR-129）| LessonCompletion（听/看/观修完成事件，带 type=audio/video/read/meditation）| LessonCompletion→User/Lesson（+冗余 courseId）| M1（Lesson 就位）| 新建表（幻影表纠正，DR-129；能力 3 闻思圆满 + 能力 14 掉队 + 能力 9 报数 + 能力 26 阅读维度的判定数据源）|
 
 > **循环依赖处理**：M1 给 ClassSession 加 `scheduleId String?` 列（仅列，不建 FK），M3d 创建 ClassSessionSchedule 后再补 `scheduleId → ClassSessionSchedule` 外键约束。两步拆开避免 M1 引用尚未存在的表。
 
@@ -4584,10 +4606,10 @@ model UserSelfStudyProgram {
 
 - **§一 扩展 12 张**（DR-123 校准，UserPracticeVow 移出至 §三）→ M1 全覆盖 ✅（含 PracticeLog = PracticeEntry rename+加列）
 - **§二 替换 3 张** → M2a(UserRoleAssignment) + M2b(CareFollowupRecord) + M2c(TransmissionRecord) 全覆盖 ✅
-- **§三 新建 17 张**（DR-123 校准，+UserPracticeVow +PracticeTemplate）→ M3a(2) + M3b(4) + M3c(3) + M3d(6) + M3e(2) = 17 ✅（原 15：ProgramAdvancementConfig/RoleAssignmentHistory/StudentSpecialStatus/CareWatchlistItem/ClassInviteCode/AssistantAssignment/SemesterSnapshot/ReportConfession/AdvancementCheck/AdvancementRecord/AuditLog/EnrollmentStatusHistory/ClassSessionSchedule/ClassTask/LeaveRequest；M3e 新增：UserPracticeVow/PracticeTemplate）
+- **§三 新建 18 张**（DR-123→129 校准，+UserPracticeVow +PracticeTemplate +LessonCompletion）→ M3a(2) + M3b(4) + M3c(3) + M3d(6) + M3e(2) + M3f(1) = 18 ✅（原 15 + M3e UserPracticeVow/PracticeTemplate + M3f LessonCompletion）
 - **实修域改造源清理** → M1.5（PracticeGoal/PracticeTask/PracticeDailySummary 不入目标 schema，DR-122）
 - **§五 暂缓 11 张 + AI 4 张**（AiUsage 复用不计，DR-110）→ M4~M8（实现时编）⏸（§五 11 = 社交 4+4+2 + 自学 1，DR-104 删 RestWeek；检查轮次 53 顺修旧残留 12→11）
-- **§四 复用 22 张**（DR-123 校准：−PracticeTemplate(→§三) −PracticeJournal(废弃) +PracticeCategory +PracticeMakeup，净额仍 22）→ 不动，不入 migration
+- **§四 复用 21 张**（DR-129 校准：DR-123 后为 22，本轮 −LessonCompletion(→§三 新建，幻影表纠正)= 21）→ 不动，不入 migration
 
 ---
 
