@@ -1304,7 +1304,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 #### 输入与输出
 - 输入：学员提问文本、当前页面上下文（课时/法本）、辅导员查看洞察、super_admin 触发法本索引重建
-- 输出：`AiConversation` / `AiMessage`（对话记录）、`AiUsage`（用量统计）、`ContentChunk`（法本段落向量索引）、`FeatureEntry`（功能目录）
+- 输出：`AiConversation` / `AiMessage`（对话记录）、`ContentChunk`（法本段落向量索引）、`FeatureEntry`（功能目录）；用量统计**复用 `LlmCallLog`/`LlmProviderUsage`**（不新建 AiUsage，DR-110）
 
 #### 与其他能力的关系
 - 依赖：能力 2（确定提问者身份：学员可问 / 辅导员只读）、能力 3（法本课时被索引为 ContentChunk）、能力 18（权限：学员提问 / 辅导员洞察 / super_admin 配置，职能 #20）
@@ -1319,7 +1319,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 #### 对老项目的影响
 - 需安装 pgvector PostgreSQL 扩展
-- 新增 5 张表：`ContentChunk` / `FeatureEntry` / `AiConversation` / `AiMessage` / `AiUsage`（已在 08 §四 列出，⏸ 暂缓实现，本次完成业务能力定稿）
+- 新增 **4 张表**：`ContentChunk` / `FeatureEntry` / `AiConversation` / `AiMessage`（已在 08 §四 列出，⏸ 暂缓实现）；**`AiUsage` 不新建 → 复用 `LlmCallLog`/`LlmProviderUsage`**（DR-110）
 - **LLM 调用层复用线上既有网关**（多 provider 调度 / 配额 / 熔断 / 每日成本上限 / super_admin 配置后台均已存在，并已在判分·出题两场景上线），仅新增 `dharma_qa`（法义问答）/ `feature_nav`（功能导航）两个场景配置；**不从零自建调用层**（DR-108，修订 DR-74 原「独立从零模块」假设）
 - 技术方案详见 `docs/AI_ASSISTANT_PLAN.md`（2026-05-04 已定型）
 
@@ -1440,7 +1440,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 | 22 | 班级动态（社交互动） | ✓（⏸ 暂缓实现，08 §5.1）|
 | 23 | 班级讨论（话题投票） | ✓（⏸ 暂缓实现，08 §5.2）|
 | 24 | 约修（集体修持目标） | ✓（⏸ 暂缓实现，08 §5.3）|
-| 25 | AI 助手（25.A 问答导航 + 25.B 代操作 + 25.C 笔记加工）| ✓（**AI 模块整体暂不作正式功能上线 DR-109**；25.C 已上线维持现状；08 §四 5 张表 + DR-74/106/107/108/109）|
+| 25 | AI 助手（25.A 问答导航 + 25.B 代操作 + 25.C 笔记加工）| ✓（**AI 模块整体暂不作正式功能上线 DR-109**；25.C 已上线维持现状；08 §四 4 张新建 + AiUsage 复用 + DR-74/106/107/108/109/110）|
 
 ---
 
@@ -1487,3 +1487,4 @@ student（学员）是核心用户角色，不属于管理角色体系。
 | 2026-05-31 | 产品负责人 | **能力 25 扩展子能力 25.B AI 代操作**（DR-107）：AI 自然语言代用户查询与录入（打卡/报数/观修/约修/笔记），五条铁律（权限不放大/只碰本人数据/写前强制确认/多专业问清归属/来源留痕 source=ai_assistant）；高权限操作 AI 永不代做；落库后纠错走能力 5（沿用能力 9）。原能力 25 重组为 25.A 只读问答 + 25.B 代操作。数据契约：不新建业务表，写表加 ai_assistant 来源值 + AiMessage 加 toolCall/actionResult，登记 08 TODO-AI-2。⏸ 暂缓实现 |
 | 2026-05-31 | 产品负责人 | **DR-108 修订 DR-74**：能力 25 实现时大模型调用/配额/熔断/成本复用线上既有 LLM 网关（多 provider/gateway/circuit/quota + AdminLlmPage），仅新增 dharma_qa/feature_nav 两场景，不从零自建调用层；5 张表暂缓实现结论不变（审计 01 §五 #1）|
 | 2026-05-31 | 产品负责人 | **DR-109：AI 模块整体定位 + 补子能力 25.C**：AI 模块（25.A/25.B/25.C）只做后台必要部分、暂不作为正式用户功能上线；已上线的笔记 AI 加工保留运行但不扩展。新增 25.C 笔记 AI 文本加工（5 action 润色/摘要/标签/拟标题/起草，严禁碰法义、仅本人笔记、零新表复用 Note+gateway），仅作已上线现状登记。关闭 08 TODO-AI-1（审计 01 §九 #2）|
+| 2026-05-31 | 产品负责人 | **DR-110：能力 25 AI 助手表重估**：AiUsage 不新建 → 复用线上 `LlmCallLog`（userId/scenario/cost 索引齐全，可算每日限流）+ `LlmProviderUsage`（按日聚合 cost，可读成本上限）；AI 模块真正新增表 5 → 4（ContentChunk/FeatureEntry/AiConversation/AiMessage）。闭合 DR-108 预告（审计 01 §九 #3）|

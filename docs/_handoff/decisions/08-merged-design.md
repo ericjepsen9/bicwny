@@ -2127,7 +2127,8 @@ model EnrollmentStatusHistory {
 | `TantricGroup` | 能力 15/17 | 🔧 微调（删 grants，补 transmissionRecords，详见下，DR-73）|
 | `ContentChunk` | 能力 25 AI 助手 | ⏸ 暂缓实现（AI 模块，DR-74；业务已登记能力 25，DR-106；调用层复用既有 LLM 网关，DR-108）|
 | `FeatureEntry` | 能力 25 AI 助手 | ⏸ 暂缓实现（AI 模块，DR-74；业务已登记能力 25，DR-106；调用层复用既有 LLM 网关，DR-108）|
-| `AiConversation` / `AiMessage` / `AiUsage` | 能力 25 AI 助手 | ⏸ 暂缓实现（AI 模块，DR-74；业务已登记能力 25，DR-106；调用层复用既有 LLM 网关，DR-108）|
+| `AiConversation` / `AiMessage` | 能力 25 AI 助手 | ⏸ 暂缓实现（对话历史，真新建；AI 模块 DR-74；业务登记 DR-106；调用层复用既有网关 DR-108）|
+| ~~`AiUsage`~~ | 能力 25 AI 助手 | ❌ **不新建 → 复用 `LlmCallLog`（userId/scenario/cost + @@index([userId,timestamp]) 可算限流）+ `LlmProviderUsage`（按日聚合 cost）**（表重估，DR-110）|
 | `SpeakingSession` | 能力 10 | ✅ 复用（classId 已可空，见下方说明）|
 | `SpeakingRegistration` | 能力 10 | ✅ 确认复用（C 类批量，DR-72）|
 | ~~`Exam`~~ | 已移入扩展区 §1.4 | ✅ |
@@ -2913,10 +2914,11 @@ model UserSelfStudyProgram {
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
+| DR-110 | 能力 25 AI 助手表重估：AiUsage 是否新建 | **AiUsage 不新建，复用线上 `LlmCallLog` + `LlmProviderUsage`；AI 模块真正新增表 5 → 4（ContentChunk/FeatureEntry/AiConversation/AiMessage）**（用户决策 2026-05-31，审计 01 §五 #3 / §九 #3；DR-108 已预告）| 闭合 DR-108 预告的「AiUsage 复用 + 表重估」。核实线上：`LlmCallLog` 有 userId + scenario + cost + `@@index([userId, timestamp])`——AI 助手「每学员每日 ≤30 次」限流可直接 `COUNT(userId=X AND scenario=dharma_qa AND timestamp>=当日)` 算出；`LlmProviderUsage` 按 year/month/day/hour 聚合 cost/requestCount——「每日成本上限 $20」可直接读。两表完全覆盖 AiUsage 原职责（per-user 限流 + 每日成本统计），故 AiUsage 冗余、不新建。**真正新增 4 张**：ContentChunk（法本向量索引 pgvector）/ FeatureEntry（功能目录）/ AiConversation + AiMessage（对话历史，AiMessage 含 25.B toolCall/actionResult 契约 DR-107）。更新 §四（AiUsage 标复用）/ §十一 M8 / §十二 暂缓区计数 / 06 能力 25.A 对老项目影响 + 汇总表「5 张 → 4 张新建 + AiUsage 复用」。DR-106 加后修订注（5→4）；DR-106/检查轮次 53 文中「5 张」「AiUsage @@unique 计数」为历史记录不改写（append-only），以本条为准。排除「仍新建 AiUsage」：与线上 LlmCallLog（userId/scenario/cost 索引齐全）重复，且分裂用量统计为两套控制 |
 | DR-109 | AI 模块整体上线定位 + 补登记子能力 25.C 笔记 AI 加工（现状）| **AI 模块（25.A/25.B/25.C 全部）只做后台必要部分，暂不作为正式用户功能上线；已上线的笔记 AI 加工保留运行但不扩展、不作正式能力推进。补 25.C 仅为如实登记线上现状 + 关闭 TODO-AI-1**（用户决策 2026-05-31，审计 01 §五 #2 / §九 #2）| 现状审计 + TODO-AI-1 核实：笔记 AI 加工（5 action 润色/摘要/标签/拟标题/起草，复用 gateway）已在生产运行（后端 `POST /api/notes/llm-assist`，前端 NotesDrawer「AI 草稿」入口），但 06/08 此前未登记。**用户决策**：整个 AI 模块暂不作为正式功能推进，只做后台必要部分（AskUserQuestion 2026-05-31 选「整个 AI 模块都不作为正式功能推」）。处理：(1) 06 能力 25 顶部加「AI 模块整体暂不上线」状态横幅；(2) 补子能力 25.C，但**仅作「已上线现状」登记**（避免 source-of-truth 留孤儿、满足「每功能必有标签」铁律），打 ⏸ 不扩展标签；(3) 25.C **零新表**（复用 Note + gateway，无状态调用不需对话历史表，AiConversation/AiMessage 不为其新增）；(4) 25.C 红线「严禁碰法义」与 25.A「必须基于法义」方向相反，故独立子能力不并入 25.A。**关闭 TODO-AI-1**。排除「把 25.C 当正式新能力推进/扩展」：与用户「AI 模块暂不上线」定调冲突。排除「不登记、只用一句备注带过」：06 是 source of truth，线上活功能不登记会留孤儿、违反功能标签铁律 |
 | DR-108 | DR-74 修订：AI 助手实现时复用线上既有 LLM 网关（非从零自建）| **能力 25 实现时大模型调用 / 配额 / 熔断 / 每日成本上限一律复用线上既有 LLM 网关，仅新增 `dharma_qa`（法义问答）/ `feature_nav`（功能导航）两个 LlmScenarioConfig；DR-74「5 张表 ⏸ 暂缓实现」结论不变**（用户决策 2026-05-31，审计 01 §五 #1 / TODO-AI-1 关联）| 现状审计（01 §五）发现线上已有成熟 LLM 网关基础设施且比 AI_ASSISTANT_PLAN 设想更完善：LlmProviderConfig（多 provider minimax/claude/deepseek + 自动切兜底）/ LlmScenarioConfig（场景化，已上线 open_grading 判分 + question_gen 出题）/ LlmPromptTemplate（prompt 版本管理）/ LlmProviderUsage + LlmCallLog（用量 + 调用日志）/ gateway.ts + circuit.ts + quota.ts + AdminLlmPage 后台。DR-74 与 AI_ASSISTANT_PLAN.md 原假设「独立从零建 AI 模块」与实况冲突——调用层 / 配额 / 熔断 / 成本控制 / super_admin 配置后台均已存在。修订：能力 25 实现时**对接既有网关**，新增 dharma_qa / feature_nav 两个场景配置，复用多 provider 调度 + 熔断 + 配额 + 成本上限，**不重建调用层**。**修订范围界定**：DR-74「5 张表暂缓实现」结论不变（仍待 AI 模块独立推进、依赖 pgvector），本条仅修订「实现方式」= 复用而非自建；不改变任何表的暂缓状态、不动 §一/§四/§五 计数。**连带**：AiUsage 表可不新建（复用 LlmProviderUsage/LlmCallLog）、真正新增表重估 → 单独走后续「能力 25 表重估」核对，本条不预改表清单。排除「按 AI_ASSISTANT_PLAN 从零建调用层」：与既有网关重复造轮子，且分裂成本/配额/熔断为两套控制，运维与 super_admin 配置入口割裂 |
 | DR-107 | AI 代操作（能力 25.B）：定位、范围、确认与纠错（提前设计）| **并入能力 25 作子能力 25.B；首批=录入类写+全部查询；所有写操作一律确认；纠错沿用能力 9**（用户决策 2026-05-31）| 用户决策提前设计 AI 代操作（理由：上线后给各能力写路径补「AI 可调用+强制确认+来源标记」契约成本更大）。能力 25 重组为 **25.A 法义问答/导航（只读，原内容）** + **25.B AI 代操作（写+查询）**。**五条铁律**：(1) 权限不放大——AI 只能代用户做用户本人有权做的操作，管理员/辅导员高权限操作 AI 永不代做；(2) 只碰本人数据；(3) 写操作前强制结构化确认卡，确认后才落库；(4) 多专业必须问清归属（D14b 跨专业不豁免，确认卡带专业选择，不许擅自猜）；(5) 来源留痕 source=ai_assistant。**四个拍板点**：(Q1) 定位=并入能力 25 子能力（非独立能力 26）；(Q2) 首批范围=录入类写（打卡 7/内加行 6/观修 4/约修 24/笔记）+ 全部只读查询（3/4/6/7/8/9/10/15/17）；(Q3) 纠错=沿用能力 9 铁律（确认是主防线，落库后学员不能自改，走能力 5 修正留痕 D17）；(Q4) 确认=所有写操作一律确认（含笔记）。**禁区**：代行豁免（5）/升学审核/成绩录入（10）/角色任命（18）/撤销出勤·取消资格（8/9）/邀请码（19）/归档（11）/状态变更（退出专业 11·设主修·改设置）/报数快照触发（9 系统自动）/替他人操作。**留痕定位**：AI 代操作本质是用户本人操作（非 D17 管理员代行豁免），不进 AuditLog（能力 20 只记高权限），但记录带 source 标记 + AiMessage 记 toolCall/actionResult 关联记录 id 可追溯。**数据契约**（提前设计核心产出）：不新建业务表，复用各能力写路径；写表（PracticeLog 等）来源标注扩展 ai_assistant 值；AiMessage 扩展 toolCall/actionResult 字段——登记 §十 TODO-AI-2，仍 ⏸ 暂缓随 AI 模块实现。**排除「独立能力 26」**：用户选并入，代操作与问答同属「AI 助手」一个用户触点，子能力划分已足够区隔只读/可写性质。**排除「给 AI 代录自助撤销窗口」**：与能力 9「学员不能改已提交记录」冲突，确认环节已是主防线，纠错统一走能力 5 保持一致 |
-| DR-106 | AI 助手登记为 06 能力 25（暂缓决策讨论）| **AI 助手登记为能力 25；RAG 检索覆盖全部法本；学员可问 / 辅导员只读洞察 / super_admin 配置**（用户决策 2026-05-31）| 暂缓决策讨论：AI 助手 5 张表（ContentChunk/FeatureEntry/AiConversation/AiMessage/AiUsage）DB 设计与技术方案早在 docs/AI_ASSISTANT_PLAN.md（2026-05-04）定型，DR-74 决策暂缓字段级设计、不在融合范围内，但 06 未登记对应能力。本轮补登记能力 25，完成业务能力定稿（DB 仍 ⏸ 暂缓实现）。三个待拍板业务点用户决策：(1) **提问权限**=学员可问、class_tutor+ 只读「班级问答洞察」（不可自己提问）、super_admin 负责配置（职能 #20）；(2) **RAG 范围**=覆盖系统内全部已索引法本，不限学员是否已加入该专业（与专业归属解耦，任何学员可问任何法本）；(3) **辅导员洞察**=纳入本次定稿（Top N 热门问题聚合，不展示提问学员姓名）。其余沿用 AI_ASSISTANT_PLAN：法义必走 RAG 带引用（红线，无依据导向辅导员）、个人修行体验/教派评判不答、Rate Limit 30/日/学员、PII 不发 LLM、对话历史可物理清空（**D18 明确例外**：对话属 UI 工具记录非学修档案）、每日成本上限默认 $20。**06 范围说明**：能力 25 是横切型工具能力（同能力 18/20），非学修硬规则。**排除「RAG 限已加入专业」**（原 Q2 草稿 b）：用户明确放开为全部法本，检索范围与能力 2 归属解耦。**排除「辅导员也能提问」**：辅导员侧定位为备课洞察工具，提问入口仅面向学员（消费视图，符合三端分离）|
+| DR-106 | AI 助手登记为 06 能力 25（暂缓决策讨论）| **AI 助手登记为能力 25；RAG 检索覆盖全部法本；学员可问 / 辅导员只读洞察 / super_admin 配置**（用户决策 2026-05-31）；**后修订（DR-110）：AiUsage 不新建、复用 LlmCallLog/LlmProviderUsage，AI 新增表 5→4**| 暂缓决策讨论：AI 助手 5 张表（ContentChunk/FeatureEntry/AiConversation/AiMessage/AiUsage）DB 设计与技术方案早在 docs/AI_ASSISTANT_PLAN.md（2026-05-04）定型，DR-74 决策暂缓字段级设计、不在融合范围内，但 06 未登记对应能力。本轮补登记能力 25，完成业务能力定稿（DB 仍 ⏸ 暂缓实现）。三个待拍板业务点用户决策：(1) **提问权限**=学员可问、class_tutor+ 只读「班级问答洞察」（不可自己提问）、super_admin 负责配置（职能 #20）；(2) **RAG 范围**=覆盖系统内全部已索引法本，不限学员是否已加入该专业（与专业归属解耦，任何学员可问任何法本）；(3) **辅导员洞察**=纳入本次定稿（Top N 热门问题聚合，不展示提问学员姓名）。其余沿用 AI_ASSISTANT_PLAN：法义必走 RAG 带引用（红线，无依据导向辅导员）、个人修行体验/教派评判不答、Rate Limit 30/日/学员、PII 不发 LLM、对话历史可物理清空（**D18 明确例外**：对话属 UI 工具记录非学修档案）、每日成本上限默认 $20。**06 范围说明**：能力 25 是横切型工具能力（同能力 18/20），非学修硬规则。**排除「RAG 限已加入专业」**（原 Q2 草稿 b）：用户明确放开为全部法本，检索范围与能力 2 归属解耦。**排除「辅导员也能提问」**：辅导员侧定位为备课洞察工具，提问入口仅面向学员（消费视图，符合三端分离）|
 | DR-105 | 社交三件套登记为 06 能力（暂缓决策讨论）| **班级动态/讨论/约修登记为能力 22/23/24**（用户决策 2026-05-30）| 暂缓决策讨论：§5.1/5.2/5.3 三家族 DB 设计早已封板（DR-50~60），但服务的功能不在 06 的 20 条能力内，三处均挂 ⚠️「06 未登记能力」。用户选「现在补登记」。三能力为已封板设计的转录（无新业务决策）：能力 22 班级动态（发帖/评论/点赞/转发，DR-50~52）、能力 23 班级讨论（话题/投票一人一票不换投，DR-53~56）、能力 24 约修（集体修持目标，任意成员发起，DR-57~60）。三者均「内容本班可见 + 不物理删（D18，点赞物理删为 DR-50 例外）」。**06 范围说明**：登记后 06 从「纯预科学修管理」扩到含「班级社交/协作」——这三个是班级级互动功能，非学修硬规则，与能力 18/20 等横切能力一样可纳入。08 §5.1/5.2/5.3 三处 ⚠️ 解除。**排除「不登记，留作基础设施」**：06 是 source of truth，有表无能力会留下孤儿设计，违反「先有能力才有表」原则 |
 | DR-104 | 自学进度模型（暂缓决策讨论·能力 21）| **自学进度=纯完成量，独立于班级；取消休息周/起修日/节奏（推翻 DR-62~64）**（用户决策 2026-05-30）| 用户决策：「自学不需要申报休息周，自学进度独立于班级」。逻辑：休息周存在的唯一意义是在「按班级课表周次推进」模型里暂停进度时钟、防假性掉队；自学进度独立、不对标周次、无掉队概念，故休息周（DR-62/63）/ 进度补足算法（DR-64）/ pace 节奏 / startDate 起修日**全部失去意义，一并取消**。新模型：进度 = 纯完成量，按 userId 聚合 LessonCompletion（课时完成度）+ PracticeLog（个人学修量），完成多少算多少，学员自定快慢，系统不判「落后」。**删表 UserSelfStudyRestWeek**（§五 12→11）；UserSelfStudyProgram 精简为 userId/programId/status（去 startDate/pace）。顺带修正 abandoned 权限 class_admin+→subject_admin+（自学无班级，作用域漏洞，与 DR-61 一致）。推翻 DR-62/63/64（均标作废）。**排除「保留休息周但不强制」**：无周次时钟可暂停，休息周纯属冗余字段，删除最干净 |
 | DR-103 | 自学模式与升学体系的接轨边界（§5.4，暂缓决策讨论）| **自学=纯自我学习轨道：无班级、不升学、不做共修出勤；可录个人学修数量作自我追踪**（用户决策 2026-05-30）| 暂缓决策讨论确认自学模式定位。闸门问题「自学能否升学」定为**不能**（SS-1=c）：自学师兄要升学，须先经邀请码加入正式班级（能力 2），届时与班级学员一视同仁。连锁：(1) 不升学→不考升学考、不生成 SemesterSnapshot、不进升学预检；(2) 不做共修出勤（能力 8 机制不适用，自学无班级无共修）；(3) **可录个人学修数量**（念诵/观修，复用 PracticeLog——经核对 PracticeLog 字段无 classId，零改造；发愿走 context=personal）作个人进度追踪（DR-104 纯完成量）；(4) 升学体系表零改造（不为无班级加可空 classId）；(5) **不进关怀清单**（SS-4，用户决策 2026-05-30）——能力 14 关怀清单是班级机制（CareWatchlistItem.classId），自学无班级故不进；自学进度独立、无掉队概念故无预警（DR-104）。同步修订 06 能力 8 自学条款（不做出勤统计）+ 能力 9 规则 8（个人学修追踪，不做升学报数快照）。**排除 a/b（自学也能升学）**：会迫使升学/考试/报数/出勤全体系为「无班级」改造，复杂度高且违背班级中心模型（能力 2/8/9/10 均以 class 为锚）。§十二 P7 同步去掉对 P2 升学预检的依赖 |
@@ -4043,6 +4045,25 @@ model UserSelfStudyProgram {
 
 ---
 
+### 检查轮次 57（2026-05-31，范围：DR-110 能力 25 AI 助手表重估 · AiUsage 复用 · 跨 06/08）
+
+> 本轮处理审计待修订清单 **#3**（01 §九）+ 闭合 DR-108 预告：核实线上 `LlmCallLog`/`LlmProviderUsage` 已覆盖 AiUsage 职责，AiUsage 不新建，AI 模块真正新增表 5 → 4。**纯计数/归类修订，不新建表、不改字段。**
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. DB 变更为零 | ✅ | DR-110 是表重估（AiUsage 从「新建」改判「复用」），不新建表 / 不改字段；§一(13)/§三(15)/§五(11) 学修体系计数全不变；仅 AI 暂缓区「5→4」 |
+| 2. AiUsage 复用可落地 | ✅ | LlmCallLog（userId/scenario/cost + @@index([userId,timestamp])）→ 限流 COUNT；LlmProviderUsage（periodType=day 聚合 cost）→ 每日成本上限；两表经 schema 核实索引齐全，覆盖 AiUsage 全部原职责 |
+| 3. 当前状态引用全部对齐 | ✅ | §四（AiUsage 拆出标复用，AiConversation/AiMessage 单列新建）/ §十一 M8（4 张新建 + AiUsage 复用）/ §十二 暂缓区两处（AI 5→4）/ 06 输出·对老项目影响·汇总表 —— 6 处当前状态引用全改「4 张新建 + AiUsage 复用」 |
+| 4. 历史记录不改写（append-only）| ✅ | DR-74/DR-106 决策点文中「5 张表」、检查轮次 1/23/53 等历史检查的「AI 5 张」「AiUsage @@unique 计数」均保留原样；DR-106 加「后修订（DR-110）」前向注；以 DR-110 为权威，不篡改历史 |
+| 5. 06↔08 双文档一致 | ✅ | 06 能力 25.A（输出 4 表 + AiUsage 复用、对老项目影响 4 张新建）与 08 DR-110、§四、§十一 M8 一致；汇总表引用 DR-110 |
+| 6. 真正新增 4 张内容正确 | ✅ | ContentChunk（pgvector 向量）/ FeatureEntry（功能目录）/ AiConversation + AiMessage（对话历史，AiMessage 含 DR-107 toolCall/actionResult 契约）——4 张职责互不重叠，均非线上既有 |
+| 7. 审计待修订项对齐 | ✅ | 01 §九 #3 标「✅ 已处理（DR-110）」；与 #1（DR-108 网关复用）连续——DR-108 预告、DR-110 闭合 |
+
+**本轮发现问题数**：0（DR-110 为用户决策，08 六处 + 06 四处 + 审计回标一次到位）。
+**结论**：待修订 #3 闭合。AiUsage 不新建（复用 LlmCallLog + LlmProviderUsage）；AI 模块真正新增表 5 → 4（ContentChunk/FeatureEntry/AiConversation/AiMessage）。**至此 AI 模块三条修订（#1 网关复用 DR-108 / #2 暂不上线+25.C DR-109 / #3 表重估 DR-110）全部闭合。**
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -4103,14 +4124,14 @@ model UserSelfStudyProgram {
 | **M5 · 班级讨论** ⏸ | §5.2 Discussion/DiscussionViewpoint/DiscussionVote/DiscussionComment（4 张）| →Class/User/Lesson/Course | 讨论模块开工（DR-53）|
 | **M6 · 约修** ⏸ | §5.3 PracticeAppointment/PracticeAppointmentParticipant（2 张）| →Class/User/PracticeProject；需恢复 PracticeProject.appointments[] 反向（已补，TODO-3）| 约修模块开工（DR-57~60）|
 | **M7 · 自学模式** ⏸ | §5.4 UserSelfStudyProgram（1 张，DR-104 删 RestWeek）；同时恢复 Program.selfStudy[] 反向关联（TODO-5）| →User/Program | 自学模式开工（DR-61/103/104，TODO-5）|
-| **M8 · AI 助手** ⏸ | ContentChunk/FeatureEntry/AiConversation/AiMessage/AiUsage（5 张）；依赖 pgvector 扩展 | 独立模块 | 能力 25；AI 模块独立推进（DR-74/106）|
+| **M8 · AI 助手** ⏸ | ContentChunk/FeatureEntry/AiConversation/AiMessage（**4 张新建**）+ AiUsage **复用 LlmCallLog/LlmProviderUsage 不新建**（DR-110）；依赖 pgvector 扩展 | 独立模块 | 能力 25；AI 模块独立推进（DR-74/106/108/109）|
 
 ### 11.3 Migration 覆盖完整性核对
 
 - **§一 扩展 13 张** → M1 全覆盖 ✅
 - **§二 替换 3 张** → M2a(UserRoleAssignment) + M2b(CareFollowupRecord) + M2c(TransmissionRecord) 全覆盖 ✅
 - **§三 新建 15 张** → M3a(2) + M3b(4) + M3c(3) + M3d(6) = 15 ✅（ProgramAdvancementConfig/RoleAssignmentHistory/StudentSpecialStatus/CareWatchlistItem/ClassInviteCode/AssistantAssignment/SemesterSnapshot/ReportConfession/AdvancementCheck/AdvancementRecord/AuditLog/EnrollmentStatusHistory/ClassSessionSchedule/ClassTask/LeaveRequest）
-- **§五 暂缓 11 张 + AI 5 张** → M4~M8（实现时编）⏸（§五 11 = 社交 4+4+2 + 自学 1，DR-104 删 RestWeek；检查轮次 53 顺修旧残留 12→11）
+- **§五 暂缓 11 张 + AI 4 张**（AiUsage 复用不计，DR-110）→ M4~M8（实现时编）⏸（§五 11 = 社交 4+4+2 + 自学 1，DR-104 删 RestWeek；检查轮次 53 顺修旧残留 12→11）
 - **§四 复用 22 张** → 不动，不入 migration
 
 ---
@@ -4137,7 +4158,7 @@ model UserSelfStudyProgram {
 - **§二 替换 3 张分属三 Phase**：M2a→P1、M2b→P3、M2c→P5（检查轮次 48 修复，原 M2 整体单元拆为 M2a/b/c）✅
 - **DR-101 四页管理界面**全部落 P2 ✅
 - **关键依赖链**：P1（权限）→ 一切写操作；P2（升学）→ P3 触发器；P3 内 CareWatchlistItem→CareFollowupRecord 顺序；无环 ✅
-- **暂缓区**（§五 11 张 + AI 5 张）对应 P6~P8，与 §五 标签一致 ✅（§五 11 = 班级动态 4 + 讨论 4 + 约修 2 + 自学 1；DR-104 删 RestWeek）
+- **暂缓区**（§五 11 张 + AI 4 张，AiUsage 复用 DR-110）对应 P6~P8，与 §五 标签一致 ✅（§五 11 = 班级动态 4 + 讨论 4 + 约修 2 + 自学 1；DR-104 删 RestWeek）
 
 ---
 
