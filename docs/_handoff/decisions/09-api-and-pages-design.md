@@ -407,7 +407,45 @@
 
 ---
 
-> **进度**：已产出 **11 条**（能力 1/3/4/6/7/8/9/10/11/37/39）——**主干学修闭环成片**：专业配置(1) → 闻思学习(3/37/39) → 实修(4/6/7) → 共修(8) → 报数(9) → 考试升学(10) → 留级生命周期(11)。
-> **下一批（批6-8）**：管理/关怀/传承/权限/审计（5/12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
+## 能力 5 · 管理员代行操作（横切能力）  〔批6·管理横切〕
+
+### 涉及表（08 落点）
+`AuditLog`（✅ 净资产·DR-118 冲突改造，代行记录统一台账，**永不物理删除**）· 效果写各域**原生字段**：`UserPracticeVow.isSubstituted`（替代）/ `StudyRecord`（补卡行）/ `ExamGrade`（upsert 修正）/ `StudentSpecialStatus`（盲聋认定，能力 12）· 升学豁免由 `AdvancementCheck`（能力 10）按 `conditionKey` 读 AuditLog 应用
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| POST | `/api/admin/students/:uid/proxy-actions` | class_admin（本班）/ subject_admin（本学科）/ super_admin（任意）| `{actionType,domain,targetKey,payload,reason*,basis?,scope,notify=true}` | `AuditLog` | 🆕 | **统一代行入口**；`actionType` 五类（见下）；`reason` 必填否则 422；写 AuditLog + 落原生字段；按角色校验作用域（越域 403）|
+| GET | `/api/admin/students/:uid/proxy-actions` | class_tutor+（只读）| `?domain` | `AuditLog[]`（含已撤回链）| 🆕 | 学员档案代行史（管理端，辅导员可读供「建议」参考）|
+| POST | `/api/admin/proxy-actions/:id/revoke` | 同级或更高 | `{reason*}` | 新 `AuditLog`（type=revoke）| 🆕 | **撤回=新记录**，原记录永不删（绝对约束6）；撤回同步回滚原生字段 |
+| POST | `/api/coach/students/:uid/proxy-suggestions` | class_tutor | `{domain,targetKey,suggestion,reason}` | 建议记录 | 🆕 | **辅导员只能「建议」不能执行**（业务规则3），路由给班级管理员处理 |
+| GET | `/api/me/proxy-actions` | student | — | 本人档案代行记录（只读全文）| 🆕 | **学员可见权**（绝对约束7·D18 双方可见）|
+
+> **actionType 五类**：`exempt` 豁免（标"已满足"）· `substitute` 替代（如 200万金刚萨埵替10万顶礼→ 写 isSubstituted）· `adjust_target` 调整目标值 · `correct_record` 修正已录数据 · `retroactive_approve` 追溯认可（App 外修持追认）。`domain`/`targetKey` 定位作用对象（如 `domain=ngondro,targetKey=prostration` 或 `domain=advancement,targetKey=exam_s8`）。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 管理员 | （内嵌各管理页）学员档案 / 升学审核 / 出勤 / 实修进度页内「代行」操作区 | 选 actionType→填理由/依据/范围/是否通知→提交 | 提交即写 AuditLog + 落原生字段 + 通知学员；异常频繁→能力 14 关怀打标 | 🆕 |
+| 管理员 | 学员档案「代行记录」时间线 | 全部代行历史（含撤回链）逐条全文 | 可撤回（生成新记录）| 🆕 |
+| 辅导员 | 学员档案「建议代行」入口 | 提建议（不执行）转管理员 | 路由给班级管理员 | 🆕 |
+| 学员 | `/me/profile` 档案内「学修例外记录」 | 只读自己全部代行记录全文 | 只读（设计哲学：豁免不是污点，是学修旅程的一部分）| 🆕 |
+
+### 三端可见性
+- **学员**：自己档案上**全部**代行记录的完整内容（理由/依据/操作人/时间/撤回），永久跟随档案（毕业/退出/升学后仍在）。
+- **辅导员**：可读本班学员代行史、可「建议」；**不能单独执行任何代行**。
+- **班级管理员+**：本班执行（subject_admin 本学科 / super_admin 任意）；可撤回同级或下级记录。
+
+### 大纲 & DR 关联 + 对齐备注
+- 横切支撑能力 3/4/6/8/10/11/12 的全部例外口子；D17（代行留痕）/D18（永不删除）/DR-118（AuditLog 冲突改造）。
+- **🆕 接缺口**：线上仅举报处理写 AuditLog，无通用代行面 → 五类代行 + 撤回链 + 学员可见 + 辅导员建议全 🆕。
+- **🔵 架构落点（关键）**：① **代行效果落地** = 有原生字段的写字段（isSubstituted/StudyRecord 补卡行/ExamGrade upsert）；**升学条件类豁免/调目标无原生字段** → 不建独立 override 表，由 `AdvancementCheck` 预检遍历 ProgramAdvancementConfig 时，对 `isExemptable=true` 的条件**回查 AuditLog 是否有未撤回的 active 代行记录**（match conditionKey），有则该条置满足。② **AuditLog 需改造**（DR-118 已标冲突改造）承载 `targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId` 字段——此为**数据层改动，挂 08 回填清单**（与前 4 字段一并，暂缓）。
+- **🔵 业务规则落点**：理由必填→Zod；学员不能自行豁免→无 student 写端点；撤回=新记录→revoke 端点不 update 原行；作用域隔离→中间件按角色×目标班级校验。
+
+---
+
+> **进度**：已产出 **12 条**（能力 1/3/4/5/6/7/8/9/10/11/37/39）——**主干学修闭环**(专业1→闻思3/37/39→实修4/6/7→共修8→报数9→升学10→留级11) **+ 横切代行(5)**。
+> **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
+> **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
 > **决策记录（2026-06-01 拍板 3 条）**：① A3=采纳建选专业锁定；② C3/C4/C5=采纳建互斥校验+自选功课标记；③ E1/E2=选 C 折中告知。**注**：这 3 条目前只落在本设计文档；如需进 §五 战略决策 `05-decision-log.md` 分配 DR 编号，告我一声我追加。
