@@ -175,4 +175,131 @@
 
 ---
 
-> 下一步：以上 4 个样例（能力 1/3/7/9，覆盖 admin 配置 / 学员消费 / 学员打卡 / 跨端结算 四种类型）若格式 OK，我按「推进批次」逐批产出，每批贴给你核对后追加；缺口边设计边接、需拍板处停下问你。
+---
+
+## 能力 37 · 法本阅读器与阅读进度  〔批2·学习引擎 A6〕
+
+### 涉及表（08 落点）
+`LessonReadingProgress`（✅ 净资产，`@@unique(userId,lessonId)`，scrollPercent/totalSeconds/isCompleted/lastReadAt）· `LessonCompletion`（🆕 type=read，DR-92 看维度数据来源）· `Highlight`/`Note`（复用，阅读页内画线）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| PATCH | `/api/me/lessons/:id/reading-progress` | student | `{scrollPercent,secondsDelta}` | 进度 | 🔧 | 复用心跳，但**语义降级**：仅记续播位置+统计，**不再自动判完成**（DR-143）|
+| POST | `/api/me/lessons/:id/completion` | student | `{type:'read'}` | `LessonCompletion` | 🆕 | **手动**点「完成」写一遍 read 事件（与能力 3/39 同端点，DR-143 改纯手动）|
+| GET | `/api/me/reading-stats` | student | — | 累计秒数/完成课时数 | ✅ | 复用（喂学修统计页/Profile）|
+| GET/POST/DELETE | `/api/lessons/:lessonId/highlights` `/api/highlights[/:id]` | student | 高亮 | — | ✅ | 复用 |
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/scripture/:lessonId`（ScriptureReadingPage）| 沉浸阅读器（Apple 图书风）：工具栏自动隐现 + 目录/笔记/高亮 + 底部「完成本遍」按钮 | 读→心跳存位置；点完成→写 read 事件；离开有实质进度未确认→弹「本遍是否完成？」；app-kill 重进续播+补弹（localStorage）| 🔧 改（完成判定改手动 + 写 LessonCompletion）|
+
+### 三端可见性
+- **学员**：自己阅读进度/完成遍数/续播位置。
+- **辅导员/班级管理员**：本班「看法本」完成聚合（喂能力 3 闻思圆满率）。
+- **admin**：无独立视图（内容配置归能力 1）。
+
+### 大纲 & DR 关联 + 对齐备注
+- 服务大纲 **B2（看法本）**；服务能力 3「看」维度；DR-143（完成改手动）/DR-92/DR-127/TODO-24。
+- **🔧 接缺口（DR-127/TODO-24 完成机制统一）**：线上完成写进 `UserCourseEnrollment.lessonsCompleted` 数组（课程级，DR-113 废弃语义）→ **改造为写 `LessonCompletion`**，下游（课程进度/智能练习/学情统计）改读 LessonCompletion 聚合。**这是已知技术债，本能力落地时一并清**（涉 reading/courses/dossier/smart-practice 多模块）。
+- **🔧 防刷口径变更（DR-143）**：原「心跳单次≤60s 防伪造 + 双阈值自动达标」**作废**——纯手动后防刷交虚报治理（能力 9）+ 升学审核（能力 10），阅读器不再担防刷义务。
+
+---
+
+## 能力 39 · 音视频学习与分维度完成记录  〔批2·学习引擎 A8〕
+
+### 涉及表（08 落点）
+`LessonResource`（✅ 净资产，type=youtube/audio/video+url）· `LessonMediaChapter`（✅ 章节时间戳）· `LessonCompletion`（🆕 type=audio/video，DR-129 §三新建·线上幻影表纠正）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| GET | `/api/lessons/:id/resources` | optional | — | `LessonResource[]`+章节 | ✅ | 复用（音视频内容已上线）|
+| POST | `/api/me/lessons/:id/completion` | student | `{type:'audio'\|'video'}` | `LessonCompletion` | 🆕 | **手动**确认写一遍听/看事件（DR-143；幂等可累计，一行=一遍供 COUNT）|
+| GET | `/api/me/lessons/:id/wensi-status` | student | — | 听/看/答遍数+圆满 | 🆕 | 同能力 3：听=COUNT(audio,video)、看=COUNT(read)，身份分支判定 |
+
+> 采集层（playedSeconds/playedPercent）DR-143 后**纯客户端**只供 localStorage 续播位置，**不再上报判完成**——无独立进度端点（是否持久化为进度表留实现期定，DR-142）。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/scripture/:lessonId`（音视频区，与阅读器同页）| HTML5 `<audio>/<video>`（OSS 直链）/ YouTube IFrame（墙内播不出即自然不达标）+ 章节跳转 + 「完成本遍」按钮 | 听/看完点完成→写事件；未确认离开→弹确认；app-kill 续播+补弹（localStorage）；两种播放源同口径累计 | 🔧 改（加分维度完成事件）|
+
+### 三端可见性
+- **学员**：自己听/看完成遍数 + 续播位置。
+- **辅导员/班级管理员**：本班听/看完成聚合（喂能力 3 闻思率、能力 14 contentLag 掉队）。
+- **admin**：内容配置（能力 1 域）。
+
+### 大纲 & DR 关联 + 对齐备注
+- 服务大纲 **B1（听音视频）**；服务能力 3「听」维度核心数据源、能力 14 掉队、能力 9 报数；DR-129/142/143。
+- **🆕 接缺口（DR-129 幻影表纠正）**：`LessonCompletion` 线上 grep=0（08 此前误标「复用」）→ §三 +1（18 张）真新建；线上播放音视频**不记完成**，这是闻思「听」维度的根缺口，本能力补齐。
+- **⚠️ 待实现期确认**：YouTube 源面向谁/是否有 OSS 备份（墙内不可达不做特殊兜底，DR-142）——非业务决策，标实现期 TODO。
+
+---
+
+## 能力 4 · 加行观修（座数+时长双维度实修）  〔批3·实修〕
+
+### 涉及表（08 落点）
+`PracticeLog`（§1.12，🔧 改造，`{meditationId,durationMinutes,source}`，一行=一座）· `UserPracticeVow`（§1.7，🆕 座数/时长聚合）· `Meditation`/`MeditationSession`（✅ 净资产，视频引导+看视频排行，DR-111 与报数各管各的）· `ProgramAdvancementConfig`（升学聚合读取）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| GET | `/api/meditations[/:id]` | optional | — | 92 修法字典+引导视频 | ✅ | 复用净资产内容 |
+| POST | `/api/me/practice-logs` | student | `{meditationId,durationMinutes,source:'in_app'}` | `PracticeLog` | 🔧 | **手动点「完成观修」记一座**（DR-111 不自动）；确认时校验 `durationMinutes≥30`（DR-91）否则 422 |
+| GET | `/api/me/meditation-progress` | student | `?programId` | `{每修法座数/时长, 总276座/138h 达标态}` | 🆕 | 双维度进度（单修法≥3座且≥90min；总≥276座且≥138h）|
+| GET/POST | `/api/me/vows` | student | 发愿 | `UserPracticeVow` | 🆕 | 座数/时长承诺聚合（同能力 7）|
+
+> **app 外申报**（DR-144）：线下打坐经**能力 9 计数模块**申报（选修法+手填时长+≥30min），写 `PracticeLog{...,source:'external'}`，同落点 source 区分——不在本能力开第二入口。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/meditation/:id`（观修页）| 引导视频/PPT + 「完成本座」按钮 + 手填本座时长 + 92 修法进度网格 | 修后点完成→弹手填时长→≥30min 校验→记座；app-kill 续播+未确认会话补弹「上座是否完成」（localStorage，DR-143）| 🔧 改（看视频不再自动记座，改手动提交+手填时长）|
+
+### 三端可见性
+- **学员**：自己 92 修法座数/时长进度 + 起修日基准；隐私开关控对班可见。
+- **辅导员/班级管理员**：开可见学员观修进度（关怀/报数核查）；可经能力 5 代行豁免/替代/调整。
+- **admin**：配置修法字典、起修日（能力 1）。
+
+### 大纲 & DR 关联 + 对齐备注
+- 服务大纲 **C1/C2（加行观修）**；升学硬条件；D14/DR-91/DR-111/DR-143/DR-144。
+- **🔧 接缺口（DR-111 录入语义统一）**：线上看视频播放度**自动触发**记录 → 改为**手动点「完成观修」+ 手填时长**（动线上行为）；**不新增 observation_records 表**（座走 PracticeLog），看视频排行（MeditationSession）与升学座数报数口径分离、各管各的。
+- **🔵 业务规则落点**：DR-91「短座<30min 不计也不合并」由打卡端点 `durationMinutes≥30` 校验实现；「单座不可拆」无 API 动作（手填即一座）；起修日前不计 → 端点按 `Program.startDate` 过滤聚合。
+
+---
+
+## 能力 6 · 内加行实修（累计计数型）  〔批3·实修〕
+
+### 涉及表（08 落点）
+`PracticeLog`（§1.12，🔧 计数型条目，6 项内加行+法王祈祷文）· `UserPracticeVow`（🆕 6 项各 10 万累计 + 法王祈祷文独立累计）· `PracticeSubstitution`（§3.x，🆕 顶礼→200 万金刚萨埵替代，走能力 5）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| POST | `/api/me/practice-logs` | student | `{ngondroItem:'prostration'\|...,count,ritualCompliant:bool,source}` | `PracticeLog` | 🔧 | 计数打卡；`ritualCompliant` 必填（仪轨合规一票否决，不合规作废）|
+| GET | `/api/me/ngondro-progress` | student | `?programId` | `{6项各累计/10万达标, 法王祈祷文累计/欠X万, 顶礼替代态}` | 🆕 | 6 项进度 + **法王祈祷文独立计数**（不并入顶礼）+ 跨专业共享来源标注 |
+
+> 顶礼替代/豁免/补足走**能力 5 代行**端点（`PATCH /api/admin/.../students/:uid/substitution`），不在学员端开口子。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/practice`（内加行区）| 6 项计数器 + 法王祈祷文独立进度条 + 仪轨合规勾选 + 替代/欠账状态展示 | 打卡填 count+仪轨合规；顶礼区显示「需同步法王祈祷文，已欠 X 万」；替代后该项标「200 万金刚萨埵替代」| 🔧 改（6 项分类+法王配对+合规标志）|
+
+### 三端可见性
+- **学员**：自己 6 项累计 + 法王祈祷文欠账 + 替代/跨专业共享来源（「通过 A 专业达成」可追溯）。
+- **辅导员/班级管理员**：可见进度；经能力 5 处理替代/豁免/合规作废。
+- **admin**：配置内加行字典与目标值（能力 1）。
+
+### 大纲 & DR 关联 + 对齐备注
+- 服务大纲 **C2（内加行 6×10 万 + 法王祈祷文）**；升学硬条件；D14a（跨专业累计共享）/能力 5。
+- **🔵 业务规则落点**：① **法王祈祷文独立计数**（绝对约束1）→ `UserPracticeVow` 单列字段，不并入顶礼 count；② **仪轨合规一票否决** → `ritualCompliant=false` 的 count 不进升学聚合（标作废，可走能力 5 豁免）；③ **跨专业共享**（D14a）→ 进度端点按 userId 跨 program 聚合「果」，B 专业满足时回显来源 program。
+- **⚠️ 待决策（与能力 8 同类）**：本能力**无月度频率门槛**（纯累计到 S8 前完成），不涉及共修频率决策；如确认 app 承载频率约束仅影响能力 7/8，不回溯本能力。
+
+---
+
+> **进度**：已产出 8 条（能力 1/3/4/6/7/9/37/39）——覆盖 admin配置 / 学员消费 / 学员打卡 / 实修双维度 / 实修累计型 / 阅读器 / 音视频 / 跨端结算 八种形态。**学习引擎线（3/37/39）+ 实修线（4/6/7）+ 报数线（9）已成片**。
+> **下一批（批4-5）**：能力 8（共修出勤·**卡在「app 是否承载月度共修频率门槛」待你拍板**）+ 能力 10/11（考试升学 + 留级）。其余管理/关怀/传承/自学/净资产盘点（批6-8）随后。
+> 缺口边设计边接已贯穿：A3 选专业锁定（能力1 ⚠️）· C3/C4 三选一（能力7 ⚠️）· C5 自选功课（能力7 ⚠️）· WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）。需拍板处均已停下标注。
