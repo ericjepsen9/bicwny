@@ -792,8 +792,68 @@
 
 ---
 
-> **进度**：已产出 **22 条正式 + 批8 5 条后台契约（22/23/24/25/38 ⏸）= 全 25 能力骨架登记完毕**（能力 16 = ❌ 不做）。**仅剩**：批 7 净资产层 26-51 盘点（多为 ✅ 已实现，盘点式登记现有端点 + 标状态）。
-> **08 回填清单（暂缓）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ AuditLog 代行/审计字段集（DR-118）⑤ User.primaryProgramId 已在 08·无需补。待 09 全产完一次性回填 + 跑 08 一致性检查。
+# 批 7 · 净资产层盘点（能力 26-51 · 多为 ✅ 已实现）
+
+> 净资产=线上已实现、纳入设计的能力（DR-126）。本批盘点式登记：现有端点（audit/05）+ 表 + 状态。✅ 复用 / 🔧 改造（标 DR）/ 🆕 新建 / ⏸ 暂缓。**正式页面均已上线或为现状**，不重述交互。
+
+### A 组 · 学习引擎（32-36，✅ 已上线）
+| 能力 | 现有端点 | 状态 |
+|---|---|---|
+| 32 题库答题 | `/api/lessons/:id/questions` · `/api/answers` · `/api/questions/:id` | ✅ |
+| 33 SM-2 复习 | `/api/sm2/due` `/stats` `/review` | ✅ |
+| 34 错题本 | `/api/quiz/smart-practice`（错题维度）| ✅ |
+| 35 收藏夹 | `/api/favorites[/count]` | ✅ |
+| 36 笔记与高亮 | `/api/notes[/*]` · `/api/lessons/:id/highlights` | ✅（37 阅读器已详述衔接）|
+
+### 运营内容（40/41/46，✅ 已上线 · 42 见通知组）
+| 能力 | 现有端点 | 状态 |
+|---|---|---|
+| 40 藏历日历 | `/api/calendar/*` · `/api/admin/calendar/:date` | ✅ |
+| 41 月度画报 | `/api/posters/*` · `/api/admin/posters/*` | ✅ |
+| 46 法会展示+发愿 | `/api/assemblies[/:id]` · `/api/admin/dharma-assemblies[/:id]` | 🔧 DR-134（统一 DharmaAssembly 废 Event/EventCount）|
+
+### 通知与触达（D 组 42-45 + 29/30）
+| 能力 | 现有端点 | 状态 |
+|---|---|---|
+| 42 系统公告（B3）| `/api/system-announcements[/:id]` · `/api/admin/system-announcements[/*]`（含 revoke）| ✅ |
+| 43 通知中心与派发（D1）| `/api/notifications[/*]` · `/api/push/*`（VAPID/subscribe）| ✅（合站内信/WebPush/偏好）|
+| 44 定时通知规则（D2）| scheduler/cron（**9 条新规则** DR-131/133）| 🆕 [^44] |
+| 45 短信通道（D3）| 短信发送层 + dispatch 第3通道 · `SmsLog` | 🆕 DR-132/139 [^45] |
+| 29 个人智能提醒 | 复用 43 通知 + scheduler（按时区时段）| 🔧 |
+| 30 成就解锁通知聚合 | 延迟聚合 cron（随徽章 38）| ⏸ DR-128（后台保留不做正式）|
+
+### 账户与安全（C 组 47-49 + 28）
+| 能力 | 现有端点 | 状态 |
+|---|---|---|
+| 47 账户体系（C3）| `/api/auth/*`（register/login/refresh/logout…）| 🔧 DR-135（加 Google 登录 + 硬单设备）|
+| 48 个人档案（C4）| `/api/auth/me` · `PATCH /api/auth/me` | 🔧 DR-136（暴露 birthDate/phone/city + 新增 gender；birthDate=60 岁豁免源）|
+| 49 设置与隐私（C5）| 设置/隐私 toggle · `DELETE /api/auth/me`（软删）| 🔧 DR-137（注销软删符合 D18，仅清登录凭证不删档案）|
+| 28 设备与会话管理 | 会话列表 + 主动登出其他设备 | 🆕 DR-135（配合硬单设备策略）|
+
+### 举报与反馈（50/51）+ 学习辅助（26/27/31）
+| 能力 | 现有端点 | 状态 |
+|---|---|---|
+| 50 内容举报闭环 | `/api/reports` · `/api/notes/reports[/*]` · `/api/admin/reports/*` | ✅（QuestionReport/NoteReport）|
+| 51 用户反馈 | `/api/feedback` · `/api/me/feedback` · `/api/admin/feedback` | ✅ DR-138（bug/建议统一一表 kind 区分）|
+| 26 综合修学积分排行 | `/api/classes/:id/meditation-ranking`（现状单维）| 🔧 [^26] |
+| 27 综合活动列表 | `/api/my/upcoming-events` · `/api/my/top-home-card` | ✅（聚合共修/法会/纪念日）|
+| 31 辅导员 AI 出题与批量导入 | 批量导入 ✅ / AI 出题 ⏸（随 AI 25 暂缓 DR-109）| 🔧/⏸ |
+
+[^44]: 9 条规则=①进度落后 ②未完成班级任务 ③未完成个人任务 ④班级放假/休息周 ⑤闻思未圆满 ⑥复习到期 ⑦讲考/考试临近 ⑧升学/关怀结果 ⑨上课迟到（推送+短信）。数据源跨能力 3/14/33/8/10。
+[^45]: 唯一新建净资产；User+phone 体系 + 短信发送层 + dispatch 第3通道；用途=兜底+关键学修提醒；⚠️ 服务商选型挂 TODO-SMS（实现期定，非业务决策）。
+[^26]: 现状仅观修单维排行；能力 26 要多维加权（综合/念诵/观修 × 周/月/全部），需扩展聚合端点 `/api/classes/:id/ranking?dim=&period=`。
+
+---
+
+# 09 收官 · 全 51 能力覆盖完毕
+
+> **覆盖**：能力 1-25 正式契约（16=❌不做，22-25=⏸后台契约）+ 26-51 净资产盘点 + 学习引擎 37/38/39。**API 契约层 + 页面/交互层（SoT 第三层）首轮完整**。
+>
+> **决策记录（2026-06-01 共 4 条已拍板）**：①A3 选专业锁定 ②C3/C4/C5 互斥+自选功课 ③E1/E2 选 C 告知 ④角色无 expiresAt 选 B（已回写 06）。
+>
+> **08 回填清单（暂缓·待跑一致性检查）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ AuditLog 代行/审计字段集（DR-118）。（primaryProgramId 已在 08。）
+>
+> **下一步候选**：① 执行 08 回填 + 跑 §设计会话一致性检查 8 项；② 给 4 条决策进 05-decision-log 分配 DR 编号；③ 回头精修任一能力契约。待你定。
 > **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
 > **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
