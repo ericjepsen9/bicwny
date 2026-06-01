@@ -50,7 +50,7 @@
 ### 对老项目的影响
 - 老项目"加行"只是字符串,需结构化为专业表
 - 现有学员需补录阶段和专业归属
-- 新增 `majors` 表、`stage_history` 表
+- 新增 `Program` 表（专业 × 届，08 §1.1，DR-130 定名；旧称 `majors`）；阶段变更历史由 `AdvancementRecord`（08 §3.10，升学留档含跨阶段）+ `EnrollmentStatusHistory` 承载（旧称 `stage_history`，不单建表）
 
 ---
 
