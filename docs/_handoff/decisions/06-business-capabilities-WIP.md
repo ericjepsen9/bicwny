@@ -1897,10 +1897,15 @@ student（学员）是核心用户角色，不属于管理角色体系。
 1. **音视频内容**（线上已有）：`LessonResource`（type=youtube/audio/video + url）挂课时下，`LessonMediaChapter` 记章节时间戳
 2. **分维度完成记录**（🆕 LessonCompletion，DR-129）：播放达标时写一条 `LessonCompletion`，带 `type`（audio/video/read/meditation）——一行 = 一遍完成事件，供 COUNT
 3. **两层结构**：
-   - **过程明细层**：看法本=LessonReadingProgress（心跳）、观修=MeditationSession（播放）、听音视频=新增播放进度
+   - **过程明细层**：看法本=LessonReadingProgress（心跳）、观修=MeditationSession（播放）、听音视频=客户端追踪 playedSeconds/playedPercent（DR-142）；**是否持久化为进度表**（断点续播/跨设备，类比 LessonReadingProgress）留实现期定——阈值统计本身不依赖持久化（达标即 POST LessonCompletion）
    - **完成事件层**：LessonCompletion（达标时各写一条，带 type）
 4. **闻思判定**（能力 3）：听=COUNT(type IN audio,video)、看=COUNT(type=read)、观修=COUNT(type=meditation)，按身份分支判定遍数
 5. **播放达标阈值**（DR-141，已决策）：`playedPercent ≥ 90% OR (playedSeconds ≥ 60 AND playedPercent ≥ 50%)` 时写一条 LessonCompletion（type=audio/video）。双轨设计对齐看法本（能力 37：scrollPercent≥90 OR totalSeconds≥30&≥50%），但音视频比文本重，时长底线抬到 60 秒；超长音频（如整场开示）靠「90% OR 过半且≥60秒」避免要求听满 90% 过苛
+6. **采集层 · 两种播放源同口径**（DR-142，已决策）：
+   - **OSS 直链**（type=audio/video）：HTML5 `<audio>/<video>` 的 `timeupdate` 事件 → currentTime/duration
+   - **YouTube 嵌入**（type=youtube）：YouTube IFrame Player API（`enablejsapi=1`），PLAYING 时轮询 `getCurrentTime()`/`getDuration()`，`onStateChange` ENDED 直接判达标（视同 100%）
+   - **口径统一**（防刷量）：`playedSeconds` = 累计实际播放秒数（仅在 PLAYING 时累加，拖进度条到末尾不加秒）；`playedPercent` = 最远观看位置 / 总时长。两种源算出同口径的两个数，写同一条 LessonCompletion，保证能力 3「听」维度 COUNT 不受播放源影响
+   - **YouTube 不可达**（墙内）：IFrame API 加载失败即播不出 → 自然不达标、不写 LessonCompletion，不做特殊兜底（⚠️ youtube 源面向谁/是否有 OSS 备份留实现期确认）
 
 ### 输入与输出
 - 输入：音视频播放进度（达标触发）
@@ -1919,6 +1924,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 1. 分维度计数（按 type 分别 COUNT），满足大纲盲/聋判定
 2. LessonCompletion 一行 = 一遍完成事件（供遍数 COUNT）
 3. 播放达标阈值 `playedPercent≥90% OR (playedSeconds≥60 AND ≥50%)`（DR-141），与看法本双轨同构
+4. 采集口径源无关（DR-142）：OSS 走 HTML5 timeupdate、YouTube 走 IFrame API；playedSeconds 累计实际播放（拖进度条不计）、playedPercent 取最远位置——保证「听」COUNT 不受播放源影响
 
 ### 对老项目的影响
 - ✅ 内容已实现（LessonResource/LessonMediaChapter 净资产）；🆕 **完成记录 LessonCompletion 待新建**（DR-129，§三 M3f）
