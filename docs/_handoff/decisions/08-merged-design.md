@@ -665,6 +665,7 @@ model CohortRecommendedTemplate {
 | 字段 | 类型 | 说明 | 来源 |
 |---|---|---|---|
 | `birthDate` | DateTime? | 出生日期；**年龄豁免资格**的唯一数据源——年满 60 岁可申请免考（非自动，见下）| **新增** |
+| `gender` | String? | 性别 male/female/other/null；个人档案展示，暂无业务规则依赖（DR-136，能力 48）| **新增** |
 | `primaryProgramId` | String? | **主修专业**（多专业并行时的 UI 偏好，能力 2 绝对约束 3，DR-120）；可空（未设则无主修）；与「主班 ClassMember.isPrimary」语义区分——主班是「一人多班的默认进入班级」，主修专业是「多专业里偏好展示的那个专业」| **新增** |
 | `practiceVisibleToClass` | Boolean | 默认 false；修学量（念诵/答题/阅读/活跃天数）是否对班级可见——能力 7/26 排行 + 能力 14 关怀的隐私开关数据源（DR-125 补列）| **线上已有·此前漏列·补回复用** |
 | `meditationVisibleToClass` | Boolean | 默认 false；观修量是否对班级可见——能力 4/26 观修排行的隐私开关数据源（DR-125 补列）| **线上已有·此前漏列·补回复用** |
@@ -684,6 +685,9 @@ model User {
 
   // 新增（年龄豁免数据源）
   birthDate DateTime?  // 出生日期；年龄豁免资格计算用（年满60岁可申请免考，非自动）
+
+  // 新增（个人档案字段，DR-136；能力 48 C4）
+  gender    String?    // 'male' | 'female' | 'other' | null（不填）；个人档案展示，暂无业务规则依赖（60岁豁免靠 birthDate 非 gender）
 
   // 新增（主修专业偏好，能力 2 绝对约束 3，DR-120）
   primaryProgramId String?   // 多专业并行时偏好展示的专业；可空；区别于主班 ClassMember.isPrimary
@@ -2983,6 +2987,7 @@ model UserSelfStudyProgram {
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
 | DR-132 | D3 短信通道（能力 45）完整设计：第 3 触达通道 + User 手机号体系（🆕 新建）| **能力 45 短信通道完整设计：(A) User +phone/phoneVerified/phoneVerifiedAt 字段（线上 User 无手机号，grep 确认）+ 绑定验证流程；(B) sendSms 发送抽象层（Provider 接口 + 模板化 + 失败重试）；(C) 作为 dispatchToUsers 第 3 通道 channel='sms'（复用 DispatchLog 幂等）；(D) 用途规则：验证码/critical 系统公告/⑦⑧⑨关键学修提醒走短信，一般提醒/普通通知不走（控成本防骚扰）；(E) NotificationPreference +smsEnabled（验证码不受开关影响）。服务商选型等挂 TODO-SMS**（用户决策：用途=重要通知兜底+关键学修提醒，深度=完整设计短信通道，2026-05-31/06-01）| 用户追问「系统公告与通知推送/短信是不是两个模块」引出核查：dispatchToUsers 现仅 channel='push'（站内 Notification ✅+Web Push ✅），**SMS 完全未实现**——代码仅占位注释「banner/sms 后续接入时各自加 channel」，且**User 表连 phone 字段都没有**（grep phone/mobile 全空）。用户决策「都要做、逐条确认」+ 选项「用途=重要通知兜底+关键学修提醒」「深度=完整设计短信通道」。**设计要点**：短信是 Web Push 之外的兜底通道，但**按条计费**故严格限场景（仅 critical+关键学修提醒+验证码），非全量发；前置缺口是 User 手机号体系（字段+验证流程），无手机号则无法发。**通道选择**：站内信必达→push 有订阅则推→sms 仅 critical/关键且符合用途规则。**待决策**（TODO-SMS）：服务商选型（阿里云/腾讯云/国际）、smsEnabled 默认值、是否独立 SmsLog 表（默认复用 DispatchLog）、验证码频率/有效期。排除「短信全量发所有通知」：成本爆炸+骚扰，仅限关键场景；排除「不做手机号验证直接发」：未验证号码发短信浪费+合规风险，须 verified 才发业务短信（验证码除外）|
+| DR-136 | C4 个人档案：新增 gender 字段（🆕）+ 厘清档案字段落差（设计已有 birthDate/city/phone 等，线上未暴露）| **能力 48 个人档案：(1) User +gender 字段（male/female/other/null，个人档案展示，暂无业务规则依赖）；(2) 厘清落差——用户要加「性别/生日/地区」，核查发现 birthDate（DR-70 已加，60 岁升学豁免唯一数据源）、city/phone/phoneRegion/realName/refugeStatus/practiceBackground 设计 §1.9 早已有，仅线上 ProfileEditPage 未暴露（只暴露 dharmaName/avatar/timezone）→ 🔧 待补暴露；唯 gender 设计真无 → 🆕 新增**（用户决策 2026-06-01）| 落 C4 个人档案（能力 48）时用户要求「加性别/生日/地区，因为要判断 60 岁豁免」并要求核对升学/毕业要求。**核查升学/毕业**：60 岁豁免（大纲§一(三)：第一次考试报名时年满 60 岁免考试要求）是**资格性非自动**，数据源是 **birthDate**（DR-70 已加 §1.9，AdvancementCheck line 1258 已写 `now()-birthDate≥60年→ageEligible`）；毕业要求走 cohortStatus 状态机 + 法王祈祷文补足 + 观修计入（DR-111）——**均不需要 gender**。**关键发现**：① birthDate/city/phone 等设计 §1.9 早有（用户以为要新加，实为线上未暴露）；② gender 设计 grep=0 真无；③ §1.9 User 档案字段（realName/phone/phoneRegion/city/refugeStatus/practiceBackground/birthDate）远多于线上 ProfileEdit 暴露的 3 个（dharmaName/avatar/timezone）——又一处「设计已定、线上未落」的落差。**处理**：gender 🆕 新增（无业务依赖，纯档案，明确标注「60 岁豁免靠 birthDate 非 gender」避免误解）；其余字段 🔧 标待补暴露到编辑页。**无新表**：User 字段扩展（gender 一字段）。排除「gender 作豁免依据」：豁免硬规则只认年龄（birthDate）；排除「birthDate 当新字段加」：DR-70 早已加，避免重复——体现先查文档再决策（吸取 DR-133 教训）|
 | DR-135 | C3 账户体系：加 Google 登录（🆕）+ 改硬单设备登录（🔧）| **能力 47 账户体系两项变更：(1) 🆕 Google OAuth 登录——User +googleId/authProvider 字段，Google 邮箱视为已验证，首次登录自动建账户（同 email 则关联）；(2) 🔧 硬单设备登录——新设备登录时立即 revoke 该用户所有旧 AuthSession，旧设备需重登（强制一人一机），改造现状（仅 push 踢出 + 手动 revoke-others）**（用户决策 2026-06-01）| 落 C3 账户体系（能力 47）时用户要求「加 Google 登录 + 只允许登录一台设备」。**核查现状**：① Google/OAuth 线上 grep=0 完全未实现 → 🆕 新建（User 加 googleId/authProvider，Google 登录账户 passwordHash 可空，邮箱免验证）；② 单设备——线上**已部分实现**（push/service.ts:59「单设备登录」push 订阅踢出 + revoke-others 手动；DR-112 列为净资产），但**非硬强制**（旧设备登录态不一定立即失效）。用户「只允许一台」本意=硬单设备，故 🔧 改造：登录时自动 revoke 旧 AuthSession（复用现有 revokedAt 机制 + revoke-others 逻辑，移到登录流程自动触发）。**复用基建**：AuthSession.revokedAt 已有、revoke-others 逻辑已有——硬单设备是「把手动 revoke-others 改为登录时自动执行」，改动小。**无新表**：User 字段扩展（googleId/authProvider）。排除「软单设备（仅 push 踢出）」：用户明确「只允许一台」需登录态强制失效；排除「Google 登录建独立账户表」：复用 User + googleId 字段，同 email 关联避免重复账户。**实现注**（不在本轮改代码）：Google OAuth 需配 client_id/secret（挂实现期）；硬单设备改造注意 token 刷新链路同步失效 |
 | DR-134 | 🔴 法会双表分叉厘清：统一到 DharmaAssembly（线上真表），废弃 Event/EventCount（旧设计幻影）；法会发愿带数量 + 进修学计数模块 | **(1) 法会统一用线上真表 DharmaAssembly，❌ 废弃 Event/EventCount 两张幻影表（DR-130 曾标「实为新建」，本轮改判废弃——不新建）；(2) 法会发愿复用 UserPracticeVow（context=event，eventId 改指 DharmaAssembly，原指 Event），带 targetCount=发愿数量；(3) 计数走 PracticeLog（统一修学计数模块），context=event 独立标识不混日常打卡总量/排行；(4) 法会页：参与人数=COUNT(DISTINCT userId)、发愿总数=SUM(targetCount)；(5) DharmaAssembly 补反向 vows UserPracticeVow[]**（用户决策 2026-06-01）| 写 B4 法会（能力 46）时用户要求「法会要有发愿按钮 + 发愿进学修记录 + 页面显示发愿总数与参与人数」，并追问「为什么两套表设计不一样、先查清再定」。**派 agent 全量溯源**得权威结论：**DharmaAssembly 与 Event/EventCount 是两个时代的产物，非一表两版**——Event/EventCount 是更早旧设计（BL_REVIEW/SCENARIO_SIMULATION）的「法会+发愿+计数」重结构，**线上从未建表**；DharmaAssembly 是后来实际落地的轻量信息展示（纯 CRUD+push，无发愿/计数）。**分叉根因**：审计（07-integration-plan）对照旧设计文档把 Event/EventCount 误标「✅ 复用直接搬」，从未 grep 验证，直到 DR-130 揪出。**关键证据**：① EventCount 旧设计自己 2026-05-27 已废弃（法会计数改线下上报，只留发愿+回向）；② grep Event/EventCount=0；③ 能力 15（传承）实际用 TransmissionRecord 非 Event，08「Event 服务能力15」是旧归类残留；④ 能力 27/46 都用 DharmaAssembly。**用户新逻辑**（比旧设计两版更优）：发愿带数量 → 并入统一修学计数模块计数（非旧设计 EventCount 独立流，也非 v2 砍掉计数）。**方案**：统一 DharmaAssembly + 废弃 Event/EventCount + 发愿复用 UserPracticeVow + 计数走 PracticeLog（独立标识）。**表计数**：§四 Event/EventCount 原标「实为新建」→ 废弃移除（-2）；DharmaAssembly 补登记为真实复用净资产（原漏登）；净额对设计新建无影响（两幻影本就不入线上、不入 migration）。**§1.7 同步改 4 处**：eventId 指向、event 关联类型、删 eventCounts、愿进度公式 + 统计公式。承接 DR-34（法会/日常计数区隔）：初衷保留，但实现从「独立 EventCount 表」改为「统一 PracticeLog + context 标识」。排除「保留 Event 重结构」：从未上线、旧设计已废计数、多一套幻影表需同步；排除「DharmaAssembly 加计数字段」：发愿/计数本是 UserPracticeVow+PracticeLog 职责，DharmaAssembly 保持展示纯粹性，加反向关联即可 |
 | DR-133 | D2 补 ⑨ 上课迟到提醒（推送+短信）·复用 DR-89 签到窗口机制 | **能力 44 增第 9 条 triggerType `class-late`：签到 token 生成后接近 checkinGraceMinutes 窗口末仍未签到的本班成员 → 推送+短信催签。完全复用 DR-89（签到窗口=token.createdAt+checkinGraceMinutes，startAt 仅展示），零新字段/零新表**（用户决策 2026-06-01）| 用户要求「上课迟到要推送+短信提醒」，并指出**逻辑闭环**：升学条件要求出勤率（ProgramAdvancementConfig conditionKey=attendance），故每场必须记出勤。我初判「线上无签到/考勤机制，需新建考勤子系统」并两度发问迟到计时基准——**实为重复发问，违反 CLAUDE.md「以文档为准」**：用户纠正「之前讨论过，发出链接后才开始计算上课」。翻 **DR-89（TODO-2 闭合，2026-05-30）**确认：签到窗口早已定为 **token 生成时刻为基准 + Program.checkinGraceMinutes（默认 30min）**，startAt 仅展示不参与计算，且 DR-89 明确「排除加 actualStartAt 字段：token createdAt 天然承担此语义」。故迟到规则**无需任何新字段**：token 生成（辅导员发链接）→ checkinGrace 窗口 → 窗口内未签到的本班成员=迟到 → 推送+短信。闭环：升学卡出勤率→每场记出勤（StudyRecord）→窗口内未签到=迟到→催签→保出勤率→保升学。短信归类「关键学修提醒」（能力 45 用途规则 +1 行 class-late→✅发，直接关联升学出勤率）。**教训**：动「迟到/出勤」议题前应先 grep 决策日志（DR-89 关键词「签到窗口/token/checkinGrace」），避免重复已闭合讨论。排除「新建考勤子系统」：StudyRecord+DR-89 已是完整出勤机制；排除「加 checkInOpenedAt 字段」：DR-89 已用 token.createdAt 承担 |
@@ -4719,6 +4724,25 @@ model UserSelfStudyProgram {
 
 **本轮发现问题数**：0（Google 待建、单设备改造均属设计变更，非文档不一致）。
 **结论**：能力 47（C3 账户体系）逐条落地。Google 登录 🆕 新建（User 字段扩展）、硬单设备 🔧 改造（复用 revokedAt 机制，登录时自动踢旧）。DR-135 记录。C 组 C1/C2 已并入能力 43，本轮 C3，剩 C4 个人档案/C5 设置隐私/C6 举报闭环。表计数 §一12/§三18/§四20 不变。待「下一条」C4 个人档案。
+
+---
+
+### 检查轮次 89（2026-06-01，范围：DR-126 逐条 C 组 C4 · 能力 48 个人档案 + DR-136 + gender 字段 · 跨 06/08）
+
+> 用户要加「性别/生日/地区」判断 60 岁豁免，要求核对升学/毕业。先查文档（吸取 DR-133 教训）：birthDate（DR-70）+city/phone 设计已有，gender 真无。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. 先查后决策 | ✅ | 翻 §1.9 User + 升学/毕业要求：birthDate（DR-70，60 岁豁免数据源）+city/phone/realName/refugeStatus/practiceBackground 设计已有；gender grep=0 真无 |
+| 2. 升学/毕业核对 | ✅ | 60 岁豁免=资格性非自动（birthDate，AdvancementCheck 已写判定）；毕业=cohortStatus+祈祷文补足+观修（DR-111）——均不需 gender |
+| 3. gender 落盘 | ✅ | §1.9 User +gender 字段（model 片段 + 字段表行）；明确「豁免靠 birthDate 非 gender」 |
+| 4. 能力 48 落盘 | ✅ | 06 新增能力 48（A 档案字段/B 升学判定字段/C 我的中心/D 多语）|
+| 5. 落差厘清 | ✅ | 设计 §1.9 档案字段（7+）远多于线上 ProfileEdit 暴露的 3 个 → 🔧 待补暴露；gender 🆕 新增 |
+| 6. DR-136 记录 | ✅ | 决策 + 核查发现 + 排除项（gender 非豁免依据/birthDate 不重复加）|
+| 7. 表计数影响 | ✅ | User +gender 字段扩展（User 已在 §一扩展区，不增表数）；§一12/§三18/§四20 不变 |
+
+**本轮发现问题数**：0（gender 新增、字段补暴露均属设计变更；birthDate/city 已有避免了重复加）。
+**结论**：能力 48（C4 个人档案）逐条落地。gender 🆕 新增（纯档案，无业务依赖），birthDate/city/phone 等设计已有（🔧 待补暴露到编辑页）。厘清「60 岁豁免靠 birthDate 非 gender」+ 升学/毕业要求。DR-136 记录。先查文档避免重复加 birthDate（吸取 DR-133 教训）。表计数 §一12/§三18/§四20 不变。待「下一条」C5 设置+隐私。
 
 ---
 
