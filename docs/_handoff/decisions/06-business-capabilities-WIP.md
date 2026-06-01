@@ -152,7 +152,8 @@
 7. **实施周期**:第 2 学期开始,S1 可修但不报数
 8. **修量起算时间**:起修日(专业配置项)前不算
 9. **管理员代行**:支持能力 5 的全部代行操作(豁免/替代/调整等)
-10. **录入方式(DR-111)**:观修视频/PPT 页面保留为引导内容(净资产);学员实修后**手动点「完成观修」按钮提交这一座的时间**记一座,**不自动记录**(看视频 80% 不再自动算座);座记录走 `PracticeLog`(durationMinutes),`UserPracticeVow` 聚合座数/时长;看视频完成排行(MeditationSession)与打坐报数各管各的、口径不统一
+10. **录入方式(DR-111 / DR-143)**:观修视频/PPT 页面保留为引导内容(净资产);学员实修后**手动点「完成观修」按钮提交这一座**记一座,**不自动记录**(看视频播放度不再自动触发座数记录);**座时长纯用户手填(DR-143),确认时校验 DR-91 ≥30 分钟**;座记录走 `PracticeLog`(meditationId/durationMinutes),`UserPracticeVow` 聚合座数/时长;看视频完成排行(MeditationSession)与打坐报数各管各的、口径不统一
+10b. **app-kill 续播+延迟确认(DR-143)**:观修视频播放位置 + 未确认会话标记存 **localStorage**(进程被杀不丢),重进续播到上次位置 + 若有未确认会话补弹「上次观修到 X,本座是否完成?」(选完成→接手填本座时长);同设备不跨设备,与法本/音视频同一套交互
 
 ### 输入与输出
 - 输入:实修后点「完成观修」提交这一座时间(手动,不自动)
@@ -1836,8 +1837,9 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 ### 业务规则
 1. **沉浸阅读器**（ScriptureReadingPage）：Apple 图书风，工具栏自动隐现；集成目录/笔记/高亮/选段
-2. **进度心跳上报**：每 10s 上报 scrollPercent（0-100 滚动深度）+ secondsDelta（活跃秒数）；单次心跳 ≤ 60 秒（防伪造）
-3. **完成判定**：`scrollPercent ≥ 90` OR `(totalSeconds ≥ 30 AND scrollPercent ≥ 50)`
+2. **进度位置记录**（DR-143 改）：记 scrollPercent（滚动深度）供阅读统计 + **续播位置**；原「每 10s 心跳 + 单次 ≤60s 防伪造」防刷采集随纯手动失去意义（不再判完成），心跳仅供位置/统计
+3. **完成判定（DR-143 改纯手动）**：用户读完后**手动点「完成」**确认即写 LessonCompletion(type=read)；离开页面若有实质进度未确认→弹「本遍是否完成？」。**原自动双阈值 `scrollPercent ≥ 90 OR (totalSeconds ≥ 30 AND scrollPercent ≥ 50)` 作废、不再自动判完成**——本条动线上现有自动判完成行为，改用户确认
+3b. **app-kill 续播+延迟确认**（DR-143）：阅读位置 + 未确认会话标记存 **localStorage**（进程被杀不丢），重进续播到上次位置 + 若有未确认会话补弹「上次读到 X%，本遍是否完成？」；同设备不跨设备
 4. **阅读统计**：累计阅读秒数/完成课时数，供学修统计页 + ProfilePage
 5. **每用户每课时一条**（`@@unique([userId, lessonId])`），记 scrollPercent/totalSeconds/isCompleted/lastReadAt
 
@@ -1853,13 +1855,14 @@ student（学员）是核心用户角色，不属于管理角色体系。
 线上阅读完成（及能力 4 观修完成）把 lessonId/medId 追加进 **`UserCourseEnrollment.lessonsCompleted` / `meditationsCompleted` 数组**（课程级）。但**新设计闻思圆满判定走 `LessonCompletion` 表**（DR-92：看=COUNT(LessonCompletion type=read)），是另一套机制；且 `UserCourseEnrollment` 课程语义随 DR-113 废弃。改造时须做**完成记录机制统一**：① 完成写入改为写 LessonCompletion；② 下游读取端（课程进度展示/智能练习/学情统计）改读 LessonCompletion 聚合；③ 涉及 reading/meditations/courses/enrollment/dossier/smart-practice 多模块。详见 TODO-24。
 
 ### 绝对约束
-1. 完成判定双阈值（防划到底秒过 + 防挂机刷时长）
-2. 心跳单次 ≤ 60 秒（防伪造）
+1. ~~完成判定双阈值~~ → **DR-143：完成改纯手动用户确认，自动双阈值作废**
+2. ~~心跳单次 ≤ 60 秒（防伪造）~~ → **DR-143：纯手动后心跳仅供续播位置/阅读统计，无防刷义务；防刷交虚报治理+升学审核**
 3. owner-only
 
 ### 对老项目的影响
 - ✅ 线上已实现（`ScriptureReadingPage`/`ScriptureDetailPage` + `reading/` + LessonReadingProgress 净资产）
 - 🔧 完成记录机制须随 DR-113/DR-92 统一到 LessonCompletion（TODO-24）；阅读进度表 LessonReadingProgress 本身复用，无新表
+- 🔧 **DR-143：完成判定从自动双阈值改纯手动用户确认（动线上现有行为）+ app-kill 续播延迟确认（localStorage，无新表）**
 
 ---
 
@@ -1895,13 +1898,14 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 ### 业务规则
 1. **音视频内容**（线上已有）：`LessonResource`（type=youtube/audio/video + url）挂课时下，`LessonMediaChapter` 记章节时间戳
-2. **分维度完成记录**（🆕 LessonCompletion，DR-129）：播放达标时写一条 `LessonCompletion`，带 `type`（audio/video/read/meditation）——一行 = 一遍完成事件，供 COUNT
+2. **分维度完成记录**（🆕 LessonCompletion，DR-129；DR-143 触发改纯手动）：用户**手动确认**完成时写一条 `LessonCompletion`，带 `type`（audio/video/read；**去掉 meditation**——观修走 PracticeLog，DR-111/143）——一行 = 一遍完成事件，供 COUNT
 3. **两层结构**：
    - **过程明细层**：看法本=LessonReadingProgress（心跳）、观修=MeditationSession（播放）、听音视频=客户端追踪 playedSeconds/playedPercent（DR-142）；**是否持久化为进度表**（断点续播/跨设备，类比 LessonReadingProgress）留实现期定——阈值统计本身不依赖持久化（达标即 POST LessonCompletion）
    - **完成事件层**：LessonCompletion（达标时各写一条，带 type）
-4. **闻思判定**（能力 3）：听=COUNT(type IN audio,video)、看=COUNT(type=read)、观修=COUNT(type=meditation)，按身份分支判定遍数
-5. **播放达标阈值**（DR-141，已决策）：`playedPercent ≥ 90% OR (playedSeconds ≥ 60 AND playedPercent ≥ 50%)` 时写一条 LessonCompletion（type=audio/video）。双轨设计对齐看法本（能力 37：scrollPercent≥90 OR totalSeconds≥30&≥50%），但音视频比文本重，时长底线抬到 60 秒；超长音频（如整场开示）靠「90% OR 过半且≥60秒」避免要求听满 90% 过苛
-6. **采集层 · 两种播放源同口径**（DR-142，已决策）：
+4. **闻思判定**（能力 3）：听=COUNT(type IN audio,video)、看=COUNT(type=read)，按身份分支判定遍数（**闻思不含观修**——观修属能力 4、走 PracticeLog，DR-143）
+5. **完成判定（DR-143 改纯手动）**：用户听/看完后**手动点「完成」**确认即写 LessonCompletion(type=audio/video)；离开页面若有实质进度未确认→弹「本遍是否完成？」。**原 DR-141 自动双阈值 `playedPercent≥90% OR (playedSeconds≥60 AND playedPercent≥50%)` supersede、不再自动判完成**
+5b. **app-kill 续播+延迟确认**（DR-143）：播放位置 + 未确认会话标记存 **localStorage**（进程被杀不丢），重进续播到上次位置 + 若有未确认会话补弹「上次听到 X，本遍是否完成？」；同设备不跨设备
+6. **采集层 · 两种播放源同口径**（DR-142；**DR-143 后 playedSeconds/playedPercent 不再判完成，仅供 localStorage 续播位置**）：
    - **OSS 直链**（type=audio/video）：HTML5 `<audio>/<video>` 的 `timeupdate` 事件 → currentTime/duration
    - **YouTube 嵌入**（type=youtube）：YouTube IFrame Player API（`enablejsapi=1`），PLAYING 时轮询 `getCurrentTime()`/`getDuration()`，`onStateChange` ENDED 直接判达标（视同 100%）
    - **口径统一**（防刷量）：`playedSeconds` = 累计实际播放秒数（仅在 PLAYING 时累加，拖进度条到末尾不加秒）；`playedPercent` = 最远观看位置 / 总时长。两种源算出同口径的两个数，写同一条 LessonCompletion，保证能力 3「听」维度 COUNT 不受播放源影响
@@ -1918,13 +1922,13 @@ student（学员）是核心用户角色，不属于管理角色体系。
 ### ⚠️ 改造关联（DR-129/141 / TODO-24）
 - **LessonCompletion 是线上幻影表**（grep=0），08 此前误标「复用」，DR-129 纠正为 🆕 §三新建（M3f）
 - 线上播放音视频**不记完成**（无完成事件表）；粗粒度课时完成走 UCE.lessonsCompleted（改造源，DR-127/TODO-24 机制统一到 LessonCompletion）
-- 播放达标阈值已定（DR-141）：`playedPercent≥90% OR (playedSeconds≥60 AND ≥50%)`——TODO-25 闭合
+- ~~播放达标阈值已定（DR-141）~~ → **DR-143：完成判定改纯手动用户确认，DR-141 阈值 supersede；app-kill 续播延迟确认走 localStorage（无新表）**
 
 ### 绝对约束
 1. 分维度计数（按 type 分别 COUNT），满足大纲盲/聋判定
 2. LessonCompletion 一行 = 一遍完成事件（供遍数 COUNT）
-3. 播放达标阈值 `playedPercent≥90% OR (playedSeconds≥60 AND ≥50%)`（DR-141），与看法本双轨同构
-4. 采集口径源无关（DR-142）：OSS 走 HTML5 timeupdate、YouTube 走 IFrame API；playedSeconds 累计实际播放（拖进度条不计）、playedPercent 取最远位置——保证「听」COUNT 不受播放源影响
+3. ~~播放达标阈值 `playedPercent≥90% OR (playedSeconds≥60 AND ≥50%)`（DR-141）~~ → **DR-143：阈值 supersede，完成改纯手动用户确认**
+4. 采集口径源无关（DR-142）：OSS 走 HTML5 timeupdate、YouTube 走 IFrame API；playedSeconds/playedPercent **DR-143 后仅供 localStorage 续播位置，不再判完成**
 
 ### 对老项目的影响
 - ✅ 内容已实现（LessonResource/LessonMediaChapter 净资产）；🆕 **完成记录 LessonCompletion 待新建**（DR-129，§三 M3f）
