@@ -760,7 +760,40 @@
 
 ---
 
-> **进度**：已产出 **22 条**（能力 1/2/3/4/5/6/7/8/9/10/11/12/13/14/15/17/18/19/20/21/37/39）——**批 1 + 批 6 全闭合 + 批 7 自学起步**（能力 16 = ❌ 不做）。剩余：批 7 净资产层 26-51 盘点（多为 ✅ 已实现/⏸ 暂缓·盘点式）+ 批 8 后台契约 22-25/38。
+# 批 8 · 后台关键部分契约（⏸ 不做正式 UI · DR-145）
+
+> 以下能力均 **⏸ 只做后台关键部分**（建表 + 后台逻辑），**不做正式前端 UI**。本批为盘点式契约——登记表 + 关键后台端点 + 状态，留作后台/将来参考。社交三件（22/23/24）属 P7 顺延群；AI（25）/ 徽章（38）后台保留不扩展。
+
+## 能力 22 · 班级动态（班级内社交）  ⏸
+- **涉及表**：`ClassPost`/`ClassPostReaction`/`ClassPostComment`/`ClassPostShare`（08 §5.1，⏸ 暂缓区）
+- **后台契约**：发帖/评论/点赞/转发/删——CRUD 端点 🆕（暂不暴露正式 UI）。`student`（active 成员）发帖评论；删=作者或 class_admin+ **软删**（D18）；点赞 toggle **物理删行**（DR-50 明确例外）；**内容仅本班可见**。
+- **可见性/约束**：仅本班；帖/评软删、点赞例外物删；依赖能力 2（成员）+ 18（越权删判定）。
+
+## 能力 23 · 班级讨论（话题投票）  ⏸
+- **涉及表**：`Discussion`/`DiscussionViewpoint`/`DiscussionVote`/`DiscussionComment`（08 §5.2，⏸）
+- **后台契约**：创建话题（class_tutor+）/ 投票 / 评论 / 关闭 / 删评。**投票选项创建后不可增删**；**一人一票不可换投**（DR-53）；投票/评论限 `open` 话题；关闭=发起人或 class_admin+。
+- **约束**：一人一票不可换投、选项不可事后改、投票评论不物删（D18）。
+
+## 能力 24 · 约修（集体修持目标）  ⏸
+- **涉及表**：`PracticeAppointment`/`PracticeAppointmentParticipant`（08 §5.3，⏸），关联 `PracticeProject`（修什么法）
+- **后台契约**：创建（**任意 active 成员** DR-58）/ 加入 / 贡献打卡（`personalTotal+=n`→`currentTotal`）/ 取消（创建者或 class_admin+）/ 退出（`isActive=false` 不物删 DR-59）；达标→completed、到期→expired 自动关闭。**贡献打卡复用能力 4/6/7 PracticeLog 落点**（DR-144 app 外申报亦走此）。
+- **约束**：仅本班；取消走 cancelled、退出走 isActive=false 均不物删（D18）。
+
+## 能力 25 · AI 助手（25.A 问答 / 25.B 代操作 / 25.C 笔记加工）  ⏸
+> AI 模块整体 ⏸（DR-109）：只做后台必要部分，暂不作正式用户功能；25.C 虽线上运行亦维持现状不扩展。
+- **涉及表**：`AiConversation`/`AiMessage`（对话，25.B 扩展 `toolCall`/`actionResult` TODO-AI-2）· `ContentChunk`（法本向量索引）· `FeatureEntry`（功能导航目录）；用量**复用 `LlmCallLog`/`LlmProviderUsage`**（不新建 AiUsage，DR-110）。
+- **25.A 问答（只读）后台契约**：RAG 检索全部已索引法本（DR-106，不限报名）→ LLM 带 `[n]` 引用；无依据**不 hallucinate**→导向辅导员；Rate Limit 30/日；PII 不出网；对话历史可**物理清空**（UI 工具记录·D18 例外）；辅导员「班级问答洞察」只聚合问题文本**不露姓名**；super_admin AI 配置中心（职能 #20·成本上限默认 $20/日·超额降级仅导航）。
+- **25.B 代操作五铁律（DR-107·提前设计）**：① 权限不放大（只代用户本人有权操作，**管理员/辅导员高权操作永不代做**）② 只碰本人数据 ③ 写操作前**强制结构化确认卡** ④ 多专业必问归属（D14b 不豁免）⑤ 来源 `source=ai_assistant` 留痕。首批=录入类写（打卡 7/内加行 6/观修 4/约修 24/笔记）+ 全部只读查询；纠错沿用能力 9（落库后不可自改，走能力 5 修正）。**禁区**：代行豁免 5/升学审核·成绩 10/角色 18/撤销出勤·取消资格 8·9/邀请码 19/归档 11/状态变更/报数快照。**不进 AuditLog**（本质是用户本人操作非管理员代行），靠 source 标记 + AiMessage toolCall 追溯。
+- **25.C 笔记加工**：✅ 线上运行（`/api/notes/llm-assist` 5 action），⏸ 维持现状不扩展。
+
+## 能力 38 · 成就徽章  ⏸
+- **涉及表**：`BADGES`（service.ts 代码常量·5 类 activity/streak/accuracy/mastery/breadth）+ `UserAchievementUnlock`（净资产·每用户每徽章一次）
+- **现状（保留不扩展·DR-128）**：徽章定义无 DB 表（门槛函数派生）；进度从 UserAnswer/SM-2/streak 实时派生；`detectAndPersistNewUnlocks` 写解锁。cron 后台保留，**不作正式用户功能**（同 AI 调子）。
+
+---
+
+> **进度**：已产出 **22 条正式 + 批8 5 条后台契约（22/23/24/25/38 ⏸）= 全 25 能力骨架登记完毕**（能力 16 = ❌ 不做）。**仅剩**：批 7 净资产层 26-51 盘点（多为 ✅ 已实现，盘点式登记现有端点 + 标状态）。
+> **08 回填清单（暂缓）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ AuditLog 代行/审计字段集（DR-118）⑤ User.primaryProgramId 已在 08·无需补。待 09 全产完一次性回填 + 跑 08 一致性检查。
 > **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
 > **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
