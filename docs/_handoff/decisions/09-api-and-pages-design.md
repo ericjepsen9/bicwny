@@ -645,7 +645,56 @@
 
 ---
 
-> **进度**：已产出 **18 条**（能力 1/3/4/5/6/7/8/9/10/11/12/13/14/15/17/18/37/39）——主干学修闭环 + 横切根基(5 代行/18 权限) + 关怀簇(12/13/14) + 传承簇(15/17)。
+## 能力 19 · 班级邀请码  〔批6·入班〕
+
+### 涉及表（08 落点）
+`ClassInviteCode`（🆕 取代旧 `Class.joinCode` DR-81，`code` 唯一 · `status` 仅 active/revoked（**expired 实时算不入库** DR-80）· `expiresAt` 必填 · `maxUses`/`usedCount`）· 旧 `Class.joinCode`（🔧 保留兼容·不再生成新码）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| GET | `/api/coach/classes/:id/invite-codes` | class_tutor+（只读）| — | 码列表（三态合成）| 🆕 | 辅导员只读（职能 #5 生成限 class_admin+）|
+| POST | `/api/coach/classes/:id/invite-codes` | class_admin+ | `{expiresAt,maxUses?}` | `ClassInviteCode` | 🆕 | 生成；**expiresAt 必填**（D11 禁永久码，绝对约束1）|
+| POST | `/api/coach/invite-codes/:id/revoke` | class_admin+ | — | status=revoked | 🆕 | 撤销立即生效，**不影响已加入学员**（绝对约束2）；留痕 D18 |
+
+> **有效性校验（DR-80）**：`status='active' AND now() <= expiresAt AND (maxUses IS NULL OR usedCount < maxUses)`——三态（active/expired/revoked）展示层合成，expired 不持久化、不靠定时任务。码不可复用（绝对约束·过期/撤销需重新生成）。
+
+---
+
+## 能力 2 · 学员加入专业  〔批1 补·入班〕
+
+### 涉及表（08 落点）
+`ClassMember`（✅ 入班记录，`cohortStatus`/`joinedAt`/`isPrimary` 主班）· `User.primaryProgramId`（🆕 主修偏好·UI 级 DR-120，区别于主班 isPrimary）· `Program`（班级隶属「专业×届」，加入即归属）· `ProgramSemester.isSelectionDeadline`（A3 校验数据源）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| POST | `/api/enrollments/join` | student | `{code}` | `ClassMember` | 🔧 | 用邀请码加入：校验有效性（能力 19）→ **A3 选专业锁定校验**→ 写 ClassMember + usedCount++ + 归属 program；**幂等**（同人同班一条有效 enrollment，重复用码不重建，绝对约束4）|
+| GET | `/api/me/enrollments` | student | — | 我的班级/专业列表 | 🔧 | 复用现状 `/api/my/enrollments`，叠加 program 归属 |
+| PATCH | `/api/me/primary-program` | student | `{programId\|null}` | — | 🆕 | 设主修偏好（**仅 UI 默认视图/提醒，不影响任何业务规则**，绝对约束3）；可空 |
+
+> **A3 选专业锁定校验（能力 1 决策落点）**：join 时若目标 program 已过 `isSelectionDeadline` 学期 **且** 学员在该 program 无在修记录 → 拒绝（409「已过选专业截止」），可走能力 5 代行豁免。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/join`（输入/扫码加入）| 输入邀请码 → 校验 → 入班 | 无效码/过期/超次/已过选专业截止 → 对应错误提示 | 🆕 |
+| 学员 | `/me/programs` | 我的专业列表（多专业平等）+ 设主修 | 设主修仅切默认视图 | 🔧 改（接能力 11 已退出态）|
+| 班级管理员 | `/coach/classes/:id/settings`（邀请码区）| 生成/撤销/列表（三态）| 见能力 19 | 🆕 |
+
+### 三端可见性
+- **学员**：用码加入；查自己班级/专业（多专业完全平等）；设主修偏好。
+- **辅导员**：只读邀请码（**不能生成**，职能 #5 限 class_admin+）。
+- **班级管理员+**：生成/撤销邀请码。
+
+### 大纲 & DR 关联 + 对齐备注
+- D11（邀请码唯一入口）/P4（身份不互斥）/DR-80（三态）/DR-81（取代 joinCode）/DR-120（primaryProgramId）；被依赖：几乎所有学员侧能力、能力 11（留级/回归同走邀请码）。
+- **🔧 接缺口**：线上 `Class.joinCode` 无时效 → ClassInviteCode 带 expiresAt/maxUses 取代（旧字段保留兼容不再生码 DR-81）。
+- **🔵 业务规则落点**：① 加入后专业归属不可单方改（绝对约束1）→ 只能退出（能力 11），无「转专业平移」端点；② 多专业并行（绝对约束2）→ 一人多 ClassMember/program 各自独立；③ 主修可空且仅 UI（绝对约束3）→ primaryProgramId 不参与任何业务判定（DR-120：区别于主班 isPrimary）；④ **A3 锁定校验落本能力 join 端点**（能力 1 决策）。
+
+---
+
+> **进度**：已产出 **20 条**（能力 1/2/3/4/5/6/7/8/9/10/11/12/13/14/15/17/18/19/37/39）——主干学修闭环 + 横切根基(5/18) + 关怀簇(12/13/14) + 传承簇(15/17) + **入班(2/19)**。批 1（1/2）+ 批 6 大半已闭合。
 > **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
 > **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
