@@ -641,10 +641,7 @@
 ### 大纲 & DR 关联 + 对齐备注
 - 被所有能力依赖（权限根基）；权威矩阵 02 文档；P4（身份不互斥）/D18 / DR-113（线上角色迁移）。
 - **🔧 接缺口（DR-113 迁移）**：线上 `User.role` 单值 + 42 处 `admin` 守卫 → 改造为 UserRoleAssignment 多角色 + 作用域 + 等级判定；coach→class_tutor（**不自动给行政权**，过渡期辅导员暂无报数审核/邀请码/关怀），admin→super_admin 后人工降级 subject_admin。
-- **⚠️ 跨档不一致（待你拍板）**：**06 规则 7「角色可设过期时间，到期自动失效」要求 `expiresAt` 字段，但 08 `UserRoleAssignment` 模型只有 revoke、无 `expiresAt`**。两条路：
-  - **A · 补字段**：08 UserRoleAssignment 加 `expiresAt DateTime?`，到期由 cron/查询时判失效（落实 06 规则7）。
-  - **B · 废规则**：确认「角色过期」非必要，删 06 规则 7，仅保留手动 revoke。
-  > 不自行决定，标 ⚠️。**倾向 B**（线上无过期需求、手动 revoke 已够；08 设计未纳入过期应是有意），但需你确认。
+- **✅ 决策（2026-06-01 拍板·选 B 废规则）角色无自动过期**：经核 06 规则 7「角色可设过期时间」与 08 `UserRoleAssignment`（只有 revoke、无 `expiresAt`）冲突——**确认废 06 规则 7**：角色不设自动过期，**仅手动 revoke**（status='revoked'），历史永久留痕（D18）。08 模型无需加 expiresAt；06 规则 7 已同步标废弃。
 
 ---
 
@@ -652,4 +649,4 @@
 > **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
 > **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
-> **决策记录（2026-06-01 拍板 3 条）**：① A3=采纳建选专业锁定；② C3/C4/C5=采纳建互斥校验+自选功课标记；③ E1/E2=选 C 折中告知。**注**：这 3 条目前只落在本设计文档；如需进 §五 战略决策 `05-decision-log.md` 分配 DR 编号，告我一声我追加。
+> **决策记录（2026-06-01 拍板 4 条）**：① A3=采纳建选专业锁定；② C3/C4/C5=采纳建互斥校验+自选功课标记；③ E1/E2=选 C 折中告知；④ 角色 expiresAt=选 B 废 06 规则 7（角色无自动过期·仅手动 revoke，已同步标废 06）。**注**：①②③ 只落在本设计文档（08 字段挂回填清单）；④ 已同步改 06。如需进 §五 `05-decision-log.md` 分配 DR 编号，告我一声我追加。
