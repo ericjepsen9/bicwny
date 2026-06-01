@@ -577,7 +577,40 @@
 
 ---
 
-> **进度**：已产出 **16 条**（能力 1/3/4/5/6/7/8/9/10/11/12/13/14/15/37/39）——主干学修闭环 + 横切代行(5) + 关怀簇(12/13/14) + 传承(15)。
+## 能力 17 · 灌顶记录  〔批6·传承（特殊子类）〕
+
+### 涉及表（08 落点）
+`TransmissionRecord`（**复用·不单独建表**，`sourceType='empowerment'` · `tantricGroupId` 必填=密法授权依据 · 无 `@@unique(userId,tantricGroupId)` 允许同组多次接受 DR-45）· `TantricGroup`（密法组，🔧 删 grants 补 transmissionRecords，DR-73）· 废弃 `TantricAccessGrant`（DR-44，访问控制改 EXISTS 查询）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| POST | `/api/me/transmissions` | student | `{sourceType:'empowerment',name,receivedAt,masterName,tantricGroupId}` | record | 🔧 | **复用能力 15 端点 + empowerment 分支**；`tantricGroupId` 必填否则 422（灌顶须关联传承组）|
+| POST | `/api/coach/students/:uid/transmissions` | class_tutor+ | 同上 | record | 🔧 | 代录灌顶（复用 15）|
+| POST | `/api/admin/transmissions/:id/confirm` | class_admin+ | `{transmissionKey}` | isRequired=true | 🔧 | 升格必需灌顶（复用 15）|
+| —（无新端点）密法访问控制 | `GET /api/courses/:slug`（restricted 课）| optional | — | 含/不含正文 | 🔧 | **改 EXISTS 查询**（DR-44/45）：isTantric 法本读取前查 `EXISTS TransmissionRecord(userId,tantricGroupId,sourceType=empowerment,status=active)`，无则挡 |
+
+> **录入方式**：无系统自动触发（与课程传承不同）；学员自行申报或管理员/辅导员代录，默认额外（isRequired=false），升格需管理员确认（同能力 15）。**升学核查**：能力 10 预检对 conditionType='transmission' 且指代灌顶项的 conditionKey，核 `isRequired=true AND active` 灌顶记录。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/me/profile`（传承记录区·灌顶独立标注）| 灌顶在传承列表中独立标记 + 申报入口（选传承组）| 申报→默认额外→管理员升格；申报授予对应密法组访问 | 🔧（复用 15 页面 + 灌顶子视图）|
+| 班级管理员+ | `/coach/classes/:id/transmissions` | 升学预检中显示灌顶满足情况 + 代录入口 | 同 15 升格流 | 🔧 |
+
+### 三端可见性
+- **学员**：自己灌顶记录（独立标注，双方可见 D18）；申报后获对应 TantricGroup 密法访问权。
+- **辅导员**：代录灌顶（默认额外）；不能升格。
+- **班级管理员+**：升格必需灌顶、撤销、查全班灌顶达标。
+
+### 大纲 & DR 关联 + 对齐备注
+- 服务能力 10（升密硬条件 D13 核查必需灌顶）；依赖能力 15（归属传承体系）/能力 5（不可替代除非代行）；D13/D17/D18/DR-44/DR-45/DR-73。
+- **🔵 架构落点（关键）**：① **不单独建表**（绝对约束1）→ 复用 TransmissionRecord `sourceType=empowerment`；② **密法访问控制改 EXISTS**（DR-44/45）→ 废弃旧 TantricAccessGrant，灌顶记录天然承担密法授权，访问查询=`EXISTS TransmissionRecord(empowerment,tantricGroupId,active)`，影响能力 3 restricted 法本读取门禁；③ 无 `@@unique(userId,tantricGroupId)`（DR-45）→ 同人可多次接受同组传承不报错。
+- **🔵 业务规则落点**：灌顶不可替代（绝对约束2）→ 升学核查无替代分支，豁免唯一路径走能力 5 代行（留痕 D17）。
+
+---
+
+> **进度**：已产出 **17 条**（能力 1/3/4/5/6/7/8/9/10/11/12/13/14/15/17/37/39）——主干学修闭环 + 横切代行(5) + 关怀簇(12/13/14) + **传承簇(15/17)**。
 > **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
 > **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
