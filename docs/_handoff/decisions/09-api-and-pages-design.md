@@ -610,7 +610,45 @@
 
 ---
 
-> **进度**：已产出 **17 条**（能力 1/3/4/5/6/7/8/9/10/11/12/13/14/15/17/37/39）——主干学修闭环 + 横切代行(5) + 关怀簇(12/13/14) + **传承簇(15/17)**。
+## 能力 18 · 角色与权限  〔批6·权限（横切根基）〕
+
+> 权威矩阵见 `02-roles-and-permissions-v1.md`；本能力是其 API 落地。
+
+### 涉及表（08 落点）
+`UserRoleAssignment`（🆕 线上无·替代旧 User.role 单值，`role` 四值 · `classId`/`programId` 作用域 · `@@unique(userId,role,classId,programId)` 一人多角色）· `RoleAssignmentHistory`（🆕 变更留痕 D18）· 旧 `User.role` 单字段 → 🔧 迁移（DR-113）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| GET | `/api/admin/users/:uid/roles` | subject_admin+ | — | `UserRoleAssignment[]`（active）| 🆕 | 查某用户全部角色分配（一人多角色各条独立）|
+| POST | `/api/admin/users/:uid/roles` | **按任命链** | `{role,classId?\|programId?}` | assignment | 🆕 | 任命；**任命链校验**：super←super / subject←super / class_admin·class_tutor←subject_admin 或 super；作用域字段按 role 必填 |
+| POST | `/api/admin/role-assignments/:id/revoke` | 同级或更高 | `{reason}` | status=revoked | 🆕 | 撤销（不物理删 D18）；写 RoleAssignmentHistory |
+| GET | `/api/admin/users/:uid/role-history` | subject_admin+ | — | `RoleAssignmentHistory[]` | 🆕 | 角色变更留痕 |
+| ~~PATCH~~ | ~~`/api/admin/users/:id/role`~~ | admin | 单值改角色 | — | 🔧 | 线上单值 role 端点→**改造为多 assignment 体系**（DR-113 迁移：coach→class_tutor、admin→super_admin 后人工降级）|
+
+> **权限判定核心（绝对约束1）**：中间件按**角色等级数值**比较（class_tutor=1/class_admin=2/subject_admin=3/super_admin=99），`userLevel >= requiredLevel` 放行，**不硬编码角色名**；同时校验作用域（classId/programId 匹配操作目标）。一人多角色取**满足该操作的最高有效角色**。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| super_admin / subject_admin | `/admin/users/:uid/roles`（角色管理）| 用户当前角色 + 任命/撤销 + 变更史 | 按任命链限制可授角色；撤销立即失效留痕 | 🆕 |
+
+### 三端可见性
+- **学员**：不涉及角色任命视图（student 非管理角色，P4 不强制互斥——学员可同时持管理角色，按角色进对应端）。
+- **辅导员（class_tutor）**：**不能授权他人**（绝对约束4）；只在被授作用域内行使下级权限。
+- **subject_admin / super_admin**：按任命链任命/撤销。
+
+### 大纲 & DR 关联 + 对齐备注
+- 被所有能力依赖（权限根基）；权威矩阵 02 文档；P4（身份不互斥）/D18 / DR-113（线上角色迁移）。
+- **🔧 接缺口（DR-113 迁移）**：线上 `User.role` 单值 + 42 处 `admin` 守卫 → 改造为 UserRoleAssignment 多角色 + 作用域 + 等级判定；coach→class_tutor（**不自动给行政权**，过渡期辅导员暂无报数审核/邀请码/关怀），admin→super_admin 后人工降级 subject_admin。
+- **⚠️ 跨档不一致（待你拍板）**：**06 规则 7「角色可设过期时间，到期自动失效」要求 `expiresAt` 字段，但 08 `UserRoleAssignment` 模型只有 revoke、无 `expiresAt`**。两条路：
+  - **A · 补字段**：08 UserRoleAssignment 加 `expiresAt DateTime?`，到期由 cron/查询时判失效（落实 06 规则7）。
+  - **B · 废规则**：确认「角色过期」非必要，删 06 规则 7，仅保留手动 revoke。
+  > 不自行决定，标 ⚠️。**倾向 B**（线上无过期需求、手动 revoke 已够；08 设计未纳入过期应是有意），但需你确认。
+
+---
+
+> **进度**：已产出 **18 条**（能力 1/3/4/5/6/7/8/9/10/11/12/13/14/15/17/18/37/39）——主干学修闭环 + 横切根基(5 代行/18 权限) + 关怀簇(12/13/14) + 传承簇(15/17)。
 > **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
 > **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
