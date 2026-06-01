@@ -543,7 +543,41 @@
 
 ---
 
-> **进度**：已产出 **15 条**（能力 1/3/4/5/6/7/8/9/10/11/12/13/14/37/39）——主干学修闭环 + 横切代行(5) + **关怀簇成片(12/13/14)**。
+## 能力 15 · 传承管理  〔批6·传承〕
+
+### 涉及表（08 落点）
+`TransmissionRecord`（🆕 线上「传承不做」已推翻 D4，`sourceType` course/dharma_event/empowerment · `transmissionKey` 对齐 `ProgramAdvancementConfig.conditionKey` · `isRequired`/`isConfirmed`/`confirmedBy` 升格链 · `tantricGroupId` empowerment 授权密法访问 DR-44 · status active/revoked）· `ProgramAdvancementConfig`（conditionType='transmission' 固定清单）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| GET | `/api/me/transmissions` | student | — | 固定/额外分组 `TransmissionRecord[]` | 🆕 | 学员看自己传承（双方可见 D18）|
+| POST | `/api/me/transmissions` | student | `{name,sourceType,receivedAt,masterName?}` | record | 🆕 | **自行申报**：默认 `isRequired=false`（额外）+ `entryMethod=self_report` |
+| POST | `/api/coach/students/:uid/transmissions` | class_tutor+ | 同上 | record | 🆕 | 管理员/辅导员**代录**（`entryMethod=admin_entry`，默认额外）|
+| POST | `/api/admin/transmissions/:id/confirm` | class_admin+ | `{transmissionKey}` | isRequired=true | 🆕 | **升格为固定清单项**（规则3/5：手动录入默认额外，升格需管理员确认）+ `confirmedBy/At` |
+| POST | `/api/admin/transmissions/:id/revoke` | class_admin+ | `{reason}` | status=revoked | 🆕 | 撤销（不物理删 D18）|
+
+> **课程自动传承非端点**：专业配置标「含传承」的课程，学员经能力 3 圆满判定通过→系统派生 `entryMethod=auto, entryBy=system, isRequired=true, transmissionKey=<config>`（完成事件本身手动确认 DR-143，派生仍自动）。**升学核查**：能力 10 AdvancementCheck 遍历 conditionType='transmission' 条件，逐 `conditionKey` 查该用户有无 `transmissionKey=key AND isRequired=true AND status=active` 记录。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/me/profile`（传承记录区）| 固定传承 / 额外传承分组展示 + 自行申报入口 | 申报→默认额外→待管理员升格 | 🆕 |
+| 班级管理员+ | `/coach/classes/:id/transmissions` | 确认申报（升格）+ 全班固定传承达标情况 | 申报/代录→管理员确认 transmissionKey→升格计入升学 | 🆕 |
+
+### 三端可见性
+- **学员**：自己全部传承（固定/额外，含来源/录入人/时间，双方可见 D18）；可申报；看不到升格决策细节外的管理视图。
+- **辅导员**：代录（默认额外）；**不能升格为固定项**（confirm 限 class_admin+）。
+- **班级管理员+**：确认升格、撤销、查全班达标。
+
+### 大纲 & DR 关联 + 对齐备注
+- 服务能力 10（升学核查固定传承）；依赖能力 3（课程触发）/能力 5（额外替代固定）/能力 17（灌顶子类）；D4（传承根基）/D3（固定清单专业配置）/D13（灌顶硬条件）/D17/D18/DR-44。
+- **🆕 接缺口**：线上「传承不做」第 10 条已推翻（D4）→ TransmissionRecord 全新建；三来源（课程/法会/灌顶）统一一张表 `sourceType` 区分。
+- **🔵 业务规则落点**：① 固定清单由专业配置定义、辅导员不可自加必需项（绝对约束1）→ 升格 confirm 限 class_admin+；② 额外不自动计入升学（绝对约束2）→ 升学核查只认 `isRequired=true AND active`；③ 额外替代固定走能力 5（绝对约束3）→ 不在本能力开替代口子；④ **传承法会作为独立自动批量登记功能 ❌ 不做**（能力 16），手动录入统一走本能力；⑤ 灌顶=`sourceType=empowerment` 同表（能力 17），并作 TantricGroup 密法访问授权来源（DR-44）。
+
+---
+
+> **进度**：已产出 **16 条**（能力 1/3/4/5/6/7/8/9/10/11/12/13/14/15/37/39）——主干学修闭环 + 横切代行(5) + 关怀簇(12/13/14) + 传承(15)。
 > **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
 > **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
