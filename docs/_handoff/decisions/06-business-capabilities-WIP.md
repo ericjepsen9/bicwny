@@ -1900,7 +1900,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
    - **过程明细层**：看法本=LessonReadingProgress（心跳）、观修=MeditationSession（播放）、听音视频=新增播放进度
    - **完成事件层**：LessonCompletion（达标时各写一条，带 type）
 4. **闻思判定**（能力 3）：听=COUNT(type IN audio,video)、看=COUNT(type=read)、观修=COUNT(type=meditation)，按身份分支判定遍数
-5. **播放达标阈值**：⚠️ 待定（音视频播放多少 % 算「听/看一遍」）——挂 TODO-25，实现时按大纲/产品定
+5. **播放达标阈值**（DR-141，已决策）：`playedPercent ≥ 90% OR (playedSeconds ≥ 60 AND playedPercent ≥ 50%)` 时写一条 LessonCompletion（type=audio/video）。双轨设计对齐看法本（能力 37：scrollPercent≥90 OR totalSeconds≥30&≥50%），但音视频比文本重，时长底线抬到 60 秒；超长音频（如整场开示）靠「90% OR 过半且≥60秒」避免要求听满 90% 过苛
 
 ### 输入与输出
 - 输入：音视频播放进度（达标触发）
@@ -1910,14 +1910,15 @@ student（学员）是核心用户角色，不属于管理角色体系。
 - 服务：能力 3 闻思圆满（「听」维度核心数据源）、能力 14 掉队检测（contentLag）、能力 9 报数、能力 26 积分排行
 - 衔接：能力 37 法本阅读器（「看」维度，同写 LessonCompletion type=read）
 
-### ⚠️ 改造关联（DR-129 / TODO-24/25）
+### ⚠️ 改造关联（DR-129/141 / TODO-24）
 - **LessonCompletion 是线上幻影表**（grep=0），08 此前误标「复用」，DR-129 纠正为 🆕 §三新建（M3f）
 - 线上播放音视频**不记完成**（无完成事件表）；粗粒度课时完成走 UCE.lessonsCompleted（改造源，DR-127/TODO-24 机制统一到 LessonCompletion）
-- 播放达标阈值待定（TODO-25）
+- 播放达标阈值已定（DR-141）：`playedPercent≥90% OR (playedSeconds≥60 AND ≥50%)`——TODO-25 闭合
 
 ### 绝对约束
 1. 分维度计数（按 type 分别 COUNT），满足大纲盲/聋判定
 2. LessonCompletion 一行 = 一遍完成事件（供遍数 COUNT）
+3. 播放达标阈值 `playedPercent≥90% OR (playedSeconds≥60 AND ≥50%)`（DR-141），与看法本双轨同构
 
 ### 对老项目的影响
 - ✅ 内容已实现（LessonResource/LessonMediaChapter 净资产）；🆕 **完成记录 LessonCompletion 待新建**（DR-129，§三 M3f）
