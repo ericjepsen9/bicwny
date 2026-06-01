@@ -458,7 +458,7 @@ model ClassSession {
 
 > **定位（用户决策 2026-05-29）**：本表是修学计数模块的**统一用户追踪条目表**，覆盖 5 种 context。任务定义（ClassTask / CohortRecommendedTemplate）独立存储，UserPracticeVow 是每个用户的追踪实例，两者通过外键关联。
 >
-> **保留的旧设计逻辑**：`isPledged` 两分法——用户添加修学时提示「是否发愿」；法会愿进度走 `EventCount` 独立计数流。
+> **保留的旧设计逻辑**：`isPledged` 两分法——用户添加修学时提示「是否发愿」；~~法会愿进度走 `EventCount` 独立计数流~~ **（DR-134 改：法会愿进度走 PracticeLog，context=event 独立标识，不混日常打卡总量/排行；EventCount 废弃）**。
 >
 > **去掉的旧设计字段**：`source`、`classId`（旧任务锚点）、`templateId`（旧模板锚点）、7 态 VowStatus 状态机（source=auto 专属，本表已用 context 区分）、`currentStatus/statusCalculatedAt/statusNote`、`paceHistory`（过度设计）、`appointmentId`（约修 ⏸ 暂缓）。
 
@@ -469,7 +469,7 @@ model ClassSession {
 | `id` | String | cuid | 旧 |
 | `userId` | String | 关联 User | 旧 |
 | `context` | String | `personal` / `event` / `class_task` / `program_task`（见下方说明）| 旧（扩展）|
-| `eventId` | String? | context=event 时关联 Event | 旧 |
+| `eventId` | String? | context=event 时关联 **DharmaAssembly**（DR-134：原指 Event 幻影表，改指线上真表）；存 `targetCount`=发愿数量 | 旧（DR-134 改指向）|
 | `classTaskId` | String? | context=class_task 时关联 ClassTask | **新增** |
 | `cohortTemplateId` | String? | context=program_task 时关联 CohortRecommendedTemplate | **新增** |
 | `practiceProjectId` | String | 修持项目 | 旧 |
@@ -534,11 +534,11 @@ model UserPracticeVow {
   updatedAt            DateTime  @updatedAt
 
   user            User                      @relation(fields: [userId], references: [id])
-  event           Event?                    @relation(fields: [eventId], references: [id])
+  event           DharmaAssembly?           @relation(fields: [eventId], references: [id])  // DR-134：改指线上真表 DharmaAssembly（原 Event 幻影表废弃）
   classTask       ClassTask?                @relation(fields: [classTaskId], references: [id])
   cohortTemplate  CohortRecommendedTemplate? @relation(fields: [cohortTemplateId], references: [id])
   logs            PracticeLog[]             // context≠event 的打卡来源
-  eventCounts     EventCount[]              // context=event 打卡来源（独立计数流）
+  // DR-134：删 eventCounts EventCount[]——EventCount 幻影表废弃（旧设计独立计数流，2026-05-27 已废计数）。法会计数改走 PracticeLog（context=event 独立标识，不混日常打卡总量/排行）
 }
 ```
 
@@ -553,7 +553,8 @@ model UserPracticeVow {
 | isPledged=false 时 target 字段全 null | 应用层（Zod）| 裸追踪项无目标 |
 | class_task / program_task 的 isPledged 恒为 true | 应用层 | 任务天然有目标，不允许裸追踪 |
 | task 类型 dailyTarget/targetPeriod 为 null | 应用层 | 目标运行时从 ClassTask 或 PracticeTemplate 读（D3）|
-| context=event 愿进度 = SUM(EventCount.count WHERE vowId=:id) | 应用层 | 不走 PracticeLog；发愿前的 EventCount（vowId=null）不回溯 |
+| context=event 愿进度 = SUM(PracticeLog.count WHERE vowId=:id) | 应用层 | **DR-134：改走 PracticeLog（统一修学计数模块），context=event 独立标识不混日常打卡总量/排行**（承接 DR-34 区隔初衷，但用统一表 + 标识区分，非独立 EventCount 表）|
+| 法会页统计：参与人数 = COUNT(DISTINCT userId)；发愿总数 = SUM(targetCount) WHERE eventId=:assemblyId | 应用层 | DR-134：人数=发愿人头，总数=各人发愿数量之和 |
 | 裸追踪项不可补发愿 | 应用层 | 要发愿须新建 isPledged=true 的愿，历史打卡不追溯 |
 | 幂等保护（自动建条目）| 应用层 | 同 userId + classTaskId / cohortTemplateId 已存在则跳过，不重复建 |
 | **外部事件不触发 vow 状态变化** | 应用层 | ClassTask 停用、退班、毕业、法会结束——均不改变 UserPracticeVow.status；vow 按用户设定的 currentEndDate 自然到期 |
@@ -563,7 +564,7 @@ model UserPracticeVow {
 
 #### 设计意图
 
-**打卡入口统一在修学计数模块**：5 种 context 的条目全在同一列表。应用层按 context 分流写表（event → EventCount；其余 → PracticeLog），用户无感知。
+**打卡入口统一在修学计数模块**：5 种 context 的条目全在同一列表。~~应用层按 context 分流写表（event → EventCount；其余 → PracticeLog）~~ **（DR-134 改：全部 context 统一写 PracticeLog，event 用 context=event 标识区分，不再分流到 EventCount；EventCount 废弃）**，用户无感知。
 
 **任务目标运行时读取（D3）**：class_task / program_task 的 dailyTarget 不写入此表，每次展示/达标计算时 join ClassTask.dailyTarget 或 PracticeTemplate.defaultDailyTarget。辅导员/管理员修改任务标准后全员实时生效，无需批量同步。
 
@@ -2188,8 +2189,9 @@ model EnrollmentStatusHistory {
 | `ProgramWeekPractice` | 能力 1/4 | 🆕 线上无·实为新建（DR-130）|
 | `ProgramStudyType` | 能力 8 | 🆕 线上无·实为新建（DR-130）|
 | `CohortRestWeek` | 能力 8 | 🆕 线上无·实为新建（DR-130）|
-| `Event` | 能力 15 | 🆕 线上无·实为新建（DR-130）|
-| `EventCount` | 能力 15 | 🆕 线上无·实为新建（DR-130）|
+| ~~`Event`~~ | 能力 15→法会发愿 | ❌ **废弃**（DR-134：旧设计法会重结构，从未上线；法会统一用线上真表 DharmaAssembly）|
+| ~~`EventCount`~~ | 法会计数 | ❌ **废弃**（DR-134：旧设计独立计数流，2026-05-27 旧设计自己已废计数；法会计数改走 PracticeLog context=event 独立标识）|
+| `DharmaAssembly` | 能力 46 法会 + 法会发愿 | ✅ **真实复用净资产**（DR-134：线上真表，补反向 `vows UserPracticeVow[]`）|
 | `TantricGroup` | 能力 15/17 | 🔧 微调（删 grants，补 transmissionRecords，详见下，DR-73）|
 | `ContentChunk` | 能力 25 AI 助手 | ⏸ 暂缓实现（AI 模块，DR-74；业务已登记能力 25，DR-106；调用层复用既有 LLM 网关，DR-108）|
 | `FeatureEntry` | 能力 25 AI 助手 | ⏸ 暂缓实现（AI 模块，DR-74；业务已登记能力 25，DR-106；调用层复用既有 LLM 网关，DR-108）|
@@ -2981,6 +2983,7 @@ model UserSelfStudyProgram {
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
 | DR-132 | D3 短信通道（能力 45）完整设计：第 3 触达通道 + User 手机号体系（🆕 新建）| **能力 45 短信通道完整设计：(A) User +phone/phoneVerified/phoneVerifiedAt 字段（线上 User 无手机号，grep 确认）+ 绑定验证流程；(B) sendSms 发送抽象层（Provider 接口 + 模板化 + 失败重试）；(C) 作为 dispatchToUsers 第 3 通道 channel='sms'（复用 DispatchLog 幂等）；(D) 用途规则：验证码/critical 系统公告/⑦⑧⑨关键学修提醒走短信，一般提醒/普通通知不走（控成本防骚扰）；(E) NotificationPreference +smsEnabled（验证码不受开关影响）。服务商选型等挂 TODO-SMS**（用户决策：用途=重要通知兜底+关键学修提醒，深度=完整设计短信通道，2026-05-31/06-01）| 用户追问「系统公告与通知推送/短信是不是两个模块」引出核查：dispatchToUsers 现仅 channel='push'（站内 Notification ✅+Web Push ✅），**SMS 完全未实现**——代码仅占位注释「banner/sms 后续接入时各自加 channel」，且**User 表连 phone 字段都没有**（grep phone/mobile 全空）。用户决策「都要做、逐条确认」+ 选项「用途=重要通知兜底+关键学修提醒」「深度=完整设计短信通道」。**设计要点**：短信是 Web Push 之外的兜底通道，但**按条计费**故严格限场景（仅 critical+关键学修提醒+验证码），非全量发；前置缺口是 User 手机号体系（字段+验证流程），无手机号则无法发。**通道选择**：站内信必达→push 有订阅则推→sms 仅 critical/关键且符合用途规则。**待决策**（TODO-SMS）：服务商选型（阿里云/腾讯云/国际）、smsEnabled 默认值、是否独立 SmsLog 表（默认复用 DispatchLog）、验证码频率/有效期。排除「短信全量发所有通知」：成本爆炸+骚扰，仅限关键场景；排除「不做手机号验证直接发」：未验证号码发短信浪费+合规风险，须 verified 才发业务短信（验证码除外）|
+| DR-134 | 🔴 法会双表分叉厘清：统一到 DharmaAssembly（线上真表），废弃 Event/EventCount（旧设计幻影）；法会发愿带数量 + 进修学计数模块 | **(1) 法会统一用线上真表 DharmaAssembly，❌ 废弃 Event/EventCount 两张幻影表（DR-130 曾标「实为新建」，本轮改判废弃——不新建）；(2) 法会发愿复用 UserPracticeVow（context=event，eventId 改指 DharmaAssembly，原指 Event），带 targetCount=发愿数量；(3) 计数走 PracticeLog（统一修学计数模块），context=event 独立标识不混日常打卡总量/排行；(4) 法会页：参与人数=COUNT(DISTINCT userId)、发愿总数=SUM(targetCount)；(5) DharmaAssembly 补反向 vows UserPracticeVow[]**（用户决策 2026-06-01）| 写 B4 法会（能力 46）时用户要求「法会要有发愿按钮 + 发愿进学修记录 + 页面显示发愿总数与参与人数」，并追问「为什么两套表设计不一样、先查清再定」。**派 agent 全量溯源**得权威结论：**DharmaAssembly 与 Event/EventCount 是两个时代的产物，非一表两版**——Event/EventCount 是更早旧设计（BL_REVIEW/SCENARIO_SIMULATION）的「法会+发愿+计数」重结构，**线上从未建表**；DharmaAssembly 是后来实际落地的轻量信息展示（纯 CRUD+push，无发愿/计数）。**分叉根因**：审计（07-integration-plan）对照旧设计文档把 Event/EventCount 误标「✅ 复用直接搬」，从未 grep 验证，直到 DR-130 揪出。**关键证据**：① EventCount 旧设计自己 2026-05-27 已废弃（法会计数改线下上报，只留发愿+回向）；② grep Event/EventCount=0；③ 能力 15（传承）实际用 TransmissionRecord 非 Event，08「Event 服务能力15」是旧归类残留；④ 能力 27/46 都用 DharmaAssembly。**用户新逻辑**（比旧设计两版更优）：发愿带数量 → 并入统一修学计数模块计数（非旧设计 EventCount 独立流，也非 v2 砍掉计数）。**方案**：统一 DharmaAssembly + 废弃 Event/EventCount + 发愿复用 UserPracticeVow + 计数走 PracticeLog（独立标识）。**表计数**：§四 Event/EventCount 原标「实为新建」→ 废弃移除（-2）；DharmaAssembly 补登记为真实复用净资产（原漏登）；净额对设计新建无影响（两幻影本就不入线上、不入 migration）。**§1.7 同步改 4 处**：eventId 指向、event 关联类型、删 eventCounts、愿进度公式 + 统计公式。承接 DR-34（法会/日常计数区隔）：初衷保留，但实现从「独立 EventCount 表」改为「统一 PracticeLog + context 标识」。排除「保留 Event 重结构」：从未上线、旧设计已废计数、多一套幻影表需同步；排除「DharmaAssembly 加计数字段」：发愿/计数本是 UserPracticeVow+PracticeLog 职责，DharmaAssembly 保持展示纯粹性，加反向关联即可 |
 | DR-133 | D2 补 ⑨ 上课迟到提醒（推送+短信）·复用 DR-89 签到窗口机制 | **能力 44 增第 9 条 triggerType `class-late`：签到 token 生成后接近 checkinGraceMinutes 窗口末仍未签到的本班成员 → 推送+短信催签。完全复用 DR-89（签到窗口=token.createdAt+checkinGraceMinutes，startAt 仅展示），零新字段/零新表**（用户决策 2026-06-01）| 用户要求「上课迟到要推送+短信提醒」，并指出**逻辑闭环**：升学条件要求出勤率（ProgramAdvancementConfig conditionKey=attendance），故每场必须记出勤。我初判「线上无签到/考勤机制，需新建考勤子系统」并两度发问迟到计时基准——**实为重复发问，违反 CLAUDE.md「以文档为准」**：用户纠正「之前讨论过，发出链接后才开始计算上课」。翻 **DR-89（TODO-2 闭合，2026-05-30）**确认：签到窗口早已定为 **token 生成时刻为基准 + Program.checkinGraceMinutes（默认 30min）**，startAt 仅展示不参与计算，且 DR-89 明确「排除加 actualStartAt 字段：token createdAt 天然承担此语义」。故迟到规则**无需任何新字段**：token 生成（辅导员发链接）→ checkinGrace 窗口 → 窗口内未签到的本班成员=迟到 → 推送+短信。闭环：升学卡出勤率→每场记出勤（StudyRecord）→窗口内未签到=迟到→催签→保出勤率→保升学。短信归类「关键学修提醒」（能力 45 用途规则 +1 行 class-late→✅发，直接关联升学出勤率）。**教训**：动「迟到/出勤」议题前应先 grep 决策日志（DR-89 关键词「签到窗口/token/checkinGrace」），避免重复已闭合讨论。排除「新建考勤子系统」：StudyRecord+DR-89 已是完整出勤机制；排除「加 checkInOpenedAt 字段」：DR-89 已用 token.createdAt 承担 |
 | DR-131 | D2 定时通知规则集：8 条新提醒规则确立（用户提 4 + 补充 4，「全部补入」）；**后补（DR-133）：+⑨ class-late 上课迟到，共 9 条** | **能力 44 定时通知规则新增 8 条 triggerType：①progress-lag 进度落后 ②class-task-overdue 班级任务逾期 ③personal-task-overdue 个人任务逾期 ④rest-week 班级放假/休息周 ⑤lesson-incomplete 闻思未圆满 ⑥review-due 复习到期 ⑦exam-upcoming 讲考/考试临近 ⑧advancement-care-result 升学/关怀结果。复用 NotificationRule + cron + 能力 43 派发引擎，无新表（依赖各业务源表）**（用户决策 2026-05-31）；**⑨ class-late 上课迟到由 DR-133 补入（2026-06-01）** | 核查能力 43 EventKind 时，用户提出「学习进度落后/未完成班级任务/未完成个人任务/班级放假」要提醒，问「还有哪些需补充」。核查现状：线上 cron 仅 evening-due/daily-digest/weekly-report（个人提醒）+ class_session/practice_task（截止前）+ achievement 聚合——用户提的 4 个**线上均无**。补充 4 个同类「关怀/节律」提醒：⑤闻思未圆满（大纲硬规则，能力 3/39）、⑥复习到期（SM-2 不提醒则白做，能力 33）、⑦讲考/考试临近（能力 8/10 有日程）、⑧升学/关怀结果（能力 10/关怀）。用户决策「全部补入」（8 条）。**机制**：复用现有 NotificationRule（scope/triggerType/defaultHour/meta/isActive）+ cron 每分钟扫描 + DispatchLog 日期粒度幂等，每条加 triggerType + 判定逻辑，经能力 43 dispatchToUsers 派发——**无新表**。**收件人分流**：学员收 ①②③④⑤⑥⑦+⑧升学结果；辅导员收 ⑧关怀名单。**绝对约束**：幂等不轰炸（日期粒度去重）+ 达阈值才发（不空发）+ 收件人精确 + 受偏好/静默/频率上限约束。**待决策**：各规则是否 critical 级（无视静默）⚠️ 挂 TODO 待定。**依赖新建表**：⑧依赖 AdvancementRecord/CareWatchlistItem，①依赖 CohortLagSnapshot，④依赖 CohortRestWeek，⑦依赖 SpeakingSession/Exam——均 DR-130 确认的设计新建表，规则实现待这些表就位。排除「只做用户提的 4 个」：⑤⑥⑦⑧是已登记能力（3/33/8/10）的必要触达闭环，缺则那些能力做了不提醒等于半成品；排除「为提醒规则建独立表」：NotificationRule.meta 足够承载扩展参数，复用即可 |
 | DR-130 | 🔴🔴 全量复用表存在性体检：DR-72 批量复用确认是对照旧设计文档（未验证线上 schema），逐表 grep 纠正（用户决策「一切按新设计、不改代码」）| **全量 grep 体检：08 标「复用/扩展」的表对照线上 60 表，揪出「线上无却标复用/扩展」的表，逐个改判 🆕 线上无·实为新建。本轮纠正 §一扩展区 5 表（Program/StudyRecord/SpeakingGrade·ExamGrade·Exam/CohortLagSnapshot/CohortRecommendedTemplate）+ §四复用区 12 表（ProgramSemester/ProgramStudyType/ProgramWeek/ProgramWeekCourse/ProgramWeekPractice/QuestionReference/SpeakingRegistration/SpeakingSession/Event/EventCount/CohortRestWeek/CohortWeeklySummary）**（用户决策 2026-05-31）| 连撞 5 个幻影表（DR-121 实修域、DR-123 PracticeTemplate、DR-129 LessonCompletion 等）后，用户两轮质疑「核查不全」，遂做**全量复用表存在性体检**——提取 08 所有标「复用/旧设计已有/扩展现有」的表名，逐一 `grep "^model X" backend/prisma/schema.prisma` 对照线上真实 60 表。**触目惊心的结论**：标「复用」的表里**真实存在仅 8 个**（Lesson/LessonMediaChapter/LessonResource/LessonTextBlock/Meditation/PracticeProject/LlmCallLog/LlmProviderUsage），**12 个幻影**（见上）；§一「扩展现有表」13 个里**真实仅 4 个**（User/Class/Course/ClassMember），其余 9 个线上无（含已处理的 UserPracticeVow/PracticeLog/DR-121~129，本轮再补 Program/StudyRecord/SpeakingGrade·ExamGrade·Exam/CohortLagSnapshot/CohortRecommendedTemplate 5 个）。**根因**：DR-72「C 类 15 张批量复用确认」是**对照旧设计文档打的勾，从未 grep 验证线上 schema**——这就是为什么 DR-121/123/129 一个个撞出幻影表。**本质认知**：线上目前是**轻量「法本学习+答题+打卡」App**（真实表=Class/ClassMember/ClassSession/ClassAnnouncement/Course/UserCourseEnrollment + 学习引擎表 Question/UserAnswer/Sm2Card/笔记/阅读/打卡/通知/LLM 网关），新设计 08 是**完整「佛学院学修管理系统」**——专业体系/讲考/升学/报数/关怀/传承/角色权限/周排课/法会等主体**线上全无，实为从零新建**。**处理（用户「一切按新设计、不改代码」）**：(1) 逐表改标签——线上无的标「🆕 线上无·实为新建（DR-130）」，§一 5 表标题 + §四 12 表状态列已逐个改；(2) **设计内容全部有效不动**——错的只是「现状标签」（以为线上有、实为新建），新设计要建什么/字段怎样都对；(3) 表计数维持设计口径（实现工作量远大于文档显示，但目标设计权威）。**修正 DR-72**：其「15 张批量复用」结论作废，以本条 grep 体检为线上现状权威；DR-72 历史保留（append-only），加指向本条的后修订注。**不动代码**：纯文档现状标签校正。排除「逐字重写每个表设计」：设计内容有效，只需改现状标签；排除「全量重写复用区分类」：标签逐个改 + 总纲 DR-130 钉死更稳，保留设计史。**这是第 4 轮、也是最彻底一轮的「08 误标复用、实为新建」纠正**——印证用户坚持核查的价值：复用区分类此前整体不可信，本轮 grep 体检建立可信基线 |
@@ -4680,6 +4683,25 @@ model UserSelfStudyProgram {
 
 ---
 
+### 检查轮次 87（2026-06-01，范围：DR-126 逐条第 14 条（B4）· 能力 46 法会+发愿 + DR-134 双表分叉厘清 · 跨 06/08）
+
+> 用户要法会发愿按钮+进学修记录+显示发愿总数/参与人数，并追问「为什么两套表设计不一样、先查清再定」。派 agent 全量溯源：DharmaAssembly（线上真表）vs Event/EventCount（旧设计幻影，从未上线，旧设计自己已废计数）。用户新逻辑：发愿带数量+并入统一修学计数模块。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. 双表溯源 | ✅ | agent 证据：Event/EventCount 旧设计重结构线上从无；DharmaAssembly 是落地的轻量展示；分叉源于审计误标复用（DR-130 已揪） |
+| 2. 能力 46 落盘 | ✅ | 06 新增能力 46（A 展示✅ + B 发愿🆕：发愿数量/UserPracticeVow context=event/PracticeLog 计数/参与人数+发愿总数）|
+| 3. §1.7 同步改 | ✅ | eventId 指向 DharmaAssembly（原 Event）+ event 关联类型 + 删 eventCounts + 愿进度公式（走 PracticeLog）+ 统计公式，共 4 处 |
+| 4. 废弃 Event/EventCount | ✅ | §四两行改 ❌ 废弃；DharmaAssembly 补真实复用行；M3e migration 清单 Event→DharmaAssembly |
+| 5. DR-134 记录 | ✅ | 溯源结论 + 用户新逻辑 + 计数区隔（context=event 不混日常）+ 排除项 |
+| 6. 表计数校准 | ✅ | §四 21→20（−Event −EventCount 废弃 +DharmaAssembly 补登记）；§一12/§三18 不变；发愿复用 UserPracticeVow+PracticeLog 无新表 |
+| 7. 进度更新 | ✅ | 06 章首「B 组 4 条完成（含 B4 能力 46）」|
+
+**本轮发现问题数**：1（法会双表分叉——Event/EventCount 幻影 vs DharmaAssembly 真表，DR-134 厘清并废弃幻影、统一真表）。
+**结论**：能力 46（B4 法会）逐条落地，含展示（✅ 已实现）+ 发愿（🆕 复用 UserPracticeVow context=event + PracticeLog 计数）。DR-134 厘清双表分叉、废弃 Event/EventCount 幻影、统一 DharmaAssembly。**B 组运营内容 4 条全部完成**（能力 40-42、46）。表计数 §一12/§三18/§四20。承 DR-34 计数区隔（context=event 独立标识不混日常）。下一组待定（C 组等）。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -4738,7 +4760,7 @@ model UserSelfStudyProgram {
 | **M3b · 升学条件体系** | ProgramAdvancementConfig、SemesterSnapshot、AdvancementCheck、AdvancementRecord | 均 →Program/Class/User；AdvancementRecord→AdvancementCheck | M1（Program/Class/User 就位）、M3a（AuditLog 供豁免留痕）| 新建表 |
 | **M3c · 关怀体系** | StudentSpecialStatus、CareWatchlistItem、ReportConfession（CareFollowupRecord 见 M2b）| →User/Class；ReportConfession→CareWatchlistItem（故 CareWatchlistItem 先建）| M1 | 新建表 |
 | **M3d · 班级运维** | ClassInviteCode、AssistantAssignment、LeaveRequest、ClassTask、ClassSessionSchedule、EnrollmentStatusHistory | →Class/User；ClassTask→PracticeProject；ClassSessionSchedule→Lesson；EnrollmentStatusHistory→ClassMember；ClassSession.scheduleId→ClassSessionSchedule（M1 已加列，此处补 FK）| M1 | 新建表；ClassSession.scheduleId 外键在此单元补建（解循环依赖）|
-| **M3e · 实修体系**（DR-123）| UserPracticeVow（发愿层）、PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖）| UserPracticeVow→User/Event/ClassTask/CohortRecommendedTemplate/PracticeProject/PracticeLog；PracticeTemplate→PracticeProject | M1（PracticeLog/PracticeProject 就位）、M3d（ClassTask 就位，UserPracticeVow.classTaskId FK）| 新建表（实修域改造细化，DR-122/123）|
+| **M3e · 实修体系**（DR-123）| UserPracticeVow（发愿层）、PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖）| UserPracticeVow→User/**DharmaAssembly**（DR-134 改指，原 Event）/ClassTask/CohortRecommendedTemplate/PracticeProject/PracticeLog；PracticeTemplate→PracticeProject | M1（PracticeLog/PracticeProject 就位）、M3d（ClassTask 就位，UserPracticeVow.classTaskId FK）、DharmaAssembly（净资产已在线上）| 新建表（实修域改造细化，DR-122/123）|
 | **M3f · 闻思完成事件**（DR-129）| LessonCompletion（听/看/观修完成事件，带 type=audio/video/read/meditation）| LessonCompletion→User/Lesson（+冗余 courseId）| M1（Lesson 就位）| 新建表（幻影表纠正，DR-129；能力 3 闻思圆满 + 能力 14 掉队 + 能力 9 报数 + 能力 26 阅读维度的判定数据源）|
 
 > **循环依赖处理**：M1 给 ClassSession 加 `scheduleId String?` 列（仅列，不建 FK），M3d 创建 ClassSessionSchedule 后再补 `scheduleId → ClassSessionSchedule` 外键约束。两步拆开避免 M1 引用尚未存在的表。
@@ -4760,7 +4782,7 @@ model UserSelfStudyProgram {
 - **§三 新建 18 张**（DR-123→129 校准，+UserPracticeVow +PracticeTemplate +LessonCompletion）→ M3a(2) + M3b(4) + M3c(3) + M3d(6) + M3e(2) + M3f(1) = 18 ✅（原 15 + M3e UserPracticeVow/PracticeTemplate + M3f LessonCompletion）
 - **实修域改造源清理** → M1.5（PracticeGoal/PracticeTask/PracticeDailySummary 不入目标 schema，DR-122）
 - **§五 暂缓 11 张 + AI 4 张**（AiUsage 复用不计，DR-110）→ M4~M8（实现时编）⏸（§五 11 = 社交 4+4+2 + 自学 1，DR-104 删 RestWeek；检查轮次 53 顺修旧残留 12→11）
-- **§四 复用 21 张**（DR-129 校准：DR-123 后为 22，本轮 −LessonCompletion(→§三 新建，幻影表纠正)= 21）→ 不动，不入 migration
+- **§四 复用 20 张**（DR-134 校准：DR-129 后 21 张 −Event −EventCount（废弃幻影，DR-134）+DharmaAssembly（补登记真实净资产，原漏登）= 20）→ 不动，不入 migration。**注**：此 20 张口径含 DR-130 标「实为新建」的幻影表（物理列于 §四但实为新建），真实可复用净资产仅 8 张（详见 DR-130/134）；Event/EventCount 废弃后不入任何区
 
 ---
 
