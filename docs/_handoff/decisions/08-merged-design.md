@@ -851,7 +851,7 @@ courseType（教学阶段）与 category（内容性质）正交（DR-93）：�
 
 **服务能力**：能力 4（加行观修座数/时长）+ 能力 6（内加行计数 + **法王祈祷文独立计数**）+ 能力 7（修持日志）
 **写权限**：学员自助录入；管理员代录走能力 5 + AuditLog
-**参考决策**：DR-95（新增 prayerCount）、DR-120（新增 programId 跨专业追溯 + taskSourceType + source 值域明确）、**DR-121/122（改造新建·非复用：由线上纯计数表 PracticeEntry 改造而来；source 值域 tap/shake/bulk→manual/auto/ai_assistant；note 字段承载修行心得，PracticeJournal 废表）**
+**参考决策**：DR-95（新增 prayerCount）、DR-120（新增 programId 跨专业追溯 + taskSourceType + source 值域明确）、**DR-121/122（改造新建·非复用：由线上纯计数表 PracticeEntry 改造而来；source 值域 tap/shake/bulk→manual/auto/ai_assistant（后 DR-144 再校准 in_app/external/ai_assistant）；note 字段承载修行心得，PracticeJournal 废表）**
 
 > **判定（DR-121/122 修订）**：~~旧设计字段完整，✅ 复用 / 🔧 扩展~~ **作废**——线上对应表是 **PracticeEntry**（纯计数：count + source `tap/shake/bulk` + note，无 vowId/durationMinutes/meditationId/prayerCount），本表是**改造新建**（由 PracticeEntry 改造而来，§三性质）。改造内容：(1) 加 vowId/durationMinutes/meditationId/prayerCount/programId/taskSourceType；(2) source 值域 `tap/shake/bulk` → `manual/auto/ai_assistant`（新设计目标语义，DR-120）；(3) **note 字段承载修行心得**（折叠 PracticeJournal，DR-122）。DR-95 prayerCount / DR-120 字段全部有效。
 
@@ -871,7 +871,7 @@ courseType（教学阶段）与 category（内容性质）正交（DR-93）：�
 
 ```prisma
 model PracticeLog {
-  // ... 旧设计现有字段保留（含 source，值域 manual/auto/ai_assistant）...
+  // ... 旧设计现有字段保留（含 source，值域 in_app/external/ai_assistant，DR-144 校准——DR-143 后 auto 无来源）...
 
   // 新增（能力 6 法王祈祷文独立计数，DR-95）
   prayerCount Int?  // 顶礼类打卡时必填，其余 null
@@ -890,7 +890,7 @@ model PracticeLog {
 | 顶礼打卡时 prayerCount 必填 | 应用层（Zod）| `practiceProjectId` 对应顶礼项目时，prayerCount 不可为 null |
 | 非顶礼打卡时 prayerCount 为 null | 应用层（Zod）| 其余修持项目不录祈祷文 |
 | prayerCount 取值范围 | 应用层（Zod）| ≥ 0 的整数；不超过当次顶礼数量的合理倍数（应用层宽松校验）|
-| source 必标 | 应用层（Zod）| 值域 manual/auto/ai_assistant；能力 9 绝对约束 1「每条记录必须标注来源」（DR-120）|
+| source 必标 | 应用层（Zod）| 值域 in_app/external/ai_assistant（DR-144 校准，原 manual/auto/ai_assistant）；能力 9 绝对约束 1「每条记录必须标注来源」（DR-120/144）|
 | taskSourceType 值域 | 应用层（Zod）| course/class_task/self；与 source 正交，可空（DR-120）|
 | programId 跨专业追溯 | 应用层 | 升学预检按 programId 聚合，B 专业满足时溯源「通过 A 专业达成」（D14a，DR-120）|
 | 不物理删除（D18）| 应用层 | 打卡记录永久保留 |
@@ -1388,7 +1388,7 @@ model StudentSpecialStatus {
 
 #### 能力 3 闻思圆满判定矩阵（TODO-8 闭合，DR-92）
 
-> 纯应用层判定逻辑，数据源已就位：「听/看」次数来自 LessonCompletion（type），「答题」来自 UserAnswer，「身份」来自 User.accessibilityNeeds 快照。**DR-143：听/看完成事件由用户手动确认写入（非自动达标）；闻思仅含听/看/答题、不含观修（观修属能力 4，走 PracticeLog）。**
+> 纯应用层判定逻辑，数据源已就位：「听/看」次数来自 LessonCompletion（type），「答题」来自 UserAnswer，「身份」来自 User.accessibilityNeeds 快照。**DR-143：听/看完成事件由用户手动确认写入（非自动达标）；闻思仅含听/看/答题、不含观修（观修属能力 4，走 PracticeLog）。DR-144：听/看完成可来自 in_app（app 内确认）或 external（app 外计数模块申报），COUNT 不区分来源、判定口径一致。**
 
 **维度映射**：
 - **听** = `COUNT(LessonCompletion WHERE type IN ('audio','video'))` —— **音频或视频任一都算一次「听」**（TODO-8 核心：二选一合并，不分别要求）
@@ -3037,6 +3037,7 @@ model UserSelfStudyProgram {
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
 | DR-132 | D3 短信通道（能力 45）完整设计：第 3 触达通道 + User 手机号体系（🆕 新建）| **能力 45 短信通道完整设计：(A) User +phone/phoneVerified/phoneVerifiedAt 字段（线上 User 无手机号，grep 确认）+ 绑定验证流程；(B) sendSms 发送抽象层（Provider 接口 + 模板化 + 失败重试）；(C) 作为 dispatchToUsers 第 3 通道 channel='sms'（复用 DispatchLog 幂等）；(D) 用途规则：验证码/critical 系统公告/⑦⑧⑨关键学修提醒走短信，一般提醒/普通通知不走（控成本防骚扰）；(E) NotificationPreference +smsEnabled（验证码不受开关影响）。服务商选型等挂 TODO-SMS**（用户决策：用途=重要通知兜底+关键学修提醒，深度=完整设计短信通道，2026-05-31/06-01）| 用户追问「系统公告与通知推送/短信是不是两个模块」引出核查：dispatchToUsers 现仅 channel='push'（站内 Notification ✅+Web Push ✅），**SMS 完全未实现**——代码仅占位注释「banner/sms 后续接入时各自加 channel」，且**User 表连 phone 字段都没有**（grep phone/mobile 全空）。用户决策「都要做、逐条确认」+ 选项「用途=重要通知兜底+关键学修提醒」「深度=完整设计短信通道」。**设计要点**：短信是 Web Push 之外的兜底通道，但**按条计费**故严格限场景（仅 critical+关键学修提醒+验证码），非全量发；前置缺口是 User 手机号体系（字段+验证流程），无手机号则无法发。**通道选择**：站内信必达→push 有订阅则推→sms 仅 critical/关键且符合用途规则。**待决策**（TODO-SMS）：服务商选型（阿里云/腾讯云/国际）、smsEnabled 默认值、是否独立 SmsLog 表（默认复用 DispatchLog）、验证码频率/有效期。排除「短信全量发所有通知」：成本爆炸+骚扰，仅限关键场景；排除「不做手机号验证直接发」：未验证号码发短信浪费+合规风险，须 verified 才发业务短信（验证码除外）|
+| DR-144 | app 外学修申报入口（计数模块按课时标记听/看/读/观修完成）+ 录入方式重定义 in_app/external —— 收 DR-143 对能力 9 的连带矛盾 | **在能力 9 计数/报数模块加「app 外学修申报」入口,服务不在 app 内学习的学员(纸质法本/线下音视频/线下打坐),按课时(科)手动标记听/看/读/观修某遍完成,帮助统计学习进度**：① 申报维度=听(audio/video)/看(read)/观修;**答题不可申报**(交互题仅 app 内做);② **可填 N 遍**——线下一周听 3 遍即填 3,展开成 N 条完成事件(一遍一行,供能力 3 COUNT);③ 落点不变——听/看/读→LessonCompletion(type=audio/video/read)、观修→PracticeLog{meditationId,durationMinutes}(录完整信息:选修法+手填时长+≥30 分钟校验,同能力 4/DR-91);④ **录入方式重定义**(收 DR-143 矛盾)——能力 9 规则 2 旧「自动记录/手动记录」(举例 app 内看视频自动计次,已被 DR-143 改纯手动、过时)改为 **in_app(app 内看/读/听完确认) / external(app 外学习、计数模块申报)**,两者都是手动、只是触发地点不同;⑤ **来源落字段**——LessonCompletion 加 `source(in_app/external)`;PracticeLog 既有 `source` 值域校准 manual/auto/ai_assistant→**in_app/external/ai_assistant**(DR-143 后 auto 已无来源,清理对齐),承载能力 9 绝对约束 1「每条记录标注来源」;⑥ **防刷**——source=external 且零 app 活动=管理员重点核查对象,接虚报治理(能力 9 规则 10 忏悔→取消资格),与 DR-143「防刷交治理+审核」一致(用户决策 2026-06-01)| 用户提「计数模块内也可给阅读/音视频/观修标记某科完成,适用于不用 app 学习的人,帮助统计学习进度」。**判断**：DR-143 把完成统一为「用户手动确认」后,天然存在两个触发入口——app 内看读完点完成、app 外学完进计数模块申报;本诉求即后者,与 DR-143 同一套表/判定,只是地点不同,故用 source(in_app/external) 标记区分即可,无需新判定逻辑。**正好收 DR-143 连带**:能力 9 旧「自动/手动」分类的「自动=app 内看视频自动计次」举例已被 DR-143 作废,本决策把该轴重定义为 in_app/external,矛盾闭合。**N 遍**:闻思按遍数 COUNT(盲听≥2/聋看≥2),线下补录须能一次报多遍,展开成 N 行保持一遍一行 COUNT 语义。**观修录完整信息**:进升学须 meditationId 分组 + 时长(DR-98/DR-91),app 外申报不能省。**答题仅 app 内**:随堂题交互判分,线下无从申报。**source 字段**:LessonCompletion 是新表(DR-129),加 source 仅扩 spec、零计数影响;PracticeLog 既有 source 值域 DR-143 后「auto」无意义,校准为 in_app/external/ai_assistant 顺带清理(DR-120/M1 spec 同步注)。**表计数**:新表加字段 + 既有字段值域校准,零新表零删表,§一12/§三19/§四20 不变。排除「app 外申报另建表」:与 app 内完成同语义同判定,分表徒增聚合复杂度;排除「不标来源混入」:违反能力 9 绝对约束 1、且失去对纯线下自报的核查抓手 | 收 DR-143 能力9 连带;校准 DR-120 source 值域;关联 DR-111/DR-91/DR-98/能力3/4/9 |
 | DR-143 | 🔴 完成判定全面转纯手动（法本阅读/音频/视频/观修）+ app-kill 续播延迟确认 —— supersede DR-141/142、改 DR-92/DR-129 完成口径 | **四类学修内容（法本阅读 type=read、音频/视频 type=audio/video、观修）完成一律以用户手动确认为准，系统不做自动达标判定**：① 每类内容页加「完成」按钮（观修沿用现有「完成观修」），离开页面（路由切换）若有实质进度未确认→弹「本遍是否完成？」，用户确认才写完成；② 落点不变只改触发——法本/音视频→LessonCompletion(type=read/audio/video) 用户确认写，观修→PracticeLog{meditationId,durationMinutes}+UserPracticeVow（DR-111 不变），观修时长纯用户手填、确认时校验 DR-91 ≥30 分钟；③ DR-141/142 音视频阈值 + 能力 37 scrollPercent/totalSeconds 阈值全部 supersede（不再判完成），技术防刷（playedSeconds 累计/心跳≤60s）失效，防刷改交虚报治理（忏悔→取消资格）+ 升学管理员审核，与 10 万顶礼自报同一套信任模型；④ LessonCompletion type 收敛 audio/video/read（去掉 meditation——观修走 PracticeLog，DR-111），DR-92 矩阵不含观修、meditationLag 旧引用改指 PracticeLog(meditationId)；⑤ 掉队检测（能力 14 contentLag/meditationLag）口径改按「已确认完成数」（LessonCompletion COUNT / PracticeLog 座数）；⑥ app-kill 续播+延迟确认：播放/阅读位置 + 未确认会话标记存 localStorage（进程被杀不丢，本地持久存储），重进续播到上次位置 + 若有未确认会话补弹「上次读到/听到 X，本遍是否完成？」（观修完成接手填时长），同设备不跨设备（用户接受）（用户决策 2026-06-01）| 用户两轮决策：先选「自动检测降为辅助」，后明确推翻为「不设自动检测、改纯手动，但要做后台被杀处理」+「观修时长纯手填」。**判断**：以用户确认为完成唯一权威，则自动达标阈值失去意义——观修早已是纯手动（DR-111 手动提交座、看视频80%不算座），本决策让法本/音视频向观修看齐，模型最一致；自动阈值取消后技术防刷无附着点，回归与 10 万顶礼/座次自报相同的「自报+治理+审核」信任模型，统一全平台报数信任口径。**app-kill**：正常离开有路由事件可当场弹确认，进程被杀无事件→须持久化；选 localStorage 而非服务端表——同设备抗杀够用（localStorage 本地持久、杀进程不丢）、零新表、不引入跨设备一致性复杂度，用户明确接受不跨设备。**观修落点澄清**：研究三表分工确认 DR-111 早定观修=PracticeLog（零新表），所谓「DR-92 矩阵/meditationLag 写 LessonCompletion type=meditation」只是 DR-111 后未清理的旧引用（违背 DR-111），本决策一并清，LessonCompletion 去 meditation type；能力 3 闻思本不含观修（仅听/看/答题）。**表计数**：纯触发/口径变更 + 去一个 enum 值，零新表零删表，§一12/§三19/§四20 全不变。排除「自动检测降为辅助/预填」：用户明确否，纯手动更简、信任口径统一；排除「服务端进度表抗 kill」：localStorage 同设备已够、避免 §三+1 与跨设备一致性；排除「保留 type=meditation」：违背 DR-111 观修走 PracticeLog，是旧引用残留 | supersede DR-141/142；改 DR-92/DR-129/DR-127；关联 DR-111/DR-91/能力14/37/39 |
 | DR-142 | 能力 39 音视频采集层——拍板：两种播放源同口径 + YouTube 走 IFrame API | **采集层设计**：① OSS 直链（type=audio/video）用 HTML5 `<audio>/<video>` 的 `timeupdate` 事件取 currentTime/duration；② YouTube 嵌入（type=youtube）用 **YouTube IFrame Player API**（`enablejsapi=1`），PLAYING 时轮询 `getCurrentTime()`/`getDuration()`，`onStateChange` ENDED 直接判达标（视同 100%）；③ **口径统一防刷量**：`playedSeconds`=累计实际播放秒（仅 PLAYING 累加，拖进度条到末尾不加秒）、`playedPercent`=最远观看位置/总时长——两源算出同口径两数写同一条 LessonCompletion，DR-141 阈值源无关，能力 3「听」COUNT 不受播放源影响；④ YouTube 墙内不可达即播不出→自然不达标、不特殊兜底（用户决策 2026-06-01）。**🔻后修订（DR-143，2026-06-01）：完成判定全面转纯手动，本采集口径不再判完成；playedSeconds/playedPercent 仅留 localStorage 续播位置用途**| 用户在 DR-141 定阈值后追问「视频两种模式（OSS 直链 vs YouTube 嵌入）怎么统计」——DR-141 只定了阈值数字，没定**两种源各自怎么采集进度数据**，是真实采集层缺口。**判断**：① iframe 内的 YouTube 播放前端无法用原生 media 事件监听，必须挂 IFrame Player API 才能拿到 currentTime/duration/状态——这是唯一可行的 YouTube 进度采集路径；② playedSeconds 用「累计实际播放」而非「最远位置」是为防拖进度条到末尾刷秒数（拖动不在 PLAYING 态、不累加），但 playedPercent 仍取最远位置（与看法本 scrollPercent furthest 同思路，覆盖率语义）——两者组合：覆盖率达 90% 或「实质听过≥60秒且过半」；③ ENDED 事件是 YouTube 最可靠的「看完」信号，直接判达标省去轮询临界判断。**排除**「都用最远位置」：拖到末尾即刷达标，视频比文本更易作弊；「分段去重覆盖率」：最严但前后端实现过重，看法本都未做、不破坏双端一致性收益不值。**遗留实现期**（非设计期开放决策）：(a) youtube 源面向谁/是否有 OSS 备份（墙内可达性）；(b) 是否持久化播放进度为表（断点续播/跨设备，类比 LessonReadingProgress）——阈值统计不依赖持久化，达标即 POST LessonCompletion，故不影响当前表计数 §三19 | DR-141 / DR-129 |
 | DR-141 | 能力 39 音视频播放达标阈值——拍板：双轨 90% OR 60秒&50% | **音视频播放达标判定 `playedPercent ≥ 90% OR (playedSeconds ≥ 60 AND playedPercent ≥ 50%)`**，满足时写一条 LessonCompletion(type=audio/video)，供能力 3 闻思「听」维度 COUNT。双轨对齐看法本（能力 37：scrollPercent≥90 OR totalSeconds≥30&≥50%），保持双端完成判定同构（用户决策 2026-06-01）。**🔻后修订（DR-143，2026-06-01）：完成判定全面转纯手动，本阈值不再作完成判定，降为 localStorage 续播位置参考；防刷改交虚报治理+升学审核**| 清待决策项追加：TODO-25（音视频阈值）原挂「实现时按大纲定」，但属可在设计期拍板的产品数字，用户选择现在定。**判断**：① 与看法本双轨同构——单纯「百分比」对超长开示过苛（听满 90% 的整场录音不现实）、对短音频又太松，故保留「时长&过半」第二轨兜底；② 时长底线相对看法本 30 秒抬到 **60 秒**——音视频是连续媒体、信息密度高于滚动文本，60 秒更能代表「实质听过一段」；③ 第二轨要求 playedPercent≥50% 防短视频刷量（30 秒视频播 60 秒不可能，按比例≥50% 才算）。排除「单阈值 90%」：超长音频过苛；排除「统一碰 80%」：与看法本 90% 主轨不一致、且 80% 对长音频仍偏苛。**清待决策项方向真正收官**：设计期可拍板的待决策（TODO-SMS/能力44 critical/TODO-25）全清；§十残留 TODO-23/24 为实现期重构任务、TODO-5/20 为暂缓，均非设计期开放决策 |
@@ -4936,6 +4937,26 @@ model UserSelfStudyProgram {
 
 ---
 
+### 检查轮次 97（2026-06-01，范围：app 外学修申报入口 + 录入方式重定义 in_app/external · DR-144 · 收 DR-143 能力 9 连带 · 跨 06/08）
+
+> 用户提「计数模块内也可给阅读/音视频/观修标记某科完成，适用于不用 app 学习的人，帮助统计学习进度」。落 DR-144：能力 9 加 app 外申报入口（按课时标记听/看/读/观修，可填 N 遍，观修录完整信息，答题仅 app 内）；录入方式从「自动/手动」重定义为 in_app/external，顺带收掉 DR-143 对能力 9 规则 2 的连带矛盾；LessonCompletion +source 字段、PracticeLog source 值域校准。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | 无新表/新关联；LessonCompletion +source（enum 字段）、PracticeLog source 值域校准，均不涉及 @relation |
+| 2. API 响应/DB 字段对齐 | ✅ | source(in_app/external) 落 LessonCompletion（M3f spec 已加）+ PracticeLog（§1.12 注释/校验表/M1 spec 三处校准）；能力 9 规则 2/2b/约束 1 与字段一致 |
+| 3. 读取/聚合口径正确 | ✅ | app 内/外写同表同判定，能力 3 COUNT 不区分 source；观修 external 仍 meditationId 分组 + 时长，升学预检 DR-98 口径不变 |
+| 4. 总览计数正确 | ✅ | 新表加字段 + 既有字段值域校准，零新表零删表，§一12/§三19/§四20 全不变 |
+| 5. Migration 覆盖完整 | ✅ | LessonCompletion 为新表（M3f）spec 内含 source；PracticeLog source 值域校准已并入 M1 既有 ALTER（tap/shake/bulk→in_app/external/ai_assistant），无新增 migration |
+| 6. Phase 计划覆盖完整 | ✅ | app 外申报入口落能力 9 学员端录入，复用 M3f/能力 4 既有落点；无新 Phase 表项 |
+| 7. supersede/废标签完整 | ✅ | 能力 9 规则 2 旧「自动/手动」已重定义并注明旧举例作废；约束 1、08 各 source 引用同步校准 |
+| 8. 业务规则约束有实现方式 | ✅ | app 外申报=能力 9 计数模块入口（应用层）；来源标注=source 字段（Zod 值域）；N 遍=展开 N 行 LessonCompletion；观修完整信息=meditationId+durationMinutes+≥30 校验（Zod）；防刷=管理员核查+虚报治理 |
+
+**本轮发现问题数**：0（DR-143 对能力 9 规则 2 的连带矛盾在本轮一并收口；source 值域 08 共 4 处（M3f/§1.12 注释/§1.12 校验表/M1 spec）+ 06 规则 2/约束 1 全部对齐 in_app/external）。
+**结论**：DR-144 封板——app 外学修申报入口服务线下学习者（按课时标记听/看/读/观修、可填 N 遍、观修录完整信息、答题仅 app 内）；录入方式重定义 in_app/external 收掉 DR-143 连带矛盾；source 落 LessonCompletion 新字段 + PracticeLog 值域校准。app 内/外同表同判定、source 区分供核查。06↔08 双向对齐，表计数稳定 §一12/§三19/§四20。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -4983,7 +5004,7 @@ model UserSelfStudyProgram {
 | 单元 | 内容 | 涉及表 | 依赖前置 | 类型 |
 |---|---|---|---|---|
 | **M0 · Enum 扩展** | 新增/扩展枚举：LagStatus（on_track/mild/moderate/severe）、CohortMemberStatus、角色 role 枚举值、各 status/sourceType/actionType/conditionType/triggerType 字符串域（应用层 Zod 守，DB 存 String）| —（enum 定义，见 §六）| 无 | 新增 enum |
-| **M1 · 现有表扩展字段** | §一 扩展区 12 张的 ALTER：Program +8（cohortYear/stage/isActive/lag×4/checkinGraceMinutes）；User +birthDate+primaryProgramId（DR-120）；Class +归档三件套（status/archivedAt/archivedBy）；Course +courseType；**PracticeLog = rename PracticeEntry + 加列**（vowId/durationMinutes/meditationId/prayerCount/programId/taskSourceType + source 值域改 tap/shake/bulk→manual/auto/ai_assistant，DR-121/122/123）；Exam +examType+isOpenBook；ClassSession +sessionType/lessonId/checkInToken/scheduleId + classId 改可空；SpeakingGrade classId 改可空；CohortRecommendedTemplate programId 改可空 | Program/User/Class/Course/PracticeEntry→PracticeLog/Exam/ClassSession/SpeakingGrade/CohortRecommendedTemplate/ClassMember/StudyRecord/CohortLagSnapshot | M0（部分字段引用新 enum）| ALTER TABLE，加列设默认值，存量行回填默认；PracticeLog 含 RENAME TABLE |
+| **M1 · 现有表扩展字段** | §一 扩展区 12 张的 ALTER：Program +8（cohortYear/stage/isActive/lag×4/checkinGraceMinutes）；User +birthDate+primaryProgramId（DR-120）；Class +归档三件套（status/archivedAt/archivedBy）；Course +courseType；**PracticeLog = rename PracticeEntry + 加列**（vowId/durationMinutes/meditationId/prayerCount/programId/taskSourceType + source 值域改 tap/shake/bulk→in_app/external/ai_assistant，DR-121/122/123/144）；Exam +examType+isOpenBook；ClassSession +sessionType/lessonId/checkInToken/scheduleId + classId 改可空；SpeakingGrade classId 改可空；CohortRecommendedTemplate programId 改可空 | Program/User/Class/Course/PracticeEntry→PracticeLog/Exam/ClassSession/SpeakingGrade/CohortRecommendedTemplate/ClassMember/StudyRecord/CohortLagSnapshot | M0（部分字段引用新 enum）| ALTER TABLE，加列设默认值，存量行回填默认；PracticeLog 含 RENAME TABLE |
 | **M1.5 · 实修域改造源清理** | 线上改造源表不并入目标 schema：PracticeGoal（折叠 UserPracticeVow.dailyTarget）/ PracticeTask（拆流 ClassTask + UserPracticeVow）/ PracticeDailySummary（排行改实时算+缓存）—— 这 3 张线上表不保留（DR-122）。开发期无数据（DR-116），直接不建即可 | PracticeGoal/PracticeTask/PracticeDailySummary（不入目标 schema）| M1（PracticeLog/ClassTask/UserPracticeVow 就位后）| 改造源不保留（DR-122）|
 | **M2a · 角色替换** | UserRoleAssignment（替换旧 ClassAdmin flags 模型）| UserRoleAssignment | M1（FK 指向 User/Class/Program 已就位）；旧角色数据迁移（coach→class_tutor+class_admin，admin→super_admin，见 02 §七）| 新建表 + 旧数据迁移 + 旧表保留只读（D18）|
 | **M2b · 关怀替换** | CareFollowupRecord（加 sourceType/watchlistItemId）| CareFollowupRecord | M1；M3c（watchlistItemId → CareWatchlistItem，sourceType=care_watchlist 时）| 新建表 |
@@ -4995,7 +5016,7 @@ model UserSelfStudyProgram {
 | **M3c · 关怀体系** | StudentSpecialStatus、CareWatchlistItem、ReportConfession（CareFollowupRecord 见 M2b）| →User/Class；ReportConfession→CareWatchlistItem（故 CareWatchlistItem 先建）| M1 | 新建表 |
 | **M3d · 班级运维** | ClassInviteCode、AssistantAssignment、LeaveRequest、ClassTask、ClassSessionSchedule、EnrollmentStatusHistory | →Class/User；ClassTask→PracticeProject；ClassSessionSchedule→Lesson；EnrollmentStatusHistory→ClassMember；ClassSession.scheduleId→ClassSessionSchedule（M1 已加列，此处补 FK）| M1 | 新建表；ClassSession.scheduleId 外键在此单元补建（解循环依赖）|
 | **M3e · 实修体系**（DR-123）| UserPracticeVow（发愿层）、PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖）| UserPracticeVow→User/**DharmaAssembly**（DR-134 改指，原 Event）/ClassTask/CohortRecommendedTemplate/PracticeProject/PracticeLog；PracticeTemplate→PracticeProject | M1（PracticeLog/PracticeProject 就位）、M3d（ClassTask 就位，UserPracticeVow.classTaskId FK）、DharmaAssembly（净资产已在线上）| 新建表（实修域改造细化，DR-122/123）|
-| **M3f · 闻思完成事件**（DR-129；触发改纯手动确认 DR-143）| LessonCompletion（听/看完成事件，带 type=audio/video/read；观修完成走 PracticeLog 不入本表，DR-111/143）| LessonCompletion→User/Lesson（+冗余 courseId）| M1（Lesson 就位）| 新建表（幻影表纠正，DR-129；能力 3 闻思圆满 + 能力 14 掉队 + 能力 9 报数 + 能力 26 阅读维度的判定数据源）|
+| **M3f · 闻思完成事件**（DR-129；触发改纯手动确认 DR-143；+source DR-144）| LessonCompletion（听/看完成事件，带 type=audio/video/read + `source`(in_app/external，DR-144 来源标注)；观修完成走 PracticeLog 不入本表，DR-111/143）| LessonCompletion→User/Lesson（+冗余 courseId）| M1（Lesson 就位）| 新建表（幻影表纠正，DR-129；能力 3 闻思圆满 + 能力 14 掉队 + 能力 9 报数 + 能力 26 阅读维度的判定数据源）|
 | **M3g · 短信通道**（DR-132/139）| (1) User ALTER +phone/phoneVerified/phoneVerifiedAt（手机号体系）；(2) SmsLog 新建（短信发送记录，§3.16）；(3) 后台场景短信开关字段（NotificationRule +smsEnabled 等，随场景挂载）| SmsLog→User；User ALTER | M1（User 就位）| 新建表 + User ALTER（能力 45 短信通道，第 3 触达通道；服务商实现时接，DR-139 不锁定）|
 
 > **循环依赖处理**：M1 给 ClassSession 加 `scheduleId String?` 列（仅列，不建 FK），M3d 创建 ClassSessionSchedule 后再补 `scheduleId → ClassSessionSchedule` 外键约束。两步拆开避免 M1 引用尚未存在的表。
