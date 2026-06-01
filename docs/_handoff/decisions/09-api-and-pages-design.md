@@ -694,7 +694,39 @@
 
 ---
 
-> **进度**：已产出 **20 条**（能力 1/2/3/4/5/6/7/8/9/10/11/12/13/14/15/17/18/19/37/39）——主干学修闭环 + 横切根基(5/18) + 关怀簇(12/13/14) + 传承簇(15/17) + **入班(2/19)**。批 1（1/2）+ 批 6 大半已闭合。
+## 能力 20 · 决策审计日志  〔批6·审计（基础设施）〕
+
+### 涉及表（08 落点）
+`AuditLog`（✅ 净资产·DR-118 改造，统一记录高权限操作：`operatorId`/`operatedAt`/`actionType`/`targetType`+`targetId`/前后快照/`reason`/`scope` class_id·major_id · **永不删不可编辑** D18）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| GET | `/api/admin/audit-logs` | subject_admin+ | `?actionType&targetId&from&to` | `AuditLog[]` | 🆕 | 平台/学科级查询；**super=全平台、subject_admin=本学科**（按 scope 过滤，能力 18）|
+| GET | `/api/coach/classes/:id/audit-logs` | class_admin+ | `?actionType` | 本班 `AuditLog[]` | 🆕 | **class_admin 限本班**（绝对约束3 不可越权查他班）|
+| GET | `/api/me/audit-logs` | student | — | 与自己相关条目 | 🆕 | **学员只查 targetId=自己**的代行/身份变更/成绩录入等（绝对约束4，不能查他人）|
+
+> **写入非端点**（绝对约束·能力 20 规则6）：审计日志是**写入基础设施**——能力 5/8/9/10/11/12/15/17/18/19 执行高权限操作时**各自主动写入**（含前后快照 + reason），审计模块只提供读取面，不主动拉取。覆盖 11 类操作（代行/角色任命/成绩录入/升学审核/撤销出勤/补卡/身份认定/取消虚报资格/邀请码生成撤销/班级归档/传承灌顶代录）。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/me/profile`（学修例外记录·复用能力 5 视图）| 与自己相关的审计条目全文 | 只读（与能力 5 代行记录同源 AuditLog）| 🆕 |
+| 班级管理员+ | `/admin/audit-logs` 或班级审计 tab | 审计日志列表（按作用域 + actionType 过滤）| 只读、不可编辑/删除 | 🆕 |
+
+### 三端可见性
+- **学员**：仅与自己相关条目（targetId=self），不能查他人。
+- **辅导员**：通常无审计读权（高权限操作非其职责）；班级审计限 class_admin+。
+- **班级管理员/subject_admin/super_admin**：按作用域逐级放大（本班 / 本学科 / 全平台）。
+
+### 大纲 & DR 关联 + 对齐备注
+- D18（全数据保留）底层基础设施；依赖能力 18（scope 过滤）；被能力 5/8/9/10/11/12/15/17/18/19 依赖。
+- **🆕 接缺口**：线上仅举报处理写 AuditLog、无统一读取面 → 三级作用域读端点 + 学员自查全 🆕；AuditLog 改造字段集（operatorId/operatedAt/actionType/targetType/targetId/前后快照/reason/scope + 能力 5 代行字段）**已在 08 回填清单**（DR-118）。
+- **🔵 业务规则落点**：① 永不删不可编辑（绝对约束1）→ 无 delete/update 端点，修正走 upsert+新 AuditLog；② 作用域过滤（绝对约束3）→ 查询中间件按角色等级 + class_id/major_id 限定；③ 写入基础设施（规则6）→ 不在本能力建写端点，各能力操作内联写。
+
+---
+
+> **进度**：已产出 **21 条**（能力 1/2/3/4/5/6/7/8/9/10/11/12/13/14/15/17/18/19/20/37/39）——**批 1 + 批 6 全闭合**（能力 16 传承法会自动登记 = ❌ 不做，DR/能力 15 规则5）。剩余：批 7（自学 21 + 净资产 26-51 盘点）+ 批 8（后台契约 22-25/38）。
 > **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
 > **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
