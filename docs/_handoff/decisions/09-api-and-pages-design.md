@@ -478,7 +478,72 @@
 
 ---
 
-> **进度**：已产出 **13 条**（能力 1/3/4/5/6/7/8/9/10/11/12/37/39）——主干学修闭环 + 横切代行(5) + 关怀起步(12)。
+## 能力 13 · 辅助员配对  〔批6·关怀〕
+
+### 涉及表（08 落点）
+`AssistantAssignment`（🆕 §线上无，classId+userId+status active/revoked+assignedBy，`@@index(classId,status)`）· 委托权限**不建独立权限表**——由中间件运行时校验 active 配对授予能力 8/9 的班级操作权
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| GET | `/api/coach/classes/:id/assistants` | class_tutor+（只读）| — | `AssistantAssignment[]`（active）| 🆕 | 查当前辅助员；辅导员只读权（R，不能授权）|
+| POST | `/api/coach/classes/:id/assistants` | class_admin+ | `{userId,note?}` | `AssistantAssignment` | 🆕 | **指定并授权**（职能 #19）；被指定者须本班成员 |
+| POST | `/api/coach/assistants/:id/revoke` | class_admin+ | `{reason?}` | status=revoked | 🆕 | **随时收回**立即生效，永久留痕（D17/D18，不物理删）|
+
+> **委托权限边界**：active 辅助员获 ① 发起共修（能力 8 sessions 写权）② 发起班级法会 ③ 发布班级任务（能力 9 ClassTask 写权）④ 监督学习（全班进度**只读**）。**不能**：编辑/删学员数据、认定特殊身份（能力 12 限 class_admin）、审报数、批升学。中间件按 `AssistantAssignment.status=active AND classId 匹配` 放行上述四项。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 班级管理员 | `/coach/classes/:id/settings`（指定辅助员区）| 当前辅助员 + 权限状态 + 指定/收回 | 指定即授四项委托权；收回立即失效 | 🆕 |
+| 辅助员 | 班级学修视图（复用辅导员视图子集）| 全班进度只读 + 任务发布 + 共修发起入口 | 操作时中间件校验 active 配对 | 🆕 |
+
+### 三端可见性
+- **学员**：不涉及（辅助员是班级管理委托角色，学员端无感）。
+- **辅导员**：只读本班辅助员配对；**不能授权/收回**。
+- **班级管理员+**：指定/收回辅助员（职能 #19）。
+
+### 大纲 & DR 关联 + 对齐备注
+- 服务能力 8（辅助员发起共修）/ 能力 9（辅助员发布任务进报数）/ 能力 14（辅导员全班关怀主责，辅助员协助）；职能 #19 / D17 / D18。
+- **🔵 业务规则落点**：① 辅助员**非四大管理角色**，是 class_admin 委托 → 不进 UserRoleAssignment，独立 AssistantAssignment 表（DR-82 曾议并入 §2.1 后回滚为独立表）；② 作用域本班全体（绝对约束1）→ 中间件校验 classId 匹配；③ 不能编辑/删学员数据（绝对约束2）→ 委托权仅含发起/发布/只读，无写学员档案权。
+
+---
+
+## 能力 14 · 学员关怀清单  〔批6·关怀（终端）〕
+
+### 涉及表（08 落点）
+`CareWatchlistItem`（§3.4，清单条目·7 类 triggerType·status active/resolved·**partial unique** `WHERE status='active'` DR-78）· `CareFollowupRecord`（§2.2，跟进备注·`sourceType=care_watchlist`·与能力 12 共用）· `CohortLagSnapshot`（§1.5，掉队检测信号源·5 维 LagStatus·`@@unique(classId,studentId)` 一人一行最新）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| GET | `/api/coach/classes/:id/care-watchlist` | class_tutor+ | `?triggerType&status` | `CareWatchlistItem[]`（多原因逐条）| 🆕 | 按作用域查本班清单（D8）；一人多触发原因→多条 |
+| POST | `/api/coach/care-watchlist` | class_tutor+ | `{userId,classId,reason}` | item（triggerSource=manual）| 🆕 | **手动添加**任意学员 |
+| POST | `/api/coach/care-watchlist/:id/resolve` | class_tutor+ / class_admin（虚报）| `{note?}` | status=resolved | 🆕 | 手动解除（`manual` 由添加人/更高级；`false_report` **限管理员**，不自动）|
+| GET/POST | `/api/coach/students/:uid/followups` | class_tutor+ | `{...,sourceType:'care_watchlist',watchlistItemId}` | `CareFollowupRecord` | 🆕 | 填跟进备注（**学员不可见**·内部日志）+ 可标「已跟进」（≠问题解决）|
+| GET | `/api/coach/classes/:id/lag-snapshot` | class_tutor+ | — | `CohortLagSnapshot[]`（5 维 LagStatus）| 🆕 | 掉队检测名单（出勤/内容/答题/观修/任务）；**学员端完全不可见** |
+
+> **自动触发/解除非端点**：触发条件由各能力事件 / cron 重算写入 CareWatchlistItem（practice_lag/attendance_low/report_overdue/study_lag 自动加→补齐自动 resolve；special_status 跟随能力 12；false_report/manual 手动）。阈值=专业配置（D3，复用 TODO-1，DR-79）。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 辅导员/辅助员 | `/coach/classes/:id/care`（关怀清单 tab）| 待跟进学员（按触发原因分组 / 按学员汇总）+ 掉队五维标 + 填备注 + 标已跟进 | 系统自动汇聚→辅导员联系→填备注→标已跟进；条件解除自动移除 | 🆕 |
+| 班级管理员+ | 同上 + 全貌 | 本班清单全貌 + 历史跟进记录 + 虚报手动解除 | 虚报标记仅管理员手动移除 | 🆕 |
+
+### 三端可见性
+- **学员**：**完全不可见**——清单、触发原因、跟进备注、掉队快照学员端均无 API 返回（绝对约束2，内部工作日志 D18）。
+- **辅导员/辅助员**：按作用域查本班清单 + 填备注 + 标已跟进。
+- **班级管理员+**：清单全貌 + 虚报手动解除。
+
+### 大纲 & DR 关联 + 对齐备注
+- 终端能力（无下游）；触发信号来自能力 3/7/8/9/12；D3（阈值数据化）/D8（作用域）/D18 / DR-78（partial unique）/DR-79（复用 TODO-1 阈值）/DR-130（CohortLagSnapshot）/DR-143（contentLag 读已确认完成）。
+- **🔵 架构落点**：① **「活跃信号 + 留痕」分离**——清单移除走 `status=resolved` 不删行，partial unique 保证同人同类型只一条 active、允许历史多条 resolved（DR-78）；② **CohortLagSnapshot 是检测信号源**（一人一行存最新 5 维结果），关怀清单据此 + 各能力事件汇聚；③ **CareFollowupRecord 与能力 12 共用**，sourceType 区分 special_status / care_watchlist。
+- **🔵 业务规则落点**：① 虚报/手动不自动解除（绝对约束4）→ resolve 端点按 triggerType 分权（false_report 限管理员）；② 备注学员不可见（绝对约束2）→ `/me/*` 不返回 CareFollowupRecord/CareWatchlistItem/CohortLagSnapshot；③ 阈值数据化（绝对约束1）→ 挂 08 §十待办（Program 配置表统一处理，复用 TODO-1）。
+
+---
+
+> **进度**：已产出 **15 条**（能力 1/3/4/5/6/7/8/9/10/11/12/13/14/37/39）——主干学修闭环 + 横切代行(5) + **关怀簇成片(12/13/14)**。
 > **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
 > **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
