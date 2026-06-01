@@ -726,7 +726,41 @@
 
 ---
 
-> **进度**：已产出 **21 条**（能力 1/2/3/4/5/6/7/8/9/10/11/12/13/14/15/17/18/19/20/37/39）——**批 1 + 批 6 全闭合**（能力 16 传承法会自动登记 = ❌ 不做，DR/能力 15 规则5）。剩余：批 7（自学 21 + 净资产 26-51 盘点）+ 批 8（后台契约 22-25/38）。
+## 能力 21 · 自学模式  〔批7·自学〕
+
+> ✅ 必做正式功能（DR-145，原 ⏸ 暂缓转必做，移入 §三实施·新 P6）。
+
+### 涉及表（08 落点）
+`UserSelfStudyProgram`（🆕 DR-145，`status` active/paused/completed/abandoned · `@@unique(userId,programId)` 一人一科系一条）· `Program`（科系，🔧 补 selfStudy 反向 TODO-5）· `PracticeLog`/`LessonCompletion`（复用·纯个人追踪，**不触发报数快照/升学**）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| POST | `/api/admin/students/:uid/self-study` | subject_admin+ | `{programId}` | `UserSelfStudyProgram` | 🆕 | **开通限科系级**（绝对约束2，学员不可自助）；无班级、不走邀请码 |
+| GET | `/api/me/self-study` | student | — | 自学科系 + **纯完成量进度**（完成课时数/累计学修量）| 🆕 | 独立于班级：无截止/无掉队/无休息周 |
+| PATCH | `/api/me/self-study/:id` | student | `{status:'paused'\|'active'}` | — | 🆕 | 学员自己暂停/恢复（仅 active↔paused）|
+| POST | `/api/admin/self-study/:id/abandon` | subject_admin+ | `{reason?}` | status=abandoned | 🆕 | 标记放弃（科系级）；completed 由系统自动（全部课时完成）|
+
+> **学修量录入复用既有**：念诵/观修走能力 7 `POST /api/me/practice-logs`、闻思完成走能力 3/37/39 `LessonCompletion`——**纯个人追踪，不生成升学报数节点快照（能力 9 不触发）、不进升学预检（能力 10）**。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/me/self-study`（自学进度页）| 完成量进度 + 个人学修量录入 | 暂停/恢复；完成多少算多少，自定快慢 | 🆕 |
+| subject_admin+ | `/admin/self-study` | 自学师兄开通/管理 | 开通/标记放弃 | 🆕 |
+
+### 三端可见性
+- **学员**：自己自学进度 + 录学修量 + 暂停/恢复；自学是「自我学习」、不通向升学。
+- **辅导员**：不涉及（自学无班级）。
+- **subject_admin+**：开通/放弃/管理本学科自学师兄。
+
+### 大纲 & DR 关联 + 对齐备注
+- DR-145（转必做·新 P6）/TODO-5（Program.selfStudy 反向）/DR-103（自学不统计共修）/D18；依赖能力 1/5/7；**不依赖** 能力 8/9/10/14。
+- **🔵 业务规则落点（边界即设计）**：① 不升学（绝对约束1）→ 升学须先经能力 2 入正式班级，自学端点不接 AdvancementCheck；② 进度纯完成量、系统不判落后（绝对约束3）→ 无掉队/截止/休息周/补足逻辑，CohortLagSnapshot 不覆盖自学；③ 不报数（规则6）→ `/api/me/semester-snapshots`（能力 9）对自学返回空，进度只走本能力端点；④ 不进关怀清单（规则7）→ CareWatchlistItem 不为自学触发。
+
+---
+
+> **进度**：已产出 **22 条**（能力 1/2/3/4/5/6/7/8/9/10/11/12/13/14/15/17/18/19/20/21/37/39）——**批 1 + 批 6 全闭合 + 批 7 自学起步**（能力 16 = ❌ 不做）。剩余：批 7 净资产层 26-51 盘点（多为 ✅ 已实现/⏸ 暂缓·盘点式）+ 批 8 后台契约 22-25/38。
 > **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
 > **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
