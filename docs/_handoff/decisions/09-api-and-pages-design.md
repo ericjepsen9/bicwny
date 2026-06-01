@@ -444,7 +444,41 @@
 
 ---
 
-> **进度**：已产出 **12 条**（能力 1/3/4/5/6/7/8/9/10/11/37/39）——**主干学修闭环**(专业1→闻思3/37/39→实修4/6/7→共修8→报数9→升学10→留级11) **+ 横切代行(5)**。
+## 能力 12 · 特殊身份学员关怀（盲/聋）  〔批6·关怀〕
+
+### 涉及表（08 落点）
+`StudentSpecialStatus`（§3.3，认定**过程**留痕 append-only，blind/deaf 仅两类不可扩展，`@@unique(userId,statusType)`）· `User.accessibilityNeeds`（§1.9，当前生效**快照**，闻思判定直读，DR-76 双写）· `CareFollowupRecord`（§2.2，`sourceType=special_status`，辅导员跟进日志·师兄不可见）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| POST | `/api/admin/students/:uid/special-status` | class_admin+ | `{statusType:'blind'\|'deaf',note?}` | `StudentSpecialStatus` | 🆕 | **认定**（职能 #13）即时生效；**事务双写**：本表 append + 更新 `User.accessibilityNeeds` 快照（DR-76）|
+| POST | `/api/admin/special-status/:id/revoke` | class_admin+ | `{reason}` | status=revoked | 🆕 | 撤销（`status='revoked'` 不物理删 D18）；同步移除快照值；历史按当时身份保留 |
+| GET | `/api/admin/students/:uid/special-status` | class_tutor+（只读）| — | 认定/撤销史 | 🆕 | 档案身份留痕 |
+| GET | `/api/coach/care/special-students` | class_tutor+ | — | 本班特殊身份学员 + 跟进状态 | 🆕 | 认定后自动入辅导员**关怀跟进列表** |
+| GET/POST | `/api/coach/students/:uid/followups` | class_tutor+ | `{contactedAt,summary,studentState,nextPlan?,sourceType:'special_status'}` | `CareFollowupRecord` | 🆕 | 填/看跟进记录（**师兄不可见**·内部工作日志，绝对约束5）；无强制频率 |
+| GET | `/api/me/special-status` | student | — | 自己已认定身份（闻思按调整路径）| 🆕 | **只返回身份本身，不返回跟进日志**（绝对约束5）|
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 班级管理员 | 学员档案「特殊身份认定」区 | 认定 blind/deaf + 撤销 | 认定即时生效→闻思路径切换；可撤销恢复普通路径 | 🆕 |
+| 辅导员 | `/coach/care`（关怀跟进列表）| 所有特殊身份学员 + 点入填本次跟进（时间/摘要/状态/下次计划）| 认定后自动出现；逐次填记录 | 🆕 |
+| 学员 | `/me/profile` | 档案显示已认定特殊身份 + 闻思进度按**调整后路径**展示 | 只读；**跟进日志不展示** | 🔧 改 |
+
+### 三端可见性
+- **学员**：自己已认定身份 + 闻思按身份分支判定（盲=听≥2 豁免看/答；聋=看≥2 豁免听/答，DR-92）；**看不到任何关怀跟进日志**。
+- **辅导员**：关怀跟进列表 + 填/看跟进记录；**不能认定身份**（限 class_admin+）。
+- **班级管理员+**：认定/撤销 + 查跟进史。
+
+### 大纲 & DR 关联 + 对齐备注
+- 服务能力 3（闻思圆满身份分支）/ 能力 13（辅助员配对前提）/ 能力 14（特殊身份自动入关怀清单）；职能 #13 / DR-76（双写）/DR-92（判定矩阵）/D18。
+- **🔵 架构落点**：① **留痕表+快照**模式——`StudentSpecialStatus` 记过程（谁/何时/撤销史），`User.accessibilityNeeds` 存当前快照供闻思**直读免 join**，认定/撤销事务双写（DR-76）；② **CareFollowupRecord 与能力 14 共用**一张表，`sourceType` 区分（special_status / care_watchlist）。
+- **🔵 业务规则落点**：① 仅 blind/deaf 两类（绝对约束1）→ statusType Zod 枚举；其他特殊情况走能力 5；② **双盲聋极罕见无大纲路径** → 不自动判定，走能力 5 个案豁免；③ 身份变更不追溯历史（绝对约束4）→ 闻思判定按当时快照、历史圆满记录不重算；④ 跟进日志师兄不可见 → `/me/*` 端点不返回 CareFollowupRecord。
+
+---
+
+> **进度**：已产出 **13 条**（能力 1/3/4/5/6/7/8/9/10/11/12/37/39）——主干学修闭环 + 横切代行(5) + 关怀起步(12)。
 > **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
 > **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
 > **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
