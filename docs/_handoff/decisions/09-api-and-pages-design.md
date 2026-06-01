@@ -300,6 +300,117 @@
 
 ---
 
-> **进度**：已产出 8 条（能力 1/3/4/6/7/9/37/39）——覆盖 admin配置 / 学员消费 / 学员打卡 / 实修双维度 / 实修累计型 / 阅读器 / 音视频 / 跨端结算 八种形态。**学习引擎线（3/37/39）+ 实修线（4/6/7）+ 报数线（9）已成片**。
-> **下一批（批4-5）**：能力 8（共修出勤·**卡在「app 是否承载月度共修频率门槛」待你拍板**）+ 能力 10/11（考试升学 + 留级）。其余管理/关怀/传承/自学/净资产盘点（批6-8）随后。
-> 缺口边设计边接已贯穿：A3 选专业锁定（能力1 ⚠️）· C3/C4 三选一（能力7 ⚠️）· C5 自选功课（能力7 ⚠️）· WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）。需拍板处均已停下标注。
+---
+
+## 能力 8 · 共修与出勤（网络共修为主）  〔批4·运营结算〕
+
+### 涉及表（08 落点）
+`ClassSession`（✅ 扩展，实例层，`checkInToken`/`sessionType` online/offline/self_study/`scheduleId`）· `ClassSessionSchedule`（🆕 §1952，课表模板层·双轨发起）· `StudyRecord`（✅ 出勤落点，`@@unique(classSessionId,userId,studyType)` 幂等防重）· `Program.checkinGraceMinutes`（签到窗口配置，DR-89）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| GET/POST | `/api/coach/classes/:classId/sessions` | class_tutor+ | 排课/临时发起 | `ClassSession` | ✅ | 复用；POST 支持「课表预排」与「临时发起」（scheduleId 有/无）|
+| PATCH/DELETE | `/api/coach/sessions/:id` | class_tutor+ | 改/取消 | — | ✅ | 复用；改课表自动通知本班（DR 课表灵活管理）|
+| GET/POST/PATCH/DELETE | `/api/coach/classes/:classId/schedules` | class_tutor+ | 课表模板 | `ClassSessionSchedule` | 🆕 | 双轨发起的「课表预排」层（线上无模板表）|
+| POST | `/api/sessions/:id/checkin` | student | `{token}` | 出勤记录 | 🆕 | **网络共修自助签到**：点链接→选自己→确认；校验 token 时效（生成时刻起 `checkinGraceMinutes`）+ 幂等（同场同人一次）|
+| GET | `/api/sessions/:id/checkin-grid` | student | — | 本班头像网格+已打卡标记 | 🆕 | 「选自己」网格视图 |
+| POST | `/api/coach/sessions/:id/attendance` | class_tutor+ | `{userIds[]}` | — | 🆕 | **线下共修批量勾选**到场学员 |
+| POST | `/api/coach/sessions/:id/makeup` | class_tutor+ | `{userId,reason?}` | — | 🆕 | **补卡**（学员不可自助，留痕「由 XXX 补卡」）|
+| DELETE | `/api/coach/attendance/:recordId` | class_admin+ | `{reason}` | — | 🆕 | **撤销出勤**（限班级管理员+，辅导员不可，留痕）|
+| GET | `/api/me/attendance` | student | `?programId` | 出勤累计/各场记录 | 🆕 | 按班级累计（多专业各自独立，DR-103 自学不统计）|
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/checkin/:sessionId`（签到页）| 头像姓名网格 + 选自己 + 确认 | token 有效→选自己→确认→标记；过期→失效提示 | 🆕 |
+| 学员 | `/me/attendance` | 我的共修出勤累计 + 各场明细（含「由 XXX 补卡」）| 只读 | 🆕 |
+| 辅导员/班级管理员 | `/coach/classes/:id/sessions` | 课表管理（预排/临时发起/改场）+ 线下勾选 + 补卡 + 撤销 | 临时发起→生成 token 复制到 Zoom；线下→勾选网格批量提交 | 🔧 改（加课表模板+签到治理）|
+
+### 三端可见性
+- **学员**：自己出勤累计/各场记录 + 即将到来的共修；看不到别人出勤。
+- **辅导员**：可发起/改课表、线下勾选、补卡；**不可撤销出勤**。
+- **班级管理员+**：辅导员全部 + 撤销出勤 + 异常审查。
+
+### 大纲 & DR 关联 + 对齐备注
+- 服务大纲 **D1-D2（共修出勤）**；升学硬条件（能力 10 读 attendance 达标）；DR-89（签到窗口）/DR-103（自学不统计）。
+- **🔧 接缺口**：线上 `ClassSession`+`StudyRecord` 可复用为出勤底座，但「短时效 token 自助签到 + 头像选自己 + 课表模板双轨 + 补卡/撤销治理」均 🆕（线上无）。
+- **⚠️ 待决策（报告 03·E1/E2 月度共修频率门槛）**：大纲「每月≥2 次共修 / 每月 1 次实修共修」——**app 是否自动检查并预警，悬而未决**。三分支并存，待你拍板后只落其一：
+  - **A · app 自动管**：加 `GET /api/me/copractice-frequency` 月度聚合 + 未达预警（挂能力 44 提醒规则⑤类），并作为能力 10 升学软/硬条件之一。
+  - **B · app 不管**：仅记原始出勤（上方端点），频率达标交辅导员线下人工核，app 不聚合、不预警、不卡升学。
+  - **C · 折中**：app 算并在 `/me/attendance` 展示月度频率数，**但不预警、不卡升学**（纯告知）。
+  > 守则「文档没说先停下问用户」——此处不自行假设，标 ⚠️ 等你定。**默认倾向 C**（成本低、不误伤、保留数据），但需你确认。
+
+---
+
+## 能力 10 · 考试与升学  〔批5·结算判定〕
+
+### 涉及表（08 落点）
+`Exam`（✅ 扩展 `examType` quiz/advancement + `isOpenBook`）· `ExamGrade`（✅ `@@unique(examId,userId)` upsert）· `ProgramAdvancementConfig`（§3.1，6 类升学条件数据驱动）· `AdvancementCheck`（§3.9，🆕 升学预检报告）· `AdvancementRecord`（§3.10，🆕 升学记录+条件快照）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| POST | `/api/coach/classes/:id/exams` | class_tutor / class_admin | `{title,examDate,examType,isOpenBook?}` | `Exam` | 🔧 | **按 examType 分流写权限**：`quiz` 辅导员起（#11a）/ `advancement` 班级管理员起（#11b）|
+| PUT | `/api/exams/:id/grades` | class_admin+ | `{userId,score,comment?}` | `ExamGrade` | 🔧 | 成绩录入限班级管理员+（#7，辅导员无权）；upsert + AuditLog 永久留档 |
+| GET | `/api/me/advancement-status` | student | `?programId` | 6 类条件逐条满足态 + 缺口 | 🆕 | 学员「升学进度」板块（只读自己，含代行豁免明细 D18）|
+| POST | `/api/classes/:id/advancement-checks` | class_admin+ | `{programId,semester}` | `AdvancementCheck[]` | 🆕 | **系统自动预检**：读能力 9 快照逐条算 6 条件（闻思/观修/内加行/出勤/升学考/灌顶），生成预检报告，**不自动升学** |
+| GET | `/api/classes/:id/advancement-checks` | class_admin+ | `?semester` | 全班预检报告 | 🆕 | 管理员核查列表（逐项满足/缺口/可豁免标记）|
+| POST | `/api/advancement-checks/:id/approve` | class_admin+ | `{decision:'pass'\|'reject',note}` | `AdvancementRecord` | 🆕 | **审核拍板**（#16，直接定不上报）：pass→写升学记录+状态变正科；reject→提示留级（能力 11）|
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/me/advancement`（升学进度）| 6 类硬条件逐条进度条 + 缺口 + 代行豁免明细 | 只读；条件全绿=具备升学资格（仍待管理员审核）| 🆕 |
+| 班级管理员 | `/coach/classes/:id/advancement` | 升学预检报告列表 + 逐项确认 + 拍板 pass/reject | 预检自动算→管理员核→拍板；reject 衔接留级入口 | 🆕 |
+| 班级管理员/辅导员 | `/coach/classes/:id/exams` | 考试创建（按 examType 分权）+ 成绩录入 | quiz/advancement 分流；成绩 upsert 留档 | 🔧 改 |
+
+### 三端可见性
+- **学员**：自己升学进度 6 条 + 考试成绩 + 豁免明细（D18 双方可见）；看不到预检审核流程。
+- **辅导员**：起随堂测验、看本班；**不可录成绩、不可起升学考、不可审核**。
+- **班级管理员+**：起升学考、录成绩、跑预检、拍板升学/驳回。
+
+### 大纲 & DR 关联 + 对齐备注
+- 服务大纲 **F1-F5（升学）**；D3（条件数据驱动）/D13（6 硬条件不可放宽）/D16（多专业独立升学）/D17（豁免留痕）/D18（永久留档）/DR-99（开闭卷合格线分支）。
+- **🆕 接缺口**：线上「无考试无结业」已推翻 → `AdvancementCheck`/`AdvancementRecord` 全新建；升学条件经 `ProgramAdvancementConfig` 数据驱动，新增专业/调门槛不动代码。
+- **🔵 业务规则落点**：① 6 硬条件（D13）→ 预检端点遍历 ProgramAdvancementConfig 逐条判定，缺一不可；② 开闭卷合格线（DR-99）→ AdvancementCheck 读 `Exam.isOpenBook` 选 params 分支；③ 多专业独立（D16）→ 预检/升学按 programId 隔离；④ **系统不自动升学（绝对约束1）**→ 无自动升学端点，必经 approve 人工拍板。
+
+---
+
+## 能力 11 · 留级、退出、转专业  〔批5·生命周期〕
+
+### 涉及表（08 落点）
+`ClassMember.cohortStatus`（✅ active/paused/held_back/graduated/left，DR：退班=改状态非删除）· `EnrollmentStatusHistory`（§2146，🆕 状态变更永久留痕）· `Class.status`（✅ archived，D19 只归档不删）· 邀请码（能力 2，留级/回归入口）
+
+### API 契约
+| 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
+|---|---|---|---|---|---|---|
+| POST | `/api/me/enrollments/:classId/exit` | student | `{confirm:true}` | 状态→left | 🆕 | **学员自主退出**（无需审批）；二次确认；历史记录保留只读（D15）|
+| POST | `/api/coach/classes/:newClassId/retain` | class_admin+ | `{userId,fromClassId,reason}` | 状态→held_back+新班 active | 🆕 | **留级手动操作**：经能力 2 把学员加新一届班；旧班记录保留、新班按新届起修日累计 |
+| POST | `/api/coach/classes/:id/archive` | class_admin+ | — | `Class.status=archived` | 🆕 | **班级归档**（D19，无 delete）；归档后不收新生/不产课表 |
+| GET | `/api/me/enrollment-history` | student | — | `EnrollmentStatusHistory[]` | 🆕 | 学员看自己退出/回归/留级全程（双方可见 D18）|
+
+> 转专业 = 退出当前 + 加入另一（能力 2）**两步走，无平移端点**；两段历史各自独立，跨专业累计共享（D14a）仍生效。
+
+### 页面/交互
+| 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
+|---|---|---|---|---|
+| 学员 | `/me/programs` | 专业列表：在修/「已退出」灰显可展开看历史 | 退出二次确认；回归走邀请码（能力 2）记录自动衔接 | 🔧 改（加退出/已退出态）|
+| 班级管理员 | `/coach/classes/:id/settings` | 留级入口（升学驳回后提示）+ 班级归档 | reject→留级提示→加新班；本届清空后手动归档 | 🆕 |
+
+### 三端可见性
+- **学员**：自己各专业状态（在修/已退出/留级）+ 状态变更史；可退出、可经邀请码回归。
+- **辅导员**：可见本班成员状态；**留级/归档限班级管理员+**。
+- **班级管理员+**：留级（加新班）、班级归档、状态治理。
+
+### 大纲 & DR 关联 + 对齐备注
+- 衔接能力 10（升学驳回触发留级）；D15（退出记录保留）/D18（永久留档）/D19（只归档不删）/D14a（跨专业共享）。
+- **🔵 业务规则落点**：① 班级只归档（D19）→ 无 delete API，`Class.status=archived`；② 退出记录保留（D15）→ `cohortStatus=left` 非物理删，历史只读可查；③ 留级手动（绝对约束4）→ 无自动留级，管理员经邀请码加新班；④ 缺席期补卡走能力 5 代行（退出期共修缺场可管理员补卡留痕）。
+- **🔵 字段对齐**：06 占位名 `enrollment_status`/`class_status` → 08 实为 `ClassMember.cohortStatus` + `Class.status` + `EnrollmentStatusHistory`，本能力按 08 落点。
+
+---
+
+> **进度**：已产出 **11 条**（能力 1/3/4/6/7/8/9/10/11/37/39）——**主干学修闭环成片**：专业配置(1) → 闻思学习(3/37/39) → 实修(4/6/7) → 共修(8) → 报数(9) → 考试升学(10) → 留级生命周期(11)。
+> **下一批（批6-8）**：管理/关怀/传承/权限/审计（5/12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
+> **缺口边设计边接已贯穿**：A3 选专业锁定（能力1 ⚠️）· C3/C4 三选一 · C5 自选功课（能力7 ⚠️）· **E1/E2 月度共修频率（能力8 ⚠️ 三分支待你拍板·倾向 C）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
+> **挂起待你拍板**：① 能力1 A3 选专业截止/锁定；② 能力7 C3/C4 互斥 + C5 自选功课字段；③ **能力8 E1/E2 月度共修频率（A 自动管 / B 不管 / C 折中告知）**。这三条不定，对应能力留 ⚠️ 标签、不锁死。
