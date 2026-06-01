@@ -1128,11 +1128,11 @@ model TransmissionRecord {
 
 ---
 
-## 三、➕ 新建表（19 张，DR-139 校准）
+## 三、➕ 新建表（20 张，DR-145 校准）
 
 按新业务能力从头设计。
 
-> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。（AssistantAssignment 曾短暂并入 §2.1，后核对 02 文档角色定义回滚为独立表，仍计入 14 张，DR-82。）TODO 处理阶段新增 §3.15 LeaveRequest（班级成员请假审批，TODO-6，DR-90），新建区更新为 15 张。**DR-123 实修域改造细化后校准为 17 张**——新增 UserPracticeVow（§1.7，发愿层，线上无此表）+ PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖的承重表，DR-123 纠正前误判废弃）两张 🆕 改造新建（编号物理保留原位 §1.7 / §四原行，计数归本区，详见 DR-123）。**DR-129 再校准为 18 张**——LessonCompletion（闻思听/看/观修完成事件表，带 type）此前 08 误标 §四「复用」，实为线上幻影表（grep=0），改判 🆕 新建移入本区，详见 DR-129。**DR-139 再校准为 19 张**——SmsLog（短信发送记录，DR-126 D3 能力 45 净资产补建）此前 ⚠️ 待定「复用 DispatchLog vs 独立表」，用户拍板独立新表（承载短信专有字段 + 幂等），新增 §3.16，详见 DR-139。
+> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。（AssistantAssignment 曾短暂并入 §2.1，后核对 02 文档角色定义回滚为独立表，仍计入 14 张，DR-82。）TODO 处理阶段新增 §3.15 LeaveRequest（班级成员请假审批，TODO-6，DR-90），新建区更新为 15 张。**DR-123 实修域改造细化后校准为 17 张**——新增 UserPracticeVow（§1.7，发愿层，线上无此表）+ PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖的承重表，DR-123 纠正前误判废弃）两张 🆕 改造新建（编号物理保留原位 §1.7 / §四原行，计数归本区，详见 DR-123）。**DR-129 再校准为 18 张**——LessonCompletion（闻思听/看/观修完成事件表，带 type）此前 08 误标 §四「复用」，实为线上幻影表（grep=0），改判 🆕 新建移入本区，详见 DR-129。**DR-139 再校准为 19 张**——SmsLog（短信发送记录，DR-126 D3 能力 45 净资产补建）此前 ⚠️ 待定「复用 DispatchLog vs 独立表」，用户拍板独立新表（承载短信专有字段 + 幂等），新增 §3.16，详见 DR-139。**DR-145 再校准为 20 张**——UserSelfStudyProgram（自学模式，原 §5.4 暂缓）随能力 21 转必做正式功能，由 §五暂缓移入本区（物理位置保留 §5.4，计数归本区，同 DR-129 处理），详见 DR-145。
 
 ---
 
@@ -2384,15 +2384,16 @@ model TantricGroup {
 ## 五、⏸ 暂缓表（设计已落实，实现延后）
 
 > 本区表示「设计已定稿、实现待排期」。每个功能已完整设计，可直接用于 Prisma schema，但不在当前迭代实现。
+> **DR-145 重整**：自学模式（原 §5.4，1 张）转必做、移入 §三实施区（物理位置保留 §5.4）；社交三家族（§5.1/5.2/5.3，10 张）降为「只做后台关键部分」——建表+后台逻辑、不做正式前端 UI，仍留本区（实现待排期）。
 
 | 状态 | 家族 | 表数 |
 |---|---|---|
-| ✅ 设计封板 | §5.1 班级动态（ClassPost 家族） | 4 张 |
-| ✅ 设计封板 | §5.2 班级讨论（Discussion 家族） | 4 张 |
-| ✅ 设计封板 | §5.3 约修（PracticeAppointment 家族） | 2 张 |
-| ✅ 设计封板 | §5.4 自学模式（UserSelfStudyProgram） | 1 张 |
+| ⏸ 建表+后台·不做正式前端（DR-145）| §5.1 班级动态（ClassPost 家族） | 4 张 |
+| ⏸ 建表+后台·不做正式前端（DR-145）| §5.2 班级讨论（Discussion 家族） | 4 张 |
+| ⏸ 建表+后台·不做正式前端（DR-145）| §5.3 约修（PracticeAppointment 家族） | 2 张 |
+| ✅ 必做·移入 §三实施（DR-145，物理保留 §5.4）| §5.4 自学模式（UserSelfStudyProgram） | （计入 §三）|
 
-> **暂缓区合计 11 张**（4+4+2+1；原 12 张，DR-104 删 UserSelfStudyRestWeek 后为 11）。
+> **暂缓区合计 10 张**（4+4+2；DR-145 自学 1 张转必做移入 §三，原 11 张）。
 
 ---
 
@@ -2783,7 +2784,7 @@ model PracticeAppointmentParticipant {
 
 ---
 
-### 5.4 自学模式（UserSelfStudyProgram）✅ 设计封板
+### 5.4 自学模式（UserSelfStudyProgram）✅ 必做·移入 §三实施（DR-145，物理位置保留于此、计数归 §三新建）
 
 **⏸ 暂缓**：当前迭代不实现；以下设计可直接用于写 Prisma schema。
 
@@ -3037,6 +3038,7 @@ model UserSelfStudyProgram {
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
 | DR-132 | D3 短信通道（能力 45）完整设计：第 3 触达通道 + User 手机号体系（🆕 新建）| **能力 45 短信通道完整设计：(A) User +phone/phoneVerified/phoneVerifiedAt 字段（线上 User 无手机号，grep 确认）+ 绑定验证流程；(B) sendSms 发送抽象层（Provider 接口 + 模板化 + 失败重试）；(C) 作为 dispatchToUsers 第 3 通道 channel='sms'（复用 DispatchLog 幂等）；(D) 用途规则：验证码/critical 系统公告/⑦⑧⑨关键学修提醒走短信，一般提醒/普通通知不走（控成本防骚扰）；(E) NotificationPreference +smsEnabled（验证码不受开关影响）。服务商选型等挂 TODO-SMS**（用户决策：用途=重要通知兜底+关键学修提醒，深度=完整设计短信通道，2026-05-31/06-01）| 用户追问「系统公告与通知推送/短信是不是两个模块」引出核查：dispatchToUsers 现仅 channel='push'（站内 Notification ✅+Web Push ✅），**SMS 完全未实现**——代码仅占位注释「banner/sms 后续接入时各自加 channel」，且**User 表连 phone 字段都没有**（grep phone/mobile 全空）。用户决策「都要做、逐条确认」+ 选项「用途=重要通知兜底+关键学修提醒」「深度=完整设计短信通道」。**设计要点**：短信是 Web Push 之外的兜底通道，但**按条计费**故严格限场景（仅 critical+关键学修提醒+验证码），非全量发；前置缺口是 User 手机号体系（字段+验证流程），无手机号则无法发。**通道选择**：站内信必达→push 有订阅则推→sms 仅 critical/关键且符合用途规则。**待决策**（TODO-SMS）：服务商选型（阿里云/腾讯云/国际）、smsEnabled 默认值、是否独立 SmsLog 表（默认复用 DispatchLog）、验证码频率/有效期。排除「短信全量发所有通知」：成本爆炸+骚扰，仅限关键场景；排除「不做手机号验证直接发」：未验证号码发短信浪费+合规风险，须 verified 才发业务短信（验证码除外）|
+| DR-145 | 暂缓功能群梳理：自学模式转必做（移入实施）+ 社交/AI/徽章只做后台关键部分 —— Phase 图重排 | **暂缓群一分为二**：① **自学模式（能力 21）转必做正式功能**——⏸暂缓→✅必做，§5.4 UserSelfStudyProgram 由 §五暂缓移入 §三实施（计数归 §三、物理位置保留 §5.4，同 DR-129 处理），Phase 紧接 P5 后=新 P6（核心跑通即上自学），TODO-5（Program.selfStudy 反向关联）转必做；② **社交（能力 22/23/24 班级动态/讨论/约修）降为「只做后台关键部分」**——原「全功能待实现」→建表+后台逻辑、不做正式用户前端 UI（同徽章/AI 调子），10 张表留 §五暂缓区（仍实现待排期）、仅重标 scope，Phase 顺延 P7；③ **AI（能力 25）维持 DR-109「后台必要部分」、成就徽章（能力 38）维持 DR-128「后台保留不上线」**，均不变。**战略**：收敛到「核心学修管理 + 自学」，社交/AI/游戏化压成后台预留（用户决策 2026-06-01）| 第③条暂缓功能群梳理。用户拍板：自学是必要功能（独立于升学体系、用户价值直接）→提优先级转必做；社交/AI/徽章只做后台关键部分。**自学排位**：依赖 P0 地基 + 能力 7 打卡（P4），核心（P0-P5）跑通即上，故新 P6；不依赖升学 P2（DR-103/104）。**社交「建表+后台」**：用户明确选「建表+后台」（非纯留设计）——表与后台逻辑保留为 latent 能力，但不做正式社交 UI，故留暂缓区（实现待排期）、scope 收窄。**表计数**：自学 1 张跨区 §五暂缓→§三新建（19→20、暂缓 11→10）；社交 10 张留 §五不动；AI/徽章不变；§一12/§四20 不变。Phase 净变化：原 P6 社交/P7 自学/P8 AI → 新 P6 自学（必做）/P7 社交（后台 only）/P8 AI。排除「社交纯留设计·表不建」：用户选建表+后台；排除「自学继续暂缓」：用户明确必做；排除「社交全砍」：用户要保留后台能力非永久不做 | 第③条；关联 DR-103/104（自学）/DR-105（社交）/DR-109（AI）/DR-128（徽章）；改 §三/§五计数 + §十二 Phase |
 | DR-144 | app 外学修申报入口（计数模块按课时标记听/看/读/观修完成）+ 录入方式重定义 in_app/external —— 收 DR-143 对能力 9 的连带矛盾 | **在能力 9 计数/报数模块加「app 外学修申报」入口,服务不在 app 内学习的学员(纸质法本/线下音视频/线下打坐),按课时(科)手动标记听/看/读/观修某遍完成,帮助统计学习进度**：① 申报维度=听(audio/video)/看(read)/观修;**答题不可申报**(交互题仅 app 内做);② **可填 N 遍**——线下一周听 3 遍即填 3,展开成 N 条完成事件(一遍一行,供能力 3 COUNT);③ 落点不变——听/看/读→LessonCompletion(type=audio/video/read)、观修→PracticeLog{meditationId,durationMinutes}(录完整信息:选修法+手填时长+≥30 分钟校验,同能力 4/DR-91);④ **录入方式重定义**(收 DR-143 矛盾)——能力 9 规则 2 旧「自动记录/手动记录」(举例 app 内看视频自动计次,已被 DR-143 改纯手动、过时)改为 **in_app(app 内看/读/听完确认) / external(app 外学习、计数模块申报)**,两者都是手动、只是触发地点不同;⑤ **来源落字段**——LessonCompletion 加 `source(in_app/external)`;PracticeLog 既有 `source` 值域校准 manual/auto/ai_assistant→**in_app/external/ai_assistant**(DR-143 后 auto 已无来源,清理对齐),承载能力 9 绝对约束 1「每条记录标注来源」;⑥ **防刷**——source=external 且零 app 活动=管理员重点核查对象,接虚报治理(能力 9 规则 10 忏悔→取消资格),与 DR-143「防刷交治理+审核」一致(用户决策 2026-06-01)| 用户提「计数模块内也可给阅读/音视频/观修标记某科完成,适用于不用 app 学习的人,帮助统计学习进度」。**判断**：DR-143 把完成统一为「用户手动确认」后,天然存在两个触发入口——app 内看读完点完成、app 外学完进计数模块申报;本诉求即后者,与 DR-143 同一套表/判定,只是地点不同,故用 source(in_app/external) 标记区分即可,无需新判定逻辑。**正好收 DR-143 连带**:能力 9 旧「自动/手动」分类的「自动=app 内看视频自动计次」举例已被 DR-143 作废,本决策把该轴重定义为 in_app/external,矛盾闭合。**N 遍**:闻思按遍数 COUNT(盲听≥2/聋看≥2),线下补录须能一次报多遍,展开成 N 行保持一遍一行 COUNT 语义。**观修录完整信息**:进升学须 meditationId 分组 + 时长(DR-98/DR-91),app 外申报不能省。**答题仅 app 内**:随堂题交互判分,线下无从申报。**source 字段**:LessonCompletion 是新表(DR-129),加 source 仅扩 spec、零计数影响;PracticeLog 既有 source 值域 DR-143 后「auto」无意义,校准为 in_app/external/ai_assistant 顺带清理(DR-120/M1 spec 同步注)。**表计数**:新表加字段 + 既有字段值域校准,零新表零删表,§一12/§三19/§四20 不变。排除「app 外申报另建表」:与 app 内完成同语义同判定,分表徒增聚合复杂度;排除「不标来源混入」:违反能力 9 绝对约束 1、且失去对纯线下自报的核查抓手 | 收 DR-143 能力9 连带;校准 DR-120 source 值域;关联 DR-111/DR-91/DR-98/能力3/4/9 |
 | DR-143 | 🔴 完成判定全面转纯手动（法本阅读/音频/视频/观修）+ app-kill 续播延迟确认 —— supersede DR-141/142、改 DR-92/DR-129 完成口径 | **四类学修内容（法本阅读 type=read、音频/视频 type=audio/video、观修）完成一律以用户手动确认为准，系统不做自动达标判定**：① 每类内容页加「完成」按钮（观修沿用现有「完成观修」），离开页面（路由切换）若有实质进度未确认→弹「本遍是否完成？」，用户确认才写完成；② 落点不变只改触发——法本/音视频→LessonCompletion(type=read/audio/video) 用户确认写，观修→PracticeLog{meditationId,durationMinutes}+UserPracticeVow（DR-111 不变），观修时长纯用户手填、确认时校验 DR-91 ≥30 分钟；③ DR-141/142 音视频阈值 + 能力 37 scrollPercent/totalSeconds 阈值全部 supersede（不再判完成），技术防刷（playedSeconds 累计/心跳≤60s）失效，防刷改交虚报治理（忏悔→取消资格）+ 升学管理员审核，与 10 万顶礼自报同一套信任模型；④ LessonCompletion type 收敛 audio/video/read（去掉 meditation——观修走 PracticeLog，DR-111），DR-92 矩阵不含观修、meditationLag 旧引用改指 PracticeLog(meditationId)；⑤ 掉队检测（能力 14 contentLag/meditationLag）口径改按「已确认完成数」（LessonCompletion COUNT / PracticeLog 座数）；⑥ app-kill 续播+延迟确认：播放/阅读位置 + 未确认会话标记存 localStorage（进程被杀不丢，本地持久存储），重进续播到上次位置 + 若有未确认会话补弹「上次读到/听到 X，本遍是否完成？」（观修完成接手填时长），同设备不跨设备（用户接受）（用户决策 2026-06-01）| 用户两轮决策：先选「自动检测降为辅助」，后明确推翻为「不设自动检测、改纯手动，但要做后台被杀处理」+「观修时长纯手填」。**判断**：以用户确认为完成唯一权威，则自动达标阈值失去意义——观修早已是纯手动（DR-111 手动提交座、看视频80%不算座），本决策让法本/音视频向观修看齐，模型最一致；自动阈值取消后技术防刷无附着点，回归与 10 万顶礼/座次自报相同的「自报+治理+审核」信任模型，统一全平台报数信任口径。**app-kill**：正常离开有路由事件可当场弹确认，进程被杀无事件→须持久化；选 localStorage 而非服务端表——同设备抗杀够用（localStorage 本地持久、杀进程不丢）、零新表、不引入跨设备一致性复杂度，用户明确接受不跨设备。**观修落点澄清**：研究三表分工确认 DR-111 早定观修=PracticeLog（零新表），所谓「DR-92 矩阵/meditationLag 写 LessonCompletion type=meditation」只是 DR-111 后未清理的旧引用（违背 DR-111），本决策一并清，LessonCompletion 去 meditation type；能力 3 闻思本不含观修（仅听/看/答题）。**表计数**：纯触发/口径变更 + 去一个 enum 值，零新表零删表，§一12/§三19/§四20 全不变。排除「自动检测降为辅助/预填」：用户明确否，纯手动更简、信任口径统一；排除「服务端进度表抗 kill」：localStorage 同设备已够、避免 §三+1 与跨设备一致性；排除「保留 type=meditation」：违背 DR-111 观修走 PracticeLog，是旧引用残留 | supersede DR-141/142；改 DR-92/DR-129/DR-127；关联 DR-111/DR-91/能力14/37/39 |
 | DR-142 | 能力 39 音视频采集层——拍板：两种播放源同口径 + YouTube 走 IFrame API | **采集层设计**：① OSS 直链（type=audio/video）用 HTML5 `<audio>/<video>` 的 `timeupdate` 事件取 currentTime/duration；② YouTube 嵌入（type=youtube）用 **YouTube IFrame Player API**（`enablejsapi=1`），PLAYING 时轮询 `getCurrentTime()`/`getDuration()`，`onStateChange` ENDED 直接判达标（视同 100%）；③ **口径统一防刷量**：`playedSeconds`=累计实际播放秒（仅 PLAYING 累加，拖进度条到末尾不加秒）、`playedPercent`=最远观看位置/总时长——两源算出同口径两数写同一条 LessonCompletion，DR-141 阈值源无关，能力 3「听」COUNT 不受播放源影响；④ YouTube 墙内不可达即播不出→自然不达标、不特殊兜底（用户决策 2026-06-01）。**🔻后修订（DR-143，2026-06-01）：完成判定全面转纯手动，本采集口径不再判完成；playedSeconds/playedPercent 仅留 localStorage 续播位置用途**| 用户在 DR-141 定阈值后追问「视频两种模式（OSS 直链 vs YouTube 嵌入）怎么统计」——DR-141 只定了阈值数字，没定**两种源各自怎么采集进度数据**，是真实采集层缺口。**判断**：① iframe 内的 YouTube 播放前端无法用原生 media 事件监听，必须挂 IFrame Player API 才能拿到 currentTime/duration/状态——这是唯一可行的 YouTube 进度采集路径；② playedSeconds 用「累计实际播放」而非「最远位置」是为防拖进度条到末尾刷秒数（拖动不在 PLAYING 态、不累加），但 playedPercent 仍取最远位置（与看法本 scrollPercent furthest 同思路，覆盖率语义）——两者组合：覆盖率达 90% 或「实质听过≥60秒且过半」；③ ENDED 事件是 YouTube 最可靠的「看完」信号，直接判达标省去轮询临界判断。**排除**「都用最远位置」：拖到末尾即刷达标，视频比文本更易作弊；「分段去重覆盖率」：最严但前后端实现过重，看法本都未做、不破坏双端一致性收益不值。**遗留实现期**（非设计期开放决策）：(a) youtube 源面向谁/是否有 OSS 备份（墙内可达性）；(b) 是否持久化播放进度为表（断点续播/跨设备，类比 LessonReadingProgress）——阈值统计不依赖持久化，达标即 POST LessonCompletion，故不影响当前表计数 §三19 | DR-141 / DR-129 |
@@ -4957,6 +4959,26 @@ model UserSelfStudyProgram {
 
 ---
 
+### 检查轮次 98（2026-06-01，范围：暂缓功能群梳理 · DR-145 · 自学转必做 + 社交/AI/徽章后台关键部分 · 表计数迁移 + Phase 重排 · 跨 06/08）
+
+> 第③条暂缓功能群梳理。用户拍板：自学模式（能力 21）转必做正式功能；社交（能力 22/23/24）+ AI（25）+ 徽章（38）只做后台关键部分。自学 1 张表（UserSelfStudyProgram）由 §五暂缓移入 §三实施（§三 19→20、§五 11→10），Phase 重排（新 P6 自学/P7 社交/P8 AI）。本轮有真实表计数迁移，重点核四处对齐。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | 无新表/新字段；UserSelfStudyProgram 既有设计不变，仅区位与状态变；TODO-5（Program.selfStudy 反向）转必做、实现时恢复 |
+| 2. API 响应/DB 字段对齐 | ✅ | 自学/社交表 schema 设计均不动，仅实施状态变更，无字段增删 |
+| 3. 读取/聚合口径正确 | ✅ | 自学进度=聚合 LessonCompletion/PracticeLog（DR-104，不升学）；社交后台逻辑保留不影响核心读取 |
+| **4. 总览计数正确（重点）** | ✅ | **五处对齐**：①§三表头 19→20（DR-145 校准注已加）；②§三总览注追加 DR-145 条；③§五暂缓表头合计 11→10 + 自学行改「计入 §三」；④§十二 12.1「暂缓区 §五 10 + AI 4 对应 P7~P8」；⑤§十一 11.3「§三 20（+M7）/§五暂缓 10」+ M 单元表 M7 改 ✅必做。§一12/§四20 不变 |
+| 5. Migration 覆盖完整 | ✅ | M7 自学由暂缓改 ✅必做随新 P6、计入 §三；社交 M4~M6 标「建表+后台·不做前端」随 P7；AI M8 随 P8；11.3 分区计数同步重算（§三 19+M7=20、§五暂缓 10），所有 migration 仍各有 Phase 归属、无遗漏 |
+| 6. Phase 计划覆盖完整 | ✅ | §十二 P6/P7 对调：P6=自学（M7，✅必做）、P7=社交（M4~M6，⏸建表+后台无前端）、P8=AI（维持暂缓）；12.1 覆盖核对同步更新 |
+| 7. 暂缓/必做标签完整 | ✅ | 06 能力 21 顶部加 ✅必做标 + 对老项目改标；能力 22/23/24 顶部加 ⏸建表+后台标 + 对老项目改标；08 §5.1~5.4 状态行同步；AI（DR-109）/徽章（DR-128）维持原标不动 |
+| 8. 业务规则约束有实现方式 | ✅ | 自学=正式功能（应用层 + UserSelfStudyProgram 表 + P6）；社交=建表+后台（schema + 后端逻辑，无前端）；防呆=保留设计文档作后台/将来参考 |
+
+**本轮发现问题数**：0（表计数迁移四处对齐已核；社交 10 张留 §五不动、自学 1 张跨区，§一12/§四20 稳定）。
+**结论**：DR-145 封板——暂缓群一分为二：自学（能力 21）转必做、移入 §三实施、入新 P6；社交（能力 22/23/24）+ AI（25）+ 徽章（38）只做后台关键部分（社交建表+后台不做前端、AI/徽章维持 DR-109/128）。战略收敛到「核心学修管理 + 自学」。**表计数迁移：§三 19→20、§五 11→10**，§一12/§四20 不变。06↔08 双向对齐，Phase 图重排无环。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -4966,7 +4988,7 @@ model UserSelfStudyProgram {
 | ~~TODO-1~~ ✅ 已闭合 | ~~掉队判定阈值数据化~~——**已闭合（2026-05-30）**：Program 新增 lagWindowDays（默认14）/lagMildThreshold（0.5）/lagModerateThreshold（0.3）/lagSevereThreshold（0.1）4 个专业级阈值字段；Class.lagPracticeDaysExpected 班级覆盖保留，两层配置满足 D3 数据驱动（DR-88）| 1.5 CohortLagSnapshot | ✅ 已处理（DR-88）| DR-18 / DR-88 |
 | ~~TODO-2~~ ✅ 已闭合 | ~~共修链接激活时效数据化~~——**已闭合（2026-05-30）**：签到窗口改为「token 生成时刻」为基准，startAt 仅展示；Program 补 checkinGraceMinutes（默认 30 分钟），与实际开课时间自动对齐（DR-89）| 1.6 ClassSession | ✅ 已处理（DR-89）| DR-25 / DR-89 |
 | ~~TODO-3~~ ✅ 已闭合 | ~~PracticeAppointment.practiceProjectId 无正式 @relation~~——**已闭合（2026-05-29）**：§四 PracticeProject 确认复用，已在 §5.3 PracticeAppointment 补正式 FK `practiceProject PracticeProject @relation(...)`，PracticeProject 上补反向 `appointments PracticeAppointment[]` | §5.3 PracticeAppointment | ✅ 已处理（DR-69）| DR-57 / DR-69 |
-| TODO-5 | §1.1 Program 恢复 `selfStudy UserSelfStudyProgram[]` 反向关联——当前因自学模式暂缓已移除，实现 §5.4 时须恢复 | §5.4 UserSelfStudyProgram | 自学模式实现时 | DR-103 / DR-104 |
+| TODO-5 | §1.1 Program 恢复 `selfStudy UserSelfStudyProgram[]` 反向关联——当前因自学模式暂缓已移除，实现时须恢复 | §5.4 UserSelfStudyProgram | **自学转必做（DR-145），随新 P6 实现** | DR-103 / DR-104 / DR-145 |
 | ~~TODO-AI-1~~ ✅ 已闭合 | ~~现状缺口：线上笔记功能已接入 LLM，本版 06/08 未体现~~——**已闭合（2026-05-31，DR-109）**：核实笔记 AI = 5 action（润色/摘要/标签/拟标题/起草）复用 gateway，`POST /api/notes/llm-assist` + NotesDrawer 入口已上线；判定为**独立子能力 25.C**（红线与 25.A 相反，不并入），仅登记现状不扩展；零新表（复用 Note）| 项目审计阶段 | ✅ 已处理（DR-109）| 能力 25 / 笔记模块 |
 | TODO-AI-2 | **AI 代操作数据契约**（能力 25.B，DR-107）：实现时须给各写表（PracticeLog 等）来源标注扩展 `ai_assistant` 值；AiMessage 扩展 `toolCall`/`actionResult`（关联记录 id）字段。不新建业务表，复用各能力写路径 | §四 AiMessage + 各写能力写路径 | AI 模块实现时（晚于现状分析）| DR-107 |
 | ~~TODO-6~~ ✅ 已闭合 | ~~班级成员请假审批流设计~~——**已闭合（2026-05-30）**：新建 §3.15 LeaveRequest；expired 实时算不入库（DR-90-A，同 DR-80）；approved 期间从掉队窗口扣除（DR-90-B）；审批限 class_tutor+；无 delete API（D18）| §5.4 自学模式修正 | ✅ 已处理（DR-90）| DR-62 / DR-90 |
@@ -5025,19 +5047,19 @@ model UserSelfStudyProgram {
 
 | 单元 | 内容 | 涉及表 | 触发时机 |
 |---|---|---|---|
-| **M4 · 班级动态** ⏸ | §5.1 ClassPost/ClassPostReaction/ClassPostComment/ClassPostShare（4 张）| →Class/User | 班级动态模块开工（DR-50~52）|
-| **M5 · 班级讨论** ⏸ | §5.2 Discussion/DiscussionViewpoint/DiscussionVote/DiscussionComment（4 张）| →Class/User/Lesson/Course | 讨论模块开工（DR-53）|
-| **M6 · 约修** ⏸ | §5.3 PracticeAppointment/PracticeAppointmentParticipant（2 张）| →Class/User/PracticeProject；需恢复 PracticeProject.appointments[] 反向（已补，TODO-3）| 约修模块开工（DR-57~60）|
-| **M7 · 自学模式** ⏸ | §5.4 UserSelfStudyProgram（1 张，DR-104 删 RestWeek）；同时恢复 Program.selfStudy[] 反向关联（TODO-5）| →User/Program | 自学模式开工（DR-61/103/104，TODO-5）|
+| **M4 · 班级动态** ⏸（建表+后台·不做前端，DR-145）| §5.1 ClassPost/ClassPostReaction/ClassPostComment/ClassPostShare（4 张）| →Class/User | P7 社交（DR-50~52；DR-145 仅后台）|
+| **M5 · 班级讨论** ⏸（建表+后台·不做前端，DR-145）| §5.2 Discussion/DiscussionViewpoint/DiscussionVote/DiscussionComment（4 张）| →Class/User/Lesson/Course | P7 社交（DR-53；DR-145 仅后台）|
+| **M6 · 约修** ⏸（建表+后台·不做前端，DR-145）| §5.3 PracticeAppointment/PracticeAppointmentParticipant（2 张）| →Class/User/PracticeProject；需恢复 PracticeProject.appointments[] 反向（已补，TODO-3）| P7 社交（DR-57~60；DR-145 仅后台）|
+| **M7 · 自学模式** ✅ 必做（DR-145）| §5.4 UserSelfStudyProgram（1 张，DR-104 删 RestWeek，DR-145 计入 §三新建）；同时恢复 Program.selfStudy[] 反向关联（TODO-5）| →User/Program | **新 P6（核心跑通即上，DR-145）**（DR-61/103/104，TODO-5）|
 | **M8 · AI 助手** ⏸ | ContentChunk/FeatureEntry/AiConversation/AiMessage（**4 张新建**）+ AiUsage **复用 LlmCallLog/LlmProviderUsage 不新建**（DR-110）；依赖 pgvector 扩展 | 独立模块 | 能力 25；AI 模块独立推进（DR-74/106/108/109）|
 
 ### 11.3 Migration 覆盖完整性核对
 
 - **§一 扩展 12 张**（DR-123 校准，UserPracticeVow 移出至 §三）→ M1 全覆盖 ✅（含 PracticeLog = PracticeEntry rename+加列）
 - **§二 替换 3 张** → M2a(UserRoleAssignment) + M2b(CareFollowupRecord) + M2c(TransmissionRecord) 全覆盖 ✅
-- **§三 新建 19 张**（DR-123→129→139 校准，+UserPracticeVow +PracticeTemplate +LessonCompletion +SmsLog）→ M3a(2) + M3b(4) + M3c(3) + M3d(6) + M3e(2) + M3f(1) + M3g(1, SmsLog) = 19 ✅（原 15 + M3e 2 + M3f 1 + M3g SmsLog 1；M3g 另含 User +phone ALTER，属 §一字段扩展不计表数）
+- **§三 新建 20 张**（DR-123→129→139→145 校准，+UserPracticeVow +PracticeTemplate +LessonCompletion +SmsLog +UserSelfStudyProgram）→ M3a(2) + M3b(4) + M3c(3) + M3d(6) + M3e(2) + M3f(1) + M3g(1, SmsLog) = 19 + **M7(1, UserSelfStudyProgram, DR-145 转必做)** = 20 ✅（M3g 另含 User +phone ALTER，属 §一字段扩展不计表数）
 - **实修域改造源清理** → M1.5（PracticeGoal/PracticeTask/PracticeDailySummary 不入目标 schema，DR-122）
-- **§五 暂缓 11 张 + AI 4 张**（AiUsage 复用不计，DR-110）→ M4~M8（实现时编）⏸（§五 11 = 社交 4+4+2 + 自学 1，DR-104 删 RestWeek；检查轮次 53 顺修旧残留 12→11）
+- **§五 暂缓 10 张（社交）+ AI 4 张**（AiUsage 复用不计，DR-110）→ 社交 M4~M6（建表+后台·不做前端，P7）+ AI M8（暂缓，P8）⏸（§五 10 = 社交 4+4+2；**自学 M7（1 张）随 DR-145 转必做、移 §三、入 P6**，不再属暂缓）
 - **§四 复用 20 张**（DR-134 校准：DR-129 后 21 张 −Event −EventCount（废弃幻影，DR-134）+DharmaAssembly（补登记真实净资产，原漏登）= 20）→ 不动，不入 migration。**注**：此 20 张口径含 DR-130 标「实为新建」的幻影表（物理列于 §四但实为新建），真实可复用净资产仅 8 张（详见 DR-130/134）；Event/EventCount 废弃后不入任何区
 
 ---
@@ -5054,18 +5076,18 @@ model UserSelfStudyProgram {
 | **P3** | 关怀体系 | M3c + M2b（先 CareWatchlistItem 后 CareFollowupRecord）| StudentSpecialStatus 认定（能力 13）、CareWatchlistItem 自动触发 + 手动添加、CareFollowupRecord 跟进、ReportConfession 虚报忏悔流（能力 14）| 关怀清单页、特殊身份认定页、虚报处理页 | P1、P2（report_overdue/false_report 触发依赖 SemesterSnapshot/AdvancementCheck）| 待建 |
 | **P4** | 班级运维 + 实修体系 | M3d + M3e | ClassInviteCode（能力 5）、AssistantAssignment（能力 19）、LeaveRequest 审批（DR-90）、ClassTask 布置、ClassSessionSchedule 定时生成 ClassSession（能力 4/8）、EnrollmentStatusHistory 留痕；**实修打卡（能力 4/6/7）：UserPracticeVow 发愿/聚合、PracticeLog 打卡录入、PracticeTemplate 模板**（DR-122/123）| 邀请码管理页、辅助员配对页、请假审批页、班级任务页、共修课表页、实修打卡页 | P1 | 待建 |
 | **P5** | 传承体系 | M2c(TransmissionRecord) | TransmissionRecord 录入/灌顶代录、密法访问 EXISTS 查询（DR-44/45）、升学清单 isRequired 核对 | 传承录入页 | P1 | 待建 |
-| **P6** | 班级动态/讨论/约修 ⏸ | M4 + M5 + M6 | 帖子/评论/点赞、讨论投票、集体约修 | 班级社区页 | P1 | ⏸ 暂缓 |
-| **P7** | 自学模式 ⏸ | M7 | 自学开通（subject_admin）、纯完成量进度（聚合 LessonCompletion/PracticeLog，DR-104）、个人学修量录入（恢复 TODO-5 反向关联）| 自学管理页 | P0（仅需扩展字段；自学不升学故不依赖 P2，DR-103）| ⏸ 暂缓 |
+| **P6** | 自学模式（DR-145 转必做）| M7 | 自学开通（subject_admin）、纯完成量进度（聚合 LessonCompletion/PracticeLog，DR-104）、个人学修量录入（恢复 TODO-5 反向关联）| 自学管理页 + 学员自学端 | P0+P4（需扩展字段 + 能力 7 打卡复用；不升学故不依赖 P2，DR-103/104）| ✅ 必做（核心跑通即上）|
+| **P7** | 班级动态/讨论/约修（DR-145 降后台关键部分）| M4 + M5 + M6 | 帖子/评论/点赞、讨论投票、集体约修（建表+后台逻辑，不做正式前端 UI）| —（不做正式前端）| P1 | ⏸ 建表+后台·不做正式前端 |
 | **P8** | AI 助手 ⏸（能力 25）| M8 | RAG 检索（全部法本）、对话、用量统计、辅导员洞察 | AI 助手入口（学员）+ 问答洞察（辅导员）+ AI 配置中心（super_admin）| 独立（pgvector）| ⏸ 暂缓（DR-74/106）|
 
 ### 12.1 Phase 覆盖完整性核对
 
-- **所有新表/扩展字段**均落在某 Phase：P0（扩展字段 M1 + 改造源清理 M1.5）/ P1（权限审计 M2a+M3a）/ P2（升学 M3b）/ P3（关怀 M3c+M2b）/ P4（运维 M3d + 实修 M3e）/ P5（传承 M2c）/ P6~P8（暂缓 M4~M8）✅
+- **所有新表/扩展字段**均落在某 Phase：P0（扩展字段 M1 + 改造源清理 M1.5）/ P1（权限审计 M2a+M3a）/ P2（升学 M3b）/ P3（关怀 M3c+M2b）/ P4（运维 M3d + 实修 M3e）/ P5（传承 M2c）/ **P6 自学 M7（DR-145 必做）/ P7 社交 M4~M6（后台关键部分）/ P8 AI M8（暂缓）** ✅
 - **实修域 P2↔P4 时序注（DR-123）**：升学预检（P2）消费加行/内加行修量聚合（UserPracticeVow，M3e 在 P4）。UserPracticeVow 核心字段不依赖 ClassTask（仅 classTaskId 可空 FK 依赖 M3d），实现时若 P2 需先于 P4，可比照 ClassSession.scheduleId 模式延后 classTaskId FK；或将 M3e 的 UserPracticeVow 提前至 P2。属实现期排期细节，不影响设计完整性
 - **§二 替换 3 张分属三 Phase**：M2a→P1、M2b→P3、M2c→P5（检查轮次 48 修复，原 M2 整体单元拆为 M2a/b/c）✅
 - **DR-101 四页管理界面**全部落 P2 ✅
 - **关键依赖链**：P1（权限）→ 一切写操作；P2（升学）→ P3 触发器；P3 内 CareWatchlistItem→CareFollowupRecord 顺序；无环 ✅
-- **暂缓区**（§五 11 张 + AI 4 张，AiUsage 复用 DR-110）对应 P6~P8，与 §五 标签一致 ✅（§五 11 = 班级动态 4 + 讨论 4 + 约修 2 + 自学 1；DR-104 删 RestWeek）
+- **暂缓区**（DR-145 后 §五 10 张社交 + AI 4 张，AiUsage 复用 DR-110）对应 P7~P8 ✅（§五 10 = 班级动态 4 + 讨论 4 + 约修 2，均「建表+后台·不做正式前端」；自学 1 张随 DR-145 转必做、移 §三、入 P6）
 
 ---
 
