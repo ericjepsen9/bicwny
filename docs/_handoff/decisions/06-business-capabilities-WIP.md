@@ -2152,7 +2152,7 @@ admin 向全平台学员广播重要通知（维护/活动/紧急），发布即
 
 ## 能力 45：短信通道（SMS）🆕 新建
 
-> 🆕 线上无·实为新建（DR-126，D 组 D3，DR-132）。**线上零实现**：User 无手机号字段、无短信服务商、dispatch 仅占位注释。用途：重要通知兜底 + 关键学修提醒（用户决策）。
+> 🆕 线上无·实为新建（DR-126，D 组 D3，DR-132；TODO-SMS 已决策 DR-139）。**线上零实现**：User 无手机号字段、无短信服务商、dispatch 仅占位注释。用途：重要通知兜底 + 关键学修提醒（用户决策）。**DR-139 拍板：独立 SmsLog 表（§三 18→19）+ 后台场景级开关 + 服务商不锁定 + 验证码标准档。**
 
 ### 业务意图
 作为 Web Push 之外的**第三触达通道**，在用户未开/未装 Web Push 时，用短信确保 critical 级通知和关键学修提醒触达手机。
@@ -2169,7 +2169,7 @@ admin 向全平台学员广播重要通知（维护/活动/紧急），发布即
 5. **成本控制**：短信按条计费，发送前过滤（只发 verified + 符合用途规则的）
 
 **C. 作为 dispatch 第 3 通道**
-6. **channel='sms'**：dispatchToUsers 接入 sms 通道，DispatchLog 记 channel='sms'（复用现有 unique 幂等）
+6. **channel='sms'**：dispatchToUsers 接入 sms 通道——派发去重仍走 DispatchLog（channel='sms' 跨通道统一账），**短信发送明细 + 短信级幂等走独立 SmsLog**（DR-139 分工）
 7. **通道选择策略**：仅 critical 级 + 指定 triggerType 走短信（见 D 用途表），避免成本爆炸 + 骚扰
 8. **降级链**：站内信（必达）→ Web Push（有订阅则推）→ SMS（critical/关键 且符合用途规则）
 
@@ -2183,9 +2183,9 @@ admin 向全平台学员广播重要通知（维护/活动/紧急），发布即
 | 一般提醒（①-⑥ 进度/任务/复习等） | ❌ 不发 | 站内信+push 即可，控成本 |
 | 普通通知（班级公告/成就等） | ❌ 不发 | 同上 |
 
-**E. 偏好控制**
-9. **短信开关**：NotificationPreference 加 `smsEnabled`（默认值 ⚠️ 待定）+ 可能分场景；**验证码不受开关影响**（刚需）
-10. 注：现有 pushEnabled 注释已写「不影响 SMS」，预留了独立控制
+**E. 短信开关（DR-139：后台场景级，非用户级）**
+9. **后台按场景配开关**：admin 在后台对每种短信场景**分别**设开关（critical 系统公告 / ⑦讲考临近 / ⑧升学结果 / ⑨上课迟到 各自独立）——**不是**用户个人 NotificationPreference 的单一 smsEnabled；机制随场景挂载（定时规则类挂 NotificationRule、系统公告类挂公告 critical 配置）
+10. **验证码不受场景开关影响**（绑定刚需，DR-139）
 
 ### 输入与输出
 - 输入：User.phone（verified）+ 触发场景（critical/关键提醒/验证码）+ 短信模板
@@ -2199,19 +2199,19 @@ admin 向全平台学员广播重要通知（维护/活动/紧急），发布即
 ### 绝对约束
 1. 仅 verified 手机号可收业务短信（验证码除外）
 2. 仅 critical + 指定关键场景走短信（成本/防骚扰）——不全量发
-3. 复用 DispatchLog 幂等（channel=sms）——不重复发
-4. 验证码短信不受 smsEnabled 开关影响（刚需）
-5. ⚠️ 服务商选型待决策（国内阿里云/腾讯云短信 vs 国际）
+3. **独立 SmsLog 表**记发送全记录 + 幂等去重（DR-139，channel-specific）——不重复发
+4. 验证码短信不受场景开关影响（刚需）；频率 **60s/条、5 条/天、有效期 5 分钟**（DR-139 标准档）
+5. Provider 抽象层**不锁定服务商**（sendSms 接口，实现时再接，DR-139）
 
 ### 对老项目的影响
-- 🆕 **完全新建**：User +phone/phoneVerified/phoneVerifiedAt 字段（字段扩展）+ 短信发送层 + dispatch sms 通道 + 用途规则
-- 表影响：User 字段扩展（§一扩展区）+ NotificationPreference +smsEnabled 字段；是否需独立 SmsLog 表 ⚠️ 待定（默认复用 DispatchLog）
+- 🆕 **完全新建**：User +phone/phoneVerified/phoneVerifiedAt 字段（字段扩展）+ 短信发送层（Provider 抽象）+ dispatch sms 通道 + 用途规则 + **独立 SmsLog 表（DR-139，§三新建 18→19）**
+- 表影响：User 字段扩展（§一扩展区，表 count 不变）+ **独立 SmsLog 新表（§三 18→19）**；后台场景开关挂现有场景配置（NotificationRule/公告 critical 配置），非新表
 
-### ⚠️ 待决策项（挂 TODO-SMS）
-- 服务商选型（阿里云/腾讯云/国际）
-- smsEnabled 默认值 + 是否分场景开关
-- 是否需独立 SmsLog 表（还是复用 DispatchLog）
-- 验证码频率限制/有效期
+### ✅ TODO-SMS 已决策（DR-139，2026-06-01）
+- **服务商选型**：先不锁定，Provider 抽象层留待实现时接（阿里云/腾讯云/国际皆可，不被绑死）
+- **短信开关**：后台按场景**分别**设（admin 级），非用户级单一 smsEnabled；验证码不受影响
+- **SmsLog**：**独立新表**（非复用 DispatchLog）——承载短信专有字段（脱敏号码/模板/provider/计费/状态回执/重试）+ 幂等
+- **验证码**：标准档——60s/条间隔、5 条/天上限、有效期 5 分钟
 
 ---
 

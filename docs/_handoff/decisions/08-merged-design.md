@@ -1128,11 +1128,11 @@ model TransmissionRecord {
 
 ---
 
-## 三、➕ 新建表（18 张，DR-129 校准）
+## 三、➕ 新建表（19 张，DR-139 校准）
 
 按新业务能力从头设计。
 
-> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。（AssistantAssignment 曾短暂并入 §2.1，后核对 02 文档角色定义回滚为独立表，仍计入 14 张，DR-82。）TODO 处理阶段新增 §3.15 LeaveRequest（班级成员请假审批，TODO-6，DR-90），新建区更新为 15 张。**DR-123 实修域改造细化后校准为 17 张**——新增 UserPracticeVow（§1.7，发愿层，线上无此表）+ PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖的承重表，DR-123 纠正前误判废弃）两张 🆕 改造新建（编号物理保留原位 §1.7 / §四原行，计数归本区，详见 DR-123）。**DR-129 再校准为 18 张**——LessonCompletion（闻思听/看/观修完成事件表，带 type）此前 08 误标 §四「复用」，实为线上幻影表（grep=0），改判 🆕 新建移入本区，详见 DR-129。
+> 注：ProgramAdvancementConfig 为核对能力 10 时新增（升学条件数据化，存法二）；EnrollmentStatusHistory 为核对能力 11 时新增（入学状态变更永久留痕，D18）；ClassSessionSchedule 为核对能力 8 时新增（课表模板层，双轨发起）；ClassTask 为核对能力 9 时新增（辅导员布置班级任务，独立于发愿系统）。新建区由 12 张逐步扩展至 16 张；UserRoleAssignment（移入 §二 2.1）和 TransmissionRecord（移入 §二 2.3）从新建区迁出后，最终定为 14 张。（AssistantAssignment 曾短暂并入 §2.1，后核对 02 文档角色定义回滚为独立表，仍计入 14 张，DR-82。）TODO 处理阶段新增 §3.15 LeaveRequest（班级成员请假审批，TODO-6，DR-90），新建区更新为 15 张。**DR-123 实修域改造细化后校准为 17 张**——新增 UserPracticeVow（§1.7，发愿层，线上无此表）+ PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖的承重表，DR-123 纠正前误判废弃）两张 🆕 改造新建（编号物理保留原位 §1.7 / §四原行，计数归本区，详见 DR-123）。**DR-129 再校准为 18 张**——LessonCompletion（闻思听/看/观修完成事件表，带 type）此前 08 误标 §四「复用」，实为线上幻影表（grep=0），改判 🆕 新建移入本区，详见 DR-129。**DR-139 再校准为 19 张**——SmsLog（短信发送记录，DR-126 D3 能力 45 净资产补建）此前 ⚠️ 待定「复用 DispatchLog vs 独立表」，用户拍板独立新表（承载短信专有字段 + 幂等），新增 §3.16，详见 DR-139。
 
 ---
 
@@ -2164,6 +2164,56 @@ model EnrollmentStatusHistory {
 
 ---
 
+### 3.16 SmsLog（短信发送记录）✅ 已封板（DR-139）
+
+**服务能力**：能力 45（短信通道）—— dispatchToUsers 第 3 通道（channel=sms）的专有发送记录
+**写权限**：系统写入（sendSms 发送层），无对外写 API；admin 可读（排障/对账）
+**参考决策**：DR-132（短信通道设计）、DR-139（独立表拍板：非复用 DispatchLog，承载短信专有字段 + 幂等）
+
+短信按条计费、有服务商状态回执，专有信息（脱敏号码/模板/provider/计费/回执/重试）DispatchLog 装不下，故独立成表。DispatchLog 仍负责跨通道派发去重；SmsLog 负责短信通道的发送全记录 + 短信级幂等。
+
+#### 字段
+
+| 字段 | 类型 | 说明 | 来源 |
+|---|---|---|---|
+| `id` | String | cuid | **新增** |
+| `userId` | String? | 收信人（验证码场景未登录时可空，靠 phone 关联）| **新增** |
+| `phone` | String | 接收手机号（存储/展示按需脱敏）| **新增** |
+| `purpose` | String | 用途：`verify_code`（验证码）/ `critical_announce`（critical 公告）/ `speaking_due`（⑦讲考）/ `advancement_result`（⑧升学）/ `late_attendance`（⑨迟到）| **新增** |
+| `templateCode` | String | 服务商报备的模板编号 | **新增** |
+| `params` | Json? | 模板填充参数（脱敏存储）| **新增** |
+| `provider` | String? | 实际发送服务商（实现时填，DR-139 不锁定）| **新增** |
+| `status` | String | `pending` / `sent` / `delivered` / `failed`（服务商回执更新）| **新增** |
+| `providerMsgId` | String? | 服务商返回的消息 ID（对账/查回执）| **新增** |
+| `errorMsg` | String? | 失败原因（重试依据）| **新增** |
+| `retryCount` | Int | 重试次数，默认 0 | **新增** |
+| `costCents` | Int? | 计费（分），对账用 | **新增** |
+| `dedupeKey` | String | 幂等键（purpose + userId/phone + 业务日期粒度），@@unique | **新增** |
+| `createdAt` | DateTime | 创建时间，默认 now() | **新增** |
+| `sentAt` | DateTime? | 实际发送时刻 | **新增** |
+
+#### 关联
+
+| 关联 | 说明 |
+|---|---|
+| `user User?` | 可空，@relation(userId)；User 补反向 `smsLogs SmsLog[]`（验证码未登录场景 userId 可空，仅靠 phone）|
+
+#### 约束
+
+| 约束 | 类型 | 说明 |
+|---|---|---|
+| `@@unique([dedupeKey])` | DB | 短信级幂等去重——同一用途/收件人/业务日期不重复发（绝对约束 3）|
+| `@@index([userId])` / `@@index([phone])` | DB | 按人/按号查发送历史 |
+| 仅 verified 手机号可发业务短信 | 应用层 | 验证码除外（能力 45 约束 1）|
+| 验证码频率 60s/条、5 条/天 | 应用层 | DR-139 标准档；有效期 5 分钟（校验侧） |
+| 仅 critical + 指定场景走短信 | 应用层 | 用途规则 + 后台场景开关（能力 45 D/E）|
+
+#### 设计意图
+
+DR-139 用户拍板「独立 SmsLog 表」而非复用 DispatchLog：短信按条计费且有服务商异步回执，需要 provider/providerMsgId/costCents/status 状态机/retryCount 等专有字段，塞进通用 DispatchLog 会污染其结构。分工：**DispatchLog** 做跨通道（站内/push/sms）派发幂等的统一账；**SmsLog** 做短信通道的发送明细 + 短信级幂等 + 对账。`dedupeKey` 承载短信级去重（绝对约束 3）。`userId` 可空容纳验证码未登录场景。
+
+---
+
 ## 四、✅ 复用表（直接沿用旧设计）
 
 > 🔴 **现状校正（DR-130，2026-05-31）**：本区原标「复用」是 DR-72 对照旧设计文档批量确认、未 grep 验证线上 schema。经 DR-130 全量体检，**本区真实复用仅 8 张**（Lesson/LessonMediaChapter/LessonResource/LessonTextBlock/Meditation/PracticeProject/LlmCallLog/LlmProviderUsage），**12 张是线上幻影表已逐个改标「🆕 线上无·实为新建」**（ProgramSemester/ProgramStudyType/ProgramWeek×3/QuestionReference/Speaking×2/Event×2/CohortRestWeek/CohortWeeklySummary）。下表状态列已逐行更新，以 grep 结果为准。
@@ -2987,6 +3037,7 @@ model UserSelfStudyProgram {
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
 | DR-132 | D3 短信通道（能力 45）完整设计：第 3 触达通道 + User 手机号体系（🆕 新建）| **能力 45 短信通道完整设计：(A) User +phone/phoneVerified/phoneVerifiedAt 字段（线上 User 无手机号，grep 确认）+ 绑定验证流程；(B) sendSms 发送抽象层（Provider 接口 + 模板化 + 失败重试）；(C) 作为 dispatchToUsers 第 3 通道 channel='sms'（复用 DispatchLog 幂等）；(D) 用途规则：验证码/critical 系统公告/⑦⑧⑨关键学修提醒走短信，一般提醒/普通通知不走（控成本防骚扰）；(E) NotificationPreference +smsEnabled（验证码不受开关影响）。服务商选型等挂 TODO-SMS**（用户决策：用途=重要通知兜底+关键学修提醒，深度=完整设计短信通道，2026-05-31/06-01）| 用户追问「系统公告与通知推送/短信是不是两个模块」引出核查：dispatchToUsers 现仅 channel='push'（站内 Notification ✅+Web Push ✅），**SMS 完全未实现**——代码仅占位注释「banner/sms 后续接入时各自加 channel」，且**User 表连 phone 字段都没有**（grep phone/mobile 全空）。用户决策「都要做、逐条确认」+ 选项「用途=重要通知兜底+关键学修提醒」「深度=完整设计短信通道」。**设计要点**：短信是 Web Push 之外的兜底通道，但**按条计费**故严格限场景（仅 critical+关键学修提醒+验证码），非全量发；前置缺口是 User 手机号体系（字段+验证流程），无手机号则无法发。**通道选择**：站内信必达→push 有订阅则推→sms 仅 critical/关键且符合用途规则。**待决策**（TODO-SMS）：服务商选型（阿里云/腾讯云/国际）、smsEnabled 默认值、是否独立 SmsLog 表（默认复用 DispatchLog）、验证码频率/有效期。排除「短信全量发所有通知」：成本爆炸+骚扰，仅限关键场景；排除「不做手机号验证直接发」：未验证号码发短信浪费+合规风险，须 verified 才发业务短信（验证码除外）|
+| DR-139 | TODO-SMS 4 项待决策全部拍板（能力 45 短信通道）| **(1) 服务商选型=先不锁定**：Provider 抽象层（sendSms 接口）留待实现时接，阿里云/腾讯云/国际皆可不被绑死；**(2) 短信开关=后台场景级**：admin 在后台对每种短信场景（critical 公告/⑦讲考/⑧升学/⑨迟到）分别设开关，**非**用户级单一 smsEnabled，机制随场景挂载（NotificationRule +smsEnabled / 公告 critical 配置），验证码不受影响；**(3) SmsLog=独立新表**（非复用 DispatchLog）：承载短信专有字段（脱敏号码/模板/provider/计费/状态回执/重试）+ 短信级幂等 dedupeKey，§三新建 18→19，新增 §3.16 + M3g；**(4) 验证码=标准档**：60s/条间隔、5 条/天上限、有效期 5 分钟（用户决策 2026-06-01）| 「清待决策项」方向下逐条核对 TODO-SMS。**服务商**：用户选「先不锁定」——抽象层设计不被服务商绑死，符合「设计先行、实现时定技术细节」。**开关**：用户选「后台设定、每种场景分别设开关」，区别于原设计草案的用户级 NotificationPreference.smsEnabled——改为 admin 后台场景级控制（更符合短信按条计费、需平台统一管控成本的特性；用户个人不应自行开启高成本通道）；故 NotificationPreference **不**加 smsEnabled，改挂场景配置。**SmsLog**：用户选「独立表」而非复用 DispatchLog——短信有计费/异步回执/重试等专有字段，独立表避免污染通用 DispatchLog；分工=DispatchLog 跨通道派发幂等、SmsLog 短信明细+对账+短信级幂等。**验证码**：标准档（60s/5 条天/5min），防刷与体验平衡。**表计数影响**：§三 18→19（+SmsLog），§一扩展 12 不变（User +phone 是字段扩展非新表），§四复用 20 不变。排除「复用 DispatchLog」：短信专有字段污染通用表；排除「用户级 smsEnabled」：高成本通道应平台管控非用户自启；排除「现在锁定服务商」：设计阶段无需绑死，抽象层足矣 |
 | DR-138 | C 组收尾：举报闭环（能力 50）+ 用户反馈（能力 51）拆为两条独立；Feedback 净资产转正式能力 | **(1) 能力 50 内容举报闭环（QuestionReport 题目举报 + NoteReport 笔记举报，admin/辅导员处理）；(2) 能力 51 用户反馈（Feedback 表，bug/建议/其他统一一张表 kind 区分，支持匿名+自动采集复现信息+admin 回复）；(3) 举报与反馈拆为两条独立能力——业务面不同（举报=内容合规审核/反馈=产品 bug 建议）**（用户决策 2026-06-01）| 落 C6 举报闭环时用户问「增加问题反馈/bug 反馈是否存一张表还是单独设计」。**核查**：线上**早有 Feedback 表**（grep=1），且设计周到——kind（FeedbackKind：bug/建议/其他）已区分类型、支持匿名（userId 可空+contactEmail）、自动采集复现信息（page/userAgent/appVersion/sessionId 关联 sentry）、处理闭环（status/handledBy/response）；前端 HelpPage + 端点 /api/feedback、/api/me/feedback、/api/admin/feedback。**历史**：DR-118 把 Feedback 列「弱②」，DR-119 明确「由弱②提为明确保留」净资产，但**一直没登记成业务能力**（与举报闭环同属「有表有功能、06 未登记」孤儿）。**回答用户疑问**：bug/问题反馈**无需新建表**——线上已是一张统一 Feedback 表，kind 区分足矣。**拆条决策（用户「拆为两条独立」）**：举报闭环（能力 50）vs 用户反馈（能力 51）业务面不同——举报针对具体内容做合规审核（题目隐藏/笔记下架），反馈是产品 bug/建议（面向产品团队迭代），独立登记更清晰。**至此 DR-126 净资产补登记收官**：A 学习引擎 8（能力 32-39）+ B 运营内容 4（40-42、46）+ D 通知触达 4（42-45）+ C 账户通知（47-51，C1/C2 并入 43）= 能力 32-51。排除「bug 反馈单独建表」：线上 Feedback.kind 已区分，统一表更简洁、admin 一处理；排除「举报反馈合并一条」：合规审核与产品反馈业务面不同，合并混淆 |
 | DR-137 | C5 设置：注销账户行为核对——符合 D18，无需改动 | **能力 49 注销账户（`DELETE /api/auth/me`）行为=软删 isActive=false + 清 email/passwordHash + 吊销全部 session + 30 天邮箱冷却。经核对**符合 D18**：isActive=false 不物理删行（D18 标准手段）+ 学修档案/历史事件永久保留（D18 核心）；清 email/passwordHash 是清登录凭证（非 D18 保护的档案数据），不违反**（用户决策 2026-06-01「注销不删除」+「确认是否符合新设计」）| 落 C5 设置（能力 49）时用户决策「注销不删除」，并要求「确认是否符合新设计」。**核查**：① 线上注销实现（routes.ts:329「软删除 isActive=false + 清 email/passwordHash」+ service.ts:37「30 天邮箱冷却」）；② D18 原文（决策档案 05:142「学员档案全数据保留」，核心是出勤/报数/成绩等历史事件归属容器不可物理删）；③ 新设计 isActive 字段已登记（08:42「false=停用」），全系统专业/课程/班级/场次停用均走 isActive=false 无 delete API。**判定**：D18 保护「档案与历史事件」（学修数据），email/passwordHash 是登录凭证非档案数据——清凭证 ≠ 删档案，**注销行为完全符合 D18，无需修改**。**先查文档再确认**（吸取 DR-133 教训）：D18 范围、isActive 设计登记、线上实现三者对齐。排除「改为不清凭证仅停用」：清凭证为隐私/防登录正当需求，且不违反 D18；排除「改为物理删除」：直接违反 D18 全数据保留 |
 | DR-136 | C4 个人档案：新增 gender 字段（🆕）+ 厘清档案字段落差（设计已有 birthDate/city/phone 等，线上未暴露）| **能力 48 个人档案：(1) User +gender 字段（male/female/other/null，个人档案展示，暂无业务规则依赖）；(2) 厘清落差——用户要加「性别/生日/地区」，核查发现 birthDate（DR-70 已加，60 岁升学豁免唯一数据源）、city/phone/phoneRegion/realName/refugeStatus/practiceBackground 设计 §1.9 早已有，仅线上 ProfileEditPage 未暴露（只暴露 dharmaName/avatar/timezone）→ 🔧 待补暴露；唯 gender 设计真无 → 🆕 新增**（用户决策 2026-06-01）| 落 C4 个人档案（能力 48）时用户要求「加性别/生日/地区，因为要判断 60 岁豁免」并要求核对升学/毕业要求。**核查升学/毕业**：60 岁豁免（大纲§一(三)：第一次考试报名时年满 60 岁免考试要求）是**资格性非自动**，数据源是 **birthDate**（DR-70 已加 §1.9，AdvancementCheck line 1258 已写 `now()-birthDate≥60年→ageEligible`）；毕业要求走 cohortStatus 状态机 + 法王祈祷文补足 + 观修计入（DR-111）——**均不需要 gender**。**关键发现**：① birthDate/city/phone 等设计 §1.9 早有（用户以为要新加，实为线上未暴露）；② gender 设计 grep=0 真无；③ §1.9 User 档案字段（realName/phone/phoneRegion/city/refugeStatus/practiceBackground/birthDate）远多于线上 ProfileEdit 暴露的 3 个（dharmaName/avatar/timezone）——又一处「设计已定、线上未落」的落差。**处理**：gender 🆕 新增（无业务依赖，纯档案，明确标注「60 岁豁免靠 birthDate 非 gender」避免误解）；其余字段 🔧 标待补暴露到编辑页。**无新表**：User 字段扩展（gender 一字段）。排除「gender 作豁免依据」：豁免硬规则只认年龄（birthDate）；排除「birthDate 当新字段加」：DR-70 早已加，避免重复——体现先查文档再决策（吸取 DR-133 教训）|
@@ -4786,6 +4837,25 @@ model UserSelfStudyProgram {
 
 ---
 
+### 检查轮次 92（2026-06-01，范围：清待决策项 · TODO-SMS 4 项拍板 + DR-139 + SmsLog 新表 · 跨 06/08）
+
+> 「清待决策项」方向下逐条核对能力 45 短信通道挂起的 TODO-SMS（服务商/开关/SmsLog/验证码）。用户拍板：服务商不锁定、后台场景级开关、独立 SmsLog 表、验证码标准档。其中「独立 SmsLog」带来表计数变动（§三 18→19）。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. 4 项决策落盘 | ✅ | 06 能力 45 规则 E（场景开关）+ 约束 3/4/5（SmsLog/验证码/服务商）+ ✅已决策段 + 章首；08 DR-139 |
+| 2. SmsLog 表定义 | ✅ | 08 新增 §3.16（字段 15/关联/约束/设计意图，dedupeKey 幂等 + userId 可空容验证码场景）|
+| 3. 表计数校准（检查项 4）| ✅ | §三标题 18→19 + 注加 DR-139；§一扩展 12 不变（User +phone 是字段扩展非新表）；§四复用 20 不变 |
+| 4. Migration 覆盖（检查项 5）| ✅ | §11.1 加 M3g（SmsLog 新建 + User +phone ALTER + 场景开关字段）；§11.3 覆盖核对 18→19、M3g 计入 |
+| 5. 开关机制一致 | ✅ | 后台场景级（NotificationRule +smsEnabled / 公告 critical 配置），**不**在用户级 NotificationPreference 加 smsEnabled——能力 45 规则 E 与 DR-139 一致 |
+| 6. 幂等机制对齐 | ✅ | 原约束「复用 DispatchLog 幂等」改为「SmsLog dedupeKey 短信级幂等」；DispatchLog 仍管跨通道派发去重，分工清晰无冲突 |
+| 7. 待决策标记清除 | ✅ | 06 能力 45 原「⚠️ 待决策项（挂 TODO-SMS）」段落改为「✅ TODO-SMS 已决策（DR-139）」，无悬空 ⚠️ |
+
+**本轮发现问题数**：0（4 项决策清晰，SmsLog 独立表带来的计数/Migration 连锁已同步）。
+**结论**：TODO-SMS 4 项待决策全部拍板（DR-139）。**表计数变动：§三新建 18→19**（+SmsLog），§一扩展 12 / §四复用 20 不变。能力 45 短信通道设计封板（服务商实现时接）。**剩余待决策项**：能力 44 关怀/逾期等是否 critical（⚠️ 下一条待核对）。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
@@ -4818,7 +4888,7 @@ model UserSelfStudyProgram {
 | TODO-23 | ⚠️ **能力 26/29 实修数据源迁移**（DR-125）：两个能力都读实修域改造后**不再保留**的表，须迁数据源。**能力 29 个人智能提醒**（`scheduler/personal-reminders.ts`/`reminder-queries.ts`）读 PracticeGoal（已折叠进 UserPracticeVow.dailyTarget，DR-122）、PracticeTask daily（已拆流 ClassTask/UserPracticeVow，DR-123）、PracticeDailySummary（已废弃，DR-122）——「即将圆满/今日未打卡」判定须接到 UserPracticeVow + 实时聚合 PracticeLog。**能力 26 综合积分排行**（`practice/study-ranking.routes.ts`）念诵维度 + 活跃天数维度读 PracticeDailySummary（已废弃）——须改为实时聚合 PracticeLog（与观修排行实时算同口径，DR-122）；观修/答题/阅读维度（MeditationSession/UserAnswer/LessonReadingProgress）不受影响。**共因**：PracticeDailySummary 废弃后，所有依赖它的读取都要转实时聚合 PracticeLog | DR-125 能力 26/29 ← 实修域改造（DR-122/123）| 实修域改造实现时 | DR-122 / DR-123 / DR-125 |
 | TODO-24 | ⚠️ **完成记录机制统一**（DR-127）：线上阅读完成（`reading/service.ts`，能力 37）+ 观修完成（`meditations/student.service.ts` 视频≥80%，能力 4）写 `UserCourseEnrollment.lessonsCompleted`/`meditationsCompleted` 数组（课程级），但新设计闻思圆满判定走 `LessonCompletion` 表（DR-92），UserCourseEnrollment 随 DR-113 废弃。改造时统一迁移：① 写入端 reading/meditations 改写 LessonCompletion；② 读取端 courses（进度展示）/enrollment/dossier（学情）/smart-practice（已学课时抽题）改读 LessonCompletion 聚合。**前提修正（DR-129）**：原说「LessonCompletion 已是目标态无需改」有误——LessonCompletion 是幻影表，须**先新建**（M3f），再做本机制统一 | DR-127 能力 37/4 ← DR-113/DR-92/DR-129 | DR-113 专业级迁移实现时（LessonCompletion 新建后）| DR-113 / DR-92 / DR-127 / DR-129 |
 | TODO-25 | ⚠️ **音视频播放达标阈值**（DR-129，能力 39）：音视频播放多少 % / 多少秒算「听/看一遍」（写一条 LessonCompletion type=audio/video）尚未定。看法本已有双阈值（scrollPercent≥90 OR totalSeconds≥30&≥50%，能力 37）；音视频阈值待实现时按大纲/产品定 | DR-129 能力 39 音视频完成判定 | 音视频学习实现时 | DR-129 |
-| TODO-SMS | ⚠️ **短信通道实现待决策项**（DR-132，能力 45）：① 服务商选型（阿里云/腾讯云短信 vs 国际）；② NotificationPreference.smsEnabled 默认值 + 是否分场景开关；③ 是否需独立 SmsLog 表（默认复用 DispatchLog channel=sms）；④ 验证码频率限制/有效期。短信通道完整设计已定（User+phone 体系 + sendSms 抽象层 + dispatch 第3通道 + 用途规则），实现期定这 4 项 | DR-132 能力 45 短信通道 | 短信通道实现时 | DR-132 |
+| TODO-SMS | ✅ **已决策（DR-139，2026-06-01）**——4 项全部拍板：① 服务商=先不锁定（Provider 抽象层实现时接）；② 短信开关=后台场景级（admin 按场景分设，非用户级 smsEnabled）；③ SmsLog=独立新表（§3.16，非复用 DispatchLog）；④ 验证码=标准档（60s/条、5 条/天、有效期 5min）。设计层全部封板，仅服务商对接留实现期 | DR-132/139 能力 45 短信通道 | ✅ 设计已闭合（服务商实现时接）| DR-132/139 |
 
 ---
 
@@ -4846,6 +4916,7 @@ model UserSelfStudyProgram {
 | **M3d · 班级运维** | ClassInviteCode、AssistantAssignment、LeaveRequest、ClassTask、ClassSessionSchedule、EnrollmentStatusHistory | →Class/User；ClassTask→PracticeProject；ClassSessionSchedule→Lesson；EnrollmentStatusHistory→ClassMember；ClassSession.scheduleId→ClassSessionSchedule（M1 已加列，此处补 FK）| M1 | 新建表；ClassSession.scheduleId 外键在此单元补建（解循环依赖）|
 | **M3e · 实修体系**（DR-123）| UserPracticeVow（发愿层）、PracticeTemplate（修持模板，CohortRecommendedTemplate 依赖）| UserPracticeVow→User/**DharmaAssembly**（DR-134 改指，原 Event）/ClassTask/CohortRecommendedTemplate/PracticeProject/PracticeLog；PracticeTemplate→PracticeProject | M1（PracticeLog/PracticeProject 就位）、M3d（ClassTask 就位，UserPracticeVow.classTaskId FK）、DharmaAssembly（净资产已在线上）| 新建表（实修域改造细化，DR-122/123）|
 | **M3f · 闻思完成事件**（DR-129）| LessonCompletion（听/看/观修完成事件，带 type=audio/video/read/meditation）| LessonCompletion→User/Lesson（+冗余 courseId）| M1（Lesson 就位）| 新建表（幻影表纠正，DR-129；能力 3 闻思圆满 + 能力 14 掉队 + 能力 9 报数 + 能力 26 阅读维度的判定数据源）|
+| **M3g · 短信通道**（DR-132/139）| (1) User ALTER +phone/phoneVerified/phoneVerifiedAt（手机号体系）；(2) SmsLog 新建（短信发送记录，§3.16）；(3) 后台场景短信开关字段（NotificationRule +smsEnabled 等，随场景挂载）| SmsLog→User；User ALTER | M1（User 就位）| 新建表 + User ALTER（能力 45 短信通道，第 3 触达通道；服务商实现时接，DR-139 不锁定）|
 
 > **循环依赖处理**：M1 给 ClassSession 加 `scheduleId String?` 列（仅列，不建 FK），M3d 创建 ClassSessionSchedule 后再补 `scheduleId → ClassSessionSchedule` 外键约束。两步拆开避免 M1 引用尚未存在的表。
 
@@ -4863,7 +4934,7 @@ model UserSelfStudyProgram {
 
 - **§一 扩展 12 张**（DR-123 校准，UserPracticeVow 移出至 §三）→ M1 全覆盖 ✅（含 PracticeLog = PracticeEntry rename+加列）
 - **§二 替换 3 张** → M2a(UserRoleAssignment) + M2b(CareFollowupRecord) + M2c(TransmissionRecord) 全覆盖 ✅
-- **§三 新建 18 张**（DR-123→129 校准，+UserPracticeVow +PracticeTemplate +LessonCompletion）→ M3a(2) + M3b(4) + M3c(3) + M3d(6) + M3e(2) + M3f(1) = 18 ✅（原 15 + M3e UserPracticeVow/PracticeTemplate + M3f LessonCompletion）
+- **§三 新建 19 张**（DR-123→129→139 校准，+UserPracticeVow +PracticeTemplate +LessonCompletion +SmsLog）→ M3a(2) + M3b(4) + M3c(3) + M3d(6) + M3e(2) + M3f(1) + M3g(1, SmsLog) = 19 ✅（原 15 + M3e 2 + M3f 1 + M3g SmsLog 1；M3g 另含 User +phone ALTER，属 §一字段扩展不计表数）
 - **实修域改造源清理** → M1.5（PracticeGoal/PracticeTask/PracticeDailySummary 不入目标 schema，DR-122）
 - **§五 暂缓 11 张 + AI 4 张**（AiUsage 复用不计，DR-110）→ M4~M8（实现时编）⏸（§五 11 = 社交 4+4+2 + 自学 1，DR-104 删 RestWeek；检查轮次 53 顺修旧残留 12→11）
 - **§四 复用 20 张**（DR-134 校准：DR-129 后 21 张 −Event −EventCount（废弃幻影，DR-134）+DharmaAssembly（补登记真实净资产，原漏登）= 20）→ 不动，不入 migration。**注**：此 20 张口径含 DR-130 标「实为新建」的幻影表（物理列于 §四但实为新建），真实可复用净资产仅 8 张（详见 DR-130/134）；Event/EventCount 废弃后不入任何区
