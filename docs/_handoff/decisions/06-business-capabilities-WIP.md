@@ -1648,7 +1648,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 > 第二轮功能级核查（DR-126，2026-05-31）：用户指出 DR-125 仅挖 6 个、核查不全——**藏历/画报/系统公告/通知推送等净资产对应的用户功能从未在 06 登记**。根因：此前把「净资产=表保留」误等同「功能已登记」，整层跳过。完整差集核查（76 前端页 × 31 能力）找出 **17 个有功能/有前端页、06 零登记**的孤儿（A 学习引擎 7 / B 运营内容 4 / C 账户通知 6），**与用户逐条讨论后逐个补登记**。均 ✅ 线上已实现·纳入设计（复用净资产，无新表）。
 >
-> 进度：能力 32 ✅（A1 题库答题）、能力 33 ✅（A2 SM-2 复习）、能力 34 ✅（A3 错题本）、能力 35 ✅（A4 收藏夹）、能力 36 ✅（A5 笔记与高亮）、能力 37 ✅（A6 法本阅读器）、能力 38 ⏸（A7 成就徽章·暂不作正式功能）、能力 39 ✅+🆕（A8 音视频学习+分维度完成·核查能力 37 时挖出 LessonCompletion 幻影表，DR-129 补）。**A 组学习引擎 8 条完成**（7 纳入 + 1 暂缓；含核查挖出的 A8 补全闻思「听」维度缺口）。**B 组运营内容**：能力 40 ✅（B1 藏历）、能力 41 ✅（B2 画报）、能力 42 ✅（B3 系统公告）。**D 组通知与触达**（4 条拆法）：B3 系统公告✅（能力 42）+ D1 通知中心与派发✅（能力 43，合站内信/WebPush/偏好）+ D2 定时通知规则✅（能力 44，DR-131，8 条新提醒规则：①进度落后 ②未完成班级任务 ③未完成个人任务 ④班级放假/休息周 ⑤闻思未圆满 ⑥复习到期 ⑦讲考/考试临近 ⑧升学/关怀结果）+ D3 短信通道（能力 45，🆕 唯一新建）。其余 B4（法会）+ C 组待逐条确认。
+> 进度：能力 32 ✅（A1 题库答题）、能力 33 ✅（A2 SM-2 复习）、能力 34 ✅（A3 错题本）、能力 35 ✅（A4 收藏夹）、能力 36 ✅（A5 笔记与高亮）、能力 37 ✅（A6 法本阅读器）、能力 38 ⏸（A7 成就徽章·暂不作正式功能）、能力 39 ✅+🆕（A8 音视频学习+分维度完成·核查能力 37 时挖出 LessonCompletion 幻影表，DR-129 补）。**A 组学习引擎 8 条完成**（7 纳入 + 1 暂缓；含核查挖出的 A8 补全闻思「听」维度缺口）。**B 组运营内容**：能力 40 ✅（B1 藏历）、能力 41 ✅（B2 画报）、能力 42 ✅（B3 系统公告）。**D 组通知与触达**（4 条拆法）：B3 系统公告✅（能力 42）+ D1 通知中心与派发✅（能力 43，合站内信/WebPush/偏好）+ D2 定时通知规则✅（能力 44，DR-131/133，9 条新提醒规则：①进度落后 ②未完成班级任务 ③未完成个人任务 ④班级放假/休息周 ⑤闻思未圆满 ⑥复习到期 ⑦讲考/考试临近 ⑧升学/关怀结果 ⑨上课迟到[推送+短信]）+ D3 短信通道（能力 45，🆕 唯一新建）。其余 B4（法会）+ C 组待逐条确认。
 
 ---
 
@@ -2097,7 +2097,7 @@ admin 向全平台学员广播重要通知（维护/活动/紧急），发布即
 
 ## 能力 44：定时通知规则
 
-> ✅ 机制已实现·🆕 8 条新规则待建（DR-126，D 组 D2，DR-131）。NotificationRule + cron 定时扫描判定 → 复用能力 43 派发引擎。grep 验证：NotificationRule 真实存在，现有 3 个 triggerType（evening-due/daily-digest/weekly-report），新增 8 条。
+> ✅ 机制已实现·🆕 9 条新规则待建（DR-126，D 组 D2，DR-131/133）。NotificationRule + cron 定时扫描判定 → 复用能力 43 派发引擎。grep 验证：NotificationRule 真实存在，现有 3 个 triggerType（evening-due/daily-digest/weekly-report），新增 9 条（含 ⑨ 上课迟到，DR-133）。
 
 ### 业务意图
 系统按时间/状态条件**主动**扫描，在恰当时机提醒学员或辅导员（进度落后/任务逾期/放假/复习到期等），帮助学修不掉队。区别能力 43（事件即时触发），本条是 cron 定时规则触发。
@@ -2121,9 +2121,12 @@ admin 向全平台学员广播重要通知（维护/活动/紧急），发布即
 | ⑥ | `review-due` 复习到期 | SM-2 卡片 dueAt ≤ 今日 | 能力 33 Sm2Card | 学员本人 | 每日（有到期卡才发） |
 | ⑦ | `exam-upcoming` 讲考/考试临近 | SpeakingSession/Exam 日程临近 | 能力 8/10 | 报名/应考学员 | 考前 N 日 + 考前 1 日 |
 | ⑧ | `advancement-care-result` 升学/关怀结果 | 升学审核出结果 / 关怀名单更新 | AdvancementRecord / CareWatchlistItem | 学员（升学结果）/辅导员（关怀名单） | 结果产生即派（事件+定时兜底） |
+| ⑨ | `class-late` 上课迟到 | 签到 **token 生成后**（DR-89 基准），接近 `Program.checkinGraceMinutes` 窗口末仍未签到的本班成员 | 签到 token.createdAt + StudyRecord + Program.checkinGraceMinutes | 本场未签到的学员本人 | 每场一次（窗口内催签） | **推送 + 短信**（关联升学出勤率，能力 45） |
+
+> ⑨ 上课迟到判定**完全复用 DR-89 机制**（签到窗口 = token.createdAt + checkinGraceMinutes，startAt 仅展示不参与计算）——零新字段、零新表。逻辑闭环：升学卡出勤率（ProgramAdvancementConfig conditionKey=attendance）→ 每场必记出勤（StudyRecord）→ 窗口内未签到=迟到 → 推送+短信催签 → 保出勤率 → 保升学。
 
 **收件人边界**
-- **学员收**：①②③④⑤⑥⑦ + ⑧升学结果
+- **学员收**：①②③④⑤⑥⑦⑨ + ⑧升学结果
 - **辅导员收**：⑧关怀名单（我的学员掉队/进 watchlist）
 
 ### 输入与输出
@@ -2143,7 +2146,7 @@ admin 向全平台学员广播重要通知（维护/活动/紧急），发布即
 
 ### 对老项目的影响
 - ✅ 机制已实现（NotificationRule + cron + personal-reminders 范式）
-- 🆕 **8 条新 triggerType 规则待建**（判定逻辑 + cron 扫描），复用 NotificationRule 表（无新表，但依赖多个数据源表——其中 CohortLagSnapshot/CohortRecommendedTemplate/SpeakingSession/Exam/AdvancementRecord/CareWatchlistItem 本就是设计新建表）
+- 🆕 **9 条新 triggerType 规则待建**（判定逻辑 + cron 扫描），复用 NotificationRule 表（无新表，但依赖多个数据源表——其中 CohortLagSnapshot/CohortRecommendedTemplate/SpeakingSession/Exam/AdvancementRecord/CareWatchlistItem/StudyRecord 本就是设计新建表）；⑨ 上课迟到复用 DR-89 签到窗口机制，无新字段
 
 ---
 
