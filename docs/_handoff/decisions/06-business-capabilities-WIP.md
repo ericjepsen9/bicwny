@@ -1648,7 +1648,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 > 第二轮功能级核查（DR-126，2026-05-31）：用户指出 DR-125 仅挖 6 个、核查不全——**藏历/画报/系统公告/通知推送等净资产对应的用户功能从未在 06 登记**。根因：此前把「净资产=表保留」误等同「功能已登记」，整层跳过。完整差集核查（76 前端页 × 31 能力）找出 **17 个有功能/有前端页、06 零登记**的孤儿（A 学习引擎 7 / B 运营内容 4 / C 账户通知 6），**与用户逐条讨论后逐个补登记**。均 ✅ 线上已实现·纳入设计（复用净资产，无新表）。
 >
-> 进度：能力 32 ✅（A1 题库答题）、能力 33 ✅（A2 SM-2 复习）、能力 34 ✅（A3 错题本）、能力 35 ✅（A4 收藏夹）、能力 36 ✅（A5 笔记与高亮）、能力 37 ✅（A6 法本阅读器）、能力 38 ⏸（A7 成就徽章·暂不作正式功能）、能力 39 ✅+🆕（A8 音视频学习+分维度完成·核查能力 37 时挖出 LessonCompletion 幻影表，DR-129 补）。**A 组学习引擎 8 条完成**（7 纳入 + 1 暂缓；含核查挖出的 A8 补全闻思「听」维度缺口）。**B 组运营内容**（4 条完成）：能力 40 ✅（B1 藏历）、能力 41 ✅（B2 画报）、能力 42 ✅（B3 系统公告）、能力 46 ✅（B4 法会展示+发愿，DR-134：统一 DharmaAssembly 废 Event/EventCount）。**D 组通知与触达**（4 条拆法）：B3 系统公告✅（能力 42）+ D1 通知中心与派发✅（能力 43，合站内信/WebPush/偏好）+ D2 定时通知规则✅（能力 44，DR-131/133，9 条新提醒规则：①进度落后 ②未完成班级任务 ③未完成个人任务 ④班级放假/休息周 ⑤闻思未圆满 ⑥复习到期 ⑦讲考/考试临近 ⑧升学/关怀结果 ⑨上课迟到[推送+短信]）+ D3 短信通道✅（能力 45，🆕 唯一新建，DR-132：User+phone 体系/短信发送层/dispatch 第3通道/用途规则[兜底+关键学修提醒]/⚠️服务商选型挂 TODO-SMS）。**D 组通知与触达 4 条全部完成**（能力 42-45）。其余 B4（法会）+ C 组待逐条确认。
+> 进度：能力 32 ✅（A1 题库答题）、能力 33 ✅（A2 SM-2 复习）、能力 34 ✅（A3 错题本）、能力 35 ✅（A4 收藏夹）、能力 36 ✅（A5 笔记与高亮）、能力 37 ✅（A6 法本阅读器）、能力 38 ⏸（A7 成就徽章·暂不作正式功能）、能力 39 ✅+🆕（A8 音视频学习+分维度完成·核查能力 37 时挖出 LessonCompletion 幻影表，DR-129 补）。**A 组学习引擎 8 条完成**（7 纳入 + 1 暂缓；含核查挖出的 A8 补全闻思「听」维度缺口）。**B 组运营内容**（4 条完成）：能力 40 ✅（B1 藏历）、能力 41 ✅（B2 画报）、能力 42 ✅（B3 系统公告）、能力 46 ✅（B4 法会展示+发愿，DR-134：统一 DharmaAssembly 废 Event/EventCount）。**D 组通知与触达**（4 条拆法）：B3 系统公告✅（能力 42）+ D1 通知中心与派发✅（能力 43，合站内信/WebPush/偏好）+ D2 定时通知规则✅（能力 44，DR-131/133，9 条新提醒规则：①进度落后 ②未完成班级任务 ③未完成个人任务 ④班级放假/休息周 ⑤闻思未圆满 ⑥复习到期 ⑦讲考/考试临近 ⑧升学/关怀结果 ⑨上课迟到[推送+短信]）+ D3 短信通道✅（能力 45，🆕 唯一新建，DR-132：User+phone 体系/短信发送层/dispatch 第3通道/用途规则[兜底+关键学修提醒]/⚠️服务商选型挂 TODO-SMS）。**D 组通知与触达 4 条全部完成**（能力 42-45）。**C 组账户通知**（C1/C2 已并入能力 43）：能力 47 ✅+🆕（C3 账户体系，DR-135：加 Google 登录 + 硬单设备）。其余 C4 个人档案/C5 设置+隐私/C6 举报闭环待逐条确认。
 
 ---
 
@@ -2260,6 +2260,69 @@ admin 发布法会/共修活动/纪念日，学员浏览详情、点击外部会
 - ✅ 展示已实现（`AdminDharmaAssembliesPage`/`AssemblyDetailPage` + `dharma-assemblies/` + DharmaAssembly 净资产）
 - 🆕 **发愿待建**：复用 UserPracticeVow（context=event，eventId 改指 DharmaAssembly）+ PracticeLog 计数，DharmaAssembly 补反向 `vows UserPracticeVow[]`——无新表
 - **废弃 Event/EventCount 两张幻影表**（DR-134）
+
+---
+
+## 能力 47：账户体系（注册登录认证）
+
+> ✅ 邮箱密码已实现·🆕 Google 登录待建·🔧 硬单设备待改（DR-126，C 组 C3，DR-135）。grep 验证：User/AuthSession/PasswordResetToken/EmailVerificationToken 真实存在；Google/OAuth 线上无（grep=0）。**账户认证基建——所有能力的身份前提。**
+
+### 业务意图
+学员/辅导员/admin 通过 email+密码或 **Google 账号**注册登录，管理账户安全（改密/找回/邮箱验证），**强制单设备登录**（一人一机），支持数据导出（合规）。
+
+### 业务规则
+
+**A. 注册与邮箱验证（✅ 已实现）**
+1. **注册**（`/api/auth/register`）：email（唯一）+ 密码；passwordHash 存储（旧用户允许 null=未设密码）
+2. **邮箱验证**（`/api/auth/verify-email` + resend-verify）：EmailVerificationToken；emailVerifiedAt=null 未验证，验证后 set
+3. **onboarding**（`/api/auth/onboarding-done`）：首次引导完成标记
+
+**B. Google 登录（🆕 待建，DR-135）**
+4. **Google OAuth**：用户用 Google 账号登录/注册；首次登录自动建账户（email 取 Google 邮箱，若已存在同 email 账户则关联）
+5. **账户字段扩展**（🆕）：User 加 `googleId String?`（Google sub）+ `authProvider`（local/google）；Google 登录的账户 passwordHash 可空
+6. **邮箱已验证**：Google 邮箱视为已验证（emailVerifiedAt 直接 set），免邮箱验证流程
+
+**C. 登录与会话（🔧 改硬单设备，DR-135）**
+7. **登录**（`/api/auth/login`）：校验密码 → 发 token + 建 AuthSession；记 lastLoginAt
+8. **三端登录**：学员端 + 辅导员端（CoachLoginPage）+ admin 端（AdminLoginPage），按 role 分流
+9. **token 刷新**（`/api/auth/refresh`）：刷新访问令牌
+10. **登出**（`/api/auth/logout`）：销毁当前会话
+11. **🔧 硬单设备登录**（DR-135，改造）：**新设备登录时立即 revoke 该用户所有旧 AuthSession**（写 revokedAt），旧设备登录态失效需重登——强制一人一机。现状仅 push 订阅踢出 + 手动 revoke-others，改造为登录时自动踢旧 session
+12. **会话查看**（`/api/auth/sessions`）：会话列表（硬单设备下通常仅 1 条 active）；revoke-others 保留（兜底）
+
+**D. 密码管理（✅ 已实现）**
+13. **改密**（`/api/auth/change-password`）：登录态改密
+14. **找回密码**（`/api/auth/forgot` + reset）：PasswordResetToken；发邮件 → 重置
+
+**E. 账户信息与合规（✅ 已实现）**
+15. **当前用户**（`/api/auth/me`）：返回身份信息（role/email/dharmaName/avatar）
+16. **数据导出**（`/api/auth/me/data-export`）：用户导出自己的数据（合规）
+
+**F. 角色**
+17. **UserRole**：student（默认）/ coach / admin 等；role 决定三端路由准入
+
+### 输入与输出
+- 输入：注册/登录（email 密码 或 Google）/改密/找回/验证凭据
+- 输出：认证 token + 会话（单设备）+ 用户身份
+
+### 与其他能力的关系
+- **被所有能力依赖**：身份认证是一切操作的前提（写权限/三端分离基于 role）
+- **关联能力 28 设备与会话管理**：AuthSession 列表；硬单设备下 revoke-others 成兜底
+- **衔接能力 48 个人档案**：dharmaName/avatar 等档案字段
+- **衔接能力 45 短信**：未来手机号登录/验证（能力 45 加 phone）
+
+### 绝对约束
+1. email 唯一（@unique）；Google 账户 googleId 唯一
+2. 密码 hash 存储（passwordHash，不明文）
+3. **硬单设备登录**：新登录立即踢旧 AuthSession（一人一机，DR-135）
+4. role 决定三端准入（学员/辅导员/admin 分离，CLAUDE.md 三端铁律）
+5. 数据导出合规支持
+
+### 对老项目的影响
+- ✅ 邮箱密码认证已实现（`auth/` 模块全套 + AdminLoginPage/CoachLoginPage + User/AuthSession/PasswordResetToken/EmailVerificationToken 净资产）
+- 🆕 **Google 登录待建**：User +googleId/authProvider 字段（字段扩展）+ OAuth 流程
+- 🔧 **硬单设备待改**：登录时自动 revoke 旧 AuthSession（现状仅 push 踢出+手动 revoke-others）
+- 复用净资产，无新表（User 字段扩展）
 
 ---
 
