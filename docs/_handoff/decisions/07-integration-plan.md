@@ -193,12 +193,14 @@
 
 ### ⏸ 暂缓（旧设计有，新设计未覆盖，原样保留）
 
+> ⚠️ **本表为旧融合期快照，DR-145（2026-06-01）后已校准——最新以 08 §三/§五为准**：① 自学已转必做（能力 21），移入实施；② 社交/约修已纳入能力 22-24（建表+后台、不做正式 UI）。下表保留作历史参考。
+
 | 表 | 说明 |
 |---|---|
-| `ClassPost` / `ClassPostReaction` / `ClassPostComment` / `ClassPostShare` | 班级动态社区，新设计 20 条能力未覆盖 |
-| `Discussion` / `DiscussionViewpoint` / `DiscussionVote` / `DiscussionComment` | 班级讨论，新设计未覆盖 |
-| `PracticeAppointment`（约修）| 旧设计已标 ⏸ Phase 5，新设计未覆盖 |
-| `UserSelfStudyProgram` + `UserSelfStudyRestWeek` | 自学模式，新设计能力 8 提及但未深度设计 |
+| `ClassPost` / `ClassPostReaction` / `ClassPostComment` / `ClassPostShare` | 班级动态社区 → 已纳入能力 22（DR-145：建表+后台、不做正式 UI）|
+| `Discussion` / `DiscussionViewpoint` / `DiscussionVote` / `DiscussionComment` | 班级讨论 → 已纳入能力 23（DR-145：同上）|
+| `PracticeAppointment`（约修）| 已纳入能力 24（DR-145：同上）|
+| `UserSelfStudyProgram` | 自学模式 → **已转必做（能力 21，DR-145）**，移入 08 §三新建区深度设计（UserSelfStudyRestWeek 已并入，自学不设休息周/掉队）|
 
 ### ➕ 新建（新设计需要，旧设计没有）
 
