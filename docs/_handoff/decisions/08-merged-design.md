@@ -1,6 +1,6 @@
 # 觉学融合设计文档
 
-> 状态：进行中
+> 状态：维护中·封板校准至 DR-148（2026-06-02）
 > 制定日期：2026-05-28
 > 说明：以新设计业务逻辑为准，参考旧设计（FINAL_DESIGN_SANSUSHENG.md）字段命名与结构规范，产出字段级完整设计，可直接用于写 Prisma schema。
 > 每次工作前必读：docs/_handoff/decisions/07-integration-plan.md

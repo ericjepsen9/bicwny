@@ -1,6 +1,6 @@
 # 觉学 · 交付文档总索引
 
-> 状态：进行中（2026-05-31 创建）
+> 状态：维护中（2026-05-31 创建 · 2026-06-02 更新）
 > 用途：本套文档的导航入口。列出每份文档的用途、状态、阅读顺序。
 > 新会话开始：先读项目根 `CLAUDE.md` 工作守则，再按下方「推荐阅读顺序」进入。
 
@@ -15,8 +15,9 @@
 | `decisions/05-decision-log.md` | 战略决策 D1-D20（产品方向权威来源）| 维护中 |
 | `decisions/02-roles-and-permissions-v1.md` | 4 角色权限矩阵（23 职能）| ✅ 定稿 |
 | `decisions/06-business-capabilities-WIP.md` | 业务能力 1-25（业务层设计）+ 净资产清单 | 1-25 已定稿 |
-| `decisions/08-merged-design.md` | 表/字段/DR/Migration/Phase（数据层设计）| 进行中 |
-| `decisions/07-integration-plan.md` | 新旧设计融合工作守则 | 维护中 |
+| `decisions/08-merged-design.md` | 表/字段/DR/Migration/Phase（数据层设计）· DR 编号档 | 维护中·封板至 DR-148 |
+| `decisions/09-api-and-pages-design.md` | **API 契约 + 页面/交互（SoT 第三层）· 全 51 能力** | 首轮完整·已过一致性检查 |
+| `decisions/07-integration-plan.md` | 新旧设计融合工作守则（注：§表标签清单部分已被 DR-145 部分覆盖）| 半历史·维护中 |
 
 ### 🔍 现状审计（线上现在是什么样）
 
@@ -42,6 +43,13 @@
 | `deploy-migration-runbook.md` | 部署 + 迁移 runbook | ✅ 完成 |
 | `reports/02-product-context.md` | 产品背景 | — |
 
+### 🩺 诊断报告（缺口与对齐状态，需读不可漏）
+
+| 文档 | 用途 | 状态 |
+|---|---|---|
+| `reports/03-大纲符合性验收报告.md` | 设计 vs 大纲符合性：2 处 P0 缺口（A3 选专业锁定→已待定；F7.2 留级次数分专业→未决）+ 5 处需补强 | 2026-06-01 |
+| `reports/04-设计完整性与app需求验收.md` | 设计完整性诊断：WP-A「API/页面层缺位」→ 已补 09 | 2026-06-01 |
+
 ---
 
 ## 二、推荐阅读顺序
@@ -53,6 +61,8 @@
 5. `audit/01` + `audit/02` —— 线上现状
 6. `audit/03-modification-plan` —— 改造方案（总览主表一屏看全）
 7. `decisions/08-merged-design` —— 数据层字段级设计（深入时查）
+8. `decisions/09-api-and-pages-design` —— API 契约 + 页面/交互层（全 51 能力，端点/路由/三端可见性）
+9. `reports/03` + `reports/04` —— 诊断报告（已知缺口与待决策项）
 
 ---
 
@@ -67,3 +77,4 @@
 | 日期 | 内容 |
 |---|---|
 | 2026-05-31 | 创建总索引；登记设计/审计/改造方案/配套四类文档 |
+| 2026-06-02 | 收录 09（API/页面层·SoT 第三层）+ reports/03/04（诊断报告）；阅读顺序补 8/9；08 状态更新至 DR-148；标注 07 §表标签部分已被 DR-145 覆盖。新 PM 对接前导航层同步（决策 DR-146/147/148 已落，A3/F7.2 为开放产品缺口） |

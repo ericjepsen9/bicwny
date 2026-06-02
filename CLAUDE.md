@@ -221,10 +221,14 @@ prod build 仅在视觉确认 OK 后做最终验证。
 
 ## 决策档案(Source of Truth)
 
-本项目所有产品决策的权威来源在以下文件:
-- docs/_handoff/decisions/05-decision-log.md(战略决策 D1-D18)
-- docs/_handoff/decisions/02-roles-and-permissions-v1.md(角色权限)
-- docs/_handoff/decisions/06-business-capabilities-WIP.md(业务能力,WIP)
+本项目所有产品决策的权威来源在以下文件(SoT·五层设计):
+- 战略层: docs/_handoff/decisions/05-decision-log.md(战略决策 D1-D20)
+- 权限层: docs/_handoff/decisions/02-roles-and-permissions-v1.md(4 角色 + 23 职能)
+- 业务层: docs/_handoff/decisions/06-business-capabilities-WIP.md(业务能力 1-25 + 净资产清单)
+- 数据层: docs/_handoff/decisions/08-merged-design.md(表/字段/DR/Migration/Phase · DR 编号档)
+- API/页面层: docs/_handoff/decisions/09-api-and-pages-design.md(API 契约 + 页面/交互 · 全 51 能力)
+
+诊断报告(指出缺口与对齐状态,非权威设计但需读): docs/_handoff/reports/03-大纲符合性验收报告.md · reports/04-设计完整性与app需求验收.md
 
 ### 铁律
 - 进行任何产品决策讨论前,必须重新阅读这 3 个文件
