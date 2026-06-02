@@ -52,11 +52,13 @@
 
 ### 角色
 
-| 角色 | 说明 |
-|---|---|
-| **student（学员）** | 主要用户，跟班修学 |
-| **coach（辅导员 / 主麦）** | 带领班级，发公告、排课、看学员数据 |
-| **admin（管理员）** | 平台管理，建班级/法本/题目/配置 LLM |
+> ⚠️ **下表是线上现状/旧系统的 3 角色，非目标设计**。**新设计已改为 4 个管理角色 + 学员**：`class_tutor`（辅导）/ `class_admin`（班级行政拍板）/ `subject_admin`（学科）/ `super_admin`（平台）+ `student`——权威定义见 `decisions/02-roles-and-permissions-v1.md`（D6 四角色 / D7 等级继承 / D8 多角色+作用域）。迁移路径 **DR-113**：`coach → class_tutor`（不自动给行政权，行政权由 subject_admin 人工补授 class_admin）、`admin → super_admin` 后人工降级该降的为 `subject_admin`。本表仅作旧系统背景参考。
+
+| 角色（线上现状·旧）| 说明 | 新设计去向 |
+|---|---|---|
+| **student（学员）** | 主要用户，跟班修学 | 保留 `student` |
+| **coach（辅导员 / 主麦）** | 带领班级，发公告、排课、看学员数据 | → `class_tutor`（行政权另授 `class_admin`，DR-113）|
+| **admin（管理员）** | 平台管理，建班级/法本/题目/配置 LLM | → `super_admin` / `subject_admin`（DR-113）|
 
 辅导员在 ROADMAP 中称「老师」（可布置功课），在代码和 PRODUCT_OVERVIEW 中统一称 coach。无「组长」角色。
 
