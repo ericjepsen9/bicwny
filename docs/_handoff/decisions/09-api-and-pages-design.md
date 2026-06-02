@@ -136,8 +136,8 @@
 
 ### 大纲 & DR 关联 + 对齐备注
 - 服务大纲 **C3（净土念佛号）/C4（入行论观修·心咒）/C5（学经读经固定功课）**；DR-121/124/144。
-- **✅ 决策 C3/C4（2026-06-02·08 回填核对改用现有结构·零新字段）念佛三选一 / 入行论二选一互斥**：互斥规则写进 `ProgramAdvancementConfig.params`（§3.1 已是 Json 额外参数，如 `{selectionGroup:'nianfo', selectionMode:'pick_one'}`），**无需给 ClassTask 加字段**。`POST /api/practice-logs` 校验时读对应 config 的 params：同组 `pick_one` 且学员本期已对另一项打过卡→拒绝（409「本组只报一种」），首次打卡锁定该组选项。组内锁定可走能力 5 代行调整。
-- **✅ 决策 C5（2026-06-02·08 回填核对改用 config 驱动·零新字段）学经固定功课 + 自选功课**：① 预置 `PracticeProject` 字典项（心经/普贤行愿品等固定功课）；② **自选功课「不计入升学」靠 config 引用判定**——升学预检（能力 10 AdvancementCheck）只认 `ProgramAdvancementConfig` 引用的功课条件，自选功课不在任何 advancement config 中 → 天然不进升学聚合（贴合 08 D3 数据驱动），**无需给 PracticeProject/PracticeLog 加 countsForAdvancement 字段**。自选功课正常入 PracticeLog 历史、不进升学判定。
+- **✅ 决策 C3/C4（2026-06-02·DR-148·config 驱动零新字段）念佛三选一 / 入行论二选一互斥**：互斥规则写进 `ProgramAdvancementConfig.params`（§3.1 已是 Json 额外参数，如 `{selectionGroup:'nianfo', selectionMode:'pick_one'}`），**无需给 ClassTask 加字段**。`POST /api/practice-logs` 校验时读对应 config 的 params：同组 `pick_one` 且学员本期已对另一项打过卡→拒绝（409「本组只报一种」），首次打卡锁定该组选项。组内锁定可走能力 5 代行调整。
+- **✅ 决策 C5（2026-06-02·DR-148·config 驱动零新字段）学经固定功课 + 自选功课**：① 预置 `PracticeProject` 字典项（心经/普贤行愿品等固定功课）；② **自选功课「不计入升学」靠 config 引用判定**——升学预检（能力 10 AdvancementCheck）只认 `ProgramAdvancementConfig` 引用的功课条件，自选功课不在任何 advancement config 中 → 天然不进升学聚合（贴合 08 D3 数据驱动），**无需给 PracticeProject/PracticeLog 加 countsForAdvancement 字段**。自选功课正常入 PracticeLog 历史、不进升学判定。
 
 ---
 
@@ -849,7 +849,7 @@
 
 > **覆盖**：能力 1-25 正式契约（16=❌不做，22-25=⏸后台契约）+ 26-51 净资产盘点 + 学习引擎 37/38/39。**API 契约层 + 页面/交互层（SoT 第三层）首轮完整**。
 >
-> **决策记录**：①A3 选专业锁定 → **⚠️ 待定**（2026-06-02 用户暂缓，报告03 P0 仍 open）②C3/C4/C5 互斥+自选功课 → **config 驱动·零新字段**（2026-06-02 核对）③E1/E2 → **不记录·走建课课表配置**（DR-146，2026-06-02 修订）④角色无 expiresAt 选 B（已回写 06）。
+> **决策记录**：①A3 选专业锁定 → **⚠️ 待定**（2026-06-02 用户暂缓，报告03 P0 仍 open）②C3/C4/C5 互斥+自选功课 → **config 驱动·零新字段**（DR-148）③E1/E2 → **不记录·走建课课表配置**（DR-146）④角色无 expiresAt 选 B（DR-147·已回写 06）。
 >
 > **08 回填结论（2026-06-02 执行·核对完毕）：本轮 08 无 schema 改动**。逐项核对：① A3 → ⚠️ 待定（用户暂缓，且实现可零新字段）；②③ C3/C4/C5 → 走 `ProgramAdvancementConfig.params`（已 Json）+ config 引用判定，**零新字段**；④ AuditLog 代行/审计字段 → 08 §3.11 早已封板，代行细节归 `payload` Json，**无需补**；primaryProgramId 已在 08。**结论：08 维持现状，仅 09 措辞对齐既有结构（本次提交）。**
 >
