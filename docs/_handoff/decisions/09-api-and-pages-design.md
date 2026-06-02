@@ -73,7 +73,7 @@
 ### 大纲 & DR 关联 + 对齐备注
 - 服务大纲 **A1**（4 专业×8 学期）、支撑 **F1-F5**（升学条件配置）；D2（两级固定）/D3（可配置）/D12（super_admin 全局）/DR-130（Program 定名）。
 - **对齐备注**：① 现状线上 Class 仅 `name` 字符串、无 programs 管理端点 → 全套 🆕；旧档 `/api/programs` CRUD 可作起点，但字段以 08 §1.1 为准（新增 stage/cohortYear/lag 四阈值/checkinGrace）。
-- **✅ 决策 A3（2026-06-01 拍板·采纳报告 03 建议）选专业第2学期锁定**：补 `ProgramSemester.isSelectionDeadline`（标记该专业的「选专业截止学期」，默认 S2）。落地两处：① 管理端经 `PUT /api/admin/programs/:id/advancement-configs` 同页配置该字段；② **入班校验在能力 2** 的邀请码加入端点做：若目标专业已过 `isSelectionDeadline` 学期且学员未在该专业有在修记录→拒绝（返 409「已过选专业截止」），可走能力 5 代行豁免。本能力仅负责配置入口，校验逻辑落能力 2（前向引用）。
+- **⚠️ 待定 A3（2026-06-02·用户决定暂缓）选专业第2学期锁定**：大纲 PAGE 2 明文「第1学期末选定、第2学期起不得调整专业」（报告03 §缺口2·P0）。**业务理由**：升学体系按专业走、累计型硬条件从起修日攒，中途转专业会打乱固定路径。**落点已厘清但暂不实施**——大纲统一截止=S2（常量），技术上**零新字段可实现**（入班校验比较当前专业周次 ≥ ProgramSemester(S2).startsWeek 且学员无在修记录→驳回）；08 无需加字段。**用户决定标待定**，报告03 P0 缺口保持 open，待后续专项处理。
 
 ---
 
@@ -136,8 +136,8 @@
 
 ### 大纲 & DR 关联 + 对齐备注
 - 服务大纲 **C3（净土念佛号）/C4（入行论观修·心咒）/C5（学经读经固定功课）**；DR-121/124/144。
-- **✅ 决策 C3/C4（2026-06-01 拍板·采纳建议）念佛三选一 / 入行论二选一互斥**：`ClassTask` 增 `selectionMode:'pick_one'\|'any'`（默认 any）+ `selectionGroup`（互斥组键，如 `nianfo`/`xingyou`）。`POST /api/practice-logs` 校验：同 `selectionGroup` 内若 mode=pick_one 且学员本期已对另一项打过卡→拒绝（返 409「本组只报一种」），首次打卡即锁定该组选项。组内锁定可走能力 5 代行调整。
-- **✅ 决策 C5（2026-06-01 拍板·采纳建议）学经固定功课 + 自选功课**：① 预置 `PracticeProject` 字典项（心经 / 普贤行愿品等固定功课）；② 自选功课「只记录不判圆满」→ PracticeProject/PracticeLog 增 `countsForAdvancement`（默认 true；自选项置 false），升学聚合（能力 10 预检）只计 `countsForAdvancement=true` 的记录，自选功课入打卡历史但不进升学判定。
+- **✅ 决策 C3/C4（2026-06-02·08 回填核对改用现有结构·零新字段）念佛三选一 / 入行论二选一互斥**：互斥规则写进 `ProgramAdvancementConfig.params`（§3.1 已是 Json 额外参数，如 `{selectionGroup:'nianfo', selectionMode:'pick_one'}`），**无需给 ClassTask 加字段**。`POST /api/practice-logs` 校验时读对应 config 的 params：同组 `pick_one` 且学员本期已对另一项打过卡→拒绝（409「本组只报一种」），首次打卡锁定该组选项。组内锁定可走能力 5 代行调整。
+- **✅ 决策 C5（2026-06-02·08 回填核对改用 config 驱动·零新字段）学经固定功课 + 自选功课**：① 预置 `PracticeProject` 字典项（心经/普贤行愿品等固定功课）；② **自选功课「不计入升学」靠 config 引用判定**——升学预检（能力 10 AdvancementCheck）只认 `ProgramAdvancementConfig` 引用的功课条件，自选功课不在任何 advancement config 中 → 天然不进升学聚合（贴合 08 D3 数据驱动），**无需给 PracticeProject/PracticeLog 加 countsForAdvancement 字段**。自选功课正常入 PracticeLog 历史、不进升学判定。
 
 ---
 
@@ -439,7 +439,7 @@
 ### 大纲 & DR 关联 + 对齐备注
 - 横切支撑能力 3/4/6/8/10/11/12 的全部例外口子；D17（代行留痕）/D18（永不删除）/DR-118（AuditLog 冲突改造）。
 - **🆕 接缺口**：线上仅举报处理写 AuditLog，无通用代行面 → 五类代行 + 撤回链 + 学员可见 + 辅导员建议全 🆕。
-- **🔵 架构落点（关键）**：① **代行效果落地** = 有原生字段的写字段（isSubstituted/StudyRecord 补卡行/ExamGrade upsert）；**升学条件类豁免/调目标无原生字段** → 不建独立 override 表，由 `AdvancementCheck` 预检遍历 ProgramAdvancementConfig 时，对 `isExemptable=true` 的条件**回查 AuditLog 是否有未撤回的 active 代行记录**（match conditionKey），有则该条置满足。② **AuditLog 需改造**（DR-118 已标冲突改造）承载 `targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId` 字段——此为**数据层改动，挂 08 回填清单**（与前 4 字段一并，暂缓）。
+- **🔵 架构落点（关键）**：① **代行效果落地** = 有原生字段的写字段（isSubstituted/StudyRecord 补卡行/ExamGrade upsert）；**升学条件类豁免/调目标无原生字段** → 不建独立 override 表，由 `AdvancementCheck` 预检遍历 ProgramAdvancementConfig 时，对 `isExemptable=true` 的条件**回查 AuditLog 是否有未撤回的 active 代行记录**（match conditionKey），有则该条置满足。② **AuditLog 字段已就位**（08 §3.11 已封板：`operatorId`/`operatedAt`/`actionType`（含 `proxy_action`）/`targetType`/`targetId`/`payload`/`reason`/`classId`/`programId`）——代行的 `domain`/`targetKey`/依据 `basis`/撤回链 `revokesId` 归入 `payload` Json（`{before,after,domain,targetKey,basis,revokesId}`），**无需改 08 schema**（08 回填核对结论）。
 - **🔵 业务规则落点**：理由必填→Zod；学员不能自行豁免→无 student 写端点；撤回=新记录→revoke 端点不 update 原行；作用域隔离→中间件按角色×目标班级校验。
 
 ---
@@ -664,21 +664,21 @@
 ## 能力 2 · 学员加入专业  〔批1 补·入班〕
 
 ### 涉及表（08 落点）
-`ClassMember`（✅ 入班记录，`cohortStatus`/`joinedAt`/`isPrimary` 主班）· `User.primaryProgramId`（🆕 主修偏好·UI 级 DR-120，区别于主班 isPrimary）· `Program`（班级隶属「专业×届」，加入即归属）· `ProgramSemester.isSelectionDeadline`（A3 校验数据源）
+`ClassMember`（✅ 入班记录，`cohortStatus`/`joinedAt`/`isPrimary` 主班）· `User.primaryProgramId`（🆕 主修偏好·UI 级 DR-120，区别于主班 isPrimary）· `Program`（班级隶属「专业×届」，加入即归属）· `ProgramSemester.startsWeek`（A3 校验数据源·若启用，⚠️ 待定）
 
 ### API 契约
 | 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
 |---|---|---|---|---|---|---|
-| POST | `/api/enrollments/join` | student | `{code}` | `ClassMember` | 🔧 | 用邀请码加入：校验有效性（能力 19）→ **A3 选专业锁定校验**→ 写 ClassMember + usedCount++ + 归属 program；**幂等**（同人同班一条有效 enrollment，重复用码不重建，绝对约束4）|
+| POST | `/api/enrollments/join` | student | `{code}` | `ClassMember` | 🔧 | 用邀请码加入：校验有效性（能力 19）→ **A3 选专业锁定校验 ⚠️ 待定（暂不含）**→ 写 ClassMember + usedCount++ + 归属 program；**幂等**（同人同班一条有效 enrollment，重复用码不重建，绝对约束4）|
 | GET | `/api/me/enrollments` | student | — | 我的班级/专业列表 | 🔧 | 复用现状 `/api/my/enrollments`，叠加 program 归属 |
 | PATCH | `/api/me/primary-program` | student | `{programId\|null}` | — | 🆕 | 设主修偏好（**仅 UI 默认视图/提醒，不影响任何业务规则**，绝对约束3）；可空 |
 
-> **A3 选专业锁定校验（能力 1 决策落点）**：join 时若目标 program 已过 `isSelectionDeadline` 学期 **且** 学员在该 program 无在修记录 → 拒绝（409「已过选专业截止」），可走能力 5 代行豁免。
+> **A3 选专业锁定校验 ⚠️ 待定**：大纲要求「第2学期起禁新选专业」（报告03 P0）。落点已厘清——可在本 join 端点零新字段实现（当前专业周次 ≥ ProgramSemester(S2).startsWeek 且无在修记录→409），可走能力 5 豁免。**用户决定暂缓，当前 join 不含此校验**。
 
 ### 页面/交互
 | 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
 |---|---|---|---|---|
-| 学员 | `/join`（输入/扫码加入）| 输入邀请码 → 校验 → 入班 | 无效码/过期/超次/已过选专业截止 → 对应错误提示 | 🆕 |
+| 学员 | `/join`（输入/扫码加入）| 输入邀请码 → 校验 → 入班 | 无效码/过期/超次 → 对应错误提示（A3 选专业截止校验 ⚠️ 待定，暂不含）| 🆕 |
 | 学员 | `/me/programs` | 我的专业列表（多专业平等）+ 设主修 | 设主修仅切默认视图 | 🔧 改（接能力 11 已退出态）|
 | 班级管理员 | `/coach/classes/:id/settings`（邀请码区）| 生成/撤销/列表（三态）| 见能力 19 | 🆕 |
 
@@ -721,7 +721,7 @@
 
 ### 大纲 & DR 关联 + 对齐备注
 - D18（全数据保留）底层基础设施；依赖能力 18（scope 过滤）；被能力 5/8/9/10/11/12/15/17/18/19 依赖。
-- **🆕 接缺口**：线上仅举报处理写 AuditLog、无统一读取面 → 三级作用域读端点 + 学员自查全 🆕；AuditLog 改造字段集（operatorId/operatedAt/actionType/targetType/targetId/前后快照/reason/scope + 能力 5 代行字段）**已在 08 回填清单**（DR-118）。
+- **🆕 接缺口**：线上仅举报处理写 AuditLog、无统一读取面 → 三级作用域读端点 + 学员自查全 🆕；AuditLog 字段集（operatorId/operatedAt/actionType/targetType/targetId/payload 前后快照/reason/classId/programId）**已在 08 §3.11 封板**，无需补（DR-118 冲突改造已落地）。
 - **🔵 业务规则落点**：① 永不删不可编辑（绝对约束1）→ 无 delete/update 端点，修正走 upsert+新 AuditLog；② 作用域过滤（绝对约束3）→ 查询中间件按角色等级 + class_id/major_id 限定；③ 写入基础设施（规则6）→ 不在本能力建写端点，各能力操作内联写。
 
 ---
@@ -849,12 +849,10 @@
 
 > **覆盖**：能力 1-25 正式契约（16=❌不做，22-25=⏸后台契约）+ 26-51 净资产盘点 + 学习引擎 37/38/39。**API 契约层 + 页面/交互层（SoT 第三层）首轮完整**。
 >
-> **决策记录（2026-06-01 共 4 条已拍板）**：①A3 选专业锁定 ②C3/C4/C5 互斥+自选功课 ③E1/E2 选 C 告知 ④角色无 expiresAt 选 B（已回写 06）。
+> **决策记录**：①A3 选专业锁定 → **⚠️ 待定**（2026-06-02 用户暂缓，报告03 P0 仍 open）②C3/C4/C5 互斥+自选功课 → **config 驱动·零新字段**（2026-06-02 核对）③E1/E2 选 C 告知 ④角色无 expiresAt 选 B（已回写 06）。
 >
-> **08 回填清单（暂缓·待跑一致性检查）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ AuditLog 代行/审计字段集（DR-118）。（primaryProgramId 已在 08。）
+> **08 回填结论（2026-06-02 执行·核对完毕）：本轮 08 无 schema 改动**。逐项核对：① A3 → ⚠️ 待定（用户暂缓，且实现可零新字段）；②③ C3/C4/C5 → 走 `ProgramAdvancementConfig.params`（已 Json）+ config 引用判定，**零新字段**；④ AuditLog 代行/审计字段 → 08 §3.11 早已封板，代行细节归 `payload` Json，**无需补**；primaryProgramId 已在 08。**结论：08 维持现状，仅 09 措辞对齐既有结构（本次提交）。**
 >
-> **下一步候选**：① 执行 08 回填 + 跑 §设计会话一致性检查 8 项；② 给 4 条决策进 05-decision-log 分配 DR 编号；③ 回头精修任一能力契约。待你定。
-> **下一批（批6-8）**：关怀/传承/权限/审计（12-20）+ 自学(21) + 净资产层 API/页面盘点(26-51) + 后台关键部分契约(22-25/38)。
-> **08 回填清单（暂缓·待 09 产完一次性回填）**：① ProgramSemester.isSelectionDeadline ② ClassTask.selectionMode/selectionGroup ③ PracticeProject/PracticeLog.countsForAdvancement ④ ClassSession/StudyRecord 出勤 monthlyFrequency 聚合（读时算，可能无需建字段）⑤ **AuditLog 代行字段**（targetUserId/actionType/domain/targetKey/reason/basis/scope/notify/revokedBy/revokesId，DR-118 改造）。
-> **缺口边设计边接已贯穿（全部已决）**：A3 选专业锁定（能力1 ✅ 建 isSelectionDeadline+入班校验）· C3/C4 互斥（能力7 ✅ selectionMode/selectionGroup）· C5 自选功课（能力7 ✅ countsForAdvancement）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
-> **决策记录（2026-06-01 拍板 4 条）**：① A3=采纳建选专业锁定；② C3/C4/C5=采纳建互斥校验+自选功课标记；③ E1/E2=选 C 折中告知；④ 角色 expiresAt=选 B 废 06 规则 7（角色无自动过期·仅手动 revoke，已同步标废 06）。**注**：①②③ 只落在本设计文档（08 字段挂回填清单）；④ 已同步改 06。如需进 §五 `05-decision-log.md` 分配 DR 编号，告我一声我追加。
+> **缺口边设计边接（汇总）**：A3 选专业锁定（能力1 ⚠️ 待定·零字段可实现）· C3/C4 互斥（能力7 ✅ ProgramAdvancementConfig.params·零字段）· C5 自选功课（能力7 ✅ config 引用判定·零字段）· **E1/E2 月度共修频率（能力8 ✅ 选 C·展示不预警不卡升学）** · WP-A 报数UI（能力9 ✅补齐）· DR-127 完成机制统一（能力37 🔧）· DR-129 幻影表（能力39 🆕）· DR-99 开闭卷分支（能力10 🔵）。
+>
+> **下一步候选**：① 给已拍板决策（E1E2 选C / 角色废 expiresAt·已回写06 / C3C4C5 config 驱动）进 `05-decision-log` 分配 DR 编号；② A3 待定项专项处理（报告03 P0）；③ 回头精修任一能力契约。待你定。
