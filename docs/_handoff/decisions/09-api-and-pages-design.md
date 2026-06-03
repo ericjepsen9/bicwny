@@ -353,7 +353,7 @@
 | PUT | `/api/exams/:id/grades` | class_admin+ | `{userId,score,comment?}` | `ExamGrade` | 🔧 | 成绩录入限班级管理员+（#7，辅导员无权）；upsert + AuditLog 永久留档 |
 | GET | `/api/me/advancement-status` | student | `?programId` | 6 类条件逐条满足态 + 缺口 | 🆕 | 学员「升学进度」板块（只读自己，含代行豁免明细 D18）|
 | GET | `/api/coach/students/:uid/classes` | class_tutor+（须为该学员至少一个班的辅导员/管理员）| — | `{classId,className,programName,stage,cohortStatus}[]` | 🆕 | **学员所有班级视图（G1.7-2 DR-154）**：跨阶段并存时辅导员可见学员全貌；只读，不可跨班编辑 |
-| POST | `/api/classes/:id/advancement-checks` | class_admin+ | `{programId,semester}` | `AdvancementCheck[]` | 🆕 | **系统自动预检**：先检查正科在读豁免（DR-154 G1.7-3 `zhengke_bypass` 短路）→ 无豁免时逐条算 6 条件（闻思/观修/内加行/出勤/升学考/灌顶），生成预检报告，**不自动升学** |
+| POST | `/api/classes/:id/advancement-checks` | class_admin+ | `{programId,semester}` | `AdvancementCheck[]` | 🆕 | **系统自动预检**：按 programId 逐条算 6 条件（闻思/观修/内加行/出勤/升学考/灌顶），生成预检报告，**不自动升学**；多专业各自独立预检，无跨专业豁免（D9/D16，R1-T14 撤销 zhengke_bypass）|
 | GET | `/api/classes/:id/advancement-checks` | class_admin+ | `?semester` | 全班预检报告 | 🆕 | 管理员核查列表（逐项满足/缺口/可豁免标记）|
 | POST | `/api/advancement-checks/:id/approve` | class_admin+ | `{decision:'pass'\|'reject',note}` | `AdvancementRecord` | 🆕 | **审核拍板**（#16，直接定不上报）：pass→写 AdvancementRecord + 原预科成员 cohortStatus `graduated→advanced` + EnrollmentStatusHistory；**不建正科 ClassMember**（落班机制=邀请码两步走，DR-150；管理员另发邀请码学员走能力 2 加入）；并行专业 ClassMember 不受影响（D9/D16）；reject→提示留级（能力 11）|
 
@@ -372,7 +372,7 @@
 ### 大纲 & DR 关联 + 对齐备注
 - 服务大纲 **F1-F5（升学）**；D3（条件数据驱动）/D13（6 硬条件不可放宽）/D16（多专业独立升学）/D17（豁免留痕）/D18（永久留档）/DR-99（开闭卷合格线分支）。
 - **🆕 接缺口**：线上「无考试无结业」已推翻 → `AdvancementCheck`/`AdvancementRecord` 全新建；升学条件经 `ProgramAdvancementConfig` 数据驱动，新增专业/调门槛不动代码。
-- **🔵 业务规则落点**：① 6 硬条件（D13）→ 预检端点遍历 ProgramAdvancementConfig 逐条判定，缺一不可；② 开闭卷合格线（DR-99）→ AdvancementCheck 读 `Exam.isOpenBook` 选 params 分支；③ 多专业独立（D16）→ 预检/升学按 programId 隔离；④ **系统不自动升学（绝对约束1）**→ 无自动升学端点，必经 approve 人工拍板；⑤ **正科在读豁免（DR-154 G1.7-3）**→ 预检入口最先一层：有 `active` 正科 ClassMember → `zhengke_bypass` 短路全绿，跳过 6 条件；⑥ **学员端班级展示（DR-154 G1.7-1）**→ 直接显示 `Class.name`，无阶段分组标签，primaryProgramId 控制默认展示。
+- **🔵 业务规则落点**：① 6 硬条件（D13）→ 预检端点遍历 ProgramAdvancementConfig 逐条判定，缺一不可；② 开闭卷合格线（DR-99）→ AdvancementCheck 读 `Exam.isOpenBook` 选 params 分支；③ 多专业独立（D16）→ 预检/升学按 programId 隔离，**各专业预检完全独立、无跨专业豁免**（R1-T14 撤销 zhengke_bypass，在读正科不豁免并行预科）；④ **系统不自动升学（绝对约束1）**→ 无自动升学端点，必经 approve 人工拍板；⑤ **学员端班级展示（DR-154 G1.7-1）**→ 直接显示 `Class.name`，无阶段分组标签，primaryProgramId 控制默认展示。
 
 ---
 
