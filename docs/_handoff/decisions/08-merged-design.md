@@ -498,7 +498,7 @@ model ClassSession {
 | `currentSessionMinutes` | Int | 累计观修时长（分钟），默认 0；座数与时长双维度独立计（DR-91）| **新增** |
 | `isSubstituted` | Boolean | 默认 false；**true=顶礼 vow 已获批心咒代替**——历史修行数值原封不动、独立保留，不参与顶礼升学预检达标判定；应用层另建心咒 vow 从 0 独立计（DR-94）| **新增** |
 | `substitutionFor` | String? | 仅心咒代替 vow 使用（practiceProjectId=心咒项目）；存被代替的顶礼 UserPracticeVow.id——升学预检时先找到此字段指向的顶礼 vow（isSubstituted=true），再验证本 vow.`currentCount ≥ 2,000,000` 才触发顶礼+法王祈祷文双豁免（DR-151 因果链：一因两果，大纲§649）| **新增** |
-| `status` | String | `active` / `paused` / `completed` / `abandoned`；默认 active | 旧（简化：去 7 态）|
+| `status` | String | `active` / `paused` / `completed` / `abandoned` / **`revoked`**；默认 active；`revoked` 专用于撤销替代后的心咒 vow（D18 不删除，区别于 abandoned 自愿放弃；DR-155）| 旧（简化：去 7 态）+ **DR-155 新增 revoked** |
 | `pausedAt` | DateTime? | 暂停时间 | 旧 |
 | `pausedBy` | String? | 暂停操作人 userId | 旧 |
 | `resumedAt` | DateTime? | 恢复时间 | 旧 |
@@ -538,7 +538,7 @@ model UserPracticeVow {
   currentSessionMinutes Int      @default(0)  // 累计观修时长（分钟，双维度独立，DR-91）
   isSubstituted        Boolean   @default(false) // 顶礼→心咒代替标记；true=历史数值保留+独立，不参与顶礼达标（DR-94）
   substitutionFor      String?   // 心咒代替 vow 专用：指向顶礼 vow id；升学预检验 currentCount ≥ 2,000,000 → 顶礼+法王祈祷文双豁免（DR-151）
-  status               String    @default("active")
+  status               String    @default("active")  // active/paused/completed/abandoned/revoked；revoked=心咒代替撤销（DR-155，D18 不删）
   pausedAt             DateTime?
   pausedBy             String?
   resumedAt            DateTime?
@@ -572,8 +572,11 @@ model UserPracticeVow {
 | 幂等保护（自动建条目）| 应用层 | 同 userId + classTaskId / cohortTemplateId 已存在则跳过，不重复建 |
 | **外部事件不触发 vow 状态变化** | 应用层 | ClassTask 停用、退班、毕业、法会结束——均不改变 UserPracticeVow.status；vow 按用户设定的 currentEndDate 自然到期 |
 | auto 建条目的 currentEndDate 初始值 | 应用层 | class_task 继承 ClassTask.endDate（如有，否则 null）；program_task 继承 PracticeTemplate.durationDays 计算值（如有，否则 null）；用户可随时调整 |
-| isSubstituted=true 时豁免条件（DR-151）| 应用层 | 顶礼 vow 置 isSubstituted=true 后，升学预检通过 `substitutionFor` 找到心咒 vow，验证 `currentCount ≥ 2,000,000`：完成→顶礼 ✅ + 法王祈祷文 ✅（双豁免，一因两果，大纲§649）；未完成→两项均 ❌；历史顶礼数值原封保留（DR-94/DR-151）|
+| isSubstituted=true 时豁免条件（DR-151）| 应用层 | 顶礼 vow 置 isSubstituted=true 后，升学预检通过 `substitutionFor` 找到**status=active**的心咒 vow，验证 `currentCount ≥ 2,000,000`：完成→顶礼 ✅ + 法王祈祷文 ✅（双豁免，一因两果，大纲§649）；未完成→两项均 ❌；历史顶礼数值原封保留（DR-94/DR-151）|
 | 心咒代替换算比例写死 | 应用层 | 新建心咒 vow 的 targetCount = 2,000,000，同步写 `substitutionFor = 顶礼 vow id`（应用层常量，大纲规定不可配置；DR-94/DR-151）|
+| **撤销替代时心咒 vow 置 revoked（DR-155）** | 应用层 | 撤销替代动作：① 顶礼 vow `isSubstituted` → false；② 心咒 vow `status` → `revoked`（不物理删除，D18；不用 abandoned 以区分用户主动放弃）；`substitutionFor` 指针保留（历史留档）|
+| **二次替代复用既有心咒 vow（DR-155）** | 应用层 | 再次替代时：先检查同一顶礼 vow 是否有 `substitutionFor=顶礼vow.id` 且 `status=revoked` 的心咒 vow → 有则复用（`status`→`active`，`currentCount`→0，重新起算）；无则新建（首次替代路径）；**严禁新建第二条 active 心咒 vow 指向同一顶礼 vow**（应用层前置检查，消除多行非确定性，R1-T5/T6/T10）|
+| 预检只读 status=active 心咒 vow（DR-155）| 应用层 | AdvancementCheck 反查时过滤条件：`substitutionFor=顶礼vow.id AND status=active`，确保唯一一行（revoked 心咒 vow 不参与预检）|
 
 #### 设计意图
 
@@ -2886,6 +2889,7 @@ model UserSelfStudyProgram {
 | `AdvancementConditionType` | `course_completion` / `practice_session` / `cumulative_count` / `attendance` / `exam_score` / `transmission` | 升学条件 6 类（新增，能力 10）|
 | `CohortMemberStatus` | `active` / `paused` / `held_back` / `graduated` / `advanced` / `disqualified` / `left` | 成员状态机 7 态（旧 5 态 + DR-149 新增 `advanced` 升正科 / `disqualified` 取消资格，能力 9/10/11）|
 | `LagStatus` | `on_track` / `slightly_behind` / `falling_behind` / `at_risk` | 掉队检测 4 档（旧设计沿用，能力 14；五维各独立取值，不加权）|
+| `VowStatus`（UserPracticeVow.status）| `active` / `paused` / `completed` / `abandoned` / **`revoked`** | 发愿状态 5 值（旧 4 值 + DR-155 新增 `revoked`：专用于替代撤销后的心咒 vow，与 abandoned 语义区分）|
 
 ---
 
@@ -2963,6 +2967,7 @@ model UserSelfStudyProgram {
 | 2026-06-03 | G1.3 闭合——能力 4 规则 7/8 细化：任务制起算（UserPracticeVow 于起修日建立），S1 修持无任务不自动计入升学，S1 历史修量须管理员走能力 5 代行补录（方案 B）；06 能力 4 规则 7/8 更新 |
 | 2026-06-03 | DR-153 G1.4 多专业报数分流封板——`POST /api/practice-logs` 增加 `vowId` 必填参数；前端从任务卡片上下文带入，后端校验归属；09 三处 POST 入参 + 08 §1.12 约束表 + §八 DR-153 同步更新 |
 | 2026-06-03 | DR-152 `disqualified` 下游三决策封板——① 可登录查历史档案、失去班级访问权；② 再入学须 super_admin 审批+忏悔/认罪流程（⏸ 忏悔机制 DR-84 待定）+邀请码；③ 历史档案保留（D18）但升学从 0 重算；§1.2 ClassMember 写权限/§八 DR-152/06 能力 11 规则 6+绝对约束 6 同步更新 |
+| 2026-06-03 | DR-155 R1-T5/T6/T10 议题C闭合——二次替代复用心咒 vow 方案A：撤销→status=revoked（不删）；再替代→复用 revoked vow，reset currentCount=0；预检只取 status=active vow；§1.7 status 字段+Prisma注释+约束表（3条新增）+§六 VowStatus enum 更新；无新表/无新字段；跨 06/R1报告同步 |
 | 2026-06-03 | **DR-154 G1.7-3 撤销（R1-T14 回归发现）**——zhengke_bypass「任意 active 正科在读→所有预科预检自动放行」作用域过宽，在多专业场景让在读正科密法静默豁免并行净土预科的真实未达标，与 D9/D16 多专业独立正面冲突；且 `advanced` 成员本就不进预检，bypass 属冗余设计。撤销后每条预科升学线按 programId 各自独立跑 6 条件，无跨专业豁免。DR-154 仅保留 G1.7-1/G1.7-2；08 §3.9 约束改「多专业预检独立」+设计意图记撤销+§八 DR-154 标注+06 删能力 10 规则 11、绝对约束 5 改写+09 删预检端点 bypass、删业务落点 ⑤；跨 06/08/09 一致 |
 
 ---
@@ -3062,6 +3067,7 @@ model UserSelfStudyProgram {
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼）→ 升学预检检查心咒 vow.`currentCount ≥ 2,000,000`：完成→顶礼 ✅ + 法王祈祷文 ✅（双豁免，无需聚合 prayerCount，DR-94/DR-151 协同）；未完成→两项均 ❌。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
 | DR-132 | D3 短信通道（能力 45）完整设计：第 3 触达通道 + User 手机号体系（🆕 新建）| **能力 45 短信通道完整设计：(A) User +phone/phoneVerified/phoneVerifiedAt 字段（线上 User 无手机号，grep 确认）+ 绑定验证流程；(B) sendSms 发送抽象层（Provider 接口 + 模板化 + 失败重试）；(C) 作为 dispatchToUsers 第 3 通道 channel='sms'（复用 DispatchLog 幂等）；(D) 用途规则：验证码/critical 系统公告/⑦⑧⑨关键学修提醒走短信，一般提醒/普通通知不走（控成本防骚扰）；(E) NotificationPreference +smsEnabled（验证码不受开关影响）。服务商选型等挂 TODO-SMS**（用户决策：用途=重要通知兜底+关键学修提醒，深度=完整设计短信通道，2026-05-31/06-01）| 用户追问「系统公告与通知推送/短信是不是两个模块」引出核查：dispatchToUsers 现仅 channel='push'（站内 Notification ✅+Web Push ✅），**SMS 完全未实现**——代码仅占位注释「banner/sms 后续接入时各自加 channel」，且**User 表连 phone 字段都没有**（grep phone/mobile 全空）。用户决策「都要做、逐条确认」+ 选项「用途=重要通知兜底+关键学修提醒」「深度=完整设计短信通道」。**设计要点**：短信是 Web Push 之外的兜底通道，但**按条计费**故严格限场景（仅 critical+关键学修提醒+验证码），非全量发；前置缺口是 User 手机号体系（字段+验证流程），无手机号则无法发。**通道选择**：站内信必达→push 有订阅则推→sms 仅 critical/关键且符合用途规则。**待决策**（TODO-SMS）：服务商选型（阿里云/腾讯云/国际）、smsEnabled 默认值、是否独立 SmsLog 表（默认复用 DispatchLog）、验证码频率/有效期。排除「短信全量发所有通知」：成本爆炸+骚扰，仅限关键场景；排除「不做手机号验证直接发」：未验证号码发短信浪费+合规风险，须 verified 才发业务短信（验证码除外）|
+| DR-155 | R1-T5/T6/T10 议题C：二次替代撤销后心咒 vow 状态管理 | **方案A：复用既有心咒 vow，不新建第二条**：(1) 撤销替代：顶礼 vow `isSubstituted`→false；心咒 vow `status`→`revoked`（不物理删除，D18；区别于 `abandoned` 自愿放弃，审计可追溯）；`substitutionFor` 指针保留；(2) 再次替代：先检查是否有 `substitutionFor=顶礼vow.id AND status=revoked` 的心咒 vow → 有则复用（status→active，currentCount→0 重新起算）；无则新建（首次替代路径）；严禁建第二条 active 心咒 vow 指向同一顶礼 vow（应用层前置检查）；(3) 预检只取 `status=active` 心咒 vow，确保唯一一行。`UserPracticeVow.status` 新增 `revoked` 值（§六 enum 更新，无新表/无新字段）（用户决策 2026-06-03）| 排除「新建第二条心咒 vow+唯一约束（方案B）」：允许多条 vow 存在（即便 revoked），预检查询条件复杂化；且二次替代后两条 revoked+active vow 都指向同一顶礼 vow，历史关系图不清晰；复用方案更简洁，substitutionFor 始终一对一，不引入多行。排除「撤销时用 abandoned」：abandoned 语义=用户主动放弃，revoked=被外部动作撤销，审计追溯时需区分来源。关联 DR-94/DR-151（substitutionFor 因果链）/D18（永久留档）|
 | DR-154 | G1.7 跨预科/正科并存身份三决策（G1.7-1/2/3）| **(1) G1.7-1 学员端展示**：直接显示 `Class.name`，无阶段分组标签；`primaryProgramId`（DR-151）控制默认专业展示；❌ 不做阶段分组 UI（零新字段）。**(2) G1.7-2 辅导员可见所有班级**：新增 `GET /api/coach/students/:uid/classes`（class_tutor+ 守卫，须为该学员至少一个班的辅导员/管理员）→ 返回该学员全部 ClassMember（班级名/专业名/阶段/cohortStatus）；❌ 不做跨班写权限（辅导员只能看、不能编辑非本班数据）。**(3) G1.7-3 正科在读豁免预检 ❌ 已撤销（R1-T14，2026-06-03）**：原设计=学员有任意 `active` 正科 ClassMember → 所有预科专业 AdvancementCheck 自动短路 `zhengke_bypass`。R1 回归发现作用域过宽：在读正科**密法**会豁免掉并行**净土**预科的真实未达标（静默放行），与 D9/D16 多专业独立冲突。**撤销后**：每条预科升学线按 programId 各自独立跑 6 条件，无任何跨专业豁免；已 `advanced` 的成员本就不进预检，无需 bypass（用户决策 2026-06-03）| (1) 排除阶段分组标签：增加认知层级，primaryProgramId 已够用；(2) 排除「辅导员只见自己班级」：跨阶段并存时辅导员无法了解学员全貌，增加新 GET-only 端点代价低、协助辅导员做关怀判断；(3) G1.7-3 撤销说明：bypass 原假设「已升入正科证明能力已验证」仅对**同一升学线**成立，对**并行专业**是类别错误——在读正科密法与净土修学水平无关；且 `advanced` 成员本就不进预检，bypass 实为冗余设计却引入跨专业污染（R1-T14）。撤销后回到 D9/D16：每专业预检独立。无新表/无新字段；09 G1.7-2 端点保留、§预检端点+业务落点 ⑤ 删 bypass；08 §3.9 约束改「多专业预检独立」+ 设计意图记撤销；06 能力 10 删规则 11、绝对约束 5 改「多专业预检独立」 |
 | DR-153 | G1.4 多专业报数分流：`POST /api/practice-logs` 必须携带 `vowId` | **`vowId` 必填**：打卡提交时必须明确归属哪条 `UserPracticeVow`；后端校验该 vow 属于当前用户 + 当前活跃学期（Zod 必须字段，非 null）；多专业并修时各专业任务卡片各自持有 vowId，前端从卡片上下文自动带入，无需学员手选（用户决策 2026-06-03）| 排除「不传 vowId，后端按 practiceProjectId+userId+programId 推断」：多专业并修时同一用户同一修法项目可能有多条 vow（各专业一条），无法唯一推断；排除「提交时下拉选专业」：打卡入口已在专业任务卡片上下文内，多一个选择器增加认知负担且易误选。无新表/无新字段（vowId 已在旧设计 PracticeLog 中存在）；09 三处 POST /api/me/practice-logs 入参补充 `vowId` 必填；PracticeLog §1.12 约束表新增 vowId 必填行；关联 G1.2（多专业独立学期钟）/ DR-120 / D9 |
 | DR-152 | `disqualified`（取消资格）下游三决策（DR-149 遗留 Unit ⑤）| **(1) App 访问**：disqualified 后可继续登录 App、查看历史档案（D18），但失去班级成员权限（不可进班级主页/课程/报数/出勤）。**(2) 再入学**：允许，但条件比 `left`（自主退出，class_admin 复活）更严——须 `super_admin` 审批 + 完成忏悔/认罪流程（⏸ 忏悔机制具体校验逻辑待 DR-84 决策）+ 管理员发邀请码 + 学员用邀请码重新加班（能力 2 落班机制）。**(3) 历史记录**：档案永久保留（D18），但升学预检从 0 重算——历史打卡/闻思/实修数据不计入新一轮升学条件（用户决策 2026-06-03）| (1) 排除「禁止登录」：D18 全数据保留精神，学员有权查看自己的历史档案；排除「维持完整班级访问」：disqualified 已不是班级有效成员，班级内容/活动访问权应收回；(2) 排除「永久禁止再入学」：佛教学修体系以认罪忏悔为改过门径，永久封禁不符合教义精神；排除「与 left 同等待遇（class_admin 可操作）」：取消资格因严重虚报触发，再入学需更高授权（super_admin）以体现严肃性；(3) 排除「历史记录接续计入升学」：被取消资格意味历史数据可信度存疑，接续计入等于变相认可虚报数据；排除「全部清零（物理删除历史）」：违反 D18 全数据保留原则；保留档案但升学重算是 D18 与数据可信度的平衡点。关联 DR-84（忏悔机制）/ DR-149（disqualified 状态来源）/ D18 / 能力 9/11 |
