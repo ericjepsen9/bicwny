@@ -1734,11 +1734,11 @@ model AssistantAssignment {
 | status 枚举 | 应用层 | 只允许 submitted / acknowledged |
 | acknowledged 必须有 reviewedBy/reviewedAt | 应用层 | 状态变更时校验字段完整性 |
 | 无 delete API | 应用层 | D18，忏悔记录永久留档 |
-| 拒绝忏悔不在本表记录（DR-84）| 应用层 | 学员拒绝即无记录；管理员走取消资格（职能 #14）+ AuditLog |
+| 拒绝忏悔不在本表记录（DR-84）| 应用层 | 学员拒绝即无记录；管理员走取消资格（职能 #14）+ AuditLog；⏸ **取消资格前置检查逻辑待定**（见 DR-84）|
 
 #### 设计意图
 
-status 只有两态（`submitted`/`acknowledged`），不引入 `refused`/`escalated`（DR-84）：拒绝忏悔的学员本表无记录，管理员直接走取消资格 + AuditLog 留痕；「虚报处理必须先走忏悔流程，不可跳过」（能力 9 规则 #4）由应用层在取消资格前检查本表是否存在 submitted 记录来保障。
+status 只有两态（`submitted`/`acknowledged`），不引入 `refused`/`escalated`（DR-84）：拒绝忏悔的学员本表无记录，管理员直接走取消资格 + AuditLog 留痕；⏸ **取消资格前置检查逻辑待定**（DR-84）：「虚报处理必须先走忏悔流程，不可跳过」（能力 9 规则 #4）的应用层 gate 实现方式——包括学员拒绝忏悔时如何满足 gate、检查哪张表/哪个字段——待后续讨论后再定。
 
 ---
 
@@ -2955,6 +2955,7 @@ model UserSelfStudyProgram {
 | 2026-05-30 | §3.8 ReportConfession（虚报忏悔记录）✅ 封板——status 只有 submitted/acknowledged 两态（DR-84）；拒绝忏悔不在本表记录，管理员直接走取消资格（职能 #14）+ AuditLog 解耦；watchlistItemId 可空兼容不经 CareWatchlist 直接要求忏悔的情况；「先忏悔再取消资格」业务规则由应用层检查 submitted 记录保障；§八 DR-84；§九 检查轮次 31（0 问题）|
 | 2026-06-03 | 裁判剧本 1 Unit ② 毕业事件定义——DR-149/DR-150 封板：graduated（毕业=时间事件）vs advanced（升正科）语义分离；cohortStatus 5→7 态（+advanced/+disqualified）；法王祈祷文/灌顶/完整内加行卡升密法（advanced）不卡毕业（graduated）；落班机制=邀请码两步走；原专业永久 advanced；并行专业不级联；§1.2 写权限/字段/设计意图/§六 enum/§八 DR-149/DR-150/§九 检查轮次 99 全部更新；跨 06/08/09 一致（0 问题）|
 | 2026-06-03 | 裁判剧本 1 Unit ②-C 剩余缺口——DR-151 封板：(1) 多正科并存不设上限；(2) primaryProgramId 主修由用户自设、系统永不自动更改（修订 05 D16 + 06 能力 10 规则 8）；(3) 升学确认=邀请码（DR-150 已覆盖，无新步骤）；(4) UserPracticeVow +substitutionFor 字段 + 200万心咒→顶礼+法王祈祷文双豁免因果链（大纲§649）；(5) DR-84 虚报忏悔矛盾标 ⏸ 待处理（Unit ⑤ 最后）；§1.7 字段表/Prisma schema/约束/§1.12 设计意图/§八 DR-94/DR-95/DR-84/DR-151/§九 检查轮次 100 全部更新；跨 05/06/08 一致（0 问题）|
+| 2026-06-03 | DR-84 忏悔机制整体标 ⏸ 待定——取消资格前置检查 gate 逻辑（含「学员拒绝忏悔时如何满足 gate」）待后续讨论；§3.8 约束行 + 设计意图 + §八 DR-84 + 06 能力 9 绝对约束 4 同步标注 ⏸ 待定 |
 
 ---
 
@@ -3048,7 +3049,7 @@ model UserSelfStudyProgram {
 | DR-82 | 辅助员（能力 13）是否单建表 | **独立建表 AssistantAssignment**（用户决策 2026-05-29，经核对 02 文档后回滚定案）| 决策经历两轮：先尝试「并入 UserRoleAssignment 作第 5 个 role class_assistant」（图复用角色机制）；后核对 02-roles-and-permissions-v1.md §一——角色表**只有 4 个 role**（class_tutor/class_admin/subject_admin/super_admin）+ student，**class_assistant 不在其中**；能力 13 亦明确「辅助员不属于四大管理角色」，02 文档仅以职能 #19 的操作对象形式承载它。并入会让角色表自创一个文档未定义的第 5 角色，违反 CLAUDE.md「业务规则以 02/05/06 为准、不凭印象自创」铁律，且权限模型分裂（四大靠继承、辅助员靠固定权限集+禁区）。**回滚为独立表**：AssistantAssignment 单表，权限集固定在应用层，与角色体系解耦，忠于 02 文档语义。代价是重写一遍 status/留痕（可接受，配对量小、逻辑简单）。§三 新建区维持 14 张 |
 | DR-83-A | SemesterSnapshot.snapshotData 字段类型 | **Json**（用户决策 2026-05-30）| 各科系汇报维度不同（加行有座次/顶礼，净土有念佛数，入行论有默写），若拆成独立列需为每个科系建不同 schema 或预留大量 nullable 列。Json 方案：一张表覆盖全部科系，维度差异封装在 Json 内，新科系扩展无需 migration；同 CohortWeeklySummary.summaryData 已验证此模式。排除「拆列」：过多 nullable 列且不同科系列集合不同，维护成本高于 Json |
 | DR-83-B | SemesterSnapshot 快照值是否可改 | **冻结（不可改）**，事后更正走 AuditLog（用户决策 2026-05-30）| 快照目的是「在节点截止时刻留下永久数据证据」，若允许事后修改则历史评估结论失去可信基础（违背 D18 不删、不改的永久档原则）。admin 事后代行更正（如学员补报遗漏数据）只产生 AuditLog 条目说明更正原因和更正人，快照本身不变。排除「允许 admin 改快照」：一旦可改，任何历史争议时快照都不再是权威；排除「有限度可改+版本号」：引入版本机制复杂度高、且无此需求的业务场景 |
-| DR-84 ⏸ 待处理（Unit ⑤ 最后）| ReportConfession status 是否包含「拒绝忏悔」状态（⚠️ 内在矛盾：「必须先走忏悔流程」要求取消资格前检查 submitted 记录，但「学员拒绝时本表无记录」使该检查永远阻断取消资格；矛盾待 Unit ⑤ 解决）| **暂定不包含**，status 只有 submitted/acknowledged（用户决策 2026-05-30，矛盾 ⏸ 待处理）| 能力 9「拒绝忏悔」指学员拒绝提交、本表根本无记录，而非提交后再拒绝的中间状态。拒绝后走职能 #14 取消资格 → ClassMember 状态变更 + AuditLog 留痕，与 ReportConfession 表完全解耦。排除「status=refused」：学员拒绝时本表无记录（管理员无法写入 refused），引入该值无实际写入路径；排除「status=escalated」：取消资格是独立的 ClassMember 操作，不应耦合进忏悔记录的状态机。**⚠️ 矛盾点（待 Unit ⑤ 解决）**：「必须先走忏悔流程」（能力 9 规则 #4）由应用层在取消资格前检查本表是否有 submitted 记录来保障——但当学员拒绝忏悔时本表无记录，此检查将永远阻断取消资格操作。矛盾与「虚报忏悔」业务规则整体留 Unit ⑤ 统一讨论 |
+| DR-84 ⏸ **忏悔机制待定** | ReportConfession status 是否包含「拒绝忏悔」状态，以及取消资格前置检查 gate 逻辑 | **暂定**：status 只有 submitted/acknowledged（用户决策 2026-05-30）；⏸ **忏悔机制整体待定**（用户决策 2026-06-03）：取消资格前如何验证「已走忏悔流程」、学员拒绝时 gate 如何通过——待后续讨论，现阶段应用层 gate 实现不写死。| 已排除「status=refused」：学员拒绝时本表无记录，管理员无写入路径；已排除「status=escalated」：取消资格为独立 ClassMember 操作，不应耦合到忏悔状态机。**⚠️ 内在矛盾**（已知，整体待定）：「必须先走忏悔流程」（能力 9 规则 #4）的应用层 gate 若检查 submitted 记录——当学员拒绝时本表无记录，检查将永远阻断取消资格；矛盾与「虚报忏悔」业务规则整体留待后续决策。|
 | DR-92 | 闻思圆满「音视频二选一」判定 + StudentSpecialStatus 两类语义覆盖 | **音频或视频任一算「听」；blind=视障类、deaf=听障类覆盖大纲细分**（用户决策 2026-05-30，TODO-8 闭合）| 能力 3 大纲「听音视频」指音频或视频任一即满足「听」，但 LessonCompletion 的 audio/video 是两条独立 type。判定逻辑：听 = `COUNT(type IN audio,video)`、看 = `COUNT(type=read)`、答题 = UserAnswer，纯应用层聚合，字段已就位。身份覆盖：大纲路径表细分「盲/低视力/文盲」「聋/听障」，但 §3.3 statusType 只有 blind/deaf 两类（DR-76 不可扩展）；定 blind=视觉障碍类（含低视力/文盲，走纯听≥2）、deaf=听觉障碍类（含听障，走纯看≥2），两类语义覆盖细分。排除「扩展 statusType 增细分」（方案 B）：推翻 DR-76 能力 12 绝对约束，且细分对圆满路径无影响（同走纯听/纯看），两类已足够；盲+聋双重残疾大纲无路径，走能力 5 代行不自创规则。**补记（DR-93）**：判定矩阵「正式/入门课 vs 限制性课」依赖 Course.courseType 字段——此字段当时不存在，已在 §1.11 补齐 |
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼）→ 升学预检检查心咒 vow.`currentCount ≥ 2,000,000`：完成→顶礼 ✅ + 法王祈祷文 ✅（双豁免，无需聚合 prayerCount，DR-94/DR-151 协同）；未完成→两项均 ❌。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
