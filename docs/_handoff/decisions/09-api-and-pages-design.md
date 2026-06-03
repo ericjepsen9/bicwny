@@ -119,7 +119,7 @@
 ### API 契约
 | 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
 |---|---|---|---|---|---|---|
-| POST | `/api/practice-logs` | student | `{practiceProjectId,count,durationMinutes?,prayerCount?,source:'in_app'}` | `PracticeLog` | 🔧 | 打卡（改造自 PracticeEntry，source 值域改 in_app/external/ai_assistant，DR-121/144）|
+| POST | `/api/practice-logs` | student | `{vowId,practiceProjectId,count,durationMinutes?,prayerCount?,source:'in_app'}` | `PracticeLog` | 🔧 | 打卡（改造自 PracticeEntry，source 值域改 in_app/external/ai_assistant，DR-121/144）；`vowId` 必填，多专业分流必须（DR-153）|
 | GET | `/api/me/practice-logs` | student | `?projectId&from&to` | `PracticeLog[]` + 聚合 | 🔧 | 我的打卡记录/统计 |
 | GET/POST | `/api/me/vows` | student | 发愿 `{projectId,targetCount,context}` | `UserPracticeVow` | 🆕 | 个人修持承诺（线上无 vow 表，DR-121）|
 | GET | `/api/classes/:id/tasks` | student | — | `ClassTask[]`（daily/weekly 目标）| 🆕 | 本班实修任务（频率目标驱动）|
@@ -136,6 +136,7 @@
 
 ### 大纲 & DR 关联 + 对齐备注
 - 服务大纲 **C3（净土念佛号）/C4（入行论观修·心咒）/C5（学经读经固定功课）**；DR-121/124/144。
+- **✅ 决策 G1.4（2026-06-03·DR-153）多专业报数分流**：`POST /api/practice-logs` 入参增加 `vowId`（必填）；前端从专业任务卡片上下文自动带入，后端校验该 vow 属于当前用户+当前活跃学期；多专业并修时各专业卡片各自独立、点哪张归哪个专业；❌ 不做「提交时下拉选专业」（入口已在卡片上下文内，冗余选择器增加认知负担）。
 - **✅ 决策 C3/C4（2026-06-02·DR-148·config 驱动零新字段）念佛三选一 / 入行论二选一互斥**：互斥规则写进 `ProgramAdvancementConfig.params`（§3.1 已是 Json 额外参数，如 `{selectionGroup:'nianfo', selectionMode:'pick_one'}`），**无需给 ClassTask 加字段**。`POST /api/practice-logs` 校验时读对应 config 的 params：同组 `pick_one` 且学员本期已对另一项打过卡→拒绝（409「本组只报一种」），首次打卡锁定该组选项。组内锁定可走能力 5 代行调整。
 - **✅ 决策 C5（2026-06-02·DR-148·config 驱动零新字段）学经固定功课 + 自选功课**：① 预置 `PracticeProject` 字典项（心经/普贤行愿品等固定功课）；② **自选功课「不计入升学」靠 config 引用判定**——升学预检（能力 10 AdvancementCheck）只认 `ProgramAdvancementConfig` 引用的功课条件，自选功课不在任何 advancement config 中 → 天然不进升学聚合（贴合 08 D3 数据驱动），**无需给 PracticeProject/PracticeLog 加 countsForAdvancement 字段**。自选功课正常入 PracticeLog 历史、不进升学判定。
 
@@ -248,7 +249,7 @@
 | 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
 |---|---|---|---|---|---|---|
 | GET | `/api/meditations[/:id]` | optional | — | 92 修法字典+引导视频 | ✅ | 复用净资产内容 |
-| POST | `/api/me/practice-logs` | student | `{meditationId,durationMinutes,source:'in_app'}` | `PracticeLog` | 🔧 | **手动点「完成观修」记一座**（DR-111 不自动）；确认时校验 `durationMinutes≥30`（DR-91）否则 422 |
+| POST | `/api/me/practice-logs` | student | `{vowId,meditationId,durationMinutes,source:'in_app'}` | `PracticeLog` | 🔧 | **手动点「完成观修」记一座**（DR-111 不自动）；确认时校验 `durationMinutes≥30`（DR-91）否则 422；`vowId` 必填（DR-153 多专业分流）|
 | GET | `/api/me/meditation-progress` | student | `?programId` | `{每修法座数/时长, 总276座/138h 达标态}` | 🆕 | 双维度进度（单修法≥3座且≥90min；总≥276座且≥138h）|
 | GET/POST | `/api/me/vows` | student | 发愿 | `UserPracticeVow` | 🆕 | 座数/时长承诺聚合（同能力 7）|
 
@@ -279,7 +280,7 @@
 ### API 契约
 | 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
 |---|---|---|---|---|---|---|
-| POST | `/api/me/practice-logs` | student | `{ngondroItem:'prostration'\|...,count,ritualCompliant:bool,source}` | `PracticeLog` | 🔧 | 计数打卡；`ritualCompliant` 必填（仪轨合规一票否决，不合规作废）|
+| POST | `/api/me/practice-logs` | student | `{vowId,ngondroItem:'prostration'\|...,count,ritualCompliant:bool,source}` | `PracticeLog` | 🔧 | 计数打卡；`ritualCompliant` 必填（仪轨合规一票否决，不合规作废）；`vowId` 必填（DR-153 多专业分流）|
 | GET | `/api/me/ngondro-progress` | student | `?programId` | `{6项各累计/10万达标, 法王祈祷文累计/欠X万, 顶礼替代态}` | 🆕 | 6 项进度 + **法王祈祷文独立计数**（不并入顶礼）+ 跨专业共享来源标注 |
 
 > 顶礼替代/豁免/补足走**能力 5 代行**端点（`PATCH /api/admin/.../students/:uid/substitution`）；⏸ **学员申请入口待定**——当前替代由管理员在能力 5 代行界面主动发起，学员无自助申请入口；入口设计待后续讨论。
