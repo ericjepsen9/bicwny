@@ -274,7 +274,7 @@
 ## 能力 6 · 内加行实修（累计计数型）  〔批3·实修〕
 
 ### 涉及表（08 落点）
-`PracticeLog`（§1.12，🔧 计数型条目，6 项内加行+法王祈祷文）· `UserPracticeVow`（🆕 6 项各 10 万累计 + 法王祈祷文独立累计）· `PracticeSubstitution`（§3.x，🆕 顶礼→200 万金刚萨埵替代，走能力 5）
+`PracticeLog`（§1.12，🔧 计数型条目，6 项内加行+法王祈祷文）· `UserPracticeVow`（🆕 6 项各 10 万累计 + 法王祈祷文独立累计；`isSubstituted`+`substitutionFor` 字段承载顶礼→200 万替代因果链，❌ 无独立 `PracticeSubstitution` 表，见 DR-151）
 
 ### API 契约
 | 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
@@ -282,7 +282,7 @@
 | POST | `/api/me/practice-logs` | student | `{ngondroItem:'prostration'\|...,count,ritualCompliant:bool,source}` | `PracticeLog` | 🔧 | 计数打卡；`ritualCompliant` 必填（仪轨合规一票否决，不合规作废）|
 | GET | `/api/me/ngondro-progress` | student | `?programId` | `{6项各累计/10万达标, 法王祈祷文累计/欠X万, 顶礼替代态}` | 🆕 | 6 项进度 + **法王祈祷文独立计数**（不并入顶礼）+ 跨专业共享来源标注 |
 
-> 顶礼替代/豁免/补足走**能力 5 代行**端点（`PATCH /api/admin/.../students/:uid/substitution`），不在学员端开口子。
+> 顶礼替代/豁免/补足走**能力 5 代行**端点（`PATCH /api/admin/.../students/:uid/substitution`）；⏸ **学员申请入口待定**——当前替代由管理员在能力 5 代行界面主动发起，学员无自助申请入口；入口设计待后续讨论。
 
 ### 页面/交互
 | 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
