@@ -353,7 +353,7 @@
 | GET | `/api/me/advancement-status` | student | `?programId` | 6 类条件逐条满足态 + 缺口 | 🆕 | 学员「升学进度」板块（只读自己，含代行豁免明细 D18）|
 | POST | `/api/classes/:id/advancement-checks` | class_admin+ | `{programId,semester}` | `AdvancementCheck[]` | 🆕 | **系统自动预检**：读能力 9 快照逐条算 6 条件（闻思/观修/内加行/出勤/升学考/灌顶），生成预检报告，**不自动升学** |
 | GET | `/api/classes/:id/advancement-checks` | class_admin+ | `?semester` | 全班预检报告 | 🆕 | 管理员核查列表（逐项满足/缺口/可豁免标记）|
-| POST | `/api/advancement-checks/:id/approve` | class_admin+ | `{decision:'pass'\|'reject',note}` | `AdvancementRecord` | 🆕 | **审核拍板**（#16，直接定不上报）：pass→写升学记录+状态变正科；reject→提示留级（能力 11）|
+| POST | `/api/advancement-checks/:id/approve` | class_admin+ | `{decision:'pass'\|'reject',note}` | `AdvancementRecord` | 🆕 | **审核拍板**（#16，直接定不上报）：pass→写 AdvancementRecord + 原预科成员 cohortStatus `graduated→advanced`（DR-149；落班机制②-B 待定）+ 记 EnrollmentStatusHistory；reject→提示留级（能力 11）|
 
 ### 页面/交互
 | 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
@@ -377,13 +377,14 @@
 ## 能力 11 · 留级、退出、转专业  〔批5·生命周期〕
 
 ### 涉及表（08 落点）
-`ClassMember.cohortStatus`（✅ active/paused/held_back/graduated/left，DR：退班=改状态非删除）· `EnrollmentStatusHistory`（§2146，🆕 状态变更永久留痕）· `Class.status`（✅ archived，D19 只归档不删）· `LeaveRequest`（§3.15，🆕 请假审批，DR-90）· 邀请码（能力 2，留级/回归入口）
+`ClassMember.cohortStatus`（✅ active/paused/held_back/graduated/advanced/disqualified/left，DR-149 扩 7 态；退班=改状态非删除）· `EnrollmentStatusHistory`（§2146，🆕 状态变更永久留痕）· `Class.status`（✅ archived，D19 只归档不删）· `LeaveRequest`（§3.15，🆕 请假审批，DR-90）· 邀请码（能力 2，留级/回归入口）
 
 ### API 契约
 | 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
 |---|---|---|---|---|---|---|
 | POST | `/api/me/enrollments/:classId/exit` | student | `{confirm:true}` | 状态→left | 🆕 | **学员自主退出**（无需审批）；二次确认；历史记录保留只读（D15）|
 | POST | `/api/coach/classes/:newClassId/retain` | class_admin+ | `{userId,fromClassId,reason}` | 状态→held_back+新班 active | 🆕 | **留级手动操作**：经能力 2 把学员加新一届班；旧班记录保留、新班按新届起修日累计 |
+| POST | `/api/coach/classes/:id/graduate` | class_admin+ | `{confirm:true}` | 全班 active→graduated | 🆕 | **批量结业**（第八学期结束，DR-149）：本班所有 active 成员 cohortStatus→graduated + 各记 EnrollmentStatusHistory；**无实修门槛**（毕业=时间事件非达标）；二次确认；毕业去向（升学/留级/转预科）另走对应能力 |
 | POST | `/api/coach/classes/:id/archive` | class_admin+ | — | `Class.status=archived` | 🆕 | **班级归档**（D19，无 delete）；归档后不收新生/不产课表 |
 | GET | `/api/me/enrollment-history` | student | — | `EnrollmentStatusHistory[]` | 🆕 | 学员看自己退出/回归/留级全程（双方可见 D18）|
 | POST | `/api/me/leave-requests` | student | `{classId,startDate,endDate,reason}` | `LeaveRequest` | 🆕 | **学员提交请假申请**；pending 态，待辅导员审批 |
@@ -395,23 +396,24 @@
 
 > 转专业 = 退出当前 + 加入另一（能力 2）**两步走，无平移端点**；两段历史各自独立，跨专业累计共享（D14a）仍生效。
 > `paused` 独占语义：cohortStatus=paused 当且仅当有一条 status=approved 且 endDate≥today 的 LeaveRequest；无其他触发路径。endDate < today 时 paused 视为逻辑到期（实时推算），DB 字段由 `/end` 端点落库。
+> **毕业（graduated）vs 升正科（advanced）**（DR-149）：`graduated`=第八学期学制走完（管理员手动批量结业、无实修门槛，大纲§573）；`advanced`=毕业且升学成功（能力 10 approve）。法王祈祷文/灌顶/完整内加行是升密法门槛、非毕业门槛（大纲§651）→ 欠账可 graduated 不可 advanced。毕业去向：升学（→advanced，能力10）/ 留级（→held_back）/ 转预科（退出+加入）/ 转功德会（❌ DR-68）。落班机制（升学后正科成员产生）属 ②-B 另轮。
 
 ### 页面/交互
 | 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
 |---|---|---|---|---|
 | 学员 | `/me/programs` | 专业列表：在修/「已退出」灰显可展开看历史 | 退出二次确认；回归走邀请码（能力 2）记录自动衔接 | 🔧 改（加退出/已退出态）|
-| 班级管理员 | `/coach/classes/:id/settings` | 留级入口（升学驳回后提示）+ 班级归档 | reject→留级提示→加新班；本届清空后手动归档 | 🆕 |
+| 班级管理员 | `/coach/classes/:id/settings` | 留级入口（升学驳回后提示）+ 批量结业 + 班级归档 | reject→留级提示→加新班；第八学期末批量结业（全班→graduated）；本届清空后手动归档 | 🆕 |
 | 学员 | `/me/leave-requests` | 我的请假记录（提交新请假 + 查历史）| 提交后等待审批；显示 pending/approved/rejected 状态 | 🆕 |
 | 辅导员 | `/coach/classes/:id/leave-requests` | 本班请假审批队列 | 批准→学员进 paused；拒绝附原因；可提前结束请假 | 🆕 |
 
 ### 三端可见性
-- **学员**：自己各专业状态（在修/已退出/留级/请假中）+ 状态变更史；可退出、可提交请假申请、可经邀请码回归。
+- **学员**：自己各专业状态（在修/已退出/留级/请假中/已毕业/已升正科）+ 状态变更史；可退出、可提交请假申请、可经邀请码回归。
 - **辅导员**：可见本班成员状态；审批请假（批准/拒绝/结束）；**留级/归档限班级管理员+**。
 - **班级管理员+**：留级（加新班）、班级归档、状态治理（含请假审批）。
 
 ### 大纲 & DR 关联 + 对齐备注
-- 衔接能力 10（升学驳回触发留级）；D15（退出记录保留）/D18（永久留档）/D19（只归档不删）/D14a（跨专业共享）/DR-90-A（expired 实时推算）/DR-90-B（approved 期间不计入掉队窗口）/DR-102（能力 3/9 截止日顺延）。
-- **🔵 业务规则落点**：① 班级只归档（D19）→ 无 delete API，`Class.status=archived`；② 退出记录保留（D15）→ `cohortStatus=left` 非物理删，历史只读可查；③ 留级手动（绝对约束4）→ 无自动留级，管理员经邀请码加新班；④ 缺席期补卡走能力 5 代行（退出期共修缺场可管理员补卡留痕）；⑤ **请假批准原子写 paused**（DR-90）→ `/approve` 端点同时写 LeaveRequest.status=approved + cohortStatus=paused + EnrollmentStatusHistory，三表同事务；⑥ **paused 独占语义**（08 §1.2）→ paused 当且仅当有效 approved LeaveRequest 存在，无其他触发路径；⑦ **到期实时推算**（DR-90-A 模式）→ endDate < today 时系统计算 paused 已到期，DB 落库由辅导员点"/end"确认。
+- 衔接能力 10（升学驳回触发留级）；D15（退出记录保留）/D18（永久留档）/D19（只归档不删）/D14a（跨专业共享）/DR-90-A（expired 实时推算）/DR-90-B（approved 期间不计入掉队窗口）/DR-102（能力 3/9 截止日顺延）/DR-149（毕业=时间事件、graduated≠advanced）。
+- **🔵 业务规则落点**：① 班级只归档（D19）→ 无 delete API，`Class.status=archived`；② 退出记录保留（D15）→ `cohortStatus=left` 非物理删，历史只读可查；③ 留级手动（绝对约束4）→ 无自动留级，管理员经邀请码加新班；④ 缺席期补卡走能力 5 代行（退出期共修缺场可管理员补卡留痕）；⑤ **请假批准原子写 paused**（DR-90）→ `/approve` 端点同时写 LeaveRequest.status=approved + cohortStatus=paused + EnrollmentStatusHistory，三表同事务；⑥ **paused 独占语义**（08 §1.2）→ paused 当且仅当有效 approved LeaveRequest 存在，无其他触发路径；⑦ **到期实时推算**（DR-90-A 模式）→ endDate < today 时系统计算 paused 已到期，DB 落库由辅导员点"/end"确认；⑧ **毕业≠升密法**（DR-149）→ `active→graduated` 第八学期手动批量结业（无实修门槛，大纲§573）、`graduated→advanced` 升学审核通过（能力 10）；法王祈祷文/灌顶/完整内加行卡 advanced 不卡 graduated（大纲§651），二状态分离表达「达标未升学」与「升学成功」。
 - **🔵 字段对齐**：06 占位名 `enrollment_status`/`class_status` → 08 实为 `ClassMember.cohortStatus` + `Class.status` + `EnrollmentStatusHistory`，本能力按 08 落点。
 
 ---

@@ -79,7 +79,7 @@
 ### 1.2 ClassMember（班级成员）✅ 已封板
 
 **服务能力**：能力 2（学员加入专业）+ 能力 11（留级、退出、转专业）
-**写权限**：状态机操作分级——`active→paused` 系统自动（LeaveRequest 批准时原子写入，同步记 EnrollmentStatusHistory）；`paused→active` 实时推算（endDate < today 且 status=approved 视为到期，同 DR-90-A expired 模式；DB 字段由辅导员"结束请假"端点落库）；`held_back/graduated/left` 限 `class_admin` 及以上；复活（left→active）限 admin
+**写权限**：状态机操作分级——`active→paused` 系统自动（LeaveRequest 批准时原子写入，同步记 EnrollmentStatusHistory）；`paused→active` 实时推算（endDate < today 且 status=approved 视为到期，同 DR-90-A expired 模式；DB 字段由辅导员"结束请假"端点落库）；`active→graduated` 管理员手动结业（第八学期结束批量置毕业，class_admin+，绝对约束4「无自动」精神，DR-149）；`graduated→advanced` 升学审核通过时写（能力 10 职能#16，class_admin+，DR-149）；`held_back/left/disqualified` 限 `class_admin` 及以上（`disqualified`=职能#14 取消资格，downstream 详 Unit ⑤）；复活（left→active）限 admin
 **参考决策**：D15（退出后历史可查）、D18（不物理删除）、D19（班级只归档）
 
 #### 字段
@@ -90,7 +90,7 @@
 | `classId` | String | 关联 Class | 旧 |
 | `userId` | String | 关联 User | 旧 |
 | `joinedAt` | DateTime | 加入时间，默认 now() | 旧 |
-| `cohortStatus` | CohortMemberStatus | active/paused/held_back/graduated/left，默认 active | 旧 |
+| `cohortStatus` | CohortMemberStatus | active/paused/held_back/graduated/advanced/disqualified/left，默认 active（advanced/disqualified 为 DR-149 新增）| 旧+扩 |
 | `isPrimary` | Boolean | 主班标记，默认 false；一人多班只有一个主班 | 旧 |
 | `heldBackCount` | Int | 留级累计次数，默认 0；转 held_back 时 +1 | 旧 |
 | `graduatedAt` | DateTime? | 毕业时间 | 旧 |
@@ -122,6 +122,14 @@
 #### 设计意图
 
 退班用状态位而非删行，配合 EnrollmentStatusHistory 满足 D15「退出后学员仍可只读查看历史」。`@@unique([classId, userId])` 保证回归（能力 11 规则#2）时复活原成员行、记录自动衔接，不产生重复成员。
+
+> **毕业（graduated）vs 升正科（advanced）语义分离**（裁判剧本 1 T16/T17 缺口闭合，DR-149，2026-06-03）：
+> - `graduated` = **第八学期学制走完的时间事件**，管理员手动结业触发（class_admin+，绝对约束4「无自动」精神），**无实修门槛**——走完学制即毕业，留在预科原地（大纲§573「第八学期结束毕业」）。
+> - `advanced` = 毕业**且已升入正科**（升学审核通过，能力 10 职能#16），本预科成员关系因升学终结；升学详情存 AdvancementRecord（§3.10），不另设 `advancedAt` 字段。
+> - **法王祈祷文 / 灌顶 / 完整内加行是「升密法（advanced）」门槛，不是「毕业（graduated）」门槛**（大纲§651「否则，不能进入密法」）。故法王祈祷文欠账学员 **可 graduated、不可 advanced**——这正是 graduated/advanced 必须分离的业务理由。
+> - graduated 同时表达「达标未升学」（如净土达标但选择留预科）：达标与否只决定能否再 advanced，不改变 graduated 本身。
+> - **毕业去向决策树**：升学（→advanced，能力 10）／留级（→held_back，能力 11）／转预科（退出+加入两步走，能力 11）／转功德会（❌ 不做，DR-68）。
+> - 结业（active→graduated）与升学（graduated→advanced）均同步写 EnrollmentStatusHistory（D18 永久留痕）。落班机制（升学后正科新成员如何产生：自动 vs 邀请码手动）属 ②-B，另轮处理。
 
 > **辅导员与成员身份**（用户决策 2026-05-29）：辅导员**可以是班级成员**（ClassMember 装学员也装辅导员），其管理角色叠加在 UserRoleAssignment 上。ClassMember 只表达「属于这个班」，不再用字段区分学员/辅导员——身份一律从 UserRoleAssignment 按班级作用域读。删除 `role` 即据此。
 >
@@ -343,7 +351,7 @@ model Exam {
 |---|---|---|
 | `@@unique([classId, studentId])` | DB | 一人一行只存最新快照 |
 | `@@index([classId])` | DB | 名单页按班查询 |
-| 仅 `cohortStatus=active` 成员计算 | 应用层 | paused/held_back/graduated/left 不入表（与 ClassMember 状态机对齐）|
+| 仅 `cohortStatus=active` 成员计算 | 应用层 | paused/held_back/graduated/advanced/disqualified/left 不入表（与 ClassMember 状态机对齐）|
 | 学员端不可见 | 应用层 | 无 API 返回；仅辅导员及以上可读 |
 | 无排表班（programId=null）三维恒 on_track | 应用层 | contentLag/quizLag/meditationLag 分母=0→率=1 |
 
@@ -2869,7 +2877,7 @@ model UserSelfStudyProgram {
 |---|---|---|
 | `ProgramStage` | `preke` / `zhengke` | 预科/正科，D2 固定（新增）|
 | `AdvancementConditionType` | `course_completion` / `practice_session` / `cumulative_count` / `attendance` / `exam_score` / `transmission` | 升学条件 6 类（新增，能力 10）|
-| `CohortMemberStatus` | `active` / `paused` / `held_back` / `graduated` / `left` | 成员状态机 5 态（旧设计沿用，能力 11）|
+| `CohortMemberStatus` | `active` / `paused` / `held_back` / `graduated` / `advanced` / `disqualified` / `left` | 成员状态机 7 态（旧 5 态 + DR-149 新增 `advanced` 升正科 / `disqualified` 取消资格，能力 9/10/11）|
 | `LagStatus` | `on_track` / `slightly_behind` / `falling_behind` / `at_risk` | 掉队检测 4 档（旧设计沿用，能力 14；五维各独立取值，不加权）|
 
 ---
@@ -3038,6 +3046,7 @@ model UserSelfStudyProgram {
 | DR-93 | Course 是否需要 courseType 字段（教学阶段类型）| **新增 courseType（entry/formal/restricted），与 category 正交**（用户决策 2026-05-30，TODO-15 闭合）|
 | DR-95 | 法王祈祷文独立计数：PracticeLog 新增 prayerCount + 无欠债状态机 | **顶礼打卡同次录入 prayerCount（Int?），无独立欠/补状态机，累计 SUM ≥ 100,000 即满足**（用户决策 2026-05-30，TODO-11 闭合）| 能力 6 规则 1「法王祈祷文必须独立计数」要求必须有独立字段（不能合并到顶礼计数）。原 TODO-11 设计思路假设需要「欠/补」状态机——用户质疑「为什么要标记是否欠？」后明确：prayerCount 是累计计数，差值（100,000 - SUM）即实时欠量，不需要存储债务状态。审批流：无需额外审批；学员每次顶礼打卡同步填祈祷文遍数，系统实时聚合。PracticeLog 改判 🔧 扩展（原判 ✅ 复用，DR-72），移入 §1.12。豁免路径：`UserPracticeVow.isSubstituted=true`（心咒代顶礼，DR-94）→ 升学预检跳过法王祈祷文判定，两者协同。排除「独立欠债表/状态机」：过度工程，SUM 聚合已能实时算差值，无需存储中间状态 |
 | DR-132 | D3 短信通道（能力 45）完整设计：第 3 触达通道 + User 手机号体系（🆕 新建）| **能力 45 短信通道完整设计：(A) User +phone/phoneVerified/phoneVerifiedAt 字段（线上 User 无手机号，grep 确认）+ 绑定验证流程；(B) sendSms 发送抽象层（Provider 接口 + 模板化 + 失败重试）；(C) 作为 dispatchToUsers 第 3 通道 channel='sms'（复用 DispatchLog 幂等）；(D) 用途规则：验证码/critical 系统公告/⑦⑧⑨关键学修提醒走短信，一般提醒/普通通知不走（控成本防骚扰）；(E) NotificationPreference +smsEnabled（验证码不受开关影响）。服务商选型等挂 TODO-SMS**（用户决策：用途=重要通知兜底+关键学修提醒，深度=完整设计短信通道，2026-05-31/06-01）| 用户追问「系统公告与通知推送/短信是不是两个模块」引出核查：dispatchToUsers 现仅 channel='push'（站内 Notification ✅+Web Push ✅），**SMS 完全未实现**——代码仅占位注释「banner/sms 后续接入时各自加 channel」，且**User 表连 phone 字段都没有**（grep phone/mobile 全空）。用户决策「都要做、逐条确认」+ 选项「用途=重要通知兜底+关键学修提醒」「深度=完整设计短信通道」。**设计要点**：短信是 Web Push 之外的兜底通道，但**按条计费**故严格限场景（仅 critical+关键学修提醒+验证码），非全量发；前置缺口是 User 手机号体系（字段+验证流程），无手机号则无法发。**通道选择**：站内信必达→push 有订阅则推→sms 仅 critical/关键且符合用途规则。**待决策**（TODO-SMS）：服务商选型（阿里云/腾讯云/国际）、smsEnabled 默认值、是否独立 SmsLog 表（默认复用 DispatchLog）、验证码频率/有效期。排除「短信全量发所有通知」：成本爆炸+骚扰，仅限关键场景；排除「不做手机号验证直接发」：未验证号码发短信浪费+合规风险，须 verified 才发业务短信（验证码除外）|
+| DR-149 | 「加行毕业」作为独立事件未定义 + 毕业 vs 升密法条件混淆（裁判剧本 1 T16/T17）+ cohortStatus 缺 advanced/disqualified 值 | **(1) graduated/advanced 语义分离**：`graduated`=第八学期学制走完的时间事件（管理员手动结业、无实修门槛、留预科原地，大纲§573）；`advanced`=毕业且升入正科（升学审核通过，大纲§613-672 硬条件）。**(2) 法王祈祷文/灌顶/完整内加行是升密法（advanced）门槛、非毕业（graduated）门槛**（大纲§651「否则不能进入密法」）→ 欠账学员可 graduated 不可 advanced。**(3)** cohortStatus 加 `advanced`（升正科）+ `disqualified`（取消资格，职能#14）两值，5 态→7 态。**(4)** 毕业触发=管理员手动结业（class_admin+，绝对约束4「无自动」精神）。**(5)** 毕业去向决策树：升学（→advanced）/留级（→held_back）/转预科（退出+加入）/转功德会（❌ DR-68）（用户决策 2026-06-03）| 排除「毕业设实修门槛」：大纲§573 毕业=第八学期结束的时间事件、非达标事件，实修硬条件是升密法门槛（§651），「毕业留级」（大纲PAGE25-26）指毕业后升学预检不过而留级、非毕业本身有门槛；排除「graduated 一值兼表毕业与升学」：无法区分「达标未升学」（净土达标留预科=graduated）与「升学成功」（=advanced），且法王祈祷文欠账「可毕业不可升密法」无法表达，故必须二值分离；排除「disqualified 复用 left」：取消资格与自主退出在语义/权限/再入学规则上不同（downstream 详 Unit ⑤）。落班机制（升学后正科成员产生方式）属 ②-B 另轮。§一12/§三20/§四20 不变（仅扩 enum 值）；关联 D13/D16/DR-68、能力 9/10/11、大纲§573/§651 |
 | DR-148 | 大纲 C3「念佛号三选一只报一种」/ C4「入行论观修·心咒二选一」互斥 + C5「自选功课不计入升学」——加新字段还是用现有结构？ | **config 驱动·零新字段**：① 互斥规则写进 `ProgramAdvancementConfig.params`（已是 Json，如 `{selectionGroup:'nianfo', selectionMode:'pick_one'}`），`POST /api/practice-logs` 读 params 校验（同组 pick_one 已报另一项→409），**不给 ClassTask 加字段**；② 自选功课「不计入升学」**靠 config 引用判定**——升学预检只认 `ProgramAdvancementConfig` 引用的功课，自选功课不在任何 config 中→天然不计，**不给 PracticeProject/PracticeLog 加 countsForAdvancement**（用户决策 2026-06-02） | 排除「09 原拟加新字段」（ClassTask.selectionMode/selectionGroup + PracticeProject.countsForAdvancement）：后者会让 PracticeProject 从复用区移入扩展区（计数 churn + migration），且 ClassTask 只覆盖辅导员任务、大纲级 C3/C4 落点不全。**现有结构（params Json + config 引用）更贴合 08 的 D3 数据驱动，零字段零 churn。** §一12/§三20/§四20 不变；关联 D3、能力 7/10、大纲 C3/C4/C5 |
 | DR-147 | 角色任命是否支持「过期时间」`expiresAt`？——06 能力18 规则7 要求，但 08 `UserRoleAssignment` 只有 revoke、无 expiresAt（06↔08 冲突） | **选 B·废规则**：角色**不设自动过期**，仅手动撤销（`status='revoked'`），历史永久留痕（D18）。08 `UserRoleAssignment` 无需加 `expiresAt`；06 规则7 已同步标 ❌废弃（用户决策 2026-06-01） | 排除「A·补字段」（08 加 `expiresAt` + 到期 cron/查询判失效）：线上无角色过期需求、手动 revoke 已够；08 设计未纳入过期应是有意，加字段+到期判定徒增维护面。**以 08 封板为准，废 06 规则7。** 零新表零字段，§一12/§三20/§四20 不变；关联 D6/D8、06 能力18 规则7 |
 | DR-146 | 大纲 E1/E2「每月≥2 次共修 / 每月 1 次实修共修」频率门槛——app 是否记录/追踪？ | **不记录·走建课时课表配置**：该频率不作为 app 追踪/展示/校验的运行指标，而是建课时课表配置的内在排程要求——管理员/辅导员创建课程/共修课表（能力 1 课程配置 + 能力 8 ClassSessionSchedule）时按大纲排足每月≥2 次共修（及每月 1 次实修共修），频率由课表结构本身保证；app 无 monthlyFrequency 字段/展示/预警/升学校验（用户决策 2026-06-02） | 排除「app 算并展示 monthlyFrequency（原拟 C 折中告知）」：频率是排课配置的结果、非需追踪的运行指标，多余；排除「app 自动预警+卡升学（A）」：把排课配置问题错位成学员考核；排除「app 完全不提（B）」：仍需在建课配置层体现大纲要求。**定位：频率是『配置期』约束（建课排足），非『运行期』指标。** 零新表零字段，§一12/§三20/§四20 不变；关联能力 1/8、大纲 E1-E2 |
@@ -4979,6 +4988,26 @@ model UserSelfStudyProgram {
 
 **本轮发现问题数**：0（表计数迁移四处对齐已核；社交 10 张留 §五不动、自学 1 张跨区，§一12/§四20 稳定）。
 **结论**：DR-145 封板——暂缓群一分为二：自学（能力 21）转必做、移入 §三实施、入新 P6；社交（能力 22/23/24）+ AI（25）+ 徽章（38）只做后台关键部分（社交建表+后台不做前端、AI/徽章维持 DR-109/128）。战略收敛到「核心学修管理 + 自学」。**表计数迁移：§三 19→20、§五 11→10**，§一12/§四20 不变。06↔08 双向对齐，Phase 图重排无环。
+
+---
+
+### 检查轮次 99（2026-06-03，范围：DR-149 · 加行毕业作为独立事件 + cohortStatus 5→7 态 · 跨 06/08/09 · 裁判剧本 1 T16/T17 缺口闭合）
+
+> Unit ② 毕业事件定义。用户拍板：毕业=第八学期时间事件（无实修门槛、管理员手动批量结业）；graduated（留预科原地）vs advanced（升正科）语义分离；cohortStatus 加 advanced/disqualified（5→7 态）。法王祈祷文/灌顶/完整内加行卡升密法（advanced）不卡毕业（graduated）（大纲§651）。无新表、无新字段，仅扩 enum 值域。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | 无新表/新字段；EnrollmentStatusHistory.fromStatus/toStatus 引用 CohortMemberStatus 类型，新增枚举值自动支持；结业/升学均写 EnrollmentStatusHistory（既有 statusHistory/leaveRequests 反向不变）|
+| 2. API 响应/DB 字段对齐 | ✅ | advanced/disqualified 同落 08（§六 enum）+ 09（能力 10/11 涉及表+API）；graduate 批量结业 API 写 cohortStatus=graduated、approve 写 graduated→advanced，与 08 §1.2 写权限分级一致 |
+| 3. 读取/聚合口径正确 | ✅ | 名单快照「仅 active 计算」排除列表同步加 advanced/disqualified；graduated/advanced 均不入掉队计算 |
+| 4. 总览计数正确 | ✅ | CohortMemberStatus 5 态→7 态：7 处值域串全部对齐（§六 enum + §1.2 字段 + §1.2 写权限 + 名单快照排除列表 + 09×2 + 06×1）；**无表计数变化**（§一12/§三20/§四20 不变，仅扩 enum 值）|
+| 5. Migration 覆盖完整 | ✅ | 纯 enum 值域扩展（+advanced/+disqualified），归入既有 §十一 M0「CohortMemberStatus」扩展单元；无新表/新字段 migration |
+| 6. Phase 计划覆盖完整 | ✅ | 毕业/升学属能力 10/11，已在既有 P2 升学结算 Phase；批量结业 API 随能力 11，无新 Phase |
+| 7. 暂缓/必做标签完整 | ✅ | 转功德会 ❌ 不做（DR-68）；落班机制（升学后正科成员产生方式）⏸ ②-B 另轮；disqualified downstream（登录/再入学）⏸ Unit ⑤ 另轮——三处均打标 |
+| 8. 业务规则约束有实现方式 | ✅ | 毕业=时间事件→graduate 批量 API（应用层 class_admin+）；graduated≠advanced→ 二 enum 值 + 写权限分级（08 §1.2）；法王祈祷文卡升密法不卡毕业→升学预检读硬条件（能力 10 规则 4）+ 毕业无门槛（能力 10 callout）；毕业去向→决策树（升学/留级/转预科/转功德会❌）|
+
+**本轮发现问题数**：1（06:662「对老项目影响」残留旧 3 值占位 active/exited/graduated，已对齐为 7 态权威值域 + 标旧值作废）。
+**结论**：DR-149 封板——「加行毕业」定义为第八学期时间事件（管理员手动批量结业、无实修门槛）；graduated（毕业留原地）vs advanced（升正科）语义分离，cohortStatus 5→7 态；法王祈祷文/灌顶/完整内加行卡升密法（advanced）不卡毕业（graduated），裁判剧本 1 T16/T17 缺口闭合。落班机制（②-B）+ disqualified downstream（Unit ⑤）另轮。无新表/新字段，仅扩 enum，§一12/§三20/§四20 稳定。
 
 ---
 
