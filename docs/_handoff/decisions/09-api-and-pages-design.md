@@ -353,7 +353,7 @@
 | GET | `/api/me/advancement-status` | student | `?programId` | 6 类条件逐条满足态 + 缺口 | 🆕 | 学员「升学进度」板块（只读自己，含代行豁免明细 D18）|
 | POST | `/api/classes/:id/advancement-checks` | class_admin+ | `{programId,semester}` | `AdvancementCheck[]` | 🆕 | **系统自动预检**：读能力 9 快照逐条算 6 条件（闻思/观修/内加行/出勤/升学考/灌顶），生成预检报告，**不自动升学** |
 | GET | `/api/classes/:id/advancement-checks` | class_admin+ | `?semester` | 全班预检报告 | 🆕 | 管理员核查列表（逐项满足/缺口/可豁免标记）|
-| POST | `/api/advancement-checks/:id/approve` | class_admin+ | `{decision:'pass'\|'reject',note}` | `AdvancementRecord` | 🆕 | **审核拍板**（#16，直接定不上报）：pass→写 AdvancementRecord + 原预科成员 cohortStatus `graduated→advanced`（DR-149；落班机制②-B 待定）+ 记 EnrollmentStatusHistory；reject→提示留级（能力 11）|
+| POST | `/api/advancement-checks/:id/approve` | class_admin+ | `{decision:'pass'\|'reject',note}` | `AdvancementRecord` | 🆕 | **审核拍板**（#16，直接定不上报）：pass→写 AdvancementRecord + 原预科成员 cohortStatus `graduated→advanced` + EnrollmentStatusHistory；**不建正科 ClassMember**（落班机制=邀请码两步走，DR-150；管理员另发邀请码学员走能力 2 加入）；并行专业 ClassMember 不受影响（D9/D16）；reject→提示留级（能力 11）|
 
 ### 页面/交互
 | 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
@@ -396,7 +396,7 @@
 
 > 转专业 = 退出当前 + 加入另一（能力 2）**两步走，无平移端点**；两段历史各自独立，跨专业累计共享（D14a）仍生效。
 > `paused` 独占语义：cohortStatus=paused 当且仅当有一条 status=approved 且 endDate≥today 的 LeaveRequest；无其他触发路径。endDate < today 时 paused 视为逻辑到期（实时推算），DB 字段由 `/end` 端点落库。
-> **毕业（graduated）vs 升正科（advanced）**（DR-149）：`graduated`=第八学期学制走完（管理员手动批量结业、无实修门槛，大纲§573）；`advanced`=毕业且升学成功（能力 10 approve）。法王祈祷文/灌顶/完整内加行是升密法门槛、非毕业门槛（大纲§651）→ 欠账可 graduated 不可 advanced。毕业去向：升学（→advanced，能力10）/ 留级（→held_back）/ 转预科（退出+加入）/ 转功德会（❌ DR-68）。落班机制（升学后正科成员产生）属 ②-B 另轮。
+> **毕业（graduated）vs 升正科（advanced）**（DR-149）：`graduated`=第八学期学制走完（管理员手动批量结业、无实修门槛，大纲§573）；`advanced`=毕业且升学成功（能力 10 approve）。法王祈祷文/灌顶/完整内加行是升密法门槛、非毕业门槛（大纲§651）→ 欠账可 graduated 不可 advanced。毕业去向：升学（→advanced，能力10）/ 留级（→held_back）/ 转预科（退出+加入）/ 转功德会（❌ DR-68）。落班机制=邀请码两步走（DR-150）：approve 不建正科 ClassMember，管理员另发邀请码；`advanced` 为原预科成员永久终态；并行专业不级联（D9/D16）。
 
 ### 页面/交互
 | 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
