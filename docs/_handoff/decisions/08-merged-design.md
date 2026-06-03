@@ -79,7 +79,7 @@
 ### 1.2 ClassMember（班级成员）✅ 已封板
 
 **服务能力**：能力 2（学员加入专业）+ 能力 11（留级、退出、转专业）
-**写权限**：状态机操作分级——`paused↔active` 学员自助；`held_back/graduated/left` 限 `class_admin` 及以上；复活（非 active→active）限 admin
+**写权限**：状态机操作分级——`active→paused` 系统自动（LeaveRequest 批准时原子写入，同步记 EnrollmentStatusHistory）；`paused→active` 实时推算（endDate < today 且 status=approved 视为到期，同 DR-90-A expired 模式；DB 字段由辅导员"结束请假"端点落库）；`held_back/graduated/left` 限 `class_admin` 及以上；复活（left→active）限 admin
 **参考决策**：D15（退出后历史可查）、D18（不物理删除）、D19（班级只归档）
 
 #### 字段
