@@ -1289,6 +1289,31 @@ model ProgramAdvancementConfig {
 
 **关键约束**：过滤条件必须包含 `programId=:pid`，确保 A 专业的 LessonCompletion 记录不满足 B 专业的 course_completion 预检（ISG-9 根因修复；能力 3 规则 7"各自完成"的数据层落实，DR-158）。
 
+##### attendance（共修出勤达标，ISG-2 闭合，DR-159）
+
+```json
+{
+  "studyType": "group_attend",
+  "classScope": "program_all_members"
+}
+```
+
+**判定逻辑**：
+```sql
+SELECT COUNT(*) FROM StudyRecord
+WHERE userId = :uid
+  AND studyType = 'group_attend'
+  AND classId IN (
+    SELECT classId FROM ClassMember
+    WHERE userId = :uid AND programId = :pid
+  )
+≥ targetValue
+```
+
+- `studyType = group_attend`：只计实到课次，不含补课回看（`group_review`）/总结课（`group_summary`）（D-A2）
+- `classScope = program_all_members`：聚合本专业下该用户全部 ClassMember 行对应班级，跨届历史出勤不清零（D-A1）
+- `targetValue`：在 ProgramAdvancementConfig 行上配置门槛值（如 93）
+
 ##### 年龄豁免处理（DR-100）
 
 不是独立 conditionType，而是 `exam_score` 条件的豁免路径：
@@ -2998,6 +3023,7 @@ model UserSelfStudyProgram {
 | 2026-06-03 | **DR-154 G1.7-3 撤销（R1-T14 回归发现）**——zhengke_bypass「任意 active 正科在读→所有预科预检自动放行」作用域过宽，在多专业场景让在读正科密法静默豁免并行净土预科的真实未达标，与 D9/D16 多专业独立正面冲突；且 `advanced` 成员本就不进预检，bypass 属冗余设计。撤销后每条预科升学线按 programId 各自独立跑 6 条件，无跨专业豁免。DR-154 仅保留 G1.7-1/G1.7-2；08 §3.9 约束改「多专业预检独立」+设计意图记撤销+§八 DR-154 标注+06 删能力 10 规则 11、绝对约束 5 改写+09 删预检端点 bypass、删业务落点 ⑤；跨 06/08/09 一致 |
 | 2026-06-04 | DR-158 ISG-9 闭合——LessonCompletion 加 `programId String`（必填），course_completion 预检加 `AND programId=:pid` 隔离，A 专业闻思记录不满足 B 专业升学条件；§3.1 course_completion 标准 params 结构首次明文（courseTypes+判定逻辑，含 blind/deaf 路径）；M3f 表定义更新；06 能力 3 规则 7 加 DR-158 引用；无新表；无新 migration 单元（M3f 内加列）|
 | 2026-06-04 | DR-157 剧本「小周双专业实修」GAP-1/2/3 闭合——D14a/D14b conditionType → AdvancementCheck query scope 映射规则首次明文落纸面：cumulative_count 不过滤 programId/vowId（跨专业全量聚合，D14a "念一份算多份"）；daily_frequency 按 vowId IN (本专业 vow) 过滤（D14b 跨专业不豁免）；PracticeLog.programId 仅作追溯展示（DR-120），不作预检过滤条件；DR-153 vowId 与 D14a 调和路径明文确认（一次录入同时满足两个条件）。08 §3.9 设计意图更新 + §八 DR-157 新增；03-scenario-shared-mantra.md GAP-1/2/3 标注已闭合；无新表/无新字段 |
+| 2026-06-04 | DR-159 ISG-2 闭合——`attendance` conditionType 标准 params 结构首次明文：studyType=group_attend（只计实到，不含 group_review/group_summary）、classScope=program_all_members（本专业所有届班全量聚合，留级不清零）；判定逻辑 `COUNT(StudyRecord WHERE studyType='group_attend' AND classId IN ClassMember 本专业) ≥ targetValue`；§3.1 attendance params 新增节；无新表/无新字段/无新 migration |
 
 ---
 
@@ -3101,6 +3127,7 @@ model UserSelfStudyProgram {
 | DR-153 | G1.4 多专业报数分流：`POST /api/practice-logs` 必须携带 `vowId` | **`vowId` 必填**：打卡提交时必须明确归属哪条 `UserPracticeVow`；后端校验该 vow 属于当前用户 + 当前活跃学期（Zod 必须字段，非 null）；多专业并修时各专业任务卡片各自持有 vowId，前端从卡片上下文自动带入，无需学员手选（用户决策 2026-06-03）| 排除「不传 vowId，后端按 practiceProjectId+userId+programId 推断」：多专业并修时同一用户同一修法项目可能有多条 vow（各专业一条），无法唯一推断；排除「提交时下拉选专业」：打卡入口已在专业任务卡片上下文内，多一个选择器增加认知负担且易误选。无新表/无新字段（vowId 已在旧设计 PracticeLog 中存在）；09 三处 POST /api/me/practice-logs 入参补充 `vowId` 必填；PracticeLog §1.12 约束表新增 vowId 必填行；关联 G1.2（多专业独立学期钟）/ DR-120 / D9 |
 | DR-152 | `disqualified`（取消资格）下游三决策（DR-149 遗留 Unit ⑤）| **(1) App 访问**：disqualified 后可继续登录 App、查看历史档案（D18），但失去班级成员权限（不可进班级主页/课程/报数/出勤）。**(2) 再入学**：允许，但条件比 `left` 更严——须 `super_admin` 审批 + 忏悔/认罪流程 + 邀请码重新加班（能力 2）。⚠️ 再入学中「忏悔/认罪流程」的系统验证方式 → **由 DR-156 D1 补全（书面背书，不依赖 DR-84 gate）**。**(3) 历史记录**：档案永久保留（D18），升学从 0 重算。⚠️ 「从 0 重算」的机制 → **由 DR-156 D2 补全（新 vow + 时间窗口隔离）**（用户决策 2026-06-03）| (1) 排除「禁止登录」：D18 全数据保留精神，学员有权查看历史档案；排除「维持完整班级访问」：disqualified 已不是班级有效成员；(2) 排除「永久禁止再入学」：佛教学修体系以认罪忏悔为改过门径；排除「与 left 同等待遇」：取消资格需更高授权；(3) 排除「历史记录接续计入升学」：历史数据可信度存疑；排除「物理删除历史」：违反 D18。关联 DR-84（忏悔前置 gate ⏸ 待定）/ DR-149 / DR-156 / D18 / 能力 9/11 |
 | DR-156 | R1-T18/T19 议题D：disqualified 再入学忏悔验证机制（D1）+ 历史保留vs从0重算的视图与 vow 机制（D2）| **(D1) 再入学忏悔验证 = super_admin 书面背书**：super_admin 审批再入学时必填「忏悔确认说明」文字字段，内容写入 AuditLog 永久留档，super_admin 对忏悔完成结果负责；系统**不做自动 gate 检查**（不依赖 DR-84，不读 ReportConfession 表），DR-84 取消资格前置 gate 继续 ⏸ 待定，两者解耦；无新表/无新字段（AuditLog 已有 payload Json）。**(D2) 从0重算 = 新 vow + 时间窗口隔离（双层视图）**：再入学时建新 ClassMember（邀请码落班，能力 2）+ 新 program_task vow（起始日=新入班日）；升学预检只计入新 vow 对应的 PracticeLog（vowId 隔离，DR-153）；旧 vow/旧打卡在档案视图（D18）永久保留但不参与新轮升学条件；**学员端两层**：进度页=本期（新 vow 进度）/ 档案页=完整历史（D18）（用户决策 2026-06-03）| (D1) 排除「系统自动 gate 检查 ReportConfession 提交记录」：学员拒绝忏悔时本表无记录，gate 将永久阻断取消资格/再入学（DR-84 死锁问题）；排除「DR-84 先解决再定」：再入学路径可先行，书面背书满足留痕要求（D17），不损失治理能力，只是由系统检查改为管理员负责；排除「直接跳过忏悔要求」：忏悔/认罪在佛教治理体系中具有根本意义，不可省略，需以人工背书形式保留。(D2) 排除「历史记录接续计入升学」：被取消资格意味历史数据可信度存疑；排除「全部重置旧 vow（物理删）」：违反 D18；排除「新旧 vow 共用进度视图」：混合展示无法区分本期达标情况与历史存档数据，运营判断混乱。**无新表/无新字段**（AuditLog payload 承载背书文字；新 ClassMember + 新 vow 走既有能力 2 流程）；关联 DR-84（⏸ 继续待定）/ DR-152 / DR-153（vowId 隔离）/ D17 / D18 / 能力 2/5/9/11 |
+| DR-159 | ISG-2 闭合：`attendance` conditionType 标准 params 结构（共修出勤达标查询范围，2026-06-04）| **(D-A1) classScope = program_all_members**：出勤聚合范围 = 本专业下该用户全部 ClassMember 行对应的班级全历史出勤；留级后历史出勤**不清零**，本专业所有届班累计计入（`classId IN SELECT classId FROM ClassMember WHERE userId=:uid AND programId=:pid`）。**(D-A2) studyType = group_attend**：只计实到课次（`StudyRecord.studyType='group_attend'`），不含补课回看（group_review）/总结课（group_summary）。完整判定：`SELECT COUNT(*) FROM StudyRecord WHERE userId=:uid AND studyType='group_attend' AND classId IN (SELECT classId FROM ClassMember WHERE userId=:uid AND programId=:pid) ≥ targetValue`（用户决策 2026-06-04）| 排除「classScope=current_member（只算当前班）」：留级学员历史出勤被清零，勤奋参课但因其他原因留级的学员会被冤枉——出勤是积累，留级不应重置；排除「classScope=program_all_active_classes」：revoked/ended 历史班出勤被遗漏，program_all_members（含所有历史 ClassMember）更完整。排除「studyType IN (group_attend, group_review)」：补课回看是缺席补偿、非实际共修参与，出勤门槛本意「到场参与共修」，回看不等同实到。关联 能力 8 / ISG-2 / ISG-6（留级语义，同源）|
 | DR-158 | ISG-9：course_completion 闻思圆满跨专业隔离——LessonCompletion 加 programId 字段（2026-06-04）| **(1) programId 必填**：LessonCompletion 新增 `programId String`（必填，非空），写入时从学员当前所在专业上下文带入（前端从任务卡/课程页传递，与 PracticeLog.programId DR-120 G4 同思路）；与 User/Lesson 并列外键关联 Program；Migration M3f 表定义追加此列。**(2) course_completion 预检过滤**：`course_completion` conditionType 预检加 `AND programId=:pid` 过滤，确保 A 专业的闻思记录不满足 B 专业的 course_completion 条件（见 §3.1 params 新增节）；与 D14b "daily_frequency 按 vowId 过滤本专业"同一隔离思路（DR-157）。**(3) 不设跨专业共享例外**：闻思圆满的语义是"在本专业教学框架下理解并圆满该法本"，不同于实修打卡的功德义（D14a 累计共享）；故不与 D14a 共享路径对齐；能力 3 规则 7"各自完成"由此得到数据层落实（用户决策 2026-06-04）| 排除「闻思记录全局共享（方案 B）」：法本在不同专业可能有不同深度的学习要求，且共享会让学员用一个专业的记录直接满足另一专业的升学硬条件，治理风险高；D14a 共享仅适用于"修持功德累积"场景（物理行为不可分割），闻思是课程达标事件，按专业隔离与 D13 硬条件精神一致。排除「programId 可空（String?）」：可空会导致历史记录无法被 course_completion 预检正确聚合（NULL 不匹配 `:pid`）；LessonCompletion 是新建表（幻影表纠正，DR-129），起点就非空最干净；能力 5 代行补录也可从上下文得到 programId（管理员知道为哪个专业补录）。关联 DR-129（表新建）/ DR-120 G4（programId 字段同思路）/ DR-157（daily_frequency 隔离参照）/ ISG-9 / 能力 3 规则 7 / D13 |
 | DR-157 | 剧本「小周双专业实修」GAP-1/2/3：D14a/D14b conditionType → AdvancementCheck query scope 映射规则（2026-06-04）| **(累计型 D14a：cumulative_count 条件跨专业全量聚合)**：预检 SQL = `SELECT SUM(count) FROM PracticeLog WHERE userId=:uid AND practiceProjectId=:pid`，**不加 programId 过滤，不加 vowId 过滤**；用户在任何 vow/专业下录入该修持项目的打卡均计入（"念一份功德算多份"，D14a）。`PracticeLog.programId` 仅用于结果溯源展示（"通过 X 专业达成"，DR-120），**不作预检过滤条件**。**(日常型 D14b：daily_frequency 条件按本专业 vow 过滤)**：预检 SQL = `SELECT DATE(loggedAt), SUM(count) FROM PracticeLog WHERE userId=:uid AND practiceProjectId=:pid AND vowId IN (本专业所有 active/revoked vow id)`，**按 vowId 限定本专业**（vowId 集合 = 该用户该 programId 下所有 UserPracticeVow，含 active 和已 revoked 的历史 vow，DR-155）；每日 SUM 需 ≥ threshold 才算达标，不因另一专业的打卡豁免（"跨专业日常不豁免"，D14b）。**(DR-153 调和)**：vowId 必填保证打卡路由到正确专业（D14b 正确），D14a 预检不用 vowId 过滤实现跨程聚合——一次打卡同时满足两个条件，无需录入两次（用户决策 2026-06-04）| 排除「cumulative_count 也按 programId 过滤」：使 D14a "念一份算多份"在多专业场景静默失效——学员录入 1 万遍，升学预检仍显示"未达标"（false-negative），GAP-1/GAP-3 根因；排除「daily_frequency 按 programId 过滤」：programId 在录入时来自前端 context，若用户从加行任务卡录入入行论心咒，programId 会赋加行，导致 D14b 净土/入行论日常计数污染，不如 vowId 精确；排除「vowId 区分 daily 但 programId 区分 cumulative」：双路由条件逻辑不一致，易混淆，vowId 全覆盖更统一。关联 D14a/D14b、DR-153（vowId 必填）、DR-120（programId 追溯）、DR-97（conditionType）、08 §3.9 设计意图、03-scenario-shared-mantra.md（GAP-1/2/3 已闭合）|
 | DR-151 | 裁判剧本 1 剩余缺口合并决策：(1) 多正科并存无上限；(2) 主修永不自动更改；(3) 升学确认=邀请码；(4) 200万心咒完成→双豁免因果链 + substitutionFor 字段（裁判剧本 1 T24/T25 缺口闭合）| **(1) 多正科并存不设上限**：D9/D16 独立升学适用于所有阶段，正科并存专业数量无上限约束，管理层通过邀请码自然控制。**(2) 主修永不自动更改**：`primaryProgramId` 由用户在设置页自行设定，任何系统事件（升学/毕业/留级/加入新班）均不自动修改主修字段，需用户主动操作；删除所有「升正科后主修可能自动切换」表述（修订 D16/能力 10 规则 8）。**(3) 升学确认=邀请码**：学员「确认升学」即使用管理员发送的正科班邀请码加入正科班（走能力 2 落班机制，DR-150 已覆盖），无需额外确认步骤、无中间状态、无新 API，`advanced` 状态下等待加入正科班即为「已升学待入班」（用户决策 2026-06-03）。**(4) 200万因果链**：`substitutionFor String?` 新增至 UserPracticeVow（心咒代替 vow 专用，存顶礼 vow id）；升学预检当 `isSubstituted=true`：通过 `substitutionFor` 找心咒 vow → 验证 `currentCount ≥ 2,000,000`；完成→顶礼 ✅ + 法王祈祷文 ✅（双豁免，一因两果，大纲§649）；未完成→两项均 ❌（用户决策 2026-06-03）| (1) 排除「正科并存设上限」：D9/D16 明确多专业平等独立，无上限约束符合设计原则，管理员邀请制天然控制入口；(2) 排除「系统自动切换主修」：主修是用户对自身学习重心的主观声明，系统无法代为判断，自动切换会覆盖用户意图；排除「不提供主修设置」：D9 多专业并行需要一个默认展示专业，用户设定是最合理入口；(3) 排除「新增学员升学确认步骤」：DR-150 落班机制已是两步走（approve→advanced→邀请码加入），再加一个「学员确认」步骤等于三步，过于繁琐；邀请码使用本身就是用户主动确认的行为；(4) 排除「顶礼已修多少折算减免心咒目标」：大纲无此公式，不自创规则；排除「法王祈祷文独立豁免路径」：大纲§649 200万心咒的因是「代替身体条件（顶礼）」，果是「顶礼+祈祷文均豁免」，两个效果来自同一原因，不可拆分；排除「不记录 substitutionFor」：无此字段则升学预检无法验证是哪条心咒 vow 完成，因果链断裂。无新表；§三 UserPracticeVow 加 1 字段；关联 D9/D16、DR-94/DR-95/DR-150、能力 7/10、大纲§649 |
