@@ -48,9 +48,9 @@
 
 | 编号 | 缺口描述 | 涉及时间点 | 关联设计位置 |
 |---|---|---|---|
-| GAP-1 | **D14a 升学预检的聚合范围未明文**：cumulative_count 条件的 AdvancementCheck 查询是"该用户全部 PracticeLog WHERE practiceProjectId=X"（跨所有 programId）还是"WHERE practiceProjectId=X AND programId=本专业"？D14a 语义要求前者，但 08 §3.9 与 ProgramAdvancementConfig 均无此说明 | T2 / T6 / T10 | 08 §3.9 AdvancementCheck 设计意图；ProgramAdvancementConfig.conditionType 判定逻辑说明；DR-120（programId 跨专业追溯条目） |
-| GAP-2 | **D14b 日常型预检的过滤字段未明文**：daily_frequency 条件的预检查询用什么字段限定"只算本专业的打卡"？用 vowId=本专业_vow？用 programId=本专业？用 classTaskId/cohortTemplateId？三种选项结论不同，设计没有说明 | T6 / T8 | 08 §3.9；能力 7 绝对约束 1（"跨专业不共享"）的数据层实现 |
-| GAP-3 | **录入路由与 D14a 共享的调和机制缺失**：DR-153 规定 vowId 必填（从任务卡片上下文带入），一次打卡只能对应一个 vow（一个专业）。D14a 说"念一份功德算多份"。两者调和的唯一路径是"D14a 预检做跨程聚合"，但这个路径没有明文（GAP-1 的另一面）。若实现时误做"program-specific 聚合"，D14a 在多专业场景下会静默失效 | T2 / T3 | DR-153（vowId 必填理由）；D14a；DR-120 |
+| GAP-1 | ✅ **已闭合（DR-157，2026-06-04）** ~~D14a 升学预检的聚合范围未明文：cumulative_count 条件的 AdvancementCheck 查询是"该用户全部 PracticeLog WHERE practiceProjectId=X"（跨所有 programId）还是"WHERE practiceProjectId=X AND programId=本专业"？D14a 语义要求前者，但 08 §3.9 与 ProgramAdvancementConfig 均无此说明~~ → DR-157 明文规定：cumulative_count 不过滤 programId/vowId，跨专业全量聚合 | T2 / T6 / T10 | 08 §3.9 设计意图（DR-157）；08 §八 DR-157 |
+| GAP-2 | ✅ **已闭合（DR-157，2026-06-04）** ~~D14b 日常型预检的过滤字段未明文：daily_frequency 条件的预检查询用什么字段限定"只算本专业的打卡"？用 vowId=本专业_vow？用 programId=本专业？用 classTaskId/cohortTemplateId？三种选项结论不同，设计没有说明~~ → DR-157 明文规定：daily_frequency 按 vowId IN (本专业所有 active/revoked vow) 过滤 | T6 / T8 | 08 §3.9 设计意图（DR-157）；08 §八 DR-157 |
+| GAP-3 | ✅ **已闭合（DR-157，2026-06-04）** ~~录入路由与 D14a 共享的调和机制缺失：DR-153 规定 vowId 必填（从任务卡片上下文带入），一次打卡只能对应一个 vow（一个专业）。D14a 说"念一份功德算多份"。两者调和的唯一路径是"D14a 预检做跨程聚合"，但这个路径没有明文（GAP-1 的另一面）~~ → DR-157 调和路径明文：vowId 必填保证 D14b 路由正确，cumulative 预检不按 vowId/programId 过滤实现 D14a 共享，一次录入同时满足两个条件 | T2 / T3 | 08 §3.9 设计意图（DR-157）；08 §八 DR-157 |
 
 ---
 
@@ -79,4 +79,5 @@ DR-153 的设计理由是"多专业时 vowId 是唯一分流依据"，确保日�
 ---
 
 > 报告生成：2026-06-03 · 裁判剧本 · 专项（D14a/D14b 数据落点）
-> 判定统计：✅4 · ⚠️3 · 🔴3 · 🟡0 · 缺口 3 个（GAP-1/2/3，共同根因：D14a/D14b conditionType → query scope 映射规则未落纸面）
+> 最后更新：2026-06-04 · DR-157 闭合 GAP-1/2/3
+> 判定统计：✅4 · ⚠️3 · 🔴3 · 🟡0 · 缺口 3 个（GAP-1/2/3）→ **全部已闭合（DR-157，2026-06-04）**
