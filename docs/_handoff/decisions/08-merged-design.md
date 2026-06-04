@@ -1902,13 +1902,13 @@ checkResults 选可变 Json（DR-85，方案 A）而非拆 AdvancementCheckItem 
 
 ---
 
-### 3.10 AdvancementRecord（升学记录）✅ 已封板
+### 3.10 AdvancementRecord（升学记录）✅ 已封板（T4/T5 闭合，DR-174）
 
 **服务能力**：能力 10（考试与升学）规则 6（升学审核流程）
 **写权限**：班级管理员（class_admin+，职能 #16）；系统不自动写入，须人工拍板
-**参考决策**：D13（硬条件不放宽）、D18（升学记录不物理删除）、DR-83-B（冻结原则）、DR-86
+**参考决策**：D13（硬条件不放宽）、D18（升学记录不物理删除）、DR-83-B（冻结原则）、DR-174
 
-管理员审阅 AdvancementCheck（status=reviewed）后拍板：通过 → `result=passed`，填 `targetProgramId`，触发 ClassMember 加入新班级；驳回 → `result=rejected`，`targetProgramId=null`，留下驳回记录，学员留级走能力 11 流程。
+管理员审阅 AdvancementCheck（status=reviewed）后拍板：**通过 → 写 `AdvancementRecord(result=passed)`**，填 `targetProgramId`，触发 ClassMember 加入新班级；**驳回 → 不写 AdvancementRecord，只写 AuditLog（actionType=advancement_decision, result=rejected, note=驳回理由）**（DR-174）。"升学记录"只记录"升了"这件事，驳回属审核过程，由 AuditLog 承载留证。
 
 #### 字段
 
@@ -1918,9 +1918,9 @@ checkResults 选可变 Json（DR-85，方案 A）而非拆 AdvancementCheckItem 
 | `userId` | String | 升学的学员 | **新增** |
 | `classId` | String | 升学前所在班级 | **新增** |
 | `programId` | String | 升学前所在科系 | **新增** |
-| `targetProgramId` | String? | 升入的科系（`result=passed` 时填；驳回为 null，DR-86）| **新增** |
-| `advancementCheckId` | String | 关联 AdvancementCheck（一对一）| **新增** |
-| `result` | String | `passed`（通过）/ `rejected`（驳回）| **新增** |
+| `targetProgramId` | String | 升入的科系（本表只写 passed，必填）| **新增** |
+| `advancementCheckId` | String | 关联 AdvancementCheck（一对一，@unique）| **新增** |
+| `result` | String | `passed`（唯一值；驳回不写本表，只写 AuditLog，DR-174）| **新增** |
 | `conditionsSnapshot` | Json | 升学拍板时各条件满足情况快照（冻结，同 DR-83-B）| **新增** |
 | `decidedBy` | String | 管理员 userId（职能 #16）| **新增** |
 | `decidedAt` | DateTime | 拍板时刻，默认 now() | **新增** |
@@ -1942,16 +1942,18 @@ checkResults 选可变 Json（DR-85，方案 A）而非拆 AdvancementCheckItem 
 
 | 约束 | 类型 | 说明 |
 |---|---|---|
-| `advancementCheckId @unique` | DB | 一张预检报告只能出一份升学记录 |
+| `advancementCheckId @unique` | DB | 一张预检报告只能出一份升学记录（本表只写 passed，故唯一约束可靠）|
 | `conditionsSnapshot` 冻结 | 应用层 | 写入后不可修改（同 DR-83-B，拍板时刻数据即真相）|
 | 创建前检查 AdvancementCheck.status=reviewed | 应用层 | 管理员须先完成审阅预检流程再拍板 |
-| 通过时 targetProgramId 必填 | 应用层 | result=passed 时校验 targetProgramId 非空 |
-| 驳回时 targetProgramId 为 null（DR-86）| 应用层 | result=rejected 时不填升入科系 |
+| `targetProgramId` 必填 | 应用层 | 本表只在 passed 时写入，targetProgramId 不可为空 |
+| 驳回不写本表 | 应用层 | 驳回只写 AuditLog(advancement_decision)，不创建 AdvancementRecord（DR-174）|
 | 无 delete API | 应用层 | D18，升学记录永久留档 |
 
 #### 设计意图
 
-`conditionsSnapshot: Json` 冻结原则（DR-83-B 复用）：升学拍板那一刻的条件快照独立存储，即使后续 AdvancementCheck.checkResults 被更新或条件配置变更，历史升学依据不受影响。驳回不填 targetProgramId（DR-86-A）：驳回只记事实，不预判「本应升哪里」，避免误导；下一轮升学另起新 AdvancementCheck → AdvancementRecord 流程。
+`conditionsSnapshot: Json` 冻结原则（DR-83-B 复用）：升学拍板那一刻的条件快照独立存储，即使后续 AdvancementCheck.checkResults 被更新或条件配置变更，历史升学依据不受影响。
+
+**驳回不写本表（DR-174）**：AdvancementRecord 只在 passed 时写入，驳回只写 AuditLog（actionType=advancement_decision, result=rejected, note=驳回理由）。这解决了 approve-after-reject 的 @unique 冲突：驳回不占用唯一键槽位，补足后 approve 可顺利写入 AdvancementRecord。"升学记录"语义上是"升了"的档案，驳回的审核过程由 AuditLog 承载（D17 留痕），与能力 20 审计链一致（DR-174）。下一轮升学仍另起 AdvancementCheck upsert → AdvancementRecord（passed）流程。
 
 **conditionsSnapshot 深度说明（T11/T14 消解，DR-173）**：`conditionsSnapshot` 冻结"结论层"（每条条件的 `actual` / `passed` / `exempted` 值），无需额外冻结原始数据细节（心咒 vow 当时的 `currentCount`、ExamGrade 原始分数等）。理由：DR-162 重构后，预检直接查原始数据表（PracticeLog / ExamGrade / StudyRecord 等），原始表本身即永久留档（D18 不物理删除）；审计"当时凭什么升学"可直接查原始表截面，不依赖快照复现。`AdvancementCheck.checkResults` 也永久留档（D18），两者共同构成完整审计链，conditionsSnapshot 无需深度复制原始数据（用户决策 2026-06-04）。
 
@@ -3059,6 +3061,7 @@ model UserSelfStudyProgram {
 | 2026-06-04 | DR-160 ISG-3 闭合——`transmission` conditionType 标准 params 结构首次明文：判定 `SELECT 1 FROM TransmissionRecord WHERE userId=:uid AND transmissionKey=:conditionKey AND isRequired=true AND status='active'`；传承记录仅管理员后台录入，无学员自报路径，`isConfirmed=false` 不会出现，无需 `isConfirmed=true` 过滤；DR-46 原描述正确无需修改；§3.1 transmission params 新增节；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-161 ISG-4 闭合——`practice_session` 判定逻辑补 `loggedAt >= UserPracticeVow.createdAt`（起修日 = vow 建立时刻）过滤；S1 阶段修量不自动计入升学预检（能力 4 规则 8）；管理员通过能力 5 代行补录的 S1 修量若需计入升学须以 `loggedAt >= vow.createdAt` 记录（行政行为非系统自动）；§3.1 practice_session 判定逻辑行内更新；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-162 升学预检改直接查询——AdvancementCheck 不再读 SemesterSnapshot，改为直接查询原始数据表（PracticeLog/LessonCompletion/StudyRecord/TransmissionRecord/ExamGrade）；SemesterSnapshot 保留仅服务报数汇总展示；§3.9 设计意图更新；§3.7 服务能力标注解耦；ISG-5/ISG-8 消解；无新表/无新字段/无新 migration |
+| 2026-06-04 | DR-174 R3-T4/T5 闭合——`AdvancementRecord` 只在 passed 时写入；驳回只写 AuditLog(advancement_decision)，不创建 record；解决 approve-after-reject 的 @unique 冲突；§3.10 简介段/字段表/约束表/设计意图全部更新；DR-86 语义调整（驳回不存 AdvancementRecord，targetProgramId=null 约束失效）；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-173 T11/T14 消解——`conditionsSnapshot` 深度说明：冻结结论层（actual/passed/exempted）已足够；DR-162 直接查原始表架构下原始数据永久留档（D18），无需快照复制细节；§3.10 设计意图补注；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-172 T5 闭合——`isSubstituted=true` 时顶礼 cumulative_count 整体切换替代路径：不再聚合历史打卡，改验心咒 vow currentCount ≥ 200万；两路不叠加；§3.1 cumulative_count 补注；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-171 T4 闭合——心咒打卡一因多果明文：替代路径的心咒打卡同时计入心咒 cumulative_count 条件；顶礼打卡同时产生 prayerCount 计入法王祈祷文；三者同时进行是有意设计，非重复计算；§1.12 isSubstituted 段补注；无新表/无新字段/无新 migration |
@@ -3174,6 +3177,7 @@ model UserSelfStudyProgram {
 | DR-152 | `disqualified`（取消资格）下游三决策（DR-149 遗留 Unit ⑤）| **(1) App 访问**：disqualified 后可继续登录 App、查看历史档案（D18），但失去班级成员权限（不可进班级主页/课程/报数/出勤）。**(2) 再入学**：允许，但条件比 `left` 更严——须 `super_admin` 审批 + 忏悔/认罪流程 + 邀请码重新加班（能力 2）。⚠️ 再入学中「忏悔/认罪流程」的系统验证方式 → **由 DR-156 D1 补全（书面背书，不依赖 DR-84 gate）**。**(3) 历史记录**：档案永久保留（D18），升学从 0 重算。⚠️ 「从 0 重算」的机制 → **由 DR-156 D2 补全（新 vow + 时间窗口隔离）**（用户决策 2026-06-03）| (1) 排除「禁止登录」：D18 全数据保留精神，学员有权查看历史档案；排除「维持完整班级访问」：disqualified 已不是班级有效成员；(2) 排除「永久禁止再入学」：佛教学修体系以认罪忏悔为改过门径；排除「与 left 同等待遇」：取消资格需更高授权；(3) 排除「历史记录接续计入升学」：历史数据可信度存疑；排除「物理删除历史」：违反 D18。关联 DR-84（忏悔前置 gate ⏸ 待定）/ DR-149 / DR-156 / D18 / 能力 9/11 |
 | DR-156 | R1-T18/T19 议题D：disqualified 再入学忏悔验证机制（D1）+ 历史保留vs从0重算的视图与 vow 机制（D2）| **(D1) 再入学忏悔验证 = super_admin 书面背书**：super_admin 审批再入学时必填「忏悔确认说明」文字字段，内容写入 AuditLog 永久留档，super_admin 对忏悔完成结果负责；系统**不做自动 gate 检查**（不依赖 DR-84，不读 ReportConfession 表），DR-84 取消资格前置 gate 继续 ⏸ 待定，两者解耦；无新表/无新字段（AuditLog 已有 payload Json）。**(D2) 从0重算 = 新 vow + 时间窗口隔离（双层视图）**：再入学时建新 ClassMember（邀请码落班，能力 2）+ 新 program_task vow（起始日=新入班日）；升学预检只计入新 vow 对应的 PracticeLog（vowId 隔离，DR-153）；旧 vow/旧打卡在档案视图（D18）永久保留但不参与新轮升学条件；**学员端两层**：进度页=本期（新 vow 进度）/ 档案页=完整历史（D18）（用户决策 2026-06-03）| (D1) 排除「系统自动 gate 检查 ReportConfession 提交记录」：学员拒绝忏悔时本表无记录，gate 将永久阻断取消资格/再入学（DR-84 死锁问题）；排除「DR-84 先解决再定」：再入学路径可先行，书面背书满足留痕要求（D17），不损失治理能力，只是由系统检查改为管理员负责；排除「直接跳过忏悔要求」：忏悔/认罪在佛教治理体系中具有根本意义，不可省略，需以人工背书形式保留。(D2) 排除「历史记录接续计入升学」：被取消资格意味历史数据可信度存疑；排除「全部重置旧 vow（物理删）」：违反 D18；排除「新旧 vow 共用进度视图」：混合展示无法区分本期达标情况与历史存档数据，运营判断混乱。**无新表/无新字段**（AuditLog payload 承载背书文字；新 ClassMember + 新 vow 走既有能力 2 流程）；关联 DR-84（⏸ 继续待定）/ DR-152 / DR-153（vowId 隔离）/ D17 / D18 / 能力 2/5/9/11 |
 | DR-160 | ISG-3 闭合：`transmission` conditionType 标准 params 结构 + 传承记录创建主体澄清（2026-06-04）| **传承记录仅管理员后台录入**（无学员自报路径）→ `isConfirmed=false` 记录不会出现 → 预检查询 `transmissionKey=conditionKey AND isRequired=true AND status='active'` 已充分，**无需加 `isConfirmed=true` 过滤**；DR-46 原描述正确。`transmission` params = `{ "transmissionKey": "<条件键>" }`，判定 `SELECT 1 FROM TransmissionRecord WHERE userId=:uid AND transmissionKey=:conditionKey AND isRequired=true AND status='active'`（用户决策 2026-06-04）| 排除「加 isConfirmed=true 过滤（原 ISG-3 建议）」：ISG-3 风险基于"学员可自报灌顶"的错误前提——实际上传承记录创建主体是管理员，管理员在后台录入即为确认，`isConfirmed=false` 状态不会在正常流程中出现；加过滤条件等于对不存在的场景防御，徒增查询条件复杂度。关联 DR-46（传承判定原描述）/ DR-47（课程触发传承，isConfirmed=true by default）/ 能力 17 / ISG-3 |
+| DR-174 | R3-T4/T5 闭合：`AdvancementRecord` 只在 passed 时写入，驳回只写 AuditLog（2026-06-04）| **驳回不写 AdvancementRecord**：AdvancementRecord 只在 result=passed 时创建，驳回时只写 AuditLog（actionType=advancement_decision, result=rejected, note=驳回理由）（用户决策 2026-06-04）。解决 approve-after-reject 的 @unique 冲突：驳回不占唯一键槽位，补足后 approve 可顺利写入。DR-86（驳回 targetProgramId=null）语义失效：驳回不写本表，targetProgramId=null 约束变为不适用，DR-86 历史保留（append-only），本条为后修订说明。**`result` 字段保留**（恒为 passed），备扩展（如未来区分 passed 子类型）（用户决策 2026-06-04）| 排除「@unique 改为只约束 passed（应用层）」：DB 约束降级到应用层，并发写入时无法防重；排除「允许多条 record（去掉 @unique）」：增加查询复杂度，需额外逻辑取最终记录；"只写 passed"方案 DB 约束保持最强，AuditLog 承载驳回留证（能力 20 / D17 职责本就如此），语义最纯粹。关联 DR-86（驳回 targetProgramId=null，现失效）/ DR-169（AdvancementCheck upsert）/ DR-83-B（conditionsSnapshot 冻结）/ D17 / §3.11 AuditLog / R3-T4/T5 |
 | DR-173 | T11/T14 消解：`conditionsSnapshot` 深度——DR-162 直接查原始表架构下，原始数据永久留档，快照只需冻结结论层（2026-06-04）| **conditionsSnapshot 冻结结论层已足够**：`actual` / `passed` / `exempted` 冻结的是判定结论；原始数据（PracticeLog / ExamGrade 等）在 DR-162 直接查询架构下永久可查（D18 不物理删除），审计时直接查原始表截面即可，快照无需深度复制细节（用户决策 2026-06-04）。**消解，非闭合**：T11（isSubstituted 细节缺失）/ T14（exam score 细节缺失）是 DR-162 架构变更的副作用——原担忧基于"快照是唯一留证"的旧假设，直接查原始表后旧假设不成立，问题自然消失。关联 DR-162（直接查原始表）/ DR-83-B（conditionsSnapshot 冻结）/ D18（不物理删除）/ T11 / T14 |
 | DR-172 | T5 闭合：`isSubstituted=true` 时顶礼 cumulative_count 整体切换替代路径，不叠加（2026-06-04）| **切换路径，不叠加**：顶礼 `UserPracticeVow.isSubstituted = true` 时，升学预检顶礼项判定整体切换为替代路径（验证心咒 vow `currentCount ≥ 2,000,000`），不再聚合顶礼历史 `count`；历史数值原封保留（DR-94），仅不参与预检达标判定（用户决策 2026-06-04）| 排除「两路并行」：允许叠加会产生语义歧义（顶礼差 5 万但替代已完成，判定如何？），且替代路径本身已覆盖顶礼+法王祈祷文双豁免（DR-151），再聚合历史打卡是冗余；明确"切换"语义让预检逻辑分支清晰，开发者只需判断 isSubstituted 标志后走一条路。关联 DR-94（isSubstituted 字段）/ DR-151（双豁免因果链）/ DR-170（不过滤起修日）/ T5 |
 | DR-171 | T4 闭合：心咒打卡一因多果——替代路径心咒打卡同时计入心咒 cumulative_count；顶礼打卡同时产生 prayerCount（2026-06-04）| **一笔打卡服务多个升学条件，有意设计**：(1) 正常路径顶礼打卡 = 同次录入顶礼 count + prayerCount → 分别计入顶礼 cumulative_count 条件 + 法王祈祷文条件；(2) 替代路径（isSubstituted=true）心咒打卡 = 既用于 200万 触发顶礼✅+法王祈祷文✅双豁免，**同时**也计入心咒项自身的 cumulative_count 条件（如 10万）。两个用途互不排斥（用户决策 2026-06-04）| 排除「心咒打卡被替代路径"消费"后不再计入 cumulative_count」：顶礼、法王祈祷文、心咒三者本为同时进行的修持（用户明确），功德不因系统判定路径而拆分；DR-171 仅补明文，业务逻辑本已由 DR-151（一因两果）+ DR-95（prayerCount 同次录入）覆盖，此前缺的是明文防止开发者误判为 bug 而"修复"。关联 DR-151（一因两果）/ DR-95（prayerCount）/ DR-94（isSubstituted）/ DR-157（cumulative_count 全量聚合）/ T4 |
