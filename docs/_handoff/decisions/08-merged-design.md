@@ -152,7 +152,7 @@
 > | graduated | held_back | class_admin+（主动判定不够格升学 → 留级，heldBackCount +1，**原因必填**，写 AuditLog，**通知学员并显示原因**）|
 > | graduated | left | 学员 / class_admin+（**通知学员**）|
 > | held_back | left | 学员自助 / class_admin+（**通知学员**）|
-> | held_back | disqualified | class_admin+（✅ 允许）|
+> | held_back | disqualified | class_admin+（✅ 允许，**通知学员**）|
 > | left | active | admin（同届 ClassMember 复活，@@unique 同行复用，**通知学员**）|
 >
 > **通知渠道（全局）**：表中所有「通知学员」= **推送通知（push）+ 系统内通知**，两路并发（用户决策 2026-06-05）。
