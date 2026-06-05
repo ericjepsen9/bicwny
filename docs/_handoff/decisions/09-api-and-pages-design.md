@@ -355,6 +355,7 @@
 | GET | `/api/coach/students/:uid/classes` | class_tutor+（须为该学员至少一个班的辅导员/管理员）| — | `{classId,className,programName,stage,cohortStatus}[]` | 🆕 | **学员所有班级视图（G1.7-2 DR-154）**：跨阶段并存时辅导员可见学员全貌；只读，不可跨班编辑 |
 | POST | `/api/classes/:id/advancement-checks` | class_admin+ | `{programId,semester}` | `AdvancementCheck[]` | 🆕 | **系统自动预检**：按 programId 逐条算 6 条件（闻思/观修/内加行/出勤/升学考/灌顶），生成预检报告，**不自动升学**；多专业各自独立预检，无跨专业豁免（D9/D16，R1-T14 撤销 zhengke_bypass）|
 | GET | `/api/classes/:id/advancement-checks` | class_admin+ | `?semester` | 全班预检报告 | 🆕 | 管理员核查列表（逐项满足/缺口/可豁免标记）|
+| PATCH | `/api/advancement-checks/:id/exempt` | class_admin+ | `{conditionKey, exempt:true, reason}` | 更新后 checkResults | 🆕 | **DR-85 豁免入口（DR-188）**：对 isExemptable=true 的未通过条件授予豁免；理由必填；写 exempted/exemptedBy/exemptedAt + overallPassed 重算 + AuditLog(proxy_action)|
 | POST | `/api/advancement-checks/:id/approve` | class_admin+ | `{decision:'pass'\|'reject',note}` | `AdvancementRecord` | 🆕 | **审核拍板**（#16，直接定不上报）：pass→写 AdvancementRecord + 原预科成员 cohortStatus `graduated→advanced` + EnrollmentStatusHistory；**不建正科 ClassMember**（落班机制=邀请码两步走，DR-150；管理员另发邀请码学员走能力 2 加入）；并行专业 ClassMember 不受影响（D9/D16）；reject→提示留级（能力 11）|
 
 ### 页面/交互
