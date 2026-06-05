@@ -156,6 +156,8 @@
 > | held_back | disqualified | class_admin+（✅ 允许）|
 > | left | active | admin（同届 ClassMember 复活，@@unique 同行复用，**通知学员**）|
 >
+> **通知渠道（全局）**：表中所有「通知学员」= **推送通知（push）+ 系统内通知**，两路并发（用户决策 2026-06-05）。
+>
 > **终态**：`advanced` = 永久终态，任何转移均非法（DR-150，原专业永久 advanced）；`disqualified` = 永久终态，再入学走邀请码新建 ClassMember，原行不修改（DR-152/DR-156）。
 >
 > **非法路径（明文禁止）**：`held_back → active`（旧班 ClassMember 永久 held_back，想重读须先 left → 邀请码重新加班）；`graduated → active/paused`（毕业后不可回退）；`active → advanced`（必须经过 graduated）；`advanced → 任何`（终态，唯一例外见下）；`disqualified → 任何`（终态，再入学须新建 ClassMember）（用户决策 2026-06-05）。
