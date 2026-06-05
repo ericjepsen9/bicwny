@@ -150,8 +150,8 @@
 > | paused | disqualified | class_admin+（**通知学员**）|
 > | graduated | advanced | class_admin+（升学审核通过，能力 10 职能#16，**通知学员**）|
 > | graduated | held_back | class_admin+（主动判定不够格升学 → 留级，heldBackCount +1，**原因必填**，写 AuditLog，**通知学员并显示原因**）|
-> | graduated | left | 学员 / class_admin+ |
-> | held_back | left | 学员自助 / class_admin+ |
+> | graduated | left | 学员 / class_admin+（**通知学员**）|
+> | held_back | left | 学员自助 / class_admin+（**通知学员**）|
 > | held_back | disqualified | class_admin+（✅ 允许）|
 > | left | active | admin（同届 ClassMember 复活，@@unique 同行复用，**通知学员**）|
 >
