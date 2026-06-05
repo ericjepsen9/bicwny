@@ -121,9 +121,7 @@ studyType 取值（共修相关）：`group_attend`（出席）/ `group_absent`�
 
 **18. 共修活动本身有状态吗？**
 
-**⚠️ 缺口**：ClassSession 没有明确的 status 字段（如 scheduled / active / ended / cancelled）。活动状态靠 startAt + sessionEndAt + checkinGraceMinutes 推算（是否在签到窗口内）。
-
-单次临时发起的 session 如果要「取消」，文档没有定义取消字段或流程——PATCH/DELETE 端点存在，但语义和留痕要求没有明文写清。ClassSessionSchedule 有 `isActive=false` 表示停用模板，但单次 session 没有对应状态。这是一个实现级缺口。
+**✅ 已闭合（DR-185，2026-06-05）**：ClassSession 新增 `status String @default("scheduled")`，取值 `scheduled`（排期中）/ `cancelled`（已取消）；`ended` 靠 sessionEndAt+checkinGraceMinutes 推算，不入库。取消操作 PATCH status=cancelled，写 AuditLog（actionType=session_cancelled，操作人+原因可选），记录不物理删除（D18）。学员端已取消场次显示「本次已取消」标签，不显示签到入口；操作权限 class_tutor+。ClassSessionSchedule 的 `isActive=false` 继续表示课表模板停用（影响全部后续场次），与单次 session 取消语义分离。
 
 ---
 
@@ -148,9 +146,10 @@ studyType 取值（共修相关）：`group_attend`（出席）/ `group_absent`�
 
 | # | 缺口 | 严重度 | 状态 |
 |---|---|---|---|
-| A | 能力8原文「留级期间正常累计」与DR-163/181矛盾 | 🔴 严重 | 需修文档 |
-| B | 能力8原文签到时效（「提前10分钟激活」）与DR-89矛盾 | 🔴 严重 | 需修文档 |
-| C | ClassSession 无 status 字段，单次取消流程未定义 | 🟡 中 | 实现缺口 |
+| A | 能力8原文「留级期间正常累计」与DR-163/181矛盾 | 🔴 严重 | ✅ 已修（2026-06-05）|
+| B | 能力8原文签到时效（「提前10分钟激活」）与DR-89矛盾 | 🔴 严重 | ✅ 已修（2026-06-05）|
+| C' | 方案1课表预排描述「在共修时段激活」与DR-89矛盾 | 🔴 严重 | ✅ 已修（2026-06-05）|
+| C | ClassSession 无 status 字段，单次取消流程未定义 | 🟡 中 | ✅ 已闭合 DR-185（2026-06-05）|
 | D | 平台级 session（classId=null）多专业出勤归属未定义 | 🟡 中 | 设计空白 |
 | E | self_study 类型 session 是否计入升学预检出勤未明文 | 🟡 中 | 需确认 |
 | F | DR-85 豁免的操作入口（哪个页面、谁发起）能力8未描述 | 🟡 中 | 实现缺口 |
@@ -158,4 +157,4 @@ studyType 取值（共修相关）：`group_attend`（出席）/ `group_absent`�
 
 ---
 
-> **建议**：开始设计验证剧本前，先修 A 和 B 两处文档矛盾，否则剧本跑的是错的规则。
+> **更新（2026-06-05）**：A、B、C'、C 已全部修复，剩余 D/E/F/G 可按优先级依次讨论决策。
