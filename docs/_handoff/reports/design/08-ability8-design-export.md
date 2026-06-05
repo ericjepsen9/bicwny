@@ -60,7 +60,7 @@
 
 各自独立。ClassSession 绑定 classId（班级），专业A的班有自己的 ClassSession，专业B的班也有自己的。学员在两个班各自签到，生成两条独立 StudyRecord，升学预检按 programId 各自计算（绝对约束4）。
 
-**⚠️ 缺口**：平台级场次（`classId=null`，由 super_admin 发起）的出勤，对多专业学员如何归属，文档没有明确定义。
+**✅ 已闭合（DR-186，2026-06-05）**：平台级场次（classId=null）签到后，系统对学员所有 `cohortStatus='active'` ClassMember 广播写入，每个 active 班各生成一条 StudyRecord（classId=各班）。升学预检无需改动，各专业各自计入。StudyRecord 唯一约束从 `@@unique([classSessionId, userId, studyType])` 扩展为含 classId，支持多条不冲突。
 
 **9. 自学模式学员参加共修，算不算出勤？**
 
@@ -150,7 +150,7 @@ studyType 取值（共修相关）：`group_attend`（出席）/ `group_absent`�
 | B | 能力8原文签到时效（「提前10分钟激活」）与DR-89矛盾 | 🔴 严重 | ✅ 已修（2026-06-05）|
 | C' | 方案1课表预排描述「在共修时段激活」与DR-89矛盾 | 🔴 严重 | ✅ 已修（2026-06-05）|
 | C | ClassSession 无 status 字段，单次取消流程未定义 | 🟡 中 | ✅ 已闭合 DR-185（2026-06-05）|
-| D | 平台级 session（classId=null）多专业出勤归属未定义 | 🟡 中 | 设计空白 |
+| D | 平台级 session（classId=null）多专业出勤归属未定义 | 🟡 中 | ✅ 已闭合 DR-186（2026-06-05）|
 | E | self_study 类型 session 是否计入升学预检出勤未明文 | 🟡 中 | 需确认 |
 | F | DR-85 豁免的操作入口（哪个页面、谁发起）能力8未描述 | 🟡 中 | 实现缺口 |
 | G | 补卡理由是否必填（能力8文本说「可选」）未与DR-177留级场景对齐 | 🟢 低 | 一致性确认 |

@@ -315,7 +315,7 @@
 | GET/POST | `/api/coach/classes/:classId/sessions` | class_tutor+ | 排课/临时发起 | `ClassSession` | ✅ | 复用；POST 支持「课表预排」与「临时发起」（scheduleId 有/无）|
 | PATCH | `/api/coach/sessions/:id` | class_tutor+ | 改场次信息 / 取消（`{status:'cancelled',reason?}`）| — | ✅ | 改信息时自动通知本班；取消时 PATCH status=cancelled，写 AuditLog(actionType=session_cancelled)，记录不物理删除（DR-185）|
 | GET/POST/PATCH/DELETE | `/api/coach/classes/:classId/schedules` | class_tutor+ | 课表模板 | `ClassSessionSchedule` | 🆕 | 双轨发起的「课表预排」层（线上无模板表）|
-| POST | `/api/sessions/:id/checkin` | student | `{token}` | 出勤记录 | 🆕 | **网络共修自助签到**：点链接→选自己→确认；校验 token 时效（生成时刻起 `checkinGraceMinutes`）+ 幂等（同场同人一次）|
+| POST | `/api/sessions/:id/checkin` | student | `{token}` | 出勤记录 | 🆕 | **网络共修自助签到**：点链接→选自己→确认；校验 token 时效（生成时刻起 `checkinGraceMinutes`）+ 幂等（同场同人一次）；平台级 session（classId=null）时自动为学员所有 active 班各写一条 StudyRecord（DR-186 广播写入）|
 | GET | `/api/sessions/:id/checkin-grid` | student | — | 本班头像网格+已打卡标记 | 🆕 | 「选自己」网格视图 |
 | POST | `/api/coach/sessions/:id/attendance` | class_tutor+ | `{userIds[]}` | — | 🆕 | **线下共修批量勾选**到场学员 |
 | POST | `/api/coach/sessions/:id/makeup` | class_tutor+ | `{userId,reason?}` | — | 🆕 | **补卡**（学员不可自助，留痕「由 XXX 补卡」）|
