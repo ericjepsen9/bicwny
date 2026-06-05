@@ -116,7 +116,7 @@
 |---|---|---|
 | `@@unique([classId, userId])` | DB | 一个师兄在一个班只有一条成员记录（回归走 left→active 复活同行，不新建）|
 | 一人一主班 | 应用层 | `isPrimary` 不加 DB 唯一索引（无法单列表达「一人一主班」），切换走事务 |
-| 状态机合法转移 | 应用层 | 自助/管理员/admin 三级权限校验 |
+| 状态机合法转移（DR-178）| 应用层 | 13条合法路径 + advanced/disqualified=永久终态 + held_back→active=非法；完整矩阵见设计意图 DR-178；自助/管理员/admin 三级权限校验 |
 | `heldBackCount` 软限制（DR-177）| 应用层 | 加行专业留级上限=2次（软限制，非硬拦截）；`heldBackCount ≥ 2` 时管理端显示警示标注，管理员有最终决定权，不阻断操作；退出重进后新 ClassMember.heldBackCount=0 是预期行为（退出≠留级，重进是新的开始）|
 | 不物理删除（D18/D19）| 应用层 | 退班 = `cohortStatus='left'`，记录保留可查；无 delete API |
 
@@ -136,6 +136,29 @@
 > - **并行专业归宿（DR-150）**：其他并行专业（如净土）的 ClassMember **不因本专业升学而改变**（D9/D16 多专业完全独立，不级联）；「正科密法 + 预科净土跨阶段并存」合法，各走各的生命周期。
 
 > **heldBackCount 软限制（F7.2 闭合，DR-177）**：加行专业留级上限 = 2次（软限制）。计数依据：`ClassMember.heldBackCount`（当届班内留级累计次数）；`heldBackCount ≥ 2` 时，管理端升学审核 / 留级操作界面显示警示标注，提醒管理员；管理员有最终决定权，可越权继续操作。退出后重新加入生成新 ClassMember 行，heldBackCount=0 是预期行为——退出是学员主动选择（语义≠升学失败），新的入班是新的开始，不续接留级计数（用户决策 2026-06-05）。
+
+> **cohortStatus 合法转移矩阵（T15 闭合，DR-178）**：7 态状态机，完整 13 条合法路径，2 个永久终态。
+>
+> | 起始状态 | 目标状态 | 触发方 |
+> |---|---|---|
+> | active | paused | 系统自动（LeaveRequest 批准 + EnrollmentStatusHistory 原子写入）|
+> | active | graduated | class_admin+（第八学期结束手动批量结业）|
+> | active | held_back | class_admin+（升学驳回留级，heldBackCount +1）|
+> | active | disqualified | class_admin+（职能#14 取消资格）|
+> | active | left | 学员自助 / class_admin+ |
+> | paused | active | 系统自动 / 辅导员（请假到期或"结束请假"端点）|
+> | paused | left | 学员自助 / class_admin+ |
+> | paused | disqualified | class_admin+ |
+> | graduated | advanced | class_admin+（升学审核通过，能力 10 职能#16）|
+> | graduated | held_back | class_admin+（升学驳回留级，heldBackCount +1）|
+> | graduated | left | 学员 / class_admin+ |
+> | held_back | left | 学员自助 / class_admin+ |
+> | held_back | disqualified | class_admin+（✅ 允许）|
+> | left | active | admin（同届 ClassMember 复活，@@unique 同行复用）|
+>
+> **终态**：`advanced` = 永久终态，任何转移均非法（DR-150，原专业永久 advanced）；`disqualified` = 永久终态，再入学走邀请码新建 ClassMember，原行不修改（DR-152/DR-156）。
+>
+> **非法路径（明文禁止）**：`held_back → active`（旧班 ClassMember 永久 held_back，想重读须先 left → 邀请码重新加班）；`graduated → active/paused`（毕业后不可回退）；`active → advanced`（必须经过 graduated）；`advanced → 任何`（终态）；`disqualified → 任何`（终态，再入学须新建 ClassMember）（用户决策 2026-06-05）。
 
 > **辅导员与成员身份**（用户决策 2026-05-29）：辅导员**可以是班级成员**（ClassMember 装学员也装辅导员），其管理角色叠加在 UserRoleAssignment 上。ClassMember 只表达「属于这个班」，不再用字段区分学员/辅导员——身份一律从 UserRoleAssignment 按班级作用域读。删除 `role` 即据此。
 >
@@ -3069,6 +3092,7 @@ model UserSelfStudyProgram {
 | 2026-06-04 | DR-160 ISG-3 闭合——`transmission` conditionType 标准 params 结构首次明文：判定 `SELECT 1 FROM TransmissionRecord WHERE userId=:uid AND transmissionKey=:conditionKey AND isRequired=true AND status='active'`；传承记录仅管理员后台录入，无学员自报路径，`isConfirmed=false` 不会出现，无需 `isConfirmed=true` 过滤；DR-46 原描述正确无需修改；§3.1 transmission params 新增节；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-161 ISG-4 闭合——`practice_session` 判定逻辑补 `loggedAt >= UserPracticeVow.createdAt`（起修日 = vow 建立时刻）过滤；S1 阶段修量不自动计入升学预检（能力 4 规则 8）；管理员通过能力 5 代行补录的 S1 修量若需计入升学须以 `loggedAt >= vow.createdAt` 记录（行政行为非系统自动）；§3.1 practice_session 判定逻辑行内更新；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-162 升学预检改直接查询——AdvancementCheck 不再读 SemesterSnapshot，改为直接查询原始数据表（PracticeLog/LessonCompletion/StudyRecord/TransmissionRecord/ExamGrade）；SemesterSnapshot 保留仅服务报数汇总展示；§3.9 设计意图更新；§3.7 服务能力标注解耦；ISG-5/ISG-8 消解；无新表/无新字段/无新 migration |
+| 2026-06-05 | DR-178 T15 闭合——cohortStatus 7态完整转移矩阵明文：13条合法路径；advanced/disqualified=永久终态；held_back→active=非法（旧班永久held_back，想重读须退出+邀请码重入）；held_back→disqualified=✅合法（class_admin+）；graduated→active/paused=非法；active→advanced=非法（必须经graduated）；§1.2约束表更新转移矩阵行+设计意图补注；无新表/无新字段/无新migration |
 | 2026-06-05 | DR-177 F7.2 闭合——加行留级上限=2次（软限制，非硬拦截）；`ClassMember.heldBackCount ≥ 2` 时管理端显示警示，管理员有最终决定权；退出重进后新 ClassMember heldBackCount=0 是预期行为（退出≠留级）；§1.2 约束表新增软限制行 + 设计意图补注；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-176 R3-T14 闭合 + TODO-20 闭合——`ritualCompliant=false` 标记强制写 AuditLog(proxy_action)，payload 含被标 PracticeLog id 列表 + 操作时刻；为事后审计证明"标记在 approve 后"提供唯一凭据；§1.12 约束表新增标记留痕行 + 设计意图补注；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-175 R3-T9/T10/T11 闭合——撤销替代后判定行为明文：① 顶礼 cumulative_count 恢复聚合（isSubstituted=false，DR-172 不生效，DR-170 全量历史）；② revoked 心咒 vow 打卡继续计入心咒 cumulative_count（DR-157 no vowId filter，D18 不删）；③ 顶礼空窗是预期结果；§1.12 isSubstituted 段末补注；无新表/无新字段/无新 migration |
@@ -3188,6 +3212,7 @@ model UserSelfStudyProgram {
 | DR-152 | `disqualified`（取消资格）下游三决策（DR-149 遗留 Unit ⑤）| **(1) App 访问**：disqualified 后可继续登录 App、查看历史档案（D18），但失去班级成员权限（不可进班级主页/课程/报数/出勤）。**(2) 再入学**：允许，但条件比 `left` 更严——须 `super_admin` 审批 + 忏悔/认罪流程 + 邀请码重新加班（能力 2）。⚠️ 再入学中「忏悔/认罪流程」的系统验证方式 → **由 DR-156 D1 补全（书面背书，不依赖 DR-84 gate）**。**(3) 历史记录**：档案永久保留（D18），升学从 0 重算。⚠️ 「从 0 重算」的机制 → **由 DR-156 D2 补全（新 vow + 时间窗口隔离）**（用户决策 2026-06-03）| (1) 排除「禁止登录」：D18 全数据保留精神，学员有权查看历史档案；排除「维持完整班级访问」：disqualified 已不是班级有效成员；(2) 排除「永久禁止再入学」：佛教学修体系以认罪忏悔为改过门径；排除「与 left 同等待遇」：取消资格需更高授权；(3) 排除「历史记录接续计入升学」：历史数据可信度存疑；排除「物理删除历史」：违反 D18。关联 DR-84（忏悔前置 gate ⏸ 待定）/ DR-149 / DR-156 / D18 / 能力 9/11 |
 | DR-156 | R1-T18/T19 议题D：disqualified 再入学忏悔验证机制（D1）+ 历史保留vs从0重算的视图与 vow 机制（D2）| **(D1) 再入学忏悔验证 = super_admin 书面背书**：super_admin 审批再入学时必填「忏悔确认说明」文字字段，内容写入 AuditLog 永久留档，super_admin 对忏悔完成结果负责；系统**不做自动 gate 检查**（不依赖 DR-84，不读 ReportConfession 表），DR-84 取消资格前置 gate 继续 ⏸ 待定，两者解耦；无新表/无新字段（AuditLog 已有 payload Json）。**(D2) 从0重算 = 新 vow + 时间窗口隔离（双层视图）**：再入学时建新 ClassMember（邀请码落班，能力 2）+ 新 program_task vow（起始日=新入班日）；升学预检只计入新 vow 对应的 PracticeLog（vowId 隔离，DR-153）；旧 vow/旧打卡在档案视图（D18）永久保留但不参与新轮升学条件；**学员端两层**：进度页=本期（新 vow 进度）/ 档案页=完整历史（D18）（用户决策 2026-06-03）| (D1) 排除「系统自动 gate 检查 ReportConfession 提交记录」：学员拒绝忏悔时本表无记录，gate 将永久阻断取消资格/再入学（DR-84 死锁问题）；排除「DR-84 先解决再定」：再入学路径可先行，书面背书满足留痕要求（D17），不损失治理能力，只是由系统检查改为管理员负责；排除「直接跳过忏悔要求」：忏悔/认罪在佛教治理体系中具有根本意义，不可省略，需以人工背书形式保留。(D2) 排除「历史记录接续计入升学」：被取消资格意味历史数据可信度存疑；排除「全部重置旧 vow（物理删）」：违反 D18；排除「新旧 vow 共用进度视图」：混合展示无法区分本期达标情况与历史存档数据，运营判断混乱。**无新表/无新字段**（AuditLog payload 承载背书文字；新 ClassMember + 新 vow 走既有能力 2 流程）；关联 DR-84（⏸ 继续待定）/ DR-152 / DR-153（vowId 隔离）/ D17 / D18 / 能力 2/5/9/11 |
 | DR-160 | ISG-3 闭合：`transmission` conditionType 标准 params 结构 + 传承记录创建主体澄清（2026-06-04）| **传承记录仅管理员后台录入**（无学员自报路径）→ `isConfirmed=false` 记录不会出现 → 预检查询 `transmissionKey=conditionKey AND isRequired=true AND status='active'` 已充分，**无需加 `isConfirmed=true` 过滤**；DR-46 原描述正确。`transmission` params = `{ "transmissionKey": "<条件键>" }`，判定 `SELECT 1 FROM TransmissionRecord WHERE userId=:uid AND transmissionKey=:conditionKey AND isRequired=true AND status='active'`（用户决策 2026-06-04）| 排除「加 isConfirmed=true 过滤（原 ISG-3 建议）」：ISG-3 风险基于"学员可自报灌顶"的错误前提——实际上传承记录创建主体是管理员，管理员在后台录入即为确认，`isConfirmed=false` 状态不会在正常流程中出现；加过滤条件等于对不存在的场景防御，徒增查询条件复杂度。关联 DR-46（传承判定原描述）/ DR-47（课程触发传承，isConfirmed=true by default）/ 能力 17 / ISG-3 |
+| DR-178 | T15 闭合：cohortStatus 7态完整转移矩阵——advanced/disqualified 为永久终态，held_back→active 非法（2026-06-05）| **13条合法路径 + 2个永久终态 + 明文禁止路径**：(1) active→{paused,graduated,held_back,disqualified,left}；(2) paused→{active,left,disqualified}；(3) graduated→{advanced,held_back,left}；(4) held_back→{left,disqualified}（✅held_back→disqualified 允许，用户决策）；(5) left→active（admin 复活，同届 @@unique 复用同行）。**终态**：`advanced`=永久终态，任何转移均非法（DR-150，原专业永久 advanced）；`disqualified`=永久终态，再入学走邀请码新建 ClassMember，原行不修改（DR-152/DR-156）。**明文禁止**：`held_back→active`（旧班 ClassMember 永久 held_back，想重读须先 left → 邀请码重新加班，不能直接激活）；`graduated→active/paused`（毕业后不可回退）；`active→advanced`（必须经 graduated）；所有 `advanced→任何` 和 `disqualified→任何`（终态，禁止直接修改）（用户决策 2026-06-05）| 排除「held_back→active 直接复活」：held_back 是留级判定结果（管理员主动操作），直接激活绕过"重新入班"的邀请码治理流程，且该届 ClassMember 仍挂在该班，会造成留级生与新届学员混读同一班的异常；排除「disqualified→active 直接复活」：取消资格有更严格再入学门槛（DR-152/DR-156），直接复活绕过 super_admin 审批 + 书面忏悔 + 新 ClassMember 建立的完整路径；排除「advanced→任何转移」：DR-150 已明确原专业永久 advanced 是系统语义约束，不因时间或其他操作改变；排除「graduated→paused 回退」：毕业是时间事件不可逆（DR-149），回退语义混乱且审计无法重建。关联 §1.2 ClassMember（约束表 + 设计意图）/ DR-149（状态机 5→7 态）/ DR-150（advanced 终态）/ DR-152/DR-156（disqualified 再入学）/ DR-177（held_back 软限制）/ 能力 11 / R3 剧本 T15 |
 | DR-177 | F7.2 闭合：加行专业留级上限=2次，软限制，ClassMember.heldBackCount 为计数依据（2026-06-05）| **软限制，非硬拦截**：加行专业留级上限=2次；`ClassMember.heldBackCount ≥ 2` 时管理端升学审核 / 留级操作界面显示警示标注，管理员有最终决定权，可越权继续操作。计数以 `ClassMember.heldBackCount`（当届班内留级累计次数）为准；退出后重新加入生成新 ClassMember，heldBackCount=0 是预期行为——退出是学员自主决定（语义≠升学失败），重进是新的开始，不续接留级计数（用户决策 2026-06-05）| 排除「硬拦截（系统拒绝第3次留级）」：管理员仍需能处理特殊情况（如学员有客观原因），硬拦截剥夺管理弹性，软限制+警示符合能力5代行精神；排除「跨 ClassMember 汇总历史留级次数」：退出再加入语义上是新的开始（非绕过），当届 heldBackCount 足够表达"本次学习周期的留级历史"；排除「userId 级别新增 totalHeldBackCount 字段」：退出≠留级结论成立后，跨班汇总失去意义，无需新字段。关联 §1.2 ClassMember（heldBackCount 字段 + 软限制约束）/ 能力 11（留级规则）/ R1 剧本 T7/T8/T9 |
 | DR-176 | R3-T14 闭合：`ritualCompliant=false` 标记强制走 AuditLog(proxy_action)——TODO-20 闭合（2026-06-04）| **标记操作强制留痕**：管理员通过能力 5 标记 `PracticeLog.ritualCompliant=false`（作废不合规打卡），属"修正"代行操作，必须同步写 `AuditLog(actionType=proxy_action)`；payload = `{operatorId, practiceLogIds: [被标记 id 列表], markedAt: ISO时间戳}`。用途：事后审计时，conditionsSnapshot 显示当时"达标"、当前聚合显示"不达标"，AuditLog 的 `markedAt` 是唯一证明"标记发生在 approve 之后"的凭据（R3-T14）；若无此留痕，差异来源无法自解释——DR-173 policy（conditionsSnapshot 为准，原始数据为辅）仍成立，但无法从审计链自证时间顺序（用户决策 2026-06-04）| 排除「靠 PracticeLog.updatedAt 推断」：updatedAt 只记最后修改时间，batch 标记时无法追溯单条修改时间，且多次标记只留最新 updatedAt，无法重建标记历史；排除「conditionsSnapshot 加深度字段」：DR-162/DR-173 已定 conditionsSnapshot 只冻结结论层，加深度字段是对旧担忧的旧路线，与现架构冲突；AuditLog proxy_action 路径已覆盖"修正"语义（§3.11 actionType 13.1 核查 ✅，#21 代行），本条仅明文此场景**必须**走该路径。关联 DR-164（ritualCompliant IS NOT FALSE 过滤）/ DR-173（conditionsSnapshot 为权威）/ §3.11 AuditLog / D17（代行留痕）/ D18 / 能力 5（修正代行）/ R3-T14 / TODO-20 |
 | DR-175 | R3-T9/T10/T11 闭合：撤销替代后判定行为——顶礼恢复聚合，心咒打卡继续计入 cumulative_count（2026-06-04）| **撤销后状态转换明文**：(1) isSubstituted→false → 顶礼项判定从替代路径切回 cumulative_count 全量聚合（DR-172 逆命题显式确认）；(2) revoked 心咒 vow 的 PracticeLog 记录仍计入心咒 cumulative_count——cumulative_count 不过滤 vowId（DR-157）、不过滤 vow status，PracticeLog 永久留存（D18）；(3) 顶礼空窗（替代期间未念顶礼）是预期结果，不是 bug（用户决策 2026-06-04）| 排除「revoked vow 的打卡从 cumulative_count 扣除」：功德已念成，D14a 全量共享精神，vow 的管理状态不应倒扣历史打卡；排除「撤销后顶礼从 0 重算」：DR-94 历史保留 + DR-170 无起修日过滤，撤销不触发清零；这 3 条均为 DR-172/DR-157/DR-94/DR-170 的组合推论，本条补明文防止实现者误加额外过滤。关联 DR-155（撤销流程）/ DR-172（isSubstituted 切换路径）/ DR-157（cumulative 无 vowId 过滤）/ DR-94（历史保留）/ DR-170（无起修日过滤）/ D18 / R3-T9/T10/T11 |
