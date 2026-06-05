@@ -635,12 +635,14 @@
 | 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
 |---|---|---|---|---|---|---|
 | GET | `/api/admin/users/:uid/roles` | subject_admin+ | — | `UserRoleAssignment[]`（active）| 🆕 | 查某用户全部角色分配（一人多角色各条独立）|
-| POST | `/api/admin/users/:uid/roles` | **按任命链** | `{role,classId?\|programId?}` | assignment | 🆕 | 任命；**任命链校验**：super←super / subject←super / class_admin·class_tutor←subject_admin 或 super；作用域字段按 role 必填 |
-| POST | `/api/admin/role-assignments/:id/revoke` | 同级或更高 | `{reason}` | status=revoked | 🆕 | 撤销（不物理删 D18）；写 RoleAssignmentHistory |
+| POST | `/api/admin/users/:uid/roles` | **按任命链** | `{role,classId?\|programId?}` | assignment | 🆕 | 任命；**任命链校验**：super←super / subject←super / class_admin·class_tutor←subject_admin 或 super；作用域字段按 role 必填；**双写**：RoleAssignmentHistory + AuditLog(role_assignment)（DR-192）|
+| POST | `/api/admin/role-assignments/:id/revoke` | 同级或更高 | `{reason*}` | status=revoked | 🆕 | 撤销（不物理删 D18）；**双写**：RoleAssignmentHistory + AuditLog(role_assignment)（DR-192）；reason 必填（AuditLog.reason 非空约束）|
 | GET | `/api/admin/users/:uid/role-history` | subject_admin+ | — | `RoleAssignmentHistory[]` | 🆕 | 角色变更留痕 |
 | ~~PATCH~~ | ~~`/api/admin/users/:id/role`~~ | admin | 单值改角色 | — | 🔧 | 线上单值 role 端点→**改造为多 assignment 体系**（DR-113 迁移：coach→class_tutor、admin→super_admin 后人工降级）|
 
 > **权限判定核心（绝对约束1）**：中间件按**角色等级数值**比较（class_tutor=1/class_admin=2/subject_admin=3/super_admin=99），`userLevel >= requiredLevel` 放行，**不硬编码角色名**；同时校验作用域（classId/programId 匹配操作目标）。一人多角色取**满足该操作的最高有效角色**。
+
+> **角色任命/撤销双写要求（DR-192）**：每次任命或撤销均须同时写两个表——① `RoleAssignmentHistory`（assignment 维度流水账，快查单人变更史，供 `GET /api/admin/users/:uid/role-history` 读取）；② `AuditLog(actionType=role_assignment)`（跨能力统一审计入口，class_admin 查本班、subject_admin 查本科、super_admin 全平台均从此表读）。两者用途不同，均不可省略。
 
 > **`/api/auth/me` 多角色响应与三端路由守卫（DR-191）**：响应新增 `roles:[{role,classId?,programId?}]`（当前用户所有 active assignment 精简列表）。**前端三端入口逻辑**：有 class_tutor+ → 显示 /coach/* 入口；有 subject_admin+ → 显示 /admin/* 入口；两者不互斥（P4）。**后端路由守卫**（DR-114 JWT 不烤 role）：`/coach/classes/:id` → 查 `classId=:id AND roleLevel>=1 AND status=active`；`/admin/*` → 查任意 `roleLevel>=3 AND status=active`；subject_admin 在其 programId 范围内可操作该学科全部班级，无需精确 classId 匹配。
 

@@ -1046,7 +1046,8 @@ student（学员）是核心用户角色，不属于管理角色体系。
 2. 每条角色 assignment 必须带作用域字段
 3. 所有角色变更永久留痕，不可删除（D18）
 4. class_tutor 不能自行授权他人（职能 #19 授权权只限 class_admin 及以上）
-5. **super_admin 专属操作集中清单（DR-190）**：以下操作仅 super_admin 可执行，class_admin 及以下调用须返回 403：
+5. 角色任命/撤销必须**双写**：`RoleAssignmentHistory`（流水账，快查单人角色变更史）+ `AuditLog(actionType=role_assignment)`（跨能力统一审计，按作用域过滤）；两者职责不同，均不可省略（DR-192）
+6. **super_admin 专属操作集中清单（DR-190）**：以下操作仅 super_admin 可执行，class_admin 及以下调用须返回 403：
    - 创建/修改/停用专业（职能 #18；09 能力1 API）
    - 平台级配置/AI 配置中心（职能 #20）
    - 撤销升学（advanced→graduated，DR-184）
