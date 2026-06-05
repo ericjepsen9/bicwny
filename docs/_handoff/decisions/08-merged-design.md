@@ -142,7 +142,7 @@
 > | 起始状态 | 目标状态 | 触发方 |
 > |---|---|---|
 > | active | paused | 系统自动（LeaveRequest 批准 + EnrollmentStatusHistory 原子写入）|
-> | active | graduated | class_admin+（第八学期结束手动批量结业）|
+> | active | graduated | class_admin+（第八学期结束，逐个手动结业）|
 > | active | held_back | class_admin+（升学驳回留级，heldBackCount +1）|
 > | active | disqualified | class_admin+（职能#14 取消资格）|
 > | active | left | 学员自助 / class_admin+ |
