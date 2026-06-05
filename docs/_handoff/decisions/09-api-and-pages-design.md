@@ -431,7 +431,7 @@
 |---|---|---|---|---|---|---|
 | POST | `/api/admin/students/:uid/proxy-actions` | class_admin（本班）/ subject_admin（本学科）/ super_admin（任意）| `{actionType,domain,targetKey,payload,reason*,basis?,scope,notify=true}` | `AuditLog` | 🆕 | **统一代行入口**；`actionType` 五类（见下）；`reason` 必填否则 422；写 AuditLog + 落原生字段；按角色校验作用域（越域 403）|
 | GET | `/api/admin/students/:uid/proxy-actions` | class_tutor+（只读）| `?domain` | `AuditLog[]`（含已撤回链）| 🆕 | 学员档案代行史（管理端，辅导员可读供「建议」参考）|
-| POST | `/api/admin/proxy-actions/:id/revoke` | 同级或更高 | `{reason*}` | 新 `AuditLog`（type=revoke）| 🆕 | **撤回=新记录**，原记录永不删（绝对约束6）；撤回同步回滚原生字段 |
+| POST | `/api/admin/proxy-actions/:id/revoke` | 同级或更高 | `{reason*}` | 新 `AuditLog`（type=revoke）| 🆕 | **撤回=新记录**，原记录永不删（绝对约束6）；**回滚逻辑（DR-193）**：先查同一 `(userId,domain,targetKey)` 是否有其他 active proxy action → 有则保留原生字段不回滚；无则回滚原生字段至代行前状态 |
 | POST | `/api/coach/students/:uid/proxy-suggestions` | class_tutor | `{domain,targetKey,suggestion,reason}` | 建议记录 | 🆕 | **辅导员只能「建议」不能执行**（业务规则3），路由给班级管理员处理 |
 | GET | `/api/me/proxy-actions` | student | — | 本人档案代行记录（只读全文）| 🆕 | **学员可见权**（绝对约束7·D18 双方可见）|
 
