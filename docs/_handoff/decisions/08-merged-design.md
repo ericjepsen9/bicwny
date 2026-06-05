@@ -143,18 +143,18 @@
 > |---|---|---|
 > | active | paused | 系统自动（LeaveRequest 批准 + EnrollmentStatusHistory 原子写入）|
 > | active | graduated | class_admin+（第八学期结束，逐个手动结业，**通知学员**）|
-> | active | held_back | class_admin+（升学驳回留级，heldBackCount +1）|
+> | active | held_back | class_admin+（升学驳回留级，heldBackCount +1，**通知学员**）|
 > | active | disqualified | class_admin+（职能#14 取消资格，**通知学员**）|
-> | active | left | 学员自助 / class_admin+ |
+> | active | left | 学员自助 / class_admin+（**通知学员**）|
 > | paused | active | 系统自动 / 辅导员（请假到期或"结束请假"端点）|
-> | paused | left | 学员自助 / class_admin+ |
+> | paused | left | 学员自助 / class_admin+（**通知学员**）|
 > | paused | disqualified | class_admin+（**通知学员**）|
 > | graduated | advanced | class_admin+（升学审核通过，能力 10 职能#16，**通知学员**）|
 > | graduated | held_back | class_admin+（主动判定不够格升学 → 留级，heldBackCount +1，**原因必填**，写 AuditLog，**通知学员并显示原因**）|
 > | graduated | left | 学员 / class_admin+ |
 > | held_back | left | 学员自助 / class_admin+ |
 > | held_back | disqualified | class_admin+（✅ 允许）|
-> | left | active | admin（同届 ClassMember 复活，@@unique 同行复用）|
+> | left | active | admin（同届 ClassMember 复活，@@unique 同行复用，**通知学员**）|
 >
 > **终态**：`advanced` = 永久终态，任何转移均非法（DR-150，原专业永久 advanced）；`disqualified` = 永久终态，再入学走邀请码新建 ClassMember，原行不修改（DR-152/DR-156）。
 >
