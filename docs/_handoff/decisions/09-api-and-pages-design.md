@@ -642,6 +642,8 @@
 
 > **权限判定核心（绝对约束1）**：中间件按**角色等级数值**比较（class_tutor=1/class_admin=2/subject_admin=3/super_admin=99），`userLevel >= requiredLevel` 放行，**不硬编码角色名**；同时校验作用域（classId/programId 匹配操作目标）。一人多角色取**满足该操作的最高有效角色**。
 
+> **`/api/auth/me` 多角色响应与三端路由守卫（DR-191）**：响应新增 `roles:[{role,classId?,programId?}]`（当前用户所有 active assignment 精简列表）。**前端三端入口逻辑**：有 class_tutor+ → 显示 /coach/* 入口；有 subject_admin+ → 显示 /admin/* 入口；两者不互斥（P4）。**后端路由守卫**（DR-114 JWT 不烤 role）：`/coach/classes/:id` → 查 `classId=:id AND roleLevel>=1 AND status=active`；`/admin/*` → 查任意 `roleLevel>=3 AND status=active`；subject_admin 在其 programId 范围内可操作该学科全部班级，无需精确 classId 匹配。
+
 ### 页面/交互
 | 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
 |---|---|---|---|---|

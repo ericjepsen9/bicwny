@@ -1031,6 +1031,8 @@ student（学员）是核心用户角色，不属于管理角色体系。
 
 **8. 学员可同时是管理角色**：不强制身份互斥（P4）。
 
+**9. 三端入口显示逻辑（DR-191）**：`/api/auth/me` 响应包含 `roles:[{role,classId?,programId?}]`（用户全部 active assignment 精简列表）；前端按此决定显示哪些端的入口：有 class_tutor+ → 显示辅导员端（/coach/*）入口；有 subject_admin+ → 显示 admin 端（/admin/*）入口；两者可同时显示（P4）；后端路由守卫按 classId/programId 作用域即时查 UserRoleAssignment（DR-114，JWT 不烤 role）。
+
 ### 输入与输出
 - 输入：super_admin / subject_admin 发起角色任命或撤销
 - 输出：`user_role_assignments`（角色分配记录）、`role_assignment_history`（变更留痕）
