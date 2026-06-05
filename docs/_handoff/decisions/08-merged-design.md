@@ -144,11 +144,11 @@
 > | active | paused | 系统自动（LeaveRequest 批准 + EnrollmentStatusHistory 原子写入）|
 > | active | graduated | class_admin+（第八学期结束，逐个手动结业，**通知学员**）|
 > | active | held_back | class_admin+（升学驳回留级，heldBackCount +1）|
-> | active | disqualified | class_admin+（职能#14 取消资格）|
+> | active | disqualified | class_admin+（职能#14 取消资格，**通知学员**）|
 > | active | left | 学员自助 / class_admin+ |
 > | paused | active | 系统自动 / 辅导员（请假到期或"结束请假"端点）|
 > | paused | left | 学员自助 / class_admin+ |
-> | paused | disqualified | class_admin+ |
+> | paused | disqualified | class_admin+（**通知学员**）|
 > | graduated | advanced | class_admin+（升学审核通过，能力 10 职能#16，**通知学员**）|
 > | graduated | held_back | class_admin+（主动判定不够格升学 → 留级，heldBackCount +1，**原因必填**，写 AuditLog，**通知学员并显示原因**）|
 > | graduated | left | 学员 / class_admin+ |
