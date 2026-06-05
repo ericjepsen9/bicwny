@@ -149,7 +149,7 @@
 > | paused | active | 系统自动 / 辅导员（请假到期或"结束请假"端点）|
 > | paused | left | 学员自助 / class_admin+ |
 > | paused | disqualified | class_admin+ |
-> | graduated | advanced | class_admin+（升学审核通过，能力 10 职能#16）|
+> | graduated | advanced | class_admin+（升学审核通过，能力 10 职能#16，**通知学员**）|
 > | graduated | held_back | class_admin+（主动判定不够格升学 → 留级，heldBackCount +1，**原因必填**，写 AuditLog，**通知学员并显示原因**）|
 > | graduated | left | 学员 / class_admin+ |
 > | held_back | left | 学员自助 / class_admin+ |
