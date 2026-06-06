@@ -596,6 +596,7 @@
 3. 成绩录入权限严格限于 class_admin 及以上（职能 #7）
 4. 升学记录及代行豁免记录永不物理删除（D18）
 5. **多专业预检独立、无跨专业豁免**（D9/D16）：每条预科升学线按 programId 各自跑 6 条件，在读正科 A 不豁免并行预科 B 的预检（R1-T14 撤销 zhengke_bypass）
+6. **super_admin 可撤销误操作升学（DR-184，受限例外）**：`advanced` 为永久终态（DR-150），但 super_admin 持有唯一撤销路径（advanced→graduated），用于纠正操作失误；必填撤销原因；写 AuditLog(advancement_decision, result=revoked) 留痕；原 AdvancementRecord 保留不删（D18）；撤销后 cohortStatus 回 graduated，须重走完整升学预检方可再次升学；**class_admin 及以下无撤销权限**
 
 ### 对老项目的影响
 - 老项目"无考试无结业"已推翻（05-decision-log.md §二），需全新建立考试与升学模块
