@@ -848,6 +848,8 @@
 
 触发阈值由专业配置决定（对应 D3），不写死到代码。
 
+> **study_lag 触发维度（DR-198）**：CohortLagSnapshot 的 `contentLag`/`quizLag`/`meditationLag` 三维**任一** not on_track → 每日 cron 触发 `study_lag` 清单条目；三维均属能力3闻思范畴（闻思内容·答题·观修），触发统一用 study_lag，快照5维分列展示供辅导员判断具体滞后维度。`attendanceLag`→`attendance_low`；`taskLag`→`practice_lag`（DR-167）；`report_overdue`/`false_report`/`special_status` 不经 CohortLagSnapshot（来自能力9/12直接触发）。
+
 **2. 手动添加**：辅导员及以上可手动将任意学员加入清单，填写原因。
 
 **3. 清单可见范围**：辅导员及以上（class_tutor / class_admin / subject_admin / super_admin）均可查看本班关怀清单；作用域按角色权限范围生效（D8）。

@@ -541,7 +541,7 @@
 | GET/POST | `/api/coach/students/:uid/followups` | class_tutor+ | `{...,sourceType:'care_watchlist',watchlistItemId}` | `CareFollowupRecord` | 🆕 | 填跟进备注（**学员不可见**·内部日志）+ 可标「已跟进」（≠问题解决）|
 | GET | `/api/coach/classes/:id/lag-snapshot` | class_tutor+ | — | `CohortLagSnapshot[]`（5 维 LagStatus）| 🆕 | 掉队检测名单（出勤/内容/答题/观修/任务）；**学员端完全不可见** |
 
-> **自动触发/解除非端点**：触发条件由各能力事件 / cron 重算写入 CareWatchlistItem（practice_lag/attendance_low/report_overdue/study_lag 自动加→补齐自动 resolve；special_status 跟随能力 12；false_report/manual 手动）。阈值=专业配置（D3，复用 TODO-1，DR-79）。
+> **自动触发/解除非端点**：触发条件由各能力事件 / cron 重算写入 CareWatchlistItem（practice_lag/attendance_low/report_overdue/study_lag 自动加→补齐自动 resolve；special_status 跟随能力 12；false_report/manual 手动）。阈值=专业配置（D3，复用 TODO-1，DR-79）。**CohortLagSnapshot→triggerType 映射（DR-198）**：`attendanceLag`→`attendance_low`；`taskLag`→`practice_lag`（DR-167）；`contentLag`/`quizLag`/`meditationLag` **任一** not on_track→`study_lag`（三维均属能力3闻思范畴，清单用 study_lag 聚合，快照5维分列展示供辅导员判断具体滞后维度）；`report_overdue`/`false_report`/`special_status` 不经 CohortLagSnapshot（各来自能力9/12直接触发）。
 
 ### 页面/交互
 | 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
@@ -557,7 +557,7 @@
 ### 大纲 & DR 关联 + 对齐备注
 - 终端能力（无下游）；触发信号来自能力 3/7/8/9/12；D3（阈值数据化）/D8（作用域）/D18 / DR-78（partial unique）/DR-79（复用 TODO-1 阈值）/DR-130（CohortLagSnapshot）/DR-143（contentLag 读已确认完成）。
 - **🔵 架构落点**：① **「活跃信号 + 留痕」分离**——清单移除走 `status=resolved` 不删行，partial unique 保证同人同类型只一条 active、允许历史多条 resolved（DR-78）；② **CohortLagSnapshot 是检测信号源**（一人一行存最新 5 维结果），关怀清单据此 + 各能力事件汇聚；③ **CareFollowupRecord 与能力 12 共用**，sourceType 区分 special_status / care_watchlist。
-- **🔵 业务规则落点**：① 虚报/手动不自动解除（绝对约束4）→ resolve 端点按 triggerType 分权（false_report 限管理员）；② 备注学员不可见（绝对约束2）→ `/me/*` 不返回 CareFollowupRecord/CareWatchlistItem/CohortLagSnapshot；③ 阈值数据化（绝对约束1）→ 挂 08 §十待办（Program 配置表统一处理，复用 TODO-1）。
+- **🔵 业务规则落点**：① 虚报/手动不自动解除（绝对约束4）→ resolve 端点按 triggerType 分权（false_report 限管理员）；**虚报移除双步骤（X2）**：管理员须先 PATCH `/api/confessions/:id` 确认忏悔（DR-195，submitted→acknowledged），再 POST `/care-watchlist/:id/resolve` 手动移除清单条目——两步独立，确认忏悔不触发自动 resolve（06 规则5/绝对约束4）；② 备注学员不可见（绝对约束2）→ `/me/*` 不返回 CareFollowupRecord/CareWatchlistItem/CohortLagSnapshot；③ 阈值数据化（绝对约束1）→ 挂 08 §十待办（Program 配置表统一处理，复用 TODO-1）。
 
 ---
 
