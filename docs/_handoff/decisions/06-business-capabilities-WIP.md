@@ -398,11 +398,13 @@ admin 可发布 `ClassSession.classId=null` 的平台级场次（全平台统一
 - 升学预检各专业独立计入；DB 唯一约束（classSessionId+userId+studyType+classId）防重复
 - `paused` 状态的 ClassMember 不参与广播写入
 - 取消场次（status=cancelled）不应催签（DR-185/DR-204）
+- **取消后级联失效（DR-207）**：若学员已签到（StudyRecord 已广播写入），取消场次时系统批量设 `invalidatedAt`（对称回收全部班记录）；已失效记录不计入升学预检出勤；出勤详情页显示「已失效（场次已取消）」；留 AuditLog 痕迹
 
 #### 补卡
 - 学员**不能自助补卡**
 - 辅导员/管理员可任何时候补卡(常规操作)
 - 选定:学员、共修场次、理由(**可选，有意设计**——AuditLog 强制写入「由XXX补卡」已是完整留痕，不必强制填写理由增加摩擦；DR-177 越权留级的理由必填是独立治理链，两者无关（DR-189）)
+- **不得对已取消场次（status=cancelled）补卡（DR-208）**——补卡端点前置校验场次状态，已取消返回 409「该场次已取消，无法补卡」
 - 系统记录"由 XXX 补卡",档案可见，AuditLog 强制写入（actionType=checkin_proxy）
 
 #### 撤销出勤
@@ -447,7 +449,7 @@ admin 可发布 `ClassSession.classId=null` 的平台级场次（全平台统一
 
 ### 对老项目的影响
 - **复用**：`ClassSession`（已扩展 sessionType/status/checkInToken/scheduleId/classId 等字段，DR-21~25/DR-185/DR-186）
-- **新建**：`ClassSessionSchedule`（课表模板层，DR-25）；`StudyRecord` 唯一约束含 classId（支持平台级广播写入，DR-186）
+- **新建**：`ClassSessionSchedule`（课表模板层，DR-25）；`StudyRecord` 唯一约束含 classId（支持平台级广播写入，DR-186）；`StudyRecord.invalidatedAt`（场次取消级联失效标记，DR-207）
 - 旧拼音表名（`gongxiu_session_schedule`/`gongxiu_session_instance`/`gongxiu_attendance`）已废弃，以 08 §三 封板表名为准（DR-206 F1 修正）
 
 ---
