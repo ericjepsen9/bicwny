@@ -5288,6 +5288,26 @@ model UserSelfStudyProgram {
 
 ---
 
+### 检查轮次 101（2026-06-06，范围：DR-194~201 批量回填 · 能力 9/10/11/14/15/1-8 缺口闭合 + Y3 报数节点配置 + 学员补录 · 跨 06/08/09）
+
+> 说明：DR-152~193 因前期连续推进未单独留 §九 轮次（决策记录在 §七/§八 完整）；本轮回填覆盖本会话产出 DR-194~201 八条——DR-194（06 与 DR-162 对齐）/DR-195（能力9 快照API：删 PATCH snapshots + 补 PATCH confessions）/DR-196（能力10：补 revoke-advancement + reject 分支 AuditLog + 06 绝对约束6）/DR-197（能力11 留级两步：hold-back + readmit）/DR-198（能力14 study_lag 三维映射）/DR-199（能力15 传承触发改完成弹确认）/DR-200（能力1-8 四缺口 B0/B1/B3/B4）/DR-201（Y3 报数节点配置 + 学员补录过去）。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | 本批唯一新字段 `reportNodeWeeks`（ProgramSemester）为标量 Int[]，无关联；DR-194~200 零新表/新关联（纯 API/规则/文档对齐）|
+| 2. API 响应字段与 DB 字段对齐 | ✅→已修 | DR-195 PATCH /confessions 对齐 §3.8 reviewedBy/reviewedAt；DR-196 revoke-advancement 对齐 DR-184；DR-199 confirm 出参补 isConfirmed/confirmedBy/At 对齐 §2.3；DR-200·B1 能力3 completion 描述对齐「08 无 @@unique + 能力39 COUNT」；DR-201 PUT /semesters 入参 reportNodeWeeks 与 ProgramSemester 字段一致，并闭合原 Y3 ⚠️ 占位 |
+| 3. SQL 视图表名正确 | ⏸ 不适用 | 本批无 SQL 视图 |
+| 4. 总览计数正确 | ✅→已修 | DR-201 ProgramSemester 复用→扩展，§一 扩展区 12→13（标题+§一注+尾注三处同步）；§三 20/§四 20 不变；DR-194~200 零新表无计数变动 |
+| 5. Migration 覆盖完整 | ✅→已修 | DR-201 reportNodeWeeks → §11.3 补 M1.6（ProgramSemester ALTER 加列）；DR-194~200 均「无新表/新字段/新 migration」|
+| 6. Phase 计划覆盖完整 | ✅ | 本批改动落既有能力 1/9/10/11/14/15 实施项；新端点（revoke-advancement/hold-back/readmit/activate/platform/semesters/confessions PATCH/care-watchlist）随对应能力 Phase；无新 Phase 表项 |
+| 7. 暂缓/不做标签完整 | ✅ | Y3（报数节点时点）由 ⚠️ 待决 → DR-201 闭合，09 能力1 PUT 占位 ⚠️ 同步清除；本批无新增 ⏸/❌ 悬空 |
+| 8. 业务规则约束有实现方式 | ✅ | DR-196 撤销升学=super_admin 守卫+AuditLog；DR-197 留级两步=hold-back 端点+能力2邀请码；DR-198 study_lag=cron 派生；DR-199 传承触发=完成弹确认（isConfirmed=true 免审）；DR-200 开启签到/平台共修=独立端点；DR-201 补录标注=应用层派生（createdAt vs 实际归属节点）、节点配置=PUT 端点+cron、快照不改=DR-83-B |
+
+**本轮发现问题数**：2（均本会话内闭合）——① DR-200 上一批 09 正文 DR 编号笔误（201/202/203→DR-200，DR-201 顺修）；② DR-201 ProgramSemester 复用→扩展引发 §一计数 12→13 + §11.3 迁移映射补 M1.6，已同步。
+**结论**：DR-194~201 八条批量回填通过 8 项检查。§一 扩展区 13 张（DR-201 +ProgramSemester）/§三 20/§四 20 稳定。DR-152~193 决策记录在 §八完整，§九 轮次留待需要时另补。
+
+---
+
 ## 十、跨表待办清单（设计推进中发现、需在后续表/阶段处理）
 
 > 设计某张表时发现、但应在其他表或后续阶段解决的事项，登记于此防遗漏。
