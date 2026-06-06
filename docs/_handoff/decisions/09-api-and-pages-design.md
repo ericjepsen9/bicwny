@@ -886,13 +886,13 @@
 |---|---|---|
 | 50 内容举报闭环 | `/api/reports` · `/api/notes/reports[/*]` · `/api/admin/reports/*` | ✅（QuestionReport/NoteReport）|
 | 51 用户反馈 | `/api/feedback` · `/api/me/feedback` · `/api/admin/feedback` | ✅ DR-138（bug/建议统一一表 kind 区分）|
-| 26 综合修学积分排行 | `/api/classes/:id/meditation-ranking`（现状单维）| 🔧 [^26] |
+| 26 综合修学积分排行 | 多维加权积分排行已实现（`ClassRankingPage` + `study-ranking.routes.ts`；综合/念诵/观修 × 周/月/全部，积分公式 v1 写死运行）| 🔧 [^26] |
 | 27 综合活动列表 | `/api/my/upcoming-events` · `/api/my/top-home-card` | ✅（聚合共修/法会/纪念日）|
 | 31 辅导员 AI 出题与批量导入 | 批量导入 ✅ / AI 出题 ⏸（随 AI 25 暂缓 DR-109）| 🔧/⏸ |
 
 [^44]: 9 条规则=①进度落后 ②未完成班级任务 ③未完成个人任务 ④班级放假/休息周 ⑤闻思未圆满 ⑥复习到期 ⑦讲考/考试临近 ⑧升学/关怀结果 ⑨上课迟到（推送+短信）。数据源跨能力 3/14/33/8/10。
 [^45]: 唯一新建净资产；User+phone 体系 + 短信发送层 + dispatch 第3通道；用途=兜底+关键学修提醒；⚠️ 服务商选型挂 TODO-SMS（实现期定，非业务决策）。
-[^26]: 现状仅观修单维排行；能力 26 要多维加权（综合/念诵/观修 × 周/月/全部），需扩展聚合端点 `/api/classes/:id/ranking?dim=&period=`。
+[^26]: ✅ 多维加权排行已线上实现（DR-125 代码审计，06 能力 26 ✅ 标注）；**🔧 = TODO-23 数据源迁移**：念诵/活跃天数维度读废弃的 PracticeDailySummary（DR-122 废弃），改造时须改为实时聚合 PracticeLog（与观修排行实时算同口径）；v2 权重数据化（admin 可配，D3）随改造同期考虑。09 旧描述「现状单维排行/需扩展新端点」与 06 ✅ 状态矛盾——E1 修正（DR-205）。
 
 ---
 
