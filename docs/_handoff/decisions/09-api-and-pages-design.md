@@ -153,9 +153,11 @@
 | GET | `/api/me/semester-snapshots` | student | `?programId` | `SemesterSnapshot[]`（历期快照）| 🆕 | 学员看本期/历期报数快照（**WP-A 断点：现状无报数端点**）|
 | GET | `/api/me/current-period` | student | — | `{节点期,截止日,实时聚合数}` | 🆕 | 当前报数节点 + 实时进度（节点截止前可见）|
 | GET | `/api/classes/:id/snapshots` | class_admin | `?period` | 全班 `SemesterSnapshot[]` | 🆕 | 班级管理员汇总核查 |
-| PATCH | `/api/snapshots/:id` | class_admin | `{修正字段, reason}` | 同上 | 🆕 | 节点后代行修正（能力 5，写 AuditLog 留痕 D17）|
 | POST | `/api/confessions` | student/class_admin | `{snapshotId, text}` | `ReportConfession` | 🆕 | 虚报忏悔提交（能力 9 BR4）|
+| PATCH | `/api/confessions/:id` | class_admin | `{status:'acknowledged', adminNote?}` | `ReportConfession` | 🆕 | 管理员确认忏悔（submitted→acknowledged），写 reviewedBy/reviewedAt（DR-195，08 §3.8）|
 | POST | `/api/classes/:id/members/:uid/disqualify` | class_admin | `{reason}` | — | 🆕 | 取消虚报资格（职能 #14，cohortStatus 改 + AuditLog）|
+
+> **快照不可修改（DR-83-B / DR-195）**：SemesterSnapshot 节点截止后永远冻结，无 update API。admin 代行修正学员已录入的学修记录应走 PracticeLog / LessonCompletion 类端点（能力 5 代行，各能力自有端点）；修正后 AdvancementCheck 直接查原始表（DR-162），快照历史值不变（供报数展示用，保留原始存档语义）。
 
 ### 页面/交互
 | 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
@@ -172,7 +174,7 @@
 - 服务大纲 **E3（每学期报2次）/E4（虚报→忏悔→取消资格）**；DR-83-B（快照冻结）/DR-84（忏悔）。
 - **✅ 接缺口（报告 04·WP-A）**：本能力**补齐了「报数 UI + 报数聚合端点」**——这是 WP-A 标注的最大断点（旧档/现状都没有），现给出学员报数页 + 班级汇总页 + 6 个端点。
 - **🔵 接缺口（报告 03·E3）**：自学学员**不做**报数快照（DR-103）——`/api/me/semester-snapshots` 对自学返回空，自学进度走能力 21 独立端点。
-- **✅ 接缺口（报告 03·E4）**：虚报链 ReportConfession + disqualify 端点完整。
+- **✅ 接缺口（报告 03·E4，DR-195 补全）**：虚报链完整——POST `/api/confessions`（学员提交）+ PATCH `/api/confessions/:id`（管理员确认，DR-195 新增）+ POST disqualify（取消资格）；快照无 update API（DR-83-B，DR-195 明文锁定）。
 - **✅ 已决（报告 03·E1/E2·DR-146）**：「每月≥2 次共修 / 每月 1 次实修共修」频率门槛属**能力 8** 落点（已拍板：**不记录，走建课时课表配置**，app 不追踪频率）；本报数能力不含频率判定，自学/报数聚合不受其影响。
 
 ---
