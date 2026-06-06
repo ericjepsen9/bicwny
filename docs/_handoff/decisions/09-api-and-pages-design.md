@@ -570,12 +570,13 @@
 | 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
 |---|---|---|---|---|---|---|
 | GET | `/api/me/transmissions` | student | — | 固定/额外分组 `TransmissionRecord[]` | 🆕 | 学员看自己传承（双方可见 D18）|
+| GET | `/api/coach/classes/:id/transmissions` | class_tutor+ | `?confirmed=false&sourceType` | `TransmissionRecord[]`（含学员信息）| 🆕 | 全班传承记录（含待确认列表）；`confirmed=false` 过滤未确认条目，供管理员确认升格操作入口（**DR-199·A1**）|
 | POST | `/api/me/transmissions` | student | `{name,sourceType,receivedAt,masterName?}` | record | 🆕 | **自行申报**：默认 `isRequired=false`（额外）+ `entryMethod=self_report` |
 | POST | `/api/coach/students/:uid/transmissions` | class_tutor+ | 同上 | record | 🆕 | 管理员/辅导员**代录**（`entryMethod=admin_entry`，默认额外）|
-| POST | `/api/admin/transmissions/:id/confirm` | class_admin+ | `{transmissionKey}` | isRequired=true | 🆕 | **升格为固定清单项**（规则3/5：手动录入默认额外，升格需管理员确认）+ `confirmedBy/At` |
+| POST | `/api/admin/transmissions/:id/confirm` | class_admin+ | `{transmissionKey}` | isRequired=true + isConfirmed=true + confirmedBy/At | 🆕 | **升格为固定清单项**（规则3/5：手动录入默认额外，升格需管理员确认）|
 | POST | `/api/admin/transmissions/:id/revoke` | class_admin+ | `{reason}` | status=revoked | 🆕 | 撤销（不物理删 D18）|
 
-> **课程自动传承非端点**：专业配置标「含传承」的课程，学员经能力 3 圆满判定通过→系统派生 `entryMethod=auto, entryBy=system, isRequired=true, transmissionKey=<config>`（完成事件本身手动确认 DR-143，派生仍自动）。**升学核查**：能力 10 AdvancementCheck 遍历 conditionType='transmission' 条件，逐 `conditionKey` 查该用户有无 `transmissionKey=key AND isRequired=true AND status=active` 记录。
+> **课程传承非静默自动——提示确认（DR-199）**：专业配置标「含传承」的课程，学员完成课时（能力3圆满判定通过，DR-143）→ 系统弹出提示「此课含传承（[课名]），是否已接受传承？」→ 学员点「是」后系统写入 `entryMethod=auto, entryBy=system, isRequired=true, isConfirmed=true, transmissionKey=<config>`（**无需管理员审核**，用户确认即生效）；点「否」不写入（可稍后自行申报走 POST /me/transmissions + 管理员升格）。**盲/聋处理（DR-199）**：同适用能力3/12特殊完成标准；完全无可用方式的课（如纯音频课对聋人）提示不触发，由管理员走 POST /api/coach/students/:uid/transmissions 代录路径。**升学核查**：能力 10 AdvancementCheck 遍历 conditionType='transmission' 条件，逐 `conditionKey` 查该用户有无 `transmissionKey=key AND isRequired=true AND status=active` 记录。
 
 ### 页面/交互
 | 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
