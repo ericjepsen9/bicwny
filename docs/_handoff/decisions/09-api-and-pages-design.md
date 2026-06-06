@@ -389,7 +389,8 @@
 | 方法 | 路径 | 守卫 | 入参 | 出参 | 状态 | 说明 |
 |---|---|---|---|---|---|---|
 | POST | `/api/me/enrollments/:classId/exit` | student | `{confirm:true}` | 状态→left | 🆕 | **学员自主退出**（无需审批）；二次确认；历史记录保留只读（D15）|
-| POST | `/api/coach/classes/:newClassId/retain` | class_admin+ | `{userId,fromClassId,reason}` | 状态→held_back+新班 active | 🆕 | **留级手动操作**：经能力 2 把学员加新一届班；旧班记录保留、新班按新届起修日累计 |
+| POST | `/api/coach/classes/:classId/members/:uid/hold-back` | class_admin+ | `{reason}` | ClassMember→held_back | 🆕 | **留级步骤①**：原班 ClassMember cohortStatus `graduated→held_back`（reason 必填，通知学员并显示原因）；写 EnrollmentStatusHistory；heldBackCount+1；结果 heldBackCount > 2 须额外写 AuditLog(actionType=held_back_override)（DR-177）。**步骤②独立**：管理员另行发邀请码，学员走能力 2 加入新届班级（本端点仅做步骤①，DR-197）|
+| POST | `/api/admin/users/:uid/readmit` | super_admin | `{confessionNote}` | — | 🆕 | **disqualified 再入学审批（DR-156 D1）**：confessionNote 必填（书面背书忏悔确认，系统不做自动 gate，super_admin 对忏悔完成结果负责）；写 AuditLog(actionType=readmit_approved, payload={confessionNote, operatorId})；审批后管理员另发邀请码→学员走能力 2 重新加班（新 ClassMember 新建；旧档案永久保留 D18；新 vow 起算，DR-156 D2）|
 | POST | `/api/coach/classes/:id/graduate` | class_admin+ | `{confirm:true}` | 全班 active→graduated | 🆕 | **批量结业**（第八学期结束，DR-149）：本班所有 active 成员 cohortStatus→graduated + 各记 EnrollmentStatusHistory；**无实修门槛**（毕业=时间事件非达标）；二次确认；毕业去向（升学/留级/转预科）另走对应能力 |
 | POST | `/api/coach/classes/:id/archive` | class_admin+ | — | `Class.status=archived` | 🆕 | **班级归档**（D19，无 delete）；归档后不收新生/不产课表 |
 | GET | `/api/me/enrollment-history` | student | — | `EnrollmentStatusHistory[]` | 🆕 | 学员看自己退出/回归/留级全程（双方可见 D18）|
