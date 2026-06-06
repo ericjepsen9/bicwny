@@ -5304,7 +5304,27 @@ model UserSelfStudyProgram {
 | 8. 业务规则约束有实现方式 | ✅ | DR-196 撤销升学=super_admin 守卫+AuditLog；DR-197 留级两步=hold-back 端点+能力2邀请码；DR-198 study_lag=cron 派生；DR-199 传承触发=完成弹确认（isConfirmed=true 免审）；DR-200 开启签到/平台共修=独立端点；DR-201 补录标注=应用层派生（createdAt vs 实际归属节点）、节点配置=PUT 端点+cron、快照不改=DR-83-B |
 
 **本轮发现问题数**：2（均本会话内闭合）——① DR-200 上一批 09 正文 DR 编号笔误（201/202/203→DR-200，DR-201 顺修）；② DR-201 ProgramSemester 复用→扩展引发 §一计数 12→13 + §11.3 迁移映射补 M1.6，已同步。
-**结论**：DR-194~201 八条批量回填通过 8 项检查。§一 扩展区 13 张（DR-201 +ProgramSemester）/§三 20/§四 20 稳定。DR-152~193 决策记录在 §八完整，§九 轮次留待需要时另补。
+**结论**：DR-194~201 八条批量回填通过 8 项检查。§一 扩展区 13 张（DR-201 +ProgramSemester）/§三 20/§四 20 稳定。DR-152~193 见检查轮次 102（事后复核）。
+
+---
+
+### 检查轮次 102（2026-06-06，范围：DR-152~193 事后批量复核 · 42 条 · 跨 06/08/09 · ⚠️ 非同期检查）
+
+> 说明：DR-152~193（Unit ②~⑤ + 缺口 C~X3 批次，2026-06-03~06-05 产出）当期未单独留 §九 轮次，决策记录在 §七/§八 完整。本轮为**事后复核**——基于当前文档状态核对结构一致性，**非决策当期同步检查**（当期语境与排除方案以 §八 各 DR 记录为准）。Agent 全量扫描 42 条结构影响：**34 条零结构**（规则/predicate params/文档/前端文案/API 文本对齐）；**5 条触及 schema**——DR-158（LessonCompletion +`programId`，M3f 内加列）· DR-185（ClassSession +`status` enum）· DR-155（UserPracticeVow.status +`revoked` 枚举值）· DR-177（ClassMember.heldBackCount 软限制约束，既有字段）· DR-186（StudyRecord @@unique 扩展加 classId 维度）；DR-162 为升学预检架构重构（SemesterSnapshot→直查原始表，零 migration）。无缺号。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | 5 处结构变更均无新关联缺口：programId→Program（LessonCompletion.program 已成对）；status/heldBackCount/revoked 为标量/枚举；StudyRecord @@unique 为约束非关联。无新表 |
+| 2. API 响应字段与 DB 字段对齐 | ✅ | DR-158 programId 从专业上下文带入（09 能力3）；DR-185 status 对齐 09 能力8 PATCH cancel；DR-186 平台 session 对齐 09 checkin 广播；DR-191 /auth/me roles 对齐 09 能力18；predicate 类（DR-159/160/161/164~172）对齐 §3.1 标准 params |
+| 3. SQL 视图表名正确 | ⏸ 不适用 | 本批无 SQL 视图 |
+| 4. 总览计数正确 | ✅ | 5 处变更均「字段/枚举/约束」非新表 → §一 12/§三 20/§四 20 全程不变（本轮事后状态；DR-201 后 §一 另计 13）；programId 入既有 LessonCompletion、status 入既有 ClassSession，不增表数 |
+| 5. Migration 覆盖完整 | ✅ | DR-158→M3f 内加列；DR-185 ClassSession.status / DR-186 StudyRecord DROP+ADD UNIQUE / DR-155 revoked 枚举 / source 值域 均已并入 §11.3 M1（line 5340 明列）；无遗漏单元 |
+| 6. Phase 计划覆盖完整 | ✅ | 全落既有能力 8/9/10/11/12/18 实施项；新端点（G1.7-2 students/:uid/classes · exempt · auth/me roles）随对应能力 Phase；无新 Phase 表项 |
+| 7. 暂缓/不做标签完整 | ✅ | DR-154 撤销 G1.7-3 zhengke_bypass（已标）；DR-84 虚报忏悔 ⏸（DR-152/能力9 约束4 一致）；TODO-DR156-API 再入学端点已 DR-197 闭合；无新增悬空 |
+| 8. 业务规则约束有实现方式 | ✅ | predicate 类→§3.1 params+应用层聚合；DR-174 仅 passed 写 AdvancementRecord；DR-177 软限制→应用层警示+AuditLog；DR-178 转移矩阵 / DR-182 终态保护→应用层校验；DR-184 撤销→super_admin 守卫+AuditLog（DR-196 补端点）|
+
+**本轮发现问题数**：0（事后复核——DR-152~193 的 5 处结构变更在当前文档计数/迁移/关联中均已一致反映，前期维护到位；未发现遗漏或矛盾）。
+**结论**：DR-152~193 共 42 条事后批量复核通过 8 项检查。结构影响集中 5 条（programId/status/revoked/heldBackCount/StudyRecord unique），均已正确并入 §一计数+§11.3 M1/M3f，无悬空。**⚠️ 口径**：本轮为事后复核非同期检查，决策当期语境以 §八 DR-152~193 各条记录为准；§九 至此回填完整（轮次 1~102 连续，覆盖 DR-1~201）。
 
 ---
 
