@@ -57,7 +57,7 @@
 | GET | `/api/admin/programs/:id/advancement-configs` | super_admin / subject_admin | — | `ProgramAdvancementConfig[]` | 🆕 | 读该专业升学条件（6 类） |
 | PUT | `/api/admin/programs/:id/advancement-configs` | super_admin / subject_admin | `ProgramAdvancementConfig[]` | 同上 | 🆕 | 配置升学条件（合格线/门槛/弥补量，数据驱动 D3） |
 | GET | `/api/admin/programs/:id/semesters` | super_admin / subject_admin | — | `ProgramSemester[]` | 🆕 | 读该专业各学期时钟（semesterNumber/semesterName/startsWeek/endsWeek）（DR-200·B0）|
-| PUT | `/api/admin/programs/:id/semesters` | super_admin | `ProgramSemester[]` | 同上 | 🆕 | **配置学期时钟**（每专业独立维护，能力1绝对约束4）：设各学期起止周；`@@unique(programId,semesterNumber)` 冲突→409（DR-200·B0）。⚠️ **报数节点截止时点**当前 ProgramSemester 无字段承载（仅快照表存 reportNodeIndex 序号），其时间来源属待决项 Y3 |
+| PUT | `/api/admin/programs/:id/semesters` | super_admin | `ProgramSemester[]` | 同上 | 🆕 | **配置学期时钟**（每专业独立维护，能力1绝对约束4）：设各学期起止周 + **报数节点截止周 `reportNodeWeeks Int[]`**（DR-201/Y3 已闭合，cron 据此定时生成报数快照）；`@@unique(programId,semesterNumber)` 冲突→409（DR-200·B0）|
 | GET | `/api/programs/mine` | student | — | `Program[]`（学员所属专业精简视图） | 🔧 | 学员只读自己所属专业（名称/阶段/届/课表基准），**不含管理配置** |
 
 ### 页面/交互
@@ -92,7 +92,7 @@
 | GET | `/api/courses` / `/api/courses/:slug` | public/optional | — | 法本列表/详情+进度 | ✅ | 复用现状（学员侧加 isTantric 过滤）|
 | GET | `/api/lessons/:id/questions` | optional | — | 题目（隐藏答案）| ✅ | 复用 |
 | POST | `/api/answers` | student | `{questionId,answer}` | 判分结果 | ✅ | 复用（思考题作答=闻思第三动作）|
-| POST | `/api/me/lessons/:id/completion` | student | `{type:'audio'\|'video'\|'read'}` | `LessonCompletion` | 🆕 | 手动标记一遍「听/看」完成事件（DR-129/DR-143）；**一行=一遍供 COUNT，可累计不去重**（08 LessonCompletion 无 @@unique，对齐能力39；盲听≥2/聋看≥2 靠遍数累计，非布尔幂等）（DR-201·B1）|
+| POST | `/api/me/lessons/:id/completion` | student | `{type:'audio'\|'video'\|'read'}` | `LessonCompletion` | 🆕 | 手动标记一遍「听/看」完成事件（DR-129/DR-143）；**一行=一遍供 COUNT，可累计不去重**（08 LessonCompletion 无 @@unique，对齐能力39；盲听≥2/聋看≥2 靠遍数累计，非布尔幂等）（DR-200·B1）|
 | GET | `/api/me/lessons/:id/wensi-status` | student | — | `{听:遍数,看:遍数,答:bool,圆满:bool,judgedBy:身份分支}` | 🆕 | 闻思圆满判定（听=COUNT(audio,video)、看=COUNT(read)，按 StudentSpecialStatus 走 blind=听≥2/deaf=看≥2 分支，DR-92，对齐能力39）|
 | PATCH | `/api/me/lessons/:id/reading-progress` | student | 心跳 | — | ✅ | 复用（阅读进度，喂"看"维度）|
 
@@ -160,6 +160,8 @@
 | POST | `/api/classes/:id/members/:uid/disqualify` | class_admin | `{reason}` | — | 🆕 | 取消虚报资格（职能 #14，cohortStatus 改 + AuditLog）|
 
 > **快照不可修改（DR-83-B / DR-195）**：SemesterSnapshot 节点截止后永远冻结，无 update API。admin 代行修正学员已录入的学修记录应走 PracticeLog / LessonCompletion 类端点（能力 5 代行，各能力自有端点）；修正后 AdvancementCheck 直接查原始表（DR-162），快照历史值不变（供报数展示用，保留原始存档语义）。
+>
+> **节点截止后补录（DR-201）**：报数节点非学修死线。学员可经「事后补录申报入口」补录未完成任务（写 LessonCompletion/PracticeLog，`source=external`，可指定过去归属日期 `loggedAt`/`completedAt`）；**快照不改**（DR-83-B，已冻结节点不回写），**升学算总账**（DR-162 直接查原始表，补录计入总累计，逾期不阻断升学）。**「学员后补」标注=派生（无新字段）**：凡 `source=external` 且实际归属日期所属报数节点早于记录创建时刻 `createdAt` 所属节点 → 管理员端标「学员后补（原定节点 X·节点 Y 后补录）」，纳入虚报核查（规则10）。报数节点截止周由 `ProgramSemester.reportNodeWeeks` 配置（DR-201·Y3）。
 
 ### 页面/交互
 | 端 | 路由 | 说明 | 关键交互/状态机 | 状态 |
@@ -319,8 +321,8 @@
 | GET/POST | `/api/coach/classes/:classId/sessions` | class_tutor+ | 排课/临时发起 | `ClassSession` | ✅ | 复用；POST 支持「课表预排」与「临时发起」（scheduleId 有/无）|
 | PATCH | `/api/coach/sessions/:id` | class_tutor+ | 改场次信息 / 取消（`{status:'cancelled',reason?}`）| — | ✅ | 改信息时自动通知本班；取消时 PATCH status=cancelled，写 AuditLog(actionType=session_cancelled)，记录不物理删除（DR-185）|
 | GET/POST/PATCH/DELETE | `/api/coach/classes/:classId/schedules` | class_tutor+ | 课表模板 | `ClassSessionSchedule` | 🆕 | 双轨发起的「课表预排」层（线上无模板表）|
-| POST | `/api/coach/sessions/:id/activate` | class_tutor+ | — | `{checkInToken, windowStartAt, windowEndAt}` | 🆕 | **开启签到**（DR-89/DR-202·B3）：课表预排场次实际开课时手动触发生成 `checkInToken`，生成时刻=签到窗口起点，持续 `Program.checkinGraceMinutes` 后自动失效；临时发起（方案2）POST 时即生成 token，无需此步 |
-| POST | `/api/admin/sessions/platform` | super_admin | `{title,sessionType,startAt?}` | `ClassSession`（classId=null）| 🆕 | **平台级共修发起**（DR-186/DR-203·B4）：classId=null；仅 super_admin（能力18绝对约束5）；学员签到后广播写入其所有 cohortStatus='active' 班各一条 StudyRecord（paused 不写，DR-186）|
+| POST | `/api/coach/sessions/:id/activate` | class_tutor+ | — | `{checkInToken, windowStartAt, windowEndAt}` | 🆕 | **开启签到**（DR-89/DR-200·B3）：课表预排场次实际开课时手动触发生成 `checkInToken`，生成时刻=签到窗口起点，持续 `Program.checkinGraceMinutes` 后自动失效；临时发起（方案2）POST 时即生成 token，无需此步 |
+| POST | `/api/admin/sessions/platform` | super_admin | `{title,sessionType,startAt?}` | `ClassSession`（classId=null）| 🆕 | **平台级共修发起**（DR-186/DR-200·B4）：classId=null；仅 super_admin（能力18绝对约束5）；学员签到后广播写入其所有 cohortStatus='active' 班各一条 StudyRecord（paused 不写，DR-186）|
 | POST | `/api/sessions/:id/checkin` | student | `{token}` | 出勤记录 | 🆕 | **网络共修自助签到**：点链接→选自己→确认；校验 token 时效（生成时刻起 `checkinGraceMinutes`）+ 幂等（同场同人一次）；平台级 session（classId=null）时自动为学员所有 active 班各写一条 StudyRecord（DR-186 广播写入）|
 | GET | `/api/sessions/:id/checkin-grid` | student | — | 本班头像网格+已打卡标记 | 🆕 | 「选自己」网格视图 |
 | POST | `/api/coach/sessions/:id/attendance` | class_tutor+ | `{userIds[]}` | — | 🆕 | **线下共修批量勾选**到场学员 |

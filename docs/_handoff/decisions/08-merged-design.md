@@ -15,11 +15,11 @@
 
 ---
 
-## 一、🔧 扩展表（12 张，DR-123 校准）
+## 一、🔧 扩展表（13 张，DR-123 校准 · DR-201 +ProgramSemester）
 
 旧设计字段为底，按新业务逻辑加字段/改语义。
 
-> 注：ProgramSemester 核对后字段够用改判 ✅ 复用；CohortRecommendedTemplate 核对能力 9 后需扩展（classId→programId）从复用区移入；UserPracticeVow 剥离班级任务重新定位为纯发愿表。User 旧设计 13 字段全部复用，但新增 `birthDate`（年龄豁免数据源）从复用区移入扩展区。Class 旧设计 6 字段全部复用，但新增归档三件套（status/archivedAt/archivedBy，D19）从复用区移入扩展区。Course 旧设计 5 扩展字段全部复用，但 TODO-15 核对发现缺课程类型维度，新增 `courseType`（entry/formal/restricted，能力 3 规则 2）从复用区移入扩展区。PracticeLog 旧设计字段全部复用，但 TODO-11 核对发现顶礼打卡须同步录入法王祈祷文遍数，新增 `prayerCount` 字段，从复用区移入扩展区（DR-95）。扩展区曾达 13 张；**DR-123 实修域改造细化后校准为 12 张**——UserPracticeVow 改判 🆕 改造新建移入 §三（线上无此表），PracticeLog 保留本区（由线上 PracticeEntry 改造扩展，migration 属 ALTER）。
+> 注：ProgramSemester 原判 ✅ 复用，**DR-201 新增 `reportNodeWeeks`（报数节点截止周配置，Y3=b）改判 🔧 扩展**（逻辑归扩展区，物理定义暂留 §2.x ProgramSemester 复用说明节）；CohortRecommendedTemplate 核对能力 9 后需扩展（classId→programId）从复用区移入；UserPracticeVow 剥离班级任务重新定位为纯发愿表。User 旧设计 13 字段全部复用，但新增 `birthDate`（年龄豁免数据源）从复用区移入扩展区。Class 旧设计 6 字段全部复用，但新增归档三件套（status/archivedAt/archivedBy，D19）从复用区移入扩展区。Course 旧设计 5 扩展字段全部复用，但 TODO-15 核对发现缺课程类型维度，新增 `courseType`（entry/formal/restricted，能力 3 规则 2）从复用区移入扩展区。PracticeLog 旧设计字段全部复用，但 TODO-11 核对发现顶礼打卡须同步录入法王祈祷文遍数，新增 `prayerCount` 字段，从复用区移入扩展区（DR-95）。扩展区曾达 13 张；**DR-123 实修域改造细化后校准为 12 张**——UserPracticeVow 改判 🆕 改造新建移入 §三（线上无此表），PracticeLog 保留本区（由线上 PracticeEntry 改造扩展，migration 属 ALTER）。**DR-201 校准：ProgramSemester 因新增 reportNodeWeeks 移入扩展区，扩展区 12→13 张（migration ALTER 加列）。**
 
 ---
 
@@ -1763,6 +1763,7 @@ model AssistantAssignment {
 
 快照在每个「汇报节点截止时刻」由系统冻结该学员当前的学修数据，作为节点评估的权威数据源。一旦生成不可修改；admin 事后更正走 AuditLog（§3.11），不改快照本身。
 > **与升学预检解耦（DR-162）**：本表仅用于报数汇总展示，AdvancementCheck 直接查询原始数据，不读本表。
+> **补录不进快照（DR-201）**：节点截止后学员补录过去未完成任务（`source=external`，`loggedAt`/`completedAt` 填过去）写入原始数据表，但本快照已冻结永不回写（DR-83-B）；升学预检直接查原始表算总账（DR-162），故补录不改历史快照、却不影响最终升学。「学员后补」标注由 `createdAt` vs 实际归属节点派生（无新字段）；本表 `nodeDeadline` 存已用截止时刻，截止周配置在 `ProgramSemester.reportNodeWeeks`。
 
 #### 字段
 
@@ -2474,16 +2475,17 @@ DR-139 用户拍板「独立 SmsLog 表」而非复用 DispatchLog：短信按�
 
 #### ProgramSemester 复用说明
 
-学期分层 = 「第几周到第几周」的单一属性，由 `startsWeek` / `endsWeek` 两个 Int 表达，不需要拆成多条记录的子表。旧设计字段已满足新业务，照搬不改：
+学期分层 = 「第几周到第几周」的单一属性，由 `startsWeek` / `endsWeek` 两个 Int 表达，不需要拆成多条记录的子表。旧设计字段原判照搬不改；**DR-201（Y3=b）新增 `reportNodeWeeks` 报数节点截止周配置，改判 🔧 扩展**（migration ALTER 加列）：
 
 ```prisma
 model ProgramSemester {
-  id             String   @id @default(cuid())
-  programId      String
-  semesterNumber Int      // 科目序号（1=一年级）
-  semesterName   String?  // 科目名（如"加行一年级"）
-  startsWeek     Int      // 全程第几周开始
-  endsWeek       Int      // 全程第几周结束
+  id              String  @id @default(cuid())
+  programId       String
+  semesterNumber  Int      // 科目序号（1=一年级）
+  semesterName    String?  // 科目名（如"加行一年级"）
+  startsWeek      Int      // 全程第几周开始
+  endsWeek        Int      // 全程第几周结束
+  reportNodeWeeks Int[]    // 各报数节点截止周（全程第几周，下标 0-based 对应 SemesterSnapshot.reportNodeIndex）；cron 据此定时生成快照，DR-201/Y3
 
   program  Program        @relation(fields: [programId], references: [id])
   weeks    ProgramWeek[]
@@ -2492,6 +2494,8 @@ model ProgramSemester {
   @@unique([programId, semesterNumber])
 }
 ```
+
+> **`reportNodeWeeks` 用途（DR-201）**：报数节点截止时点的**配置**来源（管理员后台 PUT `/api/admin/programs/:id/semesters` 填）。系统定时任务据此在对应周截止时刻生成 SemesterSnapshot（`nodeDeadline` 记录已用的截止时刻=本字段解析出的具体时间）。周制对齐 `startsWeek`/`endsWeek`；如某届某学期报 2 次，填 `[10, 20]`=第 10、20 周各截止一次。**报数节点是进度检查点而非学修死线**（DR-201）：逾期触发关怀（能力14 report_overdue）+ 可补录（见能力9 规则12），真正硬截止是升学预检（能力10）。
 
 #### SpeakingSession 复用说明
 
@@ -3110,6 +3114,7 @@ model UserSelfStudyProgram {
 | 2026-06-04 | DR-160 ISG-3 闭合——`transmission` conditionType 标准 params 结构首次明文：判定 `SELECT 1 FROM TransmissionRecord WHERE userId=:uid AND transmissionKey=:conditionKey AND isRequired=true AND status='active'`；传承记录仅管理员后台录入，无学员自报路径，`isConfirmed=false` 不会出现，无需 `isConfirmed=true` 过滤；DR-46 原描述正确无需修改；§3.1 transmission params 新增节；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-161 ISG-4 闭合——`practice_session` 判定逻辑补 `loggedAt >= UserPracticeVow.createdAt`（起修日 = vow 建立时刻）过滤；S1 阶段修量不自动计入升学预检（能力 4 规则 8）；管理员通过能力 5 代行补录的 S1 修量若需计入升学须以 `loggedAt >= vow.createdAt` 记录（行政行为非系统自动）；§3.1 practice_session 判定逻辑行内更新；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-162 升学预检改直接查询——AdvancementCheck 不再读 SemesterSnapshot，改为直接查询原始数据表（PracticeLog/LessonCompletion/StudyRecord/TransmissionRecord/ExamGrade）；SemesterSnapshot 保留仅服务报数汇总展示；§3.9 设计意图更新；§3.7 服务能力标注解耦；ISG-5/ISG-8 消解；无新表/无新字段/无新 migration |
+| 2026-06-06 | DR-201 Y3闭合+学员补录机制——①Y3=b：ProgramSemester 加 `reportNodeWeeks Int[]`（各报数节点截止周配置，cron 据此生成快照，周制对齐 startsWeek/endsWeek），复用→扩展 §一 12→13（随 DR-93 先例）；②学员可补录过去未完成任务（source=external+过去归属日期 loggedAt/completedAt），快照不改（DR-83-B）、升学算总账（DR-162）、逾期不阻断升学，真正硬截止=升学预检；③「学员后补」派生标注（无新字段，createdAt vs 实际归属节点推算）纳入虚报核查（规则10）；④顺修上一批 09 正文 DR-201/202/203 笔误→DR-200；06 能力9 规则12+绝对约束7 / 08 §3.7 补录说明+ProgramSemester 扩展+§一计数 / 09 能力9 补录 callout；新增 1 字段(reportNodeWeeks)+migration ALTER |
 | 2026-06-06 | DR-200 缺口B0/B1/B3/B4闭合——能力1-8 四处API缺口：①B0补 GET/PUT /api/admin/programs/:id/semesters（学期时钟配置入口，09页面早已写"专业详情含学期配置"但API表无端点；PUT限super_admin，GET加subject_admin；报数节点截止时点无字段承载标Y3待决）；②B1修能力3 completion端点描述（原写"幂等不重复"与能力39"幂等可累计COUNT"矛盾，08 LessonCompletion本就无@@unique，盲听2/聋看2靠遍数累计；改对齐COUNT模型）；③B3补 POST /api/coach/sessions/:id/activate（开启签到生成checkInToken，DR-89辅导员开课手动触发，09无端点）；④B4补 POST /api/admin/sessions/platform（super_admin平台级共修classId=null，DR-186广播写入，09无创建端点）；无新表/新字段/新migration |
 | 2026-06-06 | DR-199 能力15课程传承触发模型修正——从"课时完成静默自动派生"改为"课时完成后弹确认提示，学员点「是」后写入（entryMethod=auto, isConfirmed=true，无需管理员审核，DR-199）"；同步补 A1（GET /api/coach/classes/:id/transmissions，class_tutor+，全班传承记录+待确认列表）、A2（09 confirm 端点出参补 isConfirmed=true + confirmedBy/At）；盲/聋处理：同适用能力3/12特殊完成标准，完全无可用方式的课管理员代录；08 §2.3设计意图更新 + 06能力15规则4更新 + 09能力15 API/注释更新；无新表/新字段/新migration |
 | 2026-06-06 | DR-198 缺口Y2闭合——能力14 CohortLagSnapshot 5维→study_lag 触发映射明文（用户决策 2026-06-06 选 A）：`contentLag`/`quizLag`/`meditationLag` 三维**任一** not on_track → study_lag CareWatchlistItem；三维均属能力3闻思范畴（闻思内容·答题·观修），触发统一用 study_lag，快照5维分列显示供辅导员判断；`attendanceLag`→`attendance_low`（能力8）；`taskLag`→`practice_lag`（能力7，DR-167）；`report_overdue`/`false_report`/`special_status` 不经 CohortLagSnapshot（各来自能力9/12直接触发）；同步补 X2 虚报双步骤说明（确认忏悔≠自动 resolve 清单条目）；08 §1.5 触发映射节新增 + 06 能力14 规则1 study_lag 维度说明 + 09 能力14 自动触发注 + 业务规则落点 X2 说明；无新表/新字段/新migration/新API |
@@ -3252,6 +3257,7 @@ model UserSelfStudyProgram {
 | DR-152 | `disqualified`（取消资格）下游三决策（DR-149 遗留 Unit ⑤）| **(1) App 访问**：disqualified 后可继续登录 App、查看历史档案（D18），但失去班级成员权限（不可进班级主页/课程/报数/出勤）。**(2) 再入学**：允许，但条件比 `left` 更严——须 `super_admin` 审批 + 忏悔/认罪流程 + 邀请码重新加班（能力 2）。⚠️ 再入学中「忏悔/认罪流程」的系统验证方式 → **由 DR-156 D1 补全（书面背书，不依赖 DR-84 gate）**。**(3) 历史记录**：档案永久保留（D18），升学从 0 重算。⚠️ 「从 0 重算」的机制 → **由 DR-156 D2 补全（新 vow + 时间窗口隔离）**（用户决策 2026-06-03）| (1) 排除「禁止登录」：D18 全数据保留精神，学员有权查看历史档案；排除「维持完整班级访问」：disqualified 已不是班级有效成员；(2) 排除「永久禁止再入学」：佛教学修体系以认罪忏悔为改过门径；排除「与 left 同等待遇」：取消资格需更高授权；(3) 排除「历史记录接续计入升学」：历史数据可信度存疑；排除「物理删除历史」：违反 D18。关联 DR-84（忏悔前置 gate ⏸ 待定）/ DR-149 / DR-156 / D18 / 能力 9/11 |
 | DR-156 | R1-T18/T19 议题D：disqualified 再入学忏悔验证机制（D1）+ 历史保留vs从0重算的视图与 vow 机制（D2）| **(D1) 再入学忏悔验证 = super_admin 书面背书**：super_admin 审批再入学时必填「忏悔确认说明」文字字段，内容写入 AuditLog 永久留档，super_admin 对忏悔完成结果负责；系统**不做自动 gate 检查**（不依赖 DR-84，不读 ReportConfession 表），DR-84 取消资格前置 gate 继续 ⏸ 待定，两者解耦；无新表/无新字段（AuditLog 已有 payload Json）。**(D2) 从0重算 = 新 vow + 时间窗口隔离（双层视图）**：再入学时建新 ClassMember（邀请码落班，能力 2）+ 新 program_task vow（起始日=新入班日）；升学预检只计入新 vow 对应的 PracticeLog（vowId 隔离，DR-153）；旧 vow/旧打卡在档案视图（D18）永久保留但不参与新轮升学条件；**学员端两层**：进度页=本期（新 vow 进度）/ 档案页=完整历史（D18）（用户决策 2026-06-03）| (D1) 排除「系统自动 gate 检查 ReportConfession 提交记录」：学员拒绝忏悔时本表无记录，gate 将永久阻断取消资格/再入学（DR-84 死锁问题）；排除「DR-84 先解决再定」：再入学路径可先行，书面背书满足留痕要求（D17），不损失治理能力，只是由系统检查改为管理员负责；排除「直接跳过忏悔要求」：忏悔/认罪在佛教治理体系中具有根本意义，不可省略，需以人工背书形式保留。(D2) 排除「历史记录接续计入升学」：被取消资格意味历史数据可信度存疑；排除「全部重置旧 vow（物理删）」：违反 D18；排除「新旧 vow 共用进度视图」：混合展示无法区分本期达标情况与历史存档数据，运营判断混乱。**无新表/无新字段**（AuditLog payload 承载背书文字；新 ClassMember + 新 vow 走既有能力 2 流程）；关联 DR-84（⏸ 继续待定）/ DR-152 / DR-153（vowId 隔离）/ D17 / D18 / 能力 2/5/9/11 |
 | DR-160 | ISG-3 闭合：`transmission` conditionType 标准 params 结构 + 传承记录创建主体澄清（2026-06-04）| **传承记录仅管理员后台录入**（无学员自报路径）→ `isConfirmed=false` 记录不会出现 → 预检查询 `transmissionKey=conditionKey AND isRequired=true AND status='active'` 已充分，**无需加 `isConfirmed=true` 过滤**；DR-46 原描述正确。`transmission` params = `{ "transmissionKey": "<条件键>" }`，判定 `SELECT 1 FROM TransmissionRecord WHERE userId=:uid AND transmissionKey=:conditionKey AND isRequired=true AND status='active'`（用户决策 2026-06-04）| 排除「加 isConfirmed=true 过滤（原 ISG-3 建议）」：ISG-3 风险基于"学员可自报灌顶"的错误前提——实际上传承记录创建主体是管理员，管理员在后台录入即为确认，`isConfirmed=false` 状态不会在正常流程中出现；加过滤条件等于对不存在的场景防御，徒增查询条件复杂度。关联 DR-46（传承判定原描述）/ DR-47（课程触发传承，isConfirmed=true by default）/ 能力 17 / ISG-3 |
+| DR-201 | Y3闭合（报数节点截止配置）+ 学员补录过去机制（2026-06-06）| **(Y3=b) ProgramSemester 加 `reportNodeWeeks Int[]`**：报数节点截止时点此前无字段承载（仅 SemesterSnapshot.reportNodeIndex 序号 + nodeDeadline 生成时记的已用值），cron 无配置依据。用户选 b（加字段非派生）：ProgramSemester += reportNodeWeeks（各节点截止周·全程第几周·0-based 对应 reportNodeIndex；周制对齐 startsWeek/endsWeek；如报2次填 [10,20]）。ProgramSemester 由复用改判扩展，§一 12→13（随 DR-93 Course 先例）。**(补录) 学员可补录过去未完成任务**：报数节点定性为「进度检查点非学修死线」——截止后学员经事后申报入口（source=external）补录、可填过去归属日期（loggedAt/completedAt）；**快照不改**（DR-83-B 冻结，补录不回写历史快照）；**升学算总账**（DR-162 直接查原始表，补录计入总累计，逾期不阻断升学，真正硬截止=升学预检能力10）；**请假顺延**报数节点截止（DR-102，升学截止不顺延）。**(标注) 「学员后补」派生标记（无新字段）**：凡 source=external 且实际归属日期所属报数节点早于记录 createdAt 所属节点 → 管理员端派生标注「学员后补」，纳入虚报核查（规则10）+ 忏悔/取消资格兜底。**(笔误修正) 09 正文 DR-201/202/203→DR-200**：上一批 B1/B3/B4 §八归 DR-200 但 09 正文误标独立号，统一回 DR-200。**新增 1 字段（reportNodeWeeks）+ migration ALTER；补录标注零新字段** | 排除「Y3=a 报数节点截止从学期起止周派生（中点+末点）」：用户明确选 b，固定派生不够灵活（各届报数次数/时点可不同，E3「每学期报2次」是典型非硬规）；排除「补录标记加 isBackfilled 布尔字段到 PracticeLog/LessonCompletion」：LessonCompletion 无正式 schema 块（散在 M3f spec）加字段不洁，且 createdAt（不可变 D18）vs 实际归属节点已能稳定派生该标记，加字段冗余；排除「补录改写已冻结快照让逾期变达标」：违反 DR-83-B 快照冻结、美化历史损审计（用户明确选「不改快照」）；排除「学员补录禁填过去日期（只能补今天）」：用户明确选「学员可以填写过去未完成的任务」，过去日期归属对「补哪个节点」有意义，风险交 source=external 标注+虚报治理（规则10）兜底，与共修打卡「信任为主+事后审计」同哲学。关联 DR-83-B（快照冻结）/ DR-162（升学直接查原始表）/ DR-102（请假顺延报数不顺延升学）/ DR-144（external 申报）/ DR-93（复用→扩展计数先例）/ 能力9 规则10/12+绝对约束7 / 能力1 ProgramSemester / Y3（前置待决项，本 DR 闭合）|
 | DR-200 | 缺口B0/B1/B3/B4闭合：能力1-8 四处 API 缺口（2026-06-06）| **(B0) 补 ProgramSemester 配置端点**：09 能力1 页面早已写「专业详情页含学期(ProgramSemester)配置」，但 API 表只有 program CRUD + advancement-configs，无学期时钟管理端点 → 超管无法在后台设各学期起止周。补 `GET /api/admin/programs/:id/semesters`（super_admin/subject_admin 读）+ `PUT /api/admin/programs/:id/semesters`（super_admin 写，设 semesterNumber/semesterName/startsWeek/endsWeek，`@@unique(programId,semesterNumber)` 冲突409）。**Y3 待决（新浮现）**：报数节点截止时点目前无字段承载——SemesterSnapshot/AdvancementCheck 仅存 `reportNodeIndex`（0-based 序号），但「第几周/哪天截止」无存储；大纲 E3「每学期报2次」或可由 startsWeek/endsWeek 派生（中点+末点），或需新字段，标 Y3 待用户决策，本 DR 不擅自加字段。**(B1) 修能力3 completion 描述矛盾**：09 能力3 写 completion「幂等（同 user+lesson+type 不重复）」，但 09 能力39 写「幂等可累计，一行=一遍供 COUNT」，且 08 LessonCompletion schema 本就**无 @@unique**（明文「可重复支持遍数 COUNT」）——能力3 描述与底层表+能力39 矛盾，且会让盲听≥2/聋看≥2 判定失效（第2遍存不进）。改能力3 completion 为「一行=一遍供 COUNT，可累计不去重」+ wensi-status 出参「听/看=遍数」对齐能力39/DR-92。**(B3) 补开启签到端点**：DR-89 明文「课表预排场次辅导员实际开课时手动触发生成 token」，但 09 能力8 无对应端点（POST sessions 建场次、PATCH 改信息/取消，均不含「生成 token」）。补 `POST /api/coach/sessions/:id/activate`（class_tutor+，返回 checkInToken+窗口起止；临时发起 POST 时即生成无需此步）。**(B4) 补平台共修发起端点**：09 能力8 checkin 端点已处理「平台级 session classId=null 广播写入」（DR-186），DR-190 也列平台级 session 为 super_admin 专属操作，但无创建端点（POST sessions 走 /coach/classes/:classId/ 强制带 classId、守卫 class_tutor+）。补 `POST /api/admin/sessions/platform`（super_admin，classId=null）。**无新表/新字段/新 migration** | 排除「B0 把学期配置塞进 PATCH /programs/:id」：学期是 ProgramSemester 子资源（一专业多学期、各自 startsWeek/endsWeek），塞进 program PATCH 须传嵌套数组、语义混乱，独立子资源端点更清晰且匹配 09 页面「学期配置区」；排除「B0 顺手补报数节点截止字段」：无用户授权、属新字段决策，标 Y3 待决不擅自加；排除「B1 改 08 加 @@unique 让能力3「不重复」成立」：那会反向打破盲听2/聋看2（遍数=1 封顶），COUNT 模型是正解，08 schema 已正确，错的是能力3 描述；排除「B3 折进 PATCH sessions」：PATCH 现承载「改信息/取消」，再塞「生成 token」语义过载，且 activate 有独立返回体（token+窗口），独立端点清晰；排除「B4 让 /coach/.../sessions 支持 classId=null」：该端点守卫 class_tutor+，平台级须 super_admin，混用会在一个端点内产生守卫级别矛盾（同 DR-196 W1 分离逻辑）。关联 DR-89（签到窗口）/ DR-129（LessonCompletion 无 unique）/ DR-92（圆满判定矩阵）/ DR-186（平台级广播写入）/ DR-190（super_admin 专属操作）/ 能力1 绝对约束4（每专业独立学期时钟）/ 能力3/能力39（完成事件 COUNT）/ 能力8 / Y3（报数节点时点待决）|
 | DR-199 | 能力15课程传承触发模型修正：从静默自动派生改为课时完成后弹确认提示（2026-06-06）| **问题**：原设计"课时完成→系统自动派生传承记录"语义上跳过了学员主观接受的意图确认，传承在佛法语义上需当下接受；且 isConfirmed 自动=true 但无用户参与，逻辑上不完整。**决策（用户决策 2026-06-06）**：改为"课时完成（能力3圆满判定 DR-143）→ 系统弹提示「此课含传承（[课名]），是否已接受传承？」→ 学员点「是」写入 TransmissionRecord（entryMethod=auto, isRequired=true, isConfirmed=true，**无需管理员审核**）；点「否」不写（可稍后自行申报）"。isConfirmed=true 直接生效——系统已知 transmissionKey 和课程上下文，不需要管理员判断是哪条固定清单项；点「是」即视为有意识地接受了传承。**A1（补端点）**：GET /api/coach/classes/:id/transmissions（class_tutor+，?confirmed=false&sourceType）→ 全班传承记录含待确认列表，供管理员升格流程入口（原设计仅有 GET /me/transmissions，管理员无班级维度读取端点）。**A2（描述修正）**：09 confirm 出参补 isConfirmed=true + confirmedBy/At（08 §2.3 confirm 时三字段同步写入，09 只写 isRequired=true 不完整）。**盲/聋（DR-199）**：同等适用能力3/12特殊完成标准，替代方式完成课时照常触发提示；完全无可用方式的课（如纯音频对聋人）提示不触发，管理员走 admin_entry 代录，isConfirmed 由升格流程处理。**无新表/新字段/新migration** | 排除「保持静默自动派生」：传承是主观接受行为，系统单方面断定学员已接受在佛法语义上不严谨；且用户后来问及此设计时明确希望有确认步骤；排除「isConfirmed 仍需管理员审核」：课程传承由系统配置驱动（transmissionKey 来自 ProgramAdvancementConfig），上下文完整，无需管理员判断合法性，用户决策明确"不需要管理员审核"；排除「点「否」仍记录为待定传承（pending 态）」：不引入新状态，保持简单——否=不写，学员若后悔可走自行申报路径。关联 DR-143（课时完成手动确认）/ DR-92（音视频任一算听）/ 能力12/能力3（特殊完成标准）/ 08 §2.3 / 09 能力15 / 06 能力15 规则4 |
 | DR-198 | 缺口Y2闭合：能力14 CohortLagSnapshot 5维→CareWatchlistItem triggerType 触发映射（2026-06-06）| **背景**：06 能力14 规则1 触发表仅说"闻思进度明显滞后（能力3）→ study_lag"，但 08 §1.5 CohortLagSnapshot 将闻思拆为3独立维度（`contentLag`/`quizLag`/`meditationLag`），哪几维 lag 时触发 study_lag CareWatchlistItem 未文档化。**决策（选 A，用户决策 2026-06-06）**：`contentLag`/`quizLag`/`meditationLag` 三维**任一** not on_track → 每日 cron 触发 study_lag CareWatchlistItem；三维均属能力3闻思范畴（LessonCompletion内容·题目·观修座），触发统一用 study_lag，快照5维分列展示供辅导员判断具体滞后维度。完整映射：`attendanceLag`→`attendance_low`（能力8）；`taskLag`→`practice_lag`（能力7，DR-167）；`contentLag`/`quizLag`/`meditationLag` 任一→`study_lag`（能力3）；`report_overdue`/`false_report`/`special_status` 不经 CohortLagSnapshot（各来自能力9/12直接触发）。**X2 补注**：虚报移除双步骤独立——①PATCH `/api/confessions/:id` 确认忏悔（DR-195）→ ②POST `/care-watchlist/:id/resolve` 手动移除清单条目；两步独立，确认忏悔不触发自动 resolve（06 规则5/绝对约束4）。**无新表/新字段/新migration/新API** | 排除「仅 contentLag→study_lag，quizLag/meditationLag 纯展示」：三维均属能力3闻思，若 quizLag/meditationLag 滞后而 contentLag 正常，辅导员在快照里能看到掉队却无清单提醒，造成监控盲区；业务目的是"任何闻思维度滞后都应进关怀"，选 A 行为一致；排除「每维度独立 triggerType（contentLag/quizLag/meditationLag 各建一类）」：三条独立 triggerType 对实现无额外价值，辅导员关心"此人闻思整体滞后"而非分维度清单，CohortLagSnapshot 已提供精细展示，清单层用 study_lag 聚合更简洁且与 06 规则1 命名一致。关联 DR-130（CohortLagSnapshot）/ DR-167（taskLag 达标基准）/ DR-79（阈值数据化 TODO-1）/ 能力14 规则1 / 08 §1.5 / 06 能力14 |
@@ -5360,7 +5366,7 @@ model UserSelfStudyProgram {
 
 ### 11.3 Migration 覆盖完整性核对
 
-- **§一 扩展 12 张**（DR-123 校准，UserPracticeVow 移出至 §三）→ M1 全覆盖 ✅（含 PracticeLog = PracticeEntry rename+加列）
+- **§一 扩展 13 张**（DR-123 校准 12 + DR-201 +ProgramSemester）→ M1 覆盖 12（含 PracticeLog = PracticeEntry rename+加列）+ **M1.6 ProgramSemester +`reportNodeWeeks` ALTER 加列（DR-201/Y3）** = 13 ✅
 - **§二 替换 3 张** → M2a(UserRoleAssignment) + M2b(CareFollowupRecord) + M2c(TransmissionRecord) 全覆盖 ✅
 - **§三 新建 20 张**（DR-123→129→139→145 校准，+UserPracticeVow +PracticeTemplate +LessonCompletion +SmsLog +UserSelfStudyProgram）→ M3a(2) + M3b(4) + M3c(3) + M3d(6) + M3e(2) + M3f(1) + M3g(1, SmsLog) = 19 + **M7(1, UserSelfStudyProgram, DR-145 转必做)** = 20 ✅（M3g 另含 User +phone ALTER，属 §一字段扩展不计表数）
 - **实修域改造源清理** → M1.5（PracticeGoal/PracticeTask/PracticeDailySummary 不入目标 schema，DR-122）
