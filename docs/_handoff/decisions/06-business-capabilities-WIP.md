@@ -391,6 +391,14 @@
 - 显示本班学员头像网格 → 勾选到场学员 → 提交
 - 一次性批量记录
 
+#### 平台级共修场次（DR-186）
+admin 可发布 `ClassSession.classId=null` 的平台级场次（全平台统一共修，如法会随讲），端点 `POST /api/admin/sessions/platform`（DR-200 B4）。
+
+- 学员签到时，系统广播写入该学员所有 `cohortStatus='active'` 班级各一条 `StudyRecord`（classId=各班）
+- 升学预检各专业独立计入；DB 唯一约束（classSessionId+userId+studyType+classId）防重复
+- `paused` 状态的 ClassMember 不参与广播写入
+- 取消场次（status=cancelled）不应催签（DR-185/DR-204）
+
 #### 补卡
 - 学员**不能自助补卡**
 - 辅导员/管理员可任何时候补卡(常规操作)
@@ -420,8 +428,8 @@
 - 支持能力 5 全部操作
 
 ### 输入与输出
-- 输入:排课表 / 临时发起 / 修改课表 / 学员自助打卡 / 管理员勾选打卡 / 补卡 / 撤销
-- 输出:`gongxiu_session_schedule`、`gongxiu_session_instance`、`gongxiu_attendance`、累计次数
+- 输入:排课表 / 临时发起 / 修改课表 / 学员自助打卡 / 管理员勾选打卡 / 补卡 / 撤销 / admin 发布平台级场次（DR-186）
+- 输出:`ClassSession`（场次）/ `ClassSessionSchedule`（课表模板）/ `StudyRecord`（出勤记录，广播写入各班）/ 累计次数
 
 ### 与其他能力的关系
 - 依赖:能力 1、加入班级、角色权限、能力 5
@@ -438,9 +446,9 @@
 8. 撤销出勤限管理员
 
 ### 对老项目的影响
-- 老项目 `ClassSession` 可能存在,可复用为课表基础
-- 但"短时效链接 + 自助打卡 + 头像选自己"是新设计
-- 新增表:`gongxiu_session_schedule`、`gongxiu_session_instance`、`gongxiu_attendance`
+- **复用**：`ClassSession`（已扩展 sessionType/status/checkInToken/scheduleId/classId 等字段，DR-21~25/DR-185/DR-186）
+- **新建**：`ClassSessionSchedule`（课表模板层，DR-25）；`StudyRecord` 唯一约束含 classId（支持平台级广播写入，DR-186）
+- 旧拼音表名（`gongxiu_session_schedule`/`gongxiu_session_instance`/`gongxiu_attendance`）已废弃，以 08 §三 封板表名为准（DR-206 F1 修正）
 
 ---
 
