@@ -1070,7 +1070,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 ### 对老项目的影响
 - coach → 迁移为 **class_tutor**（scope=classId）；**不自动给 class_admin**，行政权由 subject_admin 人工补任命（DR-113，过渡期辅导员暂无报数审核/邀请码/关怀等行政操作）
 - admin → **全部迁为 super_admin，再人工降级**该降的为 subject_admin（DR-113）
-- 新增 `user_role_assignments` 表（含 `role`、`scope`、`granted_at`、`granted_by`、`expires_at`、`is_active`）
+- 新增 `user_role_assignments` 表（含 `role`、`scope`、`granted_at`、`granted_by`、`is_active`；**无 `expires_at`**——规则7 已废弃角色自动过期，08 `UserRoleAssignment` 模型确认无此字段，DR-202）
 - 新增 `role_assignment_history` 表（变更留痕）
 
 ---
@@ -1091,7 +1091,7 @@ student（学员）是核心用户角色，不属于管理角色体系。
 | 邀请码字符串 | 唯一、随机生成 |
 | 归属班级 | 固定绑定一个 class_id |
 | 过期时间 | 必填，管理员自定（如 7 天、30 天） |
-| 状态 | active / expired / revoked |
+| 状态 | active / revoked（**expired 实时算、不入库**——DB status 只存 active/revoked，过期由 `now() > expiresAt` 实时判定，DR-80） |
 | 使用次数限制 | 可选（留空则不限人数） |
 
 **3. 使用流程**：学员输入或扫描邀请码 → 系统校验（未过期 + 未撤销 + 未超次数限制）→ 通过则写入 class_enrollment，学员加入班级。
@@ -1149,6 +1149,11 @@ student（学员）是核心用户角色，不属于管理角色体系。
 | 班级邀请码生成与撤销 | 能力 19 |
 | 班级归档 | 能力 11 |
 | 传承/灌顶代录 | 能力 15/17 |
+| 取消共修场次 | 能力 8（DR-185）|
+| 越权留级（第 3 次及以上，heldBackCount>2）| 能力 11（DR-177）|
+| disqualified 再入学审批 | 能力 11（DR-156/197）|
+
+> 共 14 类 actionType（与 08 §3.11 权威值域一致）；撤销升学（DR-184）复用「升学审核」类型 + result=revoked 标记，不另设类型。
 
 **2. 每条日志的必填字段**：
 - 操作人（`operator_id`）
