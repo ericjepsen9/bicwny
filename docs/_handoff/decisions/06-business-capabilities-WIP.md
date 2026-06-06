@@ -794,7 +794,7 @@
 | 权限 | 说明 |
 |---|---|
 | 发起共修 | 为全班发起或安排共修场次 |
-| 发起班级法会 | 组织班级法会 |
+| 发起班级法会 | 组织班级法会（限本班·不计出勤·可发愿；落点能力46 `POST /api/coach/classes/:id/assemblies`，DR-203）|
 | 发布任务 | 向全班发布学修任务（如念咒数量要求） |
 | 监督学习 | 查看全班学员学修进度（只读） |
 
@@ -2332,6 +2332,14 @@ admin 发布法会/共修活动/纪念日，学员浏览详情、点击外部会
    - **参与人数** = COUNT(DISTINCT userId) WHERE eventId=该法会（发愿人头）
    - **发愿总数** = SUM(targetCount) WHERE eventId=该法会（各人发愿数量之和）
 
+**C. 班级法会（🆕 待建，DR-203）——区别于平台法会**
+10. **班级法会定位**：辅导员/辅助员在**本班**发起的法会活动，与平台法会（admin 发布、全平台）**不一样**——复用 DharmaAssembly，加 `classId` 区分（null=平台法会，有值=班级法会）
+11. **发起权限**：班级辅导员（class_tutor+）或本班 active 辅助员（能力13 委托权②）→ `POST /api/coach/classes/:id/assemblies`
+12. **不计出勤**：班级法会**无签到、不生成出勤记录**，纯展示+发愿，与能力8共修（签到记出勤算升学）彻底分开
+13. **能发愿**：复用 UserPracticeVow（context=event，eventId→DharmaAssembly），学员在修学计数模块打卡，机制同平台法会发愿
+14. **限本班可见**：仅本班成员可见班级法会；临近提醒（能力43/44）只推本班成员，**不全平台广播**
+15. **复用平台法会其余机制**：外链（Zoom）、软删（deletedAt）、参与人数/发愿总数统计均复用
+
 ### 输入与输出
 - 输入（admin）：法会活动维护；（学员）：浏览 + 跳转外链 + 发愿（填数量）+ 打卡计数
 - 输出：法会列表/详情 + 参与人数/发愿总数 + 临近提醒 + 个人发愿进度
@@ -2348,6 +2356,7 @@ admin 发布法会/共修活动/纪念日，学员浏览详情、点击外部会
 2. 软删不物理删（deletedAt），cron 检查跳过已删
 3. 法会发愿计数 context=event 独立标识，不混日常打卡总量/排行
 4. 统一用 DharmaAssembly，不用 Event/EventCount（DR-134 废弃）
+5. **班级法会与平台法会共用 DharmaAssembly 靠 `classId` 区分（DR-203）**：班级法会限本班、不计出勤、发起限 class_tutor+/本班 active 辅助员；平台法会限 admin、全平台；两者均可发愿（context=event）
 
 ### 对老项目的影响
 - ✅ 展示已实现（`AdminDharmaAssembliesPage`/`AssemblyDetailPage` + `dharma-assemblies/` + DharmaAssembly 净资产）

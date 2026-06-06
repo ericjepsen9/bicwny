@@ -853,7 +853,15 @@
 |---|---|---|
 | 40 藏历日历 | `/api/calendar/*` · `/api/admin/calendar/:date` | ✅ |
 | 41 月度画报 | `/api/posters/*` · `/api/admin/posters/*` | ✅ |
-| 46 法会展示+发愿 | `/api/assemblies[/:id]` · `/api/admin/dharma-assemblies[/:id]` | 🔧 DR-134（统一 DharmaAssembly 废 Event/EventCount）|
+| 46 法会展示+发愿 | `/api/assemblies[/:id]` · `/api/admin/dharma-assemblies[/:id]` | 🔧 DR-134（统一 DharmaAssembly 废 Event/EventCount）· 🆕 班级法会 DR-203 |
+
+> **班级法会（DR-203，🆕）**：法会分平台级/班级级——`DharmaAssembly.classId` 区分（null=平台法会 admin 全平台；有值=班级法会限本班）。
+> - **班级法会发起**：`POST /api/coach/classes/:id/assemblies`（**class_tutor+ 或本班 active 辅助员**，能力13 委托权②落点，C4 闭合）；入参同平台法会（title/category/startAt/endAt/description?/coverImage?/externalLink?），classId 由路径带入
+> - **本班法会列表**：`GET /api/assemblies` 对本班成员返回「本班班级法会 + 全平台平台法会」；班级法会仅本班成员可见
+> - **不计出勤**：班级法会无签到、不生成 StudyRecord（区别能力8共修）；纯展示+发愿
+> - **发愿**：复用 UserPracticeVow（context=event，eventId→DharmaAssembly），平台/班级法会一致
+> - **提醒**：班级法会临近提醒（能力43/44，eventKind=dharma_assembly）**只推本班成员**，非全平台广播
+> - 软删/外链/统计（参与人数·发愿总数）复用平台法会机制
 
 ### 通知与触达（D 组 42-45 + 29/30）
 | 能力 | 现有端点 | 状态 |
