@@ -2209,7 +2209,7 @@ admin 向全平台学员广播重要通知（维护/活动/紧急），发布即
 | ⑥ | `review-due` 复习到期 | SM-2 卡片 dueAt ≤ 今日 | 能力 33 Sm2Card | 学员本人 | 每日（有到期卡才发） |
 | ⑦ | `exam-upcoming` 讲考/考试临近 | SpeakingSession/Exam 日程临近 | 能力 8/10 | 报名/应考学员 | 考前 N 日 + 考前 1 日 |
 | ⑧ | `advancement-care-result` 升学/关怀结果 | 升学审核出结果 / 关怀名单更新 | AdvancementRecord / CareWatchlistItem | 学员（升学结果）/辅导员（关怀名单） | 结果产生即派（事件+定时兜底） |
-| ⑨ | `class-late` 上课迟到 | 签到 **token 生成后**（DR-89 基准），接近 `Program.checkinGraceMinutes` 窗口末仍未签到的本班成员 | 签到 token.createdAt + StudyRecord + Program.checkinGraceMinutes | 本场未签到的学员本人 | 每场一次（窗口内催签） | **推送 + 短信**（关联升学出勤率，能力 45） |
+| ⑨ | `class-late` 上课迟到 | 签到 **token 生成后**（DR-89 基准），接近 `Program.checkinGraceMinutes` 窗口末仍未签到的本班成员（**排除已取消场次 `status=cancelled`，DR-185/DR-204**——取消的场次不催签）| 签到 token.createdAt + StudyRecord + Program.checkinGraceMinutes + ClassSession.status | 本场未签到的学员本人 | 每场一次（窗口内催签） | **推送 + 短信**（关联升学出勤率，能力 45） |
 
 > ⑨ 上课迟到判定**完全复用 DR-89 机制**（签到窗口 = token.createdAt + checkinGraceMinutes，startAt 仅展示不参与计算）——零新字段、零新表。逻辑闭环：升学卡出勤率（ProgramAdvancementConfig conditionKey=attendance）→ 每场必记出勤（StudyRecord）→ 窗口内未签到=迟到 → 推送+短信催签 → 保出勤率 → 保升学。
 
