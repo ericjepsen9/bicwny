@@ -3123,6 +3123,7 @@ model UserSelfStudyProgram {
 | 2026-06-04 | DR-160 ISG-3 闭合——`transmission` conditionType 标准 params 结构首次明文：判定 `SELECT 1 FROM TransmissionRecord WHERE userId=:uid AND transmissionKey=:conditionKey AND isRequired=true AND status='active'`；传承记录仅管理员后台录入，无学员自报路径，`isConfirmed=false` 不会出现，无需 `isConfirmed=true` 过滤；DR-46 原描述正确无需修改；§3.1 transmission params 新增节；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-161 ISG-4 闭合——`practice_session` 判定逻辑补 `loggedAt >= UserPracticeVow.createdAt`（起修日 = vow 建立时刻）过滤；S1 阶段修量不自动计入升学预检（能力 4 规则 8）；管理员通过能力 5 代行补录的 S1 修量若需计入升学须以 `loggedAt >= vow.createdAt` 记录（行政行为非系统自动）；§3.1 practice_session 判定逻辑行内更新；无新表/无新字段/无新 migration |
 | 2026-06-04 | DR-162 升学预检改直接查询——AdvancementCheck 不再读 SemesterSnapshot，改为直接查询原始数据表（PracticeLog/LessonCompletion/StudyRecord/TransmissionRecord/ExamGrade）；SemesterSnapshot 保留仅服务报数汇总展示；§3.9 设计意图更新；§3.7 服务能力标注解耦；ISG-5/ISG-8 消解；无新表/无新字段/无新 migration |
+| 2026-06-07 | DR-209 S3 闭合——paused 成员平台级出勤感知 + 补录路径明文化：S3-A 签到 API 回包新增 `checkedInClasses:[{classId,className}]`（本次写入出勤的班级）+ `skippedClasses:[{classId,className,reason:'paused'}]`（因 paused 未写入的班级），前端签到提示改为「已为 N 个班级记录出勤」，若 skippedClasses 非空追加灰色文字「[班名]请假中，未记录」；S3-B DR-189 补卡端点补充 paused 补录明文许可：请假结束后 class_admin+ 可对 paused 期间错过的平台级场次补卡，AuditLog.reason 必填，补卡时不检查当前 cohortStatus，DR-208 场次 cancelled 校验保留；06 能力8 平台级场次段 + 补卡段同步更新；无新表/新字段/新 migration/新 API |
 | 2026-06-06 | DR-208 S2 闭合——补卡端点禁止对已取消场次执行：`POST /api/coach/sessions/:id/makeup` 前置校验 `ClassSession.status ≠ 'cancelled'`，已取消场次返回 409「该场次已取消，无法补卡」；06 能力8 补卡段加约束；无新表/新字段/新 migration（纯应用层校验）|
 | 2026-06-06 | DR-207 S1 闭合——场次取消级联失效 StudyRecord：取消任何场次（status=cancelled）时，系统在同一事务内对该场次所有 StudyRecord 设 `invalidatedAt=now()`（平台级场次广播回收对称 DR-186，普通场次同样适用）；AuditLog(session_cancelled) payload 补失效记录 id 列表；`attendance` COUNT 加 `AND invalidatedAt IS NULL`（§3.1 SQL 已更新）；StudyRecord 新增 `invalidatedAt DateTime?` 字段（M3 CREATE TABLE 加列）；06 能力8 平台级共修场次小节+补卡段更新 |
 | 2026-06-06 | DR-206 能力8 F1/F2 修正——F1: §输入与输出+§对老项目 旧拼音表名（gongxiu_session_schedule/instance/attendance）→正确封板表名（ClassSession/ClassSessionSchedule/StudyRecord）；F2: 新增「平台级共修场次」小节补 DR-186（admin 发布 classId=null 场次 + 广播写入各班 StudyRecord + paused 不写入 + 取消场次不催签 DR-185/DR-204）；无新表/新字段/新migration |
@@ -5460,6 +5461,26 @@ model UserSelfStudyProgram {
 
 **本轮发现问题数**：0（S1/S2 均当轮闭合；`invalidatedAt` 新字段与现有查询关系已逐点核查）。
 **结论**：DR-207/DR-208 闭合——接缝空白 S1/S2 全部修复。§九 轮次 1~108 连续，覆盖 DR-1~208。
+
+---
+
+### 检查轮次 109（2026-06-07，范围：DR-209 能力8 接缝空白 S3 闭合 · paused 成员平台级出勤感知 + 补录路径 · 跨 06/08）
+
+> 本轮处理接缝测试 S3（paused 成员平台级签到无感知 + 补录路径未定义）。S3-A 签到 API 回包新增 checkedInClasses/skippedClasses；S3-B DR-189 补卡端点明文许可 paused 期间场次补录。
+
+| 检查项 | 结果 | 说明 |
+|---|---|---|
+| 1. Prisma 关联对称性 | ✅ | 无新表/新关联；checkedInClasses/skippedClasses 为 API 响应层字段，不落库 |
+| 2. API 响应字段与 DB 字段对齐 | ✅ | checkedInClasses 来自广播写入结果（ClassMember 查询 cohortStatus='active'）；skippedClasses 来自 paused 成员列表；均为服务层聚合，无新 DB 字段 |
+| 3. SQL 视图表名正确 | ✅ | 不涉及视图 |
+| 4. 总览计数正确 | ✅ | 无新表/新字段；§一 计数不变 |
+| 5. Migration 覆盖完整 | ✅ | S3-A/S3-B 均为纯应用层变更，无 migration |
+| 6. Phase 计划覆盖完整 | ✅ | 签到 API 回包扩展随能力8签到实施（P4）；paused 补录随 DR-189 补卡端点实施（P4）；无新 Phase |
+| 7. 暂缓/不做标签完整 | ✅ | DR-209 为闭合操作，无新 ⏸/❌ 悬空 |
+| 8. 业务规则约束有实现方式 | ✅ | S3-A：应用层广播时分两组收集结果并返回，无 DB 约束依赖；S3-B：应用层许可判断 + AuditLog.reason 必填（Zod schema 校验）；DR-208 场次状态校验保留 |
+
+**本轮发现问题数**：0（S3-A/S3-B 均当轮闭合；API 响应层字段与现有 DB 数据对齐已核查）。
+**结论**：DR-209 闭合——接缝空白 S3 全部修复。§九 轮次 1~109 连续，覆盖 DR-1~209。
 
 ---
 

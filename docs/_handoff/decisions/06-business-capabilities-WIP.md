@@ -399,12 +399,14 @@ admin 可发布 `ClassSession.classId=null` 的平台级场次（全平台统一
 - `paused` 状态的 ClassMember 不参与广播写入
 - 取消场次（status=cancelled）不应催签（DR-185/DR-204）
 - **取消后级联失效（DR-207）**：若学员已签到（StudyRecord 已广播写入），取消场次时系统批量设 `invalidatedAt`（对称回收全部班记录）；已失效记录不计入升学预检出勤；出勤详情页显示「已失效（场次已取消）」；留 AuditLog 痕迹
+- **签到回包扩展（DR-209 S3-A）**：签到 API 回包新增 `checkedInClasses:[{classId,className}]`（本次写入出勤的班级）和 `skippedClasses:[{classId,className,reason:'paused'}]`（因 paused 未写入的班级）；前端签到提示改为「已为 N 个班级记录出勤」，若 skippedClasses 非空追加灰色文字「[班名]请假中，未记录」；纯 API 响应层，无新 DB 字段
 
 #### 补卡
 - 学员**不能自助补卡**
 - 辅导员/管理员可任何时候补卡(常规操作)
 - 选定:学员、共修场次、理由(**可选，有意设计**——AuditLog 强制写入「由XXX补卡」已是完整留痕，不必强制填写理由增加摩擦；DR-177 越权留级的理由必填是独立治理链，两者无关（DR-189）)
 - **不得对已取消场次（status=cancelled）补卡（DR-208）**——补卡端点前置校验场次状态，已取消返回 409「该场次已取消，无法补卡」
+- **paused 期间补录许可（DR-209 S3-B）**：学员 paused 期间错过的平台级场次，请假结束后 class_admin+ 可用同一补卡端点补录；AuditLog.reason 必填（建议格式：「请假期间补录，原因：[...]」）；补卡时不检查学员当前 cohortStatus；DR-208 场次状态校验（status ≠ cancelled）保留
 - 系统记录"由 XXX 补卡",档案可见，AuditLog 强制写入（actionType=checkin_proxy）
 
 #### 撤销出勤
