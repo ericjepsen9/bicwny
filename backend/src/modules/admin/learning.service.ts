@@ -1,0 +1,243 @@
+// Admin · 单用户学习画像
+//   GET /api/admin/users/:id/learning
+//
+// 输出：
+//   - account：注册/最后登录/邮箱验证 时间戳
+//   - summary：累计答题、正确率、首次/最近活跃时间
+//   - dailySeries：最近 30 天每天答题数（有数据缺位以 0 填充 · 纽约时区 ET）
+//   - sm2Progress：new/learning/review/mastered/due/total
+//   - byCourse：每个 enrollment 的标题/答题数/正确率/掌握数/最后学习
+//   - classMemberships：用户在哪些班、角色、加入日期
+//
+// 权限：admin only · 路由层 guard
+import { NotFound } from '../../lib/errors.js';
+import { prisma } from '../../lib/prisma.js';
+import { getCardStats } from '../sm2/service.js';
+import { addDaysToDateKey, zonedDateKey, zonedTimeToUtc } from '../../lib/timezone.js';
+
+export interface DailyPoint {
+  date: string;        // 'YYYY-MM-DD' 纽约时区 ET
+  count: number;
+  correct: number;
+}
+
+export interface ByCourseRow {
+  courseId: string;
+  title: string;
+  coverEmoji: string;
+  answered: number;
+  correct: number;
+  masteredCount: number;
+  lastStudiedAt: Date | null;
+}
+
+export interface ClassMembershipRow {
+  classId: string;
+  className: string;
+  role: 'coach' | 'student';
+  joinedAt: Date;
+  coverEmoji: string;
+}
+
+export interface UserLearningStats {
+  account: {
+    id: string;
+    email: string | null;
+    dharmaName: string | null;
+    role: string;
+    isActive: boolean;
+    createdAt: Date;
+    lastLoginAt: Date | null;
+    emailVerifiedAt: Date | null;
+  };
+  summary: {
+    totalAnswers: number;
+    correctAnswers: number;
+    correctRate: number;
+    firstAnswerAt: Date | null;
+    lastActiveAt: Date | null;
+  };
+  dailySeries: DailyPoint[];
+  sm2Progress: { new: number; learning: number; review: number; mastered: number; due: number; total: number };
+  byCourse: ByCourseRow[];
+  classMemberships: ClassMembershipRow[];
+}
+
+const DAILY_WINDOW = 30;
+
+// 纽约日历日（与全应用 ET 口径一致 · 审计 D7/D8）
+function ymdLocal(d: Date): string {
+  return zonedDateKey(d);
+}
+
+/** 给最近 N 天空表 · 后续 fill */
+function emptyDays(n: number): Map<string, { count: number; correct: number }> {
+  const out = new Map<string, { count: number; correct: number }>();
+  const today = zonedDateKey();
+  for (let i = n - 1; i >= 0; i--) {
+    out.set(addDaysToDateKey(today, -i), { count: 0, correct: 0 });
+  }
+  return out;
+}
+
+export async function userLearningStats(userId: string): Promise<UserLearningStats> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      dharmaName: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+      lastLoginAt: true,
+      emailVerifiedAt: true,
+    },
+  });
+  if (!user) throw NotFound('用户不存在');
+
+  // 柱图下界 · 纽约 (DAILY_WINDOW-1) 天前 00:00 折算为 UTC 时刻
+  const windowStartKey = addDaysToDateKey(zonedDateKey(), -(DAILY_WINDOW - 1));
+  const [wy, wm, wd] = windowStartKey.split('-').map(Number);
+  const windowStart = zonedTimeToUtc(wy!, wm! - 1, wd!, 0, 0, 0);
+
+  const [
+    totalAnswers,
+    correctAnswers,
+    firstAnswer,
+    lastAnswer,
+    recentForChart,
+    sm2,
+    enrollments,
+    memberships,
+    perCourseMastered,
+  ] = await Promise.all([
+    prisma.userAnswer.count({ where: { userId } }),
+    prisma.userAnswer.count({ where: { userId, isCorrect: true } }),
+    prisma.userAnswer.findFirst({
+      where: { userId },
+      orderBy: { answeredAt: 'asc' },
+      select: { answeredAt: true },
+    }),
+    prisma.userAnswer.findFirst({
+      where: { userId },
+      orderBy: { answeredAt: 'desc' },
+      select: { answeredAt: true },
+    }),
+    prisma.userAnswer.findMany({
+      where: { userId, answeredAt: { gte: windowStart } },
+      select: { answeredAt: true, isCorrect: true },
+    }),
+    getCardStats(userId), // 全局 · 不限 courseId
+    prisma.userCourseEnrollment.findMany({
+      where: { userId },
+      include: { course: { select: { id: true, title: true, coverEmoji: true } } },
+      orderBy: { lastStudiedAt: 'desc' },
+    }),
+    prisma.classMember.findMany({
+      where: { userId, removedAt: null },
+      include: { class: { select: { id: true, name: true, coverEmoji: true } } },
+      orderBy: { joinedAt: 'desc' },
+    }),
+    prisma.sm2Card.groupBy({
+      by: ['courseId'],
+      where: { userId, status: 'mastered' },
+      _count: { _all: true },
+    }),
+  ]);
+
+  // 填充每日柱状
+  const dayMap = emptyDays(DAILY_WINDOW);
+  for (const a of recentForChart) {
+    const key = ymdLocal(a.answeredAt);
+    const cur = dayMap.get(key);
+    if (cur) {
+      cur.count++;
+      if (a.isCorrect === true) cur.correct++;
+    }
+  }
+  const dailySeries: DailyPoint[] = [...dayMap.entries()].map(([date, v]) => ({ date, count: v.count, correct: v.correct }));
+
+  // 按法本聚合（审计 P4）：DB 内 GROUP BY 而非拉全量答题行进内存求和
+  //   Prisma groupBy 不支持按关系字段(question.courseId)分组 → 用 $queryRaw 联表聚合
+  const courseAggRows = await prisma.$queryRaw<
+    Array<{ courseId: string; answered: bigint; correct: bigint }>
+  >`
+    SELECT q."courseId" AS "courseId",
+           COUNT(*) AS answered,
+           COUNT(*) FILTER (WHERE ua."isCorrect" = true) AS correct
+    FROM "UserAnswer" ua
+    JOIN "Question" q ON q.id = ua."questionId"
+    WHERE ua."userId" = ${userId}
+    GROUP BY q."courseId"
+  `;
+  const courseAggMap = new Map<string, { answered: number; correct: number }>();
+  for (const r of courseAggRows) {
+    courseAggMap.set(r.courseId, { answered: Number(r.answered), correct: Number(r.correct) });
+  }
+  const masteredMap = new Map(perCourseMastered.map((x) => [x.courseId, x._count._all]));
+
+  // 把所有"出现过的法本"合并：enrollment OR 答过题
+  const courseIds = new Set<string>();
+  for (const e of enrollments) courseIds.add(e.courseId);
+  for (const cid of courseAggMap.keys()) courseIds.add(cid);
+
+  // 缺失元数据的 courseId 拉一次 Course 表补齐
+  const missingMeta = [...courseIds].filter((cid) => !enrollments.some((e) => e.courseId === cid));
+  const extraCourses = missingMeta.length
+    ? await prisma.course.findMany({
+        where: { id: { in: missingMeta } },
+        select: { id: true, title: true, coverEmoji: true },
+      })
+    : [];
+  const courseMeta = new Map<string, { title: string; coverEmoji: string }>();
+  for (const e of enrollments) courseMeta.set(e.courseId, { title: e.course.title, coverEmoji: e.course.coverEmoji });
+  for (const c of extraCourses) courseMeta.set(c.id, { title: c.title, coverEmoji: c.coverEmoji });
+
+  const enrollmentByCid = new Map(enrollments.map((e) => [e.courseId, e]));
+
+  const byCourse: ByCourseRow[] = [...courseIds].map((cid) => {
+    const meta = courseMeta.get(cid) ?? { title: '—', coverEmoji: '🪷' };
+    const agg = courseAggMap.get(cid) ?? { answered: 0, correct: 0 };
+    const en = enrollmentByCid.get(cid);
+    return {
+      courseId: cid,
+      title: meta.title,
+      coverEmoji: meta.coverEmoji,
+      answered: agg.answered,
+      correct: agg.correct,
+      masteredCount: masteredMap.get(cid) ?? 0,
+      lastStudiedAt: en?.lastStudiedAt ?? null,
+    };
+  }).sort((a, b) => b.answered - a.answered);
+
+  return {
+    account: {
+      id: user.id,
+      email: user.email,
+      dharmaName: user.dharmaName,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt,
+      emailVerifiedAt: user.emailVerifiedAt,
+    },
+    summary: {
+      totalAnswers,
+      correctAnswers,
+      correctRate: totalAnswers > 0 ? correctAnswers / totalAnswers : 0,
+      firstAnswerAt: firstAnswer?.answeredAt ?? null,
+      lastActiveAt: lastAnswer?.answeredAt ?? null,
+    },
+    dailySeries,
+    sm2Progress: sm2,
+    byCourse,
+    classMemberships: memberships.map((m) => ({
+      classId: m.classId,
+      className: m.class.name,
+      role: m.role as 'coach' | 'student',
+      joinedAt: m.joinedAt,
+      coverEmoji: m.class.coverEmoji,
+    })),
+  };
+}

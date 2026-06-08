@@ -1,0 +1,718 @@
+// 法本导入解析 service · F2.1 + F2.2 + F3.1
+//
+// F2.1 阶段（解析）：
+//   parsePdf / parseDocx → 纯文本
+//   splitToChapters → 按"第X章"启发切章；章内按"第X节"切节
+//   buildPreviewFromBuffer 主入口（不写库，返回预览结构）
+//
+// F2.2 阶段（写入）：
+//   commitImport
+//     · mode=new   → 创建新 course + chapters + lessons
+//     · mode=append → 在现有 course 末尾追加 chapters + lessons
+//   单事务原子性 · 写入 AuditLog (course.import)
+//
+// F3.1 阶段（网页抓取）：
+//   fetchUrlText → 经 SSRF 防护取 HTML → cheerio 抽正文 → splitToChapters
+//   buildPreviewFromUrl 主入口
+//
+// 不在范围：
+//   · OCR（扫描版 PDF 无文字层 → 抛 EMPTY_TEXT）
+//   · 复杂格式（DOCX 表格 / 图片 / 公式）只取 raw text
+//   · JS 渲染网页 (SPA · 需要 headless browser，本期不做)
+
+import * as cheerio from 'cheerio';
+import { lookup } from 'node:dns/promises';
+import type { Prisma } from '@prisma/client';
+import mammoth from 'mammoth';
+// pdf-parse@1.1.1 有顶层副作用（找测试 PDF）→ 走 lib 子路径绕开
+// @ts-expect-error pdf-parse 的 lib 子路径无 .d.ts 声明，但运行时 OK
+import pdf from 'pdf-parse/lib/pdf-parse.js';
+import { Agent } from 'undici';
+
+import { config } from '../../lib/config.js';
+import { BadRequest, Conflict, NotFound } from '../../lib/errors.js';
+import { prisma } from '../../lib/prisma.js';
+import { sanitizeRichText, sanitizeTitle } from '../../lib/text-sanitize.js';
+import { getSetting } from '../admin/system-settings.service.js';
+
+export interface PreviewLesson {
+  title: string;
+  referenceText?: string;   // optional · 与 Zod schema 一致
+  teachingSummary?: string;
+}
+export interface PreviewChapter {
+  title: string;
+  lessons: PreviewLesson[];
+}
+export interface PreviewResult {
+  source: 'pdf' | 'docx' | 'text';
+  filename: string;
+  charCount: number;
+  chapters: PreviewChapter[];
+}
+
+const MAX_TEXT_CHARS = 600_000; // 60 万字硬上限 · 大致一本中等论典
+
+// ── 提取纯文本 ─────────────────────────────────────
+
+export async function parsePdfBuffer(buf: Buffer): Promise<string> {
+  const r = await pdf(buf);
+  return (r.text || '').trim();
+}
+
+export async function parseDocxBuffer(buf: Buffer): Promise<string> {
+  const r = await mammoth.extractRawText({ buffer: buf });
+  return (r.value || '').trim();
+}
+
+export function detectKindByName(filename: string): 'pdf' | 'docx' | null {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith('.pdf')) return 'pdf';
+  if (lower.endsWith('.docx')) return 'docx';
+  return null;
+}
+
+// ── 切分启发式 ─────────────────────────────────────
+
+// 中文数字 + 阿拉伯数字
+const CN_NUM_CLASS = '一二三四五六七八九十百千万零〇两\\d';
+const CHAPTER_RE = new RegExp(`^\\s*第[${CN_NUM_CLASS}]+章[\\s　]*([^\\n]*)$`, 'gm');
+const SECTION_RE = new RegExp(`^\\s*第[${CN_NUM_CLASS}]+[节節][\\s　]*([^\\n]*)$`, 'gm');
+// Markdown 风格 # / ## / ### 标题
+const MD_H1_RE = /^#\s+(.+)$/gm;
+const MD_H2_RE = /^##\s+(.+)$/gm;
+
+function findMatches(re: RegExp, text: string): { index: number; matchEnd: number; title: string }[] {
+  const out: { index: number; matchEnd: number; title: string }[] = [];
+  let m: RegExpExecArray | null;
+  re.lastIndex = 0;
+  while ((m = re.exec(text)) !== null) {
+    out.push({
+      index: m.index,
+      matchEnd: m.index + m[0].length,
+      title: (m[1] || m[0]).trim() || m[0].trim(),
+    });
+  }
+  return out;
+}
+
+/** 按章切分 · 章内按节切分（节缺失则整章作为一节） */
+export function splitToChapters(rawText: string, fallbackTitle: string): PreviewChapter[] {
+  const text = rawText.replace(/\r\n/g, '\n').trim();
+  if (!text) return [];
+
+  // 1) 找章
+  let chapterMarks = findMatches(CHAPTER_RE, text);
+  // fallback 1：找 Markdown # 一级标题
+  if (chapterMarks.length === 0) chapterMarks = findMatches(MD_H1_RE, text);
+
+  if (chapterMarks.length === 0) {
+    // 整篇做一个 chapter · 再尝试按节切
+    return [
+      {
+        title: fallbackTitle,
+        lessons: splitToLessons(text, fallbackTitle),
+      },
+    ];
+  }
+
+  // 2) 按章边界切片
+  const chapters: PreviewChapter[] = [];
+  for (let i = 0; i < chapterMarks.length; i++) {
+    const start = chapterMarks[i].matchEnd;
+    const end = i + 1 < chapterMarks.length ? chapterMarks[i + 1].index : text.length;
+    const body = text.slice(start, end).trim();
+    const title = chapterMarks[i].title || `第 ${i + 1} 章`;
+    chapters.push({ title, lessons: splitToLessons(body, title) });
+  }
+  // 章前 preface（首章之前的文字）作为"前言"独立章节，避免丢失
+  const preface = text.slice(0, chapterMarks[0].index).trim();
+  if (preface) {
+    chapters.unshift({ title: '前言', lessons: [{ title: '前言', referenceText: preface }] });
+  }
+  return chapters;
+}
+
+function splitToLessons(chapterBody: string, chapterTitle: string): PreviewLesson[] {
+  let marks = findMatches(SECTION_RE, chapterBody);
+  if (marks.length === 0) marks = findMatches(MD_H2_RE, chapterBody);
+  if (marks.length === 0) {
+    return [{ title: chapterTitle, referenceText: chapterBody.trim() }];
+  }
+  const lessons: PreviewLesson[] = [];
+  // section 前小段（章引言）→ 放第一个 lesson 之前的文本作为 "引言" lesson
+  const intro = chapterBody.slice(0, marks[0].index).trim();
+  if (intro) {
+    lessons.push({ title: '引言', referenceText: intro });
+  }
+  for (let i = 0; i < marks.length; i++) {
+    const start = marks[i].matchEnd;
+    const end = i + 1 < marks.length ? marks[i + 1].index : chapterBody.length;
+    const body = chapterBody.slice(start, end).trim();
+    const title = marks[i].title || `第 ${i + 1} 节`;
+    lessons.push({ title, referenceText: body });
+  }
+  return lessons;
+}
+
+// ── 主入口：从文件 buffer 到预览结构 ────────────────
+
+export async function buildPreviewFromBuffer(
+  filename: string,
+  buf: Buffer,
+): Promise<PreviewResult> {
+  const kind = detectKindByName(filename);
+  if (!kind) {
+    throw BadRequest('仅支持 .pdf / .docx', { filename });
+  }
+  const rawText = kind === 'pdf'
+    ? await parsePdfBuffer(buf)
+    : await parseDocxBuffer(buf);
+
+  if (!rawText) {
+    throw BadRequest(
+      kind === 'pdf'
+        ? '未提取到文字（可能为扫描版 PDF · 暂不支持 OCR）'
+        : '文档无可提取文本',
+    );
+  }
+  if (rawText.length > MAX_TEXT_CHARS) {
+    throw BadRequest(`文本超过 ${MAX_TEXT_CHARS} 字上限（实际 ${rawText.length} 字），请拆分后再上传`);
+  }
+
+  // 文件名（去后缀）做 fallback 标题
+  const fallbackTitle = filename.replace(/\.[^.]+$/, '').trim() || '正文';
+  const chapters = splitToChapters(rawText, fallbackTitle);
+
+  return {
+    source: kind,
+    filename,
+    charCount: rawText.length,
+    chapters,
+  };
+}
+
+// ── 写入：commit 预览到数据库 ─────────────────────
+
+export interface CommitNewCourse {
+  slug: string;
+  title: string;
+  titleTraditional?: string;
+  author?: string;
+  description?: string;
+  coverEmoji?: string;
+  isPublished?: boolean;
+}
+
+export interface CommitInput {
+  /** new = 创建新法本; append = 在现有法本末尾追加章节 */
+  mode: 'new' | 'append';
+  /** mode=append 必填 */
+  courseId?: string;
+  /** mode=new 必填 */
+  newCourse?: CommitNewCourse;
+  chapters: PreviewChapter[];
+  /** 幂等键：前端开预览时生成 uuid，重复 commit 直接返回上次结果 */
+  clientToken?: string;
+}
+
+export interface CommitResult {
+  courseId: string;
+  chapterCount: number;
+  lessonCount: number;
+  /** true = 本次请求被识别为重复提交，未实际写入 · 前端据此提示「已是上次提交的版本」 */
+  idempotent?: boolean;
+}
+
+/** 写入预览树到数据库，单事务保证原子性 */
+export async function commitImport(
+  adminId: string,
+  input: CommitInput,
+): Promise<CommitResult> {
+  if (!Array.isArray(input.chapters) || input.chapters.length === 0) {
+    throw BadRequest('章节列表不能为空');
+  }
+  for (const ch of input.chapters) {
+    if (!ch.title || !ch.title.trim()) throw BadRequest('每章必须有标题');
+    if (!Array.isArray(ch.lessons) || ch.lessons.length === 0) {
+      throw BadRequest(`章「${ch.title}」下必须至少 1 个课时`);
+    }
+    for (const le of ch.lessons) {
+      if (!le.title || !le.title.trim()) {
+        throw BadRequest(`章「${ch.title}」下有课时缺标题`);
+      }
+    }
+  }
+
+  let appendCourseId = '';
+  let baseChapterOrder = 0;
+
+  if (input.mode === 'new') {
+    if (!input.newCourse) throw BadRequest('mode=new 必须提供 newCourse');
+    const nc = input.newCourse;
+    if (!nc.slug || !nc.title) throw BadRequest('newCourse 缺 slug / title');
+    const exist = await prisma.course.findUnique({ where: { slug: nc.slug } });
+    if (exist) {
+      // 幂等命中：同一前端会话因网络抖动重发 commit，slug 已被占用但 token 一致 → 回放上次结果
+      if (input.clientToken && exist.lastImportClientToken === input.clientToken) {
+        return readIdempotentSummary(exist);
+      }
+      throw Conflict('slug 已被占用');
+    }
+  } else {
+    if (!input.courseId) throw BadRequest('mode=append 必须提供 courseId');
+    // append 模式只做幂等预检：基础序号读取移到事务内（与 SELECT FOR UPDATE 等价的行锁）
+    const exist = await prisma.course.findUnique({
+      where: { id: input.courseId },
+      select: { id: true, lastImportClientToken: true, lastImportSummary: true },
+    });
+    if (!exist) throw NotFound('目标法本不存在');
+    if (input.clientToken && exist.lastImportClientToken === input.clientToken) {
+      return readIdempotentSummary(exist);
+    }
+    appendCourseId = exist.id;
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    let cid: string;
+
+    if (input.mode === 'new') {
+      const nc = input.newCourse!;
+      const course = await tx.course.create({
+        data: {
+          slug: nc.slug.trim(),
+          title: nc.title.trim(),
+          titleTraditional: nc.titleTraditional?.trim() || null,
+          author: nc.author?.trim() || null,
+          description: nc.description?.trim() || null,
+          coverEmoji: nc.coverEmoji?.trim() || '🪷',
+          isPublished: nc.isPublished ?? false, // 导入默认 未发布 · admin 校对后再发
+        },
+      });
+      cid = course.id;
+    } else {
+      cid = appendCourseId;
+      // append 模式：先 update 触发 PG 行锁 → 串行化并发 append 同 course 的两笔事务
+      // 锁释放在事务提交时；锁期间另一笔 append 的 update 阻塞 → 保证它读到的
+      // baseChapterOrder 是本次提交后的最新值，避免章节序号冲突
+      await tx.course.update({
+        where: { id: cid },
+        data: { updatedAt: new Date() },
+      });
+      // 锁内重读 baseChapterOrder + 二次幂等校验（双重 check：另一笔事务可能已用同 token 完成）
+      const locked = await tx.course.findUnique({
+        where: { id: cid },
+        select: { lastImportClientToken: true, lastImportSummary: true },
+      });
+      if (
+        input.clientToken &&
+        locked &&
+        locked.lastImportClientToken === input.clientToken
+      ) {
+        return readIdempotentSummary({
+          id: cid,
+          lastImportSummary: locked.lastImportSummary,
+        });
+      }
+      const lastChapter = await tx.chapter.findFirst({
+        where: { courseId: cid },
+        orderBy: { order: 'desc' },
+        select: { order: true },
+      });
+      baseChapterOrder = lastChapter?.order ?? 0;
+    }
+
+    // 批量插入 chapter / lesson 改 createMany 一次往返
+    // 旧实现 N×M 次单条 insert（500 章 × 10 节 = 5000 次）→ PG 端事务时间显著拉长。
+    // 步骤：
+    //   1) chapter.createMany 一次写所有章 · 用 (courseId, order) 复合唯一键回查 ID
+    //   2) 把每个 lesson 映射到对应 chapter.id 后 lesson.createMany 一次写完
+    const chapterRows = input.chapters.map((ch, ci) => ({
+      courseId: cid,
+      order: baseChapterOrder + ci + 1,
+      title: ch.title.trim(),
+    }));
+    await tx.chapter.createMany({ data: chapterRows });
+
+    const insertedChapters = await tx.chapter.findMany({
+      where: {
+        courseId: cid,
+        order: {
+          gte: baseChapterOrder + 1,
+          lte: baseChapterOrder + input.chapters.length,
+        },
+      },
+      orderBy: { order: 'asc' },
+      select: { id: true, order: true },
+    });
+    // order → id 映射，从输入序号还原
+    const chapterIdByIdx = new Map<number, string>();
+    for (const c of insertedChapters) {
+      chapterIdByIdx.set(c.order - baseChapterOrder - 1, c.id);
+    }
+
+    const lessonRows: Prisma.LessonCreateManyInput[] = [];
+    for (let ci = 0; ci < input.chapters.length; ci++) {
+      const ch = input.chapters[ci];
+      const chapterId = chapterIdByIdx.get(ci);
+      if (!chapterId) throw BadRequest('章节写入异常（id 未回查到）');
+      for (let li = 0; li < ch.lessons.length; li++) {
+        const le = ch.lessons[li];
+        lessonRows.push({
+          chapterId,
+          order: li + 1,
+          title: sanitizeTitle(le.title),
+          referenceText: sanitizeRichText(le.referenceText),
+          teachingSummary: sanitizeRichText(le.teachingSummary),
+        });
+      }
+    }
+    if (lessonRows.length > 0) {
+      await tx.lesson.createMany({ data: lessonRows });
+    }
+    const totalLessons = lessonRows.length;
+
+    // 把幂等键 + 摘要写入 course，下次同 token 重发即可回放
+    if (input.clientToken) {
+      await tx.course.update({
+        where: { id: cid },
+        data: {
+          lastImportClientToken: input.clientToken,
+          lastImportSummary: {
+            chapterCount: input.chapters.length,
+            lessonCount: totalLessons,
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        adminId,
+        action: input.mode === 'new' ? 'course.import.new' : 'course.import.append',
+        targetType: 'course',
+        targetId: cid,
+        after: {
+          mode: input.mode,
+          chapterCount: input.chapters.length,
+          lessonCount: totalLessons,
+          clientToken: input.clientToken ?? null,
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    return { courseId: cid, chapterCount: input.chapters.length, lessonCount: totalLessons };
+  });
+
+  return result;
+}
+
+// 幂等命中时回放上次的 chapterCount/lessonCount
+function readIdempotentSummary(course: {
+  id: string;
+  lastImportSummary: Prisma.JsonValue | null;
+}): CommitResult {
+  const s = (course.lastImportSummary ?? {}) as Record<string, unknown>;
+  return {
+    courseId: course.id,
+    chapterCount: typeof s.chapterCount === 'number' ? s.chapterCount : 0,
+    lessonCount: typeof s.lessonCount === 'number' ? s.lessonCount : 0,
+    idempotent: true,
+  };
+}
+
+// ── F3.1 · URL 抓取 + HTML 转纯文本 ────────────────
+
+const FETCH_TIMEOUT_MS = 12_000;
+const MAX_HTML_BYTES = 5 * 1024 * 1024; // 5 MB · 防恶意大页面让 cheerio 内存峰值
+// 之前用 'JuexueImporter/1.0' 容易被反爬识别 · 改成主流 Chrome UA 提高通过率
+// 不是为了规避合理的反爬，是为了让正常公开内容能抓到（admin 主动导入用途）
+const USER_AGENT =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+/** SSRF 防护：拒绝内网 / 链路本地 / loopback / 多播 IP */
+function isPrivateIp(ip: string): boolean {
+  // IPv6 loopback / link-local / unique-local
+  if (ip === '::1' || /^fe80:/i.test(ip) || /^fc[0-9a-f]{2}:/i.test(ip) || /^fd[0-9a-f]{2}:/i.test(ip)) {
+    return true;
+  }
+  // IPv4 (含 IPv4-mapped IPv6 ::ffff:1.2.3.4)
+  const v4 = ip.replace(/^::ffff:/i, '');
+  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(v4);
+  if (!m) return false;
+  const a = +m[1], b = +m[2];
+  // 0/8 reserved, 10/8 private, 127/8 loopback, 169.254/16 link-local,
+  // 172.16/12 private, 192.168/16 private, 100.64/10 carrier-grade NAT,
+  // 224/4 multicast, 240/4 reserved
+  if (a === 0)   return true;
+  if (a === 10)  return true;
+  if (a === 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a >= 224)  return true;
+  return false;
+}
+
+interface ResolvedTarget {
+  url: URL;
+  /** SSRF 检查通过的 IP（IPv4/IPv6 字面值）· null = 字面 IP URL，host 即 IP */
+  resolvedIp: string;
+  resolvedFamily: 4 | 6;
+}
+
+/**
+ * SSRF 防护：
+ *  1. 协议白名单 http/https
+ *  2. host 解析后所有 IP 必须非内网
+ *  3. 返回**已解析的 IP**，由调用方喂给 fetch 的 dispatcher，
+ *     避免 fetch 实际连接时再次 DNS 解析被切到内网（DNS rebinding TOCTOU）
+ */
+async function assertSafeUrl(rawUrl: string): Promise<ResolvedTarget> {
+  let u: URL;
+  try { u = new URL(rawUrl); } catch { throw BadRequest('URL 格式不合法'); }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw BadRequest('仅允许 http / https 协议');
+  }
+  // hostname 归一化为小写：IDN / Unicode 域名大小写变体（EXAMPLE.com / Example.COM）
+  // 在 dns.lookup 时可能走不同代码路径或缓存，规范化避免变体绕过 SSRF 校验
+  const host = u.hostname.toLowerCase();
+  // 字面 IP（含 [::1] 形式 IPv6）直接判
+  if (/^[0-9.]+$/.test(host) || host.includes(':')) {
+    if (isPrivateIp(host)) throw BadRequest('禁止抓取内网地址');
+    return { url: u, resolvedIp: host, resolvedFamily: host.includes(':') ? 6 : 4 };
+  }
+  // 域名 → DNS 查 · 取所有结果都判 · 选第一条作为绑定 IP
+  let records: { address: string; family: number }[];
+  try {
+    records = await lookup(host, { all: true });
+  } catch (err: any) {
+    throw BadRequest('无法解析域名：' + (err?.message || host));
+  }
+  if (records.length === 0) throw BadRequest('域名无 A/AAAA 记录：' + host);
+  for (const r of records) {
+    if (isPrivateIp(r.address)) {
+      throw BadRequest('域名解析到内网地址，禁止抓取');
+    }
+  }
+  const first = records[0];
+  return {
+    url: u,
+    resolvedIp: first.address,
+    resolvedFamily: first.family === 6 ? 6 : 4,
+  };
+}
+
+/** 把 connect 钉死到已 SSRF 校验的 IP · 防止底层重新 DNS 解析被切到内网 */
+function makeBoundAgent(ip: string, family: 4 | 6): Agent {
+  return new Agent({
+    connect: {
+      // undici 的 connect.lookup 与 net.LookupOneOptions 兼容
+      // 直接回调返回固定 IP，无视传入的 hostname，避免任何二次解析
+      lookup: (_host: string, _opts: unknown, cb: (err: NodeJS.ErrnoException | null, address: string, family: number) => void) => {
+        cb(null, ip, family);
+      },
+    },
+  });
+}
+
+const MAX_REDIRECTS = 5;
+
+/**
+ * 法本抓取分发：admin 后台 SystemSetting `scraper.fetchVia` 控制
+ *   local（默认） → 本服务器 fetch + IP 钉死防 SSRF（fetchHtmlLocal）
+ *   asia          → 经亚洲中转节点 fetch（fetchHtmlViaRelay），用于源站封 IP 时切换出口
+ * 解析（cheerio / splitToChapters）始终在本机跑，relay 只负责抓 HTML。
+ */
+async function fetchHtml(target: ResolvedTarget): Promise<{ html: string; finalUrl: string }> {
+  const via = await getSetting('scraper.fetchVia');
+  if (via === 'asia') {
+    return fetchHtmlViaRelay(target.url.toString());
+  }
+  return fetchHtmlLocal(target);
+}
+
+async function fetchHtmlLocal(target: ResolvedTarget): Promise<{ html: string; finalUrl: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    let current = target;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      const agent = makeBoundAgent(current.resolvedIp, current.resolvedFamily);
+      const res = await fetch(current.url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': USER_AGENT,
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        },
+        redirect: 'manual', // 不让 fetch 自己跟随，每跳都重新 SSRF 校验
+        signal: controller.signal,
+        // dispatcher 是 undici 扩展字段，TS lib.dom 不认识 → cast
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        dispatcher: agent as any,
+      } as RequestInit);
+
+      // 重定向：3xx + Location 头
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location');
+        // 释放本跳的 agent（不阻塞）
+        agent.close().catch(() => undefined);
+        if (!loc) throw BadRequest(`重定向 ${res.status} 缺 Location 头`);
+        if (hop === MAX_REDIRECTS) throw BadRequest(`重定向超过 ${MAX_REDIRECTS} 跳`);
+        const nextRaw = new URL(loc, current.url).toString();
+        current = await assertSafeUrl(nextRaw);
+        continue;
+      }
+
+      try {
+        if (!res.ok) {
+          throw BadRequest(`抓取失败：HTTP ${res.status} ${res.statusText}`);
+        }
+        const ctype = res.headers.get('content-type') || '';
+        if (!/text\/html|application\/xhtml/i.test(ctype)) {
+          throw BadRequest(`目标不是 HTML（content-type: ${ctype || '未知'}）`);
+        }
+        const buf = await res.arrayBuffer();
+        if (buf.byteLength > MAX_HTML_BYTES) {
+          throw BadRequest(`HTML 超过 ${MAX_HTML_BYTES / 1024 / 1024} MB 上限`);
+        }
+        const text = new TextDecoder('utf-8', { fatal: false }).decode(buf);
+        return { html: text, finalUrl: current.url.toString() };
+      } finally {
+        agent.close().catch(() => undefined);
+      }
+    }
+    throw BadRequest('重定向循环（不应到这里）');
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw BadRequest('抓取超时（>12 s）');
+    if (err && err.code === 'BAD_REQUEST') throw err;
+    throw BadRequest('网络异常：' + (err?.message || String(err)));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// 中转留 5s 余量给 relay → 源站这一段（本机 fetch 12s + 跨境 RTT）
+const RELAY_TIMEOUT_MS = FETCH_TIMEOUT_MS + 5_000;
+
+/**
+ * 经亚洲中转节点抓取：
+ *   - SSRF 由 relay 自身做（域名白名单 + 内网 IP 拒绝），本机已通过 assertSafeUrl 过协议白名单
+ *   - relay 处理重定向 / UA / 编码 → 返回 { status, finalUrl, html }
+ *   - 失败 / 配置缺失抛 BadRequest，交给上层统一展示
+ */
+async function fetchHtmlViaRelay(rawUrl: string): Promise<{ html: string; finalUrl: string }> {
+  if (!config.ASIA_RELAY_URL || !config.ASIA_RELAY_TOKEN) {
+    throw BadRequest('亚洲中转节点未配置：请在 .env 设置 ASIA_RELAY_URL / ASIA_RELAY_TOKEN');
+  }
+  const endpoint = config.ASIA_RELAY_URL.replace(/\/+$/, '') + '/fetch';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RELAY_TIMEOUT_MS);
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.ASIA_RELAY_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ url: rawUrl }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      // relay 自己的 4xx/5xx（鉴权 / 域名不在白名单 / 抓取失败）
+      const text = await res.text().catch(() => '');
+      throw BadRequest(`亚洲节点失败：HTTP ${res.status} ${text.slice(0, 200) || res.statusText}`);
+    }
+    const body = await res.json() as {
+      status?: number;
+      finalUrl?: string;
+      html?: string;
+      contentType?: string;
+      error?: string;
+    };
+    if (body.error) throw BadRequest(`亚洲节点错误：${body.error}`);
+    if (typeof body.status !== 'number' || typeof body.html !== 'string' || typeof body.finalUrl !== 'string') {
+      throw BadRequest('亚洲节点返回结构异常（缺 status/html/finalUrl）');
+    }
+    if (body.status >= 400) {
+      throw BadRequest(`目标返回 HTTP ${body.status}（经亚洲节点）`);
+    }
+    if (body.contentType && !/text\/html|application\/xhtml/i.test(body.contentType)) {
+      throw BadRequest(`目标不是 HTML（content-type: ${body.contentType}）`);
+    }
+    // 中转节点已限流过 / 我们再校一次，防 relay 被绕过
+    const byteLen = Buffer.byteLength(body.html, 'utf8');
+    if (byteLen > MAX_HTML_BYTES) {
+      throw BadRequest(`HTML 超过 ${MAX_HTML_BYTES / 1024 / 1024} MB 上限`);
+    }
+    return { html: body.html, finalUrl: body.finalUrl };
+  } catch (err: any) {
+    if (err?.name === 'AbortError') throw BadRequest(`亚洲节点抓取超时（>${RELAY_TIMEOUT_MS / 1000} s）`);
+    if (err && err.code === 'BAD_REQUEST') throw err;
+    throw BadRequest('亚洲节点网络异常：' + (err?.message || String(err)));
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** 用 cheerio 抽正文：优先 article / main，失败则用 body 去掉 script/style/nav/footer */
+export function extractMainText(html: string): { title: string; text: string } {
+  const $ = cheerio.load(html);
+  const pageTitle = ($('title').first().text() || '').trim() || '抓取内容';
+  // 噪音
+  $('script, style, noscript, nav, footer, header, aside, form, iframe, .ad, .ads').remove();
+
+  // 优先级：article > main > [role=main] > .content > #content > body
+  // 类型用 any · cheerio 1.0 的 Element vs AnyNode 类型严格度过敏
+  const candidates = ['article', 'main', '[role="main"]', '.content', '#content', '.post', '.article-content'];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let $root: any = $('body');
+  for (const sel of candidates) {
+    const $el = $(sel).first();
+    if ($el.length && $el.text().trim().length > 200) {
+      $root = $el;
+      break;
+    }
+  }
+
+  // 块级元素后塞换行 · each callback 显式 void 返回（避免 cheerio chain 被当 boolean）
+  const blockTags = ['p', 'div', 'section', 'article', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'li', 'blockquote', 'pre', 'tr'];
+  blockTags.forEach((t) => { $root.find(t).each((_: number, el: unknown) => { $(el as never).append('\n'); }); });
+
+  // 标题加 markdown 风格便于 splitToChapters 识别
+  $root.find('h1').each((_: number, el: unknown) => { $(el as never).prepend('# '); });
+  $root.find('h2').each((_: number, el: unknown) => { $(el as never).prepend('## '); });
+  $root.find('h3').each((_: number, el: unknown) => { $(el as never).prepend('### '); });
+
+  let text = $root.text();
+  // 归一空白
+  text = text.replace(/ /g, ' ').replace(/[ \t]+/g, ' ');
+  text = text.replace(/\n[ \t]+/g, '\n').replace(/[ \t]+\n/g, '\n');
+  text = text.replace(/\n{3,}/g, '\n\n').trim();
+
+  return { title: pageTitle, text };
+}
+
+export async function buildPreviewFromUrl(rawUrl: string): Promise<PreviewResult> {
+  const target = await assertSafeUrl(rawUrl);
+  const { html, finalUrl } = await fetchHtml(target);
+  const { title, text } = extractMainText(html);
+  if (!text || text.length < 50) {
+    throw BadRequest('抓到的正文太短（< 50 字），可能是 SPA 首屏 / 反爬页面');
+  }
+  if (text.length > MAX_TEXT_CHARS) {
+    throw BadRequest(`正文超过 ${MAX_TEXT_CHARS} 字上限（实际 ${text.length}）`);
+  }
+  const fallbackTitle = title || finalUrl;
+  const chapters = splitToChapters(text, fallbackTitle);
+  return {
+    source: 'text',
+    filename: title + ' (' + new URL(finalUrl).hostname + ')',
+    charCount: text.length,
+    chapters,
+  };
+}

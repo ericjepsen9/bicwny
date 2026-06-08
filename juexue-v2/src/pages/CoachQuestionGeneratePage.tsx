@@ -1,0 +1,797 @@
+// CoachQuestionGeneratePage · /coach/questions/generate · /admin/questions/generate（决策 11）
+//   两种 scope：
+//     - lesson  · 单课时 · 直接 POST 一次
+//     - chapter · 整章批量 · 串行队列 + 进度（每课时一次 POST，避免后端打爆）
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import Skeleton from '@/components/Skeleton';
+import { api, ApiError } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { useLang } from '@/lib/i18n';
+import { displayQuestionText } from '@/lib/questionText';
+import { type QuestionType, useCourseDetail, useCourses } from '@/lib/queries';
+import { toast } from '@/lib/toast';
+
+interface GenQuestion {
+  id: string;
+  type: string;
+  questionText: string;
+  correctText: string;
+  wrongText: string;
+  source: string;
+  difficulty: number;
+  tags: string[] | null;
+  // 各题型 payload 结构不同：
+  //   single/multi: options = [{text, correct}]
+  //   fill: options = string[] · verseLines = string[] · correctWord = string
+  //   open: referenceAnswer = string · keyPoints = [{point}]
+  //   sort: items = [{text, order}]（order 即正确顺序）
+  //   match: left = [{id, text}] · right = [{id, text, match?}]
+  payload?: {
+    options?: Array<{ text: string; correct: boolean }> | string[];
+    verseLines?: string[];
+    correctWord?: string;
+    referenceAnswer?: string;
+    keyPoints?: Array<{ point: string }>;
+    items?: Array<{ text: string; order: number }>;
+    left?: Array<{ id: string; text: string }>;
+    right?: Array<{ id: string; text: string; match?: string }>;
+    [k: string]: unknown;
+  };
+}
+
+interface GenerateResult {
+  succeeded: number;
+  failed: number;
+  total: number;
+  questions: GenQuestion[];
+  skipped: Array<{ index: number; reason: string }>;
+}
+
+interface BatchLessonState {
+  lessonId: string;
+  lessonOrder: number;
+  lessonTitle: string;
+  status: 'pending' | 'running' | 'ok' | 'skipped' | 'err';
+  generated?: number;
+  reason?: string;
+}
+
+const GEN_TYPES: { v: QuestionType; sc: string; tc: string; en: string }[] = [
+  { v: 'single', sc: '单选', tc: '單選', en: 'Single' },
+  { v: 'multi',  sc: '多选', tc: '多選', en: 'Multi' },
+  { v: 'fill',   sc: '填空', tc: '填空', en: 'Fill' },
+  { v: 'open',   sc: '问答', tc: '問答', en: 'Open' },
+  { v: 'sort',   sc: '排序', tc: '排序', en: 'Sort' },
+  { v: 'match',  sc: '匹配', tc: '匹配', en: 'Match' },
+];
+
+const MIN_PASSAGE = 20;
+
+type Scope = 'lesson' | 'chapter';
+
+export default function CoachQuestionGeneratePage() {
+  const { s } = useLang();
+  const nav = useNavigate();
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const [sp] = useSearchParams();
+  const { pathname } = useLocation();
+  const base = pathname.startsWith('/admin') ? '/admin/questions' : '/coach/questions';
+  const [llmDown, setLlmDown] = useState(false);
+
+  const [scope, setScope] = useState<Scope>('lesson');
+  const [courseId, setCourseId] = useState(sp.get('courseId') ?? '');
+  const [chapterId, setChapterId] = useState(sp.get('chapterId') ?? '');
+  const [lessonId, setLessonId] = useState(sp.get('lessonId') ?? '');
+  const [type, setType] = useState<QuestionType>('single');
+  const [count, setCount] = useState<3 | 5 | 8 | 12>(5);
+  const [difficulty, setDifficulty] = useState(2);
+  const [passage, setPassage] = useState('');
+
+  // lesson 单次结果
+  const [lessonResult, setLessonResult] = useState<GenerateResult | null>(null);
+  // chapter 批量进度
+  const [batch, setBatch] = useState<BatchLessonState[] | null>(null);
+  const [batchRunning, setBatchRunning] = useState(false);
+
+  const courses = useCourses();
+  const slug = useMemo(
+    () => courses.data?.find((c) => c.id === courseId)?.slug ?? null,
+    [courses.data, courseId],
+  );
+  const detail = useCourseDetail(slug);
+  const chapter = useMemo(
+    () => detail.data?.chapters.find((c) => c.id === chapterId),
+    [detail.data, chapterId],
+  );
+  const lesson = useMemo(
+    () => chapter?.lessons.find((l) => l.id === lessonId),
+    [chapter, lessonId],
+  );
+
+  // 选课时后自动把原文填入 passage
+  useEffect(() => {
+    if (scope !== 'lesson') return;
+    if (lesson?.referenceText && !passage.trim()) setPassage(lesson.referenceText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonId, scope]);
+
+  // chapter scope 概览
+  const chapterPreview = useMemo(() => {
+    if (scope !== 'chapter' || !chapter) return null;
+    const lessons = chapter.lessons.slice().sort((a, b) => a.order - b.order);
+    const eligible = lessons.filter((l) => (l.referenceText?.length ?? 0) >= MIN_PASSAGE);
+    const skippable = lessons.length - eligible.length;
+    const totalChars = eligible.reduce((acc, l) => acc + (l.referenceText?.length ?? 0), 0);
+    // 估算时间：每课时 LLM ~15s
+    const estSec = eligible.length * 15;
+    return { total: lessons.length, eligible, skippable, totalChars, estSec };
+  }, [scope, chapter]);
+
+  // 单次（lesson）mutation
+  // LLM 生成 thinking 模型可能 60s+ · 后端 timeout 90s · 前端给 95s 兜底
+  const generate = useMutation({
+    mutationFn: () => api.post<GenerateResult>('/api/coach/questions/generate', {
+      courseId, chapterId, lessonId,
+      passage: passage.trim(),
+      type, count, difficulty,
+      visibility: 'public',
+    }, { timeoutMs: 185_000 }),
+    onSuccess: (r) => {
+      setLessonResult(r);
+      qc.invalidateQueries({ queryKey: ['/api/coach/questions'] });
+      qc.invalidateQueries({ queryKey: ['/api/coach/llm-calls'] });
+      if (r.failed === 0) toast.ok(s(`已生成 ${r.succeeded} 道`, `已生成 ${r.succeeded} 道`, `Generated ${r.succeeded}`));
+      else toast.warn(s(`生成 ${r.succeeded} · 跳过 ${r.failed}`, `生成 ${r.succeeded} · 跳過 ${r.failed}`, `${r.succeeded} ok · ${r.failed} skipped`));
+    },
+    onError: (e) => {
+      const err = e as ApiError;
+      // 502 + UPSTREAM_ERROR → LLM 全部 provider 挂了 · 显示 banner 而不是单 toast
+      if (err.status === 502 && (err.payload as { error?: string })?.error === 'UPSTREAM_ERROR') {
+        setLlmDown(true);
+      } else {
+        toast.error(err.message);
+      }
+    },
+  });
+
+  // 思考中的已耗时（秒）· 给用户「还在跑 / 没卡死」的反馈
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    if (!generate.isPending && !batchRunning) {
+      setElapsedSec(0);
+      return;
+    }
+    const start = Date.now();
+    const t = setInterval(() => setElapsedSec(Math.floor((Date.now() - start) / 1000)), 500);
+    return () => clearInterval(t);
+  }, [generate.isPending, batchRunning]);
+
+  // 批量（chapter）串行队列
+  async function runBatch() {
+    if (!chapterPreview || !courseId || !chapterId) return;
+    const initial: BatchLessonState[] = chapterPreview.eligible.map((l) => ({
+      lessonId: l.id,
+      lessonOrder: l.order,
+      lessonTitle: l.title,
+      status: 'pending',
+    }));
+    setBatch(initial);
+    setBatchRunning(true);
+
+    // 串行 · 单条失败不中断
+    let totalGen = 0;
+    let totalErr = 0;
+    for (let i = 0; i < initial.length; i++) {
+      const lessonObj = chapterPreview.eligible[i]!;
+      // mark running
+      setBatch((cur) => cur && cur.map((b, idx) => idx === i ? { ...b, status: 'running' } : b));
+      try {
+        const r = await api.post<GenerateResult>('/api/coach/questions/generate', {
+          courseId, chapterId,
+          lessonId: lessonObj.id,
+          passage: (lessonObj.referenceText || '').trim(),
+          type, count, difficulty,
+          visibility: 'public',
+        }, { timeoutMs: 185_000 });
+        totalGen += r.succeeded;
+        if (r.failed > 0) totalErr += r.failed;
+        setBatch((cur) => cur && cur.map((b, idx) => idx === i ? { ...b, status: 'ok', generated: r.succeeded } : b));
+      } catch (e) {
+        totalErr += 1;
+        const err = e as ApiError;
+        const msg = err.message || 'unknown';
+        setBatch((cur) => cur && cur.map((b, idx) => idx === i ? { ...b, status: 'err', reason: msg } : b));
+        // 第一次 502 + UPSTREAM_ERROR → 全 LLM 挂 · 后面继续也是徒劳 · 中断 + 显示 banner
+        if (err.status === 502 && (err.payload as { error?: string })?.error === 'UPSTREAM_ERROR') {
+          setLlmDown(true);
+          break;
+        }
+        // continue · 不抛出
+      }
+    }
+
+    setBatchRunning(false);
+    qc.invalidateQueries({ queryKey: ['/api/coach/questions'] });
+    qc.invalidateQueries({ queryKey: ['/api/coach/llm-calls'] });
+    if (totalErr === 0) toast.ok(s(`整章完成 · 共 ${totalGen} 道`, `整章完成 · 共 ${totalGen} 道`, `Done · ${totalGen} generated`));
+    else toast.warn(s(`完成 · 成功 ${totalGen} · 失败 ${totalErr}`, `完成 · 成功 ${totalGen} · 失敗 ${totalErr}`, `Done · ${totalGen} ok · ${totalErr} err`));
+  }
+
+  const lessonValid = scope === 'lesson' && courseId && chapterId && lessonId && passage.trim().length >= MIN_PASSAGE;
+  const chapterValid = scope === 'chapter' && courseId && chapterId && chapterPreview && chapterPreview.eligible.length > 0;
+
+  return (
+    <>
+      <div className="top-bar">
+        <div>
+          <h1 className="page-title">{s('LLM 生成题目', 'LLM 生成題目', 'LLM Generate')}</h1>
+          <p className="page-sub">{s('AI 根据原文自动出题 · 提交后进入待审', 'AI 根據原文自動出題 · 提交後進入待審', 'AI generates from passage · pending review')}</p>
+        </div>
+        <div className="top-actions">
+          <button type="button" onClick={() => nav(base)} className="btn btn-pill" style={{ padding: '8px 14px', background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)' }}>
+            {s('返回', '返回', 'Back')}
+          </button>
+        </div>
+      </div>
+
+      {llmDown && (
+        <div
+          role="alert"
+          style={{
+            background: 'rgba(192,57,43,.08)',
+            border: '1px solid rgba(192,57,43,.3)',
+            borderRadius: 'var(--r)',
+            padding: 'var(--sp-3) var(--sp-4)',
+            marginBottom: 'var(--sp-4)',
+            color: 'var(--ink)',
+            font: 'var(--text-body)',
+            lineHeight: 1.6,
+            maxWidth: 880,
+          }}
+        >
+          <strong style={{ color: 'var(--crimson)' }}>
+            {s('AI 服务暂不可用', 'AI 服務暫不可用', 'AI service unavailable')}
+          </strong>
+          <div style={{ marginTop: 6, font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
+            {s('所有 LLM 通路均失败 · 请稍后再试。', '所有 LLM 通路均失敗 · 請稍後再試。', 'All LLM providers failed · please retry later.')}
+          </div>
+          {user?.role === 'admin' && (
+            <div style={{ marginTop: 8, font: 'var(--text-caption)', color: 'var(--ink-3)' }}>
+              {s('提示（admin）：检查 ', '提示（admin）：檢查 ', 'Admin hint: check ')}
+              <a href="/app/admin/llm" style={{ color: 'var(--saffron-dark)' }}>
+                {s('LLM provider 配置', 'LLM provider 配置', 'LLM provider config')}
+              </a>
+              {s(' · API key 是否过期 / 余额。', ' · API key 是否過期 / 餘額。', ' · API key validity / quota.')}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setLlmDown(false)}
+            className="btn btn-pill"
+            style={{ marginTop: 10, padding: '6px 14px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--ink-3)', font: 'var(--text-caption)' }}
+          >
+            {s('关闭', '關閉', 'Dismiss')}
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--sp-4)', maxWidth: 880 }}>
+        {/* Scope 切换 */}
+        <Section title={s('范围', '範圍', 'Scope')}>
+          <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+            {([
+              { v: 'lesson',  sc: '单课时', tc: '單課時', en: 'Single lesson' },
+              { v: 'chapter', sc: '整章批量', tc: '整章批量', en: 'Chapter batch' },
+            ] as { v: Scope; sc: string; tc: string; en: string }[]).map((o) => (
+              <button
+                key={o.v}
+                type="button"
+                onClick={() => { setScope(o.v); setLessonResult(null); setBatch(null); }}
+                style={{
+                  flex: 1, padding: '10px 12px', borderRadius: 'var(--r-pill)',
+                  background: scope === o.v ? 'var(--saffron-pale)' : 'var(--glass-thick)',
+                  color: scope === o.v ? 'var(--saffron-dark)' : 'var(--ink-3)',
+                  border: '1px solid ' + (scope === o.v ? 'var(--saffron-light)' : 'var(--glass-border)'),
+                  font: 'var(--text-caption)', fontWeight: 600, letterSpacing: 1, cursor: 'pointer',
+                }}
+                disabled={batchRunning}
+              >
+                {s(o.sc, o.tc, o.en)}
+              </button>
+            ))}
+          </div>
+        </Section>
+
+        {/* 课程级联 */}
+        <Section title={s('归属', '歸屬', 'Location')}>
+          <div style={{ display: 'grid', gridTemplateColumns: scope === 'chapter' ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 'var(--sp-3)' }}>
+            <Pickr label={s('闻思', '聞思', 'Course')} value={courseId} disabled={batchRunning} onChange={(v) => { setCourseId(v); setChapterId(''); setLessonId(''); setPassage(''); }} options={[{ v: '', label: '— 请选 —' }, ...(courses.data ?? []).map((c) => ({ v: c.id, label: `${c.coverEmoji} ${c.title}` }))]} />
+            <Pickr label={s('章节', '章節', 'Chapter')} value={chapterId} disabled={!detail.data || batchRunning} onChange={(v) => { setChapterId(v); setLessonId(''); setPassage(''); setBatch(null); }} options={[{ v: '', label: '— 请选 —' }, ...((detail.data?.chapters ?? []).map((ch) => ({ v: ch.id, label: `第 ${ch.order} 章 · ${ch.title}` })))]} />
+            {scope === 'lesson' && (
+              <Pickr label={s('课时', '課時', 'Lesson')} value={lessonId} disabled={!chapter} onChange={setLessonId} options={[{ v: '', label: '— 请选 —' }, ...((chapter?.lessons ?? []).map((l) => ({ v: l.id, label: `第 ${l.order} 课 · ${l.title}` })))]} />
+            )}
+          </div>
+          {courses.isLoading && <Skeleton.LineSm style={{ marginTop: 8 }} />}
+        </Section>
+
+        {/* lesson scope · 原文输入 */}
+        {scope === 'lesson' && (
+          <Section title={s('原文 / 段落（≥ 20 字）', '原文 / 段落（≥ 20 字）', 'Passage (≥ 20 chars)')}>
+            <textarea
+              value={passage}
+              onChange={(e) => setPassage(e.target.value)}
+              rows={10}
+              placeholder={s('粘贴一段原文 · 选课时后会自动填入 referenceText · 可手动改', '貼上一段原文 · 選課時後會自動填入 referenceText · 可手動改', 'Paste passage · auto-filled from lesson reference text · editable')}
+              style={textareaStyle}
+            />
+            <div style={{ font: 'var(--text-caption)', color: passage.length < MIN_PASSAGE ? 'var(--crimson)' : 'var(--ink-4)', marginTop: 4, letterSpacing: 1 }}>
+              {passage.length} {s('字', '字', 'chars')}
+            </div>
+          </Section>
+        )}
+
+        {/* chapter scope · 概览 */}
+        {scope === 'chapter' && chapterPreview && (
+          <Section title={s('整章概览', '整章概覽', 'Chapter overview')}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--sp-3)', marginBottom: 'var(--sp-3)' }}>
+              <Mini value={String(chapterPreview.total)} label={s('总课时', '總課時', 'Total')} />
+              <Mini value={String(chapterPreview.eligible.length)} label={s('可生成', '可生成', 'Eligible')} color="var(--sage-dark)" />
+              <Mini value={String(chapterPreview.skippable)} label={s('将跳过', '將跳過', 'Skip')} color="var(--ink-4)" />
+              <Mini value={`~${Math.ceil(chapterPreview.estSec / 60)}min`} label={s('预计耗时', '預計耗時', 'Est time')} color="var(--gold-dark)" />
+            </div>
+            <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 6 }}>
+              {s(`将对 ${chapterPreview.eligible.length} 个课时各生成 ${count} 道（共 ${chapterPreview.eligible.length * count} 道）· 串行 · 单课失败不中断`, `將對 ${chapterPreview.eligible.length} 個課時各生成 ${count} 道`, `Will generate ${count} per lesson × ${chapterPreview.eligible.length} (serial)`)}
+            </p>
+            {chapterPreview.skippable > 0 && (
+              <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1 }}>
+                ⚠️ {s(`${chapterPreview.skippable} 个课时原文 < ${MIN_PASSAGE} 字 · 将跳过`, `${chapterPreview.skippable} 個課時原文 < ${MIN_PASSAGE} 字 · 將跳過`, `${chapterPreview.skippable} lessons < ${MIN_PASSAGE} chars · skip`)}
+              </p>
+            )}
+          </Section>
+        )}
+
+        {/* 生成参数 */}
+        <Section title={s('生成参数', '生成參數', 'Parameters')}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)' }}>
+            <div>
+              <Label>{s('题型', '題型', 'Type')}</Label>
+              <select value={type} onChange={(e) => setType(e.target.value as QuestionType)} style={selectStyle} disabled={batchRunning}>
+                {GEN_TYPES.map((t) => <option key={t.v} value={t.v}>{s(t.sc, t.tc, t.en)}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>{s('数量 / 课时', '數量 / 課時', 'Count / lesson')}</Label>
+              <select value={String(count)} onChange={(e) => setCount(Number(e.target.value) as 3 | 5 | 8 | 12)} style={selectStyle} disabled={batchRunning}>
+                {[3, 5, 8, 12].map((n) => <option key={n} value={n}>{n} {s('道', '道', '')}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label>{s('难度', '難度', 'Difficulty')}</Label>
+              <select value={String(difficulty)} onChange={(e) => setDifficulty(Number(e.target.value))} style={selectStyle} disabled={batchRunning}>
+                {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} ★</option>)}
+              </select>
+            </div>
+          </div>
+          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', letterSpacing: 1, marginTop: 8 }}>
+            ⚠️ {s('生成的题目以"待审"状态进入题库 · 由管理员通过后才对学员可见', '生成的題目以「待審」狀態進入題庫 · 由管理員通過後才對學員可見', 'Generated questions enter as "pending" · admin must approve')}
+          </p>
+        </Section>
+
+        {/* submit */}
+        <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+          <button type="button" onClick={() => nav(base)} className="btn btn-pill" style={{ flex: 1, padding: 12, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }} disabled={batchRunning}>
+            {s('取消', '取消', 'Cancel')}
+          </button>
+          {scope === 'lesson' ? (
+            <button
+              type="button"
+              disabled={!lessonValid || generate.isPending}
+              onClick={() => { setLessonResult(null); generate.mutate(); }}
+              className="btn btn-primary btn-pill"
+              style={{ flex: 2, padding: 12, justifyContent: 'center', opacity: lessonValid ? 1 : 0.5 }}
+            >
+              {generate.isPending
+                ? s(`LLM 思考中… ${elapsedSec}s（长原文最多 3 分钟）`, `LLM 思考中… ${elapsedSec}s（長原文最多 3 分鐘）`, `LLM thinking… ${elapsedSec}s (up to 3min for long input)`)
+                : s(`⚡ 生成 ${count} 道`, `⚡ 生成 ${count} 道`, `⚡ Generate ${count}`)}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={!chapterValid || batchRunning}
+              onClick={() => { void runBatch(); }}
+              className="btn btn-primary btn-pill"
+              style={{ flex: 2, padding: 12, justifyContent: 'center', opacity: chapterValid ? 1 : 0.5 }}
+            >
+              {batchRunning
+                ? s('批量生成中…可关页面后台继续不行 · 请保持打开', '批量生成中…請保持頁面打開', 'Batching… keep page open')
+                : s(`⚡ 整章批量 (${chapterPreview ? chapterPreview.eligible.length * count : 0} 道)`, `⚡ 整章批量 (${chapterPreview ? chapterPreview.eligible.length * count : 0} 道)`, `⚡ Run batch (${chapterPreview ? chapterPreview.eligible.length * count : 0})`)}
+            </button>
+          )}
+        </div>
+
+        {/* 结果（lesson） */}
+        {scope === 'lesson' && lessonResult && (
+          <LessonResult r={lessonResult} onClear={() => setLessonResult(null)} />
+        )}
+
+        {/* 结果（chapter 进度） */}
+        {scope === 'chapter' && batch && (
+          <BatchProgress batch={batch} running={batchRunning} onClear={() => setBatch(null)} onBack={() => nav(base)} />
+        )}
+      </div>
+    </>
+  );
+}
+
+function LessonResult({ r, onClear }: { r: GenerateResult; onClear: () => void }) {
+  const { s } = useLang();
+  const { pathname } = useLocation();
+  const base = pathname.startsWith('/admin') ? '/admin/questions' : '/coach/questions';
+  return (
+    <Section title={s('结果', '結果', 'Result')}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-3)', marginBottom: 'var(--sp-3)' }}>
+        <span style={{ font: 'var(--text-caption)', color: 'var(--sage-dark)', fontWeight: 700 }}>✓ {r.succeeded}</span>
+        {r.failed > 0 && <span style={{ font: 'var(--text-caption)', color: 'var(--crimson)', fontWeight: 700 }}>✗ {r.failed} 跳过</span>}
+        <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)' }}>· {s('共', '共', 'total')} {r.total}</span>
+        <span style={{ marginLeft: 'auto', padding: '2px 10px', borderRadius: 'var(--r-pill)', background: 'rgba(236,180,86,.18)', color: 'var(--gold-dark)', font: 'var(--text-caption)', fontWeight: 700, letterSpacing: 1 }}>
+          🟡 {s('待审 · 未发布', '待審 · 未發布', 'Pending · unpublished')}
+        </span>
+      </div>
+
+      {r.succeeded > 0 && (
+        <div style={{ padding: 'var(--sp-3) var(--sp-4)', background: 'rgba(236,180,86,.08)', border: '1px solid rgba(236,180,86,.3)', borderRadius: 'var(--r)', marginBottom: 'var(--sp-3)' }}>
+          <div style={{ font: 'var(--text-body)', color: 'var(--ink)', fontWeight: 600, marginBottom: 4 }}>
+            ⚠️ {s('请逐题审核后发布', '請逐題審核後發布', 'Review each question before publishing')}
+          </div>
+          <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', lineHeight: 1.6 }}>
+            {s('LLM 生成结果不一定准确 · 题目 / 答案 / 选项可能与原文有出入。点开下方每条核对 · 必要时点「编辑」修改 · 确认无误后再「通过」发布给学员。', 'LLM 生成結果不一定準確 · 題目 / 答案 / 選項可能與原文有出入。點開下方每條核對 · 必要時點「編輯」修改 · 確認無誤後再「通過」發布給學員。', 'LLM may produce inaccurate content. Expand each item to verify · Edit if needed · then Approve to publish.')}
+          </div>
+        </div>
+      )}
+
+      {r.questions.length > 0 && (
+        <>
+          <p style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 'var(--sp-2)' }}>
+            {s('点题目展开 · 点「编辑」改 · 在题库列表点「✓ 通过」发布', '點題目展開 · 點「編輯」改 · 在題庫列表點「✓ 通過」發布', 'Click to expand · Edit to refine · Approve in list to publish')}
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 'var(--sp-3)' }}>
+            {r.questions.map((q, i) => <GenQuestionRow key={q.id} q={q} idx={i} />)}
+          </div>
+        </>
+      )}
+
+      {r.skipped.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {r.skipped.map((sk) => (
+            <div key={sk.index} style={{ display: 'flex', gap: 'var(--sp-3)', padding: '6px 10px', background: 'rgba(192,57,43,.08)', borderRadius: 'var(--r-sm)', borderLeft: '3px solid var(--crimson)' }}>
+              <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 28 }}>#{sk.index + 1}</span>
+              <span style={{ flex: 1, font: 'var(--text-caption)', color: 'var(--crimson)' }}>{sk.reason}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
+        <Link to={`${base}?status=pending`} className="btn btn-primary btn-pill" style={{ flex: 1, padding: 10, justifyContent: 'center', textDecoration: 'none' }}>
+          {s('去审核（' + r.succeeded + '）', '去審核（' + r.succeeded + '）', 'Review (' + r.succeeded + ')')}
+        </Link>
+        <button type="button" onClick={onClear} className="btn btn-pill" style={{ flex: 1, padding: 10, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}>
+          {s('再生成一批', '再生成一批', 'Generate again')}
+        </button>
+      </div>
+    </Section>
+  );
+}
+
+// 单条生成题目 · 默认折叠 · 点击展开看完整内容（题干 / 选项 / 正确答案 / 易错点）
+function GenQuestionRow({ q, idx }: { q: GenQuestion; idx: number }) {
+  const { s } = useLang();
+  const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
+  const base = pathname.startsWith('/admin') ? '/admin/questions' : '/coach/questions';
+  // 各题型 options 结构不同 · 统一成 {text, correct} 渲染
+  // - single/multi: [{text, correct}] 直接用
+  // - fill: string[] · correct 字段在 correctWord（或 correctText）
+  const rawOptions = q.payload?.options ?? [];
+  const correctWord = (q.payload?.correctWord as string | undefined) ?? q.correctText;
+  const options: Array<{ text: string; correct: boolean }> = rawOptions.map((o) =>
+    typeof o === 'string' ? { text: o, correct: o === correctWord } : o,
+  );
+  const verseLines = q.payload?.verseLines ?? [];
+  const refAnswer = q.payload?.referenceAnswer;
+  const keyPoints = q.payload?.keyPoints ?? [];
+  const sortItems = q.payload?.items ?? [];
+  const matchLeft = q.payload?.left ?? [];
+  const matchRight = q.payload?.right ?? [];
+
+  return (
+    <div style={{ background: 'rgba(125,154,108,.08)', borderRadius: 'var(--r-sm)', borderLeft: '3px solid var(--sage-dark)' }}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen((v) => !v); } }}
+        style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: '8px 10px', cursor: 'pointer', userSelect: 'none' }}
+      >
+        <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 28 }}>#{idx + 1}</span>
+        <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 14 }}>{open ? '▾' : '▸'}</span>
+        <span style={{
+          flex: 1, font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.5,
+          ...(open ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }),
+        }}>
+          {open ? displayQuestionText(q, s) : q.questionText}
+        </span>
+        <Link
+          to={`${base}?id=${encodeURIComponent(q.id)}`}
+          onClick={(e) => e.stopPropagation()}
+          className="btn btn-pill"
+          style={{ padding: '4px 12px', font: 'var(--text-caption)', background: 'transparent', color: 'var(--saffron-dark)', border: '1px solid var(--saffron-dark)', textDecoration: 'none', flexShrink: 0 }}
+        >
+          {s('编辑', '編輯', 'Edit')}
+        </Link>
+      </div>
+
+      {open && (
+        <div style={{ padding: '0 14px 12px 50px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {verseLines.length > 0 && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 4 }}>
+                {s('原文 / 句子', '原文 / 句子', 'Verse / sentence')}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {verseLines.map((line, j) => (
+                  <div key={j} style={{ font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.6, fontFamily: 'var(--font-serif)' }}>
+                    {line}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {options.length > 0 && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 4 }}>
+                {s('选项', '選項', 'Options')}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {options.map((opt, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, font: 'var(--text-caption)', color: opt.correct ? 'var(--sage-dark)' : 'var(--ink-3)' }}>
+                    <span style={{ minWidth: 16, fontWeight: opt.correct ? 700 : 400 }}>{opt.correct ? '✓' : '·'}</span>
+                    <span style={{ flex: 1, lineHeight: 1.5 }}>{opt.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* sort 题：items 按 order 排正确顺序 */}
+          {sortItems.length > 0 && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 4 }}>
+                {s('正确顺序', '正確順序', 'Correct order')}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {[...sortItems].sort((a, b) => a.order - b.order).map((it, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, font: 'var(--text-caption)', color: 'var(--ink)' }}>
+                    <span style={{ minWidth: 20, color: 'var(--gold-dark)', fontWeight: 700 }}>{j + 1}.</span>
+                    <span style={{ flex: 1, lineHeight: 1.5 }}>{it.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* match 题：左右配对 */}
+          {(matchLeft.length > 0 || matchRight.length > 0) && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 4 }}>
+                {s('配对', '配對', 'Pairs')}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {matchLeft.map((l, j) => {
+                  const r = matchRight.find((x) => x.match === l.id);
+                  return (
+                    <div key={l.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, font: 'var(--text-caption)', color: 'var(--ink)' }}>
+                      <span style={{ minWidth: 20, color: 'var(--ink-4)' }}>{j + 1}.</span>
+                      <span style={{ flex: 1, lineHeight: 1.5 }}>{l.text}</span>
+                      <span style={{ color: 'var(--ink-4)' }}>→</span>
+                      <span style={{ flex: 1, lineHeight: 1.5, color: r ? 'var(--sage-dark)' : 'var(--crimson)' }}>{r?.text ?? '?'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* open 题：参考答案 + 关键点 */}
+          {refAnswer && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 2 }}>
+                {s('参考答案', '參考答案', 'Reference')}
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                {refAnswer}
+              </div>
+            </div>
+          )}
+          {keyPoints.length > 0 && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 4 }}>
+                {s('关键点', '關鍵點', 'Key points')}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {keyPoints.map((kp, j) => (
+                  <div key={j} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, font: 'var(--text-caption)', color: 'var(--ink)' }}>
+                    <span style={{ minWidth: 16, color: 'var(--gold-dark)' }}>·</span>
+                    <span style={{ flex: 1, lineHeight: 1.5 }}>{kp.point}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {q.correctText && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 2 }}>
+                {s('正确答案 / 解析', '正確答案 / 解析', 'Correct')}
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                {q.correctText}
+              </div>
+            </div>
+          )}
+
+          {q.wrongText && (
+            <div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginBottom: 2 }}>
+                {s('易错点', '易錯點', 'Wrong notes')}
+              </div>
+              <div style={{ font: 'var(--text-caption)', color: 'var(--ink)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                {q.wrongText}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 12, font: 'var(--text-caption)', color: 'var(--ink-4)' }}>
+            <span>{s('难度', '難度', 'Difficulty')}: {q.difficulty}</span>
+            {q.tags && q.tags.length > 0 && (
+              <span>{s('标签', '標籤', 'Tags')}: {q.tags.join(' · ')}</span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BatchProgress({ batch, running, onClear, onBack }: { batch: BatchLessonState[]; running: boolean; onClear: () => void; onBack: () => void }) {
+  const { s } = useLang();
+  const done = batch.filter((b) => b.status !== 'pending' && b.status !== 'running').length;
+  const totalGen = batch.reduce((acc, b) => acc + (b.generated ?? 0), 0);
+  const errors = batch.filter((b) => b.status === 'err').length;
+  const pct = batch.length > 0 ? Math.round((done / batch.length) * 100) : 0;
+
+  return (
+    <Section title={s('整章批量进度', '整章批量進度', 'Batch progress')}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--sp-3)', marginBottom: 'var(--sp-2)' }}>
+        <span style={{ font: 'var(--text-caption)', color: 'var(--ink)', fontWeight: 700 }}>{done} / {batch.length}</span>
+        <span style={{ font: 'var(--text-caption)', color: 'var(--sage-dark)' }}>✓ {totalGen} 道</span>
+        {errors > 0 && <span style={{ font: 'var(--text-caption)', color: 'var(--crimson)' }}>✗ {errors}</span>}
+        <span style={{ marginLeft: 'auto', font: 'var(--text-caption)', color: 'var(--gold-dark)', fontWeight: 700 }}>{pct}%</span>
+      </div>
+      <div className="progress-track" style={{ marginBottom: 'var(--sp-3)' }}>
+        <div className="progress-fill" style={{ width: pct + '%' }} />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 360, overflowY: 'auto' }}>
+        {batch.map((b) => (
+          <div key={b.lessonId} style={{ display: 'flex', gap: 'var(--sp-3)', padding: '6px 10px', borderRadius: 'var(--r-sm)', borderLeft: '3px solid ' + statusColor(b.status), background: statusBg(b.status) }}>
+            <span style={{ font: 'var(--text-caption)', color: 'var(--ink-4)', minWidth: 36 }}>#{b.lessonOrder}</span>
+            <span style={{ minWidth: 16 }}>{statusIcon(b.status)}</span>
+            <span style={{ flex: 1, font: 'var(--text-caption)', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {b.lessonTitle}
+            </span>
+            {b.status === 'ok' && b.generated != null && (
+              <span style={{ font: 'var(--text-caption)', color: 'var(--sage-dark)', fontWeight: 700 }}>+{b.generated}</span>
+            )}
+            {b.status === 'err' && (
+              <span style={{ font: 'var(--text-caption)', color: 'var(--crimson)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.reason}>{b.reason}</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {!running && (
+        <div style={{ display: 'flex', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
+          <button type="button" onClick={onBack} className="btn btn-primary btn-pill" style={{ flex: 1, padding: 10, justifyContent: 'center' }}>
+            {s('返回题库', '返回題庫', 'Back to questions')}
+          </button>
+          <button type="button" onClick={onClear} className="btn btn-pill" style={{ flex: 1, padding: 10, background: 'transparent', color: 'var(--ink-3)', border: '1px solid var(--border)', justifyContent: 'center' }}>
+            {s('再来一次', '再來一次', 'Run again')}
+          </button>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function statusColor(s: BatchLessonState['status']): string {
+  if (s === 'ok') return 'var(--sage-dark)';
+  if (s === 'err') return 'var(--crimson)';
+  if (s === 'running') return 'var(--saffron)';
+  if (s === 'skipped') return 'var(--ink-4)';
+  return 'var(--border-light)';
+}
+function statusBg(s: BatchLessonState['status']): string {
+  if (s === 'ok') return 'rgba(125,154,108,.08)';
+  if (s === 'err') return 'rgba(192,57,43,.08)';
+  if (s === 'running') return 'var(--saffron-pale)';
+  return 'transparent';
+}
+function statusIcon(s: BatchLessonState['status']): string {
+  if (s === 'ok') return '✓';
+  if (s === 'err') return '✗';
+  if (s === 'running') return '…';
+  if (s === 'skipped') return '–';
+  return '○';
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="glass-card-thick" style={{ padding: 'var(--sp-4)' }}>
+      <h2 style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 2, fontWeight: 700, marginBottom: 'var(--sp-3)' }}>
+        {title}
+      </h2>
+      {children}
+    </div>
+  );
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <label style={{ display: 'block', font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1.5, fontWeight: 600, marginBottom: 4 }}>
+      {children}
+    </label>
+  );
+}
+
+function Pickr({ label, value, onChange, options, disabled }: { label: string; value: string; onChange: (v: string) => void; options: { v: string; label: string }[]; disabled?: boolean }) {
+  return (
+    <div>
+      <Label>{label}</Label>
+      <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} style={{ ...selectStyle, opacity: disabled ? 0.5 : 1 }}>
+        {options.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function Mini({ value, label, color }: { value: string; label: string; color?: string }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <div style={{ fontFamily: 'var(--font-serif)', fontWeight: 700, fontSize: '1.25rem', color: color ?? 'var(--ink)' }}>{value}</div>
+      <div style={{ font: 'var(--text-caption)', color: 'var(--ink-3)', letterSpacing: 1, marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+const selectStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 12px',
+  borderRadius: 'var(--r)',
+  border: '1px solid var(--border)',
+  background: 'var(--bg-input)',
+  color: 'var(--ink)',
+  font: 'var(--text-body)',
+  outline: 'none',
+};
+
+const textareaStyle: React.CSSProperties = {
+  ...selectStyle,
+  resize: 'vertical',
+  fontFamily: 'var(--font-serif)',
+  lineHeight: 1.7,
+};
